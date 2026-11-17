@@ -85,4 +85,13 @@ export const FI_SET_RI = {
   "set.ri.loan_terms_end_date": "Milloin lainan viimeinen eräpäivä on?",
   "set.ri.loan_terms_owed": "velkaa",
   "set.ri.loan_terms_balance_date": "Saldo päivältä {date}",
+  "set.ri.money_back_double": "Tuplaveloitus",
+  "set.ri.money_back_cancelled": "Veloitus lopetuksen jälkeen",
+  "set.ri.money_back_double_question": "Veloittiko myyjä saman summan useammin kuin kerran?",
+  "set.ri.money_back_cancelled_question": "Veloittiko palvelu, vaikka lopetit sen?",
+  "set.ri.money_back_unit": "takaisin",
+  "set.ri.money_back_double_line": "{count} samaa veloitusta, viimeksi {last}.",
+  "set.ri.money_back_cancelled_one": "Veloitus {last}.",
+  "set.ri.money_back_cancelled_many": "{count} veloitusta, viimeksi {last}.",
+  "set.ri.money_back_asked": "Pyysit hyvitystä {date}, mutta hyvitystä ei ole tullut.",
 } as const;

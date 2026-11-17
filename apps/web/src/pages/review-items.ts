@@ -115,6 +115,17 @@ interface LoanTermsItem extends Base {
   subject: string;
 }
 
+/** Money a merchant may owe back: a charge made twice, or one after Lopetettu. `askedOn` is the day the refund was asked, when it has not come; `subject` is the alert's mark. */
+interface MoneyBackItem extends Base {
+  kind: "money_back";
+  merchant: string;
+  reason: "double" | "cancelled";
+  count: number;
+  lastDate: string;
+  askedOn: string | null;
+  subject: string;
+}
+
 /** An account whose rows do not add up to the bank's balances over its newest stretch: `cents` is what they differ by. It goes when the rows add up again. */
 interface BalanceItem extends Base {
   kind: "balance";
@@ -183,7 +194,7 @@ interface FetchItem extends Base {
   message: string | null;
 }
 
-export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | MortgageItem | LoanTermsItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | FetchItem;
+export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | MortgageItem | LoanTermsItem | MoneyBackItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | FetchItem;
 
 /**
  * A failed fetch is a queue item (design, section 4): the last run that failed stays first in the queue until a later
@@ -217,7 +228,7 @@ export type SittingView =
  * The kinds this page has a card for. An item of a kind that is not here (the server's `extension`, which no source
  * sends today, the `input` an older server asked a tip's number with, or a newer server's) is left out, since the words below have nothing to say of it.
  */
-const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan: true, plan: true, split: true, subscription: true, mortgage: true, loan_terms: true, balance: true, card_balance: true, consent: true, bill: true, row: true, unresolved: true, fetch: true };
+const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan: true, plan: true, split: true, subscription: true, mortgage: true, loan_terms: true, money_back: true, balance: true, card_balance: true, consent: true, bill: true, row: true, unresolved: true, fetch: true };
 const hasCard = (item: { kind: string }): boolean => Object.hasOwn(KINDS, item.kind);
 
 /** The items still open: the queue without what this sitting has answered. The one number its heading and the header's mark show. */
@@ -251,6 +262,8 @@ export function eyebrow(item: ReviewItem): string {
       return t("set.ri.loan");
     case "loan_terms":
       return t(item.accountId === null ? "set.ri.loan" : "set.ri.credit_card");
+    case "money_back":
+      return t(item.reason === "double" ? "set.ri.money_back_double" : "set.ri.money_back_cancelled");
     case "plan":
       return t("set.ri.instalment_plan");
     case "split":
@@ -282,6 +295,7 @@ export function nameOf(item: ReviewItem): string {
       return item.service ?? item.merchant;
     case "payee_in":
     case "subscription":
+    case "money_back":
       return item.merchant;
     case "payer":
       return item.wallet ? "MobilePay" : item.merchant;
@@ -354,6 +368,8 @@ export function questionOf(item: ReviewItem): string {
       return t(item.currency ? "set.ri.card_balance_other_currency" : "set.ri.card_balance_missing");
     case "consent":
       return item.daysLeft === null ? t("set.ri.the_connection_has_ended") : t("set.ri.the_connection_is_ending");
+    case "money_back":
+      return t(item.reason === "double" ? "set.ri.money_back_double_question" : "set.ri.money_back_cancelled_question");
     case "unresolved":
       return t("set.ri.unresolved_card_payer_unseen");
     case "bill":
@@ -391,6 +407,10 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
     }
     case "loan_terms":
       return { text: money(item.owedCents), unit: t("set.ri.loan_terms_owed"), line: t("set.ri.loan_terms_balance_date", { date: date(item.balanceDate) }) };
+    case "money_back": {
+      const line = item.askedOn ? t("set.ri.money_back_asked", { date: date(item.askedOn) }) : item.reason === "double" ? t("set.ri.money_back_double_line", { count: item.count, last: date(item.lastDate) }) : tn(item.count, "set.ri.money_back_cancelled_one", "set.ri.money_back_cancelled_many", { last: date(item.lastDate) });
+      return { text: money(item.cents), unit: t("set.ri.money_back_unit"), line };
+    }
     case "mortgage":
       return { text: "", line: t("set.ri.housing_costs_show_no_loan") };
     case "balance":

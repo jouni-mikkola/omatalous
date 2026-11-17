@@ -65,6 +65,10 @@ export const THRESHOLDS = {
   dailyPaidShare: threshold(0.85, "share", "A judgement: an account in daily use spends in this share of its months or more, so a savings account that pays out now and then is not one."),
   dailyMonthsShare: threshold(0.75, "share", "A judgement: an account in daily use has rows in this share of the months from its first row to its last, so an account used in spells is not one."),
   holeMonths: threshold(2, "months", "A judgement: a run of one or two empty months on an account in daily use is rows the bank or an export missed. A longer one is an account left unused for a while."),
+  doubleMinCents: threshold(2000, "cents", "A judgement: under 20 € a doubled charge is not worth a question."),
+  billDoubleDays: threshold(7, "days", "A judgement: a monthly bill charged again within a week is the bill and its reminder, and a later charge is the next month's."),
+  moneyBackDays: threshold(120, "days", "The time a card payer has to dispute a charge, about four months: an older double charge or charge after a cancellation is no longer asked about."),
+  refundWaitDays: threshold(30, "days", "A judgement: a merchant pays a refund back within a month, so a refund asked for and not seen after 30 days is asked about once more."),
 } as const;
 
 export const USUAL_MONTHS = THRESHOLDS.usualMonths.value;
@@ -115,3 +119,7 @@ export const DAILY_ROWS = THRESHOLDS.dailyRows.value;
 export const DAILY_PAID_SHARE = THRESHOLDS.dailyPaidShare.value;
 export const DAILY_MONTHS_SHARE = THRESHOLDS.dailyMonthsShare.value;
 export const HOLE_MONTHS = THRESHOLDS.holeMonths.value;
+export const DOUBLE_MIN_CENTS = THRESHOLDS.doubleMinCents.value;
+export const BILL_DOUBLE_DAYS = THRESHOLDS.billDoubleDays.value;
+export const MONEY_BACK_DAYS = THRESHOLDS.moneyBackDays.value;
+export const REFUND_WAIT_DAYS = THRESHOLDS.refundWaitDays.value;

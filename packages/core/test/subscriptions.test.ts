@@ -181,12 +181,12 @@ describe("a dismissed alert", () => {
     expect(after.filter((a) => a.kind !== "forgotten")).toEqual(before.filter((a) => a.kind !== "forgotten"));
   });
 
-  it("a double charge goes the same way, and a mark of another kind on an alert id does nothing", () => {
+  it("a double charge goes the same way with any answer of the review item, and a mark on another subject does nothing", () => {
     const twice = [tx({ merchant: "K-Citymarket", category: "groceries", bookingDate: "2026-05-16", amountCents: -16743 }), tx({ merchant: "K-Citymarket", category: "groceries", bookingDate: "2026-05-16", amountCents: -16743 })];
     const all = [...household(), ...twice];
     const [double] = ofKind(alertsOf(all, inputs()), "double_charge");
     expect(double).toBeDefined();
-    expect(ofKind(alertsOf(all, inputs(mark(`alert:${double!.id}`, "in_use", "2026-10-09"))), "double_charge")).toHaveLength(1);
+    for (const answer of ["in_use", "cancelled"] as const) expect(ofKind(alertsOf(all, inputs(mark(`alert:${double!.id}`, answer, "2026-10-09"))), "double_charge")).toEqual([]);
     expect(ofKind(alertsOf(all, inputs(mark(`merchant:${double!.id}`, "dismissed", "2026-10-09"))), "double_charge")).toHaveLength(1);
     expect(ofKind(alertsOf(all, inputs(mark(`alert:${double!.id}`, "dismissed", "2026-10-09"))), "double_charge")).toEqual([]);
   });

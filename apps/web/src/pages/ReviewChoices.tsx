@@ -147,6 +147,16 @@ export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta
           </Button>
         </div>
       );
+    case "money_back":
+      // the refund asked for is `in_use` on the alert; asked a second time, `cancelled` closes the item for good (core money-back.ts)
+      return (
+        <Buttons
+          choices={[plain(t("set.rc.ask_for_a_refund"), item.askedOn ? "cancelled" : "in_use"), plain(t("set.rc.the_charge_is_right"), "dismissed")]}
+          busy={busy}
+          label={named}
+          onPick={(value) => onAnswer(mark(item.subject, value))}
+        />
+      );
     case "loan_terms":
       return <LoanTermsChoices item={item} meta={meta} busy={busy} onAnswer={onAnswer} />;
     case "mortgage":

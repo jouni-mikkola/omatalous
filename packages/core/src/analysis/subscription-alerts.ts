@@ -9,6 +9,7 @@ import { parseSeriesId, type RecurringSeries, seriesId, type SeriesIdParts } fro
 import type { IsoDate, MarkKind, UserInputs, UserMark } from "../types.ts";
 import type { Alert } from "./alerts.ts";
 import type { AnalysisTx } from "./context.ts";
+import { type CancelledSegment, type ChargesAfterMark, cancelledSegments, markedDay } from "./cancelled-segments.ts";
 import { formatEur, formatFiDate } from "./format.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { messageIn } from "../messages.ts";
@@ -17,9 +18,9 @@ const ALERT_SUBJECT = "alert:";
 const MERCHANT_SUBJECT = "merchant:";
 const SERIES_SUBJECT = "series:";
 
-/** The ids of the alerts the user said not to show again (the subject is `alert:<id>`). */
+/** The ids of the alerts the user answered, whichever the answer, so the alert and the review item of it agree (the subject is `alert:<id>`). */
 export function dismissedIds(marks: readonly UserMark[]): ReadonlySet<string> {
-  return new Set(marks.filter((m) => m.mark === "dismissed" && m.subject.startsWith(ALERT_SUBJECT)).map((m) => m.subject.slice(ALERT_SUBJECT.length)));
+  return new Set(marks.filter((m) => m.subject.startsWith(ALERT_SUBJECT)).map((m) => m.subject.slice(ALERT_SUBJECT.length)));
 }
 
 /** What a mark reads of a series. The page's series, which come without their transaction ids, have all of it. */
@@ -124,9 +125,6 @@ export function coveringMark<T extends { mark: MarkKind }>(byCover: ReadonlyMap<
   return best;
 }
 
-/** The day a mark was made. The server writes the timestamp in the instance's time zone, so its date part is the local day. */
-const markedDay = (m: Pick<UserMark, "markedAt">): IsoDate => m.markedAt.slice(0, 10);
-
 /**
  * Whether "in use" still answers the question about a subscription on `today`: for twelve months after it was said,
  * then the question comes back (a service can be forgotten later). The recurring page uses the same rule.
@@ -190,16 +188,17 @@ function chargeIsUnder(mark: SeriesIdParts, t: AnalysisTx, series: RecurringSeri
  * A subscription the user marked as cancelled charged again: the cancellation did not take, or the mark was a slip.
  * `charges` are the booked purchases of the period, oldest first, and `marks` come from `marksBySubject`. A mark on a
  * merchant counts every charge of the merchant, a mark on one series only the charges of that series: `recurring`
- * names them, and without it the price alone decides. One warning for each mark.
+ * names them, and without it the price alone decides. The booked purchases after each mark, as the merchant has not
+ * paid them back: one finding for each mark, the latest first.
  */
-export function chargedAfterCancelling(charges: readonly AnalysisTx[], marks: ReadonlyMap<string, UserMark>, recurring: readonly RecurringSeries[] = [], lang: Language = DEFAULT_LANGUAGE): Alert[] {
+export function cancelledCharges(charges: readonly AnalysisTx[], marks: ReadonlyMap<string, UserMark>, recurring: readonly RecurringSeries[] = []): ChargesAfterMark[] {
   const onSeries = [...marks.values()].flatMap((m) => {
     const parts = m.mark === "cancelled" ? seriesOfMarkSubject(m.subject) : null;
     return parts ? [{ parts, mark: m }] : [];
   });
   const seriesOf = new Map<string, RecurringSeries>();
   if (onSeries.length) for (const s of recurring) for (const id of s.transactionIds) seriesOf.set(id, s);
-  const byMark = new Map<string, AnalysisTx[]>();
+  const byMark = new Map<string, { mark: UserMark; list: AnalysisTx[] }>();
   for (const t of charges) {
     const onMerchant = marks.get(t.merchant);
     let mark = onMerchant?.mark === "cancelled" ? onMerchant : undefined;
@@ -207,23 +206,37 @@ export function chargedAfterCancelling(charges: readonly AnalysisTx[], marks: Re
     for (const o of onSeries) if (chargeIsUnder(o.parts, t, seriesOf.get(t.id)) && (!mark || o.mark.markedAt > mark.markedAt)) mark = o.mark;
     // a charge the merchant paid back is settled
     if (!mark || t.bookingDate <= addDays(markedDay(mark), PENDING_GRACE_DAYS) || -t.amountCents - t.refunded <= 0) continue;
-    const list = byMark.get(mark.subject);
-    if (list) list.push(t);
-    else byMark.set(mark.subject, [t]);
+    const hit = byMark.get(mark.subject);
+    if (hit) hit.list.push(t);
+    else byMark.set(mark.subject, { mark, list: [t] });
   }
   return [...byMark.values()]
-    .sort((a, b) => b[b.length - 1]!.day - a[a.length - 1]!.day)
+    .sort((a, b) => b.list[b.list.length - 1]!.day - a.list[a.list.length - 1]!.day)
+    .map(({ mark, list }) => ({ merchant: list[list.length - 1]!.merchant, mark, charges: list }));
+}
+
+/**
+ * The warnings of `cancelledCharges`, the two latest: for each mark the latest segment of its charges (cancelled-segments.ts),
+ * under the id the review item has, so one answer hides both. `answers` are the household's marks, and only a segment
+ * with a charge on or after `shownFrom` is shown. `charges` reach back to the first mark, not just to `shownFrom`,
+ * since a segment's id comes from its first charge.
+ */
+export function chargedAfterCancelling(charges: readonly AnalysisTx[], marks: ReadonlyMap<string, UserMark>, recurring: readonly RecurringSeries[] = [], lang: Language = DEFAULT_LANGUAGE, answers: readonly UserMark[] = [], shownFrom: IsoDate = ""): Alert[] {
+  const latest = new Map<string, CancelledSegment>();
+  for (const s of cancelledSegments(cancelledCharges(charges, marks, recurring), answers)) latest.set(s.mark.subject, s);
+  return [...latest.values()]
+    .filter((s) => s.charges[s.charges.length - 1]!.bookingDate >= shownFrom)
+    .sort((a, b) => b.charges[b.charges.length - 1]!.day - a.charges[a.charges.length - 1]!.day)
     .slice(0, CANCELLED_MAX)
-    .map((list) => {
+    .map(({ id, merchant, charges: list, netCents }) => {
       const last = list[list.length - 1]!;
-      const total = list.reduce((sum, t) => sum - t.amountCents - t.refunded, 0);
       return {
-        id: `cancelled:${last.id}`,
+        id,
         kind: "cancelled" as const,
         tone: "warning" as const,
-        title: messageIn(lang, "alr.cancelled_title", { merchant: last.merchant, date: formatFiDate(last.bookingDate, lang) }),
-        detail: list.length === 1 ? formatEur(total, true, lang) : messageIn(lang, "alr.cancelled_detail", { n: list.length, amount: formatEur(total, true, lang) }),
-        merchant: last.merchant,
+        title: messageIn(lang, "alr.cancelled_title", { merchant, date: formatFiDate(last.bookingDate, lang) }),
+        detail: list.length === 1 ? formatEur(netCents, true, lang) : messageIn(lang, "alr.cancelled_detail", { n: list.length, amount: formatEur(netCents, true, lang) }),
+        merchant,
       };
     });
 }

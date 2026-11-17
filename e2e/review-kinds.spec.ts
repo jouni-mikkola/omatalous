@@ -10,6 +10,7 @@ import { watch } from "./helpers.ts";
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 const ROW = { kind: "row", id: "row:t-1", cents: 3750, rowId: "t-1", side: "out", date: "2026-10-03", picks: ["groceries"], rowCount: 1, rows: [{ id: "t-1", date: "2026-10-03", cents: -3750, name: "", text: "" }] };
+const MONEY_BACK = { kind: "money_back", id: "money_back:double:t-2", cents: 16_743, merchant: "Esimerkkikauppa", reason: "double", count: 2, lastDate: "2026-09-20", askedOn: null, subject: "alert:double:t-2", rowCount: 2, rows: [{ id: "t-2", date: "2026-09-20", cents: -16_743, name: "Esimerkkikauppa", text: "" }, { id: "t-3", date: "2026-09-20", cents: -16_743, name: "Esimerkkikauppa", text: "" }] };
 const BILL = { kind: "bill", id: "bill:s-1", cents: 6420, seriesId: "s-1", subject: "series:out:chk:Esimerkkisähkö#6420", merchant: "Esimerkkisähkö", dueDate: "2026-10-01" };
 const CONSENT = { kind: "consent", id: "consent:sess-1", cents: 3_917_040, connection: "sess-1", institution: "Esimerkkipankki", daysLeft: 6, accounts: ["Käyttötili"] };
 const BALANCE = { kind: "balance", id: "balance:chk", cents: 1000, accountId: "chk", accountName: "Käyttötili", fromDay: "2026-10-01", toDay: "2026-10-07", bankCents: -4750, rowsCents: -3750 };
@@ -20,7 +21,7 @@ for (const width of [390, 1280]) {
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 }, isMobile: phone, hasTouch: phone });
     const page = await context.newPage();
     const seen = watch(page);
-    let items: { id: string }[] = [ROW, BILL, CONSENT, BALANCE];
+    let items: { id: string }[] = [ROW, MONEY_BACK, BILL, CONSENT, BALANCE];
     const sent: string[] = [];
     const gone = (id: string) => (items = items.filter((i) => i.id !== id));
     await context.route(/\/api\/review$/, (r) => r.fulfill({ json: { items } }));
@@ -31,16 +32,16 @@ for (const width of [390, 1280]) {
       await r.fulfill({ json: { ok: true } });
     };
     await context.route(/\/api\/transactions\/t-1$/, answered(ROW.id));
-    await context.route(/\/api\/marks$/, (r) => (r.request().method() === "PUT" ? answered(BILL.id)(r) : r.continue()));
+    await context.route(/\/api\/marks$/, (r) => (r.request().method() === "PUT" ? answered(r.request().postData()?.includes(MONEY_BACK.subject) ? MONEY_BACK.id : BILL.id)(r) : r.continue()));
 
     await page.goto("/#/overview");
     const tab = page.locator("header.topbar .review-link");
     const count = tab.locator(".nav-count");
     await expect(tab).toContainText("Tarkistettavat");
-    await expect(count).toHaveText("4 avoinna");
+    await expect(count).toHaveText("5 avoinna");
     await tab.click();
     await expect(tab).toHaveAttribute("aria-current", "page");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tarkistettavat: 4 avoinna");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Tarkistettavat: 5 avoinna");
     const card = page.locator(".review-item");
     const question = page.locator("#review-q");
 
@@ -49,8 +50,16 @@ for (const width of [390, 1280]) {
     await expect(question).toContainText("Mihin kategoriaan tämä maksu kuuluu?");
     await expect(card.locator(".review-figure")).toContainText("37,50");
     await card.locator(".review-choices .review-choice").first().click();
-    await expect(count).toHaveText("3 avoinna");
+    await expect(count).toHaveText("4 avoinna");
     expect(sent).toEqual([`PATCH /api/transactions/t-1 {"category":"groceries"}`]);
+
+    // a charge made twice: Pyydän hyvityksen is the mark `in_use` on the alert
+    await expect(card.locator(".review-name")).toHaveText("Esimerkkikauppa");
+    await expect(question).toContainText("Veloittiko myyjä saman summan useammin kuin kerran?");
+    await expect(card.locator(".review-figure")).toContainText("167,43");
+    await card.getByRole("button", { name: "Pyydän hyvityksen", exact: true }).click();
+    await expect(count).toHaveText("3 avoinna");
+    expect(sent[1]).toBe(`PUT /api/marks {"subject":"${MONEY_BACK.subject}","mark":"in_use"}`);
 
     // a bill that did not come: Lopetettu is the mark Laskut reads
     await expect(card.locator(".review-name")).toHaveText("Esimerkkisähkö");
@@ -58,7 +67,7 @@ for (const width of [390, 1280]) {
     await expect(card.locator(".review-figure")).toContainText("64,20");
     await card.getByRole("button", { name: "Lopetettu", exact: true }).click();
     await expect(count).toHaveText("2 avoinna");
-    expect(sent[1]).toBe(`PUT /api/marks {"subject":"${BILL.subject}","mark":"cancelled"}`);
+    expect(sent[2]).toBe(`PUT /api/marks {"subject":"${BILL.subject}","mark":"cancelled"}`);
 
     // a consent that ends: the bank is connected again in Asetukset, and the item is gone once it is
     await expect(card.locator(".review-name")).toHaveText("Esimerkkipankki");

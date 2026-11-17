@@ -13,6 +13,7 @@ import { settledTrace } from "./money-trace.ts";
 import { reconcileOf } from "./reconcile.ts";
 import { type LoanTermsItem, loanTermsItems } from "./review-loan-terms.ts";
 import { memberMoneyItems, membersOf } from "./review-members.ts";
+import { type MoneyBackItem, moneyBackItems } from "./review-money-back.ts";
 import { type UnresolvedItem, unresolvedItems } from "./review-unresolved.ts";
 import { withoutWrongBills } from "./wrong-bills.ts";
 
@@ -207,7 +208,7 @@ interface ExtensionItem extends Base {
   choices: { id: string; label: string; answer: { method: "PUT" | "POST"; path: `/api/${string}`; body: unknown } }[];
 }
 
-type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | MortgageItem | LoanTermsItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | ExtensionItem;
+type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | MortgageItem | LoanTermsItem | MoneyBackItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | ExtensionItem;
 
 export interface Review {
   items: ReviewItem[];
@@ -451,7 +452,7 @@ const rows: Source = async (s, userId) => {
 };
 
 // the unexplained money in from another member: a payer the front's source asked already is kept once (`reviewQueue`)
-const SOURCES: readonly Source[] = [front, loans, splits, subscriptions, mortgage, loanTermsItems, balances, cardBalances, consents, bills, rows, memberMoneyItems, unresolvedItems];
+const SOURCES: readonly Source[] = [front, loans, splits, subscriptions, mortgage, loanTermsItems, balances, cardBalances, consents, bills, rows, memberMoneyItems, unresolvedItems, moneyBackItems];
 
 /** The whole queue, the most money first; the page caps a sitting. */
 export async function reviewQueue(s: Services, userId: string): Promise<Review> {
