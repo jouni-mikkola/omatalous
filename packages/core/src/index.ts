@@ -78,6 +78,7 @@ export * from "./analysis/usual.ts";
 export * from "./thresholds.ts";
 export * from "./analysis/alerts.ts";
 export * from "./analysis/subscription-alerts.ts";
+export { type MoneyBack, moneyBackOf } from "./analysis/money-back.ts";
 export * from "./analysis/fees.ts";
 export { openPriceRises } from "./analysis/price-rises.ts";
 export { newCharges } from "./analysis/new-charges.ts";

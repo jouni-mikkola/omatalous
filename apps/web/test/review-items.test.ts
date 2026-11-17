@@ -159,10 +159,10 @@ describe("the choices", () => {
 });
 
 describe("the kinds the page has a card for", () => {
-  const KINDS = ["payee_out", "payee_in", "payer", "loan", "plan", "split", "subscription", "mortgage", "loan_terms", "balance", "card_balance", "consent", "bill", "row"];
+  const KINDS = ["payee_out", "payee_in", "payer", "loan", "plan", "split", "subscription", "mortgage", "loan_terms", "money_back", "balance", "card_balance", "consent", "bill", "row"];
   const of = (kind: string) => ({ kind, id: kind, cents: 0 }) as unknown as ReviewItem;
 
-  it("are the fourteen that stay: a number for the removed tips page is not one of them", () => {
+  it("are the fifteen that stay: a number for the removed tips page is not one of them", () => {
     expect(openItems(KINDS.map(of), NEW_SITTING).map((i) => i.kind)).toEqual(KINDS);
     // an older server may still send the question: it gets no card and is not counted
     expect(openItems([of("input"), of("mortgage")], NEW_SITTING).map((i) => i.kind)).toEqual(["mortgage"]);
@@ -190,6 +190,28 @@ describe("a saved loan that lacks a fact", () => {
   it("shows what the loan owes and the day of that balance", () => {
     const f = figureOf(loan);
     expect([f.text.replace(/\s/g, " "), f.unit, f.line]).toEqual(["150 000,00 €".replace(/\s/g, " "), "velkaa", "Saldo päivältä 1.10."]);
+  });
+});
+
+describe("money a merchant may owe back", () => {
+  const double = { kind: "money_back", id: "money_back:double:r2", cents: 16_743, merchant: "Verkkokauppa", reason: "double", count: 2, lastDate: "2026-09-20", askedOn: null, subject: "alert:double:r2" } as unknown as ReviewItem;
+  const cancelled = { ...double, id: "money_back:cancelled:r9", merchant: "Elixia", reason: "cancelled", cents: 5_900, count: 1, lastDate: "2026-10-01", subject: "alert:cancelled:r9" } as unknown as ReviewItem;
+  const plain = (s: string) => s.replace(/\s/g, " ");
+
+  it("asks of a charge made twice, naming the merchant and what it owes", () => {
+    expect([eyebrow(double), nameOf(double), questionOf(double)]).toEqual(["Tuplaveloitus", "Verkkokauppa", "Veloittiko myyjä saman summan useammin kuin kerran?"]);
+    const f = figureOf(double);
+    expect([plain(f.text), f.unit, f.line]).toEqual([plain("167,43 €"), "takaisin", "2 samaa veloitusta, viimeksi 20.9."]);
+  });
+
+  it("asks of a charge after Lopetettu", () => {
+    expect([eyebrow(cancelled), questionOf(cancelled)]).toEqual(["Veloitus lopetuksen jälkeen", "Veloittiko palvelu, vaikka lopetit sen?"]);
+    expect(figureOf(cancelled).line).toBe("Veloitus 1.10., vaikka merkitsit tilauksen lopetetuksi.");
+    expect(figureOf({ ...cancelled, count: 2 } as ReviewItem).line).toBe("2 veloitusta, viimeksi 1.10., vaikka merkitsit tilauksen lopetetuksi.");
+  });
+
+  it("says the day the refund was asked when it comes back", () => {
+    expect(figureOf({ ...double, askedOn: "2026-09-09" } as ReviewItem).line).toBe("Pyysit hyvitystä 9.9., mutta hyvitystä ei ole tullut.");
   });
 });
 

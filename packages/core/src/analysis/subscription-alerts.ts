@@ -125,7 +125,7 @@ export function coveringMark<T extends { mark: MarkKind }>(byCover: ReadonlyMap<
 }
 
 /** The day a mark was made. The server writes the timestamp in the instance's time zone, so its date part is the local day. */
-const markedDay = (m: Pick<UserMark, "markedAt">): IsoDate => m.markedAt.slice(0, 10);
+export const markedDay = (m: Pick<UserMark, "markedAt">): IsoDate => m.markedAt.slice(0, 10);
 
 /**
  * Whether "in use" still answers the question about a subscription on `today`: for twelve months after it was said,
@@ -186,13 +186,24 @@ function chargeIsUnder(mark: SeriesIdParts, t: AnalysisTx, series: RecurringSeri
   return typeof mark.product === "number" && mark.direction === "out" && t.accountId === mark.accountId && t.merchant === mark.merchant && samePrice(mark.product, -t.amountCents);
 }
 
+/** The charges one Lopetettu mark did not stop: the booked purchases after it, as the merchant has not paid them back. */
+interface CancelledCharges {
+  /** `cancelled:<id of the last charge>`, the id of the alert. */
+  id: string;
+  merchant: string;
+  /** Oldest first. */
+  charges: AnalysisTx[];
+  /** What they came to, the refunds taken off. */
+  netCents: number;
+}
+
 /**
  * A subscription the user marked as cancelled charged again: the cancellation did not take, or the mark was a slip.
  * `charges` are the booked purchases of the period, oldest first, and `marks` come from `marksBySubject`. A mark on a
  * merchant counts every charge of the merchant, a mark on one series only the charges of that series: `recurring`
- * names them, and without it the price alone decides. One warning for each mark.
+ * names them, and without it the price alone decides. One finding for each mark, the latest first.
  */
-export function chargedAfterCancelling(charges: readonly AnalysisTx[], marks: ReadonlyMap<string, UserMark>, recurring: readonly RecurringSeries[] = [], lang: Language = DEFAULT_LANGUAGE): Alert[] {
+export function cancelledCharges(charges: readonly AnalysisTx[], marks: ReadonlyMap<string, UserMark>, recurring: readonly RecurringSeries[] = []): CancelledCharges[] {
   const onSeries = [...marks.values()].flatMap((m) => {
     const parts = m.mark === "cancelled" ? seriesOfMarkSubject(m.subject) : null;
     return parts ? [{ parts, mark: m }] : [];
@@ -213,17 +224,25 @@ export function chargedAfterCancelling(charges: readonly AnalysisTx[], marks: Re
   }
   return [...byMark.values()]
     .sort((a, b) => b[b.length - 1]!.day - a[a.length - 1]!.day)
-    .slice(0, CANCELLED_MAX)
     .map((list) => {
       const last = list[list.length - 1]!;
-      const total = list.reduce((sum, t) => sum - t.amountCents - t.refunded, 0);
+      return { id: `cancelled:${last.id}`, merchant: last.merchant, charges: list, netCents: list.reduce((sum, t) => sum - t.amountCents - t.refunded, 0) };
+    });
+}
+
+/** The warnings of `cancelledCharges`, the two latest. */
+export function chargedAfterCancelling(charges: readonly AnalysisTx[], marks: ReadonlyMap<string, UserMark>, recurring: readonly RecurringSeries[] = [], lang: Language = DEFAULT_LANGUAGE): Alert[] {
+  return cancelledCharges(charges, marks, recurring)
+    .slice(0, CANCELLED_MAX)
+    .map(({ id, merchant, charges: list, netCents }) => {
+      const last = list[list.length - 1]!;
       return {
-        id: `cancelled:${last.id}`,
+        id,
         kind: "cancelled" as const,
         tone: "warning" as const,
-        title: messageIn(lang, "alr.cancelled_title", { merchant: last.merchant, date: formatFiDate(last.bookingDate, lang) }),
-        detail: list.length === 1 ? formatEur(total, true, lang) : messageIn(lang, "alr.cancelled_detail", { n: list.length, amount: formatEur(total, true, lang) }),
-        merchant: last.merchant,
+        title: messageIn(lang, "alr.cancelled_title", { merchant, date: formatFiDate(last.bookingDate, lang) }),
+        detail: list.length === 1 ? formatEur(netCents, true, lang) : messageIn(lang, "alr.cancelled_detail", { n: list.length, amount: formatEur(netCents, true, lang) }),
+        merchant,
       };
     });
 }

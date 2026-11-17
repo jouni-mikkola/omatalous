@@ -14,6 +14,7 @@ import { isBankFee, isLateFee } from "./fees.ts";
 import { countWord, finnishList, formatEur, formatFiDate, monthInessive, monthNameIn } from "./format.ts";
 import { shortDate } from "./income-series.ts";
 import { type DateRange, rangeLength, toDayRange } from "./period.ts";
+import { findDoubleCharges, isCharge } from "./double-charges.ts";
 import { chargedAfterCancelling, dismissedIds, forgotten, marksBySubject } from "./subscription-alerts.ts";
 
 type AlertKind = "double_charge" | "late_fee" | "cancelled" | "uncategorised" | "overlap" | "spike" | "fees" | "habit" | "forgotten";
@@ -80,101 +81,23 @@ function pick(shown: readonly Alert[], dismissed: ReadonlySet<string>): Alert[] 
   return all.filter((a) => chosen.has(a));
 }
 
-const isCharge = (t: AnalysisTx) =>
-  t.status === "booked" && !t.isTransfer && t.amountCents < 0 && t.kind !== "transfer" && t.merchant !== UNKNOWN_MERCHANT;
-
 // ── double charges ───────────────────────────────────────
 
-const DOUBLE_MIN_CENTS = 2000;
-const BILL_DOUBLE_DAYS = 7;
-
-/**
- * Identical charges on one account and day, and how often each merchant does it.
- * Over the whole history and independent of the range, so the dashboard's
- * several periods share one scan.
- */
-const sameDayCache = new WeakMap<AnalysisContext, { groups: AnalysisTx[][]; routine: Map<string, number> }>();
-
-function sameDayCharges(ctx: AnalysisContext) {
-  const hit = sameDayCache.get(ctx);
-  if (hit) return hit;
-  const sameDay = new Map<string, AnalysisTx[]>();
-  for (const t of ctx.txs) {
-    if (!isCharge(t)) continue;
-    const key = `${t.accountId}|${t.merchant}|${t.amountCents}|${t.bookingDate}`;
-    const group = sameDay.get(key);
-    if (group) group.push(t);
-    else sameDay.set(key, [t]);
-  }
-  // two tickets at the cinema every time: a merchant that does this routinely is not a mistake
-  const groups: AnalysisTx[][] = [];
-  const routine = new Map<string, number>();
-  for (const group of sameDay.values()) {
-    if (group.length < 2) continue;
-    groups.push(group);
-    const key = `${group[0]!.accountId}|${group[0]!.merchant}`;
-    routine.set(key, (routine.get(key) ?? 0) + 1);
-  }
-  const result = { groups, routine };
-  sameDayCache.set(ctx, result);
-  return result;
-}
-
+/** The three latest charges made twice in the range, as alerts. The charges themselves are found in double-charges.ts. */
 function doubleCharges(ctx: AnalysisContext, current: readonly AnalysisTx[], recurring: readonly RecurringSeries[], range: DateRange, lang: Language): Alert[] {
-  const { fromDay, toDay } = toDayRange(range);
-  const { groups, routine } = sameDayCharges(ctx);
-
-  const out: (Alert & { date: string })[] = [];
-  for (const group of groups) {
-    const t = group[group.length - 1]!;
-    if (group.length < 2 || t.day < fromDay || t.day > toDay || -t.amountCents < DOUBLE_MIN_CENTS) continue;
-    // the merchant has already paid one of them back
-    if (group.some((x) => x.refunded >= -x.amountCents)) continue;
-    if ((routine.get(`${t.accountId}|${t.merchant}`) ?? 0) - 1 >= 2) continue;
-    out.push({
-      id: `double:${t.id}`,
-      kind: "double_charge",
-      tone: "warning",
-      title: group.length === 2 ? messageIn(lang, "alr.double_twice", { merchant: t.merchant, amount: formatEur(-t.amountCents, true, lang) }) : messageIn(lang, "alr.double_times", { n: group.length, merchant: t.merchant, amount: formatEur(-t.amountCents, true, lang) }),
-      detail: formatFiDate(t.bookingDate, lang),
-      merchant: t.merchant,
-      date: t.bookingDate,
-    });
-  }
-
-  // a monthly bill paid twice a few days apart (an e-invoice and a reminder of it)
-  const inRange = new Map(current.map((t) => [t.id, t]));
-  const byId = new Map<string, AnalysisTx>();
-  for (const s of recurring) {
-    if (s.cadence !== "monthly" || (s.kind !== "subscription" && s.kind !== "bill")) continue;
-    if (!s.transactionIds.some((id) => inRange.has(id))) continue;
-    if (!byId.size) for (const t of ctx.txs) byId.set(t.id, t);
-    const rows = s.transactionIds
-      .map((id) => byId.get(id))
-      .filter((t): t is AnalysisTx => !!t && isCharge(t))
-      .sort((a, b) => a.day - b.day);
-    for (let i = 1; i < rows.length; i++) {
-      const [a, b] = [rows[i - 1]!, rows[i]!];
-      const gap = b.day - a.day;
-      if (gap < 1 || gap > BILL_DOUBLE_DAYS || a.amountCents !== b.amountCents || -b.amountCents < DOUBLE_MIN_CENTS || !inRange.has(b.id)) continue;
-      // the biller has already paid one of them back
-      if (a.refunded >= -a.amountCents || b.refunded >= -b.amountCents) continue;
-      out.push({
-        id: `double:${b.id}`,
+  return findDoubleCharges(ctx, current, recurring, range)
+    .slice(0, 3)
+    .map((d): Alert => {
+      const amount = formatEur(d.amountCents, true, lang);
+      return {
+        id: d.id,
         kind: "double_charge",
         tone: "warning",
-        title: messageIn(lang, "alr.double_twice", { merchant: b.merchant, amount: formatEur(-b.amountCents, true, lang) }),
-        detail: messageIn(lang, "alr.double_days", { first: formatFiDate(a.bookingDate, lang), second: formatFiDate(b.bookingDate, lang) }),
-        merchant: b.merchant,
-        date: b.bookingDate,
-      });
-    }
-  }
-  // the latest first
-  return out
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 3)
-    .map(({ date: _date, ...a }) => a);
+        title: d.count === 2 ? messageIn(lang, "alr.double_twice", { merchant: d.merchant, amount }) : messageIn(lang, "alr.double_times", { n: d.count, merchant: d.merchant, amount }),
+        detail: d.dates.length === 2 ? messageIn(lang, "alr.double_days", { first: formatFiDate(d.dates[0]!, lang), second: formatFiDate(d.dates[1]!, lang) }) : formatFiDate(d.dates[0]!, lang),
+        merchant: d.merchant,
+      };
+    });
 }
 
 // ── late payment fees ────────────────────────────────────
