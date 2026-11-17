@@ -422,6 +422,12 @@ more than a shop name or an amount:
   category, whatever the payee and the days. Any other money in on a spending category is income: *Hyvitykset*, or
   *Maksut henkilöiltä* from a person. A purchase that was paid back leaves the lists of merchants, habits and double
   charges by the amount that came back.
+- Money from a person that nothing placed (*Maksut henkilöiltä*, a rule's row and no answer) nets against the payments
+  to people of its month (`netPersons` in `analysis/person-netting.ts`, after the refunds). The row lowers *Maksut
+  henkilöille* with its minus when the month's payments hold it whole, so the income and the spending fall by the same
+  cents and Tulos is what it was. A row the month cannot hold stays income that is not earned, so a month that took in
+  more than it sent shows the surplus as *Maksut henkilöiltä*. A row you categorised, or whose payer you answered for,
+  never nets.
 
 ## Alerts
 

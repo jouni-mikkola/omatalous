@@ -14,6 +14,7 @@ import { loanPaymentAccounts } from "../loan-payment.ts";
 import { type Flows, flowsOf, incomeOf, type PeriodTotals, spendCentsOf, totalsOf } from "./flows.ts";
 import { shortFees } from "./fee-short.ts";
 import { moneyIn } from "./money-in.ts";
+import { netPersons } from "./person-netting.ts";
 import type { DayRange } from "./period.ts";
 import { type ExplainedTx, explainStatements, type StatementBill, type StatementState } from "./statement-explain.ts";
 
@@ -197,24 +198,31 @@ function* contextSteps(transactions: readonly Transaction[], accounts: readonly 
   const byId = new Map(txs.map((t) => [t.id, t]));
   const ownIbans = new Set(accounts.map((a) => normalizeIban(a.iban)).filter((x): x is string => !!x));
   const returns = new Map<string, string>();
-  for (const [id, refund] of moneyIn(txs, ownIbans, today)) {
+  const lower = (id: string, refund: readonly (readonly [paymentId: string, cents: number])[]) => {
     const t = byId.get(id)!;
-    if (!refund) {
-      t.flows = incomeOf(t.amountCents);
-      t.spend = 0;
-      continue;
-    }
     // a refund by the user's word alone takes back no payment and stays in the category it was put in
-    if (!refund.length) continue;
+    if (!refund.length) return;
     const first = byId.get(refund[0]![0])!;
-    if (first.category !== t.category) {
+    // a row of money from a person was income until now, whatever category it has
+    if (first.category !== t.category || t.flows.income !== 0) {
       Object.assign(t, { category: first.category, kind: first.kind, group: first.group });
       t.flows = flowsOf(t, savingsIds, loanIds);
       t.spend = spendCentsOf(t, t.flows, savingsIds, loanIds);
     }
     for (const [paymentId, cents] of refund) byId.get(paymentId)!.refunded += cents;
     returns.set(id, first.id);
+  };
+  for (const [id, refund] of moneyIn(txs, ownIbans, today)) {
+    if (refund) {
+      lower(id, refund);
+      continue;
+    }
+    const t = byId.get(id)!;
+    t.flows = incomeOf(t.amountCents);
+    t.spend = 0;
   }
+  // money from people nets against what was sent to people in its month: after the refunds, which it never takes
+  for (const [id, netting] of netPersons(txs)) lower(id, netting);
   yield;
 
   const recurring = cut ? cut.recurring : yield* recurringSteps(txs, today, accounts);
