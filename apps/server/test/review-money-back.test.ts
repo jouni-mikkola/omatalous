@@ -42,7 +42,7 @@ describe("the question of money a merchant may owe back", () => {
     await load(t, t.adminId, "chk", twice("2026-09-20", -16_743, "Verkkokauppa Oy"));
     const [item, ...rest] = await queue(t.admin);
     expect(rest).toEqual([]);
-    expect(item).toMatchObject({ kind: "money_back", cents: 16_743, merchant: "Verkkokauppa Oy", reason: "double", count: 2, lastDate: "2026-09-20", askedOn: null, rowCount: 2 });
+    expect(item).toMatchObject({ kind: "money_back", cents: 16_743, merchant: "Verkkokauppa", reason: "double", count: 2, lastDate: "2026-09-20", askedOn: null, rowCount: 2 });
     expect(item!.subject).toBe(`alert:${String(item!.id).replace(/^money_back:/, "")}`);
     expect((item!.rows as unknown[]).length).toBe(2);
   });
@@ -78,7 +78,7 @@ describe("the question of money a merchant may owe back", () => {
   it("orders the items by the money, the most first", async () => {
     const t = await setupApp();
     await load(t, t.adminId, "chk", [...twice("2026-09-25", -2_500, "Kahvila"), ...twice("2026-09-01", -9_000, "Verkkokauppa Oy")]);
-    expect((await queue(t.admin)).map((i) => [i.merchant, i.cents])).toEqual([["Verkkokauppa Oy", 9_000], ["Kahvila", 2_500]]);
+    expect((await queue(t.admin)).map((i) => [i.merchant, i.cents])).toEqual([["Verkkokauppa", 9_000], ["Kahvila", 2_500]]);
   });
 
   it("Pyydän hyvityksen hides it, and after 30 days it comes back once with the day it was asked", async () => {
