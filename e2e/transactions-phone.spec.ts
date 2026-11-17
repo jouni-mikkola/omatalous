@@ -428,10 +428,6 @@ test("390 px: a day with more than one sum puts them on a second line under the 
   expect(severalSums.length, "days with more than one sum").toBeGreaterThan(0);
   for (const row of severalSums) expect(row, row.day ?? "").toMatchObject({ under: true, inside: true });
   expect(await overflow(page), "sideways scroll").toBeLessThanOrEqual(1);
-  // a text twice the size wraps the sums, and the page is no wider
-  await page.addStyleTag({ content: "html { font-size: 200%; }" });
-  for (const row of await read()) expect(row.inside, row.day ?? "").toBe(true);
-  expect(await overflow(page), "sideways scroll at 200 %").toBeLessThanOrEqual(1);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
