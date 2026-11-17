@@ -148,7 +148,8 @@ const isOutflow = (category: string): boolean => ["expense", "debt"].includes(ge
 
 /** I3a: money in does not sit in a category of money out, unless the labels say it is a refund or the household set it. */
 export function moneyIn(h: GeneratedHousehold, v: HouseholdView): Violation[] {
-  const bad = v.ctx.txs.filter((t) => t.amountCents > 0 && !t.isTransfer && isOutflow(t.category) && t.categorySource !== "user" && h.truth.get(t.id)?.kind !== "refund");
+  // money from a person nets against what was sent to the same person in its month (`netPersons`): it sits in Maksut henkilöille, below zero, then
+  const bad = v.ctx.txs.filter((t) => t.amountCents > 0 && !t.isTransfer && isOutflow(t.category) && t.categorySource !== "user" && h.truth.get(t.id)?.kind !== "refund" && !v.ctx.netted.has(t.id));
   const by = new Map<string, number>();
   for (const t of bad) {
     const what = `${t.counterparty ?? "no sender"} as ${t.category}`;
@@ -162,6 +163,8 @@ function wrongFlow(label: Truth, t: HouseholdView["ctx"]["txs"][number]): string
   const f = t.flows;
   // a refund is judged by I3a, and a transfer or a mirror by I1b; a row cut to nothing says nothing
   if (t.amountCents === 0 || label.kind === "refund") return null;
+  // money from a person counts as spending below zero where the month sent as much to the same person (`netPersons`), and as income for the rest
+  if (label.flow === "income" && label.kind === "person" && f.consumption < 0 && f.debt === 0 && f.income - f.consumption === t.amountCents) return null;
   if (label.flow === "income") return f.income > 0 && f.consumption === 0 && f.debt === 0 ? null : `income counted as income ${f.income}, consumption ${f.consumption}, debt ${f.debt}`;
   if (label.flow === "consumption") return f.consumption > 0 && f.income === 0 && f.debt === 0 ? null : `consumption counted as income ${f.income}, consumption ${f.consumption}, debt ${f.debt}`;
   if (label.flow === "debt") return f.debt > 0 && f.income === 0 && f.consumption === 0 ? null : `debt counted as income ${f.income}, consumption ${f.consumption}, debt ${f.debt}`;
@@ -184,7 +187,8 @@ export function labelledFlow(h: GeneratedHousehold, v: HouseholdView): Violation
 /** I3d: money from a stranger with a member's name is a person's payment in: never a transfer between the household's own accounts, and counted as income. */
 export function namesake(h: GeneratedHousehold, v: HouseholdView): Violation[] {
   const rows = v.ctx.txs.filter((t) => h.truth.get(t.id)?.event === "namesake" && t.amountCents !== 0);
-  const bad = rows.filter((t) => t.isTransfer || t.flows.income <= 0);
+  // income, or spending below zero where the month sent as much to people (`netPersons`)
+  const bad = rows.filter((t) => t.isTransfer || (t.flows.income <= 0 && t.flows.consumption >= 0));
   return bad.length ? [found("I3d.namesake", h, v, `${bad.length} of ${rows.length} payments from a namesake are ${bad.every((t) => t.isTransfer) ? "a transfer" : "not income"}`)] : [];
 }
 

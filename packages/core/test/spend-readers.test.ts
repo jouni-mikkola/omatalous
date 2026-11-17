@@ -51,6 +51,7 @@ const BILL_WHOLE = [
   "analysis/fees.ts",
   "analysis/money-in.ts",
   "analysis/one-offs.ts",
+  "analysis/person-netting.ts",
   "analysis/statement-explain.ts",
   "reports/year-over-year.ts",
 ];

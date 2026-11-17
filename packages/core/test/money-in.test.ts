@@ -14,6 +14,7 @@ import { applyUse } from "../src/account-use.ts";
 import { type AnalysisContext, createContext, createContextPausing, inDays } from "../src/analysis/context.ts";
 import { categoryTotals } from "../src/analysis/category-totals.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
+import { buildQuestions } from "../src/analysis/questions.ts";
 import { totalsOf } from "../src/analysis/flows.ts";
 import { incomeTypes } from "../src/analysis/income.ts";
 import { toDayRange } from "../src/analysis/period.ts";
@@ -21,7 +22,7 @@ import { earnedIncome } from "../src/analysis/usual.ts";
 import { addDays, addMonths, daysInMonth, monthOf } from "../src/dates.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import { REFUND_WINDOW_DAYS } from "../src/returns.ts";
-import type { Account, Part, Transaction } from "../src/types.ts";
+import { type Account, NO_INPUTS, type Part, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
@@ -285,12 +286,92 @@ describe("money in on a category the user set by hand", () => {
   });
 });
 
+/** A payment to a person, or money from one, whose counterparty is the person: the payer `netPersons` reads. */
+const to = (bookingDate: string, euros: number, name: string, extra: Partial<Transaction> = {}) => paid(bookingDate, euros, name, "p2p", { counterparty: name, ...extra });
+const from = (bookingDate: string, euros: number, name: string, extra: Partial<Transaction> = {}) => got(bookingDate, euros, name, "p2p_in", { counterparty: name, ...extra });
+const refundedOf = (ctx: AnalysisContext, t: Transaction) => ctx.txs.find((x) => x.id === t.id)!.refunded;
+
 describe("money from a person", () => {
-  it("does not lower Maksut henkilöille, though the same person was paid more a week before", () => {
-    const back = got("2026-10-11", 30, MATTI, "p2p");
-    const ctx = contextOf([paid("2026-10-04", 50, MATTI, "p2p"), back]);
+  it("lowers Maksut henkilöille when the month sent as much to the same person, and Tulos stays what it was", () => {
+    const back = from("2026-10-11", 30, MATTI);
+    const sent = to("2026-10-04", 50, MATTI);
+    const netted = contextOf([sent, back]);
+    const apart = contextOf([sent, from("2026-11-02", 30, MATTI)]);
+    expect(monthOn(netted)).toMatchObject({ spent: 2_000, income: 0, rows: { p2p: 2_000 } });
+    expect(typeOf(netted, back)).toBeUndefined();
+    expect(netted.txs.find((t) => t.id === sent.id)!.refunded).toBe(3_000);
+    // the cents leave the income and the spending together: the two months together keep their Tulos
+    const left = (ctx: AnalysisContext, range: { from: string; to: string }) => buildDashboard(ctx, range).totals.leftCents;
+    expect(left(netted, OCTOBER)).toBe(-2_000);
+    expect(left(apart, OCTOBER) + left(apart, { from: "2026-11-01", to: "2026-11-30" })).toBe(-2_000);
+  });
+
+  it("leaves the payments to other people alone", () => {
+    const ctx = contextOf([to("2026-10-04", 50, MAIJA), from("2026-10-11", 30, MATTI)]);
     expect(monthOn(ctx)).toMatchObject({ spent: 5_000, income: 3_000, rows: { p2p: 5_000 } });
+  });
+
+  it("keeps only the rest as income, as Maksut henkilöiltä, where the month sent less than came in", () => {
+    const back = from("2026-10-11", 80, MATTI);
+    const sent = to("2026-10-04", 50, MATTI);
+    const ctx = contextOf([sent, back]);
+    expect(monthOn(ctx)).toMatchObject({ spent: 0, income: 3_000, listed: 0 });
     expect(typeOf(ctx, back)).toBe("persons");
+    expect(refundedOf(ctx, sent)).toBe(5_000);
+    // what came in less what went out, as it was before the netting
+    expect(buildDashboard(ctx, OCTOBER).totals.leftCents).toBe(3_000);
+  });
+
+  it("takes from several payments, oldest first, and stays out of another month", () => {
+    const [first, second, later] = [to("2026-10-03", 20, MATTI), to("2026-10-05", 30, MATTI), to("2026-11-02", 40, MATTI)];
+    const ctx = contextOf([first, second, later, from("2026-10-11", 40, MATTI)]);
+    expect([refundedOf(ctx, first), refundedOf(ctx, second), refundedOf(ctx, later)]).toEqual([2_000, 2_000, 0]);
+    expect(monthOn(ctx)).toMatchObject({ spent: 1_000, income: 0 });
+  });
+
+  it("shares the payments between two rows, and what the second cannot take stays income", () => {
+    const [a, b] = [from("2026-10-10", 30, MATTI), from("2026-10-12", 30, MATTI)];
+    const ctx = contextOf([to("2026-10-04", 50, MATTI), a, b]);
+    expect(monthOn(ctx)).toMatchObject({ spent: 0, income: 1_000 });
+    expect(buildDashboard(ctx, OCTOBER).totals.leftCents).toBe(1_000);
+  });
+
+  it("gives the same result in whatever order the rows come", () => {
+    const rows = [to("2026-10-03", 20, MATTI), to("2026-10-05", 30, MATTI), from("2026-10-10", 30, MATTI), from("2026-10-12", 30, MATTI), from("2026-10-12", 10, MATTI)];
+    const by = (list: readonly Transaction[]) => {
+      const ctx = contextOf(list);
+      return { month: monthOn(ctx), rows: list.map((t) => [t.id, ctx.txs.find((x) => x.id === t.id)!.flows]).sort((x, y) => (x[0]! < y[0]! ? -1 : 1)) };
+    };
+    expect(by([...rows].reverse())).toEqual(by(rows));
+  });
+
+  it("stays income where the user put it on Maksut henkilöiltä by hand, or answered for its payer", () => {
+    const sent = to("2026-10-04", 50, MATTI);
+    for (const categorySource of ["user", "payer"] as const) {
+      const ctx = contextOf([sent, from("2026-10-11", 30, MATTI, { categorySource })]);
+      expect(monthOn(ctx)).toMatchObject({ spent: 5_000, income: 3_000 });
+    }
+  });
+
+  it("stays income from a steady payer, whatever the month sent to them", () => {
+    const rent = ["2026-08-05", "2026-09-05", "2026-10-05"].map((day) => from(day, 300, MATTI));
+    const ctx = contextOf([to("2026-10-04", 50, MATTI), ...rent]);
+    expect(monthOn(ctx)).toMatchObject({ spent: 5_000, income: 30_000 });
+  });
+
+  it("takes only what the refunds left of a payment: a payment that came back whole nets nothing more", () => {
+    const sent = to("2026-10-04", 80, MATTI);
+    const ctx = contextOf([sent, got("2026-10-06", 80, MATTI, "p2p"), from("2026-10-08", 30, MATTI)]);
+    expect(refundedOf(ctx, sent)).toBe(8_000);
+    expect(monthOn(ctx)).toMatchObject({ spent: 0, income: 3_000 });
+  });
+
+  it("leaves a friend's share of a bill to the question about the split", () => {
+    const dinner = paid("2026-10-12", 61.8, "Ravintola Esimerkki", "restaurants");
+    const share = from("2026-10-13", 30.9, MATTI);
+    const ctx = contextOf([to("2026-10-04", 50, MATTI), dinner, share]);
+    expect(typeOf(ctx, share)).toBe("persons");
+    expect(monthOn(ctx)).toMatchObject({ spent: 5_000 + 6_180, income: 3_090 });
   });
 
   it("a payment that came back still cancels: the same person, the same sum", () => {
@@ -298,6 +379,45 @@ describe("money from a person", () => {
     const ctx = contextOf([sent, got("2026-10-06", 80, MATTI, "p2p"), paid("2026-10-07", 12, SHOP, "groceries")]);
     expect(monthOn(ctx)).toMatchObject({ spent: 1_200, income: 0, rows: { groceries: 1_200 } });
     expect(ctx.txs.find((t) => t.id === sent.id)!.refunded).toBe(8_000);
+  });
+
+  it("nets nothing for money that names nobody: unnamed wallet money in and out is no one person", () => {
+    const wallet = { counterparty: null, description: "Tiedot MobilePay-sovelluksessa" };
+    const [sent, back] = [paid("2026-10-04", 50, "MobilePay", "p2p", wallet), got("2026-10-11", 30, "MobilePay", "p2p_in", wallet)];
+    const ctx = contextOf([sent, back]);
+    expect(ctx.netted.size).toBe(0);
+    expect(monthOn(ctx)).toMatchObject({ spent: 5_000, income: 3_000 });
+  });
+
+  it.each([["MobilePay", "Kiitos pizzasta"], ["Siirto", "Illan osuus"]])("nets nothing for a payer that is only the name of a way to pay (%s), whatever message the rows carry", (name, message) => {
+    const [sent, back] = [paid("2026-10-04", 50, name, "p2p", { counterparty: name, description: message }), got("2026-10-11", 30, name, "p2p_in", { counterparty: name, description: message })];
+    const ctx = contextOf([sent, back]);
+    expect(ctx.netted.size).toBe(0);
+    expect(monthOn(ctx)).toMatchObject({ spent: 5_000, income: 3_000 });
+  });
+
+  it("nets nothing for a row already on Maksut henkilöille: it is not money from a person to settle anything", () => {
+    const back = got("2026-10-11", 30, MATTI, "p2p", { counterparty: MATTI });
+    const ctx = contextOf([to("2026-10-04", 50, MATTI), back]);
+    expect(ctx.netted.size).toBe(0);
+    expect(monthOn(ctx)).toMatchObject({ spent: 5_000, income: 3_000 });
+  });
+
+  describe("the question about a payer", () => {
+    const asked = (rows: readonly Transaction[]) =>
+      buildQuestions(contextOf(rows), { from: "2026-10-01", to: TODAY }, { ...NO_INPUTS, payers: { memberId: "m", roles: [] } }).items.filter((i) => i.kind === "payer");
+
+    it("is asked for a payer whose money settled payments whole, at the sum that came in", () => {
+      const rows = [to("2026-10-04", 200, MATTI), from("2026-10-11", 150, MATTI)];
+      expect(contextOf(rows).netted.size).toBe(1);
+      expect(asked(rows)).toMatchObject([{ cents: 15_000, count: 1, options: expect.arrayContaining(["own_money"]) }]);
+    });
+
+    it("is asked for a payer whose money settled payments in part, and for the rows that settled nothing", () => {
+      const rows = [to("2026-10-04", 50, MATTI), from("2026-10-11", 150, MATTI), from("2026-11-02", 30, MATTI)];
+      expect(contextOf(rows).netted.size).toBe(1);
+      expect(asked(rows)).toMatchObject([{ cents: 18_000, count: 2, options: expect.arrayContaining(["own_money"]) }]);
+    });
   });
 
   it("friends' shares of a bill still lower the bill's category", () => {

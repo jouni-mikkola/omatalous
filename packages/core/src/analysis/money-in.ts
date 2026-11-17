@@ -15,9 +15,9 @@
  *   first, whatever the 120 days: a lease gives back more than one rent.
  * - A row whose category the user set by hand is a refund in that category, whatever the payee and the days: the
  *   user's word. It takes back the payee's payments of that category when they hold it, and no payment otherwise.
- * - Money from a person (a row on Maksut henkilöille) is never set against payments to persons. Two pairs the
- *   categorisation made stay (`pairedReturns`): a payment that came back whole from the person it was sent to, and
- *   friends' shares of a bill.
+ * - Money from a person (a row on Maksut henkilöille) is no refund here. Two pairs the categorisation made stay
+ *   (`pairedReturns`): a payment that came back whole from the person it was sent to, and friends' shares of a bill.
+ *   The rest nets against the payments to persons of its month, after this (`netPersons`).
  * - Anything else is income, of the type `incomeTypeOf` gives it: money from a person, or a compensation or refund.
  *
  * The rows are the view's, as the view counts them: on a joint account the rule works on the member's part.
