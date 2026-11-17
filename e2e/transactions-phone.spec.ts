@@ -347,9 +347,9 @@ test("1280 px: the bar is one line, the sums stand on one line and the histogram
   const strip = page.getByRole("region", { name: "Rajattujen tapahtumien summat" });
   await expect(strip.locator("dt").first()).toBeVisible();
   const cells = await strip.locator(".tx-totals-kv > div").evaluateAll((els) => els.map((el) => el.getBoundingClientRect()));
-  // Menot, Tulot and Erotus, and Siirrot ja säästöt when the rows move money to or from savings
-  expect(cells.length).toBeGreaterThanOrEqual(3);
-  expect(cells.length).toBeLessThanOrEqual(4);
+  // Menot, Tulot and Erotus, and what the rows move to or from savings: the demo data moves money to savings
+  expect(cells.length).toBe(4);
+  await expect(strip.locator("dt").nth(3)).toHaveText(/^(Säästöön siirretty|Otettu säästöistä)$/);
   const tops = cells.map((c) => Math.round(c.top));
   expect(Math.max(...tops) - Math.min(...tops), "the sums share a line").toBeLessThanOrEqual(1);
   expect(cells[1]!.left, "side by side").toBeGreaterThan(cells[0]!.right - 1);

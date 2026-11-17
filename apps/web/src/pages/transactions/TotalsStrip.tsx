@@ -176,9 +176,9 @@ export function TotalsStrip({ totals, income, today, onPick }: { totals: Totals;
           )}
           {totals.savedCents !== undefined && totals.savedCents !== 0 && (
             <div>
-              <dt>{t("tx.saved")}</dt>
+              <dt>{t(totals.savedCents > 0 ? "tx.saved" : "tx.savings_drawn")}</dt>
               <dd>
-                <Figure text={money(-totals.savedCents, false)} size="s" />
+                <Figure text={`${totals.savedCents > 0 ? "+" : ""}${money(totals.savedCents, false)}`} size="s" />
               </dd>
             </div>
           )}

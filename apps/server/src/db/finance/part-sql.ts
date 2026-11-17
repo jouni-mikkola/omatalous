@@ -19,8 +19,6 @@ export type ViewPart = Part & { viewer?: string };
 export interface OwnRows {
   /** The viewer's own accounts somebody else uses alone: none of their rows is read. */
   left: readonly string[];
-  /** The accounts of the view that are savings accounts: money moved onto one is saved (`flowsOf`). */
-  savings?: readonly string[];
   /** The viewer's part of each account counted at less than the whole, and of each account cut by who paid it, by account id. */
   parts: ReadonlyMap<string, ViewPart>;
   /** The viewer's own cents of the rows of an account cut by who paid it, by row id: what a list shows beside the bank's amount. */
@@ -111,23 +109,13 @@ export function notLeftSql(own: OwnRows | undefined): Sql {
 const SAVINGS_CATEGORIES: readonly string[] = CATEGORIES.filter((c) => c.kind === "savings").map((c) => c.id);
 
 /**
- * What the strip over a list sets apart from its money out and in, as core's `flowsOf` sets it apart from spending and
- * income: `kept` is the condition of a row that is spending or income (a row of a savings category is neither), and
- * `saved` adds up what the rows save: a savings category's amount reversed, and money moved onto a savings account, taken
- * out of savings with the sign reversed. The params of each bind in the order it stands in the statement.
+ * The condition of a row that is spending or income: a row of a savings category is neither, as in core's `flowsOf`. The
+ * days of a list read it, so the bars and the strip's figures leave the same rows out. Its params bind in the order it
+ * stands in the statement.
  */
-export function savedSql(own: OwnRows | undefined, amount: Sql): { kept: Sql; saved: Sql } {
-  const { category, moved } = toldSql(own);
-  const among = `(${SAVINGS_CATEGORIES.map(() => "?").join(", ")})`;
-  const accounts = own?.savings ?? [];
-  const onSavings = accounts.length ? ` WHEN ${moved.sql} = 1 AND account_id IN (${accounts.map(() => "?").join(", ")}) THEN ${amount.sql}` : "";
-  return {
-    kept: { sql: `${category.sql} NOT IN ${among}`, params: [...category.params, ...SAVINGS_CATEGORIES] },
-    saved: {
-      sql: `SUM(CASE WHEN ${moved.sql} = 0 AND ${category.sql} IN ${among} THEN 0 - ${amount.sql}${onSavings} END)`,
-      params: [...moved.params, ...category.params, ...SAVINGS_CATEGORIES, ...amount.params, ...(accounts.length ? [...moved.params, ...accounts, ...amount.params] : [])],
-    },
-  };
+export function keptSql(own: OwnRows | undefined): Sql {
+  const { category } = toldSql(own);
+  return { sql: `${category.sql} NOT IN (${SAVINGS_CATEGORIES.map(() => "?").join(", ")})`, params: [...category.params, ...SAVINGS_CATEGORIES] };
 }
 
 /**

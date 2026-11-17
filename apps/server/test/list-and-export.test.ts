@@ -91,8 +91,9 @@ describe("transaction list and export paging", () => {
     const view = await own.listTransactions({ limit: 5000 }, ["acc-eero"]);
     expect(view.items.map((t) => t.id)).toEqual(all.map((t) => t.id));
     expect(view.total).toBe(105);
-    expect(view.inCents).toBe(all.filter((t) => t.amountCents > 0).reduce((n, t) => n + t.amountCents, 0));
-    expect(view.outCents).toBe(-all.filter((t) => t.amountCents < 0).reduce((n, t) => n + t.amountCents, 0));
+    expect(view.days.reduce((n, d) => n + d.inCents, 0)).toBe(all.filter((t) => t.amountCents > 0).reduce((n, t) => n + t.amountCents, 0));
+    expect(view.days.reduce((n, d) => n + d.outCents, 0)).toBe(-all.filter((t) => t.amountCents < 0).reduce((n, t) => n + t.amountCents, 0));
+    expect(view.ids.slice().sort()).toEqual(all.map((t) => t.id).sort());
     for (const [limit, offset] of [[10, 0], [10, 95], [25, 40], [200, 0], [7, 100]] as const) {
       const page = await own.listTransactions({ limit, offset }, ["acc-eero"]);
       expect(page.items.map((t) => t.id), `limit ${limit} offset ${offset}`).toEqual(all.slice(offset, offset + limit).map((t) => t.id));

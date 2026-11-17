@@ -412,11 +412,11 @@ async function loadScope(s: Services, userId: string, inView: InView, today: str
  * accounts and the same rows as the cached context of the view: the rows come from it, and so do the fees of payments
  * that arrived short, which the household view has as well.
  */
-export async function rowsInView(s: Services, userId: string, scope: Scope): Promise<{ shared: ScopeAccount[]; own: OwnRows }> {
+export async function rowsInView(s: Services, userId: string, scope: Scope): Promise<{ shared: ScopeAccount[]; own: OwnRows; ctx: AnalysisContext }> {
   const { view, accounts, left } = await accountsInView(s, userId, scope);
   const parts = new Map(accounts.flatMap((a): [string, ViewPart][] => (a.part && (a.traced || !isWhole(a.part)) ? [[a.id, a.traced ? { ...a.part, viewer: `u:${userId}` } : a.part]] : [])));
   const data = await s.analysis.get(s, userId, view);
-  return { shared: accounts.filter((a) => a.userId !== userId), own: { left: left.map((a) => a.id), savings: accounts.filter((a) => a.type === "savings").map((a) => a.id), parts, told: data.told, shares: data.shares, fees: data.fees } };
+  return { shared: accounts.filter((a) => a.userId !== userId), own: { left: left.map((a) => a.id), parts, told: data.told, shares: data.shares, fees: data.fees }, ctx: data.ctx };
 }
 
 /**

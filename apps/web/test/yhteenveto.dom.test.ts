@@ -89,12 +89,26 @@ describe("Yhteenveto's month", () => {
 
   // Tulot less Menot was 570 € above Tulos in a month with 200 € taken out of savings, and the page never showed the 200 €
   it("Tulos names the terms between Menot and Tulos: money moved to or taken out of savings, credit drawn or paid back", () => {
-    const terms = (totals: object) => [...summaryIn(data({ totals } as never)).querySelectorAll("[data-fig=result] .home-fig-term")].map((el) => flat(el.textContent));
+    const terms = (totals: { incomeCents: number; expenseCents: number; borrowedCents?: number; leftCents?: number }) => {
+      const overview = { income: { cents: totals.incomeCents, earnedCents: totals.incomeCents }, months: [{ month: "2026-11", incomeCents: totals.incomeCents, spendCents: totals.expenseCents, fromSavingsCents: 0, complete: false }] };
+      return [...summaryIn(data({ totals, overview } as never)).querySelectorAll("[data-fig=result] .home-fig-term")].map((el) => flat(el.textContent));
+    };
     expect(terms(totalsOf(412000, 150000, 20000, 30000))).toEqual(["Säästöön siirretty 300 €"]);
     expect(terms(totalsOf(342800, 150000, 20000, -20000))).toEqual(["Otettu säästöistä 200 €"]);
     expect(terms({ ...totalsOf(100000, 150000, 0, 0), borrowedCents: 40000, leftCents: -10000 })).toEqual(["Nostettu luottoa 400 €"]);
     expect(terms({ ...totalsOf(100000, 50000, 0, 0), borrowedCents: -40000, leftCents: 10000 })).toEqual(["Luottoa maksettu takaisin 400 €"]);
     expect(terms(totalsOf(412000, 150000, 20000, 0))).toEqual([]);
+  });
+
+  it("the terms are rounded with Tulot, Menot and Tulos, so the euros shown add up to the Tulos shown", () => {
+    // 4 120,40 less 1 700,40 less 300,40 moved to savings plus 150,60 drawn on credit is 2 270,20: shown 4 120, 1 700, 2 270
+    const totals = { ...totalsOf(412040, 150020, 20020, 30040), borrowedCents: 15060, leftCents: 227020 };
+    const overview = { income: { cents: 412040, earnedCents: 412040 }, months: [{ month: "2026-11", incomeCents: 412040, spendCents: 170040, fromSavingsCents: 0, complete: false }] };
+    const summary = summaryIn(data({ totals, overview } as never));
+    expect([...summary.querySelectorAll("[data-fig=result] .home-fig-term")].map((el) => flat(el.textContent))).toEqual(["Säästöön siirretty 300 €", "Nostettu luottoa 150 €"]);
+    const euros = (id: string) => Number(flat(summary.querySelector(`[data-fig=${id}] .fig`)?.textContent).replace(/[^\d−-]/g, "").replace("−", "-"));
+    expect([euros("income"), euros("spent"), euros("result")]).toEqual([4120, 1700, 2270]);
+    expect(euros("income") - euros("spent") - 300 + 150).toBe(euros("result"));
   });
 
   it("the figures hold no link or button: no list holds a month's Tulos", () => {

@@ -52,6 +52,11 @@ for (const width of [320, 360, 390]) {
       expect(box.x, "starts on the screen").toBeGreaterThanOrEqual(0);
       expect(box.x + box.width, "ends on the screen").toBeLessThanOrEqual(width);
     }
+    // the terms under Tulos do not push the month's figures off the first screen: Tulot, Menot, Tulos and the terms end above its foot
+    for (const part of await page.locator(".home-figs .fig, .home-fig-term").all()) {
+      const box = (await part.boundingBox())!;
+      expect(box.y + box.height, "the figure is on the first screen").toBeLessThanOrEqual(800);
+    }
     // everything that is tapped on the page is tapped with a thumb
     expect(await small(page.locator("main :is(a:not(.mb-link), button, select, summary, input):visible, .nav a:visible")), "tap targets under 44 px").toEqual([]);
     // a month of the chart is a column as high as the plot and a twelfth of its width: 24 px from 390 px on, about 22 px at 360 px

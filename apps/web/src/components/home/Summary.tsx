@@ -74,14 +74,20 @@ interface Item {
 
 /**
  * What Tulot less Menot leaves out of Tulos: money moved to savings (less), taken out of them (more), credit drawn (more) or
- * paid back (less). Each is a sum of `totals`, told with its direction, so the page's terms add up to Tulos.
+ * paid back (less). Each is a sum of `totals`, told with its direction. The figures are told in whole euros, so the terms
+ * are rounded with Tulot, Menot and Tulos: the first term is its own sum to the euro and the last takes what is left, so
+ * the terms as shown add up to Tulos as shown.
  */
-function termsOf(totals: Data["totals"]): string[] {
-  const line = (key: "home.term_saved" | "home.term_savings_drawn" | "home.term_credit_drawn" | "home.term_credit_repaid", cents: number) => (Math.abs(cents) < 50 ? [] : [t(key, { sum: answerMoney(Math.abs(cents)) })]);
-  return [
-    ...line(totals.savedCents >= 0 ? "home.term_saved" : "home.term_savings_drawn", totals.savedCents),
-    ...line(totals.borrowedCents >= 0 ? "home.term_credit_drawn" : "home.term_credit_repaid", totals.borrowedCents),
-  ];
+function termsOf(totals: Data["totals"], incomeCents: number, spentCents: number): string[] {
+  const euros = (cents: number) => Math.sign(cents) * Math.round(Math.abs(cents) / 100) * 100;
+  const line = (key: "home.term_saved" | "home.term_savings_drawn" | "home.term_credit_drawn" | "home.term_credit_repaid", cents: number) => (cents === 0 ? [] : [t(key, { sum: answerMoney(Math.abs(cents)) })]);
+  const hasSaved = Math.abs(totals.savedCents) >= 50;
+  const hasCredit = Math.abs(totals.borrowedCents) >= 50;
+  // Tulos as shown is Tulot less Menot, less what moved to savings, plus the credit drawn: this is what the last two leave
+  const between = euros(incomeCents) - euros(spentCents) - euros(totals.leftCents);
+  const saved = hasSaved ? (hasCredit ? euros(totals.savedCents) : between) : 0;
+  const credit = hasCredit ? (hasSaved ? saved - between : -between) : 0;
+  return [...line(saved >= 0 ? "home.term_saved" : "home.term_savings_drawn", saved), ...line(credit >= 0 ? "home.term_credit_drawn" : "home.term_credit_repaid", credit)];
 }
 
 function itemsOf(data: Data): Item[] {
@@ -127,7 +133,7 @@ function itemsOf(data: Data): Item[] {
       cents: totals.leftCents,
       gauge: { cents: totals.leftCents, scaleCents, tone: totals.leftCents < 0 ? "debt" : "income", markCents: sameSign(totals.leftCents, previousResult), band: null },
       line: previousLine(previousResult),
-      terms: termsOf(totals),
+      terms: termsOf(totals, incomeCents, spentCents),
     },
   ];
 }

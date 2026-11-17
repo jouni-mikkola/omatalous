@@ -142,9 +142,10 @@ export function bridgeView(totals: BridgeTotals): BridgeView {
   const figures: BridgeFigure[] = [
     { key: "income" as const, cents: totals.incomeCents, ...shareOf("income", totals.incomeCents, false) },
     // what was drawn and stayed is money in beside the income: without its row the parts and Tulos add up to more than the
-    // income. It is a source, not a part, so it has no share of its own.
+    // income. It is a source, not a part, so it has no share of its own. With a gap it is no row: the list then adds up to
+    // the income and the cover, and Tulos is the drawn money that covered nothing, so no row names it by another sum.
     ...sources
-      .filter((p) => (p.key === "credit-left" || p.key === "savings-left") && prints(p.cents))
+      .filter((p) => c.gapCents === 0 && (p.key === "credit-left" || p.key === "savings-left") && prints(p.cents))
       .map((p) => ({ key: p.key, cents: p.cents, ...shareOf(p.key, p.cents, false) })),
     ...went.filter((p) => p.key !== "left" && (p.key !== "saved" || totals.savedCents >= 0)).map((p) => ({ key: p.key, cents: p.cents, ...shareOf(p.key, p.cents, p.key !== "repaid") })),
     ...cover.map((p) => ({ key: p.key, cents: p.cents, ...shareOf(p.key, p.cents, false) })),

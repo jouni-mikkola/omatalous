@@ -4,7 +4,7 @@
  * `outCents` add up parts. A row has the category and the transfer mark the view counts it by, so the list, its sums
  * and the front page say the same of it. A payment that arrived short carries its fee as its part.
  */
-import { moneyBins, partCents } from "@banking/core";
+import { moneyBins, partCents, totalsOf } from "@banking/core";
 import { extensionRowFields } from "../extensions.ts";
 import { parseDateRange } from "../platform/validate.ts";
 import { parseScope, rowsInView } from "./analysis.ts";
@@ -37,7 +37,7 @@ export interface TransactionsQuery {
 export async function transactionsView(s: Services, userId: string, q: TransactionsQuery) {
   const repo = s.finance(userId);
   const range = parseDateRange(q.from || undefined, q.to || undefined);
-  const { shared, own } = await rowsInView(s, userId, parseScope(q.scope));
+  const { shared, own, ctx } = await rowsInView(s, userId, parseScope(q.scope));
   const filter = {
     from: range.from,
     to: range.to,
@@ -50,7 +50,11 @@ export async function transactionsView(s: Services, userId: string, q: Transacti
     offset: q.offset,
     own,
   };
-  const { total, inCents, outCents, savedCents, days, items: stored } = await repo.listTransactions(filter, shared.map((a) => a.id));
+  const { total, ids, days, items: stored } = await repo.listTransactions(filter, shared.map((a) => a.id));
+  // the strip's figures are the flows of the matching rows, as the front page adds them up: a refund lowers Menot, a loan
+  // account's row and a move between own accounts are neutral, what lands on savings is saved, a short payment's fee is spent
+  const rowsById = new Map(ctx.txs.map((t) => [t.id, t]));
+  const { incomeCents: inCents, expenseCents: outCents, savedCents } = totalsOf(ids.map((id) => rowsById.get(id)?.flows).filter((f) => f !== undefined));
   // the list grouped by payee (`sums=merchant`): each listed payee's whole sums, as each listed day has its own
   const merchantSums = q.sums === "merchant" ? await repo.merchantSums(filter, shared.map((a) => a.id), [...new Set(stored.map((t) => t.merchant))]) : undefined;
   const items = stored.map((t) => ({ ...t, ...own.told.get(t.id) }));
@@ -74,6 +78,7 @@ export async function transactionsView(s: Services, userId: string, q: Transacti
     outCents,
     netCents: inCents - outCents,
     // what the rows move onto savings accounts or into savings categories (negative: taken out); Tulos is netCents less this
+    // (and plus the credit the rows draw, which no row of an ordinary month holds)
     savedCents,
     span,
     // the totals strip's histogram and each listed day's whole sums

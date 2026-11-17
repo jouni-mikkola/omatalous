@@ -339,7 +339,8 @@ export function monthResult(h: GeneratedHousehold, v: HouseholdView, dashboard: 
   if (terms !== totals.leftCents) say(`Tulot ${income} - Menot ${spent} - saved ${totals.savedCents} + credit ${totals.borrowedCents} is ${terms}, Tulos is ${totals.leftCents}`);
   const view = bridgeView(totals);
   const sum = (keys: readonly string[]) => view.figures.filter((f) => keys.includes(f.key)).reduce((s, f) => s + f.cents, 0);
-  const went = sum(["consumption", "debt", "saved", "repaid", "left"]);
+  // with a gap the list adds up to the income and the cover, and what stayed is drawn money no row names
+  const went = sum(view.cover.gapCents === 0 ? ["consumption", "debt", "saved", "repaid", "left"] : ["consumption", "debt", "saved", "repaid"]);
   const came = totals.incomeCents + sum(["credit", "savings", "accounts", "credit-left", "savings-left"]);
   if (Math.abs(went - came) > LIST_SLACK_CENTS) say(`Tulojen käyttö lists ${went} went against ${came} that came`);
   const shares = view.figures.flatMap((f) => (f.incomeUnits === null ? [] : [f.incomeUnits]));
