@@ -95,7 +95,8 @@ function SpendingMonths({ ctx }: SectionProps) {
               months={r.months.map((month, i) => ({ month, complete: r.complete[i]!, parts: [r.totals[i] ?? 0], totalCents: r.totals[i] ?? null }))}
               series={[{ key: "spend", label: t("home.months_spend") }]}
               tone="spending"
-              usual={r.typicalCents === null ? null : { cents: r.typicalCents, label: t("home.months_usual", { sum: eur(r.typicalCents), months: r.typicalMonths }) }}
+              // the first page's Tavallinen kuukausi: the same figure under the same label (Menot without a debt paid from savings)
+              usual={r.typicalFlowCents === null ? null : { cents: r.typicalFlowCents, label: t("home.months_usual", { sum: eur(r.typicalFlowCents), months: r.typicalMonths }) }}
               running={ctx.running}
               label={t("rpt.sm_months")}
             />

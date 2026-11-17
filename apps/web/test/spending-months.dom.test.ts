@@ -103,6 +103,12 @@ describe("Rahankäyttö: the chart of the months", () => {
     expect(plain(container.querySelector(".ms-legend")!.textContent)).toContain("Tavallinen kuukausi 448 €");
   });
 
+  it("names the usual month by the sum the first page names it by, not by the level of the table that keeps a debt paid from savings", () => {
+    const { container } = show({ ...report(true), typicalCents: 50000, typicalFlowCents: 44800 });
+    expect(plain(container.querySelector(".ms-legend")!.textContent)).toContain("Tavallinen kuukausi 448 €");
+    expect(plain(container.querySelector(".ms-legend")!.textContent)).not.toContain("500 €");
+  });
+
   it("a picked month cuts the months table and leaves the opened category's own months whole", () => {
     show(report(true));
     const chart = screen.getByRole("group", { name: /Menot kuukausittain/ });
