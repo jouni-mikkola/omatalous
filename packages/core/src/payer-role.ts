@@ -13,7 +13,7 @@ import { nameOf, type Name, samePerson } from "./person-names.ts";
 import { steadyBy, STEADY_BAND } from "./returns.ts";
 import { normalizeIban } from "./transfers.ts";
 import type { PayerInput, PayerRole, PayerRoleRow, Transaction } from "./types.ts";
-import { hasPayeeForm } from "./wording.ts";
+import { hasPayeeForm, isPaymentMethodName } from "./wording.ts";
 
 /** The roles in the order a page offers them. */
 export const PAYER_ROLES = ["cost_share", "sales", "own_money", "gift", "pay"] as const satisfies readonly PayerRole[];
@@ -40,12 +40,14 @@ export function payerKeyOf(t: PayerRow): string | null {
 }
 
 /**
- * The payer of a row when the row itself identifies one: an account number or a name. A row that names nobody (the
- * stand-in key of unnamed wallet money) is the key of every such row at once, so it tells no one person from another.
+ * The payer of a row when the key identifies one: an account number or a name. A name key made only of the names of ways
+ * to pay ("MobilePay", "Siirto", the stand-in key of unnamed wallet money) is the key of every such row at once, so it
+ * tells no one person from another, whatever message the row carries.
  */
 export function identifiedPayerKeyOf(t: PayerRow): string | null {
   const key = payerKeyOf(t);
-  return key && (key.startsWith("iban:") || !isUnnamedMobilePay(t)) ? key : null;
+  if (!key || key.startsWith("iban:")) return key;
+  return isPaymentMethodName(key.slice("name:".length)) ? null : key;
 }
 
 const nameOfKey = (key: string): Name => new Set(key.slice("name:".length).split(" "));

@@ -389,6 +389,13 @@ describe("money from a person", () => {
     expect(monthOn(ctx)).toMatchObject({ spent: 5_000, income: 3_000 });
   });
 
+  it.each([["MobilePay", "Kiitos pizzasta"], ["Siirto", "Illan osuus"]])("nets nothing for a payer that is only the name of a way to pay (%s), whatever message the rows carry", (name, message) => {
+    const [sent, back] = [paid("2026-10-04", 50, name, "p2p", { counterparty: name, description: message }), got("2026-10-11", 30, name, "p2p_in", { counterparty: name, description: message })];
+    const ctx = contextOf([sent, back]);
+    expect(ctx.netted.size).toBe(0);
+    expect(monthOn(ctx)).toMatchObject({ spent: 5_000, income: 3_000 });
+  });
+
   it("nets nothing for a row already on Maksut henkilöille: it is not money from a person to settle anything", () => {
     const back = got("2026-10-11", 30, MATTI, "p2p", { counterparty: MATTI });
     const ctx = contextOf([to("2026-10-04", 50, MATTI), back]);
