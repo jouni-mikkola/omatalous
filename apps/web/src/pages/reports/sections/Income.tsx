@@ -57,7 +57,7 @@ function Income({ ctx }: SectionProps) {
             months={r.months.map((m, i) => ({ month: m.month, complete: m.complete, parts: r.kinds.map((k) => k.months[i] ?? 0), totalCents: m.totalCents }))}
             series={r.kinds.map((k) => ({ key: k.id, label: k.label }))}
             tone="income"
-            usual={r.monthlyCents === null ? null : { cents: r.monthlyCents, label: t("home.months_usual", { sum: money(r.monthlyCents, false), months: r.completeMonths }) }}
+            usual={r.monthlyCents === null ? null : { cents: r.monthlyCents, label: t("rpt.in_average_line", { sum: money(r.monthlyCents, false), months: r.completeMonths }) }}
             running={ctx.running}
             label={t("rpt.in_months")}
           />
