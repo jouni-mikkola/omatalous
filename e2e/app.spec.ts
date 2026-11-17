@@ -315,7 +315,7 @@ test("the merchants of the month on Tapahtumat, and a merchant there has a summa
   // the strip above states the filtered sums; the card's whole history stands once, and not at all when the merchant is
   // the only filter (the strip then says the same)
   const strip = page.getByRole("region", { name: "Rajattujen tapahtumien summat" });
-  await expect(strip.getByText("Menot", { exact: true })).toBeVisible();
+  await expect(strip.getByRole("term").filter({ hasText: "Menot" })).toBeVisible();
   for (const term of ["Menot yhteensä", "Tulot yhteensä", "Maksuja"]) expect(await page.getByText(term, { exact: true }).count()).toBeLessThanOrEqual(1);
   await page.goto(`/#/transactions?merchant=${encodeURIComponent(merchant)}`);
   await expect(summary.getByRole("heading", { name: merchant })).toBeVisible();
