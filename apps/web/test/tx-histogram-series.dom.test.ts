@@ -53,6 +53,6 @@ describe("the histogram's direction switch", () => {
 
   it("starts on money in when the list is limited to income", () => {
     render(createElement(TotalsStrip, { totals, income: true, today: "2026-10-13", onPick: () => {} }));
-    expect(readout()).toContain("rahaa sisään");
+    expect(readout()).toContain("tulot");
   });
 });

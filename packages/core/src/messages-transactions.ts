@@ -65,8 +65,6 @@ export const FI_TRANSACTIONS = {
   "fchip.limits": "Rajaus",
   "fchip.search_clear": "Tyhjennä haku",
   "tx.series": "Suunta",
-  "tx.series_out": "Ulos",
-  "tx.series_in": "Sisään",
   "fchip.income_only": "Vain tulot",
   "fchip.merchant": "Kauppias",
   "tx.type_card": "Kortti",

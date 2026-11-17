@@ -63,8 +63,6 @@ export const EN_TRANSACTIONS: Record<keyof typeof FI_TRANSACTIONS, string> = {
   "fchip.limits": "Limits",
   "fchip.search_clear": "Clear search",
   "tx.series": "Direction",
-  "tx.series_out": "Out",
-  "tx.series_in": "In",
   "fchip.income_only": "Income only",
   "fchip.merchant": "Merchant",
   "tx.type_card": "Card",

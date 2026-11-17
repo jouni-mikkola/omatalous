@@ -16,8 +16,8 @@
 .home-figs > li[data-fig="result"] .fig-l { font-weight: var(--w-strong); }
 .home-fig-label { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); }
 .home-fig-line { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
-/* a term between Menot and Tulos (moved to or from savings, credit): a sum of the month's, so it reads as strong as the label above the figure */
-.home-fig-term { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text); }
+/* a term between Menot and Tulos (moved to or from savings, credit): a sum of the month's, so it reads in the text colour, not the muted one of a comparison */
+.home-fig-term { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text); }
 .home-short .fig { color: var(--bad); }
 
 /* a figure's bar: its length on the scale it shares with its comparison, the same day of last month as a mark, the usual level to this day as a band */

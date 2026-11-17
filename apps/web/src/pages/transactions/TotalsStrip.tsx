@@ -139,8 +139,8 @@ export function TotalsStrip({ totals, income, today, onPick }: { totals: Totals;
           label={t("tx.series")}
           value={series}
           options={[
-            { value: "out", label: t("tx.series_out"), ariaLabel: t("tx.spending") },
-            { value: "in", label: t("tx.series_in"), ariaLabel: t("tx.income") },
+            { value: "out", label: t("tx.spending") },
+            { value: "in", label: t("tx.income") },
           ]}
           onChange={setSeries}
         />

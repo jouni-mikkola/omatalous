@@ -98,7 +98,7 @@ test("Enter on the histogram narrows the list to its tallest bin, and a filter t
   const { context, page, seen } = await open(browser, "/#/transactions");
   const hist = page.getByRole("img", { name: /^Menot (päivittäin|viikoittain|kuukausittain), suurin / });
   await expect(hist).toBeVisible();
-  await expect(page.locator(".tx-hist-readout")).toContainText("rahaa ulos");
+  await expect(page.locator(".tx-hist-readout")).toContainText("menot");
   await hist.focus();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}/);
