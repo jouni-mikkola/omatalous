@@ -83,4 +83,13 @@ export const EN_SET_RI: Record<keyof typeof FI_SET_RI, string> = {
   "set.ri.loan_terms_end_date": "When is the loan's last due date?",
   "set.ri.loan_terms_owed": "owed",
   "set.ri.loan_terms_balance_date": "Balance on {date}",
+  "set.ri.money_back_double": "Double charge",
+  "set.ri.money_back_cancelled": "Charge after cancelling",
+  "set.ri.money_back_double_question": "Did the merchant charge the same amount more than once?",
+  "set.ri.money_back_cancelled_question": "Did the service charge you although you cancelled it?",
+  "set.ri.money_back_unit": "back",
+  "set.ri.money_back_double_line": "{count} identical charges, latest {last}.",
+  "set.ri.money_back_cancelled_one": "Charged {last}.",
+  "set.ri.money_back_cancelled_many": "{count} charges, latest {last}.",
+  "set.ri.money_back_asked": "You asked for a refund on {date}, but none has arrived.",
 };

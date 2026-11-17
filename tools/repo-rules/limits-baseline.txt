@@ -2,8 +2,6 @@ packages/core/src/analysis/ahead-moves.ts  LATE_DAYS
 packages/core/src/analysis/ahead-moves.ts  MIN_BILL_GAP_DAYS
 packages/core/src/analysis/ahead-moves.ts  MIN_PAYMENTS
 packages/core/src/analysis/ahead-moves.ts  STALE_DAYS
-packages/core/src/analysis/alerts.ts  BILL_DOUBLE_DAYS
-packages/core/src/analysis/alerts.ts  DOUBLE_MIN_CENTS
 packages/core/src/analysis/alerts.ts  FEES_MIN_DAYS
 packages/core/src/analysis/alerts.ts  FEES_MIN_MONTHS
 packages/core/src/analysis/alerts.ts  FEES_MIN_YEARLY
