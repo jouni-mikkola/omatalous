@@ -56,8 +56,9 @@ average without one complete month is empty. A year comparison needs three whole
 own account or fund that is not connected (`own_unconnected` in Tietojen laatu) counts as saved, and the data quality card
 names the sum and the largest payees, so a missing connection shows.
 
-Tapahtumat's strip leaves own transfers out of its sums, and so do a merchant summary's sums and its category. The row
-count still includes them. The strip adds up the flows of the rows (`totalsOf` over the `flows` of the context, as the
+Tapahtumat's strip leaves own transfers out of its sums, and so does a merchant summary's category. The row
+count still includes them. A merchant summary's Menot yhteensä and Tulot yhteensä are the same flows over all the
+merchant's rows, so a refund lowers Menot there too and adds nothing to Tulot. The strip adds up the flows of the rows (`totalsOf` over the `flows` of the context, as the
 first page does), so a refund lowers Menot, the rows of a loan account and the moves between own accounts are neutral, a
 short payment's fee is spent, and what lands on savings is saved. It names that sum *Säästöön siirretty* (or *Otettu
 säästöistä* when it is negative), so Erotus less that sum is Tulos of the same rows. The days of the list and its
