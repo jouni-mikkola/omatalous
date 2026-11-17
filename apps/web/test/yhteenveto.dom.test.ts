@@ -187,7 +187,9 @@ describe("Yhteenveto's month", () => {
   });
 
   it("tells where the income went as the bridge of Raportit does: each part with its sum", () => {
-    const container = summaryIn(data());
+    // the month's bar holds the same Menot as the totals (1 500 + 200), as it does in a real answer: the terms under Tulos and this list share one rounding
+    const overview = { income: { cents: 412000, earnedCents: 398000 }, months: [{ month: "2026-11", incomeCents: 412000, spendCents: 170000, fromSavingsCents: 0, complete: false }] };
+    const container = summaryIn(data({ overview } as never));
     const parts = [...container.querySelectorAll(".home-flow-list > li")].map((li) => ({
       part: li.getAttribute("data-part"),
       name: li.querySelector(".home-flow-name")?.textContent,

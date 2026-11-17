@@ -132,6 +132,9 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 .tx-table tr.rt-group > * { padding-block: var(--sp-4); }
 .tx-table tr.rt-group > th { font-size: var(--fs-label); }
 .tx-table tr.rt-group > th .rt-group-count { font-size: var(--fs-label); }
+/* a day with Menot, Tulot and savings has three sums: on a phone they wrap beside the day instead of widening the page */
+.rt-wrap[data-block] .rt.tx-table tr.rt-group { grid-template-columns: auto minmax(0, 1fr); column-gap: var(--sp-8); }
+.rt-wrap[data-block] .rt.tx-table tr.rt-group > td:not([data-label]) { white-space: normal; }
 .tx-who { display: flex; align-items: center; gap: var(--sp-8); min-width: 0; }
 .tx-line { display: flex; flex: 0 1 auto; align-items: center; gap: var(--sp-8); min-width: 0; min-height: 24px; }
 .tx-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
