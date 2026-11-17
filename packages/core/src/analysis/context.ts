@@ -14,6 +14,7 @@ import { loanPaymentAccounts } from "../loan-payment.ts";
 import { type Flows, flowsOf, incomeOf, type PeriodTotals, spendCentsOf, totalsOf } from "./flows.ts";
 import { shortFees } from "./fee-short.ts";
 import { moneyIn } from "./money-in.ts";
+import { splitShareIds } from "../behaviour/split.ts";
 import { netPersons } from "./person-netting.ts";
 import type { DayRange } from "./period.ts";
 import { type ExplainedTx, explainStatements, type StatementBill, type StatementState } from "./statement-explain.ts";
@@ -221,8 +222,18 @@ function* contextSteps(transactions: readonly Transaction[], accounts: readonly 
     t.flows = incomeOf(t.amountCents);
     t.spend = 0;
   }
-  // money from people nets against what was sent to people in its month: after the refunds, which it never takes
-  for (const [id, netting] of netPersons(txs)) lower(id, netting);
+  // money from a person nets against what was sent to the same person in its month: after the refunds, which it never
+  // takes, and leaving the friends' shares that the split guess asks about
+  for (const [id, netting] of netPersons(txs, () => splitShareIds({ today, txs, returns }))) {
+    lower(id, netting);
+    // a month that sent less than came in keeps the rest as income
+    const t = byId.get(id)!;
+    const rest = t.amountCents - netting.reduce((sum, [, cents]) => sum + cents, 0);
+    if (rest > 0) {
+      t.flows = { ...t.flows, income: rest, consumption: t.flows.consumption + rest };
+      t.spend += rest;
+    }
+  }
   yield;
 
   const recurring = cut ? cut.recurring : yield* recurringSteps(txs, today, accounts);

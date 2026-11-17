@@ -1,2 +1,2 @@
 section: Money and reports
-- Money from people that matches what you sent them in the same month no longer counts as income.
+- Money from a person settles what you sent the same person that month; only the rest counts as income.

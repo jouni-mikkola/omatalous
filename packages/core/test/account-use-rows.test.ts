@@ -185,8 +185,8 @@ describe("an account somebody else uses alone", () => {
     expect(pick(seen, sent.id)).toEqual({ ...sent, category: "p2p", categorySource: "rule", isTransfer: false });
     expect(pick(seen, received.id)).toEqual({ ...received, category: "p2p_in", categorySource: "rule", isTransfer: false });
     expect(pick(seen, hisOnly.id)).toBe(hisOnly);
-    // 300 to her and 50 of groceries left him, 80 came and nets against the 300: her 20 of groceries is nowhere
-    expect(totals(seen, [his])).toMatchObject({ consumptionCents: 27000, incomeCents: 0 });
+    // 300 to her and 50 of groceries left him, 80 came: her 20 of groceries is nowhere
+    expect(totals(seen, [his])).toMatchObject({ consumptionCents: 35000, incomeCents: 8000 });
   });
 
   it("the row names her account by its number and nothing pairs with it: still money to a person", () => {

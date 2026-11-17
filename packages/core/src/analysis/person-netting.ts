@@ -1,17 +1,18 @@
 /**
- * Money between people nets inside a month. Decision: whether what came in from people is income or the other half of
- * what was sent to them.
+ * Money between people nets inside a month. Decision: whether what came in from a person is income or the other half
+ * of what the household sent to that same person.
  *
- * Money from a person that no rule, pair or answer placed (Maksut henkilöiltä, income that is not earned) is a share
- * of what the household sent to people (Maksut henkilöille) when the same month holds enough of it: the row lowers
- * Maksut henkilöille as a row with its minus, so the spending shows what the household paid in the end. Income less
- * spending stays what it was, since the cents leave the income and the spending together, and Tulos is the same with
- * and without the netting. A row the month's payments cannot hold whole stays income, so a month that took in more
- * than it sent shows the surplus as Maksut henkilöiltä, which is no earned income.
+ * Money from a person that no rule, pair or answer placed (Maksut henkilöiltä, income that is not earned) settles what
+ * the household sent to the same person (Maksut henkilöille, one payer key, `payerKeyOf`) in the same month. The row
+ * takes what is left of those payments, oldest first, and lowers Maksut henkilöille by that much, as a row with its
+ * minus. Only the rest of the row stays income, as Maksut henkilöiltä, which is no earned income. Income less spending
+ * stays what it was, since the cents leave the income and the spending together, and Tulos is the same with and
+ * without the netting. Payments to other people are not touched.
  *
  * A row the user categorised, or whose payer the user answered for (a role), is the user's word and is never netted.
  * Neither is money from a steady payer (a lodger's rent, an allowance): that is regular income whatever else the month
- * sent. The result depends on the rows only, not on their order.
+ * sent. A row the split guess claims (`splitShareIds`) is a friend's share of a bill, which is asked about, and is left
+ * alone. The result depends on the rows only, not on their order.
  */
 import { payerKeyOf, steadyPayers } from "../payer-role.ts";
 import type { AnalysisTx } from "./context.ts";
@@ -29,8 +30,12 @@ type Netting = readonly (readonly [paymentId: string, cents: number])[];
 const monthOfRow = (t: Pick<Row, "bookingDate">) => t.bookingDate.slice(0, 7);
 const byDay = (a: Pick<Row, "day" | "id">, b: Pick<Row, "day" | "id">) => a.day - b.day || (a.id < b.id ? -1 : 1);
 
-/** Every row of money from people that nets against the payments to people of its month, by its id. Call it after `moneyIn` was applied. */
-export function netPersons(rows: readonly Row[]): Map<string, Netting> {
+/**
+ * Every row of money from a person that settles payments to the same person in its month, by its id, with what it takes
+ * of each: less than its amount where the month sent less. Call it after `moneyIn` was applied. `claimed` gives the ids
+ * the split guess claims; it is asked only when a row could net.
+ */
+export function netPersons(rows: readonly Row[], claimed: () => ReadonlySet<string> = () => new Set()): Map<string, Netting> {
   const out = new Map<string, Netting>();
   const incoming = rows
     .filter(
@@ -45,32 +50,33 @@ export function netPersons(rows: readonly Row[]): Map<string, Netting> {
     )
     .sort(byDay);
   if (!incoming.length) return out;
-  const steady = steadyPayers(rows);
-  const open = new Map<string, { id: string; day: number; left: number }[]>();
-  for (const t of rows) {
+  const open = new Map<string, { id: string; left: number }[]>();
+  for (const t of [...rows].sort(byDay)) {
     const left = t.spend - t.refunded;
-    if (t.category !== TO_PERSONS || t.amountCents >= 0 || t.isTransfer || left <= 0) continue;
-    const list = open.get(monthOfRow(t));
-    const payment = { id: t.id, day: t.day, left };
-    if (list) list.push(payment);
-    else open.set(monthOfRow(t), [payment]);
+    const payer = payerKeyOf(t);
+    if (t.category !== TO_PERSONS || t.amountCents >= 0 || t.isTransfer || left <= 0 || !payer) continue;
+    const key = `${monthOfRow(t)}|${payer}`;
+    const list = open.get(key);
+    if (list) list.push({ id: t.id, left });
+    else open.set(key, [{ id: t.id, left }]);
   }
-  for (const list of open.values()) list.sort(byDay);
+  if (!open.size) return out;
+  const steady = steadyPayers(rows);
+  const split = claimed();
   for (const t of incoming) {
-    if (steady.has(payerKeyOf(t) ?? "")) continue;
-    const payments = open.get(monthOfRow(t)) ?? [];
-    if (payments.reduce((sum, p) => sum + p.left, 0) < t.amountCents) continue;
+    const payer = payerKeyOf(t);
+    if (!payer || steady.has(payer) || split.has(t.id)) continue;
     const taken: [string, number][] = [];
     let rest = t.amountCents;
-    for (const p of payments) {
-      if (rest === 0) break;
+    for (const p of open.get(`${monthOfRow(t)}|${payer}`) ?? []) {
       const part = Math.min(rest, p.left);
       if (part === 0) continue;
       p.left -= part;
       rest -= part;
       taken.push([p.id, part]);
+      if (rest === 0) break;
     }
-    out.set(t.id, taken);
+    if (taken.length) out.set(t.id, taken);
   }
   return out;
 }

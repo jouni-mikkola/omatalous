@@ -422,12 +422,13 @@ more than a shop name or an amount:
   category, whatever the payee and the days. Any other money in on a spending category is income: *Hyvitykset*, or
   *Maksut henkilöiltä* from a person. A purchase that was paid back leaves the lists of merchants, habits and double
   charges by the amount that came back.
-- Money from a person that nothing placed (*Maksut henkilöiltä*, a rule's row and no answer) nets against the payments
-  to people of its month (`netPersons` in `analysis/person-netting.ts`, after the refunds). The row lowers *Maksut
-  henkilöille* with its minus when the month's payments hold it whole, so the income and the spending fall by the same
-  cents and Tulos is what it was. A row the month cannot hold stays income that is not earned, so a month that took in
-  more than it sent shows the surplus as *Maksut henkilöiltä*. A row you categorised, or whose payer you answered for,
-  never nets.
+- Money from a person that nothing placed (*Maksut henkilöiltä*, a rule's row and no answer) settles what you sent the
+  same person in the same month (`netPersons` in `analysis/person-netting.ts`, after the refunds and the split guess).
+  The row takes what is left of those payments and lowers *Maksut henkilöille* by that much, so the income and the
+  spending fall by the same cents and Tulos is what it was. Only the rest stays income that is not earned, so a month
+  that took in more from a person than it sent them shows the surplus as *Maksut henkilöiltä*. Payments to other
+  people stay as they were. A row you categorised, a row whose payer you answered for, money from a steady payer and a
+  friend's share of a bill that the split question asks about never net.
 
 ## Alerts
 

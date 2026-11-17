@@ -148,8 +148,8 @@ const isOutflow = (category: string): boolean => ["expense", "debt"].includes(ge
 
 /** I3a: money in does not sit in a category of money out, unless the labels say it is a refund or the household set it. */
 export function moneyIn(h: GeneratedHousehold, v: HouseholdView): Violation[] {
-  // money from a person nets against what was sent to people in its month (`netPersons`): it sits in Maksut henkilöille then
-  const bad = v.ctx.txs.filter((t) => t.amountCents > 0 && !t.isTransfer && isOutflow(t.category) && t.categorySource !== "user" && h.truth.get(t.id)?.kind !== "refund" && h.truth.get(t.id)?.kind !== "person");
+  // money from a person nets against what was sent to the same person in its month (`netPersons`): it sits in Maksut henkilöille, below zero, then
+  const bad = v.ctx.txs.filter((t) => t.amountCents > 0 && !t.isTransfer && isOutflow(t.category) && t.categorySource !== "user" && h.truth.get(t.id)?.kind !== "refund" && !(t.category === "p2p" && t.flows.consumption < 0));
   const by = new Map<string, number>();
   for (const t of bad) {
     const what = `${t.counterparty ?? "no sender"} as ${t.category}`;
@@ -163,8 +163,8 @@ function wrongFlow(label: Truth, t: HouseholdView["ctx"]["txs"][number]): string
   const f = t.flows;
   // a refund is judged by I3a, and a transfer or a mirror by I1b; a row cut to nothing says nothing
   if (t.amountCents === 0 || label.kind === "refund") return null;
-  // money from a person counts as spending below zero where the month sent as much (`netPersons`)
-  if (label.flow === "income" && label.kind === "person" && f.income === 0 && f.consumption < 0 && f.debt === 0) return null;
+  // money from a person counts as spending below zero where the month sent as much to the same person (`netPersons`), and as income for the rest
+  if (label.flow === "income" && label.kind === "person" && f.consumption < 0 && f.debt === 0 && f.income - f.consumption === t.amountCents) return null;
   if (label.flow === "income") return f.income > 0 && f.consumption === 0 && f.debt === 0 ? null : `income counted as income ${f.income}, consumption ${f.consumption}, debt ${f.debt}`;
   if (label.flow === "consumption") return f.consumption > 0 && f.income === 0 && f.debt === 0 ? null : `consumption counted as income ${f.income}, consumption ${f.consumption}, debt ${f.debt}`;
   if (label.flow === "debt") return f.debt > 0 && f.income === 0 && f.consumption === 0 ? null : `debt counted as income ${f.income}, consumption ${f.consumption}, debt ${f.debt}`;

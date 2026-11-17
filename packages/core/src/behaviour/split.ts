@@ -78,7 +78,7 @@ const isPurchase = (t: AnalysisTx) =>
   t.amountCents < 0 && !t.isTransfer && t.kind === "expense" && isSharedPurchase(t.category) && !NEVER_SHARED.has(t.category) && -t.amountCents >= MIN_PURCHASE_CENTS;
 
 /** Questions about the purchases of the last `days` days: an old court booking is not worth asking about. */
-export function splitCandidates(ctx: AnalysisContext, days = 90): SplitCandidates {
+export function splitCandidates(ctx: Pick<AnalysisContext, "today" | "txs" | "returns">, days = 90): SplitCandidates {
   const today = dayNumber(ctx.today);
   const incoming = ctx.txs.filter(isFromPerson);
   const busy = busyPayersOf(incoming, today);
@@ -132,6 +132,10 @@ export function splitCandidates(ctx: AnalysisContext, days = 90): SplitCandidate
   questions.sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : a.purchaseId < b.purchaseId ? -1 : 1));
   return { questions, busyPayers: busy };
 }
+
+/** The ids of the payments the questions of `splitCandidates` take for shares: `netPersons` leaves them to the household's answer. */
+export const splitShareIds = (ctx: Pick<AnalysisContext, "today" | "txs" | "returns">): Set<string> =>
+  new Set(splitCandidates(ctx).questions.flatMap((q) => q.shares.evidence.slice(1)));
 
 /**
  * The payments that look most like shares of `cents`: one that is half or a third of it to the cent (and no round 50
