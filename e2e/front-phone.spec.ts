@@ -45,12 +45,17 @@ for (const width of [320, 360, 390]) {
       bottom = box.y + box.height;
     }
     expect(await overflow(page), `the page scrolls sideways: ${(await sticking(page, width)).join("; ")}`).toBe(0);
-    expect(await cut(page.locator(".home-fig-label, .home-figs .fig, .home-fig-line, .home-flow-name, .home-flow-sum, .where-name, .where-sum")), "text cut").toEqual([]);
+    expect(await cut(page.locator(".home-fig-label, .home-figs .fig, .home-fig-line, .home-fig-term, .home-flow-name, .home-flow-sum, .where-name, .where-sum")), "text cut").toEqual([]);
     // every figure of the month is inside the screen
     for (const cell of await page.locator(".home-figs .fig").all()) {
       const box = (await cell.boundingBox())!;
       expect(box.x, "starts on the screen").toBeGreaterThanOrEqual(0);
       expect(box.x + box.width, "ends on the screen").toBeLessThanOrEqual(width);
+    }
+    // the terms under Tulos do not push the month's figures off the first screen: Tulot, Menot, Tulos and the terms end above its foot
+    for (const part of await page.locator(".home-figs .fig, .home-fig-term").all()) {
+      const box = (await part.boundingBox())!;
+      expect(box.y + box.height, "the figure is on the first screen").toBeLessThanOrEqual(800);
     }
     // everything that is tapped on the page is tapped with a thumb
     expect(await small(page.locator("main :is(a:not(.mb-link), button, select, summary, input):visible, .nav a:visible")), "tap targets under 44 px").toEqual([]);

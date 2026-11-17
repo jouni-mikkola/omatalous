@@ -28,16 +28,14 @@ interface UncategorisedList {
 }
 
 /**
- * Everything one merchant's rows add up to, for the summary above a merchant-filtered transaction list. An own
- * transfer is counted as a row but not in the sums: it is money moved, not paid or received.
+ * What one merchant's rows add up to in count, months and category, for the summary above a merchant-filtered transaction
+ * list. The sums of money paid and received are the route's: the flows of the rows, as the list's strip adds them. An own
+ * transfer is counted as a row but not in the months: it is money moved, not paid or received.
  */
 export interface MerchantHistory {
   count: number;
   /** Rows that are own transfers. */
   transfers: number;
-  /** Money out and in over the whole history, positive cents, own transfers left out. */
-  outCents: number;
-  inCents: number;
   firstDate: string;
   lastDate: string;
   /** The category most of its rows other than own transfers are in (that of the transfers when it has nothing else). */
@@ -182,7 +180,7 @@ export class MerchantsRepo {
   /**
    * One merchant's whole history in one grouped read per side (own rows, shared accounts in the household view).
    * It runs on idx_tx_user_merchant_date, so it reads only that merchant's rows however long the history is.
-   * The same rows as the transaction list filtered to the merchant, so the counts and the sums agree (`listSumsSql`). A
+   * The same rows as the transaction list filtered to the merchant, so the counts and the months agree (`listSumsSql`). A
    * payment that arrived short adds its fee to the money out; it is named by its stored category, never by Pankkikulut.
    */
   async merchantHistory(merchant: string, accountIds?: readonly string[], own?: OwnRows): Promise<MerchantHistory | null> {
@@ -192,19 +190,17 @@ export class MerchantsRepo {
     const countByMonth: Record<string, number> = {};
     let count = 0;
     let transfers = 0;
-    let outCents = 0;
-    let inCents = 0;
     let firstDate = "";
     let lastDate = "";
     const sums = listSumsSql(own);
     const told = toldSql(own);
     for (const side of this.list.filterSides({ merchant, own }, accountIds)) {
       // `moved` is the mark the view tells, `held` the one the sums use: they differ for a payment that arrived short
-      const rows = await this.ctx.db.all<{ cat: string; stored: string; m: string; moved: number; held: number; n: number; inc: number | null; outc: number | null; first: string; last: string }>(
+      const rows = await this.ctx.db.all<{ cat: string; stored: string; m: string; moved: number; held: number; n: number; outc: number | null; first: string; last: string }>(
         `SELECT ${told.category.sql} AS cat, category AS stored, substr(booking_date, 1, 7) AS m, ${told.moved.sql} != 0 AS moved, ${sums.moved.sql} != 0 AS held, COUNT(*) AS n,
-                SUM(CASE WHEN amount_cents > 0 THEN ${sums.amount.sql} END) AS inc, -SUM(CASE WHEN amount_cents < 0 THEN ${sums.amount.sql} END) AS outc, MIN(booking_date) AS first, MAX(booking_date) AS last
+                -SUM(CASE WHEN amount_cents < 0 THEN ${sums.amount.sql} END) AS outc, MIN(booking_date) AS first, MAX(booking_date) AS last
          FROM transactions INDEXED BY idx_tx_user_merchant_date WHERE ${side.where.join(" AND ")} GROUP BY cat, stored, m, moved, held`,
-        [...told.category.params, ...told.moved.params, ...sums.moved.params, ...sums.amount.params, ...sums.amount.params, ...side.params],
+        [...told.category.params, ...told.moved.params, ...sums.moved.params, ...sums.amount.params, ...side.params],
       );
       for (const r of rows) {
         const n = Number(r.n);
@@ -218,15 +214,13 @@ export class MerchantsRepo {
           transfers += n;
           continue;
         }
-        inCents += Number(r.inc ?? 0);
-        outCents += Number(r.outc ?? 0);
         outByMonth[r.m] = (outByMonth[r.m] ?? 0) + Number(r.outc ?? 0);
         countByMonth[r.m] = (countByMonth[r.m] ?? 0) + n;
       }
     }
     if (!count) return null;
     const ranked = [...(categories.paid.size ? categories.paid : categories.moved)].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-    return { count, transfers, outCents, inCents, firstDate, lastDate, category: ranked[0]![0], outByMonth, countByMonth };
+    return { count, transfers, firstDate, lastDate, category: ranked[0]![0], outByMonth, countByMonth };
   }
 
   /** Money-out rows nothing recognised: the `limit` biggest merchants, and the count and sum of all of them. */

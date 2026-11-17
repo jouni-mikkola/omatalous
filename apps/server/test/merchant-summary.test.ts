@@ -28,8 +28,6 @@ describe("GET /api/merchants/summary", () => {
     expect(r.body.summary).toMatchObject({
       merchant: "Xyzzy Tuntematon",
       count: 4,
-      outCents: 5200,
-      inCents: 3500,
       firstDate: "2025-12-24",
       lastDate: "2026-09-20",
       transfers: 0,
@@ -77,6 +75,25 @@ describe("GET /api/merchants/summary", () => {
     expect(s).toMatchObject({ count: 3, transfers: 2, outCents: 5000, inCents: 0 });
     expect(s.category).toBe(rows.find((t) => t.merchant === merchant && !t.isTransfer)!.category);
     expect(s.category).not.toBe(transfers[0]!.category);
+  });
+
+  it("pays and receives what the strip of the list does: a refund lowers what was paid", async () => {
+    const { admin, s } = await setupApp();
+    await seedCsv(s, admin, { content, accountName: "Käyttötili" });
+    const card = (await summary(admin, "Xyzzy Tuntematon")).body.summary;
+    const strip = (await admin.call("GET", `/api/transactions?merchant=${encodeURIComponent("Xyzzy Tuntematon")}&limit=1`)).body;
+    expect([card.inCents, card.outCents]).toEqual([strip.inCents, strip.outCents]);
+  });
+
+  it("adds a refund to no Tulot: 60 € paid and 15 € back is 45 € out and none in, on the card and in the strip", async () => {
+    const { admin, s } = await setupApp();
+    const shop = [HEADER, `2026/09/02;-60,00;${CHECKING};;;KAUPPA ESIMERKKI;;EUR`, `2026/09/06;15,00;;${CHECKING};;KAUPPA ESIMERKKI;;EUR`].join("\n");
+    await seedCsv(s, admin, { content: shop, accountName: "Käyttötili" });
+    const merchant = (await admin.call("GET", "/api/transactions?limit=5")).body.items[0].merchant as string;
+    const card = (await summary(admin, merchant)).body.summary;
+    const strip = (await admin.call("GET", `/api/transactions?merchant=${encodeURIComponent(merchant)}&limit=1`)).body;
+    expect([card.outCents, card.inCents]).toEqual([4500, 0]);
+    expect([strip.outCents, strip.inCents]).toEqual([4500, 0]);
   });
 
   it("names the cadence and the next date of a recurring payment", async () => {

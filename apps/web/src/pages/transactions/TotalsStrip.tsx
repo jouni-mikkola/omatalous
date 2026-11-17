@@ -23,9 +23,12 @@ interface MoneyBin {
 
 export interface Totals {
   total: number;
-  inCents: number;
-  outCents: number;
-  netCents?: number;
+  /** Null while the server's figures are older than the rows: the strip then says it is updating instead of a sum. */
+  inCents: number | null;
+  outCents: number | null;
+  netCents?: number | null;
+  /** What the rows move onto savings or into savings categories, negative when taken out: Tulos is `netCents` less this. */
+  savedCents?: number | null;
   span?: Period | null;
   histogram?: { unit: "day" | "week" | "month"; bins: MoneyBin[] } | null;
 }
@@ -137,8 +140,8 @@ export function TotalsStrip({ totals, income, today, onPick }: { totals: Totals;
           label={t("tx.series")}
           value={series}
           options={[
-            { value: "out", label: t("tx.series_out"), ariaLabel: t("tx.spending") },
-            { value: "in", label: t("tx.series_in"), ariaLabel: t("tx.income") },
+            { value: "out", label: t("tx.spending") },
+            { value: "in", label: t("tx.income") },
           ]}
           onChange={setSeries}
         />
@@ -151,6 +154,9 @@ export function TotalsStrip({ totals, income, today, onPick }: { totals: Totals;
       <div className="tx-sums">
         <span className="tx-totals-count">{tn(totals.total, "tx.event_one", "tx.event_many")}</span>
         {span && <span className="tx-totals-span">{dateRange(span.from, span.to)}</span>}
+        {totals.inCents === null || totals.outCents === null ? (
+          <span className="tx-totals-span">{t("tx.updating")}</span>
+        ) : (
         <dl className="tx-totals-kv">
           <div>
             <dt>{t("tx.spending")}</dt>
@@ -164,7 +170,7 @@ export function TotalsStrip({ totals, income, today, onPick }: { totals: Totals;
               <Figure text={`${totals.inCents > 0 ? "+" : ""}${money(totals.inCents, false)}`} size="s" />
             </dd>
           </div>
-          {totals.netCents !== undefined && (
+          {totals.netCents !== undefined && totals.netCents !== null && (
             <div>
               <dt>{t("tx.difference")}</dt>
               <dd>
@@ -172,7 +178,16 @@ export function TotalsStrip({ totals, income, today, onPick }: { totals: Totals;
               </dd>
             </div>
           )}
+          {totals.savedCents !== undefined && totals.savedCents !== null && totals.savedCents !== 0 && (
+            <div>
+              <dt>{t(totals.savedCents > 0 ? "tx.saved" : "tx.savings_drawn")}</dt>
+              <dd>
+                <Figure text={`${totals.savedCents > 0 ? "+" : ""}${money(totals.savedCents, false)}`} size="s" />
+              </dd>
+            </div>
+          )}
         </dl>
+        )}
       </div>
       {/* a phone keeps the first row near the top: the picture waits behind its title until it is asked for */}
       {picture && (phone ? (

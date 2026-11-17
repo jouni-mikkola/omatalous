@@ -244,9 +244,9 @@ describe("the own view of a joint account", () => {
     // the two own views of the joint account add up to it, the odd cents included
     expect(sum(jointCents(out), hers) + sum(jointCents(out), his)).toBe(sum(jointCents(out)));
     expect(sum(jointCents(into), hers) + sum(jointCents(into), his)).toBe(300001);
-    // a month with a refund: the list adds its part as money in
+    // a month with a refund: the strip lowers Menot by its part, as the first page does, and adds no money in
     const august = await get(aino, "/api/transactions?from=2026-08-01&to=2026-08-31");
-    expect([august.inCents, august.outCents]).toEqual([partCents(1599, hers), partCents(6000, hers)]);
+    expect([august.inCents, august.outCents]).toEqual([0, partCents(6000, hers) - partCents(1599, hers)]);
   });
 
   it("the household view counts the account whole, for the member who linked it and for the one it is shared with", async () => {
@@ -316,9 +316,16 @@ describe("the own view of a joint account", () => {
     const shop = (await get(aino, "/api/merchants")).items.find((m: { merchant: string }) => m.merchant === SHOP);
     expect(shop).toMatchObject({ count: 4, totalCents: sum([-6000, -8437, -1], hers), inCents: partCents(1599, hers) });
     const own = (await get(aino, `/api/merchants/summary?merchant=${encodeURIComponent(SHOP)}`)).summary;
-    expect(own).toMatchObject({ count: 4, outCents: sum([-6000, -8437, -1], hers), inCents: partCents(1599, hers) });
+    expect(own.count).toBe(4);
     const whole = (await get(aino, `/api/merchants/summary?merchant=${encodeURIComponent(SHOP)}&scope=household`)).summary;
-    expect(whole).toMatchObject({ count: 4, outCents: 14438, inCents: 1599 });
+    expect(whole.count).toBe(4);
+    // the card pays and receives what the strip of the list pays and receives: the refund lowers what was paid, in each view
+    for (const [card, scope] of [[own, "own"], [whole, "household"]] as const) {
+      const strip = await get(aino, `/api/transactions?merchant=${encodeURIComponent(SHOP)}&scope=${scope}&limit=1`);
+      expect([card.inCents, card.outCents], scope).toEqual([strip.inCents, strip.outCents]);
+    }
+    expect(whole.outCents).toBe(14438 - 1599);
+    expect(whole.inCents).toBe(0);
     const unknown = await get(aino, "/api/merchants/uncategorised");
     expect(unknown.items.find((m: { merchant: string }) => m.merchant === KIOSK)).toMatchObject({ totalCents: partCents(1234, hers), count: 1 });
     expect(unknown.totalCents).toBe(unknown.items.reduce((n: number, m: { totalCents: number }) => n + m.totalCents, 0));

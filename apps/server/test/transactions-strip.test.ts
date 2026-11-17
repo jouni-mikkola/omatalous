@@ -36,7 +36,7 @@ describe("GET /api/transactions: the strip and the day rows", () => {
     const page = (await admin.call("GET", "/api/transactions?limit=3")).body;
     const fifth: DaySum = page.daySums.find((d: DaySum) => d.date === "2026-09-05");
     expect(page.items.filter((t: { bookingDate: string }) => t.bookingDate === "2026-09-05")).toHaveLength(1);
-    expect(fifth).toEqual({ date: "2026-09-05", count: 2, inCents: 0, outCents: 5415 });
+    expect(fifth).toEqual({ date: "2026-09-05", count: 2, inCents: 0, outCents: 5415, savedCents: 0 });
     // only the days of the rows on the page
     expect(page.daySums.map((d: DaySum) => d.date).sort()).toEqual(["2026-09-05", "2026-09-16", "2026-09-30"]);
 

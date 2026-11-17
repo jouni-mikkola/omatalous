@@ -87,6 +87,43 @@ describe("Yhteenveto's month", () => {
     expect(income(150000, 0)).toMatchObject({ figure: "1 500 €", lines: ["Viime kuussa samaan päivään 3 800 €", "Ansiotulot 0 €"] });
   });
 
+  // Tulot less Menot was 570 € above Tulos in a month with 200 € taken out of savings, and the page never showed the 200 €
+  it("Tulos names the terms between Menot and Tulos: money moved to or taken out of savings, credit drawn or paid back", () => {
+    const terms = (totals: { incomeCents: number; expenseCents: number; borrowedCents?: number; leftCents?: number }) => {
+      const overview = { income: { cents: totals.incomeCents, earnedCents: totals.incomeCents }, months: [{ month: "2026-11", incomeCents: totals.incomeCents, spendCents: totals.expenseCents, fromSavingsCents: 0, complete: false }] };
+      return [...summaryIn(data({ totals, overview } as never)).querySelectorAll("[data-fig=result] .home-fig-term")].map((el) => flat(el.textContent));
+    };
+    expect(terms(totalsOf(412000, 150000, 20000, 30000))).toEqual(["Säästöön siirretty 300 €"]);
+    expect(terms(totalsOf(342800, 150000, 20000, -20000))).toEqual(["Otettu säästöistä 200 €"]);
+    expect(terms({ ...totalsOf(100000, 150000, 0, 0), borrowedCents: 40000, leftCents: -10000 })).toEqual(["Nostettu luottoa 400 €"]);
+    expect(terms({ ...totalsOf(100000, 50000, 0, 0), borrowedCents: -40000, leftCents: 10000 })).toEqual(["Luottoa maksettu takaisin 400 €"]);
+    expect(terms(totalsOf(412000, 150000, 20000, 0))).toEqual([]);
+  });
+
+  it("the terms are rounded with Tulot, Menot and Tulos, so the euros shown add up to the Tulos shown", () => {
+    // 4 120,40 less 1 700,40 less 300,40 moved to savings plus 150,60 drawn on credit is 2 270,20: shown 4 120, 1 700, 2 270
+    const totals = { ...totalsOf(412040, 150020, 20020, 30040), borrowedCents: 15060, leftCents: 227020 };
+    const overview = { income: { cents: 412040, earnedCents: 412040 }, months: [{ month: "2026-11", incomeCents: 412040, spendCents: 170040, fromSavingsCents: 0, complete: false }] };
+    const summary = summaryIn(data({ totals, overview } as never));
+    expect([...summary.querySelectorAll("[data-fig=result] .home-fig-term")].map((el) => flat(el.textContent))).toEqual(["Säästöön siirretty 300 €", "Nostettu luottoa 150 €"]);
+    const euros = (id: string) => Number(flat(summary.querySelector(`[data-fig=${id}] .fig`)?.textContent).replace(/[^\d−-]/g, "").replace("−", "-"));
+    expect([euros("income"), euros("spent"), euros("result")]).toEqual([4120, 1700, 2270]);
+    expect(euros("income") - euros("spent") - 300 + 150).toBe(euros("result"));
+    // the same words in Tulojen käyttö show the same euros: 150,60 drawn on credit is 150 € there too
+    const part = (key: string) => flat(summary.querySelector(`.home-flow-list [data-part=${key}] .home-flow-sum`)?.textContent);
+    expect([part("saved"), part("credit-left")]).toEqual(["300 €", "150 €"]);
+  });
+
+  it("shows no term the rounding would turn to the other direction or to nothing", () => {
+    // 0,60 moved to savings, but the whole euros of Tulot, Menot and Tulos leave 0 between them
+    const totals = totalsOf(100049, 50051, 0, 60);
+    const overview = { income: { cents: 100049, earnedCents: 100049 }, months: [{ month: "2026-11", incomeCents: 100049, spendCents: 50051, fromSavingsCents: 0, complete: false }] };
+    const summary = summaryIn(data({ totals, overview } as never));
+    expect([...summary.querySelectorAll("[data-fig=result] .home-fig-term")]).toEqual([]);
+    // and Tulojen käyttö names no part for it either: no row stands where its term does not
+    expect(summary.querySelector(".home-flow-list [data-part=saved]")).toBeNull();
+  });
+
   it("the figures hold no link or button: no list holds a month's Tulos", () => {
     const container = summaryIn(data());
     expect(container.querySelectorAll(".home-figs a, .home-figs button").length).toBe(0);
@@ -153,7 +190,9 @@ describe("Yhteenveto's month", () => {
   });
 
   it("tells where the income went as the bridge of Raportit does: each part with its sum", () => {
-    const container = summaryIn(data());
+    // the month's bar holds the same Menot as the totals (1 500 + 200), as it does in a real answer: the terms under Tulos and this list share one rounding
+    const overview = { income: { cents: 412000, earnedCents: 398000 }, months: [{ month: "2026-11", incomeCents: 412000, spendCents: 170000, fromSavingsCents: 0, complete: false }] };
+    const container = summaryIn(data({ overview } as never));
     const parts = [...container.querySelectorAll(".home-flow-list > li")].map((li) => ({
       part: li.getAttribute("data-part"),
       name: li.querySelector(".home-flow-name")?.textContent,
@@ -189,6 +228,16 @@ describe("Yhteenveto's month", () => {
     expect(barOf(container, "sources").map((s) => s.part)).toEqual(["income", "credit", "accounts"]);
     expect(rowsOf(container).map((r) => r[0])).toEqual(["consumption", "credit", "accounts"]);
     expect(rowsOf(container)[1]).toEqual(["credit", "Katettu luotolla", "400 €"]);
+  });
+
+  // 1 928 € stayed of 3 428 € income and 200 € taken out of savings: the list names the 200 €, and the shares are of the 3 628 € together
+  it("names what was taken out of savings and stayed, and the shares of the parts add up to 100", () => {
+    // Tulot 3 428, Menot 1 700 (the consumption and the debt), Tulos 1 928: the 200 € between them is the savings drawn
+    const overview = { income: { cents: 342800, earnedCents: 342800 }, months: [{ month: "2026-11", incomeCents: 342800, spendCents: 170000, fromSavingsCents: 0, complete: false }] };
+    const container = summaryIn(data({ totals: totalsOf(342800, 150000, 20000, -20000), overview } as never));
+    expect(rowsOf(container)).toEqual([["savings-left", "Otettu säästöistä", "200 €"], ["consumption", "Kulutus", "1 500 €"], ["debt", "Maksettu velanhoito", "200 €"], ["left", "Tulos", "1 928 €"]]);
+    const shares = [...container.querySelectorAll(".home-flow-share")].map((el) => Number.parseInt(flat(el.textContent), 10)).filter((n) => !Number.isNaN(n));
+    expect(shares.reduce((sum, n) => sum + n, 0)).toBe(100);
   });
 
   it("draws no bar with no income, and the parts stand as a list alone", () => {

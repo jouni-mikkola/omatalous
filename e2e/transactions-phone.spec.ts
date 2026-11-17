@@ -41,7 +41,7 @@ test("390 px: rows sit under day groups, newest first, each a block of the merch
   await expect(page.locator(DATA_ROW).first(), "the first row is on the first screen").toBeInViewport();
   // the strip above the list: what the rows add up to, and nothing scrolls sideways
   const strip = page.getByRole("region", { name: "Rajattujen tapahtumien summat" });
-  await expect(strip.locator("dt")).toHaveText(["Rahaa ulos", "Rahaa sisään", "Erotus"]);
+  expect((await strip.locator("dt").allInnerTexts()).slice(0, 3)).toEqual(["Menot", "Tulot", "Erotus"]);
   await expect(strip.locator("dd").last()).toBeInViewport();
 
   // "ma 12.10." (a day of an earlier year has the year too), the weekday is the date's, and the days run backwards
@@ -347,13 +347,15 @@ test("1280 px: the bar is one line, the sums stand on one line and the histogram
   const strip = page.getByRole("region", { name: "Rajattujen tapahtumien summat" });
   await expect(strip.locator("dt").first()).toBeVisible();
   const cells = await strip.locator(".tx-totals-kv > div").evaluateAll((els) => els.map((el) => el.getBoundingClientRect()));
-  expect(cells.length).toBe(3);
+  // Menot, Tulot and Erotus, and what the rows move to or from savings: the demo data moves money to savings
+  expect(cells.length).toBe(4);
+  await expect(strip.locator("dt").nth(3)).toHaveText(/^(Säästöön siirretty|Otettu säästöistä)$/);
   const tops = cells.map((c) => Math.round(c.top));
-  expect(Math.max(...tops) - Math.min(...tops), "the three sums share a line").toBeLessThanOrEqual(1);
+  expect(Math.max(...tops) - Math.min(...tops), "the sums share a line").toBeLessThanOrEqual(1);
   expect(cells[1]!.left, "side by side").toBeGreaterThan(cells[0]!.right - 1);
   expect(cells[2]!.left, "side by side").toBeGreaterThan(cells[1]!.right - 1);
   const hist = (await strip.locator(".tx-hist").boundingBox())!;
-  expect(hist.y, "the histogram under the sums").toBeGreaterThan(cells[2]!.bottom - 1);
+  expect(hist.y, "the histogram under the sums").toBeGreaterThan(cells.at(-1)!.bottom - 1);
   // the bar is one line: the search, the period and Suodata share a bottom edge
   const bottoms = await page.locator(".tx-search, .tx-period, .tx-filter-btn").evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().bottom)));
   expect(Math.max(...bottoms) - Math.min(...bottoms), `bottom edges ${bottoms.join(", ")}`).toBeLessThanOrEqual(1);
@@ -401,6 +403,31 @@ test("1280 px: a search being typed takes one place in the history, however many
   // back leaves the search in one step, not one for each pause
   await page.goBack();
   await expect(page).toHaveURL(/#\/transactions\?period=all$/);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+// a day with Menot, Tulot and a savings sum has three; every day with more than one stands on a second line, the rule the longest of them needs
+test("390 px: a day with more than one sum puts them on a second line under the day and nothing scrolls sideways", async ({ browser }) => {
+  const context = await signedIn(browser, 390, 844);
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/transactions?period=all");
+  await expect(page.locator("table.tx-table tr.rt-group th").first()).toBeVisible();
+  const read = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>("table.tx-table tr.rt-group")]
+        .filter((row) => row.querySelectorAll(".rt-sub").length >= 2)
+        .map((row) => {
+          const day = row.querySelector("th")!.getBoundingClientRect();
+          const sums = row.querySelector("td")!.getBoundingClientRect();
+          return { day: row.querySelector("th")!.textContent, under: sums.top >= day.bottom - 1, inside: sums.right <= document.documentElement.clientWidth + 1 };
+        }),
+    );
+  const severalSums = await read();
+  expect(severalSums.length, "days with more than one sum").toBeGreaterThan(0);
+  for (const row of severalSums) expect(row, row.day ?? "").toMatchObject({ under: true, inside: true });
+  expect(await overflow(page), "sideways scroll").toBeLessThanOrEqual(1);
   expect(seen.problems).toEqual([]);
   await context.close();
 });

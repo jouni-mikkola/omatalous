@@ -56,8 +56,29 @@ average without one complete month is empty. A year comparison needs three whole
 own account or fund that is not connected (`own_unconnected` in Tietojen laatu) counts as saved, and the data quality card
 names the sum and the largest payees, so a missing connection shows.
 
-Tapahtumat's *maksettu* and *saatu* leave own transfers out, and so do a merchant summary's sums and its category. The
-row count still includes them, and the page says the transfers are not in the sums.
+Tapahtumat's strip leaves own transfers out of its sums, and so does a merchant summary's category. The row
+count still includes them. A merchant summary's Menot yhteensä and Tulot yhteensä are the same flows over all the
+merchant's rows, so a refund lowers Menot there too and adds nothing to Tulot. The strip adds up the flows of the rows (`totalsOf` over the `flows` of the context, as the
+first page does), so a refund lowers Menot, the rows of a loan account and the moves between own accounts are neutral, a
+short payment's fee is spent, and what lands on savings is saved. It names that sum *Säästöön siirretty* (or *Otettu
+säästöistä* when it is negative), so Erotus less that sum is Tulos of the same rows. The days of the list and its
+histogram add up the same flows by booking day, so the bars add up to the strip. A card bill whose statement is read
+stands at what its rows leave of it, and the purchases of the statement stand on their own days, as on the first page,
+unless a filter narrows the list. While a listed row is newer than the figures they come from, the strip tells no sum
+and says it is updating.
+
+The same words show the same euros: *Säästöön siirretty*, *Otettu säästöistä*, *Nostettu luottoa* and *Luottoa maksettu
+takaisin* in Tulojen käyttö are the whole euros of the terms under Tulos. A term the rounding would turn to the other
+direction or to nothing is not shown.
+
+One month has one result. On the first page the terms under Tulos add up: Tulot less Menot, less what moved to savings
+(or more, what was taken out of them), more credit drawn (or less, credit paid back) is Tulos. The list of Tulojen käyttö
+holds what was taken out of savings or drawn on credit and stayed as money in beside the income, so its parts add up to the
+income and that money, and their shares to 100 (`bridgeView`). With a gap, where the income did not pay everything, the
+list names none of it, so a name never stands for two sums. The terms are rounded with Tulot, Menot and Tulos, so the
+euros shown add up. The cash flow report's row of the month has the same Tulos
+(`leftCents`) and the same difference of income less consumption and debt service. `monthResult` in
+`packages/core/test/kit/invariants.ts` holds all of it for every generated household.
 
 ## Tulos and borrowed money
 

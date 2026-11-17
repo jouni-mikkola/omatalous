@@ -35,7 +35,7 @@ const readout = () => document.querySelector(".tx-hist-readout")!.textContent;
 describe("the histogram's direction switch", () => {
   it("starts on money out and names its highest bar", () => {
     render(createElement(TotalsStrip, { totals, income: false, today: "2026-10-13", onPick: () => {} }));
-    expect(readout()).toContain("rahaa ulos");
+    expect(readout()).toContain("menot");
     expect(readout()).toContain("50,00");
     expect(screen.getByRole("button", { name: t("tx.spending") }).getAttribute("aria-pressed")).toBe("true");
   });
@@ -43,16 +43,16 @@ describe("the histogram's direction switch", () => {
   it("shows the highest bar of money in once Sisään is chosen, and back again", () => {
     render(createElement(TotalsStrip, { totals, income: false, today: "2026-10-13", onPick: () => {} }));
     fireEvent.click(screen.getByRole("button", { name: t("tx.income") }));
-    expect(readout()).toContain("rahaa sisään");
+    expect(readout()).toContain("tulot");
     expect(readout()).toContain("900,00");
-    expect(screen.getByRole("img").getAttribute("aria-label")).toContain("Rahaa sisään");
+    expect(screen.getByRole("img").getAttribute("aria-label")).toContain("Tulot");
     fireEvent.click(screen.getByRole("button", { name: t("tx.spending") }));
-    expect(readout()).toContain("rahaa ulos");
-    expect(screen.getByRole("img").getAttribute("aria-label")).toContain("Rahaa ulos");
+    expect(readout()).toContain("menot");
+    expect(screen.getByRole("img").getAttribute("aria-label")).toContain("Menot");
   });
 
   it("starts on money in when the list is limited to income", () => {
     render(createElement(TotalsStrip, { totals, income: true, today: "2026-10-13", onPick: () => {} }));
-    expect(readout()).toContain("rahaa sisään");
+    expect(readout()).toContain("tulot");
   });
 });

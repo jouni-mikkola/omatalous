@@ -25,6 +25,25 @@ describe("the bar of Tulojen käyttö", () => {
     expect(roundedShares([1, 1, 1], 3)).toEqual([34, 33, 33]);
   });
 
+  it("lists what was taken out of savings and stayed, so the list adds up to the income and that money, and its shares to 100", () => {
+    const v = bridgeView(totalsOf([{ income: 342_800, consumption: 150_000, debt: 20_000, saved: -20_000, borrowed: 0 }]));
+    const sum = (keys: string[]) => v.figures.filter((f) => keys.includes(f.key)).reduce((s, f) => s + f.cents, 0);
+    expect(sum(["consumption", "debt", "left"])).toBe(342_800 + sum(["savings-left"]));
+    expect(sum(["savings-left"])).toBe(20_000);
+    expect(v.figures.filter((f) => f.incomeUnits !== null).map((f) => f.incomeUnits)).toEqual([41, 6, 53]);
+    expect(v.figures.find((f) => f.key === "savings-left")).toMatchObject({ ofIncome: false, incomeUnits: null });
+  });
+
+  it("names no drawn money that stayed when the income did not pay everything, so no label stands for two sums", () => {
+    // 1 500 € spent on 1 000 € of income: 400 € of credit and 100 € of the 300 € taken out of savings covered the gap
+    const v = bridgeView(totalsOf([{ income: 100_000, consumption: 150_000, debt: 0, saved: -30_000, borrowed: 40_000 }]));
+    expect(v.cover).toMatchObject({ gapCents: 50_000, savingsLeftCents: 20_000 });
+    expect(v.figures.map((f) => f.key)).not.toContain("savings-left");
+    expect(v.figures.map((f) => f.key)).not.toContain("credit-left");
+    const sum = (keys: string[]) => v.figures.filter((f) => keys.includes(f.key)).reduce((s, f) => s + f.cents, 0);
+    expect(sum(["consumption", "debt"])).toBe(100_000 + sum(["credit", "savings", "accounts"]));
+  });
+
   it("is not drawn with a part below zero, and then nothing is a share of the income", () => {
     const v = bridgeView(totalsOf([{ income: 300_000, consumption: -10_000, debt: 0, saved: 0, borrowed: 100_000 }]));
     expect(v.draws).toBe(false);

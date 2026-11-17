@@ -76,7 +76,7 @@ test("the period is a named one or two days on our own calendar, never a browser
   await range.getByRole("button", { name: "Edellinen kuu", exact: true }).click();
   await expect(page).toHaveURL(/from=\d{4}-\d{2}-01&to=\d{4}-\d{2}-\d{2}/);
   await expect(page.locator(".tx-fchip.set")).toContainText("Edellinen kuu");
-  await expect(page.getByRole("region", { name: "Rajattujen tapahtumien summat" })).toContainText("Rahaa ulos päivittäin");
+  await expect(page.getByRole("region", { name: "Rajattujen tapahtumien summat" })).toContainText("Menot päivittäin");
 
   await page.locator(".tx-fchip.set .tx-fchip-main").click();
   const calendar = page.getByRole("dialog", { name: "Aikaväli" });
@@ -96,9 +96,9 @@ test("the period is a named one or two days on our own calendar, never a browser
 
 test("Enter on the histogram narrows the list to its tallest bin, and a filter that matches nothing can be cleared", async ({ browser }) => {
   const { context, page, seen } = await open(browser, "/#/transactions");
-  const hist = page.getByRole("img", { name: /^Rahaa ulos (päivittäin|viikoittain|kuukausittain), suurin / });
+  const hist = page.getByRole("img", { name: /^Menot (päivittäin|viikoittain|kuukausittain), suurin / });
   await expect(hist).toBeVisible();
-  await expect(page.locator(".tx-hist-readout")).toContainText("rahaa ulos");
+  await expect(page.locator(".tx-hist-readout")).toContainText("menot");
   await hist.focus();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}/);

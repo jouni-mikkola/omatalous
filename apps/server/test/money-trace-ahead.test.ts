@@ -54,9 +54,10 @@ describe("what is ahead on a pool cut by who paid", () => {
     const w = await household();
     const before = { aino: await look(w, w.aino), ville: await look(w, w.ville) };
     // with the weights each member carries half of the mortgage and the bill, in the past and ahead
-    expect([before.aino.spending, before.ville.spending]).toEqual([57501, 57499]);
+    // the refund of 10,00 lowers the month's spending, 5,00 of it for each
+    expect([before.aino.spending, before.ville.spending]).toEqual([57001, 56999]);
     expect(before.ville.loans[0]![1]).not.toBeNull();
-    expect([before.aino.income - 250000, before.ville.income - 200000]).toEqual([500, 500]);
+    expect([before.aino.income - 250000, before.ville.income - 200000]).toEqual([0, 0]);
     expect((await w.s.analysis.get(w.s, w.aino, "own")).ctx.standing).toBeUndefined();
 
     expect((await w.as(w.aino).call("PUT", "/api/accounts/pool-a/split", { mode: "source" })).body).toEqual({ ok: true });
@@ -70,8 +71,8 @@ describe("what is ahead on a pool cut by who paid", () => {
     // Ville paid none of it, and none of it is ahead of him
     expect(mortgage(after.ville.upcoming)).toEqual([]);
     // the past: Aino paid all the money into the pool, so the mortgage and the bill were hers. The refund of 10,00 comes
-    // back to the same two as the bill was cut to, so 5,00 of it nets out for Ville, and what he bore in the end is nothing
-    expect([after.aino.spending, after.ville.spending]).toEqual([114500, 500]);
+    // back to the same two as the bill was cut to, so 5,00 of it nets out for each, and what Ville bore in the end is nothing
+    expect([after.aino.spending, after.ville.spending]).toEqual([114000, 0]);
     expect([after.aino.spending - (after.aino.income - 250000), after.ville.spending - (after.ville.income - 200000)]).toEqual([114000, 0]);
   });
 

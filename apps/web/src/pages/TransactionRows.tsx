@@ -55,6 +55,8 @@ export interface DaySum {
   count: number;
   inCents: number;
   outCents: number;
+  /** What the day's rows move onto savings (negative: taken out), as the strip's Säästöön siirretty counts it. */
+  savedCents?: number;
 }
 
 /** A row as /api/transactions gives it. In the own view a row of a joint account also carries the viewer's part of the bank's amount. */
@@ -65,7 +67,9 @@ export const ownerLink = (t: Pick<ListedRow, "openCents" | "accountId">): string
 
 /**
  * The row's figure: the viewer's part where the server gives one (a joint account's row in the own view), else the bank's
- * amount. The day's sums (`daySums`) add up the same parts, so a day's rows add up to its header.
+ * amount. The day's sums (`daySums`) are the day's money as the front page counts it, so with a card statement read a
+ * bill's day holds what the bill leaves of it, and the day of a purchase the statement lists holds that purchase though no
+ * row of the list is its own.
  */
 const shownCents = (t: ListedRow): number => t.partCents ?? t.amountCents;
 /** The bank's amount under a row whose figure is a part of it; null for a row that is all the viewer's. */
@@ -261,13 +265,15 @@ export const rowChips = () => [
   { key: "pending", label: msg("row.chip_pending"), test: (t: ListedRow) => t.status === "pending" },
 ];
 
-/** A day's sums in its group row: what went out and what came in, own transfers left out; nothing for transfers only. */
-function DaySums({ sum }: { sum: Pick<DaySum, "inCents" | "outCents"> | undefined }) {
+/** A day's sums in its group row: what went out, what came in and what moved to or from savings, as the strip counts them; nothing for a day of rows that count for none of them. */
+function DaySums({ sum }: { sum: Pick<DaySum, "inCents" | "outCents" | "savedCents"> | undefined }) {
   if (!sum) return null;
+  const saved = sum.savedCents ?? 0;
   return (
     <>
-      {sum.outCents > 0 && <span className="rt-sub">{money(-sum.outCents)}</span>}
-      {sum.inCents > 0 && <span className="rt-sub rt-sub-in">+{money(sum.inCents)}</span>}
+      {sum.outCents !== 0 && <span className="rt-sub">{sum.outCents < 0 ? "+" : ""}{money(-sum.outCents)}</span>}
+      {sum.inCents !== 0 && <span className="rt-sub rt-sub-in">{sum.inCents > 0 ? "+" : ""}{money(sum.inCents)}</span>}
+      {saved !== 0 && <span className="rt-sub">{msg(saved > 0 ? "tx.saved" : "tx.savings_drawn")} {money(Math.abs(saved))}</span>}
     </>
   );
 }

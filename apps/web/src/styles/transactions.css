@@ -132,6 +132,10 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 .tx-table tr.rt-group > * { padding-block: var(--sp-4); }
 .tx-table tr.rt-group > th { font-size: var(--fs-label); }
 .tx-table tr.rt-group > th .rt-group-count { font-size: var(--fs-label); }
+/* a day's one sum stands beside the day; a day with two or three sums (Menot, Tulot, savings) puts them on a second line, wrapping instead of widening the page */
+.rt-wrap[data-block] .rt.tx-table tr.rt-group:has(.rt-sub ~ .rt-sub) { grid-template-columns: minmax(0, 1fr); }
+.rt-wrap[data-block] .rt.tx-table tr.rt-group:has(.rt-sub ~ .rt-sub) > td:not([data-label]) { grid-column: 1; grid-row: 2; text-align: left; white-space: normal; }
+.rt-wrap[data-block] .rt.tx-table tr.rt-group:has(.rt-sub ~ .rt-sub) > td:not([data-label]) .rt-sub:first-child { margin-left: 0; }
 .tx-who { display: flex; align-items: center; gap: var(--sp-8); min-width: 0; }
 .tx-line { display: flex; flex: 0 1 auto; align-items: center; gap: var(--sp-8); min-width: 0; min-height: 24px; }
 .tx-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
