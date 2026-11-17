@@ -8,7 +8,7 @@ import { type AnalysisTx, createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { monthKnown } from "../src/analysis/coverage.ts";
 import { addMonths, dateIn, monthOf } from "../src/dates.ts";
-import { buildReports } from "../src/reports/index.ts";
+import { buildReports, cashflowReport } from "../src/reports/index.ts";
 import { generateHousehold } from "./kit/generate.ts";
 import { conservation, labelledFlow, loanParts, memberLegs, monthlyLoans, moneyIn, monthResult, namesake, onePool, ownTransfers, prefix, unknownMonth, walletQuestions, walletRole } from "./kit/invariants.ts";
 import type { GeneratedHousehold } from "./kit/truth.ts";
@@ -151,6 +151,9 @@ describe("the invariant checks catch a household made wrong", () => {
         return page;
       };
       expect(monthResult(h, v, short).map((x) => x.check)).toContain("I8.month-result");
+      // a report with no row for the month is a failure of the comparison, not a pass
+      const rowless: typeof cashflowReport = (...args) => ({ ...cashflowReport(...args), rows: [] });
+      expect(monthResult(h, v, buildDashboard, rowless).map((x) => x.check)).toContain("I8.month-result");
     },
     LONG,
   );

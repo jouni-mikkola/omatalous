@@ -79,15 +79,26 @@ interface Item {
  * the terms as shown add up to Tulos as shown.
  */
 function termsOf(totals: Data["totals"], incomeCents: number, spentCents: number): string[] {
-  const euros = (cents: number) => Math.sign(cents) * Math.round(Math.abs(cents) / 100) * 100;
+  const { saved, credit } = shownTerms(totals, incomeCents, spentCents);
   const line = (key: "home.term_saved" | "home.term_savings_drawn" | "home.term_credit_drawn" | "home.term_credit_repaid", cents: number) => (cents === 0 ? [] : [t(key, { sum: answerMoney(Math.abs(cents)) })]);
+  return [...line(saved >= 0 ? "home.term_saved" : "home.term_savings_drawn", saved), ...line(credit >= 0 ? "home.term_credit_drawn" : "home.term_credit_repaid", credit)];
+}
+
+/**
+ * What moved to savings (negative: taken out) and what was drawn on credit (negative: paid back) as the whole euros the page
+ * shows, so the terms under Tulos add up to the Tulos shown, and the same words in Tulojen käyttö show the same euros. A term
+ * the rounding would turn to the other direction or to nothing is not shown.
+ */
+function shownTerms(totals: Data["totals"], incomeCents: number, spentCents: number): { saved: number; credit: number } {
+  const euros = (cents: number) => Math.sign(cents) * Math.round(Math.abs(cents) / 100) * 100;
   const hasSaved = Math.abs(totals.savedCents) >= 50;
   const hasCredit = Math.abs(totals.borrowedCents) >= 50;
   // Tulos as shown is Tulot less Menot, less what moved to savings, plus the credit drawn: this is what the last two leave
   const between = euros(incomeCents) - euros(spentCents) - euros(totals.leftCents);
   const saved = hasSaved ? (hasCredit ? euros(totals.savedCents) : between) : 0;
   const credit = hasCredit ? (hasSaved ? saved - between : -between) : 0;
-  return [...line(saved >= 0 ? "home.term_saved" : "home.term_savings_drawn", saved), ...line(credit >= 0 ? "home.term_credit_drawn" : "home.term_credit_repaid", credit)];
+  const faithful = (shown: number, cents: number) => (Math.sign(shown) === Math.sign(cents) ? shown : 0);
+  return { saved: faithful(saved, totals.savedCents), credit: faithful(credit, totals.borrowedCents) };
 }
 
 function itemsOf(data: Data): Item[] {
@@ -164,8 +175,10 @@ function flowLabel(key: string): string {
  * the savings and the accounts that covered the rest, the rows "Katettu …" of the list. With no income, or a part below
  * zero, no bar is drawn and the parts stand as a list alone.
  */
-function Flow({ view }: { view: BridgeView }) {
-  const rows = view.figures.filter((f) => f.key !== "income" && f.cents !== 0);
+function Flow({ view, shown }: { view: BridgeView; shown: { saved: number; credit: number } }) {
+  // a part named like a term under Tulos shows the euros that term shows
+  const euros: Record<string, number> = { saved: shown.saved, "savings-left": -shown.saved, "credit-left": shown.credit, repaid: -shown.credit };
+  const rows = view.figures.filter((f) => f.key !== "income" && f.cents !== 0).map((f) => ({ ...f, cents: (euros[f.key] ?? 0) > 0 ? euros[f.key]! : f.cents }));
   return (
     <section className="home-flow" aria-labelledby="home-flow-h">
       <h3 id="home-flow-h">{t("home.bridge_where")}</h3>
@@ -229,7 +242,7 @@ export function Summary({ data, today }: { data: Data; today: string }) {
           </li>
         ))}
       </ul>
-      <Flow view={bridgeView(data.totals)} />
+      <Flow view={bridgeView(data.totals)} shown={shownTerms(data.totals, data.overview.income.cents, data.overview.months.at(-1)?.spendCents ?? data.nyt.pace.spentCents)} />
     </section>
   );
 }

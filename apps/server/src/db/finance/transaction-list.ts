@@ -8,16 +8,14 @@ import { CATEGORIES, fold, MAX_LIST_ROWS } from "@banking/core";
 import { type Row, type StoredTransaction, TX_COLUMNS_LIGHT, toTransaction } from "../rows.ts";
 import type { SqlValue } from "../types.ts";
 import type { FinanceContext } from "./context.ts";
-import { keptSql, listSumsSql, notLeftSql, type OwnRows, toldSql } from "./part-sql.ts";
+import { listSumsSql, notLeftSql, type OwnRows, toldSql } from "./part-sql.ts";
 
 const INCOME_CATEGORIES = CATEGORIES.filter((c) => c.kind === "income").map((c) => c.id);
 
-/** What the rows of one booking day add up to: money in and out as positive cents, own transfers left out. */
-export interface DaySum {
+/** How many matching rows one booking day has. */
+export interface DayCount {
   date: string;
   count: number;
-  inCents: number;
-  outCents: number;
 }
 
 /** What the rows of one payee add up to, as a day's sums do. */
@@ -123,34 +121,19 @@ export class TransactionListRepo {
     return rows.map(toTransaction);
   }
 
-  async listTransactions(f: TransactionFilter, accountIds?: readonly string[]): Promise<{ total: number; ids: string[]; days: DaySum[]; items: StoredTransaction[] }> {
+  async listTransactions(f: TransactionFilter, accountIds?: readonly string[]): Promise<{ total: number; ids: string[]; days: DayCount[]; items: StoredTransaction[] }> {
     const sides = this.filterSides(f, accountIds);
-    // The sums over the whole filter are not added up here: `ids` names every matching row, and the service adds up their
-    // flows as the front page does (`totalsOf`), so a refund, a loan account's row, a move to savings and a fee count as
-    // there. What is added up here are the days, by the sign of the row the list shows: the day's group row and the
-    // histogram. An own transfer leaves one account and lands on another: counted, it would add the same money to both
-    // sums. A row of a joint account adds the viewer's part, as it does in every report, and a transfer is what the view
-    // counts as one. A row of a savings category is neither money in nor money out, as in the flows.
-    const { amount: part, moved } = listSumsSql(f.own);
-    const kept = keptSql(f.own);
-    const sums = [...moved.params, ...kept.params, ...part.params];
+    // No sum is added up here: `ids` names every matching row, and the service adds up their flows as the front page
+    // does (`totalsOf`), so a refund, a loan account's row, a move to savings and a fee count as there. The days say only
+    // how many rows each has, so a day the page limit cuts still says it.
     let total = 0;
     const ids: string[] = [];
-    const byDay = new Map<string, DaySum>();
+    const byDay = new Map<string, DayCount>();
     for (const side of sides) {
-      // the same sums per booking day: the day's group row and the totals strip's histogram read them, so a day the
-      // page limit cuts still says what all its rows add up to
-      const days = await this.ctx.db.all<{ d: string; c: number; inc: number | null; outc: number | null }>(
-        `SELECT booking_date AS d, COUNT(*) AS c, SUM(CASE WHEN amount_cents > 0 AND ${moved.sql} = 0 AND ${kept.sql} THEN ${part.sql} END) AS inc,
-                -SUM(CASE WHEN amount_cents < 0 AND ${moved.sql} = 0 AND ${kept.sql} THEN ${part.sql} END) AS outc
-         FROM transactions WHERE ${side.where.join(" AND ")} GROUP BY booking_date`,
-        [...sums, ...sums, ...side.params],
-      );
+      const days = await this.ctx.db.all<{ d: string; c: number }>(`SELECT booking_date AS d, COUNT(*) AS c FROM transactions WHERE ${side.where.join(" AND ")} GROUP BY booking_date`, side.params);
       for (const r of days) {
-        const day = byDay.get(r.d) ?? { date: r.d, count: 0, inCents: 0, outCents: 0 };
+        const day = byDay.get(r.d) ?? { date: r.d, count: 0 };
         day.count += Number(r.c);
-        day.inCents += Number(r.inc ?? 0);
-        day.outCents += Number(r.outc ?? 0);
         byDay.set(r.d, day);
       }
       const matching = await this.ctx.db.all<{ id: string }>(`SELECT id FROM transactions WHERE ${side.where.join(" AND ")}`, side.params);

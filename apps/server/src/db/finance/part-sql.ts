@@ -5,7 +5,7 @@
  * and a test proves the two equal to the cent on random rows. What a row counts as is decided in core too
  * (`applyUse`): the statements here are handed its answer by row id and decide nothing.
  */
-import { CATEGORIES, isNone, isWhole, type Part, type RowShare, type Transaction } from "@banking/core";
+import { isNone, isWhole, type Part, type RowShare, type Transaction } from "@banking/core";
 import type { SqlValue } from "../types.ts";
 
 /**
@@ -104,18 +104,6 @@ export function listSumsSql(own: OwnRows | undefined): { amount: Sql; moved: Sql
 export function notLeftSql(own: OwnRows | undefined): Sql {
   const left = own?.left ?? [];
   return left.length ? { sql: ` AND account_id NOT IN (${left.map(() => "?").join(",")})`, params: [...left] } : { sql: "", params: [] };
-}
-
-const SAVINGS_CATEGORIES: readonly string[] = CATEGORIES.filter((c) => c.kind === "savings").map((c) => c.id);
-
-/**
- * The condition of a row that is spending or income: a row of a savings category is neither, as in core's `flowsOf`. The
- * days of a list read it, so the bars and the strip's figures leave the same rows out. Its params bind in the order it
- * stands in the statement.
- */
-export function keptSql(own: OwnRows | undefined): Sql {
-  const { category } = toldSql(own);
-  return { sql: `${category.sql} NOT IN (${SAVINGS_CATEGORIES.map(() => "?").join(", ")})`, params: [...category.params, ...SAVINGS_CATEGORIES] };
 }
 
 /**

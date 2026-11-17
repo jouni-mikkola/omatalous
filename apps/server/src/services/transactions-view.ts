@@ -1,10 +1,11 @@
 /**
  * The answer of `GET /api/transactions`: the rows of the accounts in view as the bank booked them, in both views. In the
- * own view a row of a joint account carries the viewer's part beside its amount (`partCents`), and `inCents` and
- * `outCents` add up parts. A row has the category and the transfer mark the view counts it by, so the list, its sums
- * and the front page say the same of it. A payment that arrived short carries its fee as its part.
+ * own view a row of a joint account carries the viewer's part beside its amount (`partCents`). The sums are the flows
+ * of the rows as the front page adds them up, and null while the context is older than the rows. A row has the category
+ * and the transfer mark the view counts it by, so the list, its sums and the front page say the same of it. A payment
+ * that arrived short carries its fee as its part.
  */
-import { moneyBins, partCents, totalsOf } from "@banking/core";
+import { type AnalysisTx, type Flows, loweredRows, moneyBins, partCents, totalsOf } from "@banking/core";
 import { extensionRowFields } from "../extensions.ts";
 import { parseDateRange } from "../platform/validate.ts";
 import { parseScope, rowsInView } from "./analysis.ts";
@@ -50,11 +51,32 @@ export async function transactionsView(s: Services, userId: string, q: Transacti
     offset: q.offset,
     own,
   };
-  const { total, ids, days, items: stored } = await repo.listTransactions(filter, shared.map((a) => a.id));
-  // the strip's figures are the flows of the matching rows, as the front page adds them up: a refund lowers Menot, a loan
-  // account's row and a move between own accounts are neutral, what lands on savings is saved, a short payment's fee is spent
+  const { total, ids, days: counts, items: stored } = await repo.listTransactions(filter, shared.map((a) => a.id));
+  // the strip's figures, the histogram's bars and each day's sums are the flows of the matching rows, as the front page adds
+  // them up: a refund lowers Menot, a loan account's row and a move between own accounts are neutral, what lands on savings
+  // is saved, a short payment's fee is spent, and a card bill whose statement is read stands at what its rows leave of it
+  // beside those rows on their own days (`spendRows`; the rows stand beside it only when no filter narrows the list)
   const rowsById = new Map(ctx.txs.map((t) => [t.id, t]));
-  const { incomeCents: inCents, expenseCents: outCents, savedCents } = totalsOf(ids.map((id) => rowsById.get(id)?.flows).filter((f) => f !== undefined));
+  const listed: AnalysisTx[] = [];
+  // a row the view cuts to nothing has no row in the context and counts nothing; any other row missing belongs to a newer read
+  // than the context the sums come from, and no figure is told then
+  let updating = false;
+  for (const id of ids) {
+    const row = rowsById.get(id);
+    if (row) listed.push(row);
+    else if (own.shares?.get(id)?.cents !== 0) updating = true;
+  }
+  const narrowed = !!(q.accountId || q.category || q.kind === "income" || q.merchant || q.q?.trim());
+  const explained = narrowed ? [] : ctx.explained.filter((t) => (!range.from || t.bookingDate >= range.from) && (!range.to || t.bookingDate <= range.to));
+  const counted = [...loweredRows(ctx, listed), ...explained];
+  const flowsOfDay = new Map<string, Flows[]>();
+  for (const t of counted) flowsOfDay.set(t.bookingDate, [...(flowsOfDay.get(t.bookingDate) ?? []), t.flows]);
+  const countOfDay = new Map(counts.map((d) => [d.date, d.count]));
+  const days = [...new Set([...countOfDay.keys(), ...flowsOfDay.keys()])].sort().map((date) => {
+    const { incomeCents, expenseCents, savedCents } = totalsOf(flowsOfDay.get(date) ?? []);
+    return { date, count: countOfDay.get(date) ?? 0, inCents: incomeCents, outCents: expenseCents, savedCents };
+  });
+  const { incomeCents: inCents, expenseCents: outCents, savedCents } = totalsOf(counted.map((t) => t.flows));
   // the list grouped by payee (`sums=merchant`): each listed payee's whole sums, as each listed day has its own
   const merchantSums = q.sums === "merchant" ? await repo.merchantSums(filter, shared.map((a) => a.id), [...new Set(stored.map((t) => t.merchant))]) : undefined;
   const items = stored.map((t) => ({ ...t, ...own.told.get(t.id) }));
@@ -74,16 +96,16 @@ export async function transactionsView(s: Services, userId: string, q: Transacti
   const onPage = new Set(items.map((t) => t.bookingDate));
   return {
     total,
-    inCents,
-    outCents,
-    netCents: inCents - outCents,
+    inCents: updating ? null : inCents,
+    outCents: updating ? null : outCents,
+    netCents: updating ? null : inCents - outCents,
     // what the rows move onto savings accounts or into savings categories (negative: taken out); Tulos is netCents less this
     // (and plus the credit the rows draw, which no row of an ordinary month holds)
-    savedCents,
+    savedCents: updating ? null : savedCents,
     span,
     // the totals strip's histogram and each listed day's whole sums
-    histogram: span ? moneyBins(days, histogramFrom(span), span.to) : null,
-    daySums: days.filter((d) => onPage.has(d.date)),
+    histogram: span && !updating ? moneyBins(days, histogramFrom(span), span.to) : null,
+    daySums: updating ? [] : days.filter((d) => onPage.has(d.date)),
     ...(merchantSums ? { merchantSums } : {}),
     items: items.map((t) => {
       const part = own.parts.get(t.accountId);

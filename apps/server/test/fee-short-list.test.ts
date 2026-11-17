@@ -48,7 +48,7 @@ describe("a payment that arrived a fee short, in Pankkikulut", () => {
     expect(list.items[0]).toMatchObject({ amountCents: -8150, partCents: -150, isTransfer: true, category: "fees" });
     expect(list.items.reduce((n: number, t: { partCents: number }) => n - t.partCents, 0)).toBe(report);
     expect([list.inCents, list.outCents]).toEqual([0, report]);
-    expect(list.daySums).toEqual([{ date: "2026-09-10", count: 1, inCents: 0, outCents: report }]);
+    expect(list.daySums).toEqual([{ date: "2026-09-10", count: 1, inCents: 0, outCents: report, savedCents: 0 }]);
     expect(csvRows).toHaveLength(1);
     expect(csvRows[0]![7]).toBe("-81,5");
   });

@@ -61,7 +61,14 @@ count still includes them. The strip adds up the flows of the rows (`totalsOf` o
 first page does), so a refund lowers Menot, the rows of a loan account and the moves between own accounts are neutral, a
 short payment's fee is spent, and what lands on savings is saved. It names that sum *Säästöön siirretty* (or *Otettu
 säästöistä* when it is negative), so Erotus less that sum is Tulos of the same rows. The days of the list and its
-histogram follow the sign of each row and leave out the rows of a savings category.
+histogram add up the same flows by booking day, so the bars add up to the strip. A card bill whose statement is read
+stands at what its rows leave of it, and the purchases of the statement stand on their own days, as on the first page,
+unless a filter narrows the list. While a listed row is newer than the figures they come from, the strip tells no sum
+and says it is updating.
+
+The same words show the same euros: *Säästöön siirretty*, *Otettu säästöistä*, *Nostettu luottoa* and *Luottoa maksettu
+takaisin* in Tulojen käyttö are the whole euros of the terms under Tulos. A term the rounding would turn to the other
+direction or to nothing is not shown.
 
 One month has one result. On the first page the terms under Tulos add up: Tulot less Menot, less what moved to savings
 (or more, what was taken out of them), more credit drawn (or less, credit paid back) is Tulos. The list of Tulojen käyttö

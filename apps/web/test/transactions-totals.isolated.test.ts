@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { Meta } from "../src/types.ts";
 
-const answer = { total: 2, inCents: 2000_00, outCents: 25_50, items: [] as unknown[] };
+const answer: Record<string, unknown> = { total: 2, inCents: 2000_00, outCents: 25_50, items: [] as unknown[] };
 vi.mock("../src/hooks.ts", async (orig) => ({
   ...(await orig<typeof import("../src/hooks.ts")>()),
   useApi: (path: string) => ({ data: path.startsWith("/api/merchants/summary") ? { summary: null } : answer, error: null, loading: false, reload: () => {} }),
@@ -27,6 +27,19 @@ describe("Tapahtumat totals", () => {
     const september = render("from=2026-09-01&to=2026-09-30");
     expect(september).toContain("Menot");
     expect(september).not.toContain("Koko historia");
+  });
+
+  it("tell that they are updating, and no sum, while the server has none", () => {
+    const was = { ...answer };
+    Object.assign(answer, { inCents: null, outCents: null, netCents: null, savedCents: null, histogram: null });
+    try {
+      const out = render("period=all");
+      expect(out).toContain("Summat päivittyvät");
+      expect(out).not.toContain("Erotus");
+      expect(out).not.toContain("0 €");
+    } finally {
+      Object.assign(answer, was);
+    }
   });
 
   it("are not shown under a chip, which narrows the rows in the browser: the server's sums would be of other rows", () => {

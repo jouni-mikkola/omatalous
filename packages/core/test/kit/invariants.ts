@@ -326,7 +326,7 @@ const LIST_SLACK_CENTS = 300;
  * of Tulojen käyttö adds up to the money it lists, and its shares to 100 when the income paid everything; and the cash flow
  * report's row of the month says the same Tulos. The line of a finding names the sums.
  */
-export function monthResult(h: GeneratedHousehold, v: HouseholdView, dashboard: typeof buildDashboard = buildDashboard): Violation[] {
+export function monthResult(h: GeneratedHousehold, v: HouseholdView, dashboard: typeof buildDashboard = buildDashboard, cashflow: typeof cashflowReport = cashflowReport): Violation[] {
   const month = monthOf(h.today);
   const range = { from: `${month}-01`, to: monthEnd(month) };
   const page = dashboard(v.ctx, range, v.balances, NO_INPUTS);
@@ -346,8 +346,10 @@ export function monthResult(h: GeneratedHousehold, v: HouseholdView, dashboard: 
   const shares = view.figures.flatMap((f) => (f.incomeUnits === null ? [] : [f.incomeUnits]));
   const shown = shares.reduce((s, n) => s + n, 0);
   if (view.draws && view.cover.gapCents === 0 && view.cover.creditRepaidCents === 0 && shown !== 100) say(`Tulojen käyttö shares add up to ${shown}`);
-  const row = cashflowReport(v.ctx, range, v.balances).rows.find((r) => r.month === month);
-  if (row) {
+  const row = cashflow(v.ctx, range, v.balances).rows.find((r) => r.month === month);
+  // the report has a row for every month of its range, so a missing row is a failure of the comparison, not a pass
+  if (!row) say(`the cash flow report has no row for ${month}`);
+  else {
     if (row.leftCents !== totals.leftCents) say(`the cash flow report's Tulos ${row.leftCents} is not the page's ${totals.leftCents}`);
     const difference = row.incomeCents - row.consumptionCents - row.debtCents;
     if (difference !== row.netCents) say(`the cash flow report's row has income ${row.incomeCents} less spending ${row.consumptionCents + row.debtCents}, its difference is ${row.netCents}`);

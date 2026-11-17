@@ -109,6 +109,16 @@ describe("Yhteenveto's month", () => {
     const euros = (id: string) => Number(flat(summary.querySelector(`[data-fig=${id}] .fig`)?.textContent).replace(/[^\d−-]/g, "").replace("−", "-"));
     expect([euros("income"), euros("spent"), euros("result")]).toEqual([4120, 1700, 2270]);
     expect(euros("income") - euros("spent") - 300 + 150).toBe(euros("result"));
+    // the same words in Tulojen käyttö show the same euros: 150,60 drawn on credit is 150 € there too
+    const part = (key: string) => flat(summary.querySelector(`.home-flow-list [data-part=${key}] .home-flow-sum`)?.textContent);
+    expect([part("saved"), part("credit-left")]).toEqual(["300 €", "150 €"]);
+  });
+
+  it("shows no term the rounding would turn to the other direction or to nothing", () => {
+    // 0,60 moved to savings, but the whole euros of Tulot, Menot and Tulos leave 0 between them
+    const totals = totalsOf(100049, 50051, 0, 60);
+    const overview = { income: { cents: 100049, earnedCents: 100049 }, months: [{ month: "2026-11", incomeCents: 100049, spendCents: 50051, fromSavingsCents: 0, complete: false }] };
+    expect([...summaryIn(data({ totals, overview } as never)).querySelectorAll("[data-fig=result] .home-fig-term")]).toEqual([]);
   });
 
   it("the figures hold no link or button: no list holds a month's Tulos", () => {
