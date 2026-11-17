@@ -118,7 +118,10 @@ describe("Yhteenveto's month", () => {
     // 0,60 moved to savings, but the whole euros of Tulot, Menot and Tulos leave 0 between them
     const totals = totalsOf(100049, 50051, 0, 60);
     const overview = { income: { cents: 100049, earnedCents: 100049 }, months: [{ month: "2026-11", incomeCents: 100049, spendCents: 50051, fromSavingsCents: 0, complete: false }] };
-    expect([...summaryIn(data({ totals, overview } as never)).querySelectorAll("[data-fig=result] .home-fig-term")]).toEqual([]);
+    const summary = summaryIn(data({ totals, overview } as never));
+    expect([...summary.querySelectorAll("[data-fig=result] .home-fig-term")]).toEqual([]);
+    // and Tulojen käyttö names no part for it either: no row stands where its term does not
+    expect(summary.querySelector(".home-flow-list [data-part=saved]")).toBeNull();
   });
 
   it("the figures hold no link or button: no list holds a month's Tulos", () => {

@@ -176,9 +176,11 @@ function flowLabel(key: string): string {
  * zero, no bar is drawn and the parts stand as a list alone.
  */
 function Flow({ view, shown }: { view: BridgeView; shown: { saved: number; credit: number } }) {
-  // a part named like a term under Tulos shows the euros that term shows
+  // a part named like a term under Tulos shows the euros that term shows, and no row stands where its term is not shown
   const euros: Record<string, number> = { saved: shown.saved, "savings-left": -shown.saved, "credit-left": shown.credit, repaid: -shown.credit };
-  const rows = view.figures.filter((f) => f.key !== "income" && f.cents !== 0).map((f) => ({ ...f, cents: (euros[f.key] ?? 0) > 0 ? euros[f.key]! : f.cents }));
+  const rows = view.figures
+    .filter((f) => f.key !== "income" && f.cents !== 0 && (!(f.key in euros) || euros[f.key]! > 0))
+    .map((f) => ({ ...f, cents: f.key in euros ? euros[f.key]! : f.cents }));
   return (
     <section className="home-flow" aria-labelledby="home-flow-h">
       <h3 id="home-flow-h">{t("home.bridge_where")}</h3>

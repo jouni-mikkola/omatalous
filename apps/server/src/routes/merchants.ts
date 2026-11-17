@@ -4,7 +4,7 @@
  * a joint account at the user's part and nothing of an account somebody else uses alone, the household view has every
  * row whole.
  */
-import { isKnownCategory, merchantBasis, merchantMonthly, merchantMonths } from "@banking/core";
+import { isKnownCategory, merchantBasis, merchantMonthly, merchantMonths, totalsOf } from "@banking/core";
 import { Hono } from "hono";
 import type { AppEnv, Services } from "../services/context.ts";
 import { UserError } from "../platform/errors.ts";
@@ -69,6 +69,9 @@ export function merchantRoutes(s: Services) {
     const series = ctx.recurring.filter((r) => r.merchant === merchant).sort((a, b) => Number(b.active) - Number(a.active) || (a.lastDate < b.lastDate ? 1 : -1))[0];
     const basis = merchantBasis(ctx);
     const { outByMonth, countByMonth, ...totals } = history;
+    // the money paid and received over the whole history is the flows of its rows, as the list's strip adds them up: a refund
+    // lowers what was paid, and the two sums never name one figure two ways
+    const flows = totalsOf(ctx.txs.filter((t) => t.merchant === merchant).map((t) => t.flows));
     // the row drill of Tapahtumat: twelve months up to the newest row, each with its count, sum and mean purchase
     const { months, year } = merchantMonths(outByMonth, countByMonth, history.lastDate);
     const outInMonths = basis.months.reduce((n, m) => n + (outByMonth[m] ?? 0), 0);
@@ -77,6 +80,8 @@ export function merchantRoutes(s: Services) {
       summary: {
         merchant,
         ...totals,
+        outCents: flows.expenseCents,
+        inCents: flows.incomeCents,
         monthly: merchantMonthly(basis, merchant, outInMonths, paidMonths),
         months,
         year,

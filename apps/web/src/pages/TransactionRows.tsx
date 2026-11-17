@@ -67,7 +67,9 @@ export const ownerLink = (t: Pick<ListedRow, "openCents" | "accountId">): string
 
 /**
  * The row's figure: the viewer's part where the server gives one (a joint account's row in the own view), else the bank's
- * amount. The day's sums (`daySums`) add up the same parts, so a day's rows add up to its header.
+ * amount. The day's sums (`daySums`) are the day's money as the front page counts it, so with a card statement read a
+ * bill's day holds what the bill leaves of it, and the day of a purchase the statement lists holds that purchase though no
+ * row of the list is its own.
  */
 const shownCents = (t: ListedRow): number => t.partCents ?? t.amountCents;
 /** The bank's amount under a row whose figure is a part of it; null for a row that is all the viewer's. */

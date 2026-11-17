@@ -406,3 +406,32 @@ test("1280 px: a search being typed takes one place in the history, however many
   expect(seen.problems).toEqual([]);
   await context.close();
 });
+
+// a day with Menot, Tulot and a savings sum has three; every day with more than one stands on a second line, the rule the longest of them needs
+test("390 px: a day with more than one sum puts them on a second line under the day and nothing scrolls sideways", async ({ browser }) => {
+  const context = await signedIn(browser, 390, 844);
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/transactions?period=all");
+  await expect(page.locator("table.tx-table tr.rt-group th").first()).toBeVisible();
+  const read = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>("table.tx-table tr.rt-group")]
+        .filter((row) => row.querySelectorAll(".rt-sub").length >= 2)
+        .map((row) => {
+          const day = row.querySelector("th")!.getBoundingClientRect();
+          const sums = row.querySelector("td")!.getBoundingClientRect();
+          return { day: row.querySelector("th")!.textContent, under: sums.top >= day.bottom - 1, inside: sums.right <= document.documentElement.clientWidth + 1 };
+        }),
+    );
+  const severalSums = await read();
+  expect(severalSums.length, "days with more than one sum").toBeGreaterThan(0);
+  for (const row of severalSums) expect(row, row.day ?? "").toMatchObject({ under: true, inside: true });
+  expect(await overflow(page), "sideways scroll").toBeLessThanOrEqual(1);
+  // a text twice the size wraps the sums, and the page is no wider
+  await page.addStyleTag({ content: "html { font-size: 200%; }" });
+  for (const row of await read()) expect(row.inside, row.day ?? "").toBe(true);
+  expect(await overflow(page), "sideways scroll at 200 %").toBeLessThanOrEqual(1);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});

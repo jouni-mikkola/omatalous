@@ -75,6 +75,16 @@ describe("the strip of Tapahtumat with a card statement read", () => {
     expect(narrowed.inCents).toBe(250000);
   });
 
+  it("counts a listed bill whole when a filter narrows the list to it", async () => {
+    const { admin } = await household();
+    const march = (await admin.call("GET", "/api/transactions?from=2026-03-01&to=2026-03-31&accountId=a-chk&limit=10")).body;
+    expect(march.outCents).toBe(42000);
+    expect(sumOf(march.histogram.bins, "outCents")).toBe(42000);
+    expect(march.daySums.map((d: { outCents: number }) => d.outCents)).toEqual([42000]);
+    const byCategory = (await admin.call("GET", "/api/transactions?from=2026-03-01&to=2026-03-31&category=card_bill&limit=10")).body;
+    expect(byCategory.outCents).toBe(42000);
+  });
+
   it("tells no sum while a listed row is newer than the figures, and tells it once they are read again", async () => {
     const { month, tx, s, adminId, admin } = await household();
     expect((await month("2026-02")).strip.outCents).toBe(29150);

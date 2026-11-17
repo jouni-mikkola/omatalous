@@ -68,7 +68,8 @@ export async function transactionsView(s: Services, userId: string, q: Transacti
   }
   const narrowed = !!(q.accountId || q.category || q.kind === "income" || q.merchant || q.q?.trim());
   const explained = narrowed ? [] : ctx.explained.filter((t) => (!range.from || t.bookingDate >= range.from) && (!range.to || t.bookingDate <= range.to));
-  const counted = [...loweredRows(ctx, listed), ...explained];
+  // a narrowed list holds only the rows it names: its bill stays whole, as its row says, and the purchases it paid are not its rows
+  const counted = narrowed ? listed : [...loweredRows(ctx, listed), ...explained];
   const flowsOfDay = new Map<string, Flows[]>();
   for (const t of counted) flowsOfDay.set(t.bookingDate, [...(flowsOfDay.get(t.bookingDate) ?? []), t.flows]);
   const countOfDay = new Map(counts.map((d) => [d.date, d.count]));
