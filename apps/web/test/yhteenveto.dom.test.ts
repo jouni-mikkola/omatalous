@@ -232,7 +232,9 @@ describe("Yhteenveto's month", () => {
 
   // 1 928 € stayed of 3 428 € income and 200 € taken out of savings: the list names the 200 €, and the shares are of the 3 628 € together
   it("names what was taken out of savings and stayed, and the shares of the parts add up to 100", () => {
-    const container = summaryIn(data({ totals: totalsOf(342800, 150000, 20000, -20000) } as never));
+    // Tulot 3 428, Menot 1 700 (the consumption and the debt), Tulos 1 928: the 200 € between them is the savings drawn
+    const overview = { income: { cents: 342800, earnedCents: 342800 }, months: [{ month: "2026-11", incomeCents: 342800, spendCents: 170000, fromSavingsCents: 0, complete: false }] };
+    const container = summaryIn(data({ totals: totalsOf(342800, 150000, 20000, -20000), overview } as never));
     expect(rowsOf(container)).toEqual([["savings-left", "Otettu säästöistä", "200 €"], ["consumption", "Kulutus", "1 500 €"], ["debt", "Maksettu velanhoito", "200 €"], ["left", "Tulos", "1 928 €"]]);
     const shares = [...container.querySelectorAll(".home-flow-share")].map((el) => Number.parseInt(flat(el.textContent), 10)).filter((n) => !Number.isNaN(n));
     expect(shares.reduce((sum, n) => sum + n, 0)).toBe(100);
