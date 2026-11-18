@@ -129,7 +129,7 @@ describe("Yhteiset menot: the bars in the settlement block", () => {
     expect(text).not.toContain("Kerro, miten tili jakautuu");
     // the answer's blocks keep their names for readers of the page
     expect(screen.getByRole("group", { name: "Et ole kertonut jakoa" })).toBeTruthy();
-    expect(screen.getByText("Maksaja ei tiedossa")).toBeTruthy();
+    expect(screen.getByText("Tuntematon maksaja")).toBeTruthy();
     expect(screen.queryByText("Ei tiedossa")).toBeNull();
   });
 
@@ -145,10 +145,10 @@ describe("Yhteiset menot: the bars in the settlement block", () => {
     });
     const { container } = render(createElement(section.Component, { ctx: context }));
     await screen.findByRole("group", { name: "Yhteiset menot: Yhteistili" });
-    expect(screen.getAllByText("Maksaja ei tiedossa")).toHaveLength(1);
     const drill = container.querySelector("details")!;
-    expect(plain(drill.querySelector("summary")!.textContent)).toBe("Maksaja ei tiedossa 50,00 €");
-    expect(plain(drill.textContent)).toContain("Maksanut: Tuntematon maksaja 50,00 €");
+    expect(plain(drill.querySelector("summary .st-name")!.textContent)).toBe("Tuntematon maksaja");
+    expect(plain(drill.querySelector("summary .st-num")!.textContent)).toBe("50,00 €");
+    expect(plain(drill.textContent)).toContain("Maksanut: Tuntematon maksaja");
   });
 
   it("folds the corrections to months over a year back and lists the newer ones", async () => {
@@ -168,8 +168,11 @@ describe("Yhteiset menot: the bars in the settlement block", () => {
     expect(plain(folded.textContent)).toContain("syyskuu 2025");
     expect(plain(folded.textContent)).not.toContain("toukokuu 2026");
     expect(plain(folded.textContent)).not.toContain("lokakuu 2025");
-    const shown = [...container.querySelectorAll(".st-rows:not(details) .st-row")].map((r) => plain(r.textContent)).filter((r) => r.startsWith("Korjaus"));
-    expect(shown).toEqual(["Korjaus aiempaan kuukauteen: toukokuu 2026 +12,00 €", "Korjaus aiempaan kuukauteen: lokakuu 2025 +5,60 €"]);
+    const shown = [...container.querySelectorAll(".st-rows:not(details) .st-row")].filter((r) => plain(r.textContent).startsWith("Korjaus")).map((r) => [plain(r.querySelector(".st-name")!.textContent), plain(r.querySelector(".st-num")!.textContent)]);
+    expect(shown).toEqual([
+      ["Korjaus aiempaan kuukauteen: toukokuu 2026", "+12,00 €"],
+      ["Korjaus aiempaan kuukauteen: lokakuu 2025", "+5,60 €"],
+    ]);
   });
 
   it("draws no bars where nobody has told the split: the untold sum is all there is", async () => {

@@ -97,7 +97,6 @@ export const EN_REPORTS_4: Record<keyof typeof FI_REPORTS_4, string> = {
   "rpt.se_share": "Share",
   "rpt.se_untold": "The split has not been told",
   "rpt.se_no_shares": "Spending with no shares",
-  "rpt.se_unknown": "Payer unknown",
   "rpt.se_late": "Correction to an earlier month: {month}",
   "rpt.se_late_older": "Corrections from over {months} months ago",
   "rpt.loading": "Loading…",

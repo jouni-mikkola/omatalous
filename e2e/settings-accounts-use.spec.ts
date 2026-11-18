@@ -48,13 +48,15 @@ test("the question after a link, the parts of the joint account, the bank's answ
   // the split is one control: the ways of the use and the two only an agreement says
   const parts = tilit.getByRole("group", { name: "Tilin Yhteistili jako" }).getByRole("group", { name: "Jakotapa" });
   await expect(parts.getByRole("button")).toHaveText(["Sen mukaan, kuka tilille on maksanut", "Tasan", "Osuuksien mukaan", "Tulojen suhteessa", "Kiinteä summa"]);
-  // nothing said and no payers to go by: no way is pressed
-  await expect(parts.getByRole("button", { pressed: true })).toHaveCount(0);
+  await expect(parts.getByRole("button", { pressed: true })).toHaveCount(1);
   // an own account has the same select in its form, with nothing under it
   await edit("Käyttötili");
   await expect(tilit.getByRole("combobox", { name: "Tilin Käyttötili käyttäjä" })).toHaveValue(`user:${member.id}`);
   await cancel();
   await expect(tilit.getByRole("group", { name: /jako$/ })).toHaveCount(1);
+
+  // nothing said and no payers to go by: the account is cut equally
+  await expect(parts.getByRole("button", { name: "Tasan" })).toHaveAttribute("aria-pressed", "true");
 
   // Osuuksien mukaan: one field for each user, the last one the rest of 100 as the first is typed; Tallenna waits for a change
   await parts.getByRole("button", { name: "Osuuksien mukaan" }).click();

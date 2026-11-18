@@ -123,7 +123,7 @@ function Pool({ pool, month, holder }: { pool: Answer["pools"][number]; month: s
       {(unknown.length > 0 || open > 0) && (
         <details className="st-rows">
           <summary className="st-row">
-            <span className="st-name">{t("rpt.se_unknown")}</span>
+            <span className="st-name">{t("rpt.se_unknown_payer")}</span>
             {open > 0 && <span className="st-num">{money(open)}</span>}
           </summary>
           {unknown.map((u) => (

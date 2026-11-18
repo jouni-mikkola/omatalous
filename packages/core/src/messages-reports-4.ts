@@ -100,7 +100,6 @@ export const FI_REPORTS_4 = {
   "rpt.se_share": "Osuus",
   "rpt.se_untold": "Et ole kertonut jakoa",
   "rpt.se_no_shares": "Menot, joille ei ole osuuksia",
-  "rpt.se_unknown": "Maksaja ei tiedossa",
   "rpt.se_late": "Korjaus aiempaan kuukauteen: {month}",
   "rpt.se_late_older": "Korjaukset yli {months} kk:n takaa",
   "rpt.loading": "Ladataan…",
