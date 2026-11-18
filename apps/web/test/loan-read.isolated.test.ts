@@ -66,9 +66,15 @@ describe("the PDF reader", () => {
   });
 
   it("tells a password-protected PDF from one that cannot be read", async () => {
-    pdf.getDocument.mockImplementation(() => task(Promise.reject(Object.assign(new Error("locked"), { name: "PasswordException" }))));
+    // the rejected promise is marked handled when it is made: the reader attaches its own handler a moment later
+    const refused = (err: Error) => {
+      const rejected = Promise.reject(err);
+      rejected.catch(() => {});
+      return rejected;
+    };
+    pdf.getDocument.mockImplementation(() => task(refused(Object.assign(new Error("locked"), { name: "PasswordException" }))));
     await expect(readPdf(new ArrayBuffer(8), new AbortController().signal)).rejects.toMatchObject({ message: expect.stringContaining("salasanalla") });
-    pdf.getDocument.mockImplementation(() => task(Promise.reject(new Error("broken"))));
+    pdf.getDocument.mockImplementation(() => task(refused(new Error("broken"))));
     await expect(readPdf(new ArrayBuffer(8), new AbortController().signal)).rejects.toMatchObject({ message: expect.stringContaining("Emme voineet lukea") });
   });
 });

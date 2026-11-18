@@ -312,7 +312,6 @@ step_tests() {
     # every test passed but vitest failed, for example on an unhandled error
     finish tests 1 "$(head -n 1 <<<"$out"), run failed"
     strip <"$log" | grep -v '^$' | tail -n 12 | indent
-    pnpm exec vitest run "${args[@]}" "${exclude[@]}" --reporter=dot 2>&1 | strip | grep -B3 -A40 -E 'Unhandled|Vitest caught' | head -n 120 | indent
   else
     finish tests "$rc" "$(head -n 1 <<<"$out")${CHECK_SHARD:+, shard $CHECK_SHARD}${from}"
     tail -n +2 <<<"$out"
