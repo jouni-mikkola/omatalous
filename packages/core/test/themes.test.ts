@@ -82,7 +82,7 @@ describe("the table of themes", () => {
       "Vapaa-aika",
       "Vakuutukset",
       "Verot ja maksut",
-      "Lainat ja luotot",
+      "Velanhoito",
       "Raha-asiat",
     ]);
     expect(new Set(THEMES.map((t) => t.id)).size).toBe(15);
@@ -130,7 +130,7 @@ describe("a row's theme and line", () => {
       ]),
     ).toEqual([
       "Asuminen / Vuokra ja vastike",
-      "Asuminen / Asuntolaina",
+      "Velanhoito / Asuntolaina",
       "Ruoka / Ruokakauppa",
       "Ostokset / Koti ja elektroniikka",
       "Verot ja maksut / Jäsenmaksut",
@@ -160,8 +160,8 @@ describe("a row's theme and line", () => {
     expect(places([vehicleTax(), paid("2026-10-06", 300, "Verohallinto", "taxes", "JAANNOSVERO")])).toEqual(["Auto / Ajoneuvovero", "Verot ja maksut / Verot, maksut ja sakot"]);
   });
 
-  it("a loan that names the car is Auto, another loan is Lainat ja luotot", () => {
-    expect(places([carLoan(), paid("2026-10-07", 120, LENDER, "loans", "KULUTUSLUOTTO")])).toEqual(["Auto / Rahoitus", "Lainat ja luotot / Kulutusluotot"]);
+  it("a loan that names the car is Auto, another loan is Velanhoito", () => {
+    expect(places([carLoan(), paid("2026-10-07", 120, LENDER, "loans", "KULUTUSLUOTTO")])).toEqual(["Auto / Rahoitus", "Velanhoito / Kulutusluotot"]);
   });
 
   it("a lease is Auto whatever its category, the same payee's other bill is not", () => {
@@ -195,7 +195,7 @@ describe("a row's theme and line", () => {
 describe("the theme Auto of a household that has not said how many cars it has", () => {
   const rows = [fuel("2026-10-01"), carInsurance(), vehicleTax(), carLoan(), lease()];
   const inAuto = ["Auto / Polttoaine", "Auto / Liikenne- ja autovakuutus", "Auto / Ajoneuvovero", "Auto / Rahoitus", "Auto / Leasing"];
-  const noAuto = ["Liikkuminen / Auto, polttoaine ja pysäköinti", "Vakuutukset / Vakuutukset", "Verot ja maksut / Verot, maksut ja sakot", "Lainat ja luotot / Kulutusluotot", "Raha-asiat / Muut menot"];
+  const noAuto = ["Liikkuminen / Auto, polttoaine ja pysäköinti", "Vakuutukset / Vakuutukset", "Verot ja maksut / Verot, maksut ja sakot", "Velanhoito / Kulutusluotot", "Raha-asiat / Muut menot"];
 
   it("exists with six purchases of fuel or charging in the window, and with five every row stays in the theme of its category", () => {
     expect(places(rows, notAsked(6))).toEqual(inAuto);

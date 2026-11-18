@@ -7,6 +7,7 @@ import { poolOf } from "../analysis/pool.ts";
 import { rareOccurrences, rareSeries, rareYearCounted } from "../analysis/rare-bills.ts";
 import { getCategory } from "../categories.ts";
 import { cancelledSubjects, isBillSeries, isCancelled } from "../commitments.ts";
+import { COST_KINDS, type CostKind, costKindOf } from "../cost-kinds.ts";
 import { addDays, addMonths, monthEnd, monthOf } from "../dates.ts";
 import { fitsPayment, takenSeries } from "../loan-detect.ts";
 import { loanRateLine } from "../loan-schedule.ts";
@@ -60,6 +61,14 @@ interface BillMonth {
   incomeCents: number;
   /** The month's bills still to pay, known and estimated: `knownCents` and `estimateCents` together. */
   billsCents: number;
+  /**
+   * `billsCents` by what the bills are for (`costKindOf`): the four add up to it, to the cent. A bill whose sum is not known is in none of
+   * them, as it is in no `billsCents`; the month's count of those is `unknownsIn`.
+   */
+  essentialCents: number;
+  debtCents: number;
+  contractCents: number;
+  optionalCents: number;
   /**
    * The pays less the bills and the regular saving still to come. Null while a sum of this month is not known (`unknownMarks` of the
    * calendar: a bill, a saving or a pay of this month, or one with no day) and while no pay is found at all, since an income that is not
@@ -275,6 +284,8 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
     const saving = (r: BillRow) => r.kind === "saving" && r.state !== "paid" && !r.onCard;
     const knownCents = sum((r) => bill(r, "known"));
     const estimateCents = sum((r) => bill(r, "estimate"));
+    const kindCents = (kind: CostKind) => sum((r) => (bill(r, "known") || bill(r, "estimate")) && costKindOf(r.category, r.kind === "loan") === kind);
+    const [essentialCents, debtCents, contractCents, optionalCents] = COST_KINDS.map(kindCents) as [number, number, number, number];
     const savingCents = sum(saving);
     const incomeCents = sum((r) => r.kind === "income");
     return {
@@ -285,6 +296,10 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       savingCents,
       incomeCents,
       billsCents: knownCents + estimateCents,
+      essentialCents,
+      debtCents,
+      contractCents,
+      optionalCents,
       afterCents: found.pays.length === 0 || unknownsIn(unknowns, month) > 0 ? null : incomeCents - knownCents - estimateCents - savingCents,
       monthlyBillsCount: count((r) => r.monthly === true && toPay(r) && !r.onCard),
       monthlyBillsCents: sum((r) => r.monthly === true && toPay(r) && !r.onCard),

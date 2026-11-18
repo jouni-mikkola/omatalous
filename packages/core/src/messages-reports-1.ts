@@ -133,7 +133,7 @@ export const FI_REPORTS_1 = {
   "theme.leisure": "Vapaa-aika",
   "theme.insurance": "Vakuutukset",
   "theme.taxes": "Verot ja maksut",
-  "theme.loans": "Lainat ja luotot",
+  "theme.loans": "Velanhoito",
   "theme.other": "Raha-asiat",
   "carline.fuel": "Polttoaine",
   "carline.charging": "Sähkölataus",

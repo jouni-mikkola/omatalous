@@ -130,7 +130,7 @@ export const EN_REPORTS_1: Record<keyof typeof FI_REPORTS_1, string> = {
   "theme.leisure": "Leisure",
   "theme.insurance": "Insurance",
   "theme.taxes": "Taxes and fees",
-  "theme.loans": "Loans and credit",
+  "theme.loans": "Debt service",
   "theme.other": "Money matters",
   "carline.fuel": "Fuel",
   "carline.charging": "Charging",

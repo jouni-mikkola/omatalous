@@ -88,7 +88,7 @@ const labelled = (...categories: string[]): ThemeLine[] => categories.map((id) =
  * one theme. Liikkuminen has the car's categories as lines for the household that has no theme Auto (`themeOf`).
  */
 export const THEMES: readonly Theme[] = [
-  { id: "housing", heading: "Asuminen", lines: labelled("housing", "mortgage", "utilities") },
+  { id: "housing", heading: "Asuminen", lines: labelled("housing", "utilities") },
   { id: "food", heading: "Ruoka", lines: labelled("groceries", "restaurants", "food_delivery", "alcohol") },
   { id: "car", heading: "Auto", lines: Object.entries(CAR_LINES).map(([id, heading]) => ({ id, heading })) },
   { id: "transport", heading: "Liikkuminen", lines: [...labelled("transport", "car", "leasing"), { id: CAR_PURCHASE, heading: CAR_LINES.purchase }] },
@@ -101,8 +101,9 @@ export const THEMES: readonly Theme[] = [
   { id: "leisure", heading: "Vapaa-aika", lines: labelled("entertainment", "travel", "gambling", "gifts_donations") },
   { id: "insurance", heading: "Vakuutukset", lines: labelled("insurance") },
   { id: "taxes", heading: "Verot ja maksut", lines: labelled("taxes", "memberships", "fees") },
-  { id: "loans", heading: "Lainat ja luotot", lines: labelled("loans", "student_loan", "interest", "collection") },
-  { id: "other", heading: "Raha-asiat", lines: labelled("cash", "p2p", "card_bill", "other", "hold") },
+  // every category of debt service (`CategoryKind` "debt"), the mortgage and the card bill with the loans
+  { id: "loans", heading: "Velanhoito", lines: labelled("mortgage", "loans", "student_loan", "interest", "collection", "card_bill") },
+  { id: "other", heading: "Raha-asiat", lines: labelled("cash", "p2p", "other", "hold") },
 ];
 
 /** A theme's heading in a language (`theme.<id>`); the Finnish heading stays the key and the fallback. */
@@ -161,7 +162,7 @@ function countedAs(ctx: AnalysisContext, t: AnalysisTx): AnalysisTx {
  * shop). So Auto exists when the household says it has a car, and before it has said, when the window holds
  * `AUTO_PURCHASES` purchases of fuel or charging. Without Auto a row stays in the theme of its category: the car's
  * own categories are lines of Liikkuminen, its insurance is on Vakuutukset, its tax on Verot ja maksut and its finance
- * on Lainat ja luotot.
+ * on Velanhoito.
  */
 export function themeOf(ctx: AnalysisContext, row: AnalysisTx, cars: CarsKnown): Placement {
   const t = countedAs(ctx, row);

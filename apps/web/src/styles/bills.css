@@ -32,6 +32,7 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .bill-table tr.rt-group > td { white-space: normal; }
 .bill-sums { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0 var(--sp-16); font-weight: 400; font-variant-numeric: tabular-nums; }
 .bill-sums > span { white-space: nowrap; }
+.bill-sums > .bill-kind { color: var(--text-2); }
 .rt-wrap[data-block] .rt.bill-table tr.rt-group { grid-template-columns: minmax(0, 1fr); }
 .rt-wrap[data-block] .rt.bill-table tr.rt-group > td:not([data-label]) { grid-column: 1; grid-row: 2; text-align: left; }
 .rt-wrap[data-block] .bill-sums { justify-content: flex-start; }

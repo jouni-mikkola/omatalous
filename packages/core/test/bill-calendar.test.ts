@@ -398,6 +398,31 @@ describe("the bill calendar", () => {
       expect(cal.months[4]!.afterCents).toBe(PAY - RENT - MUSIC - INSURANCE - power("2026-02"));
     });
 
+    it("adds a month's bills up by kind, and the four kinds are the month's bills to the cent", () => {
+      const loan: Loan = {
+        id: "loan-5", name: "Asuntolaina", lender: "ESIMERKKIPANKKI", kind: "mortgage", grantedCents: null, balanceCents: 14_823_055, balanceDate: "2026-09-15", rateBp: 310,
+        reference: "euribor_12", marginBp: 65, repayment: "annuity", intervalMonths: 1, paymentCents: 91_240, endDate: null, limitCents: null, seriesKey: null,
+      };
+      const instalments = MONTHS.map((m) => tx({ accountId: "own", bookingDate: `${m}-02`, amountCents: -91_240, merchant: "ESIMERKKIPANKKI", counterparty: "ESIMERKKIPANKKI", category: "mortgage" }));
+      const lease = MONTHS.map((m) => tx({ accountId: "own", bookingDate: `${m}-12`, amountCents: -41_000, merchant: "Esimerkki Leasing", category: "leasing" }));
+      const inputs: UserInputs = { marks: [], expectedBills: [typedBill("Esimerkki Vero", 0, "2026-12-05")], loans: [loan] };
+      const { cal } = run([...household(), ...lease, ...instalments], inputs);
+      for (const m of cal.months) {
+        expect(m.essentialCents + m.debtCents + m.contractCents + m.optionalCents, m.month).toBe(m.billsCents);
+        expect([m.essentialCents, m.debtCents, m.contractCents, m.optionalCents].every((c) => c >= 0), m.month).toBe(true);
+      }
+      const november = cal.months[1]!;
+      expect(november.contractCents).toBe(41_000);
+      expect(november.debtCents).toBe(91_240);
+      expect(november.optionalCents).toBe(MUSIC);
+      expect(november.essentialCents).toBe(november.billsCents - 41_000 - 91_240 - MUSIC);
+      expect(november.essentialCents).toBeGreaterThanOrEqual(RENT + INSURANCE);
+      // a bill whose sum is not known is in no kind and no sum, and the month counts it as unknown, never as 0
+      const december = cal.months[2]!;
+      expect(cal.unknownCount).toBeGreaterThanOrEqual(1);
+      expect(december.afterCents).toBeNull();
+    });
+
     it("gives no month a figure while the day of a loan's payment is not known", () => {
       const loan: Loan = {
         id: "loan-4", name: "Remonttilaina", lender: "ESIMERKKIPANKKI", kind: "mortgage", grantedCents: null, balanceCents: 1_000_000, balanceDate: "2026-10-01", rateBp: null,

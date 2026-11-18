@@ -14,6 +14,7 @@ import { toDayRange } from "../src/analysis/period.ts";
 import { paydayOf, runwayOf } from "../src/analysis/runway.ts";
 import { expectedEverydayPerDay, expectedIncome, expectedSpending } from "../src/analysis/expected.ts";
 import { completeMonthsBefore, earnedIncome } from "../src/analysis/usual.ts";
+import { type CostKind, costKindOf } from "../src/cost-kinds.ts";
 import { addMonths, daysBetween, monthEnd, monthOf } from "../src/dates.ts";
 import { FIGURES } from "../src/figures.ts";
 import { lowPoint } from "../src/low-point.ts";
@@ -45,7 +46,18 @@ const typedLoan = (h: Household): Loan => ({
   rateBp: 310, reference: "euribor_12", marginBp: 65, repayment: "annuity", intervalMonths: 1, paymentCents: 91_240, endDate: null, limitCents: null, seriesKey: null,
 });
 
+/** The bills of a kind in the running month of Laskut: core's sum of the kind against the month's own rows added up by the kind of each. */
+const billsOfKind = (field: "essentialCents" | "debtCents" | "contractCents" | "optionalCents", kind: CostKind) => (h: Household) => {
+  const month = billCalendar(contextOf(h), h.inputs, h.balances).months[0]!;
+  const rows = month.rows.filter((r) => (r.kind === "bill" || r.kind === "loan") && r.state !== "paid" && !r.onCard && costKindOf(r.category, r.kind === "loan") === kind);
+  return { calendar: month[field], rows: rows.reduce((sum, r) => sum + r.cents, 0) };
+};
+
 const ANSWERS: Record<FigureKey, Answers> = {
+  essentialBills: billsOfKind("essentialCents", "essential"),
+  debtBills: billsOfKind("debtCents", "debt"),
+  contractBills: billsOfKind("contractCents", "contract"),
+  optionalBills: billsOfKind("optionalCents", "optional"),
   spending: (h) => {
     const ctx = contextOf(h);
     const range = lastMonth(h);
