@@ -201,6 +201,7 @@ export function BillsTable({
         </div>
       </div>
       {error && <Notice tone="error">{error}</Notice>}
+      <div className="bill-frame">
       <Table<CalRow>
         caption={t("bills.title")}
         className="sub-table bill-table"
@@ -216,6 +217,7 @@ export function BillsTable({
         drill={(r) => <Drill r={r} name={rowName(r)} controls={marking} scope={scope} onRemove={(b) => setRemoving({ id: b.id, name: b.name })} onWrong={(series) => setWrong({ series, name: rowName(r) })} />}
         drillLabel={(r) => t("bills.details", { name: rowName(r) })}
       />
+      </div>
       {removing && (
         <ConfirmDialog title={t("bills.remove_ask", { name: removing.name })} confirmLabel={t("bills.remove")} onConfirm={() => void remove(removing.id)} onCancel={() => setRemoving(null)} />
       )}

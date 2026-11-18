@@ -98,7 +98,7 @@ describe("Laskut: the table and the mark on one subscription", () => {
   });
 
   const MONTHLY = { monthly: true } as const;
-  it("lists every row of this month and the next, and folds the monthly bills of the later months into one row with core's count and sum", () => {
+  it("lists every row of this month and the next, and closes the months after them", () => {
     const monthly = (day: string, payee: string, cents: number) => bill({ date: day, payee, cents, ...MONTHLY });
     const cal = calendar([
       month("2026-10", [monthly("2026-10-12", "Vesiyhtiö", 2000)]),
@@ -107,11 +107,10 @@ describe("Laskut: the table and the mark on one subscription", () => {
     ]);
     const out = cardOf([], [], cal);
     expect(out.match(/Tiedot: Vesiyhtiö/g)).toHaveLength(2);
+    // the months after the next are closed, their head still says what they hold
     expect(out).not.toContain("Kaasuyhtiö");
-    expect(out).toContain("Kuukausittaiset laskut, 2 kpl");
-    expect(out).toContain("50,00 €");
-    // a bill that comes less often than monthly is listed one by one
-    expect(out).toContain("Vakuutus");
+    expect(out).not.toContain("Vakuutus");
+    expect(out).toContain("Joulukuu 2026");
   });
 
   it("heads a month with core's sums, and says the sum left after the bills is not known while a bill's sum is not", () => {
