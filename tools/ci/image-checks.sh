@@ -86,7 +86,7 @@ docker volume create "$APP-data" >/dev/null
 docker volume create "$APP-secrets" >/dev/null
 docker run -d --name "$APP" -p 127.0.0.1::8080 --read-only --tmpfs /tmp:noexec,nosuid,nodev \
   --cap-drop ALL --security-opt no-new-privileges:true \
-  -v "$APP-data:/data" -v "$APP-secrets:/secrets" -e APP_SECRET_FILE=/secrets/app_secret "$IMAGE" >/dev/null \
+  -v "$APP-data:/data" -v "$APP-secrets:/secrets" -e APP_SECRET_FILE=/secrets/app_secret -e REFERENCE_RATES=false "$IMAGE" >/dev/null \
   || fail "The image did not start with a read-only root and no capabilities."
 port=$(docker port "$APP" 8080/tcp | head -1)
 port=${port##*:}
@@ -123,7 +123,7 @@ for i in "${INSTANCES[@]}"; do
   p=$(free_port)
   ports+=("$p")
   docker tag "$IMAGE" "$i:latest"
-  INSTANCE_NAME=$i COMPOSE_PROJECT_NAME=$i HOST_PORT=$p docker compose up -d --no-build banking >/dev/null || fail "$i did not start."
+  REFERENCE_RATES=false INSTANCE_NAME=$i COMPOSE_PROJECT_NAME=$i HOST_PORT=$p docker compose up -d --no-build banking >/dev/null || fail "$i did not start."
   wait_health "$p" "$i"
 done
 for i in "${INSTANCES[@]}"; do

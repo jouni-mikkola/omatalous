@@ -1,7 +1,7 @@
 /**
  * The hourly tick (croner in entry/node.ts): bank
  * fetches in the sync hours chosen in the browser, trade register lookups for
- * new merchants, and cleanup of expired sessions and abandoned bank
+ * new merchants, the daily euribor fixings, and cleanup of expired sessions and abandoned bank
  * authorisations.
  */
 import { hourIn, todayIn } from "../platform/config.ts";
@@ -19,6 +19,7 @@ import { pruneEvents } from "./security.ts";
 import { isSyncHour } from "./instance.ts";
 import { EXTENSIONS } from "../extensions.ts";
 import { recheckModule } from "./modules.ts";
+import { fetchReferenceRates } from "./reference-rates.ts";
 
 export interface TickResult {
   synced: Record<string, SyncSummary> | null;
@@ -96,6 +97,8 @@ export async function hourlyTick(s: Services): Promise<TickResult> {
     console.error("industry lookup failed:", err);
   }
 
+  // the published euribor fixings, once a day after they are out (reference-rates.ts)
+  await chore("fetching euribor fixings", () => fetchReferenceRates(s));
   await chore("deleting expired sessions", () => s.users.deleteExpiredSessions(s.now()));
   await chore("pruning events", () => pruneEvents(s));
   await chore("dropping abandoned import sessions", async () => sweepImportSessions(s));

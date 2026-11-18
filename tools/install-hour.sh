@@ -90,6 +90,7 @@ services:
     environment:
       EB_API_URL: http://127.0.0.1:9099
       EB_AUTH_HOSTS: consent.esimerkkipankki.example
+      REFERENCE_RATES: "false"
     ports:
       - target: 9098
         host_ip: 127.0.0.1

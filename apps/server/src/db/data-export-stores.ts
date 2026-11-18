@@ -197,6 +197,7 @@ const LEFT_OUT: Readonly<Record<string, string>> = {
   merchant_industry: "register answers fetched again when needed",
   merchant_industry_users: "which of the household looked up which merchant, with the register answers above",
   tx_part_state: "built again from the transactions and answers",
+  reference_rates: "published euribor fixings of the whole install, fetched again every day",
 };
 
 /** The columns a store writes: the allowed ones, else every column of the table but the omitted ones. */

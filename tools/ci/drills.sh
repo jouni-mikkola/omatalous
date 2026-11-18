@@ -157,7 +157,7 @@ drill_disk() {
   docker run -d --name "${DISK[3]}" --network none --entrypoint node -v "${DISK[1]}:/data" "$IMG" -e 'setInterval(() => {}, 60000)' >/dev/null || die "the container that keeps the volume mounted did not start"
   saw_with disk_saw
   docker run -d --name "$c" -p 127.0.0.1:$DISK_PORT:8080 -e DATA_DIR=/data -e APP_SECRET_FILE=/secrets/app_secret -e "APP_BASE_URL=$u" \
-    -e SETUP_CODE=ci-setup-code-12345 -e INDUSTRY_LOOKUP=false --read-only --tmpfs /tmp:noexec,nosuid,nodev,size=16m --cap-drop ALL \
+    -e SETUP_CODE=ci-setup-code-12345 -e INDUSTRY_LOOKUP=false -e REFERENCE_RATES=false --read-only --tmpfs /tmp:noexec,nosuid,nodev,size=16m --cap-drop ALL \
     --security-opt no-new-privileges:true -v "${DISK[1]}:/data" -v "${DISK[2]}:/secrets" "$IMG" >/dev/null || die "the second instance did not start"
   until_ok 120 curl -fsS --max-time 5 "$u/api/health" || die "the second instance did not answer"
   curlj -c "$j" -d '{"code":"ci-setup-code-12345","username":"ci-admin","displayName":"CI","password":"'"$PASS"'"}' "$u/api/auth/setup" >/dev/null || die "setup failed"

@@ -47,6 +47,7 @@ export async function setupApp(env: Record<string, string> = {}, fetchMock?: typ
     SETUP_CODE,
     APP_BASE_URL: "http://localhost:8080",
     INDUSTRY_LOOKUP: "false",
+    REFERENCE_RATES: "false",
     ...env,
   });
   const app = createApp({ db, config, now: () => NOW, fetch: fetchMock, ...deps });
