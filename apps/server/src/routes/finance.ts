@@ -1,7 +1,8 @@
 /** Dashboard, reports, transactions, recurring, rules, accounts and sharing for the signed-in user. */
 import { accountDigits, ACCOUNT_TYPES, type AccountType, cashAhead, type DashboardAnswer, type ReconcileVerdict, buildReports, fromDayNumber, isKnownCategory, patternProblem, type RuleField, openingMonth, upcomingElsewhereCents, upcomingGroups } from "@banking/core";
 import { Hono } from "hono";
-import { parseScope, proposalsFor, requestInputs, sharedInView, usesWithTraces } from "../services/analysis.ts";
+import { parseScope, proposalsFor, requestInputs, sharedInView } from "../services/analysis.ts";
+import { usesWithTraces } from "../services/visible-accounts.ts";
 import { hasInstanceCredentials, instanceAppInactive, offeredBanks, registrationUrls } from "../connectors/enable-banking/app-setup.ts";
 import { parseOptionalBoolean, strictObject } from "../platform/validate.ts";
 import { UserError } from "../platform/errors.ts";

@@ -37,7 +37,6 @@ import { accountKey } from "../db/household-repo.ts";
 import type { StoredAccount, StoredTransaction } from "../db/rows.ts";
 import { todayIn } from "../platform/config.ts";
 import { yieldToLoop } from "../platform/yield.ts";
-import { isPool, usesInView } from "./account-use.ts";
 import type { Services } from "./context.ts";
 import { historyOf } from "./coverage.ts";
 import { type HeldLocks, lockedOutside, runsEnded, whenUnlocked, writesOf } from "./enrich.ts";
@@ -46,7 +45,9 @@ import { loansInView } from "./loans-in-view.ts";
 import { proposalsOf, type RequestInputs, stampOf } from "./request-inputs.ts";
 import { RequestReads } from "./request-reads.ts";
 import { statementsInView } from "./statements.ts";
-import { ensureTrace, settledTrace, sharesOf, type SettledTrace, type TraceFacts } from "./money-trace.ts";
+import { settledTrace, sharesOf, type SettledTrace } from "./money-trace.ts";
+import type { TraceFacts } from "./money-trace-parts.ts";
+import { notAmong, visibleTo } from "./visible-accounts.ts";
 
 /**
  * own = what I use: my accounts and the ones shared with me that I have a part of, a joint account at my part, and
@@ -275,28 +276,6 @@ interface InView {
 }
 
 /**
- * The use of each account, with the trace of every pool among them made sure of first: a pool whose parts were built
- * from something else than the household holds now is built again, and the app may set its split. The uses are read
- * again when that changed what they say (the mode, whether the account is traced).
- */
-export async function usesWithTraces(s: Services, userId: string, accounts: readonly StoredAccount[], reads?: RequestReads): Promise<UsesWithTraces> {
-  return reads ? reads.once("uses", `${userId}|${accounts.map((a) => a.id).sort().join(",")}`, () => readUsesWithTraces(s, userId, accounts, reads)) : readUsesWithTraces(s, userId, accounts);
-}
-
-type SharedAccount = StoredAccount & { ownerName: string };
-type UsesWithTraces = { uses: Awaited<ReturnType<typeof usesInView>>; traces: Map<string, TraceFacts> };
-
-async function readUsesWithTraces(s: Services, userId: string, accounts: readonly StoredAccount[], reads?: RequestReads): Promise<UsesWithTraces> {
-  let uses = await usesInView(s, userId, accounts);
-  const keys = [...new Set(accounts.filter((a) => isPool(uses.get(a.id)?.use)).map(accountKey))];
-  const found = new Map((await Promise.all(keys.map(async (key) => [key, await ensureTrace(s, key, reads)] as const))).flatMap(([key, facts]) => (facts ? [[key, facts] as const] : [])));
-  const traces = new Map(accounts.flatMap((a): [string, TraceFacts][] => (found.has(accountKey(a)) ? [[a.id, found.get(accountKey(a))!]] : [])));
-  const moved = [...traces].some(([id, f]) => !!f.traced !== !!uses.get(id)!.traced || !!f.split !== (uses.get(id)!.use.mode === "source"));
-  if (moved) uses = await usesInView(s, userId, accounts);
-  return { uses, traces };
-}
-
-/**
  * Which accounts a view holds. The own view: the viewer's accounts and the ones shared with them, each when the viewer
  * has a part of it. The household view: all of them, whole; it is the own view when nobody shares with the viewer and
  * every account of theirs is theirs whole. `used` is the own view's accounts counted whole, and the own view itself
@@ -319,20 +298,6 @@ async function accountsInView(s: Services, userId: string, requested: View, read
   const left = mine.filter((a) => isNone(a.part));
   if (requested === "used" && accounts.some((a) => !isWhole(a.part))) return { view: "used", accounts: accounts.map(({ part: _part, traced: _traced, ...a }) => a), left, parts, traces: new Map() };
   return { view: "own", accounts, left, parts, traces: new Map([...traces].filter(([id, f]) => f.traced && accounts.some((a) => a.id === id))) };
-}
-
-/**
- * The accounts the viewer may see (their own and those shared with them, a joint account linked by both once) with the
- * use of each and the trace of each pool among them. Every view is cut from this; a request reads it once.
- */
-export async function visibleTo(s: Services, userId: string, reads?: RequestReads): Promise<UsesWithTraces & { own: StoredAccount[]; offered: SharedAccount[]; shared: SharedAccount[] }> {
-  const read = async () => {
-    const own = await s.finance(userId).listAccounts();
-    const offered = await s.household.sharedWith(userId);
-    const shared = offered.filter(notAmong(own));
-    return { own, offered, shared, ...(await usesWithTraces(s, userId, [...own, ...shared], reads)) };
-  };
-  return reads ? reads.once("visible", userId, read) : read();
 }
 
 /** A row cut to a part, as the bank booked it. */
@@ -497,12 +462,6 @@ export async function proposalsFor(s: Services, userId: string, scope: Scope = "
  */
 export async function sharedInView(s: Services, userId: string, own?: readonly StoredAccount[]): Promise<ScopeAccount[]> {
   return (await s.household.sharedWith(userId)).filter(notAmong(own ?? (await s.finance(userId).listAccounts())));
-}
-
-/** Whether an account is another real account than each of `own`: my copy of a joint account wins over the partner's. */
-function notAmong(own: readonly StoredAccount[]): (a: StoredAccount) => boolean {
-  const identities = new Set(own.map((a) => a.identity).filter(Boolean));
-  return (a) => !a.identity || !identities.has(a.identity);
 }
 
 /**
