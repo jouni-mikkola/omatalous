@@ -150,8 +150,8 @@ describe("pace: the month against the month before", () => {
     const ended = paceOf([pay("2026-08-01"), buy("2026-08-30", 500), buy("2026-08-31", 200), ...rows], "2026-09", today);
     expect(ended.current.every((v) => v !== null)).toBe(true);
     expect(ended.currentTotal).toBe(16_700);
-    // August has 31 days and September 30: the whole of September meets August's 30th, and August's curve goes on to the 31st
-    expect(ended.previous).toMatchObject({ month: "2026-08", day: 30, toToday: 500 });
+    // August has 31 days and September 30: the whole of September is read against the whole of August, as Tulot and Tulos read it
+    expect(ended.previous).toMatchObject({ month: "2026-08", day: 31, toToday: 700 });
     expect(ended.previous!.curve.at(-1)).toBe(700);
     const ahead = paceOf(rows, "2026-11", today);
     expect(ahead.current.every((v) => v === null)).toBe(true);

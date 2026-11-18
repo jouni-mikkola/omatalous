@@ -143,11 +143,15 @@ describe("the last days of a month", () => {
     ["2027-02-28", "2027-01"],
     ["2026-05-31", "2026-04"],
   ] as const)("on %s a purchase of the month before's last day is in Menot and in Tulos, which read all of the month before", (today, lastMonth) => {
-    const rows = [...monthEndHousehold(today, lastMonth), tx({ bookingDate: monthEnd(lastMonth), amountCents: -4_000, merchant: "Prisma", category: "groceries" })];
-    const d = buildDashboard(createContext(rows, [checking], today), { from: `${today.slice(0, 7)}-01`, to: today });
-    expect(d.pace.previous).toMatchObject({ month: lastMonth, day: daysOf(lastMonth) });
-    expect(d.range.previousFrom).toBe(`${lastMonth}-01`);
-    expect(lines(d)).toEqual({ menot: 14_000, tulos: 14_000 });
+    const base = monthEndHousehold(today, lastMonth);
+    const rows = [...base, tx({ bookingDate: monthEnd(lastMonth), amountCents: -4_000, merchant: "Prisma", category: "groceries" })];
+    const read = (household: Transaction[]) => buildDashboard(createContext(household, [checking], today), { from: `${today.slice(0, 7)}-01`, to: today });
+    const [without, withIt] = [read(base), read(rows)];
+    expect(withIt.pace.previous).toMatchObject({ month: lastMonth, day: daysOf(lastMonth) });
+    expect(withIt.range.previousFrom).toBe(`${lastMonth}-01`);
+    // the purchase adds its 40 euros to both lines, and they stay one sum
+    expect(lines(withIt)).toEqual({ menot: lines(without).menot + 4_000, tulos: lines(without).tulos + 4_000 });
+    expect(lines(withIt).menot).toBe(lines(withIt).tulos);
   });
 
   it("reads a month before that is shorter than today's day whole, with its last payment, in both lines", () => {
