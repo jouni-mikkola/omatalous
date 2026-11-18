@@ -1,3 +1,3 @@
 section: Money and reports
-- Menot kuukausittain names the usual month by the same sum as Yhteenveto.
+- Tulot ja menot and Menot kuukausittain name the usual month by one sum.
 - The line of Tulot kuukausittain reads "Keskimäärin kuussa" instead of "Tavallinen kuukausi".

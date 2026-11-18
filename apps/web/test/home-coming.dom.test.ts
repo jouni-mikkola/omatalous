@@ -116,6 +116,24 @@ describe("Tulevat kuukaudet", () => {
   });
 });
 
+describe("Laskut: the unknown bills a month head counts", () => {
+  it("counts only the unknown bills of that month: a month with its sum shows none, a month without shows its count", () => {
+    const heads = laskutHeads(farUnknownAnswer());
+    expect(heads).toHaveLength(4);
+    for (const head of heads.slice(0, 3)) {
+      expect(head).not.toContain("laskun summa tai päivä ei ole tiedossa");
+      expect(head).toContain("Laskujen jälkeen");
+      expect(head).not.toContain("Laskujen jälkeen: ei tiedossa");
+    }
+    expect(heads[3]).toContain("1 laskun summa tai päivä ei ole tiedossa");
+    expect(heads[3]).toContain("Laskujen jälkeen: ei tiedossa");
+  });
+
+  it("counts a bill with no day in every month", () => {
+    for (const head of laskutHeads(unknownAnswer())) expect(head).toContain("2 laskun summa tai päivä ei ole tiedossa");
+  });
+});
+
 describe("Tulevat kuukaudet, the block", () => {
   it("asks for the bill calendar of the scope, shows it under its heading and has no link: the figure of Nyt is the one way to Laskut", async () => {
     const seen = stubApi({ "GET /api/reports": { billCalendar: answer() } });

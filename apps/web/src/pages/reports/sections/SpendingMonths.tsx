@@ -66,8 +66,6 @@ function SpendingMonths({ ctx }: SectionProps) {
   // (`cardGap`), so they may have none while the month totals have theirs
   const usual = r.cardGap ? r.categories.some((c) => c.typicalCents !== null) : r.typicalCents !== null;
   const last = r.last !== null ? r.months[r.last]! : null;
-  // with a gap the categories' levels read fewer months than the totals, so they do not add up to its level, shown under the months
-  const footTypical = usual && !r.cardGap && r.typicalCents !== null ? eur(r.typicalCents) : null;
   const columns: Column<Row>[] = [
     { key: "label", label: t("rpt.sm_category"), kind: "text", rowHead: true, cell: (c) => c.label, csv: (c) => c.label },
     { key: "total", label: t("rpt.total"), kind: "money", main: true, sort: true, precision: "euros", cents: (c) => c.totalCents, bar: { tone: "spending", value: (c) => c.totalCents, max: Math.max(1, ...r.categories.map((c) => c.totalCents)) } },
@@ -107,7 +105,7 @@ function SpendingMonths({ ctx }: SectionProps) {
           </OutsideFilter>
         )}
         drillLabel={(c) => c.label}
-        total={{ label: t("rpt.total"), cells: { total: eur(r.totalCents), ...(footTypical ? { typical: footTypical } : {}) } }}
+        total={{ label: t("rpt.total"), cells: { total: eur(r.totalCents) } }}
         search={false}
       />
       <Table<MonthRow>
@@ -121,7 +119,6 @@ function SpendingMonths({ ctx }: SectionProps) {
           { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "euros", cents: (m) => m.cents },
           ...(r.fromSavings.some((c) => !!c) ? ([{ key: "savings", label: t("rpt.sm_from_savings"), kind: "money", precision: "euros", cents: (m) => m.savingsCents ?? null }] satisfies Column<MonthRow>[]) : []),
         ]}
-        total={r.typicalCents !== null ? { label: t("rpt.sm_typical"), cells: { sum: eur(r.typicalCents) } } : undefined}
         toolbar={false}
         csv={false}
       />

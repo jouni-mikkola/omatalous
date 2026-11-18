@@ -1,0 +1,5 @@
+- Yhteenveto has four blocks: Nyt with the lowest balance of the next 60 days, Tulevat kuukaudet, Varat ja velat and Menot.
+- Tulevat kuukaudet shows the next three months of bills and pay, and Varat ja velat shows the buffer in months.
+- Laskut is a 12-month bill calendar with each month's bills, income and what is left after them.
+- Lainat lists debts by interest rate, and euribor loans use the daily rates of Suomen Pankki.
+- Raportit has four reports, and the tax-year sheet lists payments that may count for the household credit.

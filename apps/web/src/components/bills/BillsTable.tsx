@@ -5,7 +5,8 @@
  * chips or sorting. A row is a bill, a loan payment, a pay or a regular saving with its day, its amount and whether the
  * day and the amount are known (Tiedossa), an estimate (Arvio) or paid (Maksettu). A bill a card pays says so in the
  * status and is in no sum. The head of a month carries core's sums (`billsCents`, `estimateCents`, `incomeCents`,
- * `afterCents`); the page adds up nothing, and while a bill's sum is not known the sum of what is left is a status.
+ * `afterCents`); the page adds up nothing. In a month that holds a bill whose sum is not known the sum of what is left is a
+ * status with the count of those bills, and the other months keep their figure.
  * This month and the next list every row; the later months list the bills that come less often than monthly one by one
  * and fold the monthly ones into one row that opens to them, with the number and sum core gives. A row opens in place:
  * how often it comes and its earlier payments with their sum (DrillRows), and the one action of a subscription,
@@ -13,7 +14,7 @@
  * in. A bill the app found that is no recurring bill is removed the same way: the mark `wrongBillSubject` takes it out of
  * the list and of every sum of what is coming. Whether a service is still used is asked in Tarkistettavat.
  */
-import { type MarkKind, parseSeriesId, seriesOfMarkSubject, type UserMark } from "@banking/core";
+import { type MarkKind, parseSeriesId, seriesOfMarkSubject, type UserMark, unknownsIn } from "@banking/core";
 import { useEffect, useState } from "react";
 import { api } from "../../api.ts";
 import { CADENCE_LABEL, dayMonth, date, money, monthLong, seriesName } from "../../format.ts";
@@ -66,7 +67,8 @@ function kindOf(bill: CalBill): string {
 /**
  * The sums of a month's head, all core's: bills (with the estimated part), pays and what is left after the bills and the saving.
  * The sum left is always there, below 0 when no pay comes; it is a status while a bill's sum is not known. A bill whose sum or day
- * is not known is in no month's sum, so each month's bills carry the count of them, as the page's line of the year does.
+ * is not known is in no month's sum, so a month's head carries the count of the ones that leave its sum after the bills unknown
+ * (`unknownsIn` of core, the rule that sets `afterCents` null), and a month with a figure carries none.
  */
 function MonthSums({ month, unknownCount }: { month: CalMonth; unknownCount: number }) {
   return (
@@ -194,7 +196,7 @@ export function BillsTable({
       {g.month ? capital(monthLong(g.month.month)) : `${t("bills.ended")} ${g.ended}`}
     </button>
   );
-  const rowGroups = groups.map((g) => ({ key: g.key, title: head(g), figure: g.month ? <MonthSums month={g.month} unknownCount={calendar.unknownCount} /> : undefined, figureSpan: columns.length - 2, rows: g.rows }));
+  const rowGroups = groups.map((g) => ({ key: g.key, title: head(g), figure: g.month ? <MonthSums month={g.month} unknownCount={unknownsIn(calendar, g.month.month)} /> : undefined, figureSpan: columns.length - 2, rows: g.rows }));
   const rows = groups.flatMap((g) => g.rows);
 
   return (

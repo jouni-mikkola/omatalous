@@ -106,6 +106,9 @@ interface BillCalendar {
 /** Whether a sum that is not known is part of the month's sums: one with no day is part of every month, a dated one of the months it falls in and, when it goes on, of the later ones. */
 const holdsMonth = (u: UnknownSum, month: string): boolean => !u.onCard && (u.days.length === 0 || (u.open ? month >= monthOf(u.days[0]!) : u.days.some((d) => monthOf(d) === month)));
 
+/** How many of the sums that are not known are part of the month's sums: the ones that leave its `afterCents` null, as the month head of Laskut counts them. */
+export const unknownsIn = (calendar: Pick<BillCalendar, "unknowns">, month: string): number => calendar.unknowns.filter((u) => holdsMonth(u, month)).length;
+
 /**
  * Whether a bill, loan payment or saving whose sum is not known may fall on or before `last`: one with no day may, as may a dated one.
  * A card's or an outside account's is no payment of the balance, and a pay that is not known cannot lower it, so neither counts.
@@ -300,7 +303,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       savingCents,
       incomeCents,
       billsCents: knownCents + estimateCents,
-      afterCents: found.pays.length === 0 || unknowns.some((u) => holdsMonth(u, month)) ? null : incomeCents - knownCents - estimateCents - savingCents,
+      afterCents: found.pays.length === 0 || unknownsIn({ unknowns }, month) > 0 ? null : incomeCents - knownCents - estimateCents - savingCents,
       monthlyBillsCount: count((r) => r.monthly === true && toPay(r) && !r.onCard),
       monthlyBillsCents: sum((r) => r.monthly === true && toPay(r) && !r.onCard),
     };

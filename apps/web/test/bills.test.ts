@@ -124,7 +124,7 @@ describe("Laskut: the table and the mark on one subscription", () => {
 
   it("heads a month with core's sums, and says the sum left after the bills is not known while a bill's sum is not", () => {
     const sums = { knownCents: 177000, estimateCents: 64000, billsCents: 241000, incomeCents: 590000 };
-    const cal = calendar([month("2026-10", [bill()], { ...sums, afterCents: 349000 }), month("2026-11", [bill()], { ...sums, afterCents: null })], { unknownCount: 1 });
+    const cal = calendar([month("2026-10", [bill()], { ...sums, afterCents: 349000 }), month("2026-11", [bill()], { ...sums, afterCents: null })], { unknownCount: 1, unknowns: [{ days: ["2026-11-05"], open: false, kind: "bill", onCard: false }] });
     const out = cardOf([], [], cal);
     expect(out).toContain("Laskut 2 410,00 € (arviota 640,00 €)");
     expect(out).toContain("Tulot 5 900,00 €");
@@ -141,9 +141,10 @@ describe("Laskut: the table and the mark on one subscription", () => {
     expect(out).not.toContain("Laskujen jälkeen: ei tiedossa");
   });
 
-  it("marks the bills of every month with the count of the bills whose sum or day is not known, and with nothing when none is", () => {
+  it("marks the months a bill with no day may fall in with the count of the bills whose sum or day is not known, and with nothing when none is", () => {
     const months = [month("2026-10", [bill()], { billsCents: 241000, afterCents: null }), month("2026-11", [bill()], { billsCents: 241000, afterCents: null })];
-    const marked = cardOf([], [], calendar(months, { unknownCount: 2 }));
+    const noDay = { days: [], open: false, kind: "bill" as const, onCard: false };
+    const marked = cardOf([], [], calendar(months, { unknownCount: 2, unknowns: [noDay, noDay] }));
     expect(marked.match(/2 laskun summa tai päivä ei ole tiedossa/g)).toHaveLength(2);
     expect(cardOf([], [], calendar(months.map((m) => ({ ...m, afterCents: 0 })))).includes("ei ole tiedossa")).toBe(false);
   });
