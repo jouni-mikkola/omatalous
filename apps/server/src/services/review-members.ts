@@ -4,14 +4,14 @@
  * their own accounts give, and sends nothing of them: only the viewer's own rows leave.
  */
 import { addDays, type HouseholdMember, memberMoney, normalizeIban, PAYER_ROLES, type PayerRole, payerRoleOf, userNameOf } from "@banking/core";
-import { requestInputs } from "./analysis.ts";
 import type { Services } from "./context.ts";
+import type { OwnView } from "./review-own.ts";
 
 /** What a member's money can be: never the viewer's own money at another bank. */
 const OPTIONS: readonly PayerRole[] = PAYER_ROLES.filter((role) => role !== "own_money");
 
 /** A question as the queue takes it: the payer's key, the money over the year, and the rows it counts. */
-interface MemberMoneyItem {
+export interface MemberMoneyItem {
   kind: "payer";
   id: string;
   cents: number;
@@ -35,12 +35,11 @@ export async function membersOf(s: Services): Promise<HouseholdMember[]> {
 }
 
 /** No guess: what a member's money is, only the household says. */
-export async function memberMoneyItems(s: Services, userId: string): Promise<MemberMoneyItem[]> {
-  const { ctx, accounts } = await s.analysis.get(s, userId, "own");
-  const { inputs } = await requestInputs(s, userId, accounts);
+export async function memberMoneyItems(s: Services, userId: string, own: OwnView): Promise<MemberMoneyItem[]> {
+  const { ctx, inputs } = own;
   const { payers } = inputs;
   if (!payers) return [];
-  const members = await membersOf(s);
+  const members = await own.members();
   const from = addDays(s.today(), -364);
   return memberMoney(ctx.txs, members, userId, from, (t) => payerRoleOf(payers.roles, t, payers.memberId) !== null).map((m) => ({
     kind: "payer",

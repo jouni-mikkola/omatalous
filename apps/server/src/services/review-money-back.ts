@@ -8,6 +8,7 @@
  */
 import { moneyBackOf } from "@banking/core";
 import type { Services } from "./context.ts";
+import type { OwnView } from "./review-own.ts";
 
 export interface MoneyBackItem {
   kind: "money_back";
@@ -27,7 +28,6 @@ export interface MoneyBackItem {
   rowCount?: number;
 }
 
-export const moneyBackItems = async (s: Services, userId: string): Promise<(MoneyBackItem & { rowIds: string[] })[]> => {
-  const [{ ctx }, marks] = await Promise.all([s.analysis.get(s, userId, "own"), s.finance(userId).listMarks()]);
-  return moneyBackOf(ctx, marks, s.today()).map((m) => ({ kind: "money_back", id: `money_back:${m.id}`, cents: m.cents, merchant: m.merchant, reason: m.kind, count: m.rowIds.length, lastDate: m.lastDate, askedOn: m.askedOn, subject: m.subject, rowIds: m.rowIds }));
+export const moneyBackItems = async (s: Services, _userId: string, own: OwnView): Promise<(MoneyBackItem & { rowIds: string[] })[]> => {
+  return moneyBackOf(own.ctx, own.inputs.marks, s.today()).map((m) => ({ kind: "money_back", id: `money_back:${m.id}`, cents: m.cents, merchant: m.merchant, reason: m.kind, count: m.rowIds.length, lastDate: m.lastDate, askedOn: m.askedOn, subject: m.subject, rowIds: m.rowIds }));
 };

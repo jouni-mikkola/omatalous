@@ -21,7 +21,6 @@ import {
   isUserOwner,
   isWhole,
   type LoanProposal,
-  loanProposals,
   type Part,
   type PaidOf,
   paidRows,
@@ -40,11 +39,11 @@ import { todayIn } from "../platform/config.ts";
 import { yieldToLoop } from "../platform/yield.ts";
 import { isPool, usesInView } from "./account-use.ts";
 import type { Services } from "./context.ts";
-import { memoOn } from "./context-memo.ts";
 import { historyOf } from "./coverage.ts";
 import { type HeldLocks, lockedOutside, runsEnded, whenUnlocked, writesOf } from "./enrich.ts";
 import { foreignDaysOf } from "./foreign-rows.ts";
 import { loansInView } from "./loans-in-view.ts";
+import { proposalsOf, type RequestInputs, stampOf } from "./request-inputs.ts";
 import { statementsInView } from "./statements.ts";
 import { ensureTrace, settledTrace, sharesOf, type SettledTrace, type TraceFacts } from "./money-trace.ts";
 
@@ -424,7 +423,7 @@ export async function rowsInView(s: Services, userId: string, scope: Scope): Pro
  * user's own marks and expected bills, and the loans of the view (`loansInView`). Read for each request, never
  * cached. A balance and a credit limit are the viewer's part where the view counts the account at a part.
  */
-export async function requestInputs(s: Services, userId: string, accounts: readonly ScopeAccount[]): Promise<{ balances: BalanceInput[]; inputs: UserInputs }> {
+export async function requestInputs(s: Services, userId: string, accounts: readonly ScopeAccount[]): Promise<RequestInputs> {
   const repo = s.finance(userId);
   const [marks, expectedBills, loans, roles] = await Promise.all([repo.listMarks(), repo.listExpectedBills(), loansInView(s, userId, accounts), repo.payerRoles()]);
   const counted = (cents: number | null, a: ScopeAccount) => (cents === null || !a.part ? cents : partCents(cents, a.part));
@@ -449,7 +448,8 @@ export async function requestInputs(s: Services, userId: string, accounts: reado
     ...(a.part ? { part: a.part } : {}),
     ...(a.traced ? { traced: true as const } : {}),
   }));
-  return { balances, inputs: { marks, expectedBills, loans, payers: { memberId: userId, roles } } };
+  const inputs: UserInputs = { marks, expectedBills, loans, payers: { memberId: userId, roles } };
+  return { balances, inputs, stamp: stampOf(balances, inputs) };
 }
 
 /**
@@ -460,8 +460,7 @@ export async function requestInputs(s: Services, userId: string, accounts: reado
  */
 export async function proposalsFor(s: Services, userId: string, scope: Scope = "own"): Promise<LoanProposal[]> {
   const { ctx, accounts } = await s.analysis.get(s, userId, scope);
-  const { inputs } = await requestInputs(s, userId, accounts);
-  return memoOn(ctx, "loan-proposals", inputs, () => loanProposals(ctx, inputs));
+  return proposalsOf(ctx, await requestInputs(s, userId, accounts));
 }
 
 /**
