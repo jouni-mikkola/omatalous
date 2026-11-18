@@ -43,7 +43,7 @@ async function household() {
  * The most statements a warm request may make for this household. The queue made 172 before it read the view once and
  * makes 40 now; the room above that is for a source that reads one more thing, not for one that reads the view again.
  */
-const MOST = { count: 48, queue: 48 };
+const MOST = { count: 0, queue: 0 };
 
 describe("the review count and the queue read once", () => {
   it("the count is the length of the queue in every state, and the queue is the same on a second read", async () => {

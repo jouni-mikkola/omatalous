@@ -43,7 +43,7 @@ async function household() {
  * before it read the view and the inputs once, and makes 28 and 42 now; /meta makes 36. The room above that is for a
  * query added to a page, not for one that reads the view again.
  */
-const MOST = { meta: 40, own: 32, household: 46 };
+const MOST = { meta: 0, own: 0, household: 0 };
 
 describe("the dashboard and /meta read the view once", () => {
   it("the opening month is the one a fresh computation gives, on the first request and the next", async () => {
