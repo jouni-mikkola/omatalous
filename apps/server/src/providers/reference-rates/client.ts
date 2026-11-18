@@ -42,7 +42,7 @@ const SERIES = new Map<string, EuriborReference>([
   ["12 kk (tod.pv/360)", "euribor_12"],
 ]);
 
-export class ReferenceRatesError extends Error {}
+class ReferenceRatesError extends Error {}
 
 const attribute = (attributes: string, name: string): string | null => new RegExp(`^\\s*${name}="([^"]*)"\\s*$`).exec(attributes)?.[1] ?? null;
 
