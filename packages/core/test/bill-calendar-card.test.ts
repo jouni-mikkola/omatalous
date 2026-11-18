@@ -60,7 +60,7 @@ describe("the bill calendar with a connected card", () => {
 
   it("has the card's next bill, sized by its balance, as one known row, and no other bill of the card", () => {
     const bills = cal.months.flatMap((m) => m.rows).filter((r) => r.payee === "Luottokortti");
-    expect(bills).toEqual([{ date: "2026-11-09", payee: "Luottokortti", category: "transfer", cents: OWED, state: "known", kind: "bill", seriesId: null }]);
+    expect(bills).toEqual([{ date: "2026-11-09", payee: "Luottokortti", category: "card_bill", cents: OWED, state: "known", kind: "bill", seriesId: null }]);
   });
 
   it("leaves what the card pays out of the sums of the month, and marks the row", () => {

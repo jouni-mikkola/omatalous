@@ -1,7 +1,7 @@
 /**
  * The themes are the main classes above the categories (themes.ts). Every row that counts in Menot has one theme and
  * one line in it, so the themes of a month add up to its Menot to the cent, in both views of every fixture household.
- * Auto takes the car's insurance, tax, finance and lease out of their categories, and exists only for a household
+ * Auto takes the car's insurance, tax and lease out of their categories, and exists only for a household
  * that has a car. The car's cost in Säästövinkit reads its lines from the same classifier.
  */
 import { describe, expect, it } from "vitest";
@@ -108,7 +108,6 @@ describe("the table of themes", () => {
       "Katsastus",
       "Liikenne- ja autovakuutus",
       "Ajoneuvovero",
-      "Rahoitus",
       "Leasing",
       "Muut",
       "Auton osto",
