@@ -163,7 +163,7 @@ const statements = (day = "09"): Transaction[] =>
     const cents = daysBetween(NINTHS[i]!, d) * DAILY;
     const paid = `${d.slice(0, 8)}${day}`;
     return [
-      tx({ accountId: own.id, bookingDate: paid, amountCents: -cents, merchant: "Esimerkkipankki", counterparty: "Esimerkkipankki", counterpartyIban: "FI79 4405 2020 0360 82", reference: "1234561", category: "transfer", categorySource: "transfer", isTransfer: true }),
+      tx({ accountId: own.id, bookingDate: paid, amountCents: -cents, merchant: "Esimerkkipankki", counterparty: "Esimerkkipankki", counterpartyIban: "FI14 1009 3000 1234 58", reference: "1234561", category: "transfer", categorySource: "transfer", isTransfer: true }),
       tx({ accountId: card.id, bookingDate: paid, amountCents: cents, merchant: "Maksu", category: "transfer", categorySource: "transfer", isTransfer: true }),
     ];
   });
