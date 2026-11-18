@@ -3,6 +3,54 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.6.0
+
+- Yhteenveto has four blocks: Nyt with the lowest balance of the next 60 days, Tulevat kuukaudet, Varat ja velat and Menot.
+- Tulevat kuukaudet shows the next three months of bills and pay, and Varat ja velat shows the buffer in months.
+- Laskut is a 12-month bill calendar with each month's bills, income and what is left after them.
+- Lainat lists debts by interest rate, and euribor loans use the daily rates of Suomen Pankki.
+- Raportit has four reports, and the tax-year sheet lists payments that may count for the household credit.
+
+Money and reports
+
+- Laskut drops card-paid bills from the rare-bills year and always shows what is left after bills.
+- Laskut lists twelve months with each month's bills, income and what is left after the bills.
+- Tulevat kuukaudet on Yhteenveto shows the first three of those months.
+- Yhteenveto shows the buffer in months under Varat ja velat, or why it cannot be told.
+- Yhteenveto shows a negative buffer when debts and bills exceed the cash.
+- Near months show their figures, and the note counts only bills that affect the months shown.
+- Yhteenveto shows loan interest and repayments apart.
+- Lainat lists debts by interest rate, highest first, and shows a missing rate on the debt.
+- Loans that follow a euribor rate now use its published daily fixings.
+- Yhteenveto has four blocks: Nyt, this month, the coming months, and accounts and debts.
+- Varat ja velat names the month of the last loan payment under the loans total.
+- Tarkistettavat asks when a loan's payment changes, and asks a euribor loan's margin and review day.
+- A loan document's last payment tells how that payment divided into interest and repayment.
+- Laskut shows a loan's payments after its next rate review day as estimates at the newest euribor.
+- Each loan in Lainat shows what is left and what a new payment or extra repayment would change.
+- Yhteenveto shows the lowest balance of the next 60 days, past the next payday, with its range.
+- Kauppiaat no longer counts a loan account's interest and repayments as paid or received.
+- Yhteenveto names the savings and credit terms under Tulos, so the shown figures add up.
+- Tulojen käyttö lists savings or credit drawn that stayed as money in; its shares add up to 100 %.
+- Tapahtumat sums a month as Yhteenveto does: Menot, Tulot, Erotus and what moved to savings.
+- Raportit has four reports and says what paid a gap in the months; Kiinteät menot is on Laskut.
+- Tarkistettavat asks about a charge made twice or after Lopetettu.
+- Money from a person settles what you sent them that month; only the rest counts as income.
+- The tax-year rows list payments to cleaning, repair and similar firms by industry, with their sum.
+- Tulot ja menot and Menot kuukausittain name the usual month by one sum.
+- The line of Tulot kuukausittain reads "Keskimäärin kuussa" instead of "Tavallinen kuukausi".
+
+Fetching and importing
+
+- A new loan fills in from pasted text or a PDF, and you confirm each doubtful figure.
+- A new loan can also be read from a picture, and you check every figure it gives.
+- A loan picture that a phone gives no file type is read, and the picture reader shows its progress.
+
+Upgrade
+
+- Migration 0032 runs on the first start, after the usual copy. The app fetches the euribor fixings once a day from reports.suomenpankki.fi. Set `REFERENCE_RATES=false` in `.env` to turn that off.
+- Migration 0033 runs on the first start, after the usual copy. It adds the table `loan_payment_parts`.
+
 ## 1.5.4
 
 - Months before your bank history begins now show "–" instead of 0 €, and averages leave them out.
