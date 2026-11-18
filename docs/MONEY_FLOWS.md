@@ -526,7 +526,10 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   the sum is fixed: a bill typed in, a series of one price, a loan payment of the loan's own plan, a card's next bill
   when the card's balance is known, a pay the two next paydays find. It is an *estimate* when the sum varies: a monthly
   series with a charge in the same month of last year takes the largest of them, any other its typical sum, and a regular
-  pay beyond the two next paydays comes at its typical sum on the days of its cadence and pay day. A charge made this
+  pay beyond the two next paydays comes at its typical sum on the days of its cadence and pay day. A loan payment whose
+  interval starts on or after the loan's next review day is an estimate too: the loan's schedule counts it at the newest
+  published fixing and the margin, and with a fixing and margin that leave the rate as it is, the payment stays as it
+  was. A loan with no margin or review day keeps its typed payment. A charge made this
   month is *paid* and no part of what is still to come; a loan a series paid this month has that charge as its row of the
   month and no payment of its plan besides. A loan with one payment at its last day has a row on that day for what is
   owed. A bill typed in under the name of a rare bill the history found counts once, as the found one. A loan a series
@@ -888,8 +891,8 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
   never ending.
 - Nothing is estimated: a figure that needs a field the loan lacks is empty and names the field.
 - A loan can carry the day its rate is reviewed (*Koron tarkistuspäivä* in the loan's form, `Loan.rateReviewDate`). The
-  form shows it unless the reference rate is fixed, never requires it and keeps a day that has passed. No figure reads
-  it yet.
+  form shows it unless the reference rate is fixed, never requires it and keeps a day that has passed. With a margin it
+  gives the loan's rate path (`ratePathOf`), which the schedule and the bill calendar read.
 - A saved loan can be tied to the connected card or loan account that is the same debt, in the loan's form (*Sama velka
   pankin tilillä*, offered when the household has such an account that no other loan holds). A linked pair counts once:
   in the debt total of Lainat, in the accounts less the debts of Saldot and in the Säästövinkit loan area. The balance
