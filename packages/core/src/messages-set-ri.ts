@@ -60,6 +60,7 @@ export const FI_SET_RI = {
   "set.ri.is_the_subscription_in_use": "Onko tilaus käytössä?",
   "set.ri.do_you_have_a_home": "Onko taloudessa asuntolaina?",
   "set.ri.a_month": "kuussa",
+  "set.ri.latest_payment": "viimeisin maksu",
   "set.ri.latest_payment_date_the_amount": "Viimeisin maksu {date}. Laskemme määrän siitä eteenpäin.",
   "set.ri.in_total": "yhteensä",
   "set.ri.the_account_already_had_money": "Tilillä oli rahaa jo ennen ensimmäistä tapahtumaa. Kenen rahaa se oli? Vastauksesi vaikuttaa yhteisten menojen jakoon.",

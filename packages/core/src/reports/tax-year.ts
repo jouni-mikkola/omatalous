@@ -1,7 +1,8 @@
 // Decision: which rows of one calendar year the household checks against the pre-filled tax return, and whether a refund or a residual tax is on the accounts
 import type { AnalysisContext } from "../analysis/context.ts";
 import { spendSelect } from "../analysis/counted.ts";
-import { savedLoanPaidBy } from "../analysis/debt-split.ts";
+import { debtRowParts, savedLoanPaidBy } from "../analysis/debt-split.ts";
+import { monthOf } from "../dates.ts";
 import { type DateRange, toDayRange } from "../analysis/period.ts";
 import type { IncomeGroup, IncomeType } from "../analysis/income.ts";
 import { paysHouseholdCreditWork } from "../household-credit.ts";
@@ -55,9 +56,12 @@ export interface TaxYearReport {
   /** Rows of the tax office that name residual tax. */
   residual: { cents: number; rows: TaxRow[] };
   /**
-   * The interest rows that pay a saved loan of a deductible kind (`DEDUCTIBLE_KINDS`), and their sum. An interest row
-   * that reaches no saved loan is not counted, and the sum is then null: what the household may deduct is not known. A
-   * row of a saved loan of another kind is known not to count and leaves the sum as it is.
+   * The interest of home and student loans, and its sum: the interest rows that pay a saved loan of a deductible kind
+   * (`DEDUCTIBLE_KINDS`), and the interest part of each home or student loan payment the debt split splits
+   * (`debtRowParts`), the fee left out. The sum is null while any of it is not known: an interest row that reaches no
+   * saved loan, or a payment the split leaves whole. A payment that reaches a saved loan whose interest the bank booked
+   * as a row of its own in the same month holds no interest. A row of a saved loan of another kind is known not to count
+   * and leaves the sum as it is.
    */
   interest: { cents: number | null; rows: TaxRow[] };
   /** What the loans were paid, interest and principal together, by loan category. */
@@ -98,7 +102,8 @@ interface TaxIncomeInput {
  * One calendar year (the year of the range's last day) gathered from the rows for checking the tax return. Nothing is
  * counted again: income is the income report's types over the year, and the spending rows are the ones every spending
  * figure counts (`spendSelect`, on the rows of `spendRows`), so a category's sum here is that category's sum on the dashboard.
- * The exception is interest, which is the part of that category that pays a deductible saved loan. The household credit
+ * The exception is interest: the interest rows that pay a deductible saved loan and the interest parts of home and student
+ * loan payments. The household credit
  * and residual tax lines are rows whose category and words suggest them; the sheet says "may be related" and decides
  * nothing, and it never says what can be deducted.
  */
@@ -107,16 +112,32 @@ export function taxYearReport(ctx: AnalysisContext, range: DateRange, income: Ta
   const year = Number(days.from.slice(0, 4));
   // A refund is no income of the year: its rows are their own part, and the income total leaves them out.
   const types = income.types.filter((t) => t.totalCents !== 0 && t.type !== "tax_refund").map((t): TaxIncomeRow => ({ type: t.type, label: t.label, group: t.group, earned: t.earned, totalCents: t.totalCents }));
-  const { counted } = spendSelect(ctx, toDayRange(days));
+  const { rows: dayRows, counted } = spendSelect(ctx, toDayRange(days));
   const pick = (category: string, also?: (t: AnalysisTx) => boolean): TaxRow[] => counted.filter((t) => t.category === category && (!also || also(t))).map((t) => rowOf(t, t.spend));
   const loanOf = savedLoanPaidBy(ctx, inputs);
   const interestRows: TaxRow[] = [];
   let interestKnown = true;
+  // the saved loans and months whose interest the bank booked as rows of their own
+  const bookedApart = new Set<string>();
   for (const t of counted.filter((x) => x.category === "interest")) {
     const loan = loanOf(t);
     if (loan === undefined) interestKnown = false;
-    else if (DEDUCTIBLE_KINDS.includes(loan.kind)) interestRows.push(rowOf(t, t.spend));
+    else {
+      bookedApart.add(`${loan.id}:${monthOf(t.bookingDate)}`);
+      if (DEDUCTIBLE_KINDS.includes(loan.kind)) interestRows.push(rowOf(t, t.spend));
+    }
   }
+  const parts = debtRowParts(ctx, dayRows, inputs);
+  for (const t of counted.filter((x) => (LOAN_PAYMENT_CATEGORIES as readonly string[]).includes(x.category))) {
+    const split = parts.get(t.id);
+    if (split !== undefined) {
+      if (split.interestCents !== 0) interestRows.push(rowOf(t, split.interestCents));
+      continue;
+    }
+    const loan = loanOf(t);
+    if (loan === undefined || !bookedApart.has(`${loan.id}:${monthOf(t.bookingDate)}`)) interestKnown = false;
+  }
+  interestRows.sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
   const residualRows = pick("taxes", (t) => isResidualTaxText(textOf(t)) && !isOtherTaxText(textOf(t)));
   const householdRows = counted
     .filter((t) => (t.category === "home" && (isCleaningWorkText(textOf(t)) || isBuildingWorkText(textOf(t)))) || paysHouseholdCreditWork(t.merchant, ctx.industries?.get(t.merchant)))

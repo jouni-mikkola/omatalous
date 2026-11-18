@@ -3,11 +3,13 @@
  * page that lets the household save it (`Loan`, loans.ts) or say "Ei ole laina".
  *
  * What is proposed: a series of `ctx.recurring` that is active, monthly, money out, in a loan's category (mortgage,
- * loans, student_loan), with three or more charges of at least 20 € and one payment reference, or any references when
- * the payee is a lender and no instalment service (a consumer lender's invoice brings a new one each month).
+ * loans, student_loan), with three or more charges (two of a plan whose rows say so, `planRuns`) and one payment
+ * reference, or any references when the payee is a lender and no instalment service (a consumer lender's invoice brings a new one each month). The charges are of at
+ * least 20 € unless the payee is such a lender (`isLenderPayment`), whose payment is a loan's at any sum.
  * recurring.ts owns what a monthly series is and whether it still runs. A lender's payments of about one sum, about
  * one a calendar month, that it found no monthly series in (the day moves too much for a cadence) are one more series
- * (`lenderInstalments`).
+ * (`lenderInstalments`). A known lender's payments no series tells, of any sum, two or more or after a credit it paid in
+ * that is not paid back, are proposed with no monthly figure (`fewPayments`, lender-runs.ts).
  *
  * What a proposal knows is what the bank rows show: who is paid, how much, since when. The balance and the rate are
  * not on the rows, so a proposal has neither, and nothing here guesses them.
@@ -29,18 +31,18 @@ import { covers, seriesMarkSubject } from "./analysis/subscription-alerts.ts";
 import { referenceOf } from "./card-channel.ts";
 import { isCut } from "./shared.ts";
 import { cancelledSubjects, isCancelled, isContract } from "./commitments.ts";
-import { addMonths, daysBetween, monthIndex, monthOf } from "./dates.ts";
+import { daysBetween, monthIndex, monthOf } from "./dates.ts";
+import { creditDraws, drawnKind, fewPayments, INSTALMENT_SERVICE, isKnownLender, isLenderPayment, LENDER_ACTIVE_DAYS, LOAN_CATEGORIES, MIN_LOAN_PAYMENT_CENTS, ofService, owedAtLeast, planRuns } from "./lender-runs.ts";
 import { loansOf, typedBill } from "./loans.ts";
 import { planAnswers } from "./plan-answer.ts";
-import { lexiconCategory } from "./lexicon.ts";
 import { cardIssuerName, fold } from "./merchant.ts";
 import { NOT_LOAN_SUBJECT } from "./loan-mark.ts";
 import type { RecurringSeries } from "./recurring.ts";
 import { parseSeriesId, seriesId } from "./series-id.ts";
 import { STEADY_BAND, steadyBy } from "./returns.ts";
 import type { IsoDate, LoanKind, Transaction, UserInputs } from "./types.ts";
-import { hasLoanText, isFinanceCompanyName, withoutSwedishTwin } from "./wording-lenders.ts";
-import { CONSUMER_LENDER_WORDS, hasPayeeForm, INSTALMENT_SERVICE_WORDS, housingCharge, isCarFinanceText, isHousingCompanyName, isInsuranceText, isLeaseText, isLenderName, isLoanText, isNamedLaina, isRent } from "./wording.ts";
+import { hasLoanText, withoutSwedishTwin } from "./wording-lenders.ts";
+import { hasPayeeForm, housingCharge, isCarFinanceText, isHousingCompanyName, isInsuranceText, isLeaseText, isLenderName, isLoanText, isNamedLaina, isRent } from "./wording.ts";
 
 /** A debt series that looks like a loan nobody saved. */
 export interface LoanProposal {
@@ -56,9 +58,14 @@ export interface LoanProposal {
   /**
    * What the series costs a month in this view, positive: its `monthlyCents`, the figure Kiinteät and Laskut add up. It is
    * the viewer's part where the account is a joint one with a told split (ADR 0016) and the bank's whole payment
-   * otherwise, so the unsaved loans total and the fixed costs say one figure for one loan.
+   * otherwise, so the unsaved loans total and the fixed costs say one figure for one loan. Null where the rows show no
+   * monthly payment (`fewPayments`): a sum of these is not complete with one of them in it.
    */
-  monthlyCents: number;
+  monthlyCents: number | null;
+  /** What the payee is owed at least, from the credit it paid in less the payments since (`owedAtLeast`). Absent where it paid in none. */
+  owedAtLeastCents?: number;
+  /** The rows of a proposal no series holds (`fewPayments`). A series' proposal has its rows in its series. */
+  rowIds?: readonly string[];
   /** Calendar months from the first payment seen to the last, both included. */
   months: number;
   firstDate: IsoDate;
@@ -76,7 +83,8 @@ export interface LoanProposal {
    */
   placed: boolean;
   /**
-   * An instalment plan of a payment service (Klarna and the like): the same sum in three or more months running (`planRun`).
+   * An instalment plan of a payment service (Klarna and the like): the same sum in three or more months running, or two
+   * whose rows say they pay in parts (`planRuns`).
    * Its balance is never assumed, so it is no debt in the totals, and the household is asked how many payments are left.
    */
   plan: boolean;
@@ -88,7 +96,7 @@ export interface LoanProposal {
 type PlanAnswer = { known: false } | { known: true; endMonth: string };
 
 /** What the household answered when asked what a loan is, with the loan kind each answer stands for. */
-export const LOAN_KIND_ANSWERS = ["mortgage", "car", "student", "consumer", "other"] as const satisfies readonly LoanKind[];
+export const LOAN_KIND_ANSWERS = ["mortgage", "car", "student", "consumer", "credit_line", "instalment", "other"] as const satisfies readonly LoanKind[];
 
 /** The subject prefix of the answer: `question:loan-kind:<kind>:<series key>`, mark `in_use`. The latest answer for a series stands. */
 const LOAN_KIND_QUESTION = "question:loan-kind:";
@@ -108,13 +116,8 @@ export function parseLoanKindSubject(subject: string): { kind: (typeof LOAN_KIND
 /** A monthly instalment over this, paid by a home owner, is a mortgage. */
 const MORTGAGE_PAYMENT_CENTS = 40000;
 
-/** Under this a monthly charge is a fee or a small service, whatever its text says. */
-const MIN_LOAN_PAYMENT_CENTS = 2000;
 /** A loan's payments are told from a few separate invoices by this many charges. */
 const MIN_LOAN_CHARGES = 3;
-
-/** Interest alone is the cost of a card or an overdraft, and a collector's plan is paid to someone who lent nothing. */
-const LOAN_CATEGORIES: ReadonlySet<string> = new Set(["mortgage", "loans", "student_loan"]);
 
 // loan-mark.ts holds the mark, so the web entry makes it without loading this file
 export { notLoanMark } from "./loan-mark.ts";
@@ -183,45 +186,6 @@ function wholePayment(typicalCents: number, charges: readonly AnalysisTx[]): num
   return -billCents(charges.reduce((nearest, t) => (off(t) < off(nearest) ? t : nearest)));
 }
 
-const CONSUMER_LENDER = new RegExp(String.raw`(?<![A-Z0-9])(?:${CONSUMER_LENDER_WORDS})(?![A-Z0-9])`);
-
-/** A payment service whose invoices are separate purchases, unlike a bank's: Resurs Bank is a lender too and is not one. */
-const INSTALMENT_SERVICE = new RegExp(INSTALMENT_SERVICE_WORDS);
-
-/** Payments of one sum, in cents: instalments of one plan differ by the rounding of the last cent at most. */
-const PLAN_BAND_CENTS = 5;
-/** Plan payments in a row before a plan is told: two could be two purchases. */
-const MIN_PLAN_MONTHS = 3;
-
-/**
- * The months of the latest run of an instalment service's payments of one sum (within `PLAN_BAND_CENTS` of the latest
- * payment), a month after the month before with no gap: the rows of that run, oldest first. Fewer than
- * `MIN_PLAN_MONTHS` months is no plan: one-off or varying payments (pay later of single purchases) are none.
- */
-function planRun(rows: readonly AnalysisTx[]): AnalysisTx[] {
-  const sorted = [...rows].sort((a, b) => a.day - b.day);
-  const latest = sorted.at(-1);
-  if (!latest) return [];
-  const sum = (t: AnalysisTx) => -billCents(t);
-  const byMonth = new Map<string, AnalysisTx>();
-  for (const t of sorted) if (Math.abs(sum(t) - sum(latest)) <= PLAN_BAND_CENTS) byMonth.set(monthOf(t.bookingDate), t);
-  const run: AnalysisTx[] = [];
-  for (let month = monthOf(latest.bookingDate), t = byMonth.get(month); t; month = addMonths(month, -1), t = byMonth.get(month)) run.unshift(t);
-  return run.length >= MIN_PLAN_MONTHS ? run : [];
-}
-
-/** A row of an instalment service (Klarna and the like), also where its category says shopping. */
-const ofService = (t: AnalysisTx): boolean => INSTALMENT_SERVICE.test(fold(`${t.merchant} ${t.counterparty ?? ""}`));
-
-/**
- * A payee the app knows as a lender: an instalment service or a consumer lender of the word lists, a finance company
- * by the end of its name, or a company the lexicon files as credit. Its steady payment is a loan; whose it is, only
- * the household says.
- */
-function isKnownLender(payee: string, text: string): boolean {
-  return isLenderName(text) || CONSUMER_LENDER.test(text) || isFinanceCompanyName(payee) || lexiconCategory({ merchant: payee, counterparty: payee, description: null })?.category === "loans";
-}
-
 const lenderRowsOf = new WeakMap<readonly AnalysisTx[], readonly { t: AnalysisTx; service: boolean }[]>();
 
 /**
@@ -244,8 +208,6 @@ function lenderRows(txs: readonly AnalysisTx[]): readonly { t: AnalysisTx; servi
 
 /** A lender's payment run counts as monthly when most of the months it spans had one: a month may go by when the next one pays twice. */
 const LENDER_MONTH_SHARE = 0.75;
-/** A run with no payment for this many days has stopped. A due day moved to the month's end and back stays inside. */
-const LENDER_ACTIVE_DAYS = 45;
 
 /**
  * Payments to a lender that recurring.ts found no monthly series in: money out in a loan's category, on one account
@@ -303,10 +265,7 @@ export function lenderInstalments(ctx: Pick<AnalysisContext, "txs" | "recurring"
       transactionIds: steady.map((t) => t.id),
     });
   };
-  for (const [key, rows] of plans) {
-    const run = planRun(rows);
-    if (run.length) asSeries(key, run, run.at(-1)!.amountCents, run.length, run.length);
-  }
+  for (const [key, rows] of plans) for (const run of planRuns(rows)) asSeries(key, run, run.at(-1)!.amountCents, run.length, run.length);
   for (const [key, rows] of groups) {
     const typical = steadyBy(rows, () => "run").get("run");
     if (typical === undefined) continue;
@@ -409,9 +368,16 @@ export function fitsPayment(paymentCents: number, s: RecurringSeries, charges: C
  */
 export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "standing" | "today">, inputs: UserInputs): LoanProposal[] {
   const monthly = ctx.recurring.filter((s) => s.active && s.cadence === "monthly" && (s.kind === "bill" || s.kind === "subscription") && (LOAN_CATEGORIES.has(s.category) || INSTALMENT_SERVICE.test(fold(s.merchant))));
-  const candidates = [...monthly, ...lenderInstalments(ctx).filter((s) => s.active)];
+  const instalments = lenderInstalments(ctx);
+  const { txs } = standingOf(ctx);
+  const series = [...ctx.recurring.filter((s) => s.kind !== "habit"), ...instalments];
+  // the payments no series holds, of a payee with no running series
+  const found = fewPayments(txs, series, ctx.today);
+  const few = new Map(found.map((f) => [f.series.id, f.owedAtLeastCents]));
+  const candidates = [...monthly, ...instalments.filter((s) => s.active), ...found.map((f) => f.series)];
   if (!candidates.length) return [];
   const byId = standingById(ctx);
+  const draws = creditDraws(txs, ctx.today);
   const taken = takenSeries(inputs);
   // a saved loan with a typed payment and no series linked takes one series it fits, as in Asuminen (housing.ts)
   const unlinked = loansOf(inputs).flatMap((loan) => (loan.seriesKey ? [] : [typedBill(loan, ctx.today)].filter((c): c is number => c !== null)));
@@ -424,10 +390,18 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
   for (const s of candidates) {
     const parts = parseSeriesId(s.id);
     if (!parts || parts.direction !== "out" || parts.product === "habit") continue;
-    const charges = s.transactionIds.map((id) => byId.get(id)).filter((t): t is AnalysisTx => !!t && -billCents(t) >= MIN_LOAN_PAYMENT_CENTS);
-    if (charges.length < MIN_LOAN_CHARGES) continue;
-    const paymentCents = wholePayment(s.typicalAmountCents, charges);
-    if (paymentCents < MIN_LOAN_PAYMENT_CENTS) continue;
+    // a lender's few payments are a loan's at any sum: the rows show no plan to hold them to
+    const fewOwed = few.get(s.id);
+    const isFew = fewOwed !== undefined;
+    const rows = s.transactionIds.map((id) => byId.get(id)).filter((t): t is AnalysisTx => !!t);
+    const newest = rows.reduce<AnalysisTx | undefined>((a, t) => (a && a.day > t.day ? a : t), undefined);
+    // a lender's payment is a loan's at any sum; the floor keeps a small fee or service of anyone else out
+    const anySum = isFew || (!!newest && isLenderPayment(fold(newest.counterparty ?? s.merchant), fold([s.merchant, newest.counterparty, newest.description].filter(Boolean).join(" "))));
+    const charges = anySum ? rows : rows.filter((t) => -billCents(t) >= MIN_LOAN_PAYMENT_CENTS);
+    // two instalments whose rows say they pay in parts are a plan (`planRuns`); any other loan takes three charges
+    if (!isFew && charges.length < MIN_LOAN_CHARGES && !planRuns(charges).length) continue;
+    const paymentCents = isFew ? s.typicalAmountCents : wholePayment(s.typicalAmountCents, charges);
+    if (!anySum && paymentCents < MIN_LOAN_PAYMENT_CENTS) continue;
     charges.sort((a, b) => a.day - b.day);
     const latest = charges.slice(-MIN_LOAN_CHARGES);
     const last = latest.at(-1)!;
@@ -436,10 +410,10 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
     // separate invoices each bring their own reference and a contract keeps one, but a lender's monthly invoice names
     // the month; an instalment service's invoices are separate purchases
     const references = new Set(latest.map(referenceOf).filter((r) => r !== ""));
-    // an instalment service is a plan only for the same sum in three months running; its other payments are purchases
+    // an instalment service is a plan only for the same sum in three months running, or two that say so; its other payments are purchases
     const plan = INSTALMENT_SERVICE.test(text);
-    if (plan && planRun(charges).length === 0) continue;
-    const invoicedLoan = (isKnownLender(payee, text) && !INSTALMENT_SERVICE.test(text)) || hasLoanText(payee);
+    if (plan && planRuns(charges).length === 0) continue;
+    const invoicedLoan = isLenderPayment(payee, text) || hasLoanText(payee);
     if (references.size > 1 && !invoicedLoan && !plan) continue;
     // an insurer, a landlord, a lessor and a housing company charging for its own loan are paid no loan of the household's
     if (isInsuranceText(text) || isRent(text) || isLeaseText(text) || isHousingCompanyName(payee)) continue;
@@ -456,21 +430,26 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
     const cut = charges.some(isCut);
     const told = said(s, charges);
     const placing = kindOf(s.category, text);
+    // the credit the payee paid in may name its kind ("Joustoluotot"), and a credit line is no mortgage whatever its payment
+    const drawn = placing.placed ? null : drawnKind(draws, s.merchant);
     // a known lender's payment of about one sum month after month is a loan with no question: the kind stays a guess for the form
     const lender = steadyBy(charges, () => "series").size > 0 && isKnownLender(payee, text);
-    const home = !placing.placed && owner && paymentCents > MORTGAGE_PAYMENT_CENTS;
+    const home = !placing.placed && drawn === null && owner && paymentCents > MORTGAGE_PAYMENT_CENTS;
+    const owed = isFew ? fewOwed : (owedAtLeast(txs, draws, s.merchant, ctx.today)?.cents ?? null);
     out.push({
       key: seriesId({ ...parts, product: cut ? paymentCents : (parts.product ?? paymentCents) }),
       seriesId: s.id,
       payee: withoutSwedishTwin(s.merchant),
       accountId: parts.accountId,
       paymentCents,
-      monthlyCents: s.monthlyCents,
+      monthlyCents: isFew ? null : s.monthlyCents,
+      ...(owed ? { owedAtLeastCents: owed } : {}),
+      ...(isFew ? { rowIds: s.transactionIds } : {}),
       months: s.monthsActive,
       firstDate: s.firstDate,
       lastDate: s.lastDate,
       category: s.category,
-      kind: told ?? (home ? "mortgage" : placing.kind),
+      kind: told ?? drawn ?? (home ? "mortgage" : placing.kind),
       placed: told !== null || home || placing.placed || lender || plan,
       plan,
       planAnswer: plan ? planned(s, charges) : null,

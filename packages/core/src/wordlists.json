@@ -529,6 +529,10 @@
       "strip",
       "payee"
     ],
+    "PUBL": [
+      "strip",
+      "payee"
+    ],
     "KY": [
       "strip",
       "payee"
