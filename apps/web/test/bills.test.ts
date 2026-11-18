@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { BillsTable, MarkAction } from "../src/components/bills/BillsTable.tsx";
 import { billItems } from "../src/components/bills/items.ts";
 import type { Calendar } from "../src/components/bills/calendar-rows.ts";
+import { money } from "../src/format.ts";
 import type { Recurring } from "../src/types.ts";
 import { bill, calendar, lateBill, month } from "./bill-calendar-fixture.ts";
 
@@ -130,6 +131,21 @@ describe("Laskut: the table and the mark on one subscription", () => {
     expect(out).toContain("Laskujen jälkeen 3 490,00 €");
     expect(out).toContain("Laskujen jälkeen: ei tiedossa");
     expect(out).not.toContain("Erotus");
+  });
+
+  it("shows the sum left after the bills in a month with no pay, below 0, and no line of pays", () => {
+    const cal = calendar([month("2026-10", [bill()], { knownCents: 241000, billsCents: 241000, incomeCents: 0, afterCents: -241000 })]);
+    const out = cardOf([], [], cal);
+    expect(out).toContain(`Laskujen jälkeen ${flat(money(-241000))}`);
+    expect(out).not.toContain("Tulot");
+    expect(out).not.toContain("Laskujen jälkeen: ei tiedossa");
+  });
+
+  it("marks the bills of every month with the count of the bills whose sum or day is not known, and with nothing when none is", () => {
+    const months = [month("2026-10", [bill()], { billsCents: 241000, afterCents: null }), month("2026-11", [bill()], { billsCents: 241000, afterCents: null })];
+    const marked = cardOf([], [], calendar(months, { unknownCount: 2 }));
+    expect(marked.match(/2 laskun summa tai päivä ei ole tiedossa/g)).toHaveLength(2);
+    expect(cardOf([], [], calendar(months.map((m) => ({ ...m, afterCents: 0 })))).includes("ei ole tiedossa")).toBe(false);
   });
 
   it("a bill that did not come stays a live row until the payments say it ended", () => {

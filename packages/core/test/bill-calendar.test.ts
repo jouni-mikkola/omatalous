@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { aheadBasis } from "../src/analysis/ahead.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { nytAnswer } from "../src/analysis/nyt.ts";
-import { addDays, dateIn, monthOf, weekdayOf } from "../src/dates.ts";
+import { addDays, dateIn, daysBetween, monthOf, weekdayOf } from "../src/dates.ts";
 import { billCalendar } from "../src/reports/bill-calendar.ts";
 import { upcomingReport } from "../src/reports/upcoming.ts";
 import { type Account, type BalanceInput, type ExpectedBill, type IsoDate, type Loan, NO_INPUTS, type Transaction, type UserInputs } from "../src/types.ts";
@@ -264,6 +264,25 @@ describe("the bill calendar", () => {
     expect(cal.months.find((m) => m.month === "2027-04")!.incomeCents).toBe(3 * 150_000);
   });
 
+  it("lists a bill dated on a payday more than 30 days away, which the 30 days of Nyt's list do not reach", () => {
+    const today = "2026-10-05";
+    const water = 4_500;
+    const on5th = (merchant: string, amountCents: number, category: string) => MONTHS.map((m) => tx({ accountId: "own", bookingDate: `${m}-05`, amountCents, merchant, category }));
+    const rows = [...on5th("Esimerkki Oy", PAY, "salary"), ...on5th("Esimerkki Vesi", -water, "utilities")];
+    const { ctx, cal } = run(rows, NO_INPUTS, today);
+    const balance: BalanceInput = { id: "own", name: own.name, type: own.type, balanceCents: 500_000, ownerName: null, balanceAt: `${today}T06:00:00Z` };
+    const { ahead } = aheadBasis(ctx, [balance], NO_INPUTS);
+    // the pay of 5.11. is 31 days from 5.10.: past the 30 days of `upcoming`, so its bill of that day is in `paydayCents` and in no list of Nyt
+    expect(ahead.payday?.date).toBe("2026-11-05");
+    expect(daysBetween(today, "2026-11-05")).toBe(31);
+    expect(ahead.paydayCents).toBe(water);
+    expect(ahead.upcoming.some((r) => r.date === "2026-11-05")).toBe(false);
+    // the calendar lists it on its day, whatever the distance
+    const row = cal.months[1]!.rows.find((r) => r.payee === "Esimerkki Vesi");
+    expect(row).toMatchObject({ date: "2026-11-05", cents: water, kind: "bill" });
+    expect(cal.months[1]!.billsCents).toBe(water);
+  });
+
   describe("the sums a month shows", () => {
     const saving = () => MONTHS.map((m) => tx({ accountId: "own", bookingDate: `${m}-20`, amountCents: -20_000, merchant: "Esimerkki Rahasto", category: "investments" }));
     const rowSum = (rows: readonly { cents: number }[]) => rows.reduce((total, r) => total + r.cents, 0);
@@ -302,6 +321,28 @@ describe("the bill calendar", () => {
       expect(november.monthlyBillsCount).toBe(3);
       expect(november.monthlyBillsCents).toBe(RENT + MUSIC + typical(ctx, "Esimerkki Energia"));
       expect(november.afterCents).toBe(november.incomeCents - november.billsCents - november.savingCents);
+    });
+
+    it("leaves a rare bill that a card or an account the balance does not count pays out of the year of rare bills, as it is out of the bills", () => {
+      const other: Account = { id: "other", name: "Muu tili", iban: null, currency: "EUR", type: "savings" };
+      const balances: BalanceInput[] = [
+        { id: "own", name: "Käyttötili", type: "checking", balanceCents: 500_000, ownerName: null, balanceAt: TODAY },
+        { id: "other", name: "Muu tili", type: "savings", balanceCents: 0, ownerName: null, balanceAt: TODAY },
+      ];
+      // a quarterly bill of 80 euros on the other account: due about 24.11., 23.2., 25.5. and 24.8.
+      const LEMMIKKI = 8_000;
+      const pet = series("2025-08-25", 91.31, 5, -LEMMIKKI, { accountId: "other", category: "insurance", merchant: "Esimerkki Lemmikkivakuutus" });
+      const ctx = createContext([...household(), ...pet], [own, other], TODAY);
+      const counted = billCalendar(ctx, NO_INPUTS, balances);
+      // the pet insurance has four rows, each marked as paid elsewhere; the year holds the insurance of the own account only: 4 × 150 euros, set aside as a twelfth of it a month
+      expect(rowsOf(counted).filter((r) => r.payee === "Esimerkki Lemmikkivakuutus")).toHaveLength(4);
+      expect(rowsOf(counted).filter((r) => r.payee === "Esimerkki Lemmikkivakuutus").every((r) => r.onCard === true)).toBe(true);
+      expect(counted.yearlyCents).toBe(4 * INSURANCE);
+      expect(counted.reserveMonthlyCents).toBe((4 * INSURANCE) / 12);
+      // with no balances every account counts: 4 × 150 + 4 × 80 euros = 92 000 cents; a month's share is 7 666,67 cents, which rounds to 7 667
+      const all = billCalendar(ctx, NO_INPUTS);
+      expect(all.yearlyCents).toBe(92_000);
+      expect(all.reserveMonthlyCents).toBe(7_667);
     });
 
     it("counts the monthly bills of a month and adds them up, to the cent", () => {

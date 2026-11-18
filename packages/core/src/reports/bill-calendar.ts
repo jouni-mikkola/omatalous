@@ -74,7 +74,10 @@ interface BillCalendar {
   months: BillMonth[];
   /** The bills still to pay of the twelve months, the months' `billsCents` together. */
   billsCents: number;
-  /** The rare bills of the same twelve months, whichever account pays them, and what to set aside each month for them, as `upcoming` has them. */
+  /**
+   * The rare bills of the same twelve months and what to set aside each month for them. As `billsCents` does, it leaves out a bill that
+   * a card or an account the balance does not count pays (the card's own bill is a row of the months), and it keeps a bill paid this month.
+   */
   yearlyCents: number;
   reserveMonthlyCents: number;
   /** The bills and loans whose sum or date is not known, so they have no row. */
@@ -119,7 +122,8 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
   const nytTo = !found.next ? addDays(today, AHEAD_DAYS) : found.next.day > today ? addDays(found.next.day, -1) : today;
   // the accounts the balance counts; with none in view nothing is left out, as in `aheadBasis`
   const counted = poolOf(balances).ids;
-  const offOf = (s: RecurringSeries): Pick<BillRow, "onCard"> => (counted.size && !counted.has(parseSeriesId(s.id)?.accountId ?? "") ? { onCard: true } : {});
+  const paidElsewhere = (seriesId: string): boolean => counted.size > 0 && !counted.has(parseSeriesId(seriesId)?.accountId ?? "");
+  const offOf = (s: RecurringSeries): Pick<BillRow, "onCard"> => (paidElsewhere(s.id) ? { onCard: true } : {});
 
   // the series that pays a loan is the loan's row: the one its key names, or the one whose charges fit its typed payment
   const loans = loansOf(inputs).filter((loan) => !isRevolving(loan.kind));
@@ -273,5 +277,5 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
     };
   });
   const billsCents = months.reduce((total, m) => total + m.billsCents, 0);
-  return { from: today, to: windowEnd, months, billsCents, ...rareYear(occurrences, today), unknownCount };
+  return { from: today, to: windowEnd, months, billsCents, ...rareYear(occurrences.filter((o) => o.seriesId === null || !paidElsewhere(o.seriesId)), today), unknownCount };
 }

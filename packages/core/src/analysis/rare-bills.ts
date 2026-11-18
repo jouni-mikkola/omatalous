@@ -28,6 +28,8 @@ interface Occurrence {
   date: IsoDate;
   amountCents: number;
   source: BillSource;
+  /** The series a found bill comes from, whose id names the account that pays it; null on a typed-in bill. */
+  seriesId: string | null;
   /** Falls in the twelve months counted: paid this month counts, a charge late from last month does not. */
   inYear: boolean;
   /** Listed as coming: not paid, not past and not from a series that has stopped on time. */
@@ -64,7 +66,7 @@ export function rareOccurrences(ctx: AnalysisContext, inputs: UserInputs): { occ
   const found = rareSeries(ctx);
   const occurrences: Occurrence[] = [];
   for (const s of found) {
-    const base = { merchant: s.merchant, category: s.category, cadence: s.cadence!, amountCents: s.typicalAmountCents, source: "detected" as const };
+    const base = { merchant: s.merchant, category: s.category, cadence: s.cadence!, amountCents: s.typicalAmountCents, source: "detected" as const, seriesId: s.id };
     if (s.lastDate >= windowStart) occurrences.push({ ...base, date: s.lastDate, inYear: true, ahead: false, paid: true });
     // an occurrence that a payment from another account, or under another payee name, settled is paid in the month it fell
     // due: the series' next date has moved on, so without this the year would lose the bill when the payment arrives
@@ -80,7 +82,7 @@ export function rareOccurrences(ctx: AnalysisContext, inputs: UserInputs): { occ
   const isDuplicate = (name: string) => foundNames.has(fold(name));
   for (const b of inputs.expectedBills) {
     if (isDuplicate(b.name)) continue;
-    const base = { merchant: b.name, category: b.category, cadence: b.cadence, amountCents: b.amountCents, source: "manual" as const };
+    const base = { merchant: b.name, category: b.category, cadence: b.cadence, amountCents: b.amountCents, source: "manual" as const, seriesId: null };
     // from the start of the month for every cadence, so a one-off due on the 20th counts all month, not until the 20th
     for (const d of expectedDates(b, windowStart, windowEnd)) occurrences.push({ ...base, date: d, inYear: true, ahead: d >= from, paid: false });
   }

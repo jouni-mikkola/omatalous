@@ -99,7 +99,7 @@ export const FIGURES = {
   },
   rareBillsYear: {
     name: "Harvemmin kuin kuukausittain 12 kk",
-    definition: "The bills that come every second month or less often, found in the history or typed in, over the twelve calendar months from the one of today, a bill paid this month included. Laskut and the report of rare bills read the one figure.",
+    definition: "The bills that come every second month or less often, found in the history or typed in, over the twelve calendar months from the one of today, a bill paid this month included. It leaves out a bill that a card or an account the balance does not count pays, as the bills of the same page do.",
     source: { file: "reports/bill-calendar.ts", fn: "billCalendar", field: "yearlyCents" },
     unit: "cents",
     scope: "own",

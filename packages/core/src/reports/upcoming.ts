@@ -69,7 +69,7 @@ export function upcomingReport(ctx: AnalysisContext, inputs: UserInputs = NO_INP
   const items: UpcomingBill[] = occurrences
     .filter((o) => o.ahead && o.date <= to)
     .sort((a, b) => a.date.localeCompare(b.date) || b.amountCents - a.amountCents || a.merchant.localeCompare(b.merchant))
-    .map(({ inYear: _inYear, ahead: _ahead, paid: _paid, ...bill }) => bill);
+    .map(({ inYear: _inYear, ahead: _ahead, paid: _paid, seriesId: _seriesId, ...bill }) => bill);
   const totalCents = items.reduce((s, i) => s + i.amountCents, 0);
 
   const { yearlyCents, reserveMonthlyCents } = rareYear(occurrences, from);
