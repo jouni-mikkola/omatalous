@@ -24,6 +24,8 @@ const EERO = "KORHONEN EERO";
 /** Merchants as the categorisation names them; the bank writes them in capitals. */
 const SHOP = "Yhteinen Kauppa";
 const KIOSK = "Tuntematon Puoti";
+/** A shop paid at uneven days and sums in three complete months, so no series owns its cost and its figure per month is the basis months' average. */
+const WEEKLY = "Vaihteleva Kauppa";
 const TOYS = "Lapsen Kauppa";
 const JULY = "from=2026-07-01&to=2026-07-31";
 const SEPTEMBER = "from=2026-09-01&to=2026-09-30";
@@ -596,14 +598,22 @@ describe("Kauppiaat and the unrecognised spending follow the view", () => {
   });
 
   it("the household view is whole, also for a member nobody shares an account with", async () => {
-    const { aino } = await household({ shared: false });
+    const { aino, s } = await household({ shared: false });
     const hers = await partOfJoint(aino);
+    // the history starts on 2 June, so July to September are complete months and WEEKLY is paid in all three of them
+    await book(s, aino.id, "joint", [["2026-06-02", -5], ["2026-07-03", -17.3], ["2026-08-21", -24.1], ["2026-09-12", -18.6]].map(([day, euros]) => raw(day as string, euros as number, WEEKLY.toUpperCase(), card)));
     const shopIn = async (query: string) => (await get(aino, `/api/merchants${query}`)).items.find((m: { merchant: string }) => m.merchant === SHOP);
     const [own, whole] = [await shopIn(""), await shopIn("?scope=household")];
     expect(own).toMatchObject({ count: 4, totalCents: sum([-6000, -8437, -1], hers), inCents: partCents(1599, hers) });
     expect(whole).toMatchObject({ count: 4, totalCents: 14438, inCents: 1599 });
     // paid in two months only, the shop has no figure per month in either view
     expect([own.monthlyCents, whole.monthlyCents]).toEqual([null, null]);
+    // paid in three of them, the other shop has a figure per month, and the member's is a part of the whole one
+    const weekly = async (query: string) => (await get(aino, `/api/merchants${query}`)).items.find((m: { merchant: string }) => m.merchant === WEEKLY);
+    const [ownWeekly, wholeWeekly] = [await weekly(""), await weekly("?scope=household")];
+    expect(wholeWeekly.monthlyCents).toBeGreaterThan(0);
+    expect(ownWeekly.monthlyCents).toBeGreaterThan(0);
+    expect(Math.abs(ownWeekly.monthlyCents * 2 - wholeWeekly.monthlyCents)).toBeLessThanOrEqual(2);
     const kiosk = async (query: string) => (await get(aino, `/api/merchants/uncategorised${query}`)).items.find((m: { merchant: string }) => m.merchant === KIOSK);
     expect(await kiosk("?scope=household")).toMatchObject({ totalCents: 1234, count: 1 });
     expect(await kiosk("")).toMatchObject({ totalCents: partCents(1234, hers), count: 1 });

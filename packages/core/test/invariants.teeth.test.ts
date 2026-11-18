@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { type AnalysisTx, createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
+import { INCOME_GROUPS } from "../src/analysis/income.ts";
 import { monthKnown } from "../src/analysis/coverage.ts";
 import { addMonths, dateIn, monthOf } from "../src/dates.ts";
 import { buildReports, cashflowReport } from "../src/reports/index.ts";
@@ -130,6 +131,19 @@ describe("the invariant checks catch a household made wrong", () => {
         return r;
       };
       expect(unknownMonth(h, v, zeroed).map((x) => x.check)).toContain("I7.unknown-month");
+      // the cash flow rows and the income months' groups are held the same way
+      const zeroedRows: typeof cashflowReport = (ctx, range, max) => {
+        const r = cashflowReport(ctx, range, max);
+        return { ...r, rows: r.rows.map((x) => ({ ...x, leftCents: x.leftCents ?? 0 })) };
+      };
+      expect(unknownMonth(h, v, buildReports, zeroedRows).map((x) => x.line)).toEqual(expect.arrayContaining([expect.stringContaining("cashflow left")]));
+      const zeroedGroups: typeof buildReports = (input, only) => {
+        const r = buildReports(input, only);
+        const none = Object.fromEntries(INCOME_GROUPS.map((g) => [g.id, 0])) as NonNullable<(typeof r.income.months)[number]["byGroup"]>;
+        r.income.months = r.income.months.map((m) => ({ ...m, byGroup: m.byGroup ?? none }));
+        return r;
+      };
+      expect(unknownMonth(h, v, zeroedGroups).map((x) => x.line)).toEqual(expect.arrayContaining([expect.stringContaining("income group salary")]));
     },
     LONG,
   );

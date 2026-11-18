@@ -361,7 +361,7 @@ describe("a mark belongs to one series", () => {
     expect(series.map((x) => [x.merchant, x.typicalAmountCents])).toEqual([["Netflix", 1299], ["Netflix", 799]]);
     return [series[1]!, series[0]!];
   }
-  const fixed = async (c: Call): Promise<number> => (await c.call("GET", "/api/dashboard")).body.fixedMonthlyCents;
+  const fixed = async (c: Call): Promise<number> => (await c.call("GET", "/api/reports?reports=fixedCosts")).body.fixedCosts.monthlyCents;
   /** The alerts of the running month, or of September and October with `SINCE_SEPTEMBER`. */
   const alertsOf = async (c: Call, kind: string, query = ""): Promise<Alert[]> => (await c.call("GET", `/api/dashboard${query}`)).body.alerts.filter((a: Alert) => a.kind === kind);
   const SINCE_SEPTEMBER = "?from=2026-09-01&to=2026-10-09";

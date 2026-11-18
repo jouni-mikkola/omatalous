@@ -8,7 +8,7 @@
  * month and the running month are both read; Yhteenveto shows only the running one. Two figures that may differ by
  * what they count have two names; this file holds only the ones that are one figure.
  */
-import { addMonths, cancelledSubjects, fixedMonthlyCents, monthEnd, NO_INPUTS } from "@banking/core";
+import { addMonths, monthEnd } from "@banking/core";
 import { beforeAll, describe, expect, it } from "vitest";
 import { KIT_TODAY } from "../../../packages/core/test/kit/index.ts";
 import { FIGURES_TODAY, loadFiguresHousehold } from "./figures-household.ts";
@@ -141,16 +141,6 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
           "Tapahtumat with the category chosen": rows.total,
         });
       }
-    });
-  });
-
-  it("Kiinteät menot: Yhteenveto and Laskut", async () => {
-    const dash = await get(`/api/dashboard?${ranges(running, h.day).year}`);
-    const { series, marks } = await get("/api/recurring");
-    expectOne("Kiinteät menot", {
-      Yhteenveto: dash.fixedMonthlyCents,
-      // Laskut adds the series up with core's function, as Bills.tsx does
-      Laskut: fixedMonthlyCents(series, cancelledSubjects({ ...NO_INPUTS, marks })),
     });
   });
 

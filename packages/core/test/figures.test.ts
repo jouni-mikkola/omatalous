@@ -8,6 +8,7 @@ import { contextOf, demoHousehold, type Household, seededHousehold } from "../..
 import { aheadBasis, cashAhead } from "../src/analysis/ahead.ts";
 import { savingsRateOf } from "../src/analysis/bridge.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
+import { fixedShareOn } from "../src/analysis/fixed-share.ts";
 import { spendTotals } from "../src/analysis/context.ts";
 import { toDayRange } from "../src/analysis/period.ts";
 import { paydayOf, runwayOf } from "../src/analysis/runway.ts";
@@ -24,6 +25,7 @@ import { balanceReport } from "../src/reports/balances.ts";
 import { billCalendar } from "../src/reports/bill-calendar.ts";
 import { bufferReport } from "../src/reports/buffer.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
+import { fixedCostsReport } from "../src/reports/fixed-costs.ts";
 import { incomeReport, regularIncomeMonths } from "../src/reports/income.ts";
 import { upcomingReport } from "../src/reports/upcoming.ts";
 
@@ -148,6 +150,14 @@ const ANSWERS: Record<FigureKey, Answers> = {
       pace: dash.pace.expected?.diffCents ?? null,
     };
   },
+  fixed: (h) => {
+    const ctx = contextOf(h);
+    return {
+      share: fixedShareOn(ctx, h.today, h.inputs).fixedMonthlyCents,
+      report: fixedCostsReport(ctx, h.inputs).monthlyCents,
+      buffer: bufferReport(ctx, h.balances, h.inputs).fixedMonthlyCents,
+    };
+  },
   usualSpend: (h) => {
     const ctx = contextOf(h);
     const month = monthOf(h.today);
@@ -155,13 +165,6 @@ const ANSWERS: Record<FigureKey, Answers> = {
       home: buildDashboard(ctx, running(h), h.balances, h.inputs).home.direction.usualCents,
       usual: expectedSpending(ctx, month),
       buffer: bufferReport(ctx, h.balances, h.inputs).expectedSpendCents,
-    };
-  },
-  fixed: (h) => {
-    const ctx = contextOf(h);
-    return {
-      dashboard: buildDashboard(ctx, running(h), h.balances, h.inputs).fixedMonthlyCents,
-      buffer: bufferReport(ctx, h.balances, h.inputs).fixedMonthlyCents,
     };
   },
   expected: (h) => {
@@ -266,7 +269,8 @@ const ANSWERS: Record<FigureKey, Answers> = {
     return {
       cashflow: r.whole.leftCents,
       // the table's rows added up, to the cent: the running month's row too
-      rows: r.rows.reduce((s, x) => s + x.leftCents, 0),
+      // a month the data does not reach has no row figure, so it would be left out of this sum: none of these households has one
+      rows: r.rows.some((x) => x.leftCents === null) ? null : r.rows.reduce((s, x) => s + x.leftCents!, 0),
       totals: r.totals.leftCents,
     };
   },

@@ -38,10 +38,10 @@ async function household(): Promise<World> {
 async function look(w: World, userId: string) {
   const c = w.as(userId);
   const now = (await c.call("GET", "/api/dashboard?scope=own")).body;
-  const housing = (await c.call("GET", "/api/reports?scope=own&reports=housing")).body.housing;
+  const { housing, fixedCosts } = (await c.call("GET", "/api/reports?scope=own&reports=housing,fixedCosts")).body;
   const month = (await c.call("GET", "/api/transactions?scope=own&from=2026-09-01&to=2026-09-30&limit=500")).body;
   return {
-    fixedMonthlyCents: now.fixedMonthlyCents,
+    fixedMonthlyCents: fixedCosts.monthlyCents as number,
     upcoming: now.ahead.upcoming.map((u: { date: string; name: string; cents: number; source: string }) => `${u.date} ${u.name} ${u.cents} ${u.source}`),
     loans: housing.loans.map((l: { monthlyCents: number; next: { date: string | null } }) => [l.monthlyCents, l.next.date]),
     spending: month.outCents as number,
@@ -116,11 +116,12 @@ async function mortgagePool(paying: { aino: number; ville: number }): Promise<Wo
 
 /** The figures of the forecast in a member's own view: the mortgage row ahead, the fixed costs, the loans no one has saved and the sum left to the payday. */
 async function forecast(w: World, userId: string) {
-  const { ahead, fixedMonthlyCents, holdings, nyt } = (await w.as(userId).call("GET", "/api/dashboard?scope=own")).body;
+  const { ahead, holdings, nyt } = (await w.as(userId).call("GET", "/api/dashboard?scope=own")).body;
+  const { fixedCosts } = (await w.as(userId).call("GET", "/api/reports?scope=own&reports=fixedCosts")).body;
   expect(nyt.left.known).toBe(true);
   return {
     ahead: ahead.upcoming.filter((u: { name: string }) => /asuntolaina/i.test(u.name)).map((u: { date: string; cents: number }) => [u.date, u.cents]),
-    fixedMonthlyCents: fixedMonthlyCents as number,
+    fixedMonthlyCents: fixedCosts.monthlyCents as number,
     unsaved: holdings.unsavedLoans ? [holdings.unsavedLoans.count, holdings.unsavedLoans.paymentCents] : null,
     billsCents: nyt.left.billsCents as number,
     leftCents: nyt.left.leftCents as number,
