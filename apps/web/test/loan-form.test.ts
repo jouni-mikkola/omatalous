@@ -193,7 +193,7 @@ describe("a step in the typed rate", () => {
       repayment: "fixed_instalment", intervalMonths: 1, paymentCents: 5000, endDate: null, limitCents: null, seriesKey: null, rateStepDate: "2027-03-01", rateStepBp: 1990,
     };
     const form = formOfLoan(loan);
-    expect(form.values).toMatchObject({ rateStepDate: "2027-03-01", rateStepBp: "19,9" });
+    expect(form.values).toMatchObject({ rateStepDate: "2027-03-01", rateStepBp: "19,90" });
     const { id: _id, ...body } = loan;
     expect(readForm(form)).toEqual({ errors: {}, body: { ...body, rateReviewDate: null } });
     expect(formOfLoan({ ...loan, rateStepDate: null, rateStepBp: null }).values).toMatchObject({ rateStepDate: "", rateStepBp: "" });
