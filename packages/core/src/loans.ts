@@ -29,8 +29,8 @@ import { partCents } from "./account-use.ts";
 import { addDays, addMonthsToDate, daysBetween } from "./dates.ts";
 import { centsOf, type Debt, figureOf, partly } from "./debt-part.ts";
 import { divRound, endOf, type Instalments, intervalOf, loanLastDueDate, loanPeriodInterest, MAX_LOAN_PAYMENTS, planOf } from "./loan-plan.ts";
-import { annuityPayment, countsDays, loanSchedule, type Payment, payments, rateMilliAt, ratePathOf } from "./loan-schedule.ts";
-import type { Account, IsoDate, Loan, LoanReference, UserInputs } from "./types.ts";
+import { annuityPayment, countsDays, loanBalanceByPlan, loanSchedule, type Payment, payments, rateMilliAt, ratePathOf } from "./loan-schedule.ts";
+import { type Account, type IsoDate, isRevolving, type Loan, type LoanReference, type UserInputs } from "./types.ts";
 
 /** The Finnish name of each reference rate: the one list every page reads. */
 export const LOAN_REFERENCE_LABEL: Record<LoanReference, string> = {
@@ -97,7 +97,8 @@ export function loansOf(inputs: UserInputs): readonly Loan[] {
 
 /**
  * What is owed on a day: the stated balance moved forward by the plan. A loan without a plan keeps its stated balance
- * until its last due date and names the missing field. Before the balance date nothing is known.
+ * until its last due date and names the missing field. A card or credit line with a typed payment and rate pays that
+ * payment each month (`loanBalanceByPlan`), so it owes less than it was stated at. Before the balance date nothing is known.
  */
 export function loanBalanceOn(loan: Debt, day: IsoDate): LoanFigure {
   const cut = partly(loan);
@@ -106,7 +107,9 @@ export function loanBalanceOn(loan: Debt, day: IsoDate): LoanFigure {
   const plan = planOf(loan);
   if ("missing" in plan) {
     const end = endOf(loan);
-    return end !== null && day >= end ? { cents: 0, unknown: null } : { cents: loan.balanceCents, unknown: plan.missing };
+    if (end !== null && day >= end) return { cents: 0, unknown: null };
+    const byPlan = isRevolving(loan.kind) && loan.repayment === null ? loanBalanceByPlan(loan, day) : null;
+    return byPlan === null ? { cents: loan.balanceCents, unknown: plan.missing } : { cents: byPlan, unknown: null };
   }
   let cents = loan.balanceCents;
   for (const p of payments(loan, plan)) {

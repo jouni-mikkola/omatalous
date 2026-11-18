@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
-import { debtPaymentsPerMonth, loanNextPayment, loanRateScenario } from "../src/loans.ts";
+import { debtPaymentsPerMonth, debtTotalOn, loanBalanceOn, loanNextPayment, loanRateScenario } from "../src/loans.ts";
 import type { BalanceInput } from "../src/reports/balances.ts";
 import { buildReports } from "../src/reports/index.ts";
 import type { Account, Loan } from "../src/types.ts";
@@ -76,6 +76,20 @@ describe("a typed payment without a plan", () => {
     const r = run([card, line, bare]).loans;
     expect(r.loans.map((l) => [l.payment.cents, l.payment.unknown])).toEqual([[5000, "repayment"], [3030, "repayment"], [null, "repayment"]]);
     expect(r.payments).toEqual({ monthlyCents: 8030, counted: 2, unknown: 1, bullets: 0 });
+  });
+
+  it("a card with a typed payment and rate owes what its plan leaves, in the row and in the debt total, as the drill counts it", () => {
+    // 1 000 € at 18 % on 1.1.2026, 50 € a month: 819,67 € after the fifth payment (see loanBalanceByPlan), 15.6.2026
+    const card = loan({ id: "card", kind: "card", balanceCents: 100000, balanceDate: "2026-01-15", rateBp: 1800, paymentCents: 5000, intervalMonths: 1 });
+    const bare = loan({ id: "bare", kind: "card", balanceCents: 50000, balanceDate: "2026-01-15" });
+    const day = "2026-06-15";
+    expect(loanBalanceOn(card, day)).toEqual({ cents: 81967, unknown: null });
+    expect(loanBalanceOn(card, "2026-01-15")).toEqual({ cents: 100000, unknown: null });
+    // no payment typed: the stated balance stays, and it says the repayment is missing
+    expect(loanBalanceOn(bare, day)).toEqual({ cents: 50000, unknown: "repayment" });
+    expect(debtTotalOn([card, bare], day).cents).toBe(81967 + 50000);
+    // the plan ends the loan: a payment of 1 000 € clears it, and nothing is owed after its last day
+    expect(loanBalanceOn(loan({ id: "clears", kind: "credit_line", balanceCents: 30000, balanceDate: "2026-01-15", rateBp: 1200, paymentCents: 100000, intervalMonths: 1 }), day)).toEqual({ cents: 0, unknown: null });
   });
 });
 
