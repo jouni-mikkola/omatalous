@@ -50,7 +50,7 @@ describe("the merchant list sums what the flows of the same rows sum", () => {
         if (m.totalCents - m.inCents !== core.net) mismatches.push(`${range.from} ${m.merchant}: list ${m.totalCents} - ${m.inCents}, flows ${core.net}`);
       }
     }
-    expect(mismatches.join("\n")).toBe("");
+    expect(mismatches.length, mismatches.join(" | ")).toBe(0);
   });
 
   it.each(SCOPES)("the merchants of a month add up to the dashboard's spending and saving less its income (%s view)", async (scope) => {
@@ -66,7 +66,7 @@ describe("the merchant list sums what the flows of the same rows sum", () => {
         mismatches.push(`${range.from} ${scope}: merchants ${listed}, dashboard ${wanted}; ${lines.join(", ")}`);
       }
     }
-    expect(mismatches.join("\n")).toBe("");
+    expect(mismatches.length, mismatches.join(" | ")).toBe(0);
   });
 
   it("a refund lowers what the merchant was paid in both views, and the joint account counts at its half in the own view only", async () => {
@@ -100,7 +100,7 @@ describe("one merchant's summary agrees with the strip of its transaction list",
       const sumOfMonths = (summary.months as { outCents: number }[]).reduce((n, m) => n + m.outCents, 0);
       if (sumOfMonths !== summary.year.outCents) mismatches.push(`${merchant}: months ${sumOfMonths}, year ${summary.year.outCents}`);
     }
-    expect(mismatches.join("\n")).toBe("");
+    expect(mismatches.length, mismatches.join(" | ")).toBe(0);
   });
 });
 

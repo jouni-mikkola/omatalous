@@ -152,6 +152,6 @@ describe("the month table adds up to the dashboard and the category file", () =>
       if (cents(c[2]) !== spent) mismatches.push(`${c[1]}: category file ${cents(c[2])}, rows file ${spent}`);
     }
     expect(categories.length).toBeGreaterThan(3);
-    expect(mismatches.join("\n")).toBe("");
+    expect(mismatches.length, mismatches.join(" | ")).toBe(0);
   });
 });
