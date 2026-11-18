@@ -4,7 +4,7 @@
  * goes through the reader (replaced here: its own tests are in loan-read.isolated.test.ts).
  */
 import type { Loan } from "@banking/core";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createElement as h } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { emptyForm } from "../src/components/loans/form.ts";
@@ -176,20 +176,21 @@ describe("Asetukset > Talous: the box that reads a loan", () => {
   });
 
   it("reads a picture through the reader, shows the steps, and marks every field it read as Tarkista", async () => {
+    let reading!: () => void;
     let loaded!: () => void;
     reader.picture.mockImplementation(
       (_picture: Blob, onProgress: (p: { step: string; share: number }) => void) =>
         new Promise((resolve) => {
           onProgress({ step: "load", share: 0.3 });
-          loaded = () => {
-            onProgress({ step: "read", share: 0.5 });
-            resolve(ONE);
-          };
+          reading = () => onProgress({ step: "read", share: 0.4 });
+          loaded = () => resolve(ONE);
         }),
     );
     open();
     pick(new File(["x"], "kuvakaappaus.png", { type: "image/png" }));
     expect((await screen.findByRole("status")).textContent).toMatch(/Valmistelemme kuvan lukijaa/);
+    act(() => reading());
+    expect(screen.getByRole("status").textContent).toMatch(/^Luemme kuvaa… 40 %/);
     loaded();
     await waitFor(() => expect((screen.getByLabelText("Maksuerä (€)") as HTMLInputElement).value).toBe("689,20"));
     // read from a picture, a figure that a text gives with confidence is to check too
@@ -203,6 +204,17 @@ describe("Asetukset > Talous: the box that reads a loan", () => {
     open();
     fireEvent.paste(box(), { clipboardData: { files: [new File(["x"], "image.png", { type: "image/png" })], getData: () => "" } });
     expect((await screen.findByRole("alert")).textContent).toMatch(/Emme löytäneet kuvasta lainan tietoja/);
+  });
+
+  it("reads a chosen picture that has no type by its name, and refuses a file that is neither", async () => {
+    reader.picture.mockResolvedValue("Tervehdys vain");
+    open();
+    pick(new File(["x"], "IMG_0042.JPG", { type: "" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/Emme löytäneet kuvasta lainan tietoja/);
+    expect(reader.picture).toHaveBeenCalledTimes(1);
+    pick(new File(["x"], "muistio.zip", { type: "" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/Tiedosto ei ole kuva, PDF eikä teksti/);
+    expect(reader.picture).toHaveBeenCalledTimes(1);
   });
 
   it("tells why a picture could not be read", async () => {

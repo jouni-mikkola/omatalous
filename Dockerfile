@@ -18,15 +18,12 @@ COPY . .
 # and pnpm would fetch the pinned patch, which it cannot do on musl (ERR_PNPM_MUSL): the image builds with its own node.
 RUN rm -f .npmrc
 # a checkout made under umask 077 has owner-only files, and the app runs as node, not root
-# Tests run in CI, not on the machine that updates. RUN_TESTS=true runs them here too.
-ARG RUN_TESTS=false
 # PRIVATE_BUILD=true builds the owner's private modules in (update.sh passes it on the source channel when .env has
 # TALOUS_PRIVATE_BUILD=yes). The published tree has no build:private script, so there the build stops with a message
 # instead of making the public image under that name. The private migrations land in dist/private-migrations; the
 # public build leaves that folder empty, which the runtime stage copies either way.
 ARG PRIVATE_BUILD=false
-RUN if [ "$RUN_TESTS" = true ]; then pnpm test; fi \
- && if [ "$PRIVATE_BUILD" = true ]; then \
+RUN if [ "$PRIVATE_BUILD" = true ]; then \
       grep '"build:private"' package.json >/dev/null || { echo "PRIVATE_BUILD=true needs the private repository; this tree has no build:private script. Remove TALOUS_PRIVATE_BUILD from .env." >&2; exit 1; }; \
       pnpm build:private || exit 1; \
       ls apps/server/dist/private-migrations/*.sql >/dev/null || { echo "The private build made no dist/private-migrations." >&2; exit 1; }; \

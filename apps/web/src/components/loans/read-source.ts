@@ -177,8 +177,8 @@ export const coreFile = (): string => (WebAssembly.validate(SIMD_PROBE) ? SIMD_C
  */
 export async function readPicture(picture: Blob, onProgress: (progress: PictureProgress) => void, signal: AbortSignal): Promise<string> {
   return guarded(signal, async (stop, alive) => {
-    // createWorker starts its Worker before it returns and hands it back only when the start went well. One that
-    // fails or stalls leaves the Worker running, so the ones it starts are kept here to be ended with the read.
+    // createWorker hands its reader back only when the start went well. One that fails or stalls leaves the Worker
+    // running, so the ones it starts are kept here to be ended with the read, for as long as createWorker is starting.
     const spawned: Worker[] = [];
     let reader: Reader | undefined;
     const end = () => {
@@ -202,12 +202,12 @@ export async function readPicture(picture: Blob, onProgress: (progress: PictureP
       globalThis.Worker = class extends Native {
         constructor(...args: ConstructorParameters<typeof Native>) {
           super(...args);
-          spawned.push(this);
+          if (stop.aborted) this.terminate();
+          else spawned.push(this);
         }
       };
-      let starting: Promise<Reader>;
       try {
-        starting = createWorker(["fin", "eng"], 1, {
+        const starting = createWorker(["fin", "eng"], 1, {
           workerPath: `${base}worker.min.js`,
           corePath: `${base}${coreFile()}`,
           langPath: base,
@@ -223,10 +223,17 @@ export async function readPicture(picture: Blob, onProgress: (progress: PictureP
           },
           errorHandler: (reason) => broke(new Error(String(reason))),
         });
+        // a reader that arrives after the read was ended is ended too
+        void starting.then(
+          (late) => {
+            if (stop.aborted) void late.terminate().catch(() => {});
+          },
+          () => {},
+        );
+        reader = await raced(Promise.race([starting, failed]), stop);
       } finally {
         globalThis.Worker = Native;
       }
-      reader = await raced(Promise.race([starting, failed]), stop);
       alive();
       const text = tidyPictureText((await raced(reader.recognize(canvas), stop)).data.text);
       if (!behind) return text;

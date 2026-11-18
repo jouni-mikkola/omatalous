@@ -7,7 +7,7 @@ export const EN_SET_LOAN_INTAKE: Record<keyof typeof FI_SET_LOAN_INTAKE, string>
   "set.ln.choose_a_picture_or_pdf": "Choose a picture or PDF",
   "set.ln.reading_the_pdf": "Reading the PDF…",
   "set.ln.loading_the_picture_reader": "Preparing the picture reader…",
-  "set.ln.reading_the_picture": "Reading the picture…",
+  "set.ln.reading_the_picture": "Reading the picture… {share}%",
   "set.ln.stop": "Stop",
   "set.ln.reading_stalled": "Reading stalled. Try again or paste the loan details as text.",
   "set.ln.the_pdf_is_locked": "The PDF is password protected. Open it first and paste its text here.",

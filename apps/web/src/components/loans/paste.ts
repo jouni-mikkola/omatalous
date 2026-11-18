@@ -1,6 +1,7 @@
 export const isPdf = (file: File) => file.type === "application/pdf" || /\.pdf$/i.test(file.name);
 export const isText = (file: File) => file.type.startsWith("text/") || /\.(txt|csv)$/i.test(file.name);
-export const isPicture = (file: File) => file.type.startsWith("image/");
+/** By the type, or by the name: a phone's picture may come with no type. A format the browser cannot open is refused when it is read. */
+export const isPicture = (file: File) => file.type.startsWith("image/") || /\.(jpe?g|png|webp|heic|heif|gif|bmp)$/i.test(file.name);
 
 /** What a paste brings in: a file to read, or the text of the loan. */
 export type Pasted = { file: File } | { text: string };

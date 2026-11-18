@@ -9,7 +9,7 @@ export const FI_SET_LOAN_INTAKE = {
   "set.ln.choose_a_picture_or_pdf": "Valitse kuva tai PDF",
   "set.ln.reading_the_pdf": "Luemme PDF-tiedostoa…",
   "set.ln.loading_the_picture_reader": "Valmistelemme kuvan lukijaa…",
-  "set.ln.reading_the_picture": "Luemme kuvaa…",
+  "set.ln.reading_the_picture": "Luemme kuvaa… {share} %",
   "set.ln.stop": "Keskeytä",
   "set.ln.reading_stalled": "Lukeminen jumittui. Yritä uudelleen tai liitä lainan tiedot tekstinä.",
   "set.ln.the_pdf_is_locked": "PDF-tiedosto on salasanalla suojattu. Avaa se ensin ja liitä sen teksti tähän.",

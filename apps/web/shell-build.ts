@@ -12,8 +12,18 @@ const PDF_READER = /^\/assets\/pdf(?:\.worker\.min)?-[\w-]+\.m?js$/;
 /** The picture reader of Asetukset > Lainat: its worker, WebAssembly cores and language data (about 11 MB under `assets/ocr-<hash>/`, `ocrFiles` in vite.config.ts), needed only while a loan picture is read. */
 const PICTURE_READER = /^\/assets\/ocr-[0-9a-f]{8}\//;
 
-/** The address of every file of the built app that the worker keeps, sorted. The PDF reader, the picture reader, the worker itself and the old `.woff` fonts (a browser with a worker reads `.woff2`) stay out, and so do the `.br` and `.gz` copies the server sends in place of a file. */
-export function shellFiles(outDir: string): string[] {
+/** The small chunk that `import("tesseract.js")` makes. Its name is the module's (`index`), the same as the app's own, so it is found in the bundle and not by its name. */
+const PICTURE_READER_MODULE = /[\\/]tesseract\.js[\\/]/;
+
+/** The addresses of the lazy chunks that hold the picture reader's library, from the bundle Rollup hands to `generateBundle`. */
+export function pictureReaderChunks(bundle: Record<string, { type: string; fileName: string; isDynamicEntry?: boolean; facadeModuleId?: string | null }>): string[] {
+  return Object.values(bundle)
+    .filter((file) => file.type === "chunk" && file.isDynamicEntry && PICTURE_READER_MODULE.test(file.facadeModuleId ?? ""))
+    .map((file) => "/" + file.fileName);
+}
+
+/** The address of every file of the built app that the worker keeps, sorted. The PDF reader, the picture reader (`lazyChunks`, and its files under `assets/ocr-<hash>/`), the worker itself and the old `.woff` fonts (a browser with a worker reads `.woff2`) stay out, and so do the `.br` and `.gz` copies the server sends in place of a file. */
+export function shellFiles(outDir: string, lazyChunks: readonly string[] = []): string[] {
   const found: string[] = [];
   const walk = (dir: string) => {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -23,7 +33,7 @@ export function shellFiles(outDir: string): string[] {
     }
   };
   walk(outDir);
-  return found.filter((f) => f !== "/sw.js" && !PDF_READER.test(f) && !PICTURE_READER.test(f) && !f.endsWith(".woff") && !f.endsWith(".br") && !f.endsWith(".gz")).sort();
+  return found.filter((f) => f !== "/sw.js" && !PDF_READER.test(f) && !PICTURE_READER.test(f) && !lazyChunks.includes(f) && !f.endsWith(".woff") && !f.endsWith(".br") && !f.endsWith(".gz")).sort();
 }
 
 /** The worker's source with `__SHELL__` replaced: `{ name: "shell-<hash of the files' names and bytes>", files }`. A changed file is a changed worker, which a browser installs and the old one's cache goes. */
