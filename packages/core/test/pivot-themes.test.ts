@@ -1,6 +1,6 @@
 /**
  * The months table by theme (reports/pivot.ts): each row is placed by `themeOf`, as the themes report places it (the
- * car's finance, insurance and tax in Auto when the household has one), a row has a
+ * car's insurance and tax in Auto when the household has one), a row has a
  * place when it holds 2 % of the spending, and the rows with the rest and the large purchases add up to the month
  * totals to the cent. Each row has the newest complete month, its usual level and the difference when it is worth
  * telling, and each line has its five largest payees and the rest.
@@ -75,8 +75,11 @@ describe("the rows add up", () => {
       for (const l of t.lines) expect(own.lines.find((x) => x.id === l.id)!.totalCents, `${t.heading} / ${l.heading}`).toBe(l.yearCents);
     }
     expect(r.large?.totalCents ?? 0).toBe(report.large.cents);
-    // the instalments of the car's finance are a line of Auto in both
-    if (event) expect(theme(r, "car")!.lines.find((l) => l.id === "finance")!.totalCents).toBeGreaterThan(0);
+    // the instalments of the car's finance are debt service: a line of Velanhoito in both, and none of Auto
+    if (event) {
+      expect(theme(r, "loans")!.lines.find((l) => l.id === "loans")!.totalCents).toBeGreaterThan(0);
+      expect(theme(r, "car")?.lines.some((l) => l.id === "finance") ?? false).toBe(false);
+    }
   });
 });
 

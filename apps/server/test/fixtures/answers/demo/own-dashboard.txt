@@ -254,22 +254,15 @@
     ]
    },
    {
-    "id": "car",
-    "heading": "Auto",
-    "monthlyCents": 41174,
-    "yearCents": 494091,
+    "id": "loans",
+    "heading": "Velanhoito",
+    "monthlyCents": 28900,
+    "yearCents": 346800,
     "changePct": null,
     "lines": [
      {
-      "id": "fuel",
-      "heading": "Polttoaine",
-      "monthlyCents": 12274,
-      "yearCents": 147291,
-      "changePct": null
-     },
-     {
-      "id": "finance",
-      "heading": "Rahoitus",
+      "id": "loans",
+      "heading": "Kulutusluotot",
       "monthlyCents": 28900,
       "yearCents": 346800,
       "changePct": null
@@ -348,6 +341,22 @@
       "heading": "Koti ja elektroniikka",
       "monthlyCents": 8062,
       "yearCents": 96744,
+      "changePct": null
+     }
+    ]
+   },
+   {
+    "id": "car",
+    "heading": "Auto",
+    "monthlyCents": 12274,
+    "yearCents": 147291,
+    "changePct": null,
+    "lines": [
+     {
+      "id": "fuel",
+      "heading": "Polttoaine",
+      "monthlyCents": 12274,
+      "yearCents": 147291,
       "changePct": null
      }
     ]

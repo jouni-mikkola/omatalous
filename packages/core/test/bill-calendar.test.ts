@@ -398,6 +398,53 @@ describe("the bill calendar", () => {
       expect(cal.months[4]!.afterCents).toBe(PAY - RENT - MUSIC - INSURANCE - power("2026-02"));
     });
 
+    it("adds a month's bills up by kind, and the four kinds are the month's bills to the cent", () => {
+      const loan: Loan = {
+        id: "loan-5", name: "Asuntolaina", lender: "ESIMERKKIPANKKI", kind: "mortgage", grantedCents: null, balanceCents: 14_823_055, balanceDate: "2026-09-15", rateBp: 310,
+        reference: "euribor_12", marginBp: 65, repayment: "annuity", intervalMonths: 1, paymentCents: 91_240, endDate: null, limitCents: null, seriesKey: null,
+      };
+      const instalments = MONTHS.map((m) => tx({ accountId: "own", bookingDate: `${m}-02`, amountCents: -91_240, merchant: "ESIMERKKIPANKKI", counterparty: "ESIMERKKIPANKKI", category: "mortgage" }));
+      const lease = MONTHS.map((m) => tx({ accountId: "own", bookingDate: `${m}-12`, amountCents: -41_000, merchant: "Esimerkki Leasing", category: "leasing" }));
+      const inputs: UserInputs = { marks: [], expectedBills: [typedBill("Esimerkki Vero", 0, "2026-12-05")], loans: [loan] };
+      const { cal } = run([...household(), ...lease, ...instalments], inputs);
+      for (const m of cal.months) {
+        expect(m.essentialCents + m.debtCents + m.contractCents + m.optionalCents, m.month).toBe(m.billsCents);
+        expect([m.essentialCents, m.debtCents, m.contractCents, m.optionalCents].every((c) => c >= 0), m.month).toBe(true);
+      }
+      const november = cal.months[1]!;
+      expect(november.contractCents).toBe(41_000);
+      expect(november.debtCents).toBe(91_240);
+      expect(november.optionalCents).toBe(MUSIC);
+      expect(november.essentialCents).toBe(november.billsCents - 41_000 - 91_240 - MUSIC);
+      expect(november.essentialCents).toBeGreaterThanOrEqual(RENT + INSURANCE);
+      // a bill whose sum is not known is in no kind and no sum, and the month counts it as unknown, never as 0
+      const december = cal.months[2]!;
+      expect(cal.unknownCount).toBeGreaterThanOrEqual(1);
+      expect(december.afterCents).toBeNull();
+    });
+
+    it("counts the next bill of a card whose balance is known as debt, never as optional", () => {
+      const today = "2026-10-09";
+      const card: Account = { id: "card", name: "Luottokortti", iban: null, currency: "EUR", type: "credit_card" };
+      const billDays = MONTHS.map((m) => `${m}-20`).filter((d) => d <= today);
+      const purchases = MONTHS.map((m) => tx({ accountId: "card", bookingDate: `${m}-08`, amountCents: -30_000, merchant: "Esimerkki Kauppa", category: "shopping" }));
+      const payments = billDays.flatMap((d) => [
+        tx({ accountId: "own", bookingDate: d, amountCents: -30_000, merchant: "Oma siirto", category: "transfer", categorySource: "transfer", isTransfer: true }),
+        tx({ accountId: "card", bookingDate: d, amountCents: 30_000, merchant: "Oma siirto", category: "transfer", categorySource: "transfer", isTransfer: true }),
+      ]);
+      const balances: BalanceInput[] = [
+        { id: "own", name: "Käyttötili", type: "checking", balanceCents: 500_000, ownerName: null, balanceAt: `${today}T06:00:00Z` },
+        { id: "card", name: "Luottokortti", type: "credit_card", balanceCents: -41_200, ownerName: null, balanceAt: `${today}T06:00:00Z` },
+      ];
+      const rows = [...household(), ...purchases, ...payments].filter((t) => t.bookingDate <= today);
+      const cal = billCalendar(createContext(rows, [own, card], today), NO_INPUTS, balances);
+      const october = cal.months[0]!;
+      expect(october.rows.find((r) => r.payee === "Luottokortti")).toMatchObject({ date: "2026-10-20", cents: 41_200, category: "card_bill", state: "known" });
+      expect(october.debtCents).toBe(41_200);
+      expect(october.optionalCents).toBe(0);
+      expect(october.essentialCents + october.debtCents + october.contractCents + october.optionalCents).toBe(october.billsCents);
+    });
+
     it("gives no month a figure while the day of a loan's payment is not known", () => {
       const loan: Loan = {
         id: "loan-4", name: "Remonttilaina", lender: "ESIMERKKIPANKKI", kind: "mortgage", grantedCents: null, balanceCents: 1_000_000, balanceDate: "2026-10-01", rateBp: null,

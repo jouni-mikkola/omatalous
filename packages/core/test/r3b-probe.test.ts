@@ -2,7 +2,7 @@
  * Edge cases of one share of unknown spending: `unknownSpending` reads `spendRows` (a card bill whose statement rows are
  * read counts as those rows), a Muut menot row the user set is known, and the `uncategorised` signal, the share the
  * reports print and the overview's "Tunnistettu N %" read the same sums. The theme of cash, money to
- * people and card bills is "Raha-asiat", with "Muut menot" as its line of category other. Made-up payees and sums only.
+ * people and other money matters is "Raha-asiat", with "Muut menot" as its line of category other; the card bill is debt service, in "Velanhoito". Made-up payees and sums only.
  *
  * A line marked `API: adjust name` guesses a name the change adds: adapt the call there, never the expectation.
  */
@@ -177,12 +177,16 @@ describe("savings to an account that is not connected", () => {
   });
 });
 
-describe("the theme of cash, money to people and card bills", () => {
+describe("the theme of cash, money to people and the card bill", () => {
   it("is Raha-asiat, and its line of category other is Muut menot", () => {
-    const theme = THEMES.find((t) => t.lines.some((l) => l.id === "card_bill"))!;
+    const theme = THEMES.find((t) => t.id === "other")!;
     expect(theme.heading).toBe("Raha-asiat");
     expect(theme.lines.find((l) => l.id === "other")?.heading).toBe("Muut menot");
-    expect(theme.lines.map((l) => l.id)).toEqual(["cash", "p2p", "card_bill", "other", "hold"]);
+    expect(theme.lines.map((l) => l.id)).toEqual(["cash", "p2p", "other", "hold"]);
+  });
+
+  it("has the card bill with the debt service, in Velanhoito", () => {
+    expect(THEMES.find((t) => t.lines.some((l) => l.id === "card_bill"))?.heading).toBe("Velanhoito");
   });
 
   it("leaves the category's own label as it is, and no other theme is called Muut menot", () => {

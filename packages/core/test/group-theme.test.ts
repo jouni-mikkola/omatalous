@@ -1,6 +1,6 @@
 /**
  * One placement for Kategoriat and Menot kuukausittain (reports/shared.ts `placeOf`, which reads `themeOf`): with a
- * car, Auto holds the car's fuel, insurance, tax and finance in both, so each group of Kategoriat is the theme of the
+ * car, Auto holds the car's fuel, insurance and tax in both, so each group of Kategoriat is the theme of the
  * same name to the cent, and a category the car takes part of is a row in Auto and a row in its own group.
  */
 import { describe, expect, it } from "vitest";
@@ -44,12 +44,12 @@ describe("a household with car costs in several categories", () => {
     expect(pivot.large).toBeNull();
     const groups = Object.fromEntries(categories.groups.map((g) => [g.group, g.totalCents]));
     expect(Object.fromEntries(themes.map((t) => [t.label, t.totalCents]))).toEqual(groups);
-    expect(groups["Auto"]).toBe(12 * (70 + 250 + 40) * 100 + 18_000);
+    expect(groups["Auto"]).toBe(12 * (70 + 40) * 100 + 18_000);
   });
 
   it("puts the car's part of a category in Auto, named so, and the rest in its own group", () => {
     const auto = categories.groups.find((g) => g.group === "Auto")!;
-    expect(auto.categories.map((c) => c.label).sort()).toEqual(["Auto, polttoaine ja pysäköinti", "Kulutusluotot (Auto)", "Vakuutukset (Auto)", "Verot, maksut ja sakot (Auto)"]);
+    expect(auto.categories.map((c) => c.label).sort()).toEqual(["Auto, polttoaine ja pysäköinti", "Vakuutukset (Auto)", "Verot, maksut ja sakot (Auto)"]);
     const insurance = categories.groups.find((g) => g.group === "Vakuutukset")!;
     expect(insurance.totalCents).toBe(12 * 2_500);
     // the table of Menot kuukausittain has the same rows
