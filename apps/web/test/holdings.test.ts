@@ -3,6 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import "./fixed-clock.ts";
+import { netLabelOf } from "../src/components/net-label.ts";
 import { Holdings } from "../src/pages/reports/holdings/Holdings.tsx";
 import { money } from "../src/format.ts";
 import { partText } from "../src/part.ts";
@@ -63,28 +64,63 @@ describe("Holdings", () => {
       expect(text(html(answer({ ...base, netCents: 100_000 })))).not.toContain("Varat velkojen jälkeen");
     });
 
-    it("is named Varat korttivelan jälkeen when only loans nobody saved are left out, and the row of those loans keeps its count and monthly sum with no link", () => {
-      const unsaved = html(answer({ ...base, netCents: 100_000, unsavedLoans: { count: 2, names: [], paymentCents: 30_000 } }));
+    const rows = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }, { name: "Esimerkkikauppa", monthlyCents: 20_000, card: true }];
+    const unsavedLoans = { count: 2, names: [], paymentCents: 30_000, rows };
+
+    it("is named Varat korttivelan jälkeen when only loans nobody saved are left out, and each of those debts is a row with its monthly sum and a missing balance, with no link", () => {
+      const unsaved = html(answer({ ...base, netCents: 100_000, unsavedLoans }));
       expect(undated(unsaved)).toContain("Varat ja velat Varat korttivelan jälkeen 1 000 €");
       const debts = unsaved.slice(unsaved.indexOf('class="st-rows holding-foot"'));
-      expect(text(debts)).toContain("Lainoja, joiden saldo puuttuu 2 (300,00 €/kk)");
+      expect(text(debts)).toContain("Esimerkkirahoitus 100,00 €/kk · saldo puuttuu");
+      expect(text(debts)).toContain("Esimerkkikauppa · Luottokortti 200,00 €/kk · saldo puuttuu");
       expect(debts).not.toMatch(/<a[ >]/);
       expect(links(unsaved)).not.toContain("#/settings/household#lainat");
     });
 
+    it("says only that the balance is missing for an unsaved debt with no monthly figure", () => {
+      const open = [{ name: "Esimerkkerä", monthlyCents: null, card: false }];
+      const out = text(html(answer({ ...base, netCents: 100_000, unsavedLoans: { count: 1, names: [], paymentCents: 0, rows: open } })));
+      expect(out).toContain("Esimerkkerä saldo puuttuu");
+      expect(out).not.toContain("/kk");
+    });
+
+    it("names the debt total as the known one while a debt has no balance, and leaves the rows to Lainat where it lists them", () => {
+      const some = answer({ ...base, netCents: -11_900_000, loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000, cards: [card({ usedCents: 5_000 })], unsavedLoans });
+      expect(text(html(some))).toContain("Velat yhteensä, tiedossa");
+      expect(text(html(answer({ ...some, unsavedLoans: undefined })))).toContain("Velat yhteensä 12");
+      expect(text(html(answer({ ...some, unsavedLoans: undefined })))).not.toContain("Velat yhteensä, tiedossa");
+      expect(text(renderToStaticMarkup(createElement(Holdings, { holdings: some, meta, loansListed: true })))).not.toContain("saldo puuttuu");
+    });
+
     it("counts the loans left out when the saved ones all have a balance", () => {
-      const some = html(answer({ ...base, netCents: -11_900_000, loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000, unsavedLoans: { count: 2, names: [], paymentCents: 30_000 } }));
-      expect(undated(some)).toContain("Varat ja velat Varat velkojen jälkeen (ilman 2 lainaa) −119 000 €");
+      const some = html(answer({ ...base, netCents: -11_900_000, loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000, unsavedLoans }));
+      expect(undated(some)).toContain("Varat ja velat Varat velkojen jälkeen (ilman 2 velkaa) −119 000 €");
+    });
+
+    it("counts a loan and a card nobody saved as debts together, one or more", () => {
+      const one = { count: 1, names: [], paymentCents: 10_000, rows: [rows[1]!] };
+      const net = (unsavedLoans: Answer["unsavedLoans"]) => netLabelOf({ loans: [loan()], debtCents: 12_000_000, unsavedLoans });
+      expect(net(one)).toBe("Varat velkojen jälkeen (ilman 1 velkaa)");
+      expect(net(unsavedLoans)).toBe("Varat velkojen jälkeen (ilman 2 velkaa)");
+      expect(net(undefined)).toBe("Varat velkojen jälkeen");
+    });
+
+    it("names the loans' total as the known one when a debt without a balance is listed under it, with or without a debt row", () => {
+      const owing = { loans: [loan()], loansCents: 12_000_000, loansEndDate: "2041-03-15", debtCents: 12_000_000 };
+      const loansTotal = (h: Answer) => text(html(h));
+      expect(loansTotal(answer({ ...owing, unsavedLoans }))).toContain("Lainat yhteensä, tiedossa 120 000,00 €");
+      expect(loansTotal(answer(owing))).toContain("Lainat yhteensä 120 000,00 €");
+      expect(loansTotal(answer(owing))).not.toContain("tiedossa");
     });
 
     it("counts a lender's few payments with the loans left out and adds them to no monthly sum", () => {
       const saved = { ...base, netCents: -11_900_000, loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000 };
-      const both = html(answer({ ...saved, unsavedLoans: { count: 2, names: [], paymentCents: 30_000 }, unsavedFewPayments: 1 }));
-      expect(undated(both)).toContain("Varat ja velat Varat velkojen jälkeen (ilman 3 lainaa) −119 000 €");
-      expect(text(both)).toContain("Lainoja, joiden saldo puuttuu 2 (300,00 €/kk)");
+      const both = html(answer({ ...saved, unsavedLoans, unsavedFewPayments: 1 }));
+      expect(undated(both)).toContain("Varat ja velat Varat velkojen jälkeen (ilman 3 velkaa) −119 000 €");
+      expect(text(both)).toContain("Esimerkkirahoitus 100,00 €/kk · saldo puuttuu");
       const alone = html(answer({ ...saved, unsavedFewPayments: 1 }));
-      expect(undated(alone)).toContain("Varat ja velat Varat velkojen jälkeen (ilman 1 lainaa) −119 000 €");
-      expect(text(alone)).not.toContain("Lainoja, joiden saldo puuttuu");
+      expect(undated(alone)).toContain("Varat ja velat Varat velkojen jälkeen (ilman 1 velkaa) −119 000 €");
+      expect(text(alone)).not.toContain("saldo puuttuu");
     });
 
     it("is a dash while the debt total is unknown, whatever the accounts hold", () => {

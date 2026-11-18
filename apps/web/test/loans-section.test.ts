@@ -22,7 +22,7 @@ const row = (over: Partial<LoanRow> = {}): LoanRow =>
 /** No loan the path can move forward: no chart. */
 const NO_PATH: NonNullable<LoansReport["path"]> = { days: [day], balanceCents: [0], interestCents: [0], tops: [0], payoff: null, moves: [] };
 const report = (rows: LoanRow[], over: Partial<LoansReport> = {}) => ({
-  day, saved: rows.length, loans: rows, total: { cents: 12_000_000, unknown: [] }, totalKnown: true, interest: { cents: 380_000, unknown: [] }, interestKnown: true,
+  day, saved: rows.length, loans: rows, unsaved: [], total: { cents: 12_000_000, unknown: [] }, totalKnown: true, interest: { cents: 380_000, unknown: [] }, interestKnown: true,
   withoutRate: 0, payments: { monthlyCents: 100_000, counted: 1, unknown: 0, bullets: 0 }, path: NO_PATH, maybeTwice: [], overdraftTwice: [], ...over,
 });
 const balanceData = {
@@ -204,6 +204,43 @@ describe("Raportit: Lainat", () => {
     const none = { ...balanceData, debt: { day, cents: 0, savedCents: 0 } };
     expect(rowsOf(html(balances, context(report([]), "own", none)))).toEqual([]);
     expect(rowsOf(html(balances, context(report([row()]), "own", balanceData, "2026-11")))).toEqual([]);
+  });
+
+  it("lists a loan and a card nobody saved with the monthly payment and no balance, and shows the section with no saved loan", () => {
+    const unsaved = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }, { name: "Esimerkkikauppa", monthlyCents: 20_000, card: true }];
+    const data = report([], { unsaved, payments: { monthlyCents: 0, counted: 0, unknown: 0, bullets: 0 } });
+    expect(loans.visible!(context(data))).toBe(true);
+    expect(loans.visible!(context(report([])))).toBe(false);
+    const out = html(loans, context(data));
+    expect(out).toContain("Esimerkkirahoitus");
+    expect(out).toContain("Esimerkkikauppa");
+    expect(out).toContain("Luottokortti");
+    expect(out.match(/saldo puuttuu/g)).toHaveLength(2);
+    expect(out).toContain(figure("Maksu", "100,00 €/kk"));
+    expect(out).toContain(figure("Maksu", "200,00 €/kk"));
+    // no total of a debt nobody told: the tiles are of the saved loans
+    expect(out).not.toContain("tiedossa");
+  });
+
+  it("shows a dash, never 0, for an unsaved debt with no monthly figure", () => {
+    const unsaved = [{ name: "Esimerkkierä", monthlyCents: null, card: false }];
+    const out = html(loans, context(report([], { unsaved, payments: { monthlyCents: 0, counted: 0, unknown: 0, bullets: 0 } })));
+    expect(out).toContain("<dt>Maksu</dt><dd class=\"unknown\">–</dd>");
+    expect(out).not.toContain("/kk");
+    expect(out).toContain("saldo puuttuu");
+  });
+
+  it("names the total of saved loans as the known one while a debt has no balance", () => {
+    const unsaved = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }];
+    expect(html(loans, context(report([row()], { unsaved })))).toContain("<div class=\"k\">Velat yhteensä, tiedossa</div>");
+    expect(html(loans, context(report([row()])))).not.toContain("tiedossa");
+  });
+
+  it("Saldot leaves the debts without a balance to Lainat, which lists them", () => {
+    const unsaved = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }];
+    const holdings = { ...balanceData.holdings, unsavedLoans: { count: 1, names: ["Esimerkkirahoitus"], paymentCents: 10_000, rows: unsaved } };
+    const out = html(balances, context(report([], { unsaved }), "own", { ...balanceData, holdings }));
+    expect(out).not.toContain("saldo puuttuu");
   });
 
   it("the household view has no sentence about another member's saved loan", () => {

@@ -615,6 +615,12 @@ accounts*).
   linked to its account once. *Lainaa jäljellä* is what is left on the day (`leftCents`), and a loan whose balance is not
   known shows a dash and is left out of the debt total. *Kuukausierä* is the next payment spread over a month, and only a
   loan that has one shows it. The last row is *Lainat yhteensä*, `loansCents`: the loans' known balances added together.
+  Debts with no balance stand under the totals as rows of their own (`unsavedLoans.rows`): a lender paid every month whose
+  loan nobody saved, and a card whose bills are paid and whose account is not connected (`unconnectedCards`). Each shows
+  its monthly payment, when it has one, and *saldo puuttuu*. Their balance is never added and never read as 0, so while
+  such a row is there the loans' total is named *Lainat yhteensä, tiedossa* and the debt total *Velat yhteensä, tiedossa*,
+  and the first page's accounts less the debts says how many debts it leaves out. A card saved as a loan, marked *Ei ole laina*, or
+  from the issuer of a connected card account joins no row, and a card loan saved with no link takes one series.
 - **The sums of the groups and of the debts.** A group's sum comes from core (`accountsCents`, `cardsCents`, `loansCents`:
   each null when no figure is known, never 0), and the page adds nothing up. When a card has something used and there are
   loans, a row under all three groups gives `debtCents`: *Velat yhteensä*, the one debt total of `householdDebts`, in which
@@ -947,7 +953,7 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
   (`overdraftTwice` in `household-debts.ts`). Lainat and Saldot say so where they show that figure, and that the right
   figure is then larger by the saved loan. They advise no step: removing the saved loan would take the debt out of the
   debt total, which holds it once.
-- The debt total is one number. The Lainat report, the first page's *Velat yhteensä* (*Lainat yhteensä*, the loans' balances added, is the same figure when no card owes anything), the accounts less the debts and
+- The debt total is one number. The Lainat report, the first page's *Velat yhteensä* (*Lainat yhteensä*, the loans' balances added, is the same figure when no card owes anything; both are named *tiedossa* while a debt with no balance is listed under them), the accounts less the debts and
   the Velat lines of the Säästövinkit loan area all read `householdDebts` (`owners.test.ts` and
   `balances-holdings.test.ts` in `packages/core/test` hold them together).
 - The accounts less the debts ("Tilit miinus velat", `accountsLessDebt` of `balanceReport`) are the connected

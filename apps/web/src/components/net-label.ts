@@ -7,8 +7,9 @@ import type { DashboardData } from "../types.ts";
 type Answer = DashboardData["holdings"];
 
 /**
- * The name of `netCents`, which says what it lacks: a loan nobody saved is a debt the figure cannot hold, also a
- * lender's few payments with no monthly figure (`unsavedFewPayments`), which are counted here and in no sum. Null when
+ * The name of `netCents`, which says what it lacks: a loan nobody saved and a card nobody connected or saved are debts the
+ * figure cannot hold, counted as debts together, also a lender's few payments with no monthly figure
+ * (`unsavedFewPayments`), which are counted here and in no sum. Null when
  * there is no debt at all, as the figure is then the accounts' total and needs no name. The figure is a dash while the
  * debt total is unknown (`debtCents` null), and then it has the plain name.
  */

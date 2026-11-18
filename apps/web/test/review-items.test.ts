@@ -242,6 +242,14 @@ describe("money a merchant may owe back", () => {
   });
 });
 
+describe("a card whose bills are paid and which is not connected", () => {
+  const bills = { kind: "card_bill", id: "card_bill:k", cents: 552_000, key: "k", payee: "Esimerkkikortti", paymentCents: 46_000, months: 7, firstDate: "2026-03-12", lastDate: "2026-09-12" } as ReviewItem;
+  it("is named by its payee and asks why the card is missing", () => {
+    expect([eyebrow(bills), nameOf(bills), questionOf(bills)]).toEqual(["Luottokortti", "Esimerkkikortti", "Maksat kortin laskuja, mutta korttia ei ole yhdistetty"]);
+    expect(figureOf(bills).text.replace(/\s/g, " ")).toBe("460,00 €");
+  });
+});
+
 describe("a card with no balance", () => {
   const card = { kind: "card_balance", id: "card_balance:card", cents: 12_340, accountId: "card", accountName: "Luottokortti" } as unknown as ReviewItem;
   it("is named by its card, in the words of the tile that waits for it", () => {
