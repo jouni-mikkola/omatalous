@@ -4,7 +4,7 @@ import { join } from "node:path";
 // Every question of Raportit fits the window of a phone and of a desktop: the page does not scroll sideways and the
 // heading and the comparison switch stay inside the window.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
-// Velat is not here: the demo has no saved loan, so the list does not name it and its address opens another report
+// Yhteiset is not here: the demo has no account two members share, so the list does not name it and its address opens another report
 const QUESTIONS = ["tulot", "menot", "saldot"];
 
 for (const width of [390, 1440]) {

@@ -103,16 +103,3 @@ export function time(from: string, to: string, length: number): TimeScale {
     day: (px) => fromDayNumber(a + Math.max(0, Math.min(span, span > 0 ? Math.round((px / length) * span) : 0))),
   };
 }
-
-/** The first days of the months a time axis crosses, `from` included when it is one. */
-export function monthStarts(from: string, to: string): string[] {
-  const out: string[] = [];
-  let [y, m] = from.split("-").map(Number) as [number, number];
-  if (!from.endsWith("-01")) [y, m] = m === 12 ? [y + 1, 1] : [y, m + 1];
-  for (let s = `${y}-${String(m).padStart(2, "0")}-01`; s <= to; ) {
-    out.push(s);
-    [y, m] = m === 12 ? [y + 1, 1] : [y, m + 1];
-    s = `${y}-${String(m).padStart(2, "0")}-01`;
-  }
-  return out;
-}

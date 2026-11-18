@@ -33,7 +33,7 @@ describe.skipIf(NO_BROWSER)("pnpm shots shows a state", () => {
     expect(one.loans).toEqual([]);
   }, 180_000);
 
-  it("--parts: the first member says the joint account's use, so Tilit ja saldot says the part, and --loan saves a loan the second member typed in", () => {
+  it("--parts: the first member says the joint account's use, so Varat ja velat says the part, and --loan saves a loan the second member typed in", () => {
     const r = run("reports?q=saldot", "--fake-bank", "--member", "--parts", "60:40", "--loan", "--widths", "390", "--steps", steps, "--name", "parts");
     expect(r.status, r.stdout + r.stderr).toBe(0);
     const [one] = seen();

@@ -7,7 +7,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { valueAxis } from "../src/charts/scale.ts";
 import { dayNumber, fromDayNumber } from "@banking/core";
-import { band, linear, monthStarts, points, time } from "../src/charts/kit/scale.ts";
+import { band, linear, points, time } from "../src/charts/kit/scale.ts";
 import { dayTicks, evenMonthTicks, moneyAxis, monthTicks, weekday } from "../src/charts/kit/ticks.ts";
 import { axisRoom, frame, tickTarget } from "../src/charts/kit/layout.ts";
 import { boxPlace, DOT_PLOT_BELOW, gridStep, nearestIndex, readoutText, stepIndex } from "../src/charts/kit/readout.ts";
@@ -182,11 +182,6 @@ describe("bands, points and calendar days", () => {
     expect(t.x("2026-01-31")).toBe(300);
     expect(t.day(151)).toBe("2026-01-16");
     expect(t.day(-40)).toBe("2026-01-01");
-  });
-
-  it("lists the month starts an axis crosses", () => {
-    expect(monthStarts("2025-11-15", "2026-02-01")).toEqual(["2025-12-01", "2026-01-01", "2026-02-01"]);
-    expect(monthStarts("2026-03-01", "2026-03-31")).toEqual(["2026-03-01"]);
   });
 });
 

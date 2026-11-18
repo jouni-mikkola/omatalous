@@ -46,7 +46,7 @@ describe("Shell: a page carries its tab's name", () => {
     // every report is under Raportit: its tab stays marked on a question page too, and the title names the question
     await router.navigate({ href: "/reports?q=saldot" });
     await waitFor(() => expect(current()).toEqual(["Raportit"]));
-    await waitFor(() => expect(document.title).toBe("Raportit: Tilit ja saldot · Omatalous"));
+    await waitFor(() => expect(document.title).toBe("Raportit: Varat ja velat · Omatalous"));
     // Asetukset names its open section
     await router.navigate({ href: "/settings/security" });
     await waitFor(() => expect(document.title).toBe("Asetukset: Turvallisuus · Omatalous"));

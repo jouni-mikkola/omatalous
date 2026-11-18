@@ -6,7 +6,7 @@ import { REPORT_PAGES, reportsOfPage } from "../src/pages/reports/registry.ts";
 /**
  * Decision: whether a report page draws the period switch. Each page asks for its reports for 3 and 12 months. A page
  * whose figures are the same for both is listed in `PERIOD_FREE_QUESTIONS` (no switch), and a listed page must not
- * change, so the switch shows exactly where it does something. A report a section reads for today only (`ofToday`) is left out.
+ * change, so the switch shows exactly where it does something. A report is left out only when every section of the page that reads it lists it in `ofToday` (a section that reads it for the period keeps it in).
  */
 const TODAY = "2026-10-09";
 
@@ -18,7 +18,7 @@ describe("the period switch of a report page", () => {
     expect(REPORT_PAGES.map((p) => p.id)).toEqual([...QUESTIONS]);
     const ask = async (id: QuestionId, period: string) => {
       const page = REPORT_PAGES.find((p) => p.id === id)!;
-      const today = new Set(page.sections.flatMap((s) => s.ofToday ?? []));
+      const today = new Set(reportsOfPage(page).filter((r) => page.sections.filter((s) => s.reports.includes(r)).every((s) => s.ofToday?.includes(r))));
       // a page that reads no report has nothing of the period to change (an empty list asks the server for every report)
       if (reportsOfPage(page).length === 0) return [];
       const { from, to } = periodRange(period, TODAY, "last-month");

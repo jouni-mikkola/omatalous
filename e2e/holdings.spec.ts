@@ -251,7 +251,12 @@ test("a loan's name opens the report Lainat, the sums of the block stand on one 
 
   const page = await context.newPage();
   const seen = watch(page);
+  // Raportit > Varat ja velat leaves the loans to its section Lainat, so the block with the Lainat group is Yhteenveto's
   await page.goto("/#/reports?q=saldot");
+  await expect(page.locator("#lainat")).toBeVisible();
+  await expect(holdingsOf(page).getByRole("heading", { name: "Lainat", exact: true })).toHaveCount(0);
+  await expect(holdingsOf(page).getByText(/Lainat yhteensä|Velat yhteensä/)).toHaveCount(0);
+  await page.goto("/#/overview");
   const holdings = holdingsOf(page);
   const lainat = groupOf(page, "Lainat");
   await expect(lainat).toBeVisible();

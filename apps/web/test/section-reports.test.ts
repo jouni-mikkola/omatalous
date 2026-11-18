@@ -9,7 +9,7 @@ const strings = (list: string) => [...list.matchAll(/"(\w+)"/g)].map((m) => m[1]
 describe("a page asks the server for the reports of its own sections", () => {
   it("a section reads no report it does not name, so what a page asks for is all its sections read", () => {
     const files = readdirSync(DIR).filter((f) => f.endsWith(".tsx"));
-    expect(files.length).toBe(11);
+    expect(files.length).toBe(10);
     for (const file of files) {
       const text = readFileSync(new URL(file, DIR), "utf8");
       const named = strings(/\breports: \[([^\]]*)\]/.exec(text)?.[1] ?? "");
@@ -33,7 +33,7 @@ describe("a page asks the server for the reports of its own sections", () => {
     const pageOf = (id: string) => REPORT_PAGES.find((p) => p.sections.some((s) => s.id === id))?.id;
     expect(pageOf("vuodet")).toBe("menot");
     expect(pageOf("verovuosi")).toBe("tulot");
-    expect(pageOf("lainat")).toBe("velat");
-    expect(pageOf("kiinteat-menot")).toBe("kiinteat");
+    expect(pageOf("lainat")).toBe("saldot");
+    expect(pageOf("tulot-ja-menot")).toBe("tulot");
   });
 });

@@ -12,12 +12,11 @@ test("what the README says about Lisää, English and statement files holds on t
     expect(demo.status()).toBe(200);
     const page = await context.newPage();
 
-    // the demo has two questions: the one on Velat and the one on Yhteiset menot wait for a saved loan and an account two members share
+    // the demo has three reports: Yhteiset menot waits for an account two members share
     await page.goto("/#/reports?q=menot");
     const more = page.getByRole("navigation", { name: "Raportit" });
-    await expect(more.getByRole("link")).toHaveText(["Rahat ja velat"]);
-    await expect(more.locator("[aria-current]")).toHaveText("Rahankäyttö");
-    await expect(page.getByRole("navigation", { name: "Rahankäyttö" }).getByRole("link")).toHaveText(["Rahankäyttö", "Tulot", "Kiinteät menot"]);
+    await expect(more.getByRole("link")).toHaveText(["Tulot ja menot", "Menot kategorioittain", "Varat ja velat"]);
+    await expect(more.locator("[aria-current]")).toHaveText("Menot kategorioittain");
     await expect(page.getByRole("heading", { name: "Vuosivertailu" })).toBeVisible();
     await page.goto("/#/reports?q=tulot");
     await expect(page.getByRole("heading", { name: "Tulolajit" })).toBeVisible();
@@ -35,7 +34,7 @@ test("what the README says about Lisää, English and statement files holds on t
     await page.locator(".user-menu .menu").getByRole("button", { name: "English" }).click();
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     await page.goto("/#/reports?q=tulot");
-    await expect(page.getByRole("heading", { name: "Income", level: 2, exact: true })).toBeVisible();
+    await expect(page.locator("h2.q-title", { hasText: "Income and spending" })).toBeVisible();
   } finally {
     await context.close();
     await removeMember(browser, id);

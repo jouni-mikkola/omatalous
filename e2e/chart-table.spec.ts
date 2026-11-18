@@ -6,64 +6,6 @@ import { unfold, watch } from "./helpers.ts";
 // row, and the arrow keys move the readout, which a screen reader hears through aria-live.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
-/** The balance line of Raportit > Saldot: days as marks, its rows keyed by month. */
-const PART = "figure:has(#saldot-kaavio-q)";
-
-test("a click on a mark keeps its row in the table under the chart, and the way back shows them all", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
-  const page = await context.newPage();
-  const seen = watch(page);
-  await page.goto("/#/reports?q=saldot");
-  const part = page.locator(PART);
-  await expect(part).toBeVisible();
-  await expect(part.getByRole("button", { name: "Taulukko" })).toHaveCount(0);
-  const rows = part.locator("table.rt tbody tr");
-  const all = await rows.count();
-  expect(all, "the months stand under the chart").toBeGreaterThan(1);
-
-  // a click at the middle of the plot picks the nearest month
-  const plot = part.locator("svg rect.hit-pick");
-  await expect(plot).toBeVisible();
-  await plot.scrollIntoViewIfNeeded();
-  const box = (await plot.boundingBox())!;
-  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-  await expect(rows).toHaveCount(1);
-  await expect(part.locator(".rt-filter .chip")).toBeVisible();
-  await expect(part.locator(".rt-filter")).not.toContainText("Näytämme");
-
-  await part.getByRole("button", { name: "Näytä kaikki rivit" }).click();
-  await expect(rows).toHaveCount(all);
-  await expect(part.locator(".rt-filter")).toHaveCount(0);
-  expect(seen.problems).toEqual([]);
-  await context.close();
-});
-
-test("an arrow key moves the readout and aria-live says the value; Enter picks the month", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
-  const page = await context.newPage();
-  const seen = watch(page);
-  await page.goto("/#/reports?q=saldot");
-  const part = page.locator(PART);
-  const plot = part.locator("svg rect.hit-pick");
-  await expect(plot).toBeVisible();
-  const live = part.locator('.chart > [aria-live="polite"]');
-  await plot.focus();
-  const first = (await live.innerText()).trim();
-  expect(first, "focus reads the newest month out").not.toBe("");
-  await page.keyboard.press("ArrowLeft");
-  await expect.poll(async () => (await live.innerText()).trim()).not.toBe(first);
-  expect((await live.innerText()).trim()).toMatch(/\d/);
-
-  await page.keyboard.press("Enter");
-  await expect(part.locator("table.rt tbody tr")).toHaveCount(1);
-  // Escape closes the readout, a second one lets the pick go
-  await page.keyboard.press("Escape");
-  await page.keyboard.press("Escape");
-  await expect(part.locator(".rt-filter")).toHaveCount(0);
-  expect(seen.problems).toEqual([]);
-  await context.close();
-});
-
 test("a slope chart: arrows move between the lines and Enter keeps that category's row", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();

@@ -1,6 +1,5 @@
 // Decision: is the buffer growing and the debt shrinking
 import { addDays } from "@banking/core";
-import { BalanceLine } from "../../../charts/forms/BalanceLine.tsx";
 import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
 import { DeltaChip } from "../../../components/table/Cells.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
@@ -85,11 +84,10 @@ function Balances({ ctx }: SectionProps) {
           )}
         </>
       )}
-      <QuestionChart id="saldot-kaavio" question={t("rpt.bal_q_trend")} answer={answer} table={tableView}>
-        <BalanceLine r={r} />
-      </QuestionChart>
+      <QuestionChart id="saldot-kaavio" question={t("rpt.bal_q_trend")} answer={answer} table={tableView} />
       <hr className="qc-rule" />
-      <Holdings holdings={r.holdings} meta={ctx.meta} />
+      {/* the page is named Varat ja velat, and Lainat (shown with a saved loan) lists the loans and their total */}
+      <Holdings holdings={r.holdings} meta={ctx.meta} title={null} loansListed={ctx.data.loans.saved > 0} />
       {r.missing.length > 0 && (
         <>
           <hr className="qc-rule" />

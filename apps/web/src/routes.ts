@@ -193,7 +193,8 @@ export function parseHash(hash: string): Route {
  * 1.0.0, which opens the target that has the card; Lisää (`#/more`), which opens Yhteenveto; Toistuvat
  * (`#/recurring`), which became Laskut (`#/bills`); Kuukausi of Raportit (`#/reports?q=kuukausi`, `#/reports#kuukausi`,
  * `#/reports?month=`), which opens Yhteenveto; and the technical page and Ylläpito of Asetukset (`?section=technical`,
- * `?section=maintenance`), which open the server target for an admin and the first target for a member.
+ * `?section=maintenance`), which open the server target for an admin and the first target for a member; and the reports
+ * Kiinteät menot (`#/reports?q=kiinteat`), which opens Laskut, and Velat (`?q=velat`), which opens Varat ja velat.
  */
 export function redirectRoute(route: Route, role: "admin" | "member" = "member"): Route | null {
   const section = route.page === "settings" ? route.params.get("section") : null;
@@ -224,6 +225,9 @@ export function redirectRoute(route: Route, role: "admin" | "member" = "member")
   if (route.page === "reports" && (route.params.get("q") === "kuukausi" || route.anchor === "kuukausi" || route.params.has("month"))) {
     return { page: "overview", params: withParams(route.params, { q: undefined, month: undefined, period: undefined, compare: undefined }) };
   }
+  // Kiinteät menot of Raportit is gone: Laskut lists the fixed bills. Velat joined Varat ja velat (`q=saldot`)
+  if (route.page === "reports" && route.params.get("q") === "kiinteat") return { page: "bills", params: withParams(route.params, { q: undefined, period: undefined, compare: undefined }) };
+  if (route.page === "reports" && route.params.get("q") === "velat") return { page: "reports", params: withParams(route.params, { q: "saldot" }), ...(route.anchor ? { anchor: route.anchor } : {}) };
   const period = route.params.get("period");
   if (period && (route.page === "overview" || route.page === "reports")) {
     const home = pageOfPeriod(period);

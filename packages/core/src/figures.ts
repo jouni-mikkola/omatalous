@@ -185,7 +185,7 @@ export const FIGURES = {
     unit: "cents",
     scope: "own",
     additive: false,
-    pages: ["Yhteenveto", "Laskut", "Raportit"],
+    pages: ["Yhteenveto", "Laskut"],
   },
   expected: {
     name: "Odotettu",

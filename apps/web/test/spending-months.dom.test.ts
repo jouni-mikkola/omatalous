@@ -1,5 +1,5 @@
 /**
- * Raportit > Rahankäyttö: a category's average and its gap to the newest month read only the months that hold a
+ * Raportit > Menot kategorioittain: a category's average and its gap to the newest month read only the months that hold a
  * connected card's purchases as the newest one does (core `cardGap`). The page says nothing of it (the gap is not mended here), shows no
  * average where a category has none, and leaves the footer's average to the months table when the two read other months.
  */
@@ -56,7 +56,7 @@ const context = (spendingMonths: Report): ReportContext =>
 const show = (r: Report) => render(createElement(section.Component, { ctx: context(r) }));
 const plain = (s: string | null) => (s ?? "").replace(/[  ]/g, " ").replace(/\s+/g, " ").trim();
 
-describe("Rahankäyttö: a category's average beside a card connected late", () => {
+describe("Menot kategorioittain: a category's average beside a card connected late", () => {
   it("keeps the footer's average to the months table, with no sentence on the card", () => {
     show(report(true));
     expect(plain(document.body.textContent)).not.toContain("kortin ostot");
@@ -94,7 +94,7 @@ describe("Rahankäyttö: a category's average beside a card connected late", () 
   });
 });
 
-describe("Rahankäyttö: the chart of the months", () => {
+describe("Menot kategorioittain: the chart of the months", () => {
   it("draws a column for every month with the usual level, from the report's totals", () => {
     const { container } = show(report(true));
     expect(screen.getByRole("img", { name: "Menot kuukausittain" })).toBeTruthy();

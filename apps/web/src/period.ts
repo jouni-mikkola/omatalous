@@ -44,7 +44,7 @@ export function periodsOf(page: string, today: string): readonly PeriodPreset[] 
 const OWN_SWITCH: readonly string[] = ["overview"];
 
 /** The questions of Raportit whose reports answer the same for every period (`report-period.test.ts` asks each page for two), so their page draws no switch. */
-export const PERIOD_FREE_QUESTIONS: readonly string[] = ["kiinteat", "velat", "yhteiset"];
+export const PERIOD_FREE_QUESTIONS: readonly string[] = ["yhteiset"];
 
 /** The presets the shell draws above a page: those of `periodsOf`, none for a page that draws its own switch or a question the period does not change. */
 export function shellPeriodsOf(page: string, today: string, question: string | null = null): readonly PeriodPreset[] {

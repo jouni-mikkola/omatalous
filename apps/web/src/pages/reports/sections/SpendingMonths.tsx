@@ -1,6 +1,5 @@
 // Decision: which category to cut: its sum over the period, its average month, and the months and payees behind it
 import { monthEnd } from "@banking/core";
-import { CategoryBars } from "../../../charts/forms/CategoryBars.tsx";
 import { MonthColumns } from "../../../charts/forms/MonthColumns.tsx";
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
 import { KeyValue } from "../../../components/table/KeyValue.tsx";
@@ -85,22 +84,15 @@ function SpendingMonths({ ctx }: SectionProps) {
     <ReportPanel id={section.id} title={section.title} datum={inSpan(ctx, eur(r.totalCents))}>
       <ChartWithTable
         chart={
-          <>
-            <CategoryBars
-              bars={r.categories.map((c) => ({ key: c.category, label: c.label, cents: c.totalCents, diffCents: usual && last ? c.lastDiffCents : null }))}
-              diffLabel={t("rpt.sm_last", { month: last ? monthLong(last) : "" })}
-              label={section.title}
-            />
-            <MonthColumns
-              months={r.months.map((month, i) => ({ month, complete: r.complete[i]!, parts: [r.totals[i] ?? 0], totalCents: r.totals[i] ?? null }))}
-              series={[{ key: "spend", label: t("home.months_spend") }]}
-              tone="spending"
-              // the first page's Tavallinen kuukausi: the same figure under the same label (Menot without a debt paid from savings)
-              usual={r.typicalFlowCents === null ? null : { cents: r.typicalFlowCents, label: t("home.months_usual", { sum: eur(r.typicalFlowCents), months: r.typicalMonths }) }}
-              running={ctx.running}
-              label={t("rpt.sm_months")}
-            />
-          </>
+          <MonthColumns
+            months={r.months.map((month, i) => ({ month, complete: r.complete[i]!, parts: [r.totals[i] ?? 0], totalCents: r.totals[i] ?? null }))}
+            series={[{ key: "spend", label: t("home.months_spend") }]}
+            tone="spending"
+            // the first page's Tavallinen kuukausi: the same figure under the same label (Menot without a debt paid from savings)
+            usual={r.typicalFlowCents === null ? null : { cents: r.typicalFlowCents, label: t("home.months_usual", { sum: eur(r.typicalFlowCents), months: r.typicalMonths }) }}
+            running={ctx.running}
+            label={t("rpt.sm_months")}
+          />
         }
         table={
           <>
