@@ -146,6 +146,9 @@ describe("the fake bank's households", () => {
     const own = await checkBank(household(TODAY, true));
     expect(own.expected).toHaveLength(4);
     expect(mismatches(own.expected, own.found)).toEqual([]);
+    const alone = await checkBank(household(TODAY, "alone"));
+    expect(alone.expected).toHaveLength(4);
+    expect(mismatches(alone.expected, alone.found)).toEqual([]);
     const evening = await checkBank(firstEvening(TODAY));
     expect(evening.expected).toHaveLength(3);
     expect(mismatches(evening.expected, evening.found)).toEqual([]);

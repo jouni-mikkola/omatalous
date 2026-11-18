@@ -33,6 +33,8 @@ describe("a form as the loan the server takes", () => {
         reference: "euribor_12",
         marginBp: 65,
         rateReviewDate: null,
+        rateStepDate: null,
+        rateStepBp: null,
         repayment: "annuity",
         intervalMonths: 1,
         paymentCents: 68_920,
@@ -108,7 +110,7 @@ describe("a form as the loan the server takes", () => {
     const { id, ...body } = loan;
     expect(form.id).toBe(id);
     // a loan with no review day goes back with null: PUT replaces every field
-    expect(readForm(form)).toEqual({ errors: {}, body: { ...body, rateReviewDate: null } });
+    expect(readForm(form)).toEqual({ errors: {}, body: { ...body, rateReviewDate: null, rateStepDate: null, rateStepBp: null } });
   });
 });
 
@@ -153,9 +155,48 @@ describe("the review day of the rate", () => {
     const form = formOfLoan(loan);
     expect(form.values.rateReviewDate).toBe("2027-03-14");
     const { id: _id, ...body } = loan;
-    expect(readForm(form)).toEqual({ errors: {}, body });
+    expect(readForm(form)).toEqual({ errors: {}, body: { ...body, rateStepDate: null, rateStepBp: null } });
     expect(formOfLoan({ ...loan, rateReviewDate: null }).values.rateReviewDate).toBe("");
     expect(readForm(formOfLoan({ ...loan, reference: "fixed" })).body).toMatchObject({ reference: "fixed", rateReviewDate: null });
+  });
+});
+
+describe("a step in the typed rate", () => {
+  const promo = (reference: string) => {
+    let form = setKind(emptyForm(TODAY), "consumer");
+    form = setValue(setValue(form, "balanceCents", "1 200"), "rateBp", "0");
+    form = setValue(setValue(form, "rateStepDate", "2027-03-01"), "rateStepBp", "19,9");
+    return setValue(form, "reference", reference);
+  };
+
+  it("is two fields after the review day, shown for a fixed or an unnamed rate and not for a euribor", () => {
+    for (const reference of ["", "fixed"]) {
+      const shown = shownFields(promo(reference));
+      expect(shown, reference).toContain("rateStepDate");
+      expect(shown.indexOf("rateStepDate"), reference).toBe(shown.indexOf(reference === "" ? "rateReviewDate" : "marginBp") + 1);
+      expect(shown.indexOf("rateStepBp"), reference).toBe(shown.indexOf("rateStepDate") + 1);
+    }
+    for (const reference of ["euribor_12", "euribor_6", "euribor_3"]) expect(shownFields(promo(reference)), reference).not.toContain("rateStepDate");
+  });
+
+  it("is sent as typed, in hundredths of a percent, and a euribor or an empty field sends null", () => {
+    expect(readForm(promo("fixed")).body).toMatchObject({ rateBp: 0, rateStepDate: "2027-03-01", rateStepBp: 1990 });
+    expect(readForm(promo("")).body).toMatchObject({ rateStepDate: "2027-03-01", rateStepBp: 1990 });
+    expect(readForm(promo("euribor_12")).body).toMatchObject({ rateStepDate: null, rateStepBp: null });
+    expect(readForm(setValue(setValue(promo(""), "rateStepDate", ""), "rateStepBp", "")).body).toMatchObject({ rateStepDate: null, rateStepBp: null });
+    expect(readForm(setValue(promo(""), "rateStepBp", "abc")).errors).toEqual({ rateStepBp: "Anna korko prosentteina, esimerkiksi 3,25." });
+  });
+
+  it("a saved loan's step is in the form and goes back whole", () => {
+    const loan: Loan = {
+      id: "a1", name: "Maksuaikaluotto", lender: null, kind: "consumer", grantedCents: null, balanceCents: 120_000, balanceDate: "2026-09-30", rateBp: 0, reference: "fixed", marginBp: null,
+      repayment: "fixed_instalment", intervalMonths: 1, paymentCents: 5000, endDate: null, limitCents: null, seriesKey: null, rateStepDate: "2027-03-01", rateStepBp: 1990,
+    };
+    const form = formOfLoan(loan);
+    expect(form.values).toMatchObject({ rateStepDate: "2027-03-01", rateStepBp: "19,90" });
+    const { id: _id, ...body } = loan;
+    expect(readForm(form)).toEqual({ errors: {}, body: { ...body, rateReviewDate: null } });
+    expect(formOfLoan({ ...loan, rateStepDate: null, rateStepBp: null }).values).toMatchObject({ rateStepDate: "", rateStepBp: "" });
   });
 });
 

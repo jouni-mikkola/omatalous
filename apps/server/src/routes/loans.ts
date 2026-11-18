@@ -38,6 +38,8 @@ const FIELDS = [
   "seriesKey",
   "accountId",
   "rateReviewDate",
+  "rateStepDate",
+  "rateStepBp",
 ] as const satisfies readonly (keyof LoanFields)[];
 /** The body of a save also holds the split of the last payment a document stated, which is not a field of the loan (`parseLastPayment`). */
 const BODY_FIELDS = [...FIELDS, "lastPayment"] as const;
@@ -191,6 +193,21 @@ export async function parseLoan(raw: unknown, today: string, accounts: OwnAccoun
   if (fixingsSince && loan.rateBp === null && hasReferenceRate(loan) && loan.marginBp !== null) {
     const derived = euriborRateBp(loan, loan.balanceDate, await fixingsSince(addMonthsToDate(loan.balanceDate, -12)));
     if (derived !== null) loan.rateBp = rate(derived, "Koron");
+  }
+  // A step in the typed rate: the day and the rate from it, both or neither. A loan on a euribor has none (its reviews set
+  // its rate), so a step sent with one is checked and dropped, as the review day of a fixed rate is. A day that has
+  // passed is kept: the rate has changed since. A loan with no step has no field, as with the link.
+  const stepDate = input.rateStepDate;
+  const stepBp = input.rateStepBp;
+  if (!absent(stepDate) || !absent(stepBp)) {
+    if (absent(stepDate) || absent(stepBp)) throw new UserError("Koron muutoksesta pitää antaa sekä päivä että uusi korko. Täytä molemmat tai jätä molemmat tyhjiksi.");
+    const day = date(stepDate, oldest, latest, `Koron muutoksen päivä voi olla enintään ${YEARS_BACK} vuotta sitten ja ${YEARS_AHEAD} vuoden päässä.`);
+    const stepRate = rate(stepBp, "Uuden koron");
+    if (!hasReferenceRate(loan)) {
+      if (loan.rateBp === null) throw new UserError("Koron muutokselle pitää antaa myös nykyinen korko.");
+      loan.rateStepDate = day;
+      loan.rateStepBp = stepRate;
+    }
   }
   // The one way a balance could grow: a payment that holds the interest and is smaller than it. The interest only
   // shrinks with the balance, so a payment that covers the first interval covers every later one.

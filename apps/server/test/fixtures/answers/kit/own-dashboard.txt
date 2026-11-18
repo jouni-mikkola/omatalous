@@ -1003,7 +1003,14 @@
    "names": [
     "Nordea Bank Abp"
    ],
-   "paymentCents": 61240
+   "paymentCents": 61240,
+   "rows": [
+    {
+     "name": "Nordea Bank Abp",
+     "monthlyCents": 61240,
+     "card": false
+    }
+   ]
   }
  },
  "overview": {

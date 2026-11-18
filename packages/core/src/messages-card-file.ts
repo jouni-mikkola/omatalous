@@ -34,4 +34,5 @@ export const FI_CARD_FILE = {
   "card_file.future": "Tiedostossa on tulevaisuuteen päivättyjä rivejä.",
   "card_file.bad_account": "Rivejä ei voi tallentaa tälle tilille.",
   "card_file.on_account": "Suurin osa riveistä on jo tilillä {account}. Valitse tallennuskohteeksi se tili.",
+  "card_file.on_card": "Suurin osa riveistä on jo kortilla {account}.",
 } as const;

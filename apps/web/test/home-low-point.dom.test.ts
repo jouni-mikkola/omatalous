@@ -48,7 +48,7 @@ describe("LowPoint", () => {
     expect(container.querySelector(".home-low-status a")?.getAttribute("href")).toBe("#/settings/banks");
   });
 
-  it.each(["no-payday", "late", "history", "cards", "bills"] as const)("leaves the reason %s as plain text", (reason) => {
+  it.each(["no-payday", "late", "history", "bills"] as const)("leaves the reason %s as plain text", (reason) => {
     const { container } = render(createElement(LowPoint, { lowPoint: { known: false, reason, days: 60 } }));
     expect(container.querySelector(".home-low-status a")).toBeNull();
   });

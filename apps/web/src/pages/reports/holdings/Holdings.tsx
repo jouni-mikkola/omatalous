@@ -239,8 +239,11 @@ function Cards({ holdings, meta, ahead, common, stamp }: { holdings: Answer; met
   );
 }
 
-/** The loans show the figures of the report Lainat, whose calculations open there: no door is repeated here. */
-function Loans({ holdings }: { holdings: Answer }) {
+/**
+ * The loans show the figures of the report Lainat, whose calculations open there: no door is repeated here. `known`: debts with
+ * no balance are listed under the total, so it names itself the known one.
+ */
+function Loans({ holdings, known }: { holdings: Answer; known: boolean }) {
   const { loans, loansCents, loansEndDate } = holdings;
   return (
     <section>
@@ -267,7 +270,7 @@ function Loans({ holdings }: { holdings: Answer }) {
           </Unit>
         ))}
       </ul>
-      {loansCents !== null && loansCents > 0 && <Total label={t("holdings.loans_total")} cents={loansCents} note={loansEndDate ? t("holdings.last_payment", { month: monthYear(loansEndDate).replace(/^0/, "") }) : t("holdings.last_payment_unknown")} />}
+      {loansCents !== null && loansCents > 0 && <Total label={t(known ? "holdings.loans_known" : "holdings.loans_total")} cents={loansCents} note={loansEndDate ? t("holdings.last_payment", { month: monthYear(loansEndDate).replace(/^0/, "") }) : t("holdings.last_payment_unknown")} />}
     </section>
   );
 }
@@ -292,8 +295,8 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), b
   // the day most balances are from, said once, beside the heading of Tilit when one of its accounts has a balance, else beside that of the cards
   const common = commonDay([...accounts, ...cards], meta.today);
   const stamp = common ? <span className="holding-date">{t("ahead.balance_on", { date: common })}</span> : null;
-  // lenders paid every month whose loan nobody saved: the total cannot hold them, so it says so (the server counts them)
-  const unsaved = unsavedLoans ? t("holdings.unsaved", { count: unsavedLoans.count, amount: money(unsavedLoans.paymentCents) }) : null;
+  // lenders paid every month whose loan nobody saved and cards nobody connected: the total cannot hold them, so each is told under it (the server lists them); Lainat lists them when it is shown
+  const unsaved = loansListed ? [] : (unsavedLoans?.rows ?? []);
 
   return (
     <section className="card holdings" aria-labelledby={title === null ? undefined : "holdings-h"} aria-label={title === null ? t("holdings.title") : undefined}>
@@ -309,27 +312,28 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), b
       </div>
       <div className={columns}>
         {accounts.length > 0 && <Accounts holdings={holdings} meta={meta} common={common} stamp={accounts.some((a) => a.balanceAt) ? stamp : null} />}
-        {loans.length > 0 && <Loans holdings={holdings} />}
+        {loans.length > 0 && <Loans holdings={holdings} known={unsaved.length > 0} />}
         {cards.length > 0 && <Cards holdings={holdings} meta={meta} ahead={ahead ?? undefined} common={common} stamp={accounts.some((a) => a.balanceAt) ? null : stamp} />}
       </div>
-      {(debts || unsaved) && (
+      {(debts || unsaved.length > 0) && (
         <dl className="st-rows holding-foot">
           {debts && (
             <div className="st-row">
-              <dt className="st-name st-strong">{t("holdings.debts_total")}</dt>
+              <dt className="st-name st-strong">{t(unsaved.length > 0 ? "holdings.debts_known" : "holdings.debts_total")}</dt>
               <dd className="st-num st-strong">
                 {figure(debtCents)}
               </dd>
             </div>
           )}
-          {unsaved && (
-            <div className="st-row">
-              <dt className="st-name">{t("holdings.no_balance")}</dt>
+          {unsaved.map((u, i) => (
+            <div className="st-row" key={i}>
+              <dt className="st-name">{u.card ? `${u.name} · ${t("set.ri.credit_card")}` : u.name}</dt>
               <dd className="st-num">
-                {unsaved}
+                {u.monthlyCents === null ? null : `${t("rpt.ln_per_month", { amount: money(u.monthlyCents) })} · `}
+                {t("holdings.balance_missing")}
               </dd>
             </div>
-          )}
+          ))}
         </dl>
       )}
       {buffer}

@@ -93,7 +93,7 @@ describe("the card bills that count as spending, by issuer", () => {
     bill("Morrow Bank Ab", "2026-09-05", 300),
     bill("SEB Kort Bank Ab", "2026-02-12", 250),
     bill("SEB Kort Bank Ab", "2026-08-12", 150),
-    // connected, its rows begin on 1.9.: the bills before are the bank's history, those on the day and after are not
+    // connected, its rows begin on 1.9.: the bills before it and within a billing month after it pay purchases in no row
     bill("Bank Norwegian AB", "2026-05-20", 400),
     bill("BANK NORWEGIAN", "2026-06-20", 100),
     bill("Bank Norwegian AB", "2026-08-31", 30),
@@ -108,12 +108,11 @@ describe("the card bills that count as spending, by issuer", () => {
   ];
   const ctx = createContext(rows, [checking, cardOf("card-nb", "Bank Norwegian"), cardOf("card-other", "OP")], today);
 
-  it("groups the bills by issuer, with sum, count, last payment and the reason; a bill from the card's first day on pairs with none of its rows", () => {
+  it("groups the bills by issuer, with sum, count, last payment and the reason; a bill up to a billing month after the card's first row is the bank's history too", () => {
     expect(missingCardPurchases(ctx, range)).toEqual([
+      { issuer: "Bank Norwegian", label: "Bank Norwegian", cents: 68000, count: 5, lastDate: "2026-09-15", reason: "before_history", since: "2026-09-01" },
       { issuer: "Morrow Bank", label: "Morrow Bank", cents: 60000, count: 3, lastDate: "2026-09-05", reason: "not_connected", since: null },
-      { issuer: "Bank Norwegian", label: "Bank Norwegian Platinum", cents: 53000, count: 3, lastDate: "2026-08-31", reason: "before_history", since: "2026-09-01" },
       { issuer: "SEB Kort", label: "SEB Kort", cents: 40000, count: 2, lastDate: "2026-08-12", reason: "not_connected", since: null },
-      { issuer: "Bank Norwegian", label: "Bank Norwegian", cents: 15000, count: 2, lastDate: "2026-09-15", reason: "unmatched", since: "2026-09-01" },
       { issuer: "Resurs Bank", label: "Resurs Bank", cents: 9000, count: 1, lastDate: "2026-07-02", reason: "not_connected", since: null },
       { issuer: "Entercard", label: "Entercard", cents: 6000, count: 1, lastDate: "2026-07-15", reason: "not_connected", since: null },
     ]);

@@ -52,6 +52,7 @@ export const EN_SET_RI: Record<keyof typeof FI_SET_RI, string> = {
   "set.ri.what_is_this_income": "What is this income?",
   "set.ri.what_are_these_payments": "What are these payments?",
   "set.ri.which_loan_is_this": "Which loan is this?",
+  "set.ri.card_bill_question": "You pay a card's bills, but the card is not connected",
   "set.ri.how_many_payments_are_left": "How many payments are left?",
   "set.ri.whose_money_was_this": "Whose money was this?",
   "set.ri.is_the_subscription_still_in": "Is the subscription still in use?",

@@ -9,7 +9,7 @@ import { FIELD_LABEL, INTERVALS, intervalLabel, KIND_LABEL, type LoanFieldKey, R
 import { Button } from "../ui/Button.tsx";
 import { Notice } from "../ui/Notice.tsx";
 import "../../styles/loans.css";
-const UNIT: Partial<Record<LoanFieldKey, string>> = { balanceCents: "€", grantedCents: "€", limitCents: "€", paymentCents: "€", rateBp: "%", marginBp: "%" };
+const UNIT: Partial<Record<LoanFieldKey, string>> = { balanceCents: "€", grantedCents: "€", limitCents: "€", paymentCents: "€", rateBp: "%", marginBp: "%", rateStepBp: "%" };
 
 /**
  * What the select "Sama velka pankin tilillä" offers from: the household's accounts and its saved loans (an account
@@ -127,7 +127,7 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
       const months = current > 0 && !INTERVALS.some((m) => m === current) ? [...INTERVALS, current].sort((a, b) => a - b) : INTERVALS;
       return pick(months.map((m) => [String(m), intervalLabel(m)] as const));
     }
-    if (key === "balanceDate" || key === "endDate" || key === "rateReviewDate") return <input {...common} type="date" max={key === "balanceDate" ? today : undefined} required={key === "balanceDate"} onChange={(e) => change(key, e.target.value)} />;
+    if (key === "balanceDate" || key === "endDate" || key === "rateReviewDate" || key === "rateStepDate") return <input {...common} type="date" max={key === "balanceDate" ? today : undefined} required={key === "balanceDate"} onChange={(e) => change(key, e.target.value)} />;
     if (key === "lender") return <input {...common} type="text" maxLength={80} autoComplete="off" onChange={(e) => change(key, e.target.value)} />;
     return <input {...common} type="text" inputMode="decimal" autoComplete="off" required={key === "balanceCents"} onChange={(e) => change(key, e.target.value)} />;
   };

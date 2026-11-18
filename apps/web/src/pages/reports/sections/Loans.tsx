@@ -225,6 +225,28 @@ function pathAnswer(path: NonNullable<LoansReport["path"]>): string {
     .join(" ");
 }
 
+/** A debt the household has not told the balance of: what it costs a month and that its balance is missing. */
+function UnsavedDebt({ u }: { u: LoansReport["unsaved"][number] }) {
+  return (
+    <li>
+      <div className="loan-head">
+        <strong>{u.name}</strong>
+        {u.card && <span>{t("set.ri.credit_card")}</span>}
+      </div>
+      <dl className="loan-figures">
+        <LoanFigure label={t("rpt.ln_debt")} value={null} sub={t("holdings.balance_missing")} />
+        <LoanFigure label={t("rpt.ln_payment")} value={u.monthlyCents === null ? null : t("rpt.ln_per_month", { amount: money(u.monthlyCents) })} />
+      </dl>
+    </li>
+  );
+}
+
+/**
+ * Whether Lainat lists the household's debts: it saved a loan, or a loan or card it has not told the balance of is
+ * paid. Saldot leaves its own loan rows out then, so no debt is listed twice or none.
+ */
+export const listsLoans = (r: Pick<LoansReport, "saved" | "unsaved">): boolean => r.saved > 0 || r.unsaved.length > 0;
+
 function Loans({ ctx }: SectionProps) {
   const r = ctx.data.loans;
   const { path } = r;
@@ -236,7 +258,8 @@ function Loans({ ctx }: SectionProps) {
   // only bullets owe: there is no payment to add up, and a zero would hide the interest they pay
   const monthly = p.counted > 0 ? money(p.monthlyCents, false) : p.unknown > 0 ? DASH : p.bullets > 0 ? t("rpt.ln_no_payments") : money(0, false);
   const items: [label: string, value: string, sub?: string][] = [
-    [t("rpt.ln_total"), r.totalKnown ? money(r.total.cents, false) : DASH],
+    // a total that leaves unsaved debts out says so, as Yhteenveto's does
+    [t(r.unsaved.length > 0 ? "holdings.debts_known" : "rpt.ln_total"), r.totalKnown ? money(r.total.cents, false) : DASH],
     [t("rpt.ln_interest12"), r.interestKnown ? money(r.interest.cents, false) : DASH],
     [t("rpt.ln_payments_month"), monthly],
     ...(less === undefined ? [] : [[accountsLessDebt().label, less === null ? DASH : money(less, false), accountsLessDebt().sub] as [string, string, string]]),
@@ -246,15 +269,18 @@ function Loans({ ctx }: SectionProps) {
   const limitOf = (l: LoanRow) => (l.accountType === "credit_card" && !belowWhole(l.part) ? cardLimitCents(ctx.meta.accounts.find((a) => `account:${a.id}` === l.id)?.creditLimitCents) : null);
   return (
     <ReportPanel id={section.id} title={section.title}>
-      <div className="kv">
-        {items.map(([label, value, sub]) => (
-          <div key={label}>
-            <div className="k">{label}</div>
-            <div className="v"><Figure text={value} size="m" /></div>
-            {sub && <div className="loans-tile-sub">{sub}</div>}
-          </div>
-        ))}
-      </div>
+      {/* with no loan saved or connected there is nothing to add up: the payments of the unsaved ones are in their rows */}
+      {r.loans.length > 0 && (
+        <div className="kv">
+          {items.map(([label, value, sub]) => (
+            <div key={label}>
+              <div className="k">{label}</div>
+              <div className="v"><Figure text={value} size="m" /></div>
+              {sub && <div className="loans-tile-sub">{sub}</div>}
+            </div>
+          ))}
+        </div>
+      )}
       {lines.length > 0 && (
         <ul className="loans-notes">
           {lines.map((n) => {
@@ -289,6 +315,9 @@ function Loans({ ctx }: SectionProps) {
         {inCostOrder(r.loans).map((l) => (
           <Loan key={l.id} l={l} limitCents={limitOf(l)} today={ctx.meta.today} />
         ))}
+        {r.unsaved.map((u, i) => (
+          <UnsavedDebt key={i} u={u} />
+        ))}
       </ul>
     </ReportPanel>
   );
@@ -305,7 +334,7 @@ export const section: ReportSection = {
   reports: ["loans", "balances"],
   // balances is read for the accounts less the debts of the running month only; a period that ends before it hides that tile
   ofToday: ["balances"],
-  // a household that saved no loan sees what it saw: its connected debts are in Saldot
-  visible: (ctx) => ctx.data.loans.saved > 0,
+  // a household with no saved loan and no unsaved one sees what it saw: its connected debts are in Saldot
+  visible: (ctx) => listsLoans(ctx.data.loans),
   Component: Loans,
 };

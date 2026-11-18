@@ -109,10 +109,18 @@ export function* payments(loan: Loan, plan: Instalments, from: { balanceCents: n
   }
 }
 
-/** The rate a loan's path and the reviews of its reference rate give, and the first review that counts the newest fixing again. */
+/**
+ * The rate a loan's path and the reviews of its reference rate give, and the first review that counts the newest fixing
+ * again. A loan with a typed rate and a step in it (`rateStepDate`, `rateStepBp`) has the typed rate until the step and the
+ * step's from its day on. A loan on a euribor has no step: the reviews set its rate. With no typed rate there is no path,
+ * so the rate stays unknown on every day.
+ */
 export function ratePathOf(loan: Loan, fixings: Fixings): { path: RatePath; flatFrom: IsoDate | null } | null {
-  const { reference, rateBp, marginBp, rateReviewDate } = loan;
-  if (reference === null || reference === "fixed" || rateBp === null || marginBp === null || !rateReviewDate) return null;
+  const { reference, rateBp, marginBp, rateReviewDate, rateStepDate, rateStepBp } = loan;
+  if (reference === null || reference === "fixed") {
+    return rateBp === null || !rateStepDate || rateStepBp === null || rateStepBp === undefined ? null : { path: [[rateStepDate, rateStepBp * 10]], flatFrom: null };
+  }
+  if (rateBp === null || marginBp === null || !rateReviewDate) return null;
   const series = fixings[reference];
   if (series === undefined || series.length === 0) return null;
   const months = REVIEW_MONTHS[reference];

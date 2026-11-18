@@ -54,6 +54,7 @@ export const FI_SET_RI = {
   "set.ri.what_is_this_income": "Mitä tämä tulo on?",
   "set.ri.what_are_these_payments": "Mitä nämä maksut ovat?",
   "set.ri.which_loan_is_this": "Mikä laina tämä on?",
+  "set.ri.card_bill_question": "Maksat kortin laskuja, mutta korttia ei ole yhdistetty",
   "set.ri.how_many_payments_are_left": "Montako maksua on vielä jäljellä?",
   "set.ri.whose_money_was_this": "Kenen rahaa tämä oli?",
   "set.ri.is_the_subscription_still_in": "Onko tilaus vielä käytössä?",
