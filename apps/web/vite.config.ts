@@ -5,7 +5,7 @@ import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
 import { compressFolder } from "./compress-build.ts";
 import { ocrFolder, ocrSources } from "./ocr-build.ts";
-import { shellFiles, shellWorkerSource } from "./shell-build.ts";
+import { pictureReaderChunks, shellFiles, shellWorkerSource } from "./shell-build.ts";
 
 /**
  * The files the picture reader of Asetukset > Lainat loads while it runs: the Tesseract worker, its WASM core (the one
@@ -48,6 +48,7 @@ function ocrFiles(): Plugin {
  */
 function shellWorker(): Plugin {
   let outDir = "";
+  let pictureReader: string[] = [];
   return {
     name: "shell-worker",
     apply: "build",
@@ -55,8 +56,13 @@ function shellWorker(): Plugin {
     configResolved(config) {
       outDir = resolve(config.root, config.build.outDir);
     },
+    generateBundle(_, bundle) {
+      pictureReader = pictureReaderChunks(bundle);
+      // a build that finds none has changed how the library is loaded, and the chunk would be kept for offline use again
+      if (pictureReader.length === 0) throw new Error("no lazy chunk of tesseract.js in the bundle: shellFiles would keep it");
+    },
     closeBundle() {
-      writeFileSync(join(outDir, "sw.js"), shellWorkerSource(readFileSync(new URL("./sw.js", import.meta.url), "utf8"), outDir, shellFiles(outDir)));
+      writeFileSync(join(outDir, "sw.js"), shellWorkerSource(readFileSync(new URL("./sw.js", import.meta.url), "utf8"), outDir, shellFiles(outDir, pictureReader)));
     },
   };
 }

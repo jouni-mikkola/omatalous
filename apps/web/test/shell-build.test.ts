@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { tempDir } from "../../../tools/lib/tmp-kit.ts";
-import { shellFiles, shellWorkerSource } from "../shell-build.ts";
+import { pictureReaderChunks, shellFiles, shellWorkerSource } from "../shell-build.ts";
 
 function built(files: Record<string, string>): string {
   const dir = tempDir("shell-");
@@ -30,6 +30,25 @@ describe("the files the service worker keeps", () => {
       "icons/icon-192.png": "p",
     });
     expect(shellFiles(out)).toEqual(["/assets/font-1.woff2", "/assets/index-1.js", "/icons/icon-192.png", "/index.html", "/manifest.webmanifest"]);
+  });
+
+  it("leaves out the lazy chunk of the picture reader's library, and keeps the app's own chunks of the same name", () => {
+    const out = built({ "index.html": "<html>", "assets/index-1.js": "a", "assets/index-9f8e7d6c.js": "t" });
+    expect(shellFiles(out, ["/assets/index-9f8e7d6c.js"])).toEqual(["/assets/index-1.js", "/index.html"]);
+    expect(shellFiles(out)).toContain("/assets/index-9f8e7d6c.js");
+  });
+
+  it("finds that chunk in the bundle by its library, not by its name", () => {
+    const pnpm = "/app/node_modules/.pnpm/tesseract.js@7.0.0/node_modules/tesseract.js/src/index.js";
+    expect(
+      pictureReaderChunks({
+        a: { type: "chunk", fileName: "assets/index-1.js", isDynamicEntry: false, facadeModuleId: "/app/apps/web/src/main.tsx" },
+        b: { type: "chunk", fileName: "assets/index-9f8e7d6c.js", isDynamicEntry: true, facadeModuleId: pnpm },
+        c: { type: "chunk", fileName: "assets/pdf-Ab3_x.js", isDynamicEntry: true, facadeModuleId: "/app/node_modules/pdfjs-dist/legacy/build/pdf.mjs" },
+        d: { type: "chunk", fileName: "assets/data-1.js", isDynamicEntry: true, facadeModuleId: "/app/node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz" },
+        e: { type: "asset", fileName: "assets/tesseract.js.css" },
+      }),
+    ).toEqual(["/assets/index-9f8e7d6c.js"]);
   });
 
   it("names the cache by the content: a changed file is a new worker", () => {

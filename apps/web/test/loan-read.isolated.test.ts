@@ -151,6 +151,37 @@ describe("the picture reader", () => {
     expect(started[0]!.ended).toBe(true);
   });
 
+  it("ends a worker that createWorker starts only after its first await", async () => {
+    tess.createWorker.mockImplementation(async (_langs: string[], _oem: number, options: Options) => {
+      await tick();
+      new Worker(options.workerPath);
+      return never();
+    });
+    const stop = new AbortController();
+    const read = readPicture(picture(), () => {}, stop.signal);
+    const ended = expect(read).rejects.toBeInstanceOf(ReadAborted);
+    await until(() => started.length === 1);
+    expect(started[0]!.ended).toBe(false);
+    stop.abort();
+    await ended;
+    expect(started[0]!.ended).toBe(true);
+    expect(globalThis.Worker).toBe(FakeWorker);
+  });
+
+  it("ends the reader that arrives after the read was ended", async () => {
+    const terminate = vi.fn(async () => {});
+    let arrive!: (reader: unknown) => void;
+    startsWorker(() => new Promise((resolve) => (arrive = resolve)));
+    const stop = new AbortController();
+    const read = readPicture(picture(), () => {}, stop.signal);
+    const ended = expect(read).rejects.toBeInstanceOf(ReadAborted);
+    await until(() => started.length === 1);
+    stop.abort();
+    await ended;
+    arrive({ recognize: vi.fn(never), terminate });
+    await until(() => terminate.mock.calls.length === 1);
+  });
+
   it("ends the worker of a running read, and does not start one for a signal that is already ended", async () => {
     const terminate = vi.fn(async () => {});
     const recognize = vi.fn(never);
@@ -372,6 +403,15 @@ describe("what a paste brings in", () => {
     const shot = file("image.png", "image/png");
     expect(whatWasPasted([shot], "")).toEqual({ file: shot });
     expect(whatWasPasted([shot], " \n ")).toEqual({ file: shot });
+  });
+
+  it("takes a picture by its name when the phone gave it no type, and refuses a file that is neither", () => {
+    for (const name of ["IMG_1.JPG", "kuva.jpeg", "kuva.png", "kuva.webp", "kuva.heic", "kuva.heif", "kuva.gif", "kuva.bmp"]) {
+      const shot = file(name, "");
+      expect(whatWasPasted([shot], ""), name).toEqual({ file: shot });
+    }
+    expect(whatWasPasted([file("kuva.png.zip", "")], "")).toBeNull();
+    expect(whatWasPasted([file("kuva", "")], "")).toBeNull();
   });
 
   it("reads a copied file, whose text is its own name, as the file", () => {
