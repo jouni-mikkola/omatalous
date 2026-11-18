@@ -100,7 +100,11 @@ test("a PDF is read in the browser into the same form, and a PDF with a password
   const page = await context.newPage();
   const seen = watch(page);
   const requests: string[] = [];
-  page.on("request", (r) => requests.push(new URL(r.url()).pathname));
+  const writes: string[] = [];
+  page.on("request", (r) => {
+    requests.push(new URL(r.url()).pathname);
+    if (r.method() !== "GET") writes.push(`${r.method()} ${new URL(r.url()).pathname}`);
+  });
   const form = await openNewLoan(page);
   const pick = form.getByLabel("Valitse PDF");
 
@@ -111,7 +115,7 @@ test("a PDF is read in the browser into the same form, and a PDF with a password
   await expect(form.getByLabel("Lainanantaja", { exact: true })).toHaveValue("Esimerkkipankki Oyj");
   // the reader and its worker came from the app's own address, and the file itself went nowhere
   expect(requests.some((path) => /\/assets\/pdf\.worker\.min-[\w-]+\.mjs$/.test(path))).toBe(true);
-  expect(requests.filter((path) => path.startsWith("/api/") && !path.startsWith("/api/meta") && !path.startsWith("/api/loans"))).toEqual([]);
+  expect(writes).toEqual([]);
 
   await pick.setInputFiles({ name: "salattu.pdf", mimeType: "application/pdf", buffer: lockedPdf(STATEMENT, "esimerkki-salasana") });
   await expect(form.getByRole("alert")).toHaveText("PDF-tiedosto on salasanalla suojattu. Avaa se ensin ja liitä sen teksti tähän.");

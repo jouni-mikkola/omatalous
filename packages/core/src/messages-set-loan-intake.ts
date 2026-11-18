@@ -17,7 +17,7 @@ export const FI_SET_LOAN_INTAKE = {
   "set.ln.the_file_is_too_large": "Tiedosto on liian suuri. Liitä lainan tiedot tekstinä.",
   "set.ln.the_file_is_not_a_pdf": "Tiedosto ei ole PDF eikä teksti. Liitä lainan tiedot tekstinä.",
   "set.ln.the_file_could_not_be": "Emme voineet lukea tiedostoa. Yritä uudelleen tai liitä lainan tiedot tekstinä.",
-  "set.ln.several_loans_here": "Tekstissä on useita lainoja. Lisää ne kohdasta Asetukset > Lainat.",
+  "set.ln.several_loans_here": "Tekstissä on useita lainoja. Lisää ne kohdasta Asetukset > Talous.",
   "set.ln.mark_sure": "Varma",
   "set.ln.mark_missing": "Ei löytynyt",
   "set.ln.mark_check": "Tarkista",

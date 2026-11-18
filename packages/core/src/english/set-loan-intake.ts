@@ -15,7 +15,7 @@ export const EN_SET_LOAN_INTAKE: Record<keyof typeof FI_SET_LOAN_INTAKE, string>
   "set.ln.the_file_is_too_large": "The file is too large. Paste the loan details as text.",
   "set.ln.the_file_is_not_a_pdf": "The file is not a PDF or text. Paste the loan details as text.",
   "set.ln.the_file_could_not_be": "We could not read the file. Try again or paste the loan details as text.",
-  "set.ln.several_loans_here": "The text has several loans. Add them under Asetukset > Lainat.",
+  "set.ln.several_loans_here": "The text has several loans. Add them under Asetukset > Talous.",
   "set.ln.mark_sure": "Sure",
   "set.ln.mark_missing": "Not found",
   "set.ln.mark_check": "Check",

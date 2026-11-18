@@ -8,7 +8,7 @@ import { Button } from "../ui/Button.tsx";
 import { Notice } from "../ui/Notice.tsx";
 import { useModal } from "../useModal.ts";
 import { checksLeft, emptyForm, formOfDraft, formOfLoan, interestOverPayment, type LoanBody, type LoanForm, matchedLoan, readForm } from "./form.ts";
-import { FIELD_LABEL, KIND_LABEL } from "./labels.ts";
+import { FIELD_LABEL, KIND_LABEL, type LoanFieldKey } from "./labels.ts";
 import { LoanEditor } from "./LoanEditor.tsx";
 
 interface Row {
@@ -69,6 +69,7 @@ export function LoanDraftTable({ drafts, loans, today, onSaved, onClose }: {
   const [checking, setChecking] = useState<Row | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const amountOf = (row: Row, key: LoanFieldKey) => amount(row.form.values[key]);
   const nameOf = (row: Row) => row.form.values.lender || t("set.ln.loan_n", { n: rows.indexOf(row) + 1 });
   const amount = (text: string) => {
     const cents = parseEuros(text.trim());
@@ -123,7 +124,7 @@ export function LoanDraftTable({ drafts, loans, today, onSaved, onClose }: {
           },
           { key: "balance", label: t("set.loans.remaining"), kind: "money", main: true, cell: (row) => amount(row.form.values.balanceCents) },
           { key: "rate", label: t("set.loans.rate"), kind: "count", cell: (row) => (row.form.values.rateBp === "" ? "–" : `${row.form.values.rateBp} %`) },
-          { key: "payment", label: t("set.loans.payment"), kind: "count", cell: (row) => amount(row.form.values.paymentCents) },
+          { key: "payment", label: t("set.loans.payment"), kind: "count", cell: (row) => amountOf(row, "paymentCents") },
           {
             key: "match",
             label: t("set.ln.save_as"),

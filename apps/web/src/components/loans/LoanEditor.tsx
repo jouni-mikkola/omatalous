@@ -8,6 +8,7 @@ import { LoanSource } from "./LoanSource.tsx";
 import { FIELD_LABEL, INTERVALS, intervalLabel, KIND_LABEL, type LoanFieldKey, REFERENCE_LABEL, REPAYMENT_LABEL } from "./labels.ts";
 import { Button } from "../ui/Button.tsx";
 import { Notice } from "../ui/Notice.tsx";
+import "../../styles/loans.css";
 const UNIT: Partial<Record<LoanFieldKey, string>> = { balanceCents: "€", grantedCents: "€", limitCents: "€", paymentCents: "€", rateBp: "%", marginBp: "%" };
 
 /**
@@ -50,7 +51,7 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
   initial: LoanForm;
   /** The save button's name, when it does not save the loan itself (a row of the table of read loans). */
   saveLabel?: string;
-  /** The form of a row that is read already has no input box. */
+  /** The form of a row that is read already has no input box, and neither has a form that asks for given fields only. */
   noSource?: boolean;
   /**
    * Where a read text of several loans, or of a loan the household has saved already, goes: a table that saves them all.
@@ -156,7 +157,7 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
 
   return (
     <form className="loan-form" onSubmit={(e) => void submit(e)} noValidate>
-      {form.id === null && !noSource && <LoanSource today={today} onDrafts={take} />}
+      {form.id === null && !noSource && !ask && <LoanSource today={today} onDrafts={take} />}
       {compact && form.id === null && form.seriesKey !== null && <p className="small muted loan-note">{prefilledLine(form)}</p>}
       {!compact && (
       <div className="loan-fields">
@@ -195,7 +196,7 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
           const confirmed = form.confirmed.includes(key);
           const line = form.source?.lines[key];
           const why = form.source?.warnings[key]?.join(" ");
-          const described = [mark && idOf(`${key}-mark`), line && idOf(`${key}-line`), why && !confirmed && idOf(`${key}-why`), help && idOf(`${key}-help`), errors[key] && idOf(`${key}-error`)].filter(Boolean).join(" ") || undefined;
+          const described = [mark && idOf(`${key}-mark`), line && idOf(`${key}-line`), why && !confirmed && idOf(`${key}-warning`), help && idOf(`${key}-help`), errors[key] && idOf(`${key}-error`)].filter(Boolean).join(" ") || undefined;
           return (
             <div key={key} className={`loan-field${mark === "check" && !confirmed ? " to-check" : ""}`}>
               <div className="loan-field-head">
@@ -216,7 +217,7 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
                 </span>
               )}
               {why && !confirmed && (
-                <span id={idOf(`${key}-why`)} className="loan-source">
+                <span id={idOf(`${key}-warning`)} className="loan-source">
                   {why}
                 </span>
               )}

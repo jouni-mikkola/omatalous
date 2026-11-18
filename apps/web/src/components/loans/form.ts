@@ -11,6 +11,8 @@ import { KIND_LABEL, type LoanFieldKey } from "./labels.ts";
 /** The fields of a loan the form shows, in the order it shows them. Name and kind stand above them. */
 const FIELD_KEYS = ["lender", "balanceCents", "balanceDate", "grantedCents", "limitCents", "rateBp", "reference", "marginBp", "rateReviewDate", "repayment", "intervalMonths", "paymentCents", "endDate"] as const satisfies readonly LoanFieldKey[];
 
+/** The form's own text of the loan's payment, read by key like every other field of the form. */
+const PAYMENT: LoanFieldKey = "paymentCents";
 const MONEY_KEYS = ["balanceCents", "grantedCents", "limitCents", "paymentCents"] as const;
 const RATE_KEYS = ["rateBp", "marginBp"] as const;
 
@@ -99,7 +101,7 @@ export function formOfDraft(draft: LoanDraft, today: string, base: LoanForm = em
     values.balanceDate = today;
     marks.balanceDate = "missing";
   }
-  const payment = values.paymentCents;
+  const payment = values[PAYMENT];
   // the text gave the amortisation alone of a loan whose payment holds the interest: the household types the whole payment
   if (draft.paymentKind === "amortisation" && values.repayment !== "equal_principal") values.paymentCents = "";
   return { ...base, kind: base.kind || (draft.kind ?? ""), values, source: { marks, lines, warnings, payment }, paymentKind: draft.paymentKind ?? null };
@@ -169,7 +171,7 @@ export function shownFields(form: LoanForm): LoanFieldKey[] {
 }
 
 /** The read payment is the whole payment, and the chosen way of paying wants the amortisation alone. */
-const wholeUnderEqual = (form: LoanForm) => form.paymentKind === "whole" && form.values.repayment === "equal_principal" && form.values.paymentCents !== "";
+const wholeUnderEqual = (form: LoanForm) => form.paymentKind === "whole" && form.values.repayment === "equal_principal" && form.values[PAYMENT] !== "";
 
 /** How the text gave a field, null for a form that was not read. */
 export function markOf(form: LoanForm, key: LoanFieldKey): FieldMark | null {
@@ -177,7 +179,7 @@ export function markOf(form: LoanForm, key: LoanFieldKey): FieldMark | null {
   if (key === "paymentCents") {
     if (wholeUnderEqual(form)) return "check";
     // emptied because the text had the amortisation alone
-    if (form.paymentKind !== null && form.values.paymentCents === "") return "missing";
+    if (form.paymentKind !== null && form.values[PAYMENT] === "") return "missing";
   }
   return form.source.marks[key] ?? null;
 }
