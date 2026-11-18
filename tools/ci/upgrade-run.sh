@@ -195,7 +195,8 @@ OLD_COMMIT=$(git -C "$DIR" rev-parse HEAD)
 # The remote here holds no release tag, so the install follows the source from its first update on: a baseline that
 # knows releases would ask GitHub for the newest one and stop, since that tag is not in this folder. An older
 # baseline does not read the line.
-printf 'SETUP_CODE=ci-setup-code-12345\nTALOUS_CHANNEL=source\n' >"$DIR/.env"
+# REFERENCE_RATES=false: a rehearsal that crosses 18:00 Helsinki time must not fetch the published fixings from the network.
+printf 'SETUP_CODE=ci-setup-code-12345\nTALOUS_CHANNEL=source\nREFERENCE_RATES=false\n' >"$DIR/.env"
 if ((${#MOVED[@]})); then
   printf '%s\n' "${MOVED[@]}" >>"$DIR/.env"
   export "${MOVED[@]}"
@@ -311,7 +312,9 @@ GOLD_HEAD=$(golden)
 [[ $GOLD_HEAD == *"optimise_snapshots ci-admin 1"* && $GOLD_HEAD == *"optimise_snapshots ci-member 1"* ]] || fail "the Optimoi snapshots were not written"
 
 log "this checkout's update.sh on the next release"
-grep -q '^TALOUS_CHANNEL=source$' "$DIR/.env" || printf 'TALOUS_CHANNEL=source\n' >>"$DIR/.env" # an old baseline may have written .env anew
+# an old baseline may have written .env anew
+grep -q '^TALOUS_CHANNEL=source$' "$DIR/.env" || printf 'TALOUS_CHANNEL=source\n' >>"$DIR/.env"
+grep -q '^REFERENCE_RATES=false$' "$DIR/.env" || printf 'REFERENCE_RATES=false\n' >>"$DIR/.env"
 run_update --yes >/dev/null
 said 'already current\|Updated\|Running\|jo käytössä\|Päivitetty\|Käynnissä' || fail "no outcome line"
 wait_up

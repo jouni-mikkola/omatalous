@@ -241,7 +241,7 @@ const RATE_FORMULA = /EURIBOR|PRIME|VIITEKOR|MARGINAAL|[+]/;
 /** A rate written as its parts ("3 kk Euribor + 0,65 %"): the one percentage in it is not known to be the whole rate. */
 export const isLoanRateFormula = (folded: string) => RATE_FORMULA.test(folded);
 
-const LOAN_LENDER_LINE = words(String.raw`[A-Z-]*PANKKI|[A-Z-]*BANK|[A-Z]*BANKEN|[A-Z]*RAHOITUS|[A-Z]*FINANCE|[A-Z]*FINANS|HYPOTEEKKIYHDISTYS|VALTIOKONTTORI|OYJ|OY|ABP|AB|OSK|A/S`);
+const LOAN_LENDER_LINE = words(String.raw`[A-Z-]*PANKKI|[A-Z-]*BANK|[A-Z]*BANKEN|[A-Z]*RAHOITUS|[A-Z]*FINANCE|[A-Z]*FINANS|HYPOTEEKKIYHDISTYS|HYPOTEEKKILAITOS|OYJ|OY|ABP|AB|OSK|A/S`);
 const NOT_LENDER_LINE = words(String.raw`VERKKOPANKKI|MOBIILIPANKKI|[A-Z]*PANKKITUNNU[A-Z]*|ASUNTO OY|AS OY|KIINTEISTO OY|KOY|BOSTADS AB|[A-Z]*VAKUUTUS[A-Z]*`);
 /**
  * A line that names a lender: a bank, a finance company, or any company by its form (the register lists lenders by

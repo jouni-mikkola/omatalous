@@ -198,7 +198,7 @@ rehearse() {
   (cd "$TMP" && env -u UPGRADE_PORT -u UPGRADE_PROJECT -u UPGRADE_KEEP_UP -u UPGRADE_UNTIL -u UPGRADE_BUILD_SHIM -u HOST_PORT -u INSTANCE_NAME -u COMPOSE_PROJECT_NAME \
     "$@" UPGRADE_WORK="$W" PATH="$TMP/ubin:$PATH" bash "$U/tools/ci/upgrade-run.sh" "$ref" 2>&1)
 }
-BASE_ENV='SETUP_CODE=ci-setup-code-12345'$'\n''TALOUS_CHANNEL=source'
+BASE_ENV='SETUP_CODE=ci-setup-code-12345'$'\n''TALOUS_CHANNEL=source'$'\n''REFERENCE_RATES=false'
 # a baseline is named by its commit, as the list names it: the install has no tag of the stand-in repository
 fixed=$(git -C "$U" rev-parse --short fixed)
 half=$(git -C "$U" rev-parse --short half)
