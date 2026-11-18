@@ -174,7 +174,7 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.ln_wi_payments_left": "Payments left",
   "rpt.ln_wi_interest_left": "Interest left",
   "rpt.ln_wi_last": "Last payment",
-  "rpt.ln_wi_euribor": "{months}-month Euribor",
+  "rpt.ln_wi_euribor": "{months} mo Euribor",
   "rpt.ln_wi_rate_made": "{rate} = {reference} {fixing} + {margin}",
   "rpt.ln_wi_rate_ref": "{rate}, {reference}",
   "rpt.ln_wi_review": "{line}, review {date}",

@@ -99,7 +99,7 @@ function Body({ id, today }: { id: string; today: string }) {
       const parts = [
         monthsSooner === 0 ? t("rpt.ln_wi_ends", { month: monthYear(endDate) }) : t("rpt.ln_wi_ends_by", { month: monthYear(endDate), span: t(monthsSooner > 0 ? "rpt.ln_wi_sooner" : "rpt.ln_wi_later", { span: span(Math.abs(monthsSooner)) }) }),
         ...(interestSavedCents === 0 ? [] : [t(interestSavedCents > 0 ? "rpt.ln_wi_saves" : "rpt.ln_wi_costs", { amount: money(Math.abs(interestSavedCents), false) })]),
-        ...(what.lower === null ? [] : [t("rpt.ln_wi_lower", { payment: paymentText(what.lower.paymentCents, months) })]),
+        ...(what.lower === null ? [] : [t("rpt.ln_wi_lower", { payment: paymentText(what.lower.cents, months) })]),
       ];
       result = parts.join(" · ");
     } else if (extraCents !== null && balance.cents !== null && extraCents >= balance.cents && summary !== null && summary.interestLeftCents !== null) {

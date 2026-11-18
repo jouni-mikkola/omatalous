@@ -491,7 +491,7 @@ describe("what a change does", () => {
     const l = loan({ rateBp: 1200, repayment: "annuity", paymentCents: 8885, endDate: "2027-01-15" });
     const w = loanWhatIf(l, START, { extra: { cents: 20_000, on: "2026-03-15" } })!;
     expect(w.lower).not.toBeNull();
-    expect(w.lower!.paymentCents).toBeLessThan(8885);
+    expect(w.lower!.cents).toBeLessThan(8885);
     expect(w.lower!.interestSavedCents).toBeGreaterThan(0);
     expect(w.lower!.interestSavedCents).toBeLessThan(w.shorter.interestSavedCents);
     // the others have no lower payment to tell

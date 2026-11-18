@@ -261,7 +261,7 @@ interface WhatIf {
   /** The payments go on and the loan ends sooner. */
   shorter: { endDate: IsoDate; monthsSooner: number; interestSavedCents: number };
   /** The loan ends when it was to and the payment is lower: an annuity with an extra repayment only. */
-  lower: { paymentCents: number; interestSavedCents: number } | null;
+  lower: { cents: number; interestSavedCents: number } | null;
 }
 
 /**
@@ -285,7 +285,7 @@ export function loanWhatIf(loan: Loan, from: IsoDate, change: ScheduleChange): W
   const first = lowerList?.find((p) => p.date > (change.extra?.on ?? from));
   return {
     shorter: { endDate: last.date, monthsSooner: monthIndex(monthOf(base.endDate)) - monthIndex(monthOf(last.date)), interestSavedCents: saved(shorter) },
-    lower: lowerList === null || first === undefined || lowerList.at(-1)!.balanceCents > 0 ? null : { paymentCents: paymentOf(plan, first), interestSavedCents: saved(lowerList) },
+    lower: lowerList === null || first === undefined || lowerList.at(-1)!.balanceCents > 0 ? null : { cents: paymentOf(plan, first), interestSavedCents: saved(lowerList) },
   };
 }
 
@@ -297,8 +297,8 @@ export function loanWhatIf(loan: Loan, from: IsoDate, change: ScheduleChange): W
 export function loanPaymentAfter(loan: Loan, from: IsoDate): number | null {
   const plan = schedulePlan(loan);
   if (typeof plan === "string" || from < loan.balanceDate) return null;
-  const cents = startAt(loan, plan, from).payment ?? plan.paymentCents;
-  return cents > 0 ? cents : null;
+  const cents = startAt(loan, plan, from).payment;
+  return cents !== undefined && cents > 0 ? cents : null;
 }
 
 /** The rate of a loan on a day and what it is made of. */
