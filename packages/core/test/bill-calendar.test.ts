@@ -3,7 +3,7 @@ import { aheadBasis } from "../src/analysis/ahead.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { nytAnswer } from "../src/analysis/nyt.ts";
 import { addDays, dateIn, daysBetween, monthOf, weekdayOf } from "../src/dates.ts";
-import { billCalendar } from "../src/reports/bill-calendar.ts";
+import { billCalendar, unknownBillsIn } from "../src/reports/bill-calendar.ts";
 import { upcomingReport } from "../src/reports/upcoming.ts";
 import { type Account, type BalanceInput, type ExpectedBill, type IsoDate, type Loan, NO_INPUTS, type Transaction, type UserInputs } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";
@@ -405,6 +405,30 @@ describe("the bill calendar", () => {
       const { cal } = run(household(), { marks: [], expectedBills: [], loans: [loan] });
       expect(cal.unknownCount).toBe(1);
       expect(cal.months.map((m) => m.afterCents)).toEqual(Array.from({ length: 12 }, () => null));
+    });
+  });
+
+  describe("the unknown bills of some months", () => {
+    type Unknown = ReturnType<typeof billCalendar>["unknowns"][number];
+    const sum = (over: Partial<Unknown>): Unknown => ({ days: [], open: false, kind: "bill", onCard: false, ...over });
+    const shown = ["2026-10", "2026-11", "2026-12"];
+
+    it("counts each unknown once, however many of the months it falls in", () => {
+      const unknowns = [sum({ days: ["2026-10-20", "2026-11-20"] }), sum({ days: ["2026-11-02"], open: true, kind: "loan" }), sum({})];
+      expect(unknownBillsIn({ unknowns }, shown)).toBe(3);
+    });
+
+    it("leaves out the ones of later months, of a card, and the pays and savings", () => {
+      const unknowns = [
+        sum({ days: ["2027-03-05"] }),
+        sum({ days: ["2026-11-05"], onCard: true }),
+        sum({ kind: "income" }),
+        sum({ kind: "saving", days: ["2026-10-20"] }),
+        sum({ days: ["2026-12-05"] }),
+      ];
+      expect(unknownBillsIn({ unknowns }, shown)).toBe(1);
+      expect(unknownBillsIn({ unknowns }, ["2027-03"])).toBe(1);
+      expect(unknownBillsIn({ unknowns }, [])).toBe(0);
     });
   });
 });

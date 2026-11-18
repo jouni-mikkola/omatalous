@@ -107,7 +107,14 @@ interface BillCalendar {
 const holdsMonth = (u: UnknownSum, month: string): boolean => !u.onCard && (u.days.length === 0 || (u.open ? month >= monthOf(u.days[0]!) : u.days.some((d) => monthOf(d) === month)));
 
 /** How many of the sums that are not known are part of the month's sums: the ones that leave its `afterCents` null, as the month head of Laskut counts them. */
-export const unknownsIn = (calendar: Pick<BillCalendar, "unknowns">, month: string): number => calendar.unknowns.filter((u) => holdsMonth(u, month)).length;
+const unknownsIn = (calendar: Pick<BillCalendar, "unknowns">, month: string): number => calendar.unknowns.filter((u) => holdsMonth(u, month)).length;
+
+/**
+ * How many bills and loan payments with no known sum or day are part of any of the months, each counted once: the same rule as
+ * `unknownsIn`, less the pays and the savings, which are no bills. A pay that is not known still leaves the month's `afterCents` null.
+ */
+export const unknownBillsIn = (calendar: Pick<BillCalendar, "unknowns">, months: string[]): number =>
+  calendar.unknowns.filter((u) => u.kind !== "income" && u.kind !== "saving" && months.some((m) => holdsMonth(u, m))).length;
 
 /**
  * Whether a bill, loan payment or saving whose sum is not known may fall on or before `last`: one with no day may, as may a dated one.

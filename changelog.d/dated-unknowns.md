@@ -1,2 +1,2 @@
 section: Money and reports
-- Near months show their figures although a far-off bill has no known sum.
+- Near months show their figures, and the note counts only bills that affect the months shown.

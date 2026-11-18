@@ -1,4 +1,5 @@
 // Decision: which of the coming months leave too little after the bills, so the month's spending needs a limit now
+import { unknownBillsIn } from "@banking/core";
 import { query } from "../../api.ts";
 import { money, monthLong } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
@@ -30,6 +31,8 @@ const afterText = (m: Month) => (m.afterCents === null ? t("home.coming_after_un
 export function ComingMonths({ calendar }: { calendar: Calendar }) {
   const months = calendar.months.slice(0, COMING_MONTHS);
   if (months.length === 0) return null;
+  // only the bills that leave a shown month's sum after the bills unknown, each once; one of a later month is not counted
+  const unknownBills = unknownBillsIn(calendar, months.map((m) => m.month));
   return (
     <>
       <Table<Month>
@@ -47,7 +50,7 @@ export function ComingMonths({ calendar }: { calendar: Calendar }) {
         csv={false}
         search={false}
       />
-      {calendar.unknownCount > 0 && <p className="home-detail">{tn(calendar.unknownCount, "bills.unknown_one", "bills.unknown_many")}</p>}
+      {unknownBills > 0 && <p className="home-detail">{tn(unknownBills, "bills.unknown_one", "bills.unknown_many")}</p>}
     </>
   );
 }
