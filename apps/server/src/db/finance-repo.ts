@@ -199,6 +199,7 @@ export class FinanceRepo {
 
   // ── loans (finance/loans.ts) ─────────────────────────────
   listLoans() { return this.loans.listLoans(); }
+  loansSavedAt() { return this.loans.savedAt(); }
   addLoan(loan: Loan, at: string) { return this.loans.addLoan(loan, at); }
   updateLoan(loan: Loan, at: string) { return this.loans.updateLoan(loan, at); }
   deleteLoan(id: string) { return this.loans.deleteLoan(id); }
