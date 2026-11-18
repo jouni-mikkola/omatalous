@@ -16,7 +16,7 @@ one way was never read the other way.
   loan-intake/ reads, is in `wording-loan-pages.ts`, and what the rules of `categorize-bank-rows.ts` read (a lender by the
   shape of its name, a cash machine's row) is in `wording-lenders.ts`, and the names a car dealer is told by are in
   `wording-car.ts` (0.14.0). Industry (TOL) and card (MCC) codes
-  live in `industry.ts` (`electricityRoleOf`, `deductibleWorkOf`, `mccKind`). `categorize.ts` keeps its rule table
+  live in `industry.ts` (`electricityRoleOf`, `mccKind`) and `household-credit.ts` (`isHouseholdCreditIndustry`). `categorize.ts` keeps its rule table
   and `merchant.ts` its brands and places.
 - When a rule of `categorize.ts` reads the same names as a predicate, both use one exported constant
   (`ELECTRICITY_SELLER_WORDS`, `DAYCARE_WORDS`, `PENSION_PAYER_WORDS`, `CARD_ISSUER_WORDS`, `REFUND_WORDS`, the tax
