@@ -154,7 +154,7 @@ describe("holdings of the balance report", () => {
     const typed = loan({ id: "study", name: "Opintolaina", lender: "ESIMERKKIRAHOITUS OY", balanceCents: 1_000_000, balanceDate: "2026-06-01", repayment: "fixed_instalment", intervalMonths: 1, paymentCents: 50_000, rateBp: 0 });
     const { holdings } = household([], [typed]);
     expect(holdings.loans).toEqual([
-      { id: "study", name: "Opintolaina", lender: "ESIMERKKIRAHOITUS OY", kind: "consumer", ownerName: null, leftCents: loanBalanceOn(typed, today).cents, monthlyPaymentCents: 50_000, endDate: "2028-02-01", interest12Cents: 0, source: "typed", paidOff: false, maybeTwice: false },
+      { id: "study", name: "Opintolaina", lender: "ESIMERKKIRAHOITUS OY", kind: "consumer", ownerName: null, leftCents: loanBalanceOn(typed, today).cents, monthlyPaymentCents: 50_000, endDate: "2028-02-01", source: "typed", paidOff: false, maybeTwice: false },
     ]);
     expect(holdings.loans[0]!.leftCents).toBeLessThan(typed.balanceCents);
     expect(holdings.loansEndDate).toBe("2028-02-01");
@@ -167,19 +167,19 @@ describe("holdings of the balance report", () => {
     const bullet = loan({ id: "bullet", name: "Kertalaina", balanceCents: 1_000_000, balanceDate: "2026-10-12", rateBp: 500, repayment: "bullet", endDate: "2027-06-30" });
     const day = "2026-10-12";
 
-    it("gives each loan its last payment and the interest of the year ahead, and the loans the latest end", () => {
+    it("gives each loan its last payment, and the loans the latest end", () => {
       const { holdings } = household([], [car, bullet], [], day);
-      expect(holdings.loans.map((l) => [l.id, l.leftCents, l.endDate, l.interest12Cents])).toEqual([
-        ["car", 500_000, "2027-01-05", 2_500 + 2_463 + 2_425],
-        ["bullet", 1_000_000, "2027-06-30", 35_753],
+      expect(holdings.loans.map((l) => [l.id, l.leftCents, l.endDate])).toEqual([
+        ["car", 500_000, "2027-01-05"],
+        ["bullet", 1_000_000, "2027-06-30"],
       ]);
       expect(holdings.loansEndDate).toBe("2027-06-30");
     });
 
-    it("tells the same end and interest as Lainat, and the loans' balances add up to the debt total", () => {
+    it("tells the same end as Lainat, and the loans' balances add up to the debt total", () => {
       const { ctx, holdings } = household([], [car, bullet], [], day);
       const report = loansReport(ctx, [], inputsOf([car, bullet]));
-      expect(holdings.loans.map((l) => [l.id, l.endDate, l.interest12Cents])).toEqual(report.loans.map((l) => [l.id, l.payoff.date, l.interest.cents]));
+      expect(holdings.loans.map((l) => [l.id, l.endDate])).toEqual(report.loans.map((l) => [l.id, l.payoff.date]));
       expect(holdings.loansCents).toBe(1_500_000);
       expect(holdings.loansCents).toBe(debtTotalOn([car, bullet], day).cents);
       expect(holdings.debtCents).toBe(holdings.loansCents);
@@ -204,7 +204,7 @@ describe("holdings of the balance report", () => {
     it("has no end for a loan that only has a balance, however long it is held", () => {
       const bare = loan({ id: "bare", balanceCents: 200_000, balanceDate: "2026-10-12" });
       const { holdings } = household([], [bare], [], day);
-      expect([holdings.loans[0]!.endDate, holdings.loans[0]!.interest12Cents, holdings.loansEndDate]).toEqual([null, null, null]);
+      expect([holdings.loans[0]!.endDate, holdings.loansEndDate]).toEqual([null, null]);
     });
   });
 
