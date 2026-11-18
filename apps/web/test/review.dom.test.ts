@@ -227,7 +227,7 @@ describe("Tarkistettavat", () => {
       { id: "m", kind: "mortgage", cents: 0 },
     ] as unknown as ReviewItem[];
     const meta = { accounts: [], sharedAccounts: [], bank: { banks: [] }, today: "2026-10-12" } as unknown as Meta;
-    render(createElement(Review, { meta, queue: { data: { items }, error: null, reload: () => {} } }));
+    const view = render(createElement(Review, { meta, queue: { data: { items }, error: null, reload: () => {} } }));
     const heading = () => screen.getByRole("heading", { level: 2 });
     fireEvent.click(screen.getByRole("button", { name: "Asuntolaina Ehdotus" }));
     // the review day comes from the cycle the payments step at; with it and a stored fixing the margin stands in for the rate
@@ -243,6 +243,9 @@ describe("Tarkistettavat", () => {
     expect(facts.nextElementSibling!.textContent).toMatch(/^2,96\s%$/);
     expect(screen.getByText("Jäljellä").nextElementSibling!.textContent).toMatch(/^100\s000,00\s€$/);
     expect(screen.queryByLabelText(/^Marginaali/)).toBeNull();
+    // the queue read again after the save no longer has the item: it stays until Seuraava
+    view.rerender(createElement(Review, { meta, queue: { data: { items: items.slice(1) }, error: null, reload: () => {} } }));
+    expect(screen.getByText("Korko nyt")).toBeTruthy();
     expect(heading().textContent).toContain("Kysymys 1 / 2");
     const next = screen.getByRole("button", { name: "Seuraava" });
     expect(document.activeElement).toBe(next);

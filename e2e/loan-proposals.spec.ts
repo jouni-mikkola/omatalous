@@ -106,6 +106,12 @@ test("a payment that looks like a loan is asked in Tarkistettavat: saved as a lo
     await form.getByLabel("Korko (%)").fill("7,90");
     if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-proposal-form-1280.png"), fullPage: true });
     await form.getByRole("button", { name: "Tallenna", exact: true }).click();
+    // the saved loan shows in the form's place, its rate and balance, until Seuraava
+    const result = item.locator(".review-loan .rt-kv");
+    await expect(result.locator("div").filter({ hasText: "Korko nyt" }).locator("dd")).toHaveText(/^7,90\s%$/);
+    await expect(result.locator("div").filter({ hasText: "Jäljellä" }).locator("dd")).toHaveText(/^6\s400,50\s€$/);
+    await expect(name).toHaveText(COMPANY);
+    await item.getByRole("button", { name: "Seuraava" }).click();
     await expect(name).not.toHaveText(COMPANY);
     const { loans } = await (await context.request.get("/api/loans")).json();
     expect(loans).toHaveLength(1);

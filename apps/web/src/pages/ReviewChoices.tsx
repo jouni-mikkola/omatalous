@@ -60,7 +60,7 @@ const mark = (subject: string, value: string) => () => api("/api/marks", { metho
 /** The same user mark on several subjects, written in one request. */
 const marksOn = (subjects: string[], value: string) => () => api("/api/marks", { method: "PUT", body: { subjects, mark: value } });
 
-export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void }) {
+export function Choices({ item, meta, busy, onAnswer, onHold }: { item: ReviewItem; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void; onHold: () => void }) {
   // the name is the text the button shows, the badge included, so a voice command that reads it finds the button
   const named = (c: { label: string; guess: boolean }) => (c.guess ? `${c.label} ${t("set.rc.suggestion")}` : c.label);
   switch (item.kind) {
@@ -72,7 +72,7 @@ export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta
     case "payer":
       return <Buttons choices={payerChoices(item)} busy={busy} label={named} onPick={(role) => onAnswer(() => payerCalls.say(item.key, role))} />;
     case "loan":
-      return <LoanChoices item={item} meta={meta} busy={busy} onAnswer={onAnswer} />;
+      return <LoanChoices item={item} meta={meta} busy={busy} onAnswer={onAnswer} onHold={onHold} />;
     case "plan":
       return <PlanChoices item={item} busy={busy} onAnswer={onAnswer} />;
     case "split": {
@@ -439,7 +439,7 @@ function LoanSaved({ loan, busy, onNext }: { loan: Loan; busy: boolean; onNext: 
  * saved with the form Asetukset > Lainat opens, filled from the rows with the kind picked; one it cannot place stores
  * the kind as the household's answer.
  */
-function LoanChoices({ item, meta, busy, onAnswer }: { item: Extract<ReviewItem, { kind: "loan" }>; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void }) {
+function LoanChoices({ item, meta, busy, onAnswer, onHold }: { item: Extract<ReviewItem, { kind: "loan" }>; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void; onHold: () => void }) {
   const [kind, setKind] = useState<LoanKind | null>(null);
   const [saved, setSaved] = useState<Loan | null>(null);
   const loans = useApi<LoansAnswer>(kind ? "/api/loans" : null);
@@ -460,7 +460,9 @@ function LoanChoices({ item, meta, busy, onAnswer }: { item: Extract<ReviewItem,
             cancelLabel={t("set.rc.cancel")}
             ask={proposalAsk(initial, item.noMonthly === true)}
             onSave={async (body) => {
-              // the editor shows its own error; the saved loan's figures show in its place until Seuraava
+              // the editor shows its own error; the saved loan's figures show in its place until Seuraava, the item held
+              // before the save, as the queue is read again once it lands
+              onHold();
               setSaved((await loanCalls.add(body)).loan);
             }}
             onCancel={() => setKind(null)}
