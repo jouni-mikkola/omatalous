@@ -9,7 +9,8 @@
  */
 import { loanTermsDismissible, loanTermsGaps, type LoanTermsMissing } from "./loan-terms-answer.ts";
 import { intervalOf, typedPayment } from "./loan-plan.ts";
-import type { Loan } from "./types.ts";
+import { loanRateLine, loanSchedule, ratePathOf } from "./loan-schedule.ts";
+import { type Fixings, type IsoDate, isRevolving, type Loan } from "./types.ts";
 
 /** A debt of the list as its source tells it. */
 export interface ListedDebt {
@@ -59,4 +60,23 @@ export function savedLoanYearCents(loan: Loan): number | null {
 export function openLoanGaps(loan: Loan, owedCents: number, dismissed: boolean): LoanTermsMissing[] {
   const gaps = loanTermsGaps({ ...loan, balanceCents: owedCents });
   return dismissed ? gaps.filter((gap) => !loanTermsDismissible(gap)) : gaps;
+}
+
+/** The line a row of the list closes into once its loan is saved: what the loan owes, its rate on the day and its plan's end. */
+export interface LoanTermsResult {
+  /** The balance saved. */
+  owedCents: number;
+  /** The rate in force on the day, in thousandths of a percent; null while no rate is known. */
+  rateMilli: number | null;
+  /** The plan's last due date and the interest left to pay; null for a card or credit line and where the plan does not resolve. */
+  endDate: IsoDate | null;
+  interestLeftCents: number | null;
+}
+
+/** A saved loan's result line on `day`, its rate counted from the published fixings as `loansOf` counts it. */
+export function loanTermsResult(loan: Loan, fixings: Fixings, day: IsoDate): LoanTermsResult {
+  const rates = ratePathOf(loan, fixings);
+  const counted = rates === null ? loan : { ...loan, ratePath: rates.path, rateFlatFrom: rates.flatFrom };
+  const summary = isRevolving(loan.kind) ? null : loanSchedule(counted, day).summary;
+  return { owedCents: loan.balanceCents, rateMilli: loanRateLine(counted, day)?.rateMilli ?? null, endDate: summary?.endDate ?? null, interestLeftCents: summary?.interestLeftCents ?? null };
 }
