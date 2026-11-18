@@ -1,9 +1,10 @@
 /** Raportit > Menot, Tulot ja menot: the twelve months of income and spending as bars, each a link to its rows. */
-import { render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 import { section } from "../src/pages/reports/sections/Months.tsx";
 import type { ReportContext } from "../src/pages/reports/types.ts";
+import { queryClient } from "../src/query-client.ts";
 import { stubApi } from "./dom-kit.ts";
 
 const flat = (s: string | null | undefined) => (s ?? "").replace(/[  ]/g, " ").replace(/\s+/g, " ").trim();
@@ -21,7 +22,14 @@ const overview = (more: Record<string, unknown> = {}) => ({ months: MONTHS, usua
 
 const ctx = { meta: { today: TODAY, accounts: [{ id: "acc-1" }], sharedAccounts: [] }, scope: "own" } as unknown as ReportContext;
 
+/** The answer is cached by its path: each show starts with an empty cache and no earlier view, so it reads its own. */
+function fresh() {
+  cleanup();
+  queryClient.clear();
+}
+
 async function show(answer: unknown) {
+  fresh();
   stubApi({ "GET /api/dashboard": answer });
   const view = render(createElement(section.Component, { ctx }));
   await waitFor(() => expect(view.container.querySelector("svg a")).not.toBeNull());
@@ -70,6 +78,7 @@ describe("Tulot ja menot", () => {
   });
 
   it("is nothing with no month", async () => {
+    fresh();
     stubApi({ "GET /api/dashboard": { overview: overview({ months: [] }) } });
     const view = render(createElement(section.Component, { ctx }));
     await waitFor(() => expect(view.container.innerHTML).toBe(""));

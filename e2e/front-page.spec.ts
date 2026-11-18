@@ -63,7 +63,8 @@ for (const width of [390, 1440] as const) {
     // the four blocks in their order, each once, and no notice
     await expect(page.locator("main .home-figs > li")).toHaveCount(3);
     await expect(page.locator("main .home-flow")).toHaveCount(1);
-    const order = await page.locator(".home-now, .home-summary, .home-coming, .holdings").evaluateAll((els) => els.map((e) => e.className.split(" ").find((c) => /^home-|^holdings$/.test(c))));
+    const classes = await page.locator(".home-now, .home-summary, .home-coming, .holdings").evaluateAll((els) => els.map((e) => e.getAttribute("class") ?? ""));
+    const order = classes.map((c) => c.split(" ").find((name) => /^home-|^holdings$/.test(name)));
     expect(order).toEqual(["home-now", "home-summary", "home-coming", "holdings"]);
     expect(await page.locator("main .card h2").allInnerTexts()).toEqual(["Tulevat kuukaudet", "Varat ja velat"]);
     await expect(page.locator("main .notice, main .home-notice")).toHaveCount(0);

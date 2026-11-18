@@ -4,14 +4,18 @@
  */
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { createElement } from "react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { marksBySubject } from "@banking/core";
 import { BillsTable } from "../src/components/bills/BillsTable.tsx";
 import { Coming, ComingMonths } from "../src/components/home/Coming.tsx";
 import { billItems } from "../src/components/bills/items.ts";
 import type { ReportsData } from "../src/types.ts";
 import { bill, calendar, month } from "./bill-calendar-fixture.ts";
+import { queryClient } from "../src/query-client.ts";
 import { failing, stubApi } from "./dom-kit.ts";
+
+// the answers are cached by path: a test starts with none, so it reads its own
+beforeEach(() => queryClient.clear());
 
 const flat = (s: string | null | undefined) => (s ?? "").replace(/[  ]/g, " ").replace(/\s+/g, " ").trim();
 const cells = (tr: Element) => [...tr.children].map((c) => flat(c.textContent)).filter(Boolean);
@@ -85,15 +89,14 @@ describe("Tulevat kuukaudet", () => {
 });
 
 describe("Tulevat kuukaudet, the block", () => {
-  it("asks for the bill calendar of the scope, shows it under its heading and links to Laskut", async () => {
+  it("asks for the bill calendar of the scope, shows it under its heading and has no link: the figure of Nyt is the one way to Laskut", async () => {
     const seen = stubApi({ "GET /api/reports": { billCalendar: answer() } });
     render(createElement(Coming, { scope: "household" }));
     const region = screen.getByRole("region", { name: "Tulevat kuukaudet" });
     await waitFor(() => expect(within(region).getAllByRole("row").length).toBeGreaterThan(1));
     expect(seen).toHaveLength(1);
     expect(seen[0]!.path).toBe("/api/reports");
-    const link = within(region).getByRole("link", { name: "Kaikki laskut" });
-    expect(link.getAttribute("href")).toBe("#/bills#laskut-taulukko");
+    expect(within(region).queryAllByRole("link")).toEqual([]);
   });
 
   it("shows the error of a failed answer and no figure", async () => {

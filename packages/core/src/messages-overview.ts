@@ -95,7 +95,6 @@ export const FI_OVERVIEW = {
   "home.coming_after": "Laskujen jälkeen",
   "home.coming_after_unknown": "Ei tiedossa",
   "home.coming_estimate": "{sum} (arviota {estimate})",
-  "home.bills_all": "Kaikki laskut",
   // Shared components
   "ui.close": "Sulje",
   "ui.payee": "Saaja",

@@ -2,21 +2,16 @@
 import { query } from "../../api.ts";
 import { money, monthLong } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
-import { hashOf } from "../../routes.ts";
 import { t, tn } from "../../text.ts";
 import type { ReportsData, Scope } from "../../types.ts";
 import { Notice } from "../ui/Notice.tsx";
 import { Table } from "../table/Table.tsx";
-import { Button } from "../ui/Button.tsx";
 
 type Calendar = ReportsData["billCalendar"];
 type Month = Calendar["months"][number];
 
 /** The months the block shows: this one and the two after it. */
 const COMING_MONTHS = 3;
-
-/** Laskut at its table, which lists the months this block sums. */
-const billsHref = hashOf({ page: "bills", params: new URLSearchParams(), anchor: "laskut-taulukko" });
 
 const capital = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slice(1);
 
@@ -65,11 +60,6 @@ export function Coming({ scope }: { scope: Scope }) {
     <section className="card home-coming" aria-labelledby="home-coming-h">
       <h2 id="home-coming-h">{t("home.coming_title")}</h2>
       {answer.error && !calendar ? <Notice tone="error">{answer.error}</Notice> : calendar ? <ComingMonths calendar={calendar} /> : <span className="home-coming-wait" aria-hidden="true" />}
-      <p className="home-more">
-        <Button variant="link" href={billsHref}>
-          {t("home.bills_all")}
-        </Button>
-      </p>
     </section>
   );
 }

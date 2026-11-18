@@ -100,7 +100,9 @@ test("empty account: the overview offers the demo data and the demo loads", asyn
   const demo = page.getByRole("button", { name: /esimerkki|demo/i }).first();
   await expect(demo).toBeVisible();
   await demo.click();
-  await expect(page.getByText(/Ruoka|Asuminen|Palkka/).and(page.locator(":not(option)")).first()).toBeVisible({ timeout: 20_000 });
+  // the demo's month has income, spending and a result, and its bills fill the coming months
+  await expect(page.locator(".home-figs > li")).toHaveCount(3, { timeout: 20_000 });
+  await expect(page.locator(".home-coming tbody tr").first()).toBeVisible({ timeout: 20_000 });
   expect(seen.problems).toEqual([]);
   await context.close();
 });

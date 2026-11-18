@@ -14,5 +14,5 @@ export const page: ReportPage = {
     return t("rpt.page_spending");
   },
   fold: true,
-  sections: [Months, SpendingMonths, Borrowed, CategoryParts, YearOverYear],
+  sections: [SpendingMonths, Borrowed, CategoryParts, Months, YearOverYear],
 };

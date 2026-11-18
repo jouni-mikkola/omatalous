@@ -92,7 +92,6 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.coming_after": "After bills",
   "home.coming_after_unknown": "Not known",
   "home.coming_estimate": "{sum} (estimated {estimate})",
-  "home.bills_all": "All bills",
   // Shared components
   "ui.close": "Close",
   "ui.payee": "Payee",

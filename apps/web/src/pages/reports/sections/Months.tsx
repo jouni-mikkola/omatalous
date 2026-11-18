@@ -16,13 +16,14 @@ import type { ReportSection, SectionProps } from "../types.ts";
  * dashboard answer, the same one Yhteenveto's figures of the month come from, so a month has one sum in both places.
  */
 function Months({ ctx }: SectionProps) {
-  const { data, error } = useApi<DashboardData>(`/api/dashboard${query({ ...periodRange("month", ctx.meta.today), scope: ctx.scope })}`, true);
-  if (error && !data) return <Notice tone="error">{error}</Notice>;
-  if (!data) return <ReportPanel id={section.id} title={section.title}><Empty>{t("rpt.loading")}</Empty></ReportPanel>;
-  if (data.overview.months.length === 0) return null;
+  // the dashboard's answer, not the report answer `ctx.data` holds: this section names no report of its own
+  const { data: dashboard, error } = useApi<DashboardData>(`/api/dashboard${query({ ...periodRange("month", ctx.meta.today), scope: ctx.scope })}`, true);
+  if (error && !dashboard) return <Notice tone="error">{error}</Notice>;
+  if (!dashboard) return <ReportPanel id={section.id} title={section.title}><Empty>{t("rpt.loading")}</Empty></ReportPanel>;
+  if (dashboard.overview.months.length === 0) return null;
   return (
     <ReportPanel id={section.id} title={section.title}>
-      <MonthBars overview={data.overview} today={ctx.meta.today} />
+      <MonthBars overview={dashboard.overview} today={ctx.meta.today} />
     </ReportPanel>
   );
 }
@@ -32,7 +33,7 @@ export const section: ReportSection = {
   get title() {
     return t("rpt.sec_cashflow");
   },
-  order: 20,
+  order: 60,
   page: "reports",
   reports: [],
   visible: (ctx) => ctx.meta.accounts.length > 0,

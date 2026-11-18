@@ -68,7 +68,6 @@ a.home-left:hover .home-fig-label { text-decoration: underline; }
   .front > .home-now, .front > .home-summary { grid-column: 1 / 8; }
   .front > .home-now ~ .home-coming { grid-column: 8 / -1; grid-row: span 2; }
 }
-.home-more { margin: var(--sp-8) 0 0; }
 .home-coming-wait { display: block; block-size: calc(var(--row-h-roomy) * 4); }
 
 /* the first fetch of a new bank */
