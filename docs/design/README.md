@@ -59,7 +59,7 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
 ```
  Käytettävissä palkkapäivään 3 100 €        Tulevat kuukaudet   Laskut     Tulot    Jälkeen
  25.11. asti, 310 € päivässä                 Marraskuu 2026      1 500 €  3 000 €  1 400 €
-                                             Joulukuu 2026         800 €        –        –
+                                             Joulukuu 2026         800 €        –      −800 €
  Marraskuu 2026          1.–11.11.           Tammikuu 2027         900 €  3 100 €  Ei tiedossa
  Tulot            Menot                       Tulos
  3 900 €          2 018 €                     1 482 €

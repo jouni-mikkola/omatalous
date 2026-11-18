@@ -6,12 +6,9 @@
 export const FI_OVERVIEW = {
   // Yhteenveto
   "home.today": "tänään",
-  "home.col_due": "Eräpäivä",
   "home.col_payee": "Saaja",
   "home.col_sum": "Summa",
-  "home.hide_payments": "Piilota maksut",
   "home.show_payments": "Näytä maksut",
-  "home.category_over": "{label}: {spent}, {over} yli tavoitteen.",
   "home.category_left": "{label}: {spent}, jäljellä {left}.",
   "home.fetching_accounts": "haemme tilejä",
   "home.waiting_one": "{count} tili odottaa hakua",
@@ -22,7 +19,6 @@ export const FI_OVERVIEW = {
   "home.fetched_so_far": "{count} haettu",
   "home.col_goal_left": "Tavoitteesta jäljellä",
   "home.connect_link": "Yhdistä",
-  "home.quality_link": "Tietojen laatu",
   "home.goal_over": "Tavoite {goal} on ylittynyt: menoja on {over} yli.",
   "home.goal_left": "Tavoitteesta {goal} on jäljellä {left}.",
   "home.goal_per_day": " Päivässä voi kuluttaa enintään {sum}.",
@@ -31,7 +27,6 @@ export const FI_OVERVIEW = {
   "home.goal_near": "{left} {ends}, tavoite on tällä välillä.{perDay}",
   "home.goal_within": "{left} {ends}, tavoitteen sisällä.{perDay}",
   "home.goal_enter": "Anna tavoite euroina, esimerkiksi 2 500.",
-  "home.goal_form": "Kuukauden menotavoite",
   "home.goal_field": "Menotavoite kuussa, €",
   "home.goal_change": "Muuta tavoitetta",
   "home.goal_saved": "Tallensit tavoitteen {sum} kuussa.",
@@ -46,7 +41,6 @@ export const FI_OVERVIEW = {
   "home.show_household": "Näytä koko talous",
   "home.no_payments_shown": "Emme näytä maksuja ja saldoa, koska jaksosi ei ulotu tähän päivään.",
   // Nyt: the sum left before payday, what it is a day, the month's pace and the two figures the sum is made of
-  "home.nyt_usual_band": "tavallisesti {range}",
   "home.tile_left": "Käytettävissä palkkapäivään",
   "home.tile_left_line": "{sum} päivässä, palkkapäivä {date}",
   "home.tile_left_today": "Palkkapäivä tänään",
@@ -105,7 +99,7 @@ export const FI_OVERVIEW = {
   "home.buffer_history": "Liian lyhyt historia",
   "home.buffer_no_spending": "Ei menoja",
   "home.buffer_net": "Raha laskujen ja korttivelan jälkeen",
-  "home.buffer_spend": "Tavalliset menot kuukaudessa",
+  "home.buffer_spend": "Menot ja lainanmaksut kuukaudessa",
   // Shared components
   "ui.close": "Sulje",
   "ui.payee": "Saaja",

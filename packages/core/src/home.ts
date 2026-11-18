@@ -2,7 +2,7 @@
  * Decision: do the accounts hold out to the payday, how is the month going against the expected one, and where is the
  * household heading.
  *
- * Everything the first page (Yhteenveto) says in its five blocks, as data the page only draws: the answer (what is left
+ * Everything the first page (Yhteenveto) says in its four blocks, as data the page only draws: the answer (what is left
  * after the payments, per day, and on the payday as a range), the month's pace against the expected month with the
  * range of the base months, the few categories that make the difference, the findings worth acting on, and the
  * direction of spending. Every figure is one of the registry (`figures.ts`); the page adds up and compares no money.

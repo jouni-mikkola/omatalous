@@ -1,7 +1,7 @@
 /**
  * Raportit > Menot kategorioittain: a category's average and its gap to the newest month read only the months that hold a
  * connected card's purchases as the newest one does (core `cardGap`). The page says nothing of it (the gap is not mended here), shows no
- * average where a category has none, and leaves the footer's average to the months table when the two read other months.
+ * average where a category has none, and has no average under the totals: Tavallinen kuukausi is the one level of the months.
  */
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { createElement } from "react";
@@ -57,7 +57,7 @@ const show = (r: Report) => render(createElement(section.Component, { ctx: conte
 const plain = (s: string | null) => (s ?? "").replace(/[  ]/g, " ").replace(/\s+/g, " ").trim();
 
 describe("Menot kategorioittain: a category's average beside a card connected late", () => {
-  it("keeps the footer's average to the months table, with no sentence on the card", () => {
+  it("shows no average under the totals or the months, with no sentence on the card", () => {
     show(report(true));
     expect(plain(document.body.textContent)).not.toContain("kortin ostot");
     const table = screen.getByRole("table", { name: "Kategoriat" });
@@ -65,7 +65,7 @@ describe("Menot kategorioittain: a category's average beside a card connected la
     // 400 € over July to September is not added up with the totals' 448 € over May to September
     expect(plain(table.querySelector("tfoot")!.textContent)).not.toContain("448");
     const months = screen.getByRole("table", { name: "Menot kuukausittain" });
-    expect(plain(months.querySelector("tfoot")!.textContent)).toContain("448 €");
+    expect(months.querySelector("tfoot")).toBeNull();
   });
 
   it("with too few such months the categories have no average column, and no link sends to an import that would not help", () => {
@@ -74,7 +74,7 @@ describe("Menot kategorioittain: a category's average beside a card connected la
     expect(screen.queryByRole("link", { name: "Tuo kortin tiliote" })).toBeNull();
     const table = screen.getByRole("table", { name: "Kategoriat" });
     expect(within(table).getAllByRole("columnheader").map((h) => plain(h.textContent))).toEqual(["Kategoria", "Yhteensä"]);
-    expect(plain(screen.getByRole("table", { name: "Menot kuukausittain" }).querySelector("tfoot")!.textContent)).toContain("448 €");
+    expect(screen.getByRole("table", { name: "Menot kuukausittain" }).querySelector("tfoot")).toBeNull();
   });
 
   it("names the debt paid from savings, which the first page's Menot leave out, only when there is some", () => {
@@ -87,10 +87,10 @@ describe("Menot kategorioittain: a category's average beside a card connected la
     expect(plain(Array.from(months.querySelectorAll("tbody tr")).at(-1)!.textContent)).toContain("460 €");
   });
 
-  it("without a card gap says nothing of cards and the footer has the average month", () => {
+  it("without a card gap says nothing of cards and the footer holds the total only", () => {
     show({ ...report(true), cardGap: false, categoryMonths: 5, typicalCents: 40000 });
     expect(plain(document.body.textContent)).not.toContain("kortin ostot");
-    expect(plain(screen.getByRole("table", { name: "Kategoriat" }).querySelector("tfoot")!.textContent)).toContain("400 €");
+    expect(plain(screen.getByRole("table", { name: "Kategoriat" }).querySelector("tfoot")!.textContent)).not.toContain("400 €");
   });
 });
 

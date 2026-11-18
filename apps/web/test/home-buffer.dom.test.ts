@@ -27,7 +27,7 @@ describe("Buffer", () => {
     const terms = [...container.querySelectorAll(".st-row")].map((row) => [...row.children].map((c) => flat(c.textContent)));
     expect(terms).toEqual([
       ["Raha laskujen ja korttivelan jälkeen", "4 200,00 €"],
-      ["Tavalliset menot kuukaudessa", "3 000,00 €"],
+      ["Menot ja lainanmaksut kuukaudessa", "3 000,00 €"],
     ]);
   });
 
@@ -40,7 +40,7 @@ describe("Buffer", () => {
     const terms = [...container.querySelectorAll(".st-row")].map((row) => [...row.children].map((c) => flat(c.textContent)));
     expect(terms).toEqual([
       ["Raha laskujen ja korttivelan jälkeen", "−1 500,00 €"],
-      ["Tavalliset menot kuukaudessa", "3 000,00 €"],
+      ["Menot ja lainanmaksut kuukaudessa", "3 000,00 €"],
     ]);
   });
 

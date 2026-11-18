@@ -234,7 +234,7 @@ export const FIGURES = {
   },
   buffer: {
     name: "Puskuri",
-    definition: "The balance of the savings and checking accounts, less the debt on credit cards and the bills due before the next payday, in months of usual spending.",
+    definition: "The balance of the savings and checking accounts, less the debt on credit cards and the bills due before the next payday, in months of the expected month's spending and loan payments.",
     source: { file: "reports/buffer.ts", fn: "bufferReport", field: "bufferMonths" },
     unit: "months",
     scope: "own",
