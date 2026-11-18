@@ -64,6 +64,13 @@ const MAX_RATE_MILLI = 100_000_000;
 const monthsBetween = (from: IsoDate, to: IsoDate): number =>
   monthIndex(monthOf(to)) - monthIndex(monthOf(from)) + (Number(to.slice(8)) - Number(from.slice(8))) / DAYS_PER_MONTH;
 
+/**
+ * The day the flows count from: one interval before the first payment left, where the interval that payment pays
+ * interest for begins. What is owed on a day inside the interval is owed from its start, so a day mid-interval does not
+ * read the interest of a whole interval paid over a part of it as a higher rate.
+ */
+const flowStart = (firstDue: IsoDate, months: number): IsoDate => addMonthsToDate(firstDue, -months);
+
 /** What the flows are worth on their first day at a yearly rate, less what is owed. Falls as the rate rises. */
 const presentValue = (owedCents: number, flows: readonly Flow[], rateMilli: number): number =>
   flows.reduce((sum, f) => sum + f.cents * (1 + rateMilli / 100_000) ** (-f.months / 12), -owedCents);
@@ -117,8 +124,8 @@ const unknownCost = (unknown: DebtCostUnknown): DebtCost => ({ rateMilli: null, 
 
 /**
  * Source 1, the plan: the payments of `loanSchedule` after the day, each with its interest, repayment and fee. The fee is
- * the one a document stated, else the one the rows measure; a plan with no interest and neither costs what its fee is,
- * which nothing tells. A plan with interest and neither has the fee its payment holds.
+ * the one a document stated, else the one the rows measure. A plan at 0 % with neither has a cost nothing tells (`fee`);
+ * a plan with interest and neither costs its interest.
  */
 function planCost(loan: Loan, day: IsoDate, owedCents: number, rows: readonly SeriesPayment[]): DebtCost {
   const schedule = loanSchedule(loan, day);
@@ -129,7 +136,9 @@ function planCost(loan: Loan, day: IsoDate, owedCents: number, rows: readonly Se
   const interestFree = schedule.rows.every((r) => r.interestCents === 0);
   const fee = stated ?? measuredFee(first.interestCents! + first.principalCents, rows) ?? (interestFree ? null : 0);
   if (fee === null) return unknownCost("fee");
-  const flows = schedule.rows.map((r) => ({ months: monthsBetween(day, r.date), cents: r.interestCents! + r.principalCents + fee }));
+  // a revolving loan's plan pays each month, every other the loan's own interval
+  const start = flowStart(first.date, isRevolving(loan.kind) ? 1 : (intervalOf(loan) ?? 1));
+  const flows = schedule.rows.map((r) => ({ months: monthsBetween(start, r.date), cents: r.interestCents! + r.principalCents + fee }));
   const rateMilli = yearlyRateMilli(owedCents, flows);
   if (rateMilli === null) return unknownCost("payment");
   const to = addMonthsToDate(day, 12);
@@ -141,9 +150,9 @@ function planCost(loan: Loan, day: IsoDate, owedCents: number, rows: readonly Se
 
 /**
  * Source 2, the rows, for a loan with no rate: the newest payment of its linked series (the median of the newest three)
- * on each due date from the balance date to the last one prices the balance, with no rate asked and none assumed. A
- * level payment costs the same rate from any day of its plan, so the rate is counted from the balance date, where the
- * balance is known. Each payment's cost is what it pays over the balance's fall at that rate.
+ * on each due date after the balance date to the last one prices the balance, with no rate asked and none assumed. A
+ * level payment costs the same rate from any day of its plan, so the rate is counted from the balance, where it is
+ * known. Each payment's cost is what it pays over the balance's fall at that rate.
  */
 function rowsCost(loan: Loan, day: IsoDate, rows: readonly SeriesPayment[]): DebtCost {
   const end = endOf(loan);
@@ -153,14 +162,16 @@ function rowsCost(loan: Loan, day: IsoDate, rows: readonly SeriesPayment[]): Deb
   if (months === null) return unknownCost("interval");
   const paid = Math.round(median([...rows].sort((a, b) => a.date.localeCompare(b.date)).slice(-NEWEST_ROWS).map((r) => r.cents)));
   const dates = [...dueDates(loan, months)];
-  const flows = dates.map((date) => ({ months: monthsBetween(loan.balanceDate, date), cents: paid }));
+  if (dates.length === 0) return unknownCost("end_date");
+  const from = flowStart(dates[0]!, months);
+  const flows = dates.map((date) => ({ months: monthsBetween(from, date), cents: paid }));
   const rateMilli = yearlyRateMilli(loan.balanceCents, flows);
   if (rateMilli === null) return unknownCost("rate");
   // the balance at that rate, payment by payment: what each payment pays over its fall is its cost, the last one clears it
   const to = addMonthsToDate(day, 12);
   const last = dates.at(-1);
   let balance = loan.balanceCents;
-  let start = loan.balanceDate;
+  let start = from;
   let cents = 0;
   for (const date of dates) {
     const grown = Math.round(balance * (1 + rateMilli / 100_000) ** (monthsBetween(start, date) / 12));
