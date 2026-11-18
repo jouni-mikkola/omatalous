@@ -41,7 +41,7 @@ export function rateMilliAt(path: RatePath | undefined, typedBp: number, day: Is
 export const countsDays = (loan: Loan): boolean => loan.ratePath !== undefined && loan.reference !== null && loan.reference !== "fixed";
 
 /** The days of an average year over the 360 of a reference rate's year: what an interval of months costs more at act/360. */
-const ACTUAL_OVER_360 = 365.25 / 360;
+const ACTUAL_OVER_360 = 1461 / 1440; // four average years of 365,25 days over four of 360
 
 /**
  * The payment that ends a balance in `left` payments at a rate, to the nearest cent, a half cent up. `actual360` counts

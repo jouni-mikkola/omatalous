@@ -35,12 +35,12 @@ const MAX_PERIODS = 10_000;
 const MIN_MILLI = -5000;
 const MAX_MILLI = 20_000;
 
-/** The series by their exact names: the report holds a 365-day series of 3 kk too, which is left out. */
-const SERIES = new Map<string, EuriborReference>([
-  ["3 kk (tod.pv/360)", "euribor_3"],
-  ["6 kk (tod.pv/360)", "euribor_6"],
-  ["12 kk (tod.pv/360)", "euribor_12"],
-]);
+/** The series by their exact names, a number of months and the 360-day basis: the 365-day series of the same rates is left out. */
+const SERIES_NAME = /^(3|6|12) kk \(tod\.pv\/360\)$/;
+const seriesOf = (name: string | null): EuriborReference | undefined => {
+  const months = SERIES_NAME.exec(name ?? "")?.[1];
+  return months === undefined ? undefined : (`euribor_${months}` as EuriborReference);
+};
 
 class ReferenceRatesError extends Error {}
 
@@ -51,7 +51,7 @@ function milliOf(text: string): number {
   const m = /^(-?)(\d{1,2}),(\d{1,3})$/.exec(text);
   if (!m) throw new ReferenceRatesError("report holds a rate that is no decimal comma number");
   const milli = (Number(m[2]) * 1000 + Number(m[3]!.padEnd(3, "0"))) * (m[1] ? -1 : 1);
-  if (milli < MIN_MILLI || milli > MAX_MILLI) throw new ReferenceRatesError("report holds a rate outside -5 to 20 %");
+  if (milli < MIN_MILLI || milli > MAX_MILLI) throw new ReferenceRatesError("report holds a rate outside −5 to 20 %");
   // -0 would be stored as 0 anyway
   return milli || 0;
 }
@@ -76,7 +76,7 @@ export function parseReport(xml: string): FixingRow[] {
     const rates = [...inside!.matchAll(/<rate\b([^>]*)>([\s\S]*?)<\/rate>/g)];
     if (rates.length !== rateTags) throw new ReferenceRatesError("report holds a rate that is cut short");
     for (const [, rateAttributes, rateInside] of rates) {
-      const reference = SERIES.get(attribute(rateAttributes!, "name") ?? "");
+      const reference = seriesOf(attribute(rateAttributes!, "name"));
       const intr = /<intr\b([^>]*?)\/>/.exec(rateInside!);
       if (!intr) throw new ReferenceRatesError("report holds a rate with no value cell");
       if (!reference) continue;
