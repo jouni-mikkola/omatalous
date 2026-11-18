@@ -150,12 +150,16 @@ function itemsOf(data: Data): Item[] {
 }
 
 /** The tone of each part of the bar: the role colour the same part has in every chart. */
-const FLOW_TONE: Record<string, Tone> = { income: "income", consumption: "spending", debt: "debt", saved: "kept", repaid: "neutral", left: "income", credit: "neutral", savings: "neutral", accounts: "neutral" };
+const FLOW_TONE: Record<string, Tone> = { income: "income", consumption: "spending", interest: "debt", debt: "debt", principal: "debt", subtotal: "neutral", saved: "kept", repaid: "neutral", left: "income", credit: "neutral", savings: "neutral", accounts: "neutral" };
 
-function flowLabel(key: string): string {
+/** The debt service is told whole (*Maksettu velanhoito*) or, beside its interest and repayments, as what no evidence splits. */
+function flowLabel(key: string, split: boolean): string {
   switch (key) {
     case "consumption": return t("home.bridge_consumption");
-    case "debt": return t("home.bridge_debt");
+    case "debt": return t(split ? "home.bridge_unsplit" : "home.bridge_debt");
+    case "interest": return t("home.bridge_interest");
+    case "subtotal": return t("home.bridge_subtotal");
+    case "principal": return t("home.bridge_principal");
     case "saved": return t("home.bridge_saved");
     case "repaid": return t("home.bridge_repaid");
     case "credit": return t("home.bridge_credit");
@@ -202,7 +206,7 @@ function Flow({ view, shown }: { view: BridgeView; shown: { saved: number; credi
         {rows.map((f) => (
           <li key={f.key} data-part={f.key}>
             <span className="home-flow-swatch" data-tone={FLOW_TONE[f.key] ?? "neutral"} aria-hidden="true" />
-            <span className="home-flow-name">{flowLabel(f.key)}</span>
+            <span className="home-flow-name">{flowLabel(f.key, view.debtSplit)}</span>
             <span className="home-flow-share num">{f.incomeUnits !== null ? percent(f.incomeUnits / 100) : ""}</span>
             <span className="home-flow-sum num">{answerMoney(f.cents)}</span>
           </li>
@@ -244,7 +248,7 @@ export function Summary({ data, today }: { data: Data; today: string }) {
           </li>
         ))}
       </ul>
-      <Flow view={bridgeView(data.totals)} shown={shownTerms(data.totals, data.overview.income.cents, data.overview.months.at(-1)?.spendCents ?? data.nyt.pace.spentCents)} />
+      <Flow view={bridgeView(data.totals, data.split)} shown={shownTerms(data.totals, data.overview.income.cents, data.overview.months.at(-1)?.spendCents ?? data.nyt.pace.spentCents)} />
     </section>
   );
 }

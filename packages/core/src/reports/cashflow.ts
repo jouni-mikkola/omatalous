@@ -5,12 +5,13 @@ import { incomeCentsOf, incomeSelect, sumOf } from "../analysis/counted.ts";
 import { savingsRateOf } from "../analysis/bridge.ts";
 import { type MoneyBridge, moneyBridge } from "../analysis/money-bridge.ts";
 import { type BridgeView, bridgeView } from "../analysis/bridge-view.ts";
+import { type DebtSplit, debtSplit } from "../analysis/debt-split.ts";
 import { unknownIncomeShare } from "../analysis/income.ts";
 import { coverOf, type PeriodTotals, totalsOf } from "../analysis/flows.ts";
 import { type DateRange, toDayRange } from "../analysis/period.ts";
 import { isCompleteMonth } from "../analysis/usual.ts";
 import { addMonths, monthEnd, monthOf, monthRange } from "../dates.ts";
-import { type BalanceInput } from "../types.ts";
+import { type BalanceInput, NO_INPUTS, type UserInputs } from "../types.ts";
 import { fullMonths, monthLabels, rangeMonthIndexes } from "./shared.ts";
 
 interface CashflowRow {
@@ -50,6 +51,8 @@ export interface CashflowReport {
   /** The share of the range's income that nothing has told yet, 0 to 1 (`unknownIncomeShare`): not earned income until answered. */
   unknownIncomeShare: number;
   totals: PeriodTotals;
+  /** The range's `totals.debtCents` in interest, repayments and what no evidence splits (ADR 0028): the three add up to it, and no cash figure moves. */
+  split: DebtSplit;
   /** Per-month averages over the complete months; null when the range has none. */
   average: Omit<CashflowRow, "month" | "savingsRate" | "complete" | "stack"> | null;
   /** The range holds the month that has not ended: its bills are out but its salary may not be in. */
@@ -86,7 +89,7 @@ function rateCompareOf(ctx: AnalysisContext, rows: readonly CashflowRow[]): Rate
 }
 
 /** Money in vs. where it went (consumption, debt, savings), month by month. */
-export function cashflowReport(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[] = [], maxMonths = 24): CashflowReport {
+export function cashflowReport(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[] = [], maxMonths = 24, inputs: UserInputs = NO_INPUTS): CashflowReport {
   const months = rangeMonthIndexes(range, maxMonths, ctx);
   // a range longer than the shown months: the rows are the last 24, the totals still cover the whole range
   const all = inDays(ctx, toDayRange(range));
@@ -125,9 +128,10 @@ export function cashflowReport(ctx: AnalysisContext, range: DateRange, balances:
   const closedMonths = monthRange(monthOf(range.from), monthOf(range.to)).filter((m) => `${m}-01` >= range.from && isCompleteMonth(ctx, m));
   const whole = { ...totals, inCents: totals.incomeCents + coverOf(totals).creditDrawnCents, savingsRate: running ? (closedMonths.length ? savingsRateOf(ctx, closedMonths).rate : null) : totals.savingsRate };
   const rates = rows.filter((x) => x.complete && x.savingsRate !== null).map((x) => x.savingsRate!).sort((a, b) => a - b);
+  const split = debtSplit(ctx, range, inputs, all);
   return {
     rows,
-    bridge: bridgeView(totals),
+    bridge: bridgeView(totals, split),
     moneyBridge: moneyBridge(ctx, range, balances),
     whole,
     rateCompare: rateCompareOf(ctx, rows),
@@ -135,6 +139,7 @@ export function cashflowReport(ctx: AnalysisContext, range: DateRange, balances:
     unknownShare: unknownSpending(ctx, range).share,
     unknownIncomeShare: unknownIncomeShare(all),
     totals,
+    split,
     running,
     average: !base.length ? null : {
       incomeCents: avg("incomeCents"),

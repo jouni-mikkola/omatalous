@@ -5,7 +5,7 @@
 import { join } from "node:path";
 import { loadConfig } from "../src/platform/config.ts";
 import { openDatabase } from "../src/db/open.ts";
-import { loadDemoData } from "../src/demo.ts";
+import { loadDemoData, loadDemoFixings } from "../src/demo.ts";
 import { createServices } from "../src/services/context.ts";
 import { createUser } from "../src/services/users.ts";
 
@@ -25,5 +25,7 @@ if (!user) {
   process.exit(1);
 }
 const r = await loadDemoData(s.finance(user.id), s.settings, s.today());
+// made-up fixings only where nothing fetches the real ones
+if (!s.config.referenceRates) await loadDemoFixings(s.referenceRates, s.today());
 console.log(`demo data for ${user.username}: ${r.accounts} accounts, ${r.transactions} transactions → ${path}`);
 db.close();

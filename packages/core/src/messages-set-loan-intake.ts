@@ -1,0 +1,41 @@
+/**
+ * The catalogue of Asetukset: reading a loan from pasted text or a PDF.
+ * Decision: the household reads the settings in its own language.
+ * Same shape as the tables of `messages.ts`: the Finnish table gives the codes and the English one must have the same codes and holes.
+ */
+export const FI_SET_LOAN_INTAKE = {
+  "set.ln.box_label": "Lainan tiedot",
+  "set.ln.read_the_loan_details": "Lue tiedot",
+  "set.ln.choose_a_pdf": "Valitse PDF",
+  "set.ln.reading_the_pdf": "Luemme PDF-tiedostoa…",
+  "set.ln.stop": "Keskeytä",
+  "set.ln.reading_stalled": "Lukeminen jumittui. Yritä uudelleen tai liitä lainan tiedot tekstinä.",
+  "set.ln.the_pdf_is_locked": "PDF-tiedosto on salasanalla suojattu. Avaa se ensin ja liitä sen teksti tähän.",
+  "set.ln.the_pdf_could_not_be": "Emme voineet lukea PDF-tiedostoa. Yritä uudelleen tai liitä lainan tiedot tekstinä.",
+  "set.ln.the_pdf_has_only_an": "PDF-tiedostossa on pelkkä kuva. Kopioi sen teksti ja liitä se tähän.",
+  "set.ln.no_loan_details_were_found": "Emme löytäneet tekstistä lainan tietoja. Liitä lainan tiedot tekstinä tai lisää laina käsin.",
+  "set.ln.the_file_is_too_large": "Tiedosto on liian suuri. Liitä lainan tiedot tekstinä.",
+  "set.ln.the_file_is_not_a_pdf": "Tiedosto ei ole PDF eikä teksti. Liitä lainan tiedot tekstinä.",
+  "set.ln.the_file_could_not_be": "Emme voineet lukea tiedostoa. Yritä uudelleen tai liitä lainan tiedot tekstinä.",
+  "set.ln.mark_missing": "Ei löytynyt",
+  "set.ln.mark_check": "Tarkista",
+  "set.ln.in_the_text": "Tekstissä: {line}",
+  "set.ln.correct": "Oikein",
+  "set.ln.field_is_correct": "{field} on oikein",
+  "set.ln.check_these": "Tarkista vielä: {fields}. Merkitse kenttä oikeaksi tai korjaa se.",
+  "set.ln.read_loans": "Luetut lainat",
+  "set.ln.save_as": "Tallenna lainaksi",
+  "set.ln.save_as_for": "Tallenna lainaksi, {name}",
+  "set.ln.new_loan": "Uusi laina",
+  "set.ln.to_check": "Merkityt kentät",
+  "set.ln.ready": "Valmis",
+  "set.ln.check_the_loan": "Tarkista laina",
+  "set.ln.check_loan_name": "Tarkista laina {name}",
+  "set.ln.loan_n": "Laina {n}",
+  "set.ln.check_every_loan": "Tarkista jokainen merkitty laina ennen tallennusta.",
+  "set.ln.same_loan_twice": "Kaksi riviä päivittää samaa lainaa. Valitse toiselle uusi laina.",
+  "set.ln.save_one": "Tallenna laina",
+  "set.ln.save_many": "Tallenna {count} lainaa",
+  "set.ln.saved_one": "Tallensimme lainan.",
+  "set.ln.saved_many": "Tallensimme {count} lainaa.",
+} as const;

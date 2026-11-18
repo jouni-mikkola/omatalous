@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { addDays } from "../src/dates.ts";
-import { type Instalments, payments, planOf } from "../src/loan-plan.ts";
+import { type Instalments, planOf } from "../src/loan-plan.ts";
+import { payments } from "../src/loan-schedule.ts";
 import {
   creditAccountLoan,
   creditUse,

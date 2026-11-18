@@ -21,6 +21,7 @@ function helper(args: string[], stdin = ""): Record<string, any> {
       APP_SECRET_FILE: join(DIR, "secrets", "app_secret"),
       MIGRATIONS_DIR: join(process.cwd(), "apps/server/migrations"),
       INDUSTRY_LOOKUP: "false",
+      REFERENCE_RATES: "false",
     },
   });
   if (r.status !== 0) throw new Error(`ops ${args[0]} failed: ${r.stderr}`);

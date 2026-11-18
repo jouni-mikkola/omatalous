@@ -35,6 +35,8 @@ const WAITING = /disabled=\{[^}]*\b(?:busy|saving|working|pending|loading|sendin
 // Buttons the waiting mark does not belong on: file, a piece of the tag, why.
 const NOT_OWN_ACTION: [string, string, string][] = [
   ["components/loans/LoanEditor.tsx", "onCancel", "cancel is held while the save beside it runs"],
+  ["components/loans/LoanDraftTable.tsx", "setChecking(", "opens the dialog of one loan; the dialog's button waits"],
+  ["components/loans/LoanDraftTable.tsx", "onClose", "cancel is held while the save beside it runs"],
   ["components/ops/ResetCard.tsx", "setAsk(true)", "opens the dialog; the dialog's button waits"],
   ["pages/ReviewChoices.tsx", "setSheet(true)", "opens the sheet of categories; a category's button there sends"],
   ["pages/Review.tsx", "onSkip", "Ohita sends nothing; it is held while an answer is on its way"],

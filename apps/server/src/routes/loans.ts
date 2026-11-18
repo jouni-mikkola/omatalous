@@ -42,8 +42,10 @@ const FIELDS = [
 
 const MAX_NAME = 80;
 /**
- * Ten million euros. Core multiplies a balance by a rate and by the days of a year (`loanInterestNext12Months`): at
- * this size and `MAX_RATE_BP` the product is 1,83e15, which a double still holds exactly. A typo stays visible too.
+ * Ten million euros. Core multiplies a balance by a rate in thousandths of a percent and by the months of an interval
+ * (`intervalInterest`): at this size, `MAX_RATE_BP` and twelve months the product is about 6e14, well under 2^53, so
+ * the interest is exact to the cent. A product past 2^53 (a margin and a fixing on top) core computes in whole numbers
+ * of a wider type. A typo stays visible too.
  */
 const MAX_CENTS = 1_000_000_000;
 const MAX_EUROS = "10 000 000 €";
@@ -193,7 +195,15 @@ export function loanRoutes(s: Services) {
     if ((await mortgageSeries(userId)) !== before) await reprocess(s.finance(userId), s.settings);
   };
 
-  app.get("/loans", async (c) => c.json({ loans: await s.finance(c.get("user").id).listLoans() }));
+  /**
+   * The saved loans and the published fixings they count from, so the web works loans out with the same `loansOf` as the
+   * server. The fixings start at the oldest balance date, with the one before it that holds until the first.
+   */
+  app.get("/loans", async (c) => {
+    const loans = await s.finance(c.get("user").id).listLoans();
+    const since = loans.reduce((oldest, loan) => (loan.balanceDate < oldest ? loan.balanceDate : oldest), s.today());
+    return c.json({ loans, fixings: await s.referenceRates.since(since) });
+  });
 
   /**
    * The loans the bank rows show and the household has not answered (`loanProposals`). Worked out for each request

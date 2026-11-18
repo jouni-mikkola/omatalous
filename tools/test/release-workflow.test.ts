@@ -715,3 +715,47 @@ describe("a red run of ci.yml says flake or real", () => {
     expect(comment).toMatch(/# No flake-or-real rerun here: .*--rerun.* needs the Node of \.npmrc \(tools\/check\/pinned-node\.sh\)/);
   });
 });
+
+// ── full.yml runs the proof by path on a pull request, and full-ok still answers for every run ────────────────────
+/** What is wrong with the way full.yml leaves the proof out; empty when it holds. */
+function proofScopeFaults(text: string): string[] {
+  const out: string[] = [];
+  type FullJob = { if?: string; needs?: string | string[] };
+  const jobs = (parseYaml(text) as unknown as { jobs: Record<string, FullJob> }).jobs;
+  const needs = (id: string) => [jobs[id]?.needs ?? []].flat();
+  if (!jobs.scope) out.push("there is no scope job");
+  if (!needs("proof").includes("scope") || !(jobs.proof?.if ?? "").includes("needs.scope.outputs.proof == 'true'")) out.push("proof does not wait for the answer of scope");
+  for (const id of ["scope", "check", "e2e", "proof"]) if (!needs("full-ok").includes(id)) out.push(`full-ok does not wait for ${id}`);
+  if (!(jobs["full-ok"]?.if ?? "").startsWith("${{ always() && ")) out.push("full-ok does not answer when a job is skipped or fails");
+  if (!text.includes("for r in $RESULTS; do [[ $r == success ]] || exit 1; done")) out.push("full-ok lets scope, check or e2e pass without success");
+  if (!text.includes("RESULTS: ${{ needs.scope.result }} ${{ needs.check.result }} ${{ needs.e2e.result }}\n")) out.push("full-ok does not read the result of scope, check and e2e");
+  if (!text.includes("\n            true:success | false:skipped) ;;\n            *) exit 1 ;;\n")) out.push("full-ok passes a skipped proof when scope did not say it was not needed");
+  // main, a hand start and a diff that cannot be read keep the proof on
+  if (!text.includes("\n          proof=true\n          if [[ $EVENT == pull_request ]]; then\n")) out.push("scope does not start from the proof and narrow it on a pull request only");
+  if (!text.includes("&& [[ -n $files ]]")) out.push("scope leaves the proof out when the diff is empty or fails");
+  for (const path of ["Dockerfile", "docker-compose", "pnpm-lock", "LICENSE|THIRD_PARTY_NOTICES|docs/RELEASING\\.md|apps/server/src/(cli[^/]*|version)\\.ts", "^(release|scripts|deploy|contracts|tools/ci|tools/lib|apps/server/migrations|apps/server/src/entry|apps/server/src/db|apps/server/src/platform|apps/server/test/fixtures/db)/", "workflows/full"]) {
+    if (!text.includes(path)) out.push(`scope does not name ${path}`);
+  }
+  return out;
+}
+
+describe("full.yml leaves the proof out by path", () => {
+  const full = readText(".github/workflows/full.yml");
+
+  it("scope decides, proof waits for it, and full-ok passes a skipped proof only when scope left it out", () => {
+    expect(proofScopeFaults(full)).toEqual([]);
+  });
+
+  it("names each fault put into the workflow", () => {
+    const faults = (t: string) => proofScopeFaults(t).join("\n");
+    expect(faults(full.replace("true:success | false:skipped) ;;", "true:success | false:skipped | true:skipped) ;;"))).toMatch(/passes a skipped proof/);
+    expect(faults(full.replace("needs: [scope, check, e2e, proof]", "needs: [scope, check, e2e]"))).toMatch(/does not wait for proof/);
+    expect(faults(full.replace("for r in $RESULTS; do [[ $r == success ]] || exit 1; done", ""))).toMatch(/without success/);
+    expect(faults(full.replace("&& [[ -n $files ]]", ""))).toMatch(/diff is empty or fails/);
+    expect(faults(full.replace("proof=true\n          if", "proof=false\n          if"))).toMatch(/start from the proof/);
+    expect(faults(full.replace("|tools/ci|", "|"))).toMatch(/scope does not name/);
+    expect(faults(full.replace("|apps/server/test/fixtures/db)/", ")/"))).toMatch(/scope does not name/);
+    expect(faults(full.replace("|LICENSE|", "|"))).toMatch(/scope does not name/);
+    expect(faults(full.replace("needs.scope.outputs.proof == 'true'", "true"))).toMatch(/proof does not wait/);
+  });
+});

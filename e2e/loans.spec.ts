@@ -70,11 +70,12 @@ test("a loan is typed into the form, a missing kind holds Tallenna back, and the
   await page.goto("/#/settings/household");
   const card = lainat(page);
   await noSavedLoans(card);
-  // the form is all there is: no box for a picture, a PDF or pasted text
+  // the box that reads pasted text or a PDF is part of the new-loan form only
   await expect(card.locator("textarea, input[type=file]")).toHaveCount(0);
 
   await card.getByRole("button", { name: "Lisää laina" }).click();
   const form = card.getByRole("region", { name: "Uusi laina" });
+  await expect(form.getByLabel("Lainan tiedot")).toBeVisible();
   await expect(form.getByLabel("Saldon päivä", { exact: true })).toHaveValue(await today(context));
   await form.getByLabel("Lainanantaja", { exact: true }).fill("Esimerkkipankki Oyj");
   await form.getByLabel("Lainaa jäljellä (€)").fill("120 000,00");

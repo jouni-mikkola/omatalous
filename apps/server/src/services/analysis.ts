@@ -37,15 +37,17 @@ import { accountKey } from "../db/household-repo.ts";
 import type { StoredAccount, StoredTransaction } from "../db/rows.ts";
 import { todayIn } from "../platform/config.ts";
 import { yieldToLoop } from "../platform/yield.ts";
-import { isPool, usesInView } from "./account-use.ts";
 import type { Services } from "./context.ts";
 import { historyOf } from "./coverage.ts";
 import { type HeldLocks, lockedOutside, runsEnded, whenUnlocked, writesOf } from "./enrich.ts";
 import { foreignDaysOf } from "./foreign-rows.ts";
 import { loansInView } from "./loans-in-view.ts";
 import { proposalsOf, type RequestInputs, stampOf } from "./request-inputs.ts";
+import { RequestReads } from "./request-reads.ts";
 import { statementsInView } from "./statements.ts";
-import { ensureTrace, settledTrace, sharesOf, type SettledTrace, type TraceFacts } from "./money-trace.ts";
+import { settledTrace, sharesOf, type SettledTrace } from "./money-trace.ts";
+import type { TraceFacts } from "./money-trace-parts.ts";
+import { notAmong, visibleTo } from "./visible-accounts.ts";
 
 /**
  * own = what I use: my accounts and the ones shared with me that I have a part of, a joint account at my part, and
@@ -151,15 +153,18 @@ export class AnalysisCache {
     return { entries: this.entries.size, rows: [...this.entries.values()].reduce((n, e) => n + e.rows, 0) };
   }
 
-  /** `held`: the users whose lock the caller runs under (the after hook of a reprocess); such a caller never waits. */
-  get(s: Services, userId: string, requested: View, held: HeldLocks = new Set()): Promise<ScopeData> {
-    return this.read(s, userId, requested, held, false);
+  /**
+   * `held`: the users whose lock the caller runs under (the after hook of a reprocess); such a caller never waits.
+   * `reads`: what the request has read of the household already (`RequestReads`); a request that asks again hands it on.
+   */
+  get(s: Services, userId: string, requested: View, held: HeldLocks = new Set(), reads?: RequestReads): Promise<ScopeData> {
+    return this.read(s, userId, requested, held, false, reads);
   }
 
-  private async read(s: Services, userId: string, requested: View, held: HeldLocks, waited: boolean): Promise<ScopeData> {
+  private async read(s: Services, userId: string, requested: View, held: HeldLocks, waited: boolean, reads?: RequestReads): Promise<ScopeData> {
     const today = s.today();
     // a view with nothing of its own to show is the own view: one entry, not two
-    const inView = await accountsInView(s, userId, requested);
+    const inView = await accountsInView(s, userId, requested, reads);
     const ids = [...new Set([userId, ...inView.accounts.map((a) => a.userId)])].sort();
     const version = await s.settings.dataVersionOf(ids);
     // which accounts are in view and at what part belongs to the version: a share or a use that changes it must not
@@ -177,7 +182,9 @@ export class AnalysisCache {
         return before.data;
       }
       await whenUnlocked(ids);
-      return this.read(s, userId, requested, held, true);
+      // the run wrote while this request waited: what it read of the household is read again
+      reads?.changed();
+      return this.read(s, userId, requested, held, true, reads);
     }
     const key = `${userId}:${inView.view}`;
     // shares or parts that ended: the old entry would only wait for the idle limit
@@ -269,31 +276,13 @@ interface InView {
 }
 
 /**
- * The use of each account, with the trace of every pool among them made sure of first: a pool whose parts were built
- * from something else than the household holds now is built again, and the app may set its split. The uses are read
- * again when that changed what they say (the mode, whether the account is traced).
- */
-export async function usesWithTraces(s: Services, userId: string, accounts: readonly StoredAccount[]): Promise<{ uses: Awaited<ReturnType<typeof usesInView>>; traces: Map<string, TraceFacts> }> {
-  let uses = await usesInView(s, userId, accounts);
-  const keys = [...new Set(accounts.filter((a) => isPool(uses.get(a.id)?.use)).map(accountKey))];
-  const found = new Map((await Promise.all(keys.map(async (key) => [key, await ensureTrace(s, key)] as const))).flatMap(([key, facts]) => (facts ? [[key, facts] as const] : [])));
-  const traces = new Map(accounts.flatMap((a): [string, TraceFacts][] => (found.has(accountKey(a)) ? [[a.id, found.get(accountKey(a))!]] : [])));
-  const moved = [...traces].some(([id, f]) => !!f.traced !== !!uses.get(id)!.traced || !!f.split !== (uses.get(id)!.use.mode === "source"));
-  if (moved) uses = await usesInView(s, userId, accounts);
-  return { uses, traces };
-}
-
-/**
  * Which accounts a view holds. The own view: the viewer's accounts and the ones shared with them, each when the viewer
  * has a part of it. The household view: all of them, whole; it is the own view when nobody shares with the viewer and
  * every account of theirs is theirs whole. `used` is the own view's accounts counted whole, and the own view itself
  * when that cuts nothing.
  */
-async function accountsInView(s: Services, userId: string, requested: View): Promise<InView> {
-  const own = await s.finance(userId).listAccounts();
-  const offered = await s.household.sharedWith(userId);
-  const shared = offered.filter(notAmong(own));
-  const { uses, traces } = await usesWithTraces(s, userId, [...own, ...shared]);
+async function accountsInView(s: Services, userId: string, requested: View, reads?: RequestReads): Promise<InView> {
+  const { own, offered, shared, uses, traces } = await visibleTo(s, userId, reads);
   const parts = new Map([...uses].map(([id, { part }]) => [id, part]));
   const seen = (a: ScopeAccount): ScopeAccount & { part: Part } => ({ ...a, ...uses.get(a.id)! });
   const mine = own.map((a) => seen({ ...a, ownerName: null }));
@@ -411,21 +400,22 @@ async function loadScope(s: Services, userId: string, inView: InView, today: str
  * accounts and the same rows as the cached context of the view: the rows come from it, and so do the fees of payments
  * that arrived short, which the household view has as well.
  */
-export async function rowsInView(s: Services, userId: string, scope: Scope): Promise<{ shared: ScopeAccount[]; own: OwnRows; ctx: AnalysisContext }> {
-  const { view, accounts, left } = await accountsInView(s, userId, scope);
+export async function rowsInView(s: Services, userId: string, scope: Scope, reads = new RequestReads()): Promise<{ shared: ScopeAccount[]; own: OwnRows; ctx: AnalysisContext }> {
+  const { view, accounts, left } = await accountsInView(s, userId, scope, reads);
   const parts = new Map(accounts.flatMap((a): [string, ViewPart][] => (a.part && (a.traced || !isWhole(a.part)) ? [[a.id, a.traced ? { ...a.part, viewer: `u:${userId}` } : a.part]] : [])));
-  const data = await s.analysis.get(s, userId, view);
-  return { shared: accounts.filter((a) => a.userId !== userId), own: { left: left.map((a) => a.id), parts, told: data.told, shares: data.shares, fees: data.fees }, ctx: data.ctx };
+  const data = await s.analysis.get(s, userId, view, undefined, reads);
+  return { shared: accounts.filter((a) => a.userId !== userId), own: { left: left.map((a) => a.id), loans: [...data.ctx.loanAccounts], parts, told: data.told, shares: data.shares, fees: data.fees }, ctx: data.ctx };
 }
 
 /**
  * What a dashboard or report request needs next to the cached context: the balances of the accounts in view and the
- * user's own marks and expected bills, and the loans of the view (`loansInView`). Read for each request, never
- * cached. A balance and a credit limit are the viewer's part where the view counts the account at a part.
+ * user's own marks and expected bills, the loans of the view (`loansInView`) and the published euribor fixings they
+ * follow (`loansOf` turns them into each loan's rate path). Read for each request, never cached. A balance and a
+ * credit limit are the viewer's part where the view counts the account at a part.
  */
 export async function requestInputs(s: Services, userId: string, accounts: readonly ScopeAccount[]): Promise<RequestInputs> {
   const repo = s.finance(userId);
-  const [marks, expectedBills, loans, roles] = await Promise.all([repo.listMarks(), repo.listExpectedBills(), loansInView(s, userId, accounts), repo.payerRoles()]);
+  const [marks, expectedBills, loans, roles, fixings] = await Promise.all([repo.listMarks(), repo.listExpectedBills(), loansInView(s, userId, accounts), repo.payerRoles(), s.referenceRates.all()]);
   const counted = (cents: number | null, a: ScopeAccount) => (cents === null || !a.part ? cents : partCents(cents, a.part));
   // The totals and the walks count in euros: an account in another currency tells its balance beside them, never in them.
   // A balance stored before the currency was kept is the account's currency's: one whose currency is unknown is a dash.
@@ -448,7 +438,7 @@ export async function requestInputs(s: Services, userId: string, accounts: reado
     ...(a.part ? { part: a.part } : {}),
     ...(a.traced ? { traced: true as const } : {}),
   }));
-  const inputs: UserInputs = { marks, expectedBills, loans, payers: { memberId: userId, roles } };
+  const inputs: UserInputs = { marks, expectedBills, loans, fixings, payers: { memberId: userId, roles } };
   return { balances, inputs, stamp: stampOf(balances, inputs) };
 }
 
@@ -458,8 +448,8 @@ export async function requestInputs(s: Services, userId: string, accounts: reado
  * names no proposal the list leaves out. Only the front page's total of unsaved loans asks for the view's own scope,
  * since its monthly figures follow the view (a joint loan's whole payment in the household's view).
  */
-export async function proposalsFor(s: Services, userId: string, scope: Scope = "own"): Promise<LoanProposal[]> {
-  const { ctx, accounts } = await s.analysis.get(s, userId, scope);
+export async function proposalsFor(s: Services, userId: string, scope: Scope = "own", reads?: RequestReads): Promise<LoanProposal[]> {
+  const { ctx, accounts } = await s.analysis.get(s, userId, scope, undefined, reads);
   return proposalsOf(ctx, await requestInputs(s, userId, accounts));
 }
 
@@ -472,12 +462,6 @@ export async function proposalsFor(s: Services, userId: string, scope: Scope = "
  */
 export async function sharedInView(s: Services, userId: string, own?: readonly StoredAccount[]): Promise<ScopeAccount[]> {
   return (await s.household.sharedWith(userId)).filter(notAmong(own ?? (await s.finance(userId).listAccounts())));
-}
-
-/** Whether an account is another real account than each of `own`: my copy of a joint account wins over the partner's. */
-function notAmong(own: readonly StoredAccount[]): (a: StoredAccount) => boolean {
-  const identities = new Set(own.map((a) => a.identity).filter(Boolean));
-  return (a) => !a.identity || !identities.has(a.identity);
 }
 
 /**

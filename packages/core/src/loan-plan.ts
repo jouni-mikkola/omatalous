@@ -19,11 +19,38 @@ export function divRound(n: number, d: number): number {
 }
 
 /**
- * The interest of one interval of `months` months: balance × rate × months / 12, to the nearest cent, a half cent up
- * (120 000 = hundredths of a percent × months a year).
+ * The interest of one interval of `months` months at a rate in thousandths of a percent: balance × rate × months / 12,
+ * to the nearest cent, a half cent up (1 200 000 = thousandths of a percent × months a year). Exact: a product past
+ * 2^53 is computed in whole numbers of a wider type. The loan bounds stay under it (the largest balance at the highest
+ * rate over twelve months is about 6e14); a rate with a margin and a fixing on top can pass it.
  */
+export function intervalInterest(balanceCents: number, rateMilli: number, months: number): number {
+  return roundedProduct(balanceCents, rateMilli, months, 1_200_000);
+}
+
+/**
+ * The interest of one interval of `days` days at a rate in thousandths of a percent, counted on the actual days over a
+ * 360-day year (act/360, the way a reference rate is published and a loan that follows it is charged): balance × rate ×
+ * days / 360, to the nearest cent, a half cent up (36 000 000 = thousandths of a percent × days a year). Exact, as
+ * `intervalInterest` is.
+ */
+export function dayInterest(balanceCents: number, rateMilli: number, days: number): number {
+  return roundedProduct(balanceCents, rateMilli, days, 36_000_000);
+}
+
+/** a × b × c / d to the nearest whole number, a half up, in whole numbers of a wider type where the product passes 2^53. */
+function roundedProduct(a: number, b: number, c: number, d: number): number {
+  const product = a * b * c;
+  if (Number.isSafeInteger(product) || ![a, b, c].every(Number.isSafeInteger)) return divRound(product, d);
+  const n = BigInt(a) * BigInt(b) * BigInt(c);
+  const divisor = BigInt(d);
+  const rest = ((n % divisor) + divisor) % divisor;
+  return Number((n - rest) / divisor + (2n * rest >= divisor ? 1n : 0n));
+}
+
+/** The interest of one interval at a typed rate in hundredths of a percent (`intervalInterest` at ten times the rate). */
 export function loanPeriodInterest(balanceCents: number, rateBp: number, months: number): number {
-  return divRound(balanceCents * rateBp * months, 120_000);
+  return intervalInterest(balanceCents, rateBp * 10, months);
 }
 
 /**
@@ -45,22 +72,29 @@ export const endOf = (loan: Loan): IsoDate | null => (loan.endDate !== null && l
 export const intervalOf = (loan: Loan): number | null =>
   loan.intervalMonths !== null && Number.isInteger(loan.intervalMonths) && loan.intervalMonths >= 1 ? loan.intervalMonths : null;
 
+/** The payment typed for a loan, null when none is or it is not above zero. */
+export function typedPayment(loan: Loan): number | null {
+  const payment = loan.paymentCents;
+  return payment !== null && payment > 0 ? payment : null;
+}
+
 /** A bullet with a last due date lacks nothing: its balance stays until that day. */
 export function planOf(loan: Loan): Instalments | Kept {
   if (loan.repayment === null) return { missing: "repayment" };
   if (loan.repayment === "bullet") return { missing: endOf(loan) === null ? "end_date" : null };
   const months = intervalOf(loan);
   if (months === null) return { missing: "interval" };
-  if (loan.paymentCents === null || loan.paymentCents <= 0) return { missing: "payment" };
+  const paymentCents = typedPayment(loan);
+  if (paymentCents === null) return { missing: "payment" };
   const { rateBp } = loan;
-  const terms = { months, paymentCents: loan.paymentCents };
+  const terms = { months, paymentCents };
   if (loan.repayment === "equal_principal") return { ...terms, rateBp, withInterest: false };
   if (rateBp === null) return { missing: "rate" };
   return { ...terms, rateBp, withInterest: true };
 }
 
 /** The due dates after the balance date, oldest first, each a whole number of intervals from its anchor. */
-function* dueDates(loan: Loan, months: number): Generator<IsoDate> {
+export function* dueDates(loan: Loan, months: number): Generator<IsoDate> {
   const end = endOf(loan);
   if (end === null) {
     for (let k = 1; k <= MAX_LOAN_PAYMENTS; k++) yield addMonthsToDate(loan.balanceDate, k * months);
@@ -89,34 +123,5 @@ export function loanLastDueDate(loan: Loan, day: IsoDate): IsoDate | null {
     const next = dueDates({ ...loan, balanceDate: last ?? loan.balanceDate }, plan.months).next();
     if (next.done || next.value > day) return last;
     last = next.value;
-  }
-}
-
-export interface Payment {
-  date: IsoDate;
-  /** The interest of the interval that ends on the date. Null without a rate. */
-  interestCents: number | null;
-  amortisationCents: number;
-  /** Owed after the payment. */
-  balanceCents: number;
-}
-
-/**
- * The plan's payments after the balance date, until nothing is owed. The last one pays what is left, so no payment is
- * larger than what is owed with its interest. `from` starts the plan later, on the loan's own due dates: what was owed
- * on a day and the payments after that day, for a plan whose rate or payment changes there.
- */
-export function* payments(loan: Loan, plan: Instalments, from: { balanceCents: number; after: IsoDate } = { balanceCents: loan.balanceCents, after: loan.balanceDate }): Generator<Payment> {
-  const end = endOf(loan);
-  let balance = from.balanceCents;
-  for (const date of dueDates(loan, plan.months)) {
-    if (date <= from.after) continue;
-    if (balance <= 0) return;
-    const interestAt = (rateBp: number) => loanPeriodInterest(balance, rateBp, plan.months);
-    const interest = plan.rateBp === null ? null : interestAt(plan.rateBp);
-    const planned = plan.withInterest ? plan.paymentCents - interestAt(plan.rateBp) : plan.paymentCents;
-    const amortisation = date === end || planned > balance ? balance : planned;
-    balance -= amortisation;
-    yield { date, interestCents: interest, amortisationCents: amortisation, balanceCents: balance };
   }
 }

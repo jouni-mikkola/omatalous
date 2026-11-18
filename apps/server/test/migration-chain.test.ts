@@ -33,6 +33,7 @@ const TABLES_0022 = ["settlement_closed"];
 const TABLES_0024 = ["service_tokens"];
 const TABLES_0025 = ["spending_goal"];
 const TABLES_0026 = ["category_goal"];
+const TABLES_0032 = ["reference_rates"];
 /** Tables a migration drops because nothing reads or writes them: 0031 drops view_opens. No household data is in them. */
 const RETIRED_TABLES = new Set(["view_opens"]);
 
@@ -283,11 +284,11 @@ describe("0018 adds the table of who uses an account", () => {
     expect(before.accounts!.rows.find((r) => r.id === "a-5")).toMatchObject({ identity: "idn-5", holder: "MEIKALAINEN MATTI, KORHONEN ELISA" });
     const { db, applied } = await openDatabase(file);
     // 0019 to 0022 follow on the way to today's schema
-    expect(applied).toEqual(["0018_account_use.sql", "0019_loan_rate_review.sql", "0020_account_split.sql", "0021_household_stores.sql", "0022_settlement_closed.sql", "0023_account_bank_type.sql", "0024_service_tokens.sql", "0025_spending_goal.sql", "0026_category_goal.sql", "0027_password_argon2id.sql", "0028_user_language.sql", "0029_passkeys.sql", "0030_view_opens.sql", "0031_drop_unused_schema.sql"]);
+    expect(applied).toEqual(["0018_account_use.sql", "0019_loan_rate_review.sql", "0020_account_split.sql", "0021_household_stores.sql", "0022_settlement_closed.sql", "0023_account_bank_type.sql", "0024_service_tokens.sql", "0025_spending_goal.sql", "0026_category_goal.sql", "0027_password_argon2id.sql", "0028_user_language.sql", "0029_passkeys.sql", "0030_view_opens.sql", "0031_drop_unused_schema.sql", "0032_reference_rates.sql"]);
     expect(await db.all("SELECT * FROM account_use")).toEqual([]);
     db.close();
     const after = dump(file);
-    expect(Object.keys(after)).toEqual([...Object.keys(before), "account_use", "account_split", "owner_answer", "tx_part", "tx_part_state", ...TABLES_0021, ...TABLES_0022, ...TABLES_0024, ...TABLES_0025, ...TABLES_0026].sort());
+    expect(Object.keys(after)).toEqual([...Object.keys(before), "account_use", "account_split", "owner_answer", "tx_part", "tx_part_state", ...TABLES_0021, ...TABLES_0022, ...TABLES_0024, ...TABLES_0025, ...TABLES_0026, ...TABLES_0032].sort());
     expectAdditive(before, after, "0018_account_use.sql");
 
     // what the household says is held to one row for each user of a real account, the user with no id included
@@ -340,10 +341,10 @@ describe("0019 adds the review day of a loan's rate", () => {
     expect(before.loans!.rows).toHaveLength(5);
     expect(before.loans!.columns).not.toContain("rate_review_date");
     const first = await openDatabase(file);
-    expect(first.applied).toEqual(["0019_loan_rate_review.sql", "0020_account_split.sql", "0021_household_stores.sql", "0022_settlement_closed.sql", "0023_account_bank_type.sql", "0024_service_tokens.sql", "0025_spending_goal.sql", "0026_category_goal.sql", "0027_password_argon2id.sql", "0028_user_language.sql", "0029_passkeys.sql", "0030_view_opens.sql", "0031_drop_unused_schema.sql"]);
+    expect(first.applied).toEqual(["0019_loan_rate_review.sql", "0020_account_split.sql", "0021_household_stores.sql", "0022_settlement_closed.sql", "0023_account_bank_type.sql", "0024_service_tokens.sql", "0025_spending_goal.sql", "0026_category_goal.sql", "0027_password_argon2id.sql", "0028_user_language.sql", "0029_passkeys.sql", "0030_view_opens.sql", "0031_drop_unused_schema.sql", "0032_reference_rates.sql"]);
     first.db.close();
     const after = dump(file);
-    expect(Object.keys(after)).toEqual([...Object.keys(before), "account_split", "owner_answer", "tx_part", "tx_part_state", ...TABLES_0021, ...TABLES_0022, ...TABLES_0024, ...TABLES_0025, ...TABLES_0026].sort());
+    expect(Object.keys(after)).toEqual([...Object.keys(before), "account_split", "owner_answer", "tx_part", "tx_part_state", ...TABLES_0021, ...TABLES_0022, ...TABLES_0024, ...TABLES_0025, ...TABLES_0026, ...TABLES_0032].sort());
     expect(after.loans!.columns).toEqual([...before.loans!.columns, "rate_review_date"]);
     expect(after.loans!.rows.map((r) => r.rate_review_date)).toEqual([null, null, null, null, null]);
     expectAdditive(before, after, "0019_loan_rate_review.sql");
@@ -392,11 +393,11 @@ describe("0020 adds who paid a joint account", () => {
     const file = fromFixture("0.12.0.sql");
     const before = dump(file);
     const { applied, db } = await openDatabase(file);
-    expect(applied).toEqual(["0020_account_split.sql", "0021_household_stores.sql", "0022_settlement_closed.sql", "0023_account_bank_type.sql", "0024_service_tokens.sql", "0025_spending_goal.sql", "0026_category_goal.sql", "0027_password_argon2id.sql", "0028_user_language.sql", "0029_passkeys.sql", "0030_view_opens.sql", "0031_drop_unused_schema.sql"]);
+    expect(applied).toEqual(["0020_account_split.sql", "0021_household_stores.sql", "0022_settlement_closed.sql", "0023_account_bank_type.sql", "0024_service_tokens.sql", "0025_spending_goal.sql", "0026_category_goal.sql", "0027_password_argon2id.sql", "0028_user_language.sql", "0029_passkeys.sql", "0030_view_opens.sql", "0031_drop_unused_schema.sql", "0032_reference_rates.sql"]);
     for (const table of ["account_split", "owner_answer", "tx_part", "tx_part_state"]) expect(await db.all(`SELECT * FROM ${table}`), table).toEqual([]);
     db.close();
     const after = dump(file);
-    expect(Object.keys(after)).toEqual([...Object.keys(before), "account_split", "owner_answer", "tx_part", "tx_part_state", ...TABLES_0021, ...TABLES_0022, ...TABLES_0024, ...TABLES_0025, ...TABLES_0026].sort());
+    expect(Object.keys(after)).toEqual([...Object.keys(before), "account_split", "owner_answer", "tx_part", "tx_part_state", ...TABLES_0021, ...TABLES_0022, ...TABLES_0024, ...TABLES_0025, ...TABLES_0026, ...TABLES_0032].sort());
     expectAdditive(before, after, "0020_account_split.sql");
 
     // no floor: a build that lacks the file refuses the database, also at the version it was released as, so a rollback restores the copy taken before
@@ -407,6 +408,7 @@ describe("0020 adds who paid a joint account", () => {
       await expect(openDatabase(file, dir, undefined, { appVersion })).rejects.toThrow(/upgraded by a newer app version \(0020_account_split\.sql\)/);
     }
     // the build before 0020 knows no later file either
+    rmSync(join(dir, "0032_reference_rates.sql"));
     rmSync(join(dir, "0031_drop_unused_schema.sql"));
     rmSync(join(dir, "0030_view_opens.sql"));
     rmSync(join(dir, "0029_passkeys.sql"));

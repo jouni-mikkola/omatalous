@@ -7,8 +7,8 @@ import { brotliCompressSync, constants, gzipSync } from "node:zlib";
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { extname, join } from "node:path";
 
-/** Text formats only: woff2 and the pictures are compressed already, and the picture reader's `.gz` data stays as it is. */
-export const COMPRESSED_TYPES: ReadonlySet<string> = new Set([".js", ".css", ".html", ".svg", ".json", ".txt", ".webmanifest", ".wasm"]);
+/** Text formats only: woff2 and the pictures are compressed already. `.mjs` is the PDF reader's worker. */
+export const COMPRESSED_TYPES: ReadonlySet<string> = new Set([".js", ".mjs", ".css", ".html", ".svg", ".json", ".txt", ".webmanifest", ".wasm"]);
 
 /** A file under this many bytes costs more in headers than it saves. */
 export const COMPRESS_MIN_BYTES = 1024;
