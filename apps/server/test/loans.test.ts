@@ -532,7 +532,7 @@ describe("the split of a payment a loan document stated", () => {
   });
 
   it("is written only under the user's own loan: another member's loan id answers 404 and takes no part", async () => {
-    const { admin, member, s, db } = await setupApp();
+    const { admin, adminId, member, s, db } = await setupApp();
     const eero = await member("eero");
     const mine = (await admin.call("POST", "/api/loans", { ...mortgage, lastPayment: september })).body.loan;
     const theirs = (await eero.call("POST", "/api/loans", { ...bare, name: "Eeron laina" })).body.loan;
@@ -553,9 +553,10 @@ describe("the split of a payment a loan document stated", () => {
     expect((await admin.call("GET", "/api/loans")).body.loans).toEqual([mine]);
     expect((await eero.call("GET", "/api/loans")).body.loans.map((l: Loan) => l.paymentParts)).toEqual([[asPart(august)]]);
 
-    // a part under another user's loan is no row of the database either
-    await expect(db.run("INSERT INTO loan_payment_parts (user_id, loan_id, due_date, principal_cents, interest_cents, fee_cents) VALUES (?, ?, '2026-07-05', 1, 1, 1)", [eero.id, mine.id])).rejects.toThrow();
-    expect(await partsOf(db, mine.id)).toHaveLength(1);
+    // a row filed under another user's id on her loan is read by neither: the read names the loan owner's id
+    await db.run("INSERT INTO loan_payment_parts (user_id, loan_id, due_date, principal_cents, interest_cents, fee_cents) VALUES (?, ?, '2026-07-05', 1, 1, 1)", [eero.id, mine.id]);
+    expect((await s.finance(adminId).listLoans()).map((l) => l.paymentParts)).toEqual([[{ dueDate: "2026-09-05", principalCents: 24_800, interestCents: 4_700, feeCents: 500 }]]);
+    expect((await s.finance(eero.id).listLoans()).map((l) => l.paymentParts)).toEqual([[asPart(august)]]);
   });
 
   it("goes with the user: deleting the user deletes the parts of their loans", async () => {

@@ -3,7 +3,7 @@ import { LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, notLoanKey, no
 import { num, type Row, str } from "../rows.ts";
 import type { SqlValue, Statement } from "../types.ts";
 import type { FinanceContext } from "./context.ts";
-import { LoanPartsRepo } from "./loan-parts.ts";
+import { LoanPartsRepo, PARTS_COLUMN, statedParts } from "./loan-parts.ts";
 
 /** The columns a loan's own fields go to, in the order of `values`. */
 const COLUMNS = [
@@ -91,11 +91,10 @@ export class LoansRepo {
 
   /** The user's loans in the order they were added, each with the payment parts a document stated (none: no field). */
   async listLoans(): Promise<Loan[]> {
-    const [rows, parts] = await Promise.all([this.ctx.db.all<Row>("SELECT * FROM loans WHERE user_id = ? ORDER BY created_at, rowid", [this.ctx.userId]), this.parts.partsByLoan()]);
+    const rows = await this.ctx.db.all<Row>(`SELECT loans.*, ${PARTS_COLUMN} FROM loans WHERE user_id = ? ORDER BY created_at, rowid`, [this.ctx.userId]);
     return rows.map((r) => {
-      const loan = toLoan(r);
-      const stated = parts.get(loan.id);
-      return stated ? { ...loan, paymentParts: stated } : loan;
+      const stated = statedParts(r);
+      return stated ? { ...toLoan(r), paymentParts: stated } : toLoan(r);
     });
   }
 

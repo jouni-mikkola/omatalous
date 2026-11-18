@@ -131,15 +131,14 @@ async function parseAccountId(value: unknown, accounts: OwnAccounts): Promise<st
  * (the sum is exact in core). Whether they fit the loan's own payment is for the form to tell: a document may state a
  * payment that differs from the usual one.
  */
-function parseLastPayment(raw: unknown, today: string): PaymentParts | null {
-  const given = strictObject(raw, BODY_FIELDS).lastPayment;
+function parseLastPayment(given: unknown, today: string): PaymentParts | null {
   if (absent(given)) return null;
   const input = strictObject(given, LAST_PAYMENT_FIELDS);
   const part: PaymentParts = {
     dueDate: date(input.date, addMonthsToDate(today, -12 * YEARS_BACK), today, `Viimeisen erän päivä voi olla enintään ${YEARS_BACK} vuotta sitten, eikä se voi olla tulevaisuudessa.`),
     principalCents: cents(input.principalCents, 0, "Viimeisen erän lyhennyksen"),
     interestCents: cents(input.interestCents, 0, "Viimeisen erän koron"),
-    feeCents: cents(input.feeCents, 0, "Viimeisen erän kulujen"),
+    feeCents: cents(input.feeCents, 0, "Viimeisen erän luottokulujen"),
   };
   const total = part.principalCents + part.interestCents + part.feeCents;
   if (total < 1 || total > MAX_CENTS) throw new UserError(`Viimeisen erän osat pitää olla yhteensä vähintään 0,01 € ja enintään ${MAX_EUROS}.`);
@@ -247,9 +246,9 @@ export function loanRoutes(s: Services) {
 
   app.post("/loans", async (c) => {
     const repo = s.finance(c.get("user").id);
-    const raw = await body(c);
+    const raw = strictObject(await body(c), BODY_FIELDS);
     const input = await parseLoan(raw, s.today(), repo);
-    const lastPayment = parseLastPayment(raw, s.today());
+    const lastPayment = parseLastPayment(raw.lastPayment, s.today());
     if ((await repo.listLoans()).length >= MAX_LOANS) throw new UserError(`Lainoja voi olla enintään ${MAX_LOANS}. Poista ensin turhat.`);
     const loan: Loan = { id: randomToken(), ...input };
     const before = await mortgageSeries(repo.userId);
@@ -263,9 +262,9 @@ export function loanRoutes(s: Services) {
   // the body is the whole loan: a field it leaves out is saved as not given. Payment parts are kept: the body adds or replaces one payment's.
   app.put("/loans/:id", async (c) => {
     const repo = s.finance(c.get("user").id);
-    const raw = await body(c);
+    const raw = strictObject(await body(c), BODY_FIELDS);
     const loan: Loan = { id: c.req.param("id"), ...(await parseLoan(raw, s.today(), repo)) };
-    const lastPayment = parseLastPayment(raw, s.today());
+    const lastPayment = parseLastPayment(raw.lastPayment, s.today());
     const before = await mortgageSeries(repo.userId);
     const saved = await repo.updateLoan(loan, s.now().toISOString());
     // another member's loan is not this user's row: the same 404 as an id that never existed

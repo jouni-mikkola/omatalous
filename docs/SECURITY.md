@@ -294,7 +294,7 @@ found gives the category. An unclear match is left alone.
   series key is not checked against the typist's accounts when it is saved, so a member who is named a user of an
   account can put a loan of their own into the views of that account's other users. Nothing of the others goes back.
 - The payment parts a loan document stated (`loan_payment_parts`) belong to the loan's owner: a part is written only
-  under the owner's own loan id, which the key (user id, loan id) of the table enforces, and it travels with the loan
+  under the owner's own loan id (the insert reads the loan by user id and id, and a read names the loan owner's id), and it travels with the loan
   into another member's view as the rest of the loan's terms do. At most the newest 24 payments of a loan are kept.
 - A loan that follows a euribor rate counts from the published fixings (the Bank of Finland's report pages, the rates of
   3, 6 and 12 months). The request is a fixed https address with no key, follows no redirect, reads at most 2 MB and
