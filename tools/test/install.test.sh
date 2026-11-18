@@ -292,7 +292,7 @@ t_qr_absent_is_quiet() {
 }
 
 # the release an install builds: the vX.Y.Z tag at HEAD when the checkout sits on one (a bootstrap clone holds every tag,
-# a pre-release among them), else the newest tag as before
+# a release candidate tag among them), else the newest tag as before
 t_tag_at_head() {
   install_world
   git -C "$CL" tag v1.0.0; git -C "$CL" tag v1.0.1-rc1

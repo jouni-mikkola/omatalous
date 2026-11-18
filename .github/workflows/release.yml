@@ -257,7 +257,7 @@ jobs:
     # A candidate only. The runner's buildx pushes an index only under a tag ("can't push with no tags specified"), and a
     # tag is what nothing may have before the release. So the index of the two images is made here as the registry would
     # keep it (--dry-run prints it, pushes nothing), checked like the one publish makes, and its digest is written down with
-    # both image digests. Promotion makes the real index under the version tag and must find the same digest. This job
+    # both image digests. The publish job makes the real index under the version tag and must find the same digest. This job
     # can read the registry and nothing else.
     needs: [plan, build, smoke]
     if: github.repository == 'jouni-mikkola/omatalous' && needs.plan.outputs.candidate == 'true'
@@ -402,9 +402,10 @@ jobs:
           NEW_TAG: ${{ needs.plan.outputs.new_tag }}
         run: |
           # on main the release creates the tag on the commit that was built and signed
-          # a release starts as a pre-release, which /releases/latest skips; promote.yml promotes it after 48 hours
+          # the release is the latest one at once: /releases/latest names it and installs are offered it. To hold a release
+          # back, make it a draft (docs/RELEASING.md)
           if [[ $NEW_TAG == true ]]; then
-            gh release create "$TAG" --prerelease --target "$GITHUB_SHA" --title "$TAG" --notes-file notes.md
+            gh release create "$TAG" --target "$GITHUB_SHA" --title "$TAG" --notes-file notes.md
           else
-            gh release create "$TAG" --prerelease --verify-tag --title "$TAG" --notes-file notes.md
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes-file notes.md
           fi

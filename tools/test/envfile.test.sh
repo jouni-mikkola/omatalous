@@ -17,6 +17,8 @@ TMPBASE=$(mktemp -d)
 trap 'rm -rf "$TMPBASE"' EXIT
 # shellcheck source=../../scripts/lib/envfile.sh
 . "$SRC/scripts/lib/envfile.sh"
+# the two steps the helper takes one after the other (lan_env_write checks the staged file between them)
+envfile_write() { local file=$1 where=$2 mode=$3; shift 3; envfile_stage "$file" "$where" "$@" && envfile_commit "$file" "$mode"; }
 
 N=0; D=""; F=""
 # a folder D of its own, and in it the file F with the bytes given (as printf %b reads them) and the mode given (600)

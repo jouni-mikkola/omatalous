@@ -454,7 +454,7 @@ t_poll_unknown_action() {
   # answers failed at once instead of leaving it for 30 minutes. Nothing is run for it.
   new_world
   local a n=0
-  for a in port reindex; do
+  for a in port reindex prerelease-on prerelease-off; do
     n=$((n + 1)); : >"$S/calls.log"
     poll "$a" "op_00000000000000a$n"; tick
     check "unknown action $a: reported failed at once" grep -q '"status":"failed"' <<<"$(report)"

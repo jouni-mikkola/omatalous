@@ -387,6 +387,25 @@ describe("release workflow", () => {
     // a row that moves to another job is named too
     expect(violations(change("smoke", "      - uses: docker/login-action", "      - run: gh release create \"$TAG\"\n      - uses: docker/login-action")).join("\n")).toMatch(/smoke makes a release or a git tag/);
   });
+
+  // A release is published as the latest one at once: it is made with no --prerelease and no --draft, and no workflow
+  // promotes a release later.
+  const releaseCommands = (text: string) => text.split("\n").filter((l) => /^\s*gh release create /.test(l));
+  const heldBack = (text: string) => releaseCommands(text).filter((l) => /--(prerelease|draft)\b/.test(l));
+
+  it("creates the release as the latest one, not as a pre-release or a draft", () => {
+    expect(releaseCommands(WORKFLOW)).toHaveLength(2);
+    expect(heldBack(WORKFLOW)).toEqual([]);
+    expect(WORKFLOW).not.toMatch(/--latest|--prerelease|prerelease=false|gh release edit/);
+    expect(heldBack(change("release", "gh release create \"$TAG\" --verify-tag", "gh release create \"$TAG\" --prerelease --verify-tag"))).toHaveLength(1);
+    expect(heldBack(change("release", "gh release create \"$TAG\" --target", "gh release create \"$TAG\" --draft --target"))).toHaveLength(1);
+  });
+
+  it("has no workflow that promotes a release", () => {
+    const files = readdirSync(resolve(ROOT, ".github/workflows")).filter((f) => f.endsWith(".yml"));
+    expect(files).not.toContain("promote.yml");
+    for (const f of files) expect(readText(`.github/workflows/${f}`), f).not.toMatch(/gh release edit|prerelease=false/);
+  });
 });
 
 // ── the candidate half ───────────────────────────────────────────────────────────────────────────────────────────

@@ -145,8 +145,8 @@ prep_host() {
   fi
 }
 
-# A new install (the folder has no .env yet) that sits on a release tag asks GitHub whether that release is out: a release
-# is a pre-release for its first 48 hours, and a clone of main holds its tag from the first minute. When GitHub names a
+# A new install (the folder has no .env yet) that sits on a release tag asks GitHub whether that release is out: a clone
+# of main holds its tag from the first minute, a little before the release is published. When GitHub names a
 # lower release the folder moves to that one, where relay/install.sh would have put it, and the installer of that release
 # takes over before anything is asked or written. When GitHub cannot be asked the install goes on with the tag at HEAD
 # and one line says so. An installed folder stays where it is, as with update.sh, and so does the clone of
@@ -156,7 +156,7 @@ confirm_release() {
   local rel="" held commit branch rc=0
   [[ ! -e $ENV_FILE && $FROM_CLONE == false && ${TALOUS_CHANNEL:-} != source ]] || return 0
   [[ -n $(git tag --points-at HEAD 2>/dev/null </dev/null | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true) ]] || return 0
-  rel=$(release_from_api "$(release_mode)") || rc=$?
+  rel=$(release_from_api) || rc=$?
   if ((rc != 0)) || [[ -z $rel ]]; then
     warn "GitHub could not be asked which release is out, so the release this folder is at could not be confirmed. The install goes on with it."
     return 0
@@ -167,7 +167,7 @@ confirm_release() {
     warn "Release $rel, the one GitHub names, is not in the history of this folder, so $held could not be confirmed. The install goes on with it."
     return 0
   fi
-  say "This folder is at $held, which is not out yet (a release waits two days). Installing the latest release, $rel."
+  say "This folder is at $held, which is not out yet. Installing the latest release, $rel."
   branch=$(git symbolic-ref --short -q HEAD </dev/null || true)
   git checkout --quiet ${branch:+-B "$branch"} "$commit" </dev/null || die "Could not move this folder to release $rel. Nothing was installed."
   exec 9<&- 6<&-
@@ -176,8 +176,8 @@ confirm_release() {
 
 # --new-instance, after the clone: puts the new clone on the release this clone is at, so a second household gets the
 # signed release image the first one runs (the channel block of install.sh takes it when HEAD is exactly the release).
-# $1 = the new clone, $2 = its branch. The release is the tag vX.Y.Z at HEAD of this clone, never the highest tag (from
-# 0.9.0 on that can be a pre-release). The branch moves to it only when its commit is on origin/main, the rule of
+# $1 = the new clone, $2 = its branch. The release is the tag vX.Y.Z at HEAD of this clone, never the highest tag (that
+# can be one not published yet). The branch moves to it only when its commit is on origin/main, the rule of
 # relay/install.sh: the maintenance helper's git policy pins main. With no tag at HEAD, no such tag in the new clone or a
 # release off main, the clone keeps the head of the branch (the source is built, as before) and one line says so.
 pin_new_clone() {

@@ -101,15 +101,6 @@ const LINES: readonly (readonly [string, string])[] = [
   ["Kansio ei ole kelvollinen. Mitään ei lähetetty.", "The folder is not valid. Nothing was sent."],
   ["Salausavain ei ole kelvollinen. Mitään ei lähetetty.", "The encryption key is not valid. Nothing was sent."],
   ["SSH-avain ei ole kelvollinen. Mitään ei lähetetty.", "The SSH key is not valid. Nothing was sent."],
-  // the setting of new versions
-  ["Tiedosto .env ei ole kelvollinen. Mitään ei muutettu.", "The .env file is not valid. Nothing was changed."],
-  ["Tämä asennus päivittyy yksityisestä kehitysversiosta eikä julkaistuista versioista. Mitään ei muutettu.", "This install updates from the private development branch, not from released versions. Nothing was changed."],
-  ["Tämä asennus päivittyy lähdekoodista eikä julkaistuista versioista. Mitään ei muutettu.", "This install updates from the source code, not from released versions. Nothing was changed."],
-  ["Palvelimella on asennus tai päivitys kesken. Mitään ei muutettu.", "An install or update is in progress on the server. Nothing was changed."],
-  ["Tiedostoa .env ei voitu kirjoittaa. Mitään ei muutettu.", "The .env file could not be written. Nothing was changed."],
-  ["Kirjoitimme asetuksen tiedostoon .env, mutta apuri ei saa sitä sieltä luettua. Tarkista tiedosto palvelimella.", "The setting was written to the .env file, but the helper cannot read it back. Check the file on the server."],
-  ["Tarjoamme uudet versiot heti.", "New versions are offered at once."],
-  ["Tarjoamme uudet versiot kaksi päivää julkaisun jälkeen.", "New versions are offered two days after release."],
   ["{1} Uusi versio on saatavilla.", "{1} A new version is available."],
   ["{1} Uutta versiota ei voitu tarkistaa.", "{1} The new version could not be checked."],
   // the steps
@@ -169,6 +160,4 @@ export const ACTION_LABEL_EN = {
   logs: "reading the logs",
   prune: "disk cleanup",
   "helper-renew": "helper renewal",
-  "prerelease-on": "new versions offered at once",
-  "prerelease-off": "new versions offered after two days",
 } as const;

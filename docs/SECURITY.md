@@ -350,14 +350,8 @@ anything itself. It writes a request row, and a helper on the host (`scripts/ops
 - The update path is root-equivalent. The helper's user is in the `docker` group, so what the helper installs
   decides who owns the machine. The root of trust is the project's GitHub account and its release workflow. Releases are
   signed there, see [RELEASING.md](RELEASING.md).
-- The helper runs ten fixed actions, none with a parameter. It picks them from a fixed list, so text in the database
-  never reaches a shell. Port changes are not among the actions. The last two, `prerelease-on` and `prerelease-off`,
-  are the two positions of the switch *Tarjoa uudet versiot heti* under *Asetukset > Palvelin ja ylläpito > Ylläpito*. They are two names so
-  that no value travels from the app to the host: the helper writes `yes` or `no`, words of its own script, on the one
-  line `TALOUS_PRERELEASE` of `.env`. It writes only after it checked the file, holds the installer's lock, refuses a
-  source install and keeps every other byte, the mode and the owner. An administrator's session queues them without the
-  password, as it does a restart: the switch chooses only how early a release is offered. A pre-release passes the
-  same signature checks, and nothing installs before *Päivitä* and the password.
+- The helper runs eight fixed actions, none with a parameter. It picks them from a fixed list, so text in the database
+  never reaches a shell. Port changes are not among the actions.
 - The timer runs a launcher that lives outside the clone, `~/.local/share/omatalous/<name>/launcher.sh`, so that no
   update replaces the file the timer runs. It refuses to run as root, takes one argument (the clone) and nothing from a
   request or the database, uses a fixed `PATH`, and runs no file, of the clone or of its last good copy of the helper,
@@ -372,13 +366,11 @@ anything itself. It writes a request row, and a helper on the host (`scripts/ops
   never follows a tunnel or a point-to-point link, and holds the installer's lock. The disk step removes only untagged
   images that carry this app's label and never touches a volume.
 - A release install takes a version the GitHub Releases API names, only a semver step up from the running one. The answer
-  chooses only a tag: the latest full release, or the newest, a pre-release too, when the switch *Tarjoa uudet versiot
-  heti* is on (`TALOUS_PRERELEASE=yes` in `.env`, which the helper writes or, on an install without it, a person). The tag
+  chooses only a tag: the latest release. The tag
   must be `vX.Y.Z`, exist in the folder, be an ancestor of the branch the clone follows and pass the helper's signer and
   compose checks, and its image must pass the cosign check for the commit the tag names. The address of the API is
-  fixed and no environment variable replaces it. A release is a pre-release for its first 48 hours, until a workflow of
-  the public repository promotes it after it verified the image with the check installs run, and the project holds a
-  release back by making it a draft or pulls it by deleting it. The image
+  fixed and no environment variable replaces it. The project holds a release back by making it a draft
+  or pulls it by deleting it. The image
   comes from `ghcr.io`, and `update.sh` checks its cosign signature against the release workflow's identity (a run for a version tag, or a run on `main`
   started by a push of a new version or by hand) and the commit the run built, plus the
   image's labels against the compose file. A source install uses the remote and branch pinned in `ops/policy`, moves only

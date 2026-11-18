@@ -1,6 +1,6 @@
 # Shared by scripts/update.sh and scripts/install.sh, sourced from the clone root. Needs die, ok and run_logged
 # from the caller, and IMAGE (the local image name, <name>:latest is what docker-compose.yml starts). The functions that
-# pick a release (release_mode to release_from_api, at the end) and those of the private channel (channel_get to switch_from)
+# pick a release (release_get to release_from_api, at the end) and those of the private channel (channel_get to switch_from)
 # need none of that: the maintenance helper loads them too (lib/ops-release.sh), so they call nothing of the helper's or of
 # update.sh's. Only choose_release, pick_private and pick_target are update.sh's: they also read its TARGET, MODE, say and
 # channel_setting.
@@ -108,36 +108,27 @@ pull_release_image() { # pull_release_image TAG COMMIT
 }
 
 # ── which release an install follows ────────────────────────────────────────
-# One answer for update.sh run by hand and for the maintenance helper (the daily check, the Päivitä button). A release is a
-# pre-release for its first 48 hours, and an install takes one only when .env says TALOUS_PRERELEASE=yes. Mode latest asks
-# /releases/latest, which GitHub keeps free of pre-releases and drafts. Mode newest asks for the 20 newest releases and takes
-# the highest vX.Y.Z that is no draft. The address is fixed here: nothing in the environment replaces it. The tag found still
-# goes through the signature check (fetch_release_image) and the helper's own checks.
+# One answer for update.sh run by hand and for the maintenance helper (the daily check, the Päivitä button). A release is
+# published as the latest one at once, and the install asks /releases/latest, which GitHub keeps free of drafts and
+# pre-releases. A TALOUS_PRERELEASE line that an older version wrote to .env is not read. The address is fixed here: nothing
+# in the environment replaces it. The tag found still goes through the signature check (fetch_release_image) and the
+# helper's own checks.
 RELEASES_API=https://api.github.com/repos/$PROJECT_OWNER/$PROJECT_REPO/releases
-release_mode() { # the mode .env asks for (read as data); fails on a value that is not yes or no
-  case $(grep -E '^TALOUS_PRERELEASE=' .env 2>/dev/null | tail -1 | cut -d= -f2- || true) in
-    yes) echo newest ;;
-    no | '') echo latest ;;
-    *) return 1 ;;
-  esac
-}
-release_get() { # release_get MODE FILE: asks the API, the answer goes to FILE, prints the HTTP code (000: no answer)
+release_get() { # release_get FILE: asks the API, the answer goes to FILE, prints the HTTP code (000: no answer)
   local url=$RELEASES_API/latest code cap=()
-  [[ $1 != newest ]] || url=$RELEASES_API'?per_page=20'
   [[ -z ${T_CHECK:-} ]] || cap=(timeout -k 5 "$T_CHECK") # the helper's limit for a check; by hand curl's own --max-time
-  code=$(${cap[@]+"${cap[@]}"} curl -sS -o "$2" -w '%{http_code}' --max-time 30 --max-filesize 2000000 --proto '=https' --tlsv1.2 \
+  code=$(${cap[@]+"${cap[@]}"} curl -sS -o "$1" -w '%{http_code}' --max-time 30 --max-filesize 2000000 --proto '=https' --tlsv1.2 \
     -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' -A "talous-ops/${OPS_HELPER_VERSION:-update.sh}" "$url" 2>/dev/null) || code=000
   printf '%s' "$code"
 }
-# release_pick MODE FILE: the release to take from the answer in FILE, as "tag<TAB>notes" with the notes still JSON-escaped on
-# one line. Only the keys of a release itself count, not those of its author or its files. A draft and a tag that is not
-# vX.Y.Z never count, and in mode latest neither does a pre-release (GitHub does not send one; this is a second lock).
-# Fails when nothing counts.
+# release_pick FILE: the release to take from the answer in FILE, as "tag<TAB>notes" with the notes still JSON-escaped on
+# one line. Only the keys of a release itself count, not those of its author or its files. A draft, a pre-release and a tag
+# that is not vX.Y.Z never count (GitHub sends no draft or pre-release here; this is a second lock). Fails when nothing counts.
 release_pick() {
-  grep -oE '"([^"\\]|\\.)*"|[][{}:,]|[^][{}:,"[:space:]]+' "$2" | awk -v mode="$1" '
+  grep -oE '"([^"\\]|\\.)*"|[][{}:,]|[^][{}:,"[:space:]]+' "$1" | awk '
     function row(   a, b, i) {
       gsub(/^"|"$/, "", tag)
-      if (tag !~ /^v[0-9]+\.[0-9]+\.[0-9]+$/ || draft == "true" || (mode == "latest" && pre == "true")) return
+      if (tag !~ /^v[0-9]+\.[0-9]+\.[0-9]+$/ || draft == "true" || pre == "true") return
       if (best != "") {
         split(substr(tag, 2), a, /\./); split(substr(best, 2), b, /\./)
         i = 1; while (i <= 3 && a[i] + 0 == b[i] + 0) i++
@@ -153,28 +144,28 @@ release_pick() {
     { prev = $0 }
     END { if (best == "") exit 1; printf "%s\t%s\n", best, notes }'
 }
-# release_answer MODE FILE: asks, then prints what release_pick prints. Fails with 1 when GitHub gave no usable answer, and with
+# release_answer FILE: asks, then prints what release_pick prints. Fails with 1 when GitHub gave no usable answer, and with
 # 2 when it says there is no release (404, or an empty list) and the folder holds no release tag: the one case in which an
 # install may follow the source. "No release" while the folder holds a release tag is no answer (a release was made and GitHub
 # does not show it), so it fails with 1 like an API error. It fails with 3 when GitHub turned the request down with 403 or 429,
 # which is how it says that the limit of requests for this address was met (60 an hour without a key): an hour's wait cures it.
 release_answer() {
   local code
-  code=$(release_get "$1" "$2")
+  code=$(release_get "$1")
   case $code in
     404) ;;
     403 | 429) return 3 ;;
-    200) release_pick "$1" "$2" && return 0
-      [[ $1 == newest && $(tr -d ' \n\r\t' <"$2") == '[]' ]] || return 1 ;;
+    200) release_pick "$1" && return 0
+      return 1 ;;
     *) return 1 ;;
   esac
   [[ -z $(latest_release) ]] || return 1
   return 2
 }
-release_from_api() { # release_from_api MODE: prints the tag to follow. Fails like release_answer
+release_from_api() { # release_from_api: prints the tag to follow. Fails like release_answer
   local f row rc=0
   f=$(mktemp) || return 1
-  row=$(release_answer "$1" "$f") || rc=$?
+  row=$(release_answer "$f") || rc=$?
   rm -f "$f"
   ((rc == 0)) || return "$rc"
   printf '%s\n' "${row%%$'\t'*}"
@@ -301,12 +292,11 @@ nothing_in_way() { # nothing_in_way COMMIT TAG
 # from where. It fetches the tags and asks GitHub, as an update does, and changes nothing else. The image's signature is
 # checked when the update runs, before anything moves.
 check_crossing() {
-  local follow tag target l rc=0
+  local tag target l rc=0
   if on_private; then say "This folder follows the private repository (ops/channel), which moves to no new history. ./scripts/update.sh --check says what the next update installs."; return 0; fi
   [[ $(grep -E '^TALOUS_CHANNEL=' .env 2>/dev/null | tail -1 | cut -d= -f2- || true) != source ]] || { say "TALOUS_CHANNEL=source: this folder follows the source, and the source channel never moves to a new history."; return 0; }
   git fetch --quiet --tags 2>/dev/null || die "Could not reach the remote repository (git fetch failed). Nothing was changed."
-  follow=$(release_mode) || die "TALOUS_PRERELEASE in .env is invalid. Allowed: yes, no. Nothing was changed."
-  tag=$(release_from_api "$follow") || rc=$?
+  tag=$(release_from_api) || rc=$?
   ((rc == 0)) || die "Could not ask GitHub for the release to follow. Nothing was changed."
   target=$(git rev-parse -q --verify "refs/tags/$tag^{commit}" 2>/dev/null) || die "Release $tag is not in this folder. Nothing was changed."
   say "This folder: $(git log -1 --format='%h %s'). Release: $tag."
@@ -319,7 +309,7 @@ check_crossing() {
   else die "$tag does not continue this folder."; fi
 }
 # The release tag (vX.Y.Z) at HEAD when it is above release $1, printed; fails when HEAD is at no such tag. An install on
-# a pre-release that the key does not follow (any more) is there.
+# a pre-release of an earlier version, or on a release that was taken back, is there.
 release_above() {
   local at
   at=$(git tag --points-at HEAD --list 'v[0-9]*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)
@@ -328,26 +318,22 @@ release_above() {
 }
 # For update.sh: the release this run follows, in RELEASE_TAG ('' = no release yet). TARGET is the commit the maintenance
 # helper chose, and it names the tag in TALOUS_RELEASE; CHANNEL_SETTING is TALOUS_CHANNEL. A source install and a commit the
-# helper chose ask nothing. Otherwise GitHub names the release, never the newest git tag, which a pre-release has from its
-# first minute. When GitHub does not answer the run stops before anything changes. RELEASE_HELD is the line to say when
+# helper chose ask nothing. Otherwise GitHub names the release, never the newest git tag, which a draft or a pre-release has
+# from its first minute. When GitHub does not answer the run stops before anything changes. RELEASE_HELD is the line to say when
 # this folder is at a release above the one GitHub names: the run then stays where it is (it must not build the source).
 choose_release() { # choose_release TARGET CHANNEL_SETTING
-  local follow rc=0 held word=latest
+  local rc=0 held
   RELEASE_TAG=''; RELEASE_HELD=''
-  follow=$(release_mode) || die "TALOUS_PRERELEASE in .env is invalid. Allowed: yes, no. Nothing was changed."
   if [[ -n ${TALOUS_RELEASE:-} ]]; then
     [[ $TALOUS_RELEASE =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] && git rev-parse -q --verify "refs/tags/$TALOUS_RELEASE^{commit}" >/dev/null || die "Release $TALOUS_RELEASE not found."
     RELEASE_TAG=$TALOUS_RELEASE
   elif [[ -z $1 && $2 != source ]]; then
-    RELEASE_TAG=$(release_from_api "$follow") || rc=$?
+    RELEASE_TAG=$(release_from_api) || rc=$?
     ((rc != 3)) || die "GitHub turned the request down: the limit of requests for this address was met. Nothing was changed. Wait an hour and run this again."
     ((rc == 0 || rc == 2)) || die "Could not ask GitHub for the latest release. Nothing was changed."
     [[ -z $RELEASE_TAG ]] || git rev-parse -q --verify "refs/tags/$RELEASE_TAG^{commit}" >/dev/null || die "Release $RELEASE_TAG is not in this folder. Nothing was changed. Check the network and run: git fetch --tags"
     if [[ -n $RELEASE_TAG ]] && held=$(release_above "$RELEASE_TAG"); then
-      [[ $follow != newest ]] || word=newest
-      RELEASE_HELD="Already on $held, newer than the $word release ($RELEASE_TAG)."
-      [[ $follow == newest ]] || RELEASE_HELD+=" TALOUS_PRERELEASE=yes in .env follows releases during their first two days."
-      RELEASE_HELD+=" Nothing was changed."
+      RELEASE_HELD="Already on $held, newer than the latest release ($RELEASE_TAG). Nothing was changed."
     fi
   fi
 }

@@ -15,8 +15,6 @@ export const FI_SET_OPS = {
   "ops.needs_helper": "Vaatii ylläpitoapurin.",
   "ops.changes": "Muutokset",
   "ops.update": "Päivitä",
-  "ops.prerelease": "Tarjoa uudet versiot heti",
-  "ops.prerelease_help": "Uusi versio tulee tarjolle tavallisesti kaksi päivää julkaisun jälkeen. Kun tämä on päällä, näet sen heti. Asennus alkaa vasta, kun painat Päivitä.",
   "ops.update_title": "Päivitä sovellus",
   "ops.rollback": "Palauta edellinen versio",
   "ops.rollback_title": "Palauta edellinen versio",

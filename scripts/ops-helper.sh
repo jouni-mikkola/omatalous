@@ -7,8 +7,8 @@
 # oldest row through `docker compose exec ... ops poll`, checks it against a fixed list, runs one of our own
 # scripts and reports the result back through `ops report`. Nothing from the database reaches a shell: the
 # row is accepted only if the whole poll answer matches one exact shape, and the action is picked by a
-# `case` with a refusing default. Version 6 knows ten actions: check-update, update, rollback, restart, doctor,
-# logs, prune, helper-renew, prerelease-on and prerelease-off. None takes parameters.
+# `case` with a refusing default. Version 6 knows eight actions: check-update, update, rollback, restart, doctor,
+# logs, prune and helper-renew. None takes parameters.
 # (Older helpers also knew `access`, the change of remote access, which is gone: a request for it is refused.)
 #
 # Trust: the helper user is in the docker group, which is root on the host, so what the helper installs is what matters.
@@ -73,7 +73,7 @@ esac
 cd "$ROOT" || exit 1
 OPS=ops
 DEFAULT_INSTANCE=banking-app
-ACTIONS="update rollback restart doctor check-update logs prune helper-renew prerelease-on prerelease-off"
+ACTIONS="update rollback restart doctor check-update logs prune helper-renew"
 NODE=(node --disable-warning=ExperimentalWarning)
 
 # timeouts in seconds (the spec table); a test may shorten them
@@ -201,7 +201,7 @@ env_check() {
   [[ -z $inst || $inst =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { ENV_ERR="INSTANCE_NAME is invalid"; return 1; }
   inst=$(env_get COMPOSE_PROJECT_NAME)
   [[ -z $inst || $inst =~ ^[a-z0-9][a-z0-9_-]*$ ]] || { ENV_ERR="COMPOSE_PROJECT_NAME is invalid"; return 1; }
-  for key in TALOUS_PRERELEASE TALOUS_SOURCE_CHECKED; do inst=$(env_get "$key"); [[ -z $inst || $inst == yes || $inst == no ]] || { ENV_ERR="$key is invalid"; return 1; }; done # yes or no (lib/release.sh, lib/source-checked.sh)
+  inst=$(env_get TALOUS_SOURCE_CHECKED); [[ -z $inst || $inst == yes || $inst == no ]] || { ENV_ERR="TALOUS_SOURCE_CHECKED is invalid"; return 1; } # yes or no (lib/source-checked.sh)
   return 0
 }
 
@@ -307,11 +307,8 @@ state_json() {
   # update.sh records whether the update changed the schema; only an explicit "no" is believed (older ones write none)
   sep; printf '"schema_changed":%s' "$([[ -f backups/.last-update ]] && ! grep -qx 'SCHEMA_CHANGED=no' backups/.last-update && echo true || echo false)"
   sep; printf '"mode":"%s"' "$mode"; if [[ $port =~ ^[0-9]{2,5}$ ]]; then sep; printf '"port":%s' "$port"; fi
-  # the switch for pre-releases as .env has it, said every time so that a `no` replaces a stored `yes`; a source install has no
-  # switch, and an install without a .env says no position, so the page shows none (every request would end refused)
-  sep; if [[ -f .env ]]; then printf '"prerelease":"%s",' "$([[ $(env_get TALOUS_PRERELEASE) == yes ]] && echo yes || echo no)"; fi
   # private: ops/channel names the private repository (scripts/use-private.sh); the page shows the channel and cannot change it
-  printf '"channel":"%s"' "$(if on_private; then echo private; elif [[ $(env_get TALOUS_CHANNEL) == source ]]; then echo source; else echo release; fi)"
+  sep; printf '"channel":"%s"' "$(if on_private; then echo private; elif [[ $(env_get TALOUS_CHANNEL) == source ]]; then echo source; else echo release; fi)"
   # ] and [ (an IPv6 address) lead the set: a backslash does not quote them inside one
   if [[ -n $url && $url =~ ^[][A-Za-z0-9:/._-]{1,120}$ ]]; then sep; printf '"address":"%s"' "$url"; fi
   for f in check doctor doctor-version; do if [[ -s $OPS/$f.frag ]]; then sep; cat "$OPS/$f.frag"; fi; done
@@ -439,8 +436,6 @@ run_request() { # run_request ID ACTION
     logs) act_logs ;;
     prune) act_prune ;;
     helper-renew) act_helper_renew ;;
-    prerelease-on) act_prerelease yes ;; # lib/ops-release.sh. The name is the whole request: yes and no are this file's words
-    prerelease-off) act_prerelease no ;;
     *) fail "Tuntematon toiminto." ;;
   esac
   [[ -n $SUMMARY ]] || SUMMARY=$([[ $STATUS == ok ]] && echo "Valmis." || echo "Epäonnistui.")

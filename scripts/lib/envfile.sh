@@ -2,11 +2,9 @@
 # The writer of .env for the maintenance helper (scripts/ops-helper.sh loads this file in load_libs, from its own
 # folder); scripts/install.sh still writes the first .env itself. It defines functions and runs nothing.
 #
-# Decision it serves: .env is what the app starts with, and two jobs change it (a new home network address and the
-# switch for new versions). They both change it here, so a stop at any line (a kill, a power cut, a full disk) leaves the old file or the new one,
-# never a half, and a fix to the writing reaches every one of them.
+# Decision it serves: .env is what the app starts with, and a new home network address changes it. It changes it here,
+# so a stop at any line (a kill, a power cut, a full disk) leaves the old file or the new one, never a half.
 #
-#   envfile_write FILE WHERE MODE ITEM...   envfile_stage, then envfile_commit
 #   envfile_stage FILE WHERE ITEM...        FILE.new becomes the new file, whole. FILE is not touched
 #   envfile_commit FILE MODE                FILE.new takes the place of FILE, in one rename
 #   envfile_restore FILE FROM               FILE becomes a copy of the file FROM, this user's alone, the same way
@@ -93,12 +91,6 @@ envfile_commit() { # envfile_commit FILE MODE
   fi
   rm -f "$file.new" 2>/dev/null
   return "$rc"
-}
-
-envfile_write() { # envfile_write FILE WHERE MODE ITEM...
-  local file=$1 where=$2 mode=$3
-  shift 3
-  envfile_stage "$file" "$where" "$@" && envfile_commit "$file" "$mode"
 }
 
 envfile_restore() { # envfile_restore FILE FROM

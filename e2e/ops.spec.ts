@@ -218,31 +218,17 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   await page.getByRole("button", { name: "Asenna apuri uudelleen" }).click();
   const renewReq = helper(["poll", "--helper", "2", "--done", ""]);
   expect(renewReq.request).toMatchObject({ action: "helper-renew", params: {}, secret: null });
-  // a version 2 helper says nothing of the switch for new versions, so the page has none
+  // every release is offered at once, so the page has no switch for new versions
   const newVersions = page.getByRole("switch", { name: "Tarjoa uudet versiot heti" });
   await expect(newVersions).toHaveCount(0);
-  // the renewed helper is version 4, and its first snapshot says where the switch stands on the host
+  // the renewed helper is version 4, and a snapshot from an older helper that still names the old switch is taken without a switch appearing
   helper(["state", "--helper", "4"], JSON.stringify({ prerelease: "no", channel: "release" }));
   helper(["report"], JSON.stringify({ id: renewReq.request.id, status: "ok", exit_code: 0, summary: "Apuri asennettu uudelleen." }));
   await expect(page.getByText("Apuri asennettu uudelleen.")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole("cell", { name: "levyn siivous" }).first()).toBeVisible();
   await expect(page.getByRole("cell", { name: "apurin uusinta" }).first()).toBeVisible();
 
-  // the switch: one click and no dialog, it shows the asked position while the helper works and the host's after it
-  await expect(newVersions).toBeEnabled({ timeout: 15_000 });
-  await expect(newVersions).not.toBeChecked();
-  ageRequests();
-  await newVersions.click();
-  await expect(page.getByText(/Jonossa\./)).toBeVisible();
-  await expect(newVersions).toBeChecked();
-  await expect(newVersions).toBeDisabled();
-  const switchReq = helper(["poll", "--helper", "4", "--done", ""]);
-  expect(switchReq.request).toMatchObject({ action: "prerelease-on", params: {}, secret: null });
-  helper(["report"], JSON.stringify({ id: switchReq.request.id, status: "ok", exit_code: 0, summary: "Tarjoamme uudet versiot heti.", state: { prerelease: "yes", channel: "release" } }));
-  await expect(page.getByText("Tarjoamme uudet versiot heti.")).toBeVisible({ timeout: 15_000 });
-  await expect(newVersions).toBeEnabled();
-  await expect(newVersions).toBeChecked();
-  await expect(page.getByRole("cell", { name: "uudet versiot tarjolle heti" }).first()).toBeVisible();
+  await expect(newVersions).toHaveCount(0);
 
   // no horizontal scroll on a phone
   await page.setViewportSize({ width: 375, height: 667 });

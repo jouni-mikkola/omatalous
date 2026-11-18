@@ -32,7 +32,7 @@ function sentences(): string[] {
 
 describe("the helper's sentences in English", () => {
   const found = sentences();
-  it("reads sentences from the scripts", () => expect(found.length).toBeGreaterThan(65));
+  it("reads sentences from the scripts", () => expect(found.length).toBeGreaterThan(55));
   it("has a line for every Finnish sentence of the scripts", () => {
     const missing = found.filter((t) => opsText(t, "en") === t);
     expect(missing).toEqual([]);

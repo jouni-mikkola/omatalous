@@ -1,6 +1,5 @@
 import { labelTable, t, tn } from "../../text.ts";
 import project from "../../../../../project.json";
-import type { HelperInfo, OpsAction, OpsRequestView, OpsSnapshot } from "./types.ts";
 
 /** Finnish wording of Asetukset > Ylläpito in one place, so it is read through once. */
 export const ENABLE_DOC = `https://github.com/${project.owner}/${project.repo}/blob/main/docs/ADVANCED.md#the-maintenance-helper`;
@@ -45,12 +44,6 @@ export const S = {
   },
   get update() {
     return t("ops.update");
-  },
-  get prerelease() {
-    return t("ops.prerelease");
-  },
-  get prereleaseHelp() {
-    return t("ops.prerelease_help");
   },
   get updateTitle() {
     return t("ops.update_title");
@@ -213,20 +206,5 @@ export const S = {
 
 /** The only two fields either request carries. The server refuses any other. */
 export const confirmBody = (password: string, confirm: string): { password: string; confirm: string } => ({ password, confirm });
-/**
- * The switch for new versions is on the page when the helper is on, knows the two requests and has said where the
- * switch stands, and the install follows releases (a source install has none to follow).
- */
-export function showsPrerelease(helper: HelperInfo, state: OpsSnapshot): boolean {
-  return helper.status !== "off" && helper.knowsPrerelease && state.channel !== "source" && state.channel !== "private" && state.prerelease !== undefined;
-}
-/** Where the switch stands: what a request under way asks for, else what the helper last reported from the host. */
-export function prereleaseOn(state: OpsSnapshot, latest: OpsRequestView | undefined): boolean {
-  const asked = latest && (latest.status === "queued" || latest.status === "running") ? latest.action : "";
-  if (asked === "prerelease-on" || asked === "prerelease-off") return asked === "prerelease-on";
-  return state.prerelease === "yes";
-}
-/** The request a turn of the switch sends. The position is in the name, and no value goes with it. */
-export const prereleaseAction = (on: boolean): OpsAction => (on ? "prerelease-on" : "prerelease-off");
 
 export const LEVEL: Record<string, string> = labelTable({ ok: () => t("ops.level_ok"), warn: () => t("ops.level_warn"), error: () => t("ops.level_error") });

@@ -61,13 +61,10 @@ const ACTION_LABEL: Record<OpsAction, string> = {
   logs: "lokien luku",
   prune: "levyn siivous",
   "helper-renew": "apurin uusinta",
-  // no colon in a name: the audit list splits an event at its first ": "
-  "prerelease-on": "uudet versiot tarjolle heti",
-  "prerelease-off": "uudet versiot tarjolle kahden päivän päästä",
 };
 
 /** These also reach the other admins as a notice. */
-const NOTIFY: readonly OpsAction[] = ["update", "rollback", "restart", "prerelease-on", "prerelease-off"];
+const NOTIFY: readonly OpsAction[] = ["update", "rollback", "restart"];
 
 const ENABLE_COMMAND = "./scripts/install.sh --ops-helper";
 const MUTATING_PER_MINUTE_MS = 60_000;
@@ -116,7 +113,7 @@ async function helperInfo(s: Services) {
   const seenAt = await s.settings.get(HELPER_SEEN_KEY);
   const version = await s.settings.get(VERSION_KEY);
   const { status, reason } = helperStatus(seenAt, s.now());
-  return { status, reason, seenAt, version, outdated: status !== "off" && helperOutdated(version), tools: helperHasTools(version), wakes: helperWakes(version), knowsPrerelease: helperKnows(version, "prerelease-on"), minVersion: HELPER_MIN_VERSION, enableCommand: ENABLE_COMMAND };
+  return { status, reason, seenAt, version, outdated: status !== "off" && helperOutdated(version), tools: helperHasTools(version), wakes: helperWakes(version), minVersion: HELPER_MIN_VERSION, enableCommand: ENABLE_COMMAND };
 }
 
 // ── what the page shows ──────────────────────────────────

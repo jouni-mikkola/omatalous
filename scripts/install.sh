@@ -655,10 +655,10 @@ fi
 step "Writing .env"
 umask 077
 # optional settings the questions above do not cover survive a re-run (ACCESS_LAN_BIND: an earlier release's helper wrote it, kept as it was;
-# TALOUS_CHANNEL, TALOUS_PRERELEASE, TALOUS_SOURCE_CHECKED and TALOUS_PRIVATE_BUILD: the release channel and the build, which the block below
+# TALOUS_CHANNEL, TALOUS_SOURCE_CHECKED and TALOUS_PRIVATE_BUILD: the release channel and the build, which the block below
 # and update.sh read and never write)
 KEEP=()
-for key in TZ SETUP_CODE INDUSTRY_LOOKUP REFERENCE_RATES ACCESS_LAN_BIND TALOUS_CHANNEL TALOUS_PRERELEASE TALOUS_SOURCE_CHECKED TALOUS_PRIVATE_BUILD; do
+for key in TZ SETUP_CODE INDUSTRY_LOOKUP REFERENCE_RATES ACCESS_LAN_BIND TALOUS_CHANNEL TALOUS_SOURCE_CHECKED TALOUS_PRIVATE_BUILD; do
   value=$(existing "$key")
   [[ -n $value ]] && KEEP+=("$key=$value")
 done
@@ -713,7 +713,7 @@ GIT_COMMIT=$(git rev-parse HEAD 2>/dev/null || echo unknown); export GIT_COMMIT
 # (a clone ahead of the newest release, no release yet, or TALOUS_CHANNEL=source). update.sh uses the same rule.
 CHANNEL=source; UP_FLAGS=""; LOG=$(mktemp)
 if [[ ${TALOUS_CHANNEL:-$(existing TALOUS_CHANNEL)} != source ]]; then
-  # the release this checkout is at (a bootstrap clone sits on one and holds every tag, a pre-release among them),
+  # the release this checkout is at (a bootstrap clone sits on one and holds every tag, one not published yet among them),
   # else the newest tag as before
   REL_TAG=$(git tag --points-at HEAD 2>/dev/null | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)
   [[ -n $REL_TAG ]] || REL_TAG=$(latest_release)

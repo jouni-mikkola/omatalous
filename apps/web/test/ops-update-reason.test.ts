@@ -10,7 +10,7 @@ import { UpdatePanel } from "../src/components/ops/UpdatePanel.tsx";
 import { rules } from "./css-kit.ts";
 
 const panel = (needsHelper: boolean) =>
-  renderToStaticMarkup(createElement(UpdatePanel, { version: "0.10.0", build: "abc1234", state: {}, disabled: true, needsHelper, prerelease: null, onCheck: () => {}, onUpdate: () => {}, onRollback: () => {} }));
+  renderToStaticMarkup(createElement(UpdatePanel, { version: "0.10.0", build: "abc1234", state: {}, disabled: true, needsHelper, onCheck: () => {}, onUpdate: () => {}, onRollback: () => {} }));
 const button = (html: string) => /<button[^>]*>Tarkista päivitykset<\/button>/.exec(html)?.[0] ?? "";
 
 describe("Versio: the off button says why", () => {

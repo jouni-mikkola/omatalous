@@ -19,8 +19,6 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$ROOT"
 # shellcheck source=tools/lib/project.sh
 . tools/lib/project.sh
-# shellcheck source=tools/lib/newest-release.sh
-. tools/lib/newest-release.sh
 
 # github_api URL: the body GitHub's API answers to a GET of URL, on stdout. Exits 22 on an answer of 400 or above, as
 # curl -f does, and with curl's own code when there is no answer. The plain request of a shared runner address is
@@ -96,12 +94,8 @@ if (($# == 0)) && [[ ${VERIFY_RELEASE_FIRST:-} == 1 ]] \
 fi
 tag=${1:-}
 if [[ -z $tag ]]; then
+  # no latest release leaves tag empty and fails below
   tag=$(github_api "https://api.github.com/repos/$repo/releases/latest" | jq -r '.tag_name // empty') || tag=
-  if [[ -z $tag ]]; then
-    # An empty list leaves tag empty and fails below.
-    tag=$(github_api "https://api.github.com/repos/$repo/releases?per_page=1" | newest_release_tag)
-    [[ -z $tag ]] || no_latest_note "$repo" "$tag"
-  fi
 fi
 [[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "No release found in $repo ($tag)"; exit 1; }
 # an annotated tag lists its commit as ^{}, a lightweight one (made by the release workflow) only itself

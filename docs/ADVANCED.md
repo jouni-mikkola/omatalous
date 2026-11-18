@@ -252,8 +252,8 @@ the address and the setup link.
 ### A clone made by hand
 
 If you clone the repository yourself and run `./scripts/install.sh` in the clone, the installer asks GitHub once which
-release is out. A clone of `main` can sit on the tag of a release that waits out its first two days. The installer then
-says "This folder is at vX.Y.Z, which is not out yet (a release waits two days). Installing the latest release,
+release is out. A clone of `main` can sit on the tag of a release that is not out yet. The installer then
+says "This folder is at vX.Y.Z, which is not out yet. Installing the latest release,
 vY.Z.W.", moves the folder to that release and starts again from there. When GitHub does not answer, it goes on with the
 release the folder is at and says so. A folder that already has a `.env` is never asked and never moved.
 
@@ -473,20 +473,12 @@ update is lost: the check refused the database, the previous image has no such c
 or the check took too long. Both ways the current database is saved first in the data volume as
 `/data/backups/pre-rollback-*.db`.
 
-Each release starts on GitHub as a pre-release, and an install follows the latest full release. The project's promotion
-workflow, which looks every six hours, promotes a release once it is 48 hours old, so an install is offered it two days
-after it came out. The hourly check, *Päivitä* and `./scripts/update.sh` all wait for that, and nothing installs by
-itself. With the switch *Tarjoa uudet versiot heti* under *Asetukset > Palvelin ja ylläpito > Ylläpito* on, they follow the newest release
-instead, a pre-release too. The maintenance helper then sets the line `TALOUS_PRERELEASE=yes` in `.env`, or `no` when
-the switch is turned off, leaves every other line as it was and checks for a new version at once. An install without
-the helper has no switch: write the line in `.env` by hand. The default is `no`. The key does nothing with
-`TALOUS_CHANNEL=source` and such an install has no switch, but a value other than `yes` or `no` is refused there too, and
-the installer keeps the key over a re-run. An install that is on a pre-release stays there when the key is off or
-removed, and `update.sh` says "Already on vX.Y.Z, newer than the latest release (vY). TALOUS_PRERELEASE=yes in .env
-follows releases during their first two days. Nothing was changed." The project holds a release back by making it a
-draft, and pulls one by deleting it; neither mode sees a draft or a pulled release. The 48 hours hold only for installs
-that already run 0.9.0. An install of 0.8.x that is updated by hand with `./scripts/update.sh` takes v0.9.0 from the first
-minute, because the script of 0.8.x takes the newest tag.
+An install follows the latest release GitHub names. The hourly check, *Päivitä* and `./scripts/update.sh` offer a
+release as soon as it is published, and nothing installs by itself. An install that is already on a version above the
+latest release stays there, and `update.sh` says "Already on vX.Y.Z, newer than the latest release (vY). Nothing was
+changed." The project holds a release back by making it a draft, and pulls one by deleting it; neither is seen as the
+latest. An install of 0.8.x that is updated by hand with `./scripts/update.sh` takes the newest tag, because the script of
+0.8.x does.
 
 `TALOUS_CHANNEL` in `.env` chooses where updates come from. Without it, an install follows the signed releases and
 builds from source only when its checkout is newer than the latest release. `release` always follows the releases and
@@ -556,8 +548,7 @@ agent a token of a user made for it when it should not read the household's real
 
 The installer writes `.env`. You rarely need to change it by hand. After a change, run `docker compose up -d`.
 
-Two jobs change `.env` after the first install: a new home network address and the
-switch *Tarjoa uudet versiot heti*. Both write it the same way: a whole new
+A new home network address changes `.env` after the first install. It is written as a whole new
 file beside it, then one rename. A stop at any moment (a kill, a power cut, a full disk) leaves the old file or the new
 one, never half of one, and a line of any other key stays as it was.
 
@@ -570,7 +561,6 @@ one, never half of one, and a line of any other key stays as it was.
 | `CADDY_ADDRESS` | the address for Caddy's ports 80 and 443, needed only when two copies use their own domains |
 | `TALOUS_CHANNEL` | where updates come from, see [Updates in detail](#updates-in-detail). It stays over a re-run and `--reconfigure`. |
 | `TALOUS_SOURCE_CHECKED` | `yes` or `no` (default `no`). `yes` makes a source install take only a commit whose checks passed on GitHub (see [Updates in detail](#updates-in-detail)). It stays over a re-run and `--reconfigure`. |
-| `TALOUS_PRERELEASE` | `yes` or `no` (default `no`). `yes` also follows pre-releases in their first 48 hours (see [Updates in detail](#updates-in-detail)). The switch *Tarjoa uudet versiot heti* under *Asetukset > Palvelin ja ylläpito > Ylläpito* sets it. It stays over a re-run and `--reconfigure`. |
 | `TRUST_PROXY` | `true` behind Caddy, so the app sees each visitor's own address. The installer sets it. |
 | `ACCESS_LAN_BIND` | left by an earlier release: the address the port had before remote access moved it to `127.0.0.1`. Nothing reads it now, and the installer keeps it as it is. |
 

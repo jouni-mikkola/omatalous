@@ -17,8 +17,8 @@
 # Channels. Once the project has a release (a tag vX.Y.Z), an install follows the releases: the signed image from
 # ghcr.io is pulled, its cosign signature is verified against this project's release workflow, and the image is
 # tagged <name>:latest, so docker-compose.yml keeps naming the image as before. The release is the one GitHub marks as
-# latest, not the newest tag (TALOUS_PRERELEASE=yes in .env: the newest release, a pre-release too). A folder that is
-# already at a release above that one (a pre-release) stays there. Until a release exists, and with TALOUS_CHANNEL=source
+# latest, not the newest tag. A folder that is already at a release above that one (a pre-release of an earlier
+# version) stays there. Until a release exists, and with TALOUS_CHANNEL=source
 # in .env, the update builds the newest source on this machine as it always has. With TALOUS_SOURCE_CHECKED=yes beside
 # it, the newest source is the newest commit whose checks passed on GitHub (lib/source-checked.sh).
 #

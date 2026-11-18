@@ -9,7 +9,7 @@
 #   run_doctor          act_doctor and heartbeat's daily block run doctor.sh and keep its answer for the page
 #   reclaimed, image_id  the prune's helpers
 #
-# update, rollback, check-update and the pre-release switch are in the helper and in the other files of scripts/lib.
+# update, rollback and check-update are in the helper and in the other files of scripts/lib.
 
 act_restart() {
   step_say "1/2 Käynnistetään sovellus uudelleen"
