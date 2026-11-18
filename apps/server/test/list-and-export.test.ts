@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { FinanceRepo, TransactionFilter } from "../src/db/finance-repo.ts";
 import type { StoredTransaction } from "../src/db/rows.ts";
 import { setupApp } from "./helpers.ts";
@@ -109,6 +109,20 @@ describe("transaction list and export paging", () => {
       after = { date: page[page.length - 1]!.bookingDate, id: page[page.length - 1]!.id };
     }
     expect(exported).toEqual(all.map((t) => t.id));
+  });
+
+  it("reads the matching rows of a side once for the total, the ids and the days", async () => {
+    const setup = await setupApp();
+    const repo = await seed(setup, 30);
+    const read = vi.spyOn(setup.db, "all");
+    const view = await repo.listTransactions({ limit: 5 });
+    // the page query has a LIMIT; every other read of the table is a read of the matching set
+    const matching = read.mock.calls.map(([sql]) => sql).filter((sql) => /FROM transactions WHERE/.test(sql) && !/LIMIT/.test(sql));
+    expect(matching).toHaveLength(1);
+    expect(view.total).toBe(30);
+    expect(view.ids).toHaveLength(30);
+    expect(view.days.reduce((n, d) => n + d.count, 0)).toBe(30);
+    expect(view.days.map((d) => d.date)).toEqual([...new Set(rowsFor("acc-own", "own", 30).map((t) => t.bookingDate))].sort());
   });
 
   it("does not read the bank's raw payload", async () => {
