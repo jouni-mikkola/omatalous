@@ -195,6 +195,8 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "holdings.left": "Loan left",
   "holdings.monthly": "Monthly payment",
   "holdings.loans_total": "Loans total",
+  "holdings.last_payment": "Last payment {month}",
+  "holdings.last_payment_unknown": "Last payment not known",
   "holdings.net_without_loans": "Balance after card debt",
   "holdings.net_without_one": "{net} (without {count} loan)",
   "holdings.net_without_many": "{net} (without {count} loans)",

@@ -197,6 +197,8 @@ export const FI_BILLS = {
   "holdings.left": "Lainaa jäljellä",
   "holdings.monthly": "Kuukausierä",
   "holdings.loans_total": "Lainat yhteensä",
+  "holdings.last_payment": "Viimeinen maksu {month}",
+  "holdings.last_payment_unknown": "Viimeinen maksu ei tiedossa",
   "holdings.net_without_loans": "Varat korttivelan jälkeen",
   "holdings.net_without_one": "{net} (ilman {count} lainaa)",
   "holdings.net_without_many": "{net} (ilman {count} lainaa)",

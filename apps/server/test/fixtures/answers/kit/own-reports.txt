@@ -666,6 +666,7 @@
    "cardsCents": 63077,
    "loans": [],
    "loansCents": null,
+   "loansEndDate": null,
    "debtCents": 63077,
    "unsavedLoans": {
     "count": 1,
