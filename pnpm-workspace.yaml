@@ -5,3 +5,7 @@ packages:
 onlyBuiltDependencies:
   - esbuild
 
+# pdfjs-dist's canvas for Node: a native binary of about 30 MB that the web build never loads
+ignoredOptionalDependencies:
+  - "@napi-rs/canvas"
+
