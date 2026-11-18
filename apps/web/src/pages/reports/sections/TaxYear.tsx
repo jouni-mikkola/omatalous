@@ -26,12 +26,12 @@ const incomeColumns = (): Column<TaxIncomeRow>[] => [
 ];
 
 /** A part with no rows is left out: a "no rows" line under a heading says nothing the household can act on. */
-function Rows({ caption, rows }: { caption: string; rows: readonly TaxRow[] }) {
+function Rows({ caption, rows, total }: { caption: string; rows: readonly TaxRow[]; total?: { label: string; cents: number } }) {
   if (rows.length === 0) return null;
   return (
     <>
       <h3 className="sheet-part">{caption}</h3>
-      <Table<TaxRow> caption={caption} rows={rows} rowKey={(r) => r.id} columns={rowColumns()} toolbar={false} />
+      <Table<TaxRow> caption={caption} rows={rows} rowKey={(r) => r.id} columns={rowColumns()} total={total && { label: total.label, cells: { amount: money(total.cents) } }} toolbar={false} />
     </>
   );
 }
@@ -72,7 +72,7 @@ function TaxYear({ ctx }: SectionProps) {
           />
         </>
       )}
-      <Rows caption={t("tax.household")} rows={r.household.rows} />
+      <Rows caption={t("tax.household")} rows={r.household.rows} total={{ label: t("tax.household_total"), cents: r.household.cents }} />
       <Rows caption={t("tax.residual")} rows={r.residual.rows} />
     </ReportPanel>
   );
