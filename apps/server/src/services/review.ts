@@ -5,12 +5,13 @@
  */
 import { addDays, type AnalysisContext, type AnalysisTx, billCents, billDueSubject, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, type HouseholdMember, householdWords, isCancelled, isUnknownMerchant, type LoanKind, lenderInstalments, marksBySubject, memberOfRow, missedOn, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, type RecurringSeries, seriesMarkSubject, type UserInputs } from "@banking/core";
 import { connectionView } from "./accounts.ts";
-import { proposalsOf, requestInputs, usesWithTraces } from "./analysis.ts";
+import { requestInputs, usesWithTraces } from "./analysis.ts";
 import type { Services } from "./context.ts";
 import { memoOn } from "./context-memo.ts";
 import { industryMap } from "./enrich.ts";
 import { settledTrace } from "./money-trace.ts";
 import { reconcileOf } from "./reconcile.ts";
+import { proposalsOf } from "./request-inputs.ts";
 import { type LoanTermsItem, loanTermsItems } from "./review-loan-terms.ts";
 import { memberMoneyItems, membersOf } from "./review-members.ts";
 import { type MoneyBackItem, moneyBackItems } from "./review-money-back.ts";

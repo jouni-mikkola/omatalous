@@ -7,7 +7,6 @@
  * each request, with the balances and the user's marks, expected bills and loans from `requestInputs`, so those need no
  * data version.
  */
-import { createHash } from "node:crypto";
 import { getHeapStatistics } from "node:v8";
 import {
   type AccountUse,
@@ -22,7 +21,6 @@ import {
   isUserOwner,
   isWhole,
   type LoanProposal,
-  loanProposals,
   type Part,
   type PaidOf,
   paidRows,
@@ -41,11 +39,11 @@ import { todayIn } from "../platform/config.ts";
 import { yieldToLoop } from "../platform/yield.ts";
 import { isPool, usesInView } from "./account-use.ts";
 import type { Services } from "./context.ts";
-import { memoOn } from "./context-memo.ts";
 import { historyOf } from "./coverage.ts";
 import { type HeldLocks, lockedOutside, runsEnded, whenUnlocked, writesOf } from "./enrich.ts";
 import { foreignDaysOf } from "./foreign-rows.ts";
 import { loansInView } from "./loans-in-view.ts";
+import { proposalsOf, type RequestInputs, stampOf } from "./request-inputs.ts";
 import { statementsInView } from "./statements.ts";
 import { ensureTrace, settledTrace, sharesOf, type SettledTrace, type TraceFacts } from "./money-trace.ts";
 
@@ -451,17 +449,7 @@ export async function requestInputs(s: Services, userId: string, accounts: reado
     ...(a.traced ? { traced: true as const } : {}),
   }));
   const inputs: UserInputs = { marks, expectedBills, loans, payers: { memberId: userId, roles } };
-  return { balances, inputs, stamp: createHash("sha256").update(JSON.stringify([balances, inputs])).digest("base64") };
-}
-
-/**
- * What `requestInputs` reads. `stamp` is one digest of the balances and the inputs: the key a memo (`memoOn`) takes in
- * their place, so a request that asks many memos serialises the marks, bills and loans once.
- */
-export interface RequestInputs {
-  balances: BalanceInput[];
-  inputs: UserInputs;
-  stamp: string;
+  return { balances, inputs, stamp: stampOf(balances, inputs) };
 }
 
 /**
@@ -473,11 +461,6 @@ export interface RequestInputs {
 export async function proposalsFor(s: Services, userId: string, scope: Scope = "own"): Promise<LoanProposal[]> {
   const { ctx, accounts } = await s.analysis.get(s, userId, scope);
   return proposalsOf(ctx, await requestInputs(s, userId, accounts));
-}
-
-/** The proposals of a context and the inputs a request read already, kept beside the context for the next request that asks the same. */
-export function proposalsOf(ctx: AnalysisContext, { inputs, stamp }: Pick<RequestInputs, "inputs" | "stamp">): LoanProposal[] {
-  return memoOn(ctx, "loan-proposals", stamp, () => loanProposals(ctx, inputs));
 }
 
 /**
