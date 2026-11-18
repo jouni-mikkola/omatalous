@@ -139,7 +139,7 @@ interface IssuerEvidence {
 }
 
 /** A card bill pays the purchases of the month before it: a card whose rows began more than this long before a payment holds them. */
-const BILLING_MONTH_DAYS = 31;
+export const BILLING_MONTH_DAYS = 31;
 
 /**
  * Whether a bill on `billDay` pays purchases that are in no row of a card whose rows began on `firstRowDay` (day numbers):
