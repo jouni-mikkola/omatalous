@@ -121,10 +121,10 @@ export function formOfDraft(draft: LoanDraft, today: string, base: LoanForm = em
  * on the day it told it). With none, several, or one that tells no debt: as without.
  */
 export function formOfProposal(proposal: LoanProposalRow, today: string, accounts: readonly Account[] = [], loans: readonly Loan[] = [], terms: InferredLoanTerms | null = null): LoanForm {
-  const values = { ...blank(), balanceDate: today, lender: proposal.payee.slice(0, 80), paymentCents: eurosText(proposal.paymentCents), intervalMonths: "1" };
+  // the latest payment where the rows tell it, else the proposal's usual one
+  const values = { ...blank(), balanceDate: today, lender: proposal.payee.slice(0, 80), paymentCents: eurosText((terms ?? proposal).paymentCents), intervalMonths: "1" };
   if (terms) {
     Object.assign(values, {
-      paymentCents: eurosText(terms.paymentCents),
       intervalMonths: terms.intervalMonths === null ? values.intervalMonths : String(terms.intervalMonths),
       repayment: terms.repayment ?? "",
       reference: terms.reference ?? "",
