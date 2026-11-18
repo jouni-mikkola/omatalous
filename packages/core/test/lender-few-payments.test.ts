@@ -96,7 +96,8 @@ describe("a credit paid in and paid back in part", () => {
 });
 
 describe("a credit paid back in full before", () => {
-  const repaid = [drawn(200, "2026-05-20"), paid(100, "2026-06-05"), paid(100, "2026-07-05")];
+  // paid back in one payment on a day of its own, so no monthly series holds it with the later ones
+  const repaid = [drawn(200, "2026-05-20"), paid(200, "2026-06-18")];
 
   it("leaves two payments after it a loan of their own, with no lower bound", () => {
     const [p, ...rest] = proposed([...repaid, paid(40, "2026-09-05"), paid(40, "2026-10-05")]);

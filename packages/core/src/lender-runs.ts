@@ -126,9 +126,12 @@ function drawLedger(txs: readonly AnalysisTx[], draws: readonly AnalysisTx[], pa
   for (const { t, drawn } of events) {
     if (drawn) owed = { cents: (owed?.cents ?? 0) + billCents(t), since: owed?.since ?? t.bookingDate };
     else if (owed) {
-      const left = owed.cents + billCents(t);
-      if (left > 0) owed = { ...owed, cents: left };
-      else [owed, repaidOn] = [null, t.bookingDate];
+      const left: number = owed.cents + billCents(t);
+      if (left > 0) owed = { cents: left, since: owed.since };
+      else {
+        owed = null;
+        repaidOn = t.bookingDate;
+      }
     }
   }
   return { owed, repaidOn };
