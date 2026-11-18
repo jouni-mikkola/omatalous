@@ -238,7 +238,7 @@ describe("Tarkistettavat", () => {
     fireEvent.change(screen.getByLabelText(/^Marginaali/), { target: { value: "0,65" } });
     fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
     await waitFor(() => expect(seen.some((s) => s.method === "POST" && s.path === "/api/loans")).toBe(true), T);
-    expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ kind: "mortgage", reference: "euribor_12", marginBp: 65, rateReviewDate: "2027-03-14", rateBp: 296, balanceCents: 10_000_000 });
+    expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ kind: "mortgage", reference: "euribor_12", marginBp: 65, rateReviewDate: "2027-03-14", rateBp: null, balanceCents: 10_000_000 });
     // the saved loan shows in the form's place: the rate counted now and the balance, with the question still open
     const facts = await screen.findByText("Korko nyt", {}, T);
     expect(facts.nextElementSibling!.textContent).toMatch(/^2,96\s%$/);

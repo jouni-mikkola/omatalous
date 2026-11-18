@@ -298,11 +298,10 @@ test("on a phone a loan on a euribor is typed with its margin alone, the form sh
   await said(card, "Marginaalilaina tallennettu.");
   const { loans } = await (await context.request.get("/api/loans", RESEND)).json();
   expect(loans).toMatchObject([{ name: "Marginaalilaina", reference: "euribor_12", marginBp: 65, rateReviewDate: reviewDay, rateBp, balanceDate: day }]);
-  // the saved rate is the figure the form showed, and the balance day reads d.m.yyyy
+  // the saved rate is the figure the form showed, and the balance day before it, of this year, reads d.m. with no year
   const saved = card.getByRole("row").filter({ hasText: "Marginaalilaina" });
-  await expect(saved).toContainText(rate);
-  const [y, m, d] = day.split("-").map(Number) as [number, number, number];
-  await expect(saved).toContainText(`${d}.${m}.${y}`);
+  const [, m, d] = day.split("-").map(Number) as [number, number, number];
+  await expect(saved).toContainText(new RegExp(`€${d}\\.${m}\\.${rate.source}`));
   expect(seen.problems).toEqual([]);
   await clearLoans(context);
   await context.close();
