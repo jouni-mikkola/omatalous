@@ -19,6 +19,7 @@ import { loansReport } from "./loans.ts";
 import { buildHousing } from "../housing.ts";
 import { spendingChangeReport } from "./spending-change.ts";
 import { spendingMonthsReport } from "./spending-months.ts";
+import { billCalendar } from "./bill-calendar.ts";
 import { upcomingReport } from "./upcoming.ts";
 import { taxYearDays, taxYearReport } from "./tax-year.ts";
 import { yearOverYearReport } from "./year-over-year.ts";
@@ -38,6 +39,7 @@ export const REPORTS = {
   yearOverYear: ({ ctx, range }: ReportInput) => yearOverYearReport(ctx, range),
   balances: ({ ctx, range, balances, inputs }: ReportInput) => balanceReport(ctx, range, balances, inputs),
   upcoming: ({ ctx, inputs }: ReportInput) => upcomingReport(ctx, inputs),
+  billCalendar: ({ ctx, inputs }: ReportInput) => billCalendar(ctx, inputs),
   income: ({ ctx, range, balances, lang }: ReportInput) => incomeReport(ctx, range, balances, lang),
   loans: ({ ctx, balances, inputs }: ReportInput) => loansReport(ctx, balances, inputs),
   housing: ({ ctx, balances, inputs }: ReportInput) => buildHousing(ctx, balances, inputs),

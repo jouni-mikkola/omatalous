@@ -6,9 +6,9 @@
  * others, and a balance no row proves, have no answer of the household's: they show in Tietojen laatu only.
  */
 import { cashAhead, type UnresolvedReason, unresolvedDismissed, unresolvedSubjects } from "@banking/core";
-import { requestInputs } from "./analysis.ts";
 import type { Services } from "./context.ts";
 import { memoOn } from "./context-memo.ts";
+import type { OwnView } from "./review-own.ts";
 import { withoutWrongBills } from "./wrong-bills.ts";
 
 /** The notice: `cents` is the debt that rests on it, `names` the cards. */
@@ -25,11 +25,10 @@ export interface UnresolvedItem {
   rowCount?: number;
 }
 
-export const unresolvedItems = async (s: Services, userId: string): Promise<UnresolvedItem[]> => {
-  const { ctx, accounts } = await s.analysis.get(s, userId, "own");
+export const unresolvedItems = async (_s: Services, _userId: string, own: OwnView): Promise<UnresolvedItem[]> => {
+  const { ctx, balances, inputs, stamp } = own;
   if (!ctx.txs.length) return [];
-  const { balances, inputs } = await requestInputs(s, userId, accounts);
-  return memoOn(ctx, "review:unresolved", [balances, inputs], (): UnresolvedItem[] => {
+  return memoOn(ctx, "review:unresolved", stamp, (): UnresolvedItem[] => {
     const open = (cashAhead(withoutWrongBills(ctx, inputs.marks), balances, inputs).balance?.unresolved ?? []).filter((c) => c.reason === "card_payer_unseen");
     const ids = open.map((c) => c.cardId);
     if (!open.length || unresolvedDismissed(inputs.marks, "card_payer_unseen", ids)) return [];
