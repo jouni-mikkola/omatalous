@@ -54,7 +54,7 @@ export async function transactionsView(s: Services, userId: string, q: Transacti
     offset: q.offset,
     own,
   };
-  const { total, ids, days: counts, items: stored } = await repo.listTransactions(filter, shared.map((a) => a.id));
+  const { total, ids, days: matchingDays, items: stored } = await repo.listTransactions(filter, shared.map((a) => a.id));
   // the strip's figures, the histogram's bars and each day's sums are the flows of the matching rows, as the front page adds
   // them up: a refund lowers Menot, a loan account's row and a move between own accounts are neutral, what lands on savings
   // is saved, a short payment's fee is spent, and a card bill whose statement is read stands at what its rows leave of it
@@ -75,10 +75,9 @@ export async function transactionsView(s: Services, userId: string, q: Transacti
   const counted = narrowed ? listed : [...loweredRows(ctx, listed), ...explained];
   const flowsOfDay = new Map<string, Flows[]>();
   for (const t of counted) flowsOfDay.set(t.bookingDate, [...(flowsOfDay.get(t.bookingDate) ?? []), t.flows]);
-  const countOfDay = new Map(counts.map((d) => [d.date, d.count]));
-  const days = [...new Set([...countOfDay.keys(), ...flowsOfDay.keys()])].sort().map((date) => {
+  const days = [...new Set([...matchingDays, ...flowsOfDay.keys()])].sort().map((date) => {
     const { incomeCents, expenseCents, savedCents } = totalsOf(flowsOfDay.get(date) ?? []);
-    return { date, count: countOfDay.get(date) ?? 0, inCents: incomeCents, outCents: expenseCents, savedCents };
+    return { date, inCents: incomeCents, outCents: expenseCents, savedCents };
   });
   const { incomeCents: inCents, expenseCents: outCents, savedCents, leftCents } = totalsOf(counted.map((t) => t.flows));
   const items = stored.map((t) => ({ ...t, ...own.told.get(t.id) }));

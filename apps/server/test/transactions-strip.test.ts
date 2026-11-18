@@ -19,7 +19,7 @@ const csv = [
   `2026/09/03;-106,66;${CHECKING};;;PRISMA TIKKURILA;;EUR`,
 ].join("\n");
 
-type DaySum = { date: string; count: number; inCents: number; outCents: number };
+type DaySum = { date: string; inCents: number; outCents: number };
 
 describe("GET /api/transactions: the strip and the day rows", () => {
   it("sums whole days also when the page cuts one, bins the span to the cent and gives its difference", async () => {
@@ -33,11 +33,11 @@ describe("GET /api/transactions: the strip and the day rows", () => {
     const binOut = all.histogram.bins.reduce((n: number, b: DaySum) => n + b.outCents, 0);
     expect(binOut).toBe(all.outCents);
 
-    // the newest three rows: 30.9., 16.9. and one of the two rows of 5.9.; the day still says both
+    // the newest three rows: 30.9., 16.9. and one of the two rows of 5.9.; the day's sums still hold both
     const page = (await admin.call("GET", "/api/transactions?limit=3")).body;
     const fifth: DaySum = page.daySums.find((d: DaySum) => d.date === "2026-09-05");
     expect(page.items.filter((t: { bookingDate: string }) => t.bookingDate === "2026-09-05")).toHaveLength(1);
-    expect(fifth).toEqual({ date: "2026-09-05", count: 2, inCents: 0, outCents: 5415, savedCents: 0 });
+    expect(fifth).toEqual({ date: "2026-09-05", inCents: 0, outCents: 5415, savedCents: 0 });
     // only the days of the rows on the page
     expect(page.daySums.map((d: DaySum) => d.date).sort()).toEqual(["2026-09-05", "2026-09-16", "2026-09-30"]);
 

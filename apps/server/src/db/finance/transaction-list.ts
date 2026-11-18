@@ -12,12 +12,6 @@ import { notLeftSql, type OwnRows, toldSql } from "./part-sql.ts";
 
 const INCOME_CATEGORIES = CATEGORIES.filter((c) => c.kind === "income").map((c) => c.id);
 
-/** How many matching rows one booking day has. */
-export interface DayCount {
-  date: string;
-  count: number;
-}
-
 export interface TransactionFilter {
   from?: string;
   to?: string;
@@ -113,26 +107,24 @@ export class TransactionListRepo {
     return rows.map(toTransaction);
   }
 
-  async listTransactions(f: TransactionFilter, accountIds?: readonly string[]): Promise<{ total: number; ids: string[]; days: DayCount[]; items: StoredTransaction[] }> {
+  async listTransactions(f: TransactionFilter, accountIds?: readonly string[]): Promise<{ total: number; ids: string[]; days: string[]; items: StoredTransaction[] }> {
     const sides = this.filterSides(f, accountIds);
     // No sum is added up here: `ids` names every matching row, and the service adds up their flows as the front page
-    // does (`totalsOf`), so a refund, a loan account's row, a move to savings and a fee count as there. The days say only
-    // how many rows each has, so a day the page limit cuts still says it. One read of each side gives all three, so the
-    // filter, a text search above all, runs over the rows once.
+    // does (`totalsOf`), so a refund, a loan account's row, a move to savings and a fee count as there. The days are the
+    // booking days of the matching rows, so a day the page limit cuts still has its sums. One read of each side gives all
+    // three, so the filter, a text search above all, runs over the rows once.
     const ids: string[] = [];
-    const byDay = new Map<string, DayCount>();
+    const byDay = new Set<string>();
     for (const side of sides) {
       const matching = await this.ctx.db.all<{ id: string; d: string }>(`SELECT id, booking_date AS d FROM transactions WHERE ${side.where.join(" AND ")}`, side.params);
       for (const r of matching) {
         ids.push(r.id);
-        const day = byDay.get(r.d) ?? { date: r.d, count: 0 };
-        day.count += 1;
-        byDay.set(r.d, day);
+        byDay.add(r.d);
       }
     }
     const total = ids.length;
     const items = await this.pageRows(sides, Math.min(Math.max(f.limit ?? 100, 1), MAX_LIST_ROWS), Math.max(f.offset ?? 0, 0));
-    const days = [...byDay.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
+    const days = [...byDay].sort();
     return { total, ids, days, items };
   }
 

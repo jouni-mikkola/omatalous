@@ -58,7 +58,7 @@ A figure has one definition, in `packages/core`, and the first page, the reports
 | *Odotettu lasku* | A bill the household typed in, repeated by its cadence: once, quarterly, half yearly or yearly | `ExpectedBill`, `expectedDates` in `commitments.ts` |
 
 Monthly averages divide by complete months only, so a running month never pulls an average down. A category or pivot
-average without one complete month is empty. A year comparison needs three whole months in both years. Money saved to an
+average without one complete month is empty. A year comparison needs three whole months in both years. A period that ends mid-month is set against the same days a year earlier, in the month's line as in the year's figures. Money saved to an
 own account or fund that is not connected (`own_unconnected` in Tietojen laatu) counts as saved, and the data quality card
 names the sum and the largest payees, so a missing connection shows.
 
