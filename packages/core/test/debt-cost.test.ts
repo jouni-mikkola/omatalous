@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { debtCost, type SeriesPayment } from "../src/debt-cost.ts";
+import { loanSchedule } from "../src/loan-schedule.ts";
 import { settledCardLoan } from "../src/loans.ts";
 import type { Loan } from "../src/types.ts";
 
@@ -46,6 +47,29 @@ describe("debtCost", () => {
 
   it("measures the fee from the rows when no document states it", () => {
     expect(debtCost(plan(), START, paid(5_395))).toMatchObject({ rateMilli: 15_247, costClass: "very_dear", next12: { feeCents: 4_740 } });
+  });
+
+  it("reads a fee under 1 € on a 0 % plan: 0,99 € a payment is cheap, not free", () => {
+    expect(debtCost(plan(), START, paid(5_099))).toMatchObject({ costClass: "cheap", leftCents: 1_188, feePerPaymentCents: 99 });
+  });
+
+  it("measures the fee from the rows of a loan with interest", () => {
+    const annuity = plan({ kind: "consumer", rateBp: 500, repayment: "annuity", balanceCents: 1_000_000, paymentCents: 18_871, endDate: "2031-01-15", seriesKey: "series-1" });
+    const noFee = debtCost(annuity, START, paid(18_871))!;
+    const withFee = debtCost(annuity, START, paid(18_871 + 395))!;
+    expect(noFee.feePerPaymentCents).toBe(0);
+    expect(withFee).toMatchObject({ feePerPaymentCents: 395, next12: { feeCents: 4_740 } });
+    expect(withFee.rateMilli).toBeGreaterThan(noFee.rateMilli!);
+  });
+
+  it("reads no fee when a euribor falls at a review and the newest rows are still at the old rate", () => {
+    const mortgage = plan({ kind: "mortgage", rateBp: 400, reference: "euribor_3", marginBp: 50, repayment: "annuity", balanceCents: 15_000_000, paymentCents: 79_200, endDate: "2051-01-15", seriesKey: "series-1", ratePath: [[START, 4_000], ["2026-04-20", 3_500]] });
+    // the payments of 15.3., 15.4. and 15.5. count the old rate; the one of 15.6. is the first at the new one
+    const rows = loanSchedule(mortgage, START).rows.slice(1, 4).map((r) => ({ date: r.date, cents: r.interestCents! + r.principalCents }));
+    const day = "2026-05-20";
+    const next = loanSchedule(mortgage, day).rows[0]!;
+    expect(rows.at(-1)!.cents - (next.interestCents! + next.principalCents)).toBeGreaterThan(1_000);
+    expect(debtCost(mortgage, day, rows)).toMatchObject({ costClass: "cheap", feePerPaymentCents: 0 });
   });
 
   it("calls a 0 % plan free only when a document or the rows show no fee", () => {

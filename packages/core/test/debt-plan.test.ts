@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { debtCost } from "../src/debt-cost.ts";
 import { consolidation, payoffPlan } from "../src/debt-plan.ts";
-import { loanSchedule, loanWhatIf } from "../src/loan-schedule.ts";
+import { annuityPayment, loanSchedule, loanWhatIf } from "../src/loan-schedule.ts";
 import { settledCardLoan } from "../src/loans.ts";
 import type { IsoDate, Loan } from "../src/types.ts";
 
@@ -44,6 +44,11 @@ describe("payoffPlan", () => {
     ["an annuity from a day inside an interval", loan({ repayment: "annuity", paymentCents: 18_871, endDate: "2031-01-15" }), "2026-03-20"],
     ["a fixed instalment", loan(), START],
     ["an equal principal loan", loan({ repayment: "equal_principal", paymentCents: 16_667, endDate: "2031-01-15" }), START],
+    [
+      "a euribor annuity whose rate falls and rises",
+      loan({ repayment: "annuity", reference: "euribor_3", marginBp: 100, paymentCents: 18_871, endDate: "2031-01-15", ratePath: [[START, 5_000], ["2026-04-15", 3_500], ["2026-10-15", 4_500]] }),
+      START,
+    ],
   ])("gives one loan what loanWhatIf gives it for the same payment: %s", (_, one, day) => {
     const plan = payoffPlan([one], day, 10_000, FULL)!;
     const whatIf = loanWhatIf(one, day, { paymentCents: planned(one, day) + 10_000 })!.shorter;
@@ -61,11 +66,12 @@ describe("payoffPlan", () => {
     for (const d of plan.debts) expect(d.endDate < d.baseEndDate).toBe(true);
     expect(plan.debtFreeDate < plan.baseDebtFreeDate).toBe(true);
     expect(plan.savedCents).toBeGreaterThan(0);
-    // the smallest first costs a few euros more here: under the limit, no line
-    expect(plan.snowballExtraCents).toBeNull();
+    // the smallest first costs a few euros more here, under the 50 € a view shows it from
+    expect(plan.snowballExtraCents).toBeGreaterThanOrEqual(0);
+    expect(plan.snowballExtraCents).toBe(1_489);
   });
 
-  it("tells what the smallest debt first costs more only from 50 €, never less than the dearest first", () => {
+  it("tells what the smallest debt first costs more than the dearest first", () => {
     const dear = loan({ id: "dear", balanceCents: 1_500_000, rateBp: 1_990, paymentCents: 30_000 });
     const cheap = loan({ id: "cheap", balanceCents: 300_000, rateBp: 200, paymentCents: 5_000 });
     const plan = payoffPlan([dear, cheap], START, 20_000, FULL)!;
@@ -99,6 +105,23 @@ describe("payoffPlan", () => {
     const mid = loan({ id: "mid", balanceCents: 300_000, rateBp: 1_000, paymentCents: 10_000 });
     expect(debtCost(promo, START)!.rateMilli).toBeGreaterThan(debtCost(mid, START)!.rateMilli!);
     expect(payoffPlan([mid, promo], START, 20_000, FULL)!.debts.map((d) => d.id)).toEqual(["promo", "mid"]);
+  });
+
+  it("plans a debt partly another user's on the viewer's part, as a loan of that size", () => {
+    const whole = loan({ repayment: "annuity", paymentCents: 18_872, endDate: "2031-01-15" });
+    const half = loan({ repayment: "annuity", balanceCents: 500_000, paymentCents: 9_436, endDate: "2031-01-15" });
+    const plan = payoffPlan([{ ...whole, part: { from: 1, to: 2, of: 2 } }], START, 5_000, FULL);
+    expect(plan).not.toBeNull();
+    expect(plan).toEqual(payoffPlan([half], START, 5_000, FULL));
+  });
+
+  it("puts each month's extra money into a loan paid every 3 months: what loanWhatIf gives three months of it on each payment", () => {
+    const quarterly = loan({ repayment: "annuity", intervalMonths: 3, paymentCents: annuityPayment(1_000_000, 5_000, 3, 20), endDate: "2031-01-15" });
+    const plan = payoffPlan([quarterly], START, 10_000, FULL)!;
+    const whatIf = loanWhatIf(quarterly, START, { paymentCents: planned(quarterly, START) + 30_000 })!.shorter;
+    expect(plan.debtFreeDate).toBe(whatIf.endDate);
+    expect(plan.savedCents).toBe(whatIf.interestSavedCents);
+    expect(plan.baseDebtFreeDate).toBe("2031-01-15");
   });
 
   it("has no plan when a debt that owes has none, or nothing is owed", () => {

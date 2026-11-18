@@ -10,10 +10,10 @@
  * debt taken for taxable income is, and nothing here tells that apart from a home loan, so its cost reads too high,
  * which is the safe side.
  */
-import { addMonthsToDate, DAYS_PER_MONTH, monthIndex, monthOf } from "./dates.ts";
+import { addMonthsToDate, DAYS_PER_MONTH, daysBetween, monthIndex, monthOf } from "./dates.ts";
 import { centsOf, type Debt, partly } from "./debt-part.ts";
 import { dueDates, endOf, intervalOf } from "./loan-plan.ts";
-import { loanSchedule } from "./loan-schedule.ts";
+import { loanSchedule, type ScheduleRow } from "./loan-schedule.ts";
 import { loanBalanceOn, loanInterestNext12Months, type LoanUnknown } from "./loans.ts";
 import { median } from "./stats.ts";
 import { THRESHOLDS } from "./thresholds.ts";
@@ -111,16 +111,32 @@ const toleranceOf = (cents: number): number =>
 const NEWEST_ROWS = 3;
 
 /**
- * The fee the rows measure on top of the plan's payment: 0 when the newest three rows are the plan's payment, their
- * median excess when all three exceed it alike, and null when they tell neither (too few rows, or an extra repayment).
+ * The plan's payment a row pays: the one due nearest the row's date, so a row booked before a rate change is read
+ * against the payment of its own rate. A row before the plan's first payment is read against that one. The room is
+ * the rounding of an annuity, and none for a payment with no interest, which has nothing to round.
  */
-function measuredFee(planned: number, rows: readonly SeriesPayment[]): number | null {
+function plannedOn(due: readonly ScheduleRow[], date: IsoDate): { cents: number; room: number } {
+  const row = due.reduce((a, b) => (Math.abs(daysBetween(date, b.date)) < Math.abs(daysBetween(date, a.date)) ? b : a));
+  const cents = row.interestCents! + row.principalCents;
+  return { cents, room: row.interestCents === 0 ? 0 : toleranceOf(cents) };
+}
+
+/**
+ * The fee the rows measure on top of the plan's payments (`due`): 0 when the newest three rows are the plan's payment,
+ * their median excess when all three exceed it alike, and null when they tell neither (too few rows, or an extra
+ * repayment).
+ */
+function measuredFee(due: readonly ScheduleRow[], rows: readonly SeriesPayment[]): number | null {
   const newest = [...rows].sort((a, b) => a.date.localeCompare(b.date)).slice(-NEWEST_ROWS);
-  if (newest.length < NEWEST_ROWS) return null;
-  const room = toleranceOf(planned);
-  const excess = newest.map((r) => r.cents - planned);
-  if (excess.every((e) => Math.abs(e) <= room)) return 0;
-  if (excess.some((e) => e <= room) || Math.max(...excess) - Math.min(...excess) > room) return null;
+  if (newest.length < NEWEST_ROWS || due.length === 0) return null;
+  const read = newest.map((r) => {
+    const planned = plannedOn(due, r.date);
+    return { excess: r.cents - planned.cents, room: planned.room };
+  });
+  const excess = read.map((r) => r.excess);
+  const room = Math.max(...read.map((r) => r.room));
+  if (read.every((r) => Math.abs(r.excess) <= r.room)) return 0;
+  if (read.some((r) => r.excess <= r.room) || Math.max(...excess) - Math.min(...excess) > room) return null;
   return Math.round(median(excess));
 }
 
@@ -138,7 +154,8 @@ function planCost(loan: Loan, day: IsoDate, owedCents: number, rows: readonly Se
   const first = schedule.rows[0]!;
   const stated = loan.paymentParts?.length ? first.feeCents : null;
   const interestFree = schedule.rows.every((r) => r.interestCents === 0);
-  const fee = stated ?? measuredFee(first.interestCents! + first.principalCents, rows) ?? (interestFree ? null : 0);
+  // each row against the payment of its own date: the plan from the balance date holds those before the day too
+  const fee = stated ?? (rows.length > 0 ? measuredFee(loanSchedule(loan, loan.balanceDate).rows, rows) : null) ?? (interestFree ? null : 0);
   if (fee === null) return unknownCost("fee");
   // a revolving loan's plan pays each month, every other the loan's own interval
   const start = flowStart(first.date, isRevolving(loan.kind) ? 1 : (intervalOf(loan) ?? 1));

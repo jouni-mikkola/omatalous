@@ -8,15 +8,16 @@
  * is already out of the buffer, so the plan does not count the card's payment from cash twice.
  *
  * Each payment is the loan's own (`payments` of `loan-schedule.ts`), at its rate in force, with the extra money on top,
- * so a single loan gets what `loanWhatIf` gives it for the same payment. The payment of an annuity stays as it is when its
- * rate changes, as with any extra repayment that shortens the term; the bank may set it again.
+ * so a single loan gets what `loanWhatIf` gives it for the same payment. An annuity with a rate path sets its payment
+ * again when its rate changes, as `loanSchedule` does: against its last due date, and once extra money has shortened it,
+ * against the earlier end a first run that keeps the payment finds, as `loanWhatIf` shortens a term.
  */
 import { partCents } from "./account-use.ts";
 import { addMonthsToDate } from "./dates.ts";
 import { debtCost, type DebtCost, type SeriesPayment } from "./debt-cost.ts";
 import { type Debt, partly } from "./debt-part.ts";
 import { divRound, dueDates, type Instalments, MAX_LOAN_PAYMENTS, typedPayment } from "./loan-plan.ts";
-import { annuityPayment, loanSchedule, type Payment, paymentOf, payments, schedulePlan } from "./loan-schedule.ts";
+import { annuityPayment, loanSchedule, type Payment, paymentOf, payments, paymentToEnd, rateMilliAt, resetsPayment, schedulePlan } from "./loan-schedule.ts";
 import { loanBalanceOn } from "./loans.ts";
 import { THRESHOLDS } from "./thresholds.ts";
 import type { IsoDate, Loan } from "./types.ts";
@@ -51,8 +52,8 @@ interface PayoffPlan {
   bufferFullDate: IsoDate | null;
   /** Every debt that owes: first those the extra money pays, in its order. */
   debts: PlannedDebt[];
-  /** The interest and fees paying the smallest debt first costs more, only from `snowballGapCents` on. */
-  snowballExtraCents: number | null;
+  /** The interest and fees paying the smallest debt first costs more than the dearest first; a view shows it from `snowballGapCents` on. */
+  snowballExtraCents: number;
 }
 
 /** One debt in the plan: where it stands and how it is paid. */
@@ -71,9 +72,17 @@ interface Lane {
   owed: number;
   /** The plan's place to start: what is owed after the last due date on or before the day. */
   start: { balanceCents: number; after: IsoDate };
+  /** The rate of the interval before the first payment: an annuity that `resets` sets its payment again when it changes. */
+  startRateMilli: number;
+  resets: boolean;
 }
 
-/** A debt cut to the viewer's part as a loan of its own: the balance and the payments at that part. */
+/**
+ * A debt cut to the viewer's part as a loan of its own: the balance and the payments at that part. `debt-part.ts`
+ * counts every figure on the whole loan and cuts it once; the plan is a what-if of the viewer's own money, so it runs on
+ * the viewer's part, cut as `atPart` of `household-debts.ts` cuts a typed loan, and two users' figures may differ from
+ * the whole by a cent of rounding.
+ */
 function asLoan(debt: Debt): Loan {
   const cut = partly(debt);
   if (!cut) return debt;
@@ -119,6 +128,8 @@ function laneOf(debt: Debt, day: IsoDate, cost: DebtCost): Lane | "unknown" | nu
     rateMilli: takes ? cost.rateMilli : null,
     owed: start.balanceCents,
     start,
+    startRateMilli: rateMilliAt(loan.ratePath, plan.rateBp, start.after),
+    resets: resetsPayment(loan, plan),
   };
 }
 
@@ -135,9 +146,13 @@ interface Run {
  * (the plan's day and the same day of each month after it) and pays a due date after that day. It fills the buffer's
  * gap first, then goes to the first debt of `order` that still owes, on that debt's due dates, at most what ends it.
  * `roll` adds each ended debt's payment to the extra money. A debt's payments stop once it owes nothing.
+ *
+ * An annuity that `resets` sets its payment again when the rate of an interval changes. Until it takes extra money it
+ * aims at its last due date. After that it keeps its payment, or with `aims` (the ends of a run that kept it) the term
+ * is that end: the whole payment ends the loan there and the extra money it took last time is part of it.
  */
-function run(lanes: readonly Lane[], day: IsoDate, order: readonly Lane[], extraCents: number, gapCents: number, roll: boolean): Run | null {
-  const balance = new Map(lanes.map((l) => [l.id, l.start]));
+function run(lanes: readonly Lane[], day: IsoDate, order: readonly Lane[], extraCents: number, gapCents: number, roll: boolean, aims: ReadonlyMap<string, IsoDate> | null): Run | null {
+  const balance = new Map(lanes.map((l) => [l.id, { ...l.start, payment: l.planned, rateMilli: l.startRateMilli, took: 0, shortened: false }]));
   const events = lanes.flatMap((lane) => [...dueDates(lane.loan, lane.plan.months)].filter((d) => d > lane.start.after).map((date) => ({ date, lane })));
   events.sort((a, b) => a.date.localeCompare(b.date) || order.indexOf(a.lane) - order.indexOf(b.lane));
   const ends = new Map<string, IsoDate>();
@@ -157,21 +172,33 @@ function run(lanes: readonly Lane[], day: IsoDate, order: readonly Lane[], extra
       if (toBuffer > 0 && bufferCents === gapCents) bufferFullDate = inflow;
       cash += income - toBuffer;
     }
+    const aim = lane.resets && at.shortened ? (aims?.get(lane.id) ?? null) : null;
+    const loan = aim === null ? lane.loan : { ...lane.loan, endDate: aim };
+    const rate = rateMilliAt(loan.ratePath, lane.plan.rateBp!, at.after);
+    if (lane.resets && rate !== at.rateMilli) {
+      if (!at.shortened) at.payment = paymentToEnd(loan, lane.plan, at.balanceCents, at.after);
+      else if (aim !== null) at.payment = Math.max(0, paymentToEnd(loan, lane.plan, at.balanceCents, at.after) - at.took);
+    }
+    at.rateMilli = rate;
     const step = (payment: number): Payment | null => {
-      const next = payments(lane.loan, { ...lane.plan, paymentCents: payment }, at, true).next();
+      const next = payments(loan, { ...lane.plan, paymentCents: payment }, { balanceCents: at.balanceCents, after: at.after }, true).next();
       return next.done ? null : next.value;
     };
-    const own = step(lane.planned);
+    const own = step(at.payment);
     if (own === null) return null;
     const target = order.find((l) => balance.get(l.id)!.balanceCents > 0);
     const take = target === lane ? Math.min(cash, own.balanceCents) : 0;
-    const paid = take > 0 ? (step(lane.planned + take) ?? own) : own;
+    const paid = take > 0 ? (step(at.payment + take) ?? own) : own;
     cash -= take;
     costCents += (paid.interestCents ?? 0) + lane.fee;
-    balance.set(lane.id, { balanceCents: paid.balanceCents, after: date });
+    at.balanceCents = paid.balanceCents;
+    at.after = date;
+    at.took = take;
+    if (take > 0) at.shortened = true;
     if (paid.balanceCents <= 0) {
       ends.set(lane.id, date);
-      if (roll) freed += lane.monthly;
+      // the payment in force is freed: one an annuity set again, or the plan's own
+      if (roll) freed += lane.plan.withInterest ? divRound(at.payment, lane.plan.months) : lane.monthly;
     }
   }
   // a debt the plan does not end is no plan to tell
@@ -179,6 +206,12 @@ function run(lanes: readonly Lane[], day: IsoDate, order: readonly Lane[], extra
 }
 
 const latest = (ends: Map<string, IsoDate>): IsoDate => [...ends.values()].reduce((a, b) => (b > a ? b : a));
+
+/** A run with extra money that shortens each debt as `loanWhatIf` does: first keeping each payment, then against the ends found. */
+function shortened(lanes: readonly Lane[], day: IsoDate, order: readonly Lane[], extraCents: number, gapCents: number): Run | null {
+  const probe = run(lanes, day, order, extraCents, gapCents, true, null);
+  return probe === null ? null : run(lanes, day, order, extraCents, gapCents, true, probe.ends);
+}
 
 /**
  * The debt-free plan with `extraCents` more a month from `day`: the buffer first, then the dearest debt first (the
@@ -201,11 +234,10 @@ export function payoffPlan(debts: readonly Debt[], day: IsoDate, extraCents: num
   const byCost = [...takers].sort((a, b) => b.rateMilli! - a.rateMilli! || a.owed - b.owed || a.id.localeCompare(b.id));
   const bySize = [...takers].sort((a, b) => a.owed - b.owed || b.rateMilli! - a.rateMilli! || a.id.localeCompare(b.id));
   const gapCents = Math.max(0, THRESHOLDS.debtPlanBufferMonths.value * buffer.spendCents - buffer.netCents);
-  const base = run(lanes, day, byCost, 0, 0, false);
-  const avalanche = run(lanes, day, byCost, extraCents, gapCents, true);
-  const snowball = run(lanes, day, bySize, extraCents, gapCents, true);
+  const base = run(lanes, day, byCost, 0, 0, false, null);
+  const avalanche = shortened(lanes, day, byCost, extraCents, gapCents);
+  const snowball = shortened(lanes, day, bySize, extraCents, gapCents);
   if (base === null || avalanche === null || snowball === null) return null;
-  const snowballExtra = snowball.costCents - avalanche.costCents;
   const rest = lanes.filter((l) => l.rateMilli === null);
   return {
     debtFreeDate: latest(avalanche.ends),
@@ -214,7 +246,7 @@ export function payoffPlan(debts: readonly Debt[], day: IsoDate, extraCents: num
     bufferCents: avalanche.bufferCents,
     bufferFullDate: avalanche.bufferFullDate,
     debts: [...byCost, ...rest].map((l, i) => ({ id: l.id, order: l.rateMilli === null ? null : i + 1, endDate: avalanche.ends.get(l.id)!, baseEndDate: base.ends.get(l.id)! })),
-    snowballExtraCents: snowballExtra >= THRESHOLDS.snowballGapCents.value ? snowballExtra : null,
+    snowballExtraCents: snowball.costCents - avalanche.costCents,
   };
 }
 
