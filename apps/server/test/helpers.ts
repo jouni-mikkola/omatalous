@@ -1,9 +1,11 @@
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
+import { vi } from "vitest";
 import { tempDir } from "../../../tools/lib/tmp-kit.ts";
 import { type AppDeps, createApp } from "../src/app.ts";
 import { loadConfig } from "../src/platform/config.ts";
 import { openDatabase } from "../src/db/open.ts";
+import type { Db } from "../src/db/types.ts";
 
 /**
  * Where a household's database file lives in a test. The server commits with synchronous = FULL, so every write waits
@@ -82,6 +84,25 @@ export async function setupApp(env: Record<string, string> = {}, fetchMock?: typ
   }
 
   return { app, db, s: app.services, admin, adminId: setup.body.user.id as string, client, member };
+}
+
+/** The database statements made while `work` runs: one for each query or write, and each statement of a transaction. */
+export async function statementsOf(db: Db, work: () => Promise<unknown>): Promise<number> {
+  let n = 0;
+  const spies = ((["all", "first", "run"] as const).map((method) => {
+    const original = db[method].bind(db) as (...args: unknown[]) => unknown;
+    return vi.spyOn(db, method).mockImplementation(((...args: unknown[]) => (n++, original(...args))) as never);
+  })) as { mockRestore(): void }[];
+  for (const method of ["readMany", "batch"] as const) {
+    const original = db[method].bind(db) as (statements: unknown[]) => unknown;
+    spies.push(vi.spyOn(db, method).mockImplementation(((statements: unknown[]) => ((n += statements.length), original(statements))) as never));
+  }
+  try {
+    await work();
+  } finally {
+    for (const spy of spies) spy.mockRestore();
+  }
+  return n;
 }
 
 /** The signed-in user's checking account as /api/meta lists it (the demo data has one). */

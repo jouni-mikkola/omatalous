@@ -26,7 +26,7 @@ export const THRESHOLDS = {
   previousYearMonths: threshold(24, "months", "Two years: the months of a period and the same months a year before them, for the change of earned income in a year."),
   minCompositionMonths: threshold(3, "months", "A judgement: the shares of the income types need three complete months to be more than one month's accident."),
   steadySpread: threshold(0.03, "share", "A judgement: a median change under 3 % from one month to the next reads as steady income."),
-  yearMonths: threshold(12, "months", "A year: the last-twelve-months column of the spending table reads at most this many whole months."),
+  yearMonths: threshold(12, "months", "A year: the last-twelve-months column of the spending table reads at most this many whole months, and the rare bills and the bill calendar count the twelve calendar months from this one."),
   aheadDays: threshold(30, "days", "A month: the bills of Laskut and the window of Yhteenveto look this far when no payday sets the end."),
   maxPaydayDays: threshold(45, "days", "A judgement: a payday over a month and a half away is not waited for, since a monthly pay missed by a few weeks would stretch the window over the next one."),
   minPayGapDays: threshold(15, "days", "Half a month: a monthly pay is expected at least this long after the last one. A nearer day is the last pay, which came a little off its day."),
@@ -69,6 +69,7 @@ export const THRESHOLDS = {
   billDoubleDays: threshold(7, "days", "A judgement: a monthly bill charged again within a week is the bill and its reminder, and a later charge is the next month's."),
   moneyBackDays: threshold(120, "days", "The time a card payer has to dispute a charge, about four months: an older double charge or charge after a cancellation is no longer asked about."),
   refundWaitDays: threshold(30, "days", "A judgement: a merchant pays a refund back within a month, so a refund asked for and not seen after 30 days is asked about once more."),
+  minRareBillCents: threshold(1000, "cents", "A judgement: a small yearly charge (a 2 € storage plan) is not worth a line among the rare bills."),
 } as const;
 
 export const USUAL_MONTHS = THRESHOLDS.usualMonths.value;
@@ -123,3 +124,5 @@ export const DOUBLE_MIN_CENTS = THRESHOLDS.doubleMinCents.value;
 export const BILL_DOUBLE_DAYS = THRESHOLDS.billDoubleDays.value;
 export const MONEY_BACK_DAYS = THRESHOLDS.moneyBackDays.value;
 export const REFUND_WAIT_DAYS = THRESHOLDS.refundWaitDays.value;
+export const YEAR_MONTHS = THRESHOLDS.yearMonths.value;
+export const MIN_RARE_BILL_CENTS = THRESHOLDS.minRareBillCents.value;
