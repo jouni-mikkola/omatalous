@@ -5,11 +5,11 @@
  * member's inputs once, not once for each of its sources). Made-up names and sums; the test clock is 9.10.2026.
  */
 import { notLoanMark, type RawTransaction } from "@banking/core";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { reprocess } from "../src/services/enrich.ts";
 import { ingestTransactions } from "../src/services/ingest.ts";
 import { reviewCount, reviewQueue } from "../src/services/review.ts";
-import { setupApp } from "./helpers.ts";
+import { setupApp, statementsOf } from "./helpers.ts";
 
 const raw = (bookingDate: string, euros: number, counterparty: string, description: string): RawTransaction => ({
   externalId: null, bookingDate, valueDate: null, amountCents: Math.round(euros * 100), currency: "EUR", status: "booked",
@@ -37,25 +37,6 @@ async function household() {
   await ingestTransactions(maijaRepo, "maija-chk", MONTHS.map((m) => raw(`${m}-12`, -30, "TOINEN KAUPPA XYZ", "KORTTIOSTO")), "csv");
   await reprocess(maijaRepo, t.s.settings);
   return { ...t, maijaId: maija.id };
-}
-
-/** The database reads and writes made while `work` runs: one for each statement, a read transaction counting each of its own. */
-async function statementsOf(db: Awaited<ReturnType<typeof setupApp>>["db"], work: () => Promise<unknown>): Promise<number> {
-  let n = 0;
-  const spies = (["all", "first", "run"] as const).map((method) => {
-    const original = db[method].bind(db) as (...args: unknown[]) => unknown;
-    return vi.spyOn(db, method).mockImplementation(((...args: unknown[]) => (n++, original(...args))) as never);
-  });
-  for (const method of ["readMany", "batch"] as const) {
-    const original = db[method].bind(db) as (statements: unknown[]) => unknown;
-    spies.push(vi.spyOn(db, method).mockImplementation(((statements: unknown[]) => ((n += statements.length), original(statements))) as never) as never);
-  }
-  try {
-    await work();
-  } finally {
-    for (const spy of spies) spy.mockRestore();
-  }
-  return n;
 }
 
 /**
