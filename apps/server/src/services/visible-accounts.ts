@@ -3,7 +3,8 @@ import { accountKey } from "../db/household-repo.ts";
 import type { StoredAccount } from "../db/rows.ts";
 import { isPool, usesInView } from "./account-use.ts";
 import type { Services } from "./context.ts";
-import { ensureTrace, type TraceFacts } from "./money-trace.ts";
+import { ensureTrace } from "./money-trace.ts";
+import type { TraceFacts } from "./money-trace-parts.ts";
 import type { RequestReads } from "./request-reads.ts";
 
 type SharedAccount = StoredAccount & { ownerName: string };
