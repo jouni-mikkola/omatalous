@@ -736,6 +736,8 @@
       "category": "transport",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "monthly": true,
+      "onCard": true,
       "state": "paid",
       "date": "2026-10-01",
       "cents": 6470
@@ -745,6 +747,8 @@
       "category": "fitness",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "monthly": true,
+      "onCard": true,
       "state": "paid",
       "date": "2026-10-01",
       "cents": 5900
@@ -754,6 +758,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "monthly": true,
       "state": "paid",
       "date": "2026-10-02",
       "cents": 105000
@@ -763,6 +768,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "monthly": true,
+      "onCard": true,
       "state": "paid",
       "date": "2026-10-03",
       "cents": 99
@@ -772,6 +779,7 @@
       "category": "loans",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "monthly": true,
       "state": "paid",
       "date": "2026-10-05",
       "cents": 28900
@@ -790,6 +798,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "monthly": true,
+      "onCard": true,
       "state": "paid",
       "date": "2026-10-05",
       "cents": 2300
@@ -799,6 +809,7 @@
       "category": "investments",
       "kind": "saving",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "monthly": true,
       "state": "paid",
       "date": "2026-10-06",
       "cents": 15000
@@ -808,15 +819,28 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "monthly": true,
+      "onCard": true,
       "state": "paid",
       "date": "2026-10-07",
       "cents": 1799
+     },
+     {
+      "date": "2026-10-10",
+      "payee": "Nordea Gold (esimerkki)",
+      "category": "transfer",
+      "cents": 285586,
+      "state": "known",
+      "kind": "bill",
+      "seriesId": null
      },
      {
       "payee": "Spotify",
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-10-12",
       "cents": 1199,
       "state": "known"
@@ -826,6 +850,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-10-14",
       "cents": 7499,
       "state": "known"
@@ -835,6 +861,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "monthly": true,
       "date": "2026-10-15",
       "cents": 4621,
       "state": "estimate"
@@ -844,6 +871,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-10-18",
       "cents": 1299,
       "state": "known"
@@ -853,6 +882,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "monthly": true,
       "date": "2026-10-20",
       "cents": 2990,
       "state": "known"
@@ -862,6 +892,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-10-20",
       "cents": 1199,
       "state": "known"
@@ -876,10 +908,14 @@
       "state": "known"
      }
     ],
-    "knownCents": 14186,
+    "knownCents": 288576,
     "estimateCents": 4621,
     "savingCents": 0,
-    "incomeCents": 395000
+    "incomeCents": 395000,
+    "billsCents": 293197,
+    "afterCents": 101803,
+    "monthlyBillsCount": 2,
+    "monthlyBillsCents": 7611
    },
    {
     "month": "2026-11",
@@ -889,6 +925,8 @@
       "category": "transport",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-11-01",
       "cents": 6470,
       "state": "known"
@@ -898,6 +936,8 @@
       "category": "fitness",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-11-01",
       "cents": 5900,
       "state": "known"
@@ -907,6 +947,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "monthly": true,
       "date": "2026-11-02",
       "cents": 105000,
       "state": "known"
@@ -916,6 +957,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-11-03",
       "cents": 99,
       "state": "known"
@@ -925,6 +968,7 @@
       "category": "loans",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "monthly": true,
       "date": "2026-11-05",
       "cents": 28900,
       "state": "known"
@@ -934,6 +978,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-11-05",
       "cents": 2300,
       "state": "known"
@@ -943,6 +989,7 @@
       "category": "investments",
       "kind": "saving",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "monthly": true,
       "date": "2026-11-06",
       "cents": 15000,
       "state": "known"
@@ -952,6 +999,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-11-07",
       "cents": 1799,
       "state": "known"
@@ -961,6 +1010,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-11-12",
       "cents": 1199,
       "state": "known"
@@ -970,6 +1021,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-11-14",
       "cents": 7499,
       "state": "known"
@@ -979,6 +1032,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "monthly": true,
       "date": "2026-11-15",
       "cents": 7158,
       "state": "estimate"
@@ -988,6 +1042,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-11-18",
       "cents": 1299,
       "state": "known"
@@ -997,6 +1053,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "monthly": true,
       "date": "2026-11-20",
       "cents": 2990,
       "state": "known"
@@ -1006,6 +1063,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-11-20",
       "cents": 1199,
       "state": "known"
@@ -1020,10 +1079,14 @@
       "state": "known"
      }
     ],
-    "knownCents": 164654,
+    "knownCents": 136890,
     "estimateCents": 7158,
     "savingCents": 15000,
-    "incomeCents": 395000
+    "incomeCents": 395000,
+    "billsCents": 144048,
+    "afterCents": 235952,
+    "monthlyBillsCount": 4,
+    "monthlyBillsCents": 144048
    },
    {
     "month": "2026-12",
@@ -1033,6 +1096,8 @@
       "category": "transport",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-12-01",
       "cents": 6470,
       "state": "known"
@@ -1042,6 +1107,8 @@
       "category": "fitness",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-12-01",
       "cents": 5900,
       "state": "known"
@@ -1051,6 +1118,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "monthly": true,
       "date": "2026-12-02",
       "cents": 105000,
       "state": "known"
@@ -1060,6 +1128,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-12-03",
       "cents": 99,
       "state": "known"
@@ -1069,6 +1139,7 @@
       "category": "loans",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "monthly": true,
       "date": "2026-12-05",
       "cents": 28900,
       "state": "known"
@@ -1078,6 +1149,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-12-05",
       "cents": 2300,
       "state": "known"
@@ -1087,6 +1160,7 @@
       "category": "investments",
       "kind": "saving",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "monthly": true,
       "date": "2026-12-06",
       "cents": 15000,
       "state": "known"
@@ -1096,6 +1170,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-12-07",
       "cents": 1799,
       "state": "known"
@@ -1105,6 +1181,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-12-12",
       "cents": 1199,
       "state": "known"
@@ -1114,6 +1192,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-12-14",
       "cents": 7499,
       "state": "known"
@@ -1123,6 +1203,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "monthly": true,
       "date": "2026-12-15",
       "cents": 7743,
       "state": "estimate"
@@ -1132,6 +1213,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-12-18",
       "cents": 1299,
       "state": "known"
@@ -1141,6 +1224,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "monthly": true,
       "date": "2026-12-20",
       "cents": 2990,
       "state": "known"
@@ -1150,6 +1234,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-12-20",
       "cents": 1199,
       "state": "known"
@@ -1164,10 +1250,14 @@
       "state": "known"
      }
     ],
-    "knownCents": 164654,
+    "knownCents": 136890,
     "estimateCents": 7743,
     "savingCents": 15000,
-    "incomeCents": 395000
+    "incomeCents": 395000,
+    "billsCents": 144633,
+    "afterCents": 235367,
+    "monthlyBillsCount": 4,
+    "monthlyBillsCents": 144633
    },
    {
     "month": "2027-01",
@@ -1177,6 +1267,8 @@
       "category": "transport",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-01-01",
       "cents": 6470,
       "state": "known"
@@ -1186,6 +1278,8 @@
       "category": "fitness",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-01-01",
       "cents": 5900,
       "state": "known"
@@ -1195,6 +1289,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "monthly": true,
       "date": "2027-01-02",
       "cents": 105000,
       "state": "known"
@@ -1204,6 +1299,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-01-03",
       "cents": 99,
       "state": "known"
@@ -1213,6 +1310,7 @@
       "category": "loans",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "monthly": true,
       "date": "2027-01-05",
       "cents": 28900,
       "state": "known"
@@ -1231,6 +1329,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-01-05",
       "cents": 2300,
       "state": "known"
@@ -1240,6 +1340,7 @@
       "category": "investments",
       "kind": "saving",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "monthly": true,
       "date": "2027-01-06",
       "cents": 15000,
       "state": "known"
@@ -1249,6 +1350,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-01-07",
       "cents": 1799,
       "state": "known"
@@ -1258,6 +1361,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-01-12",
       "cents": 1199,
       "state": "known"
@@ -1267,6 +1372,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-01-14",
       "cents": 7499,
       "state": "known"
@@ -1276,6 +1383,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "monthly": true,
       "date": "2027-01-15",
       "cents": 7535,
       "state": "estimate"
@@ -1285,6 +1393,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-01-18",
       "cents": 1299,
       "state": "known"
@@ -1294,6 +1404,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "monthly": true,
       "date": "2027-01-20",
       "cents": 2990,
       "state": "known"
@@ -1303,6 +1414,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-01-20",
       "cents": 1199,
       "state": "known"
@@ -1317,10 +1430,14 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 178884,
+    "knownCents": 151120,
     "estimateCents": 7535,
     "savingCents": 15000,
-    "incomeCents": 395000
+    "incomeCents": 395000,
+    "billsCents": 158655,
+    "afterCents": 221345,
+    "monthlyBillsCount": 4,
+    "monthlyBillsCents": 144425
    },
    {
     "month": "2027-02",
@@ -1330,6 +1447,8 @@
       "category": "transport",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-02-01",
       "cents": 6470,
       "state": "known"
@@ -1339,6 +1458,8 @@
       "category": "fitness",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-02-01",
       "cents": 5900,
       "state": "known"
@@ -1348,6 +1469,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "monthly": true,
       "date": "2027-02-02",
       "cents": 105000,
       "state": "known"
@@ -1357,6 +1479,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-02-03",
       "cents": 99,
       "state": "known"
@@ -1366,6 +1490,7 @@
       "category": "loans",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "monthly": true,
       "date": "2027-02-05",
       "cents": 28900,
       "state": "known"
@@ -1375,6 +1500,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-02-05",
       "cents": 2300,
       "state": "known"
@@ -1384,6 +1511,7 @@
       "category": "investments",
       "kind": "saving",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "monthly": true,
       "date": "2027-02-06",
       "cents": 15000,
       "state": "known"
@@ -1393,6 +1521,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-02-07",
       "cents": 1799,
       "state": "known"
@@ -1402,6 +1532,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-02-12",
       "cents": 1199,
       "state": "known"
@@ -1411,6 +1543,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-02-14",
       "cents": 7499,
       "state": "known"
@@ -1420,6 +1554,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "monthly": true,
       "date": "2027-02-15",
       "cents": 7237,
       "state": "estimate"
@@ -1429,6 +1564,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-02-18",
       "cents": 1299,
       "state": "known"
@@ -1438,6 +1575,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "monthly": true,
       "date": "2027-02-20",
       "cents": 2990,
       "state": "known"
@@ -1447,6 +1585,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-02-20",
       "cents": 1199,
       "state": "known"
@@ -1461,10 +1601,14 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 164654,
+    "knownCents": 136890,
     "estimateCents": 7237,
     "savingCents": 15000,
-    "incomeCents": 395000
+    "incomeCents": 395000,
+    "billsCents": 144127,
+    "afterCents": 235873,
+    "monthlyBillsCount": 4,
+    "monthlyBillsCents": 144127
    },
    {
     "month": "2027-03",
@@ -1474,6 +1618,8 @@
       "category": "transport",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-03-01",
       "cents": 6470,
       "state": "known"
@@ -1483,6 +1629,8 @@
       "category": "fitness",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-03-01",
       "cents": 5900,
       "state": "known"
@@ -1492,6 +1640,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "monthly": true,
       "date": "2027-03-02",
       "cents": 105000,
       "state": "known"
@@ -1501,6 +1650,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-03-03",
       "cents": 99,
       "state": "known"
@@ -1510,6 +1661,7 @@
       "category": "loans",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "monthly": true,
       "date": "2027-03-05",
       "cents": 28900,
       "state": "known"
@@ -1519,6 +1671,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-03-05",
       "cents": 2300,
       "state": "known"
@@ -1528,6 +1682,7 @@
       "category": "investments",
       "kind": "saving",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "monthly": true,
       "date": "2027-03-06",
       "cents": 15000,
       "state": "known"
@@ -1537,6 +1692,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-03-07",
       "cents": 1799,
       "state": "known"
@@ -1546,6 +1703,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-03-12",
       "cents": 1199,
       "state": "known"
@@ -1555,6 +1714,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-03-14",
       "cents": 7499,
       "state": "known"
@@ -1564,6 +1725,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "monthly": true,
       "date": "2027-03-15",
       "cents": 7207,
       "state": "estimate"
@@ -1573,6 +1735,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-03-18",
       "cents": 1299,
       "state": "known"
@@ -1582,6 +1746,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "monthly": true,
       "date": "2027-03-20",
       "cents": 2990,
       "state": "known"
@@ -1591,6 +1756,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-03-20",
       "cents": 1199,
       "state": "known"
@@ -1605,10 +1772,14 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 164654,
+    "knownCents": 136890,
     "estimateCents": 7207,
     "savingCents": 15000,
-    "incomeCents": 395000
+    "incomeCents": 395000,
+    "billsCents": 144097,
+    "afterCents": 235903,
+    "monthlyBillsCount": 4,
+    "monthlyBillsCents": 144097
    },
    {
     "month": "2027-04",
@@ -1618,6 +1789,8 @@
       "category": "transport",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-04-01",
       "cents": 6470,
       "state": "known"
@@ -1627,6 +1800,8 @@
       "category": "fitness",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-04-01",
       "cents": 5900,
       "state": "known"
@@ -1636,6 +1811,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "monthly": true,
       "date": "2027-04-02",
       "cents": 105000,
       "state": "known"
@@ -1645,6 +1821,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-04-03",
       "cents": 99,
       "state": "known"
@@ -1654,6 +1832,7 @@
       "category": "loans",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "monthly": true,
       "date": "2027-04-05",
       "cents": 28900,
       "state": "known"
@@ -1672,6 +1851,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-04-05",
       "cents": 2300,
       "state": "known"
@@ -1681,6 +1862,7 @@
       "category": "investments",
       "kind": "saving",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "monthly": true,
       "date": "2027-04-06",
       "cents": 15000,
       "state": "known"
@@ -1690,6 +1872,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-04-07",
       "cents": 1799,
       "state": "known"
@@ -1699,6 +1883,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-04-12",
       "cents": 1199,
       "state": "known"
@@ -1708,6 +1894,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-04-14",
       "cents": 7499,
       "state": "known"
@@ -1717,6 +1905,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "monthly": true,
       "date": "2027-04-15",
       "cents": 3980,
       "state": "estimate"
@@ -1726,6 +1915,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-04-18",
       "cents": 1299,
       "state": "known"
@@ -1735,6 +1926,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "monthly": true,
       "date": "2027-04-20",
       "cents": 2990,
       "state": "known"
@@ -1744,6 +1936,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-04-20",
       "cents": 1199,
       "state": "known"
@@ -1758,10 +1952,14 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 178884,
+    "knownCents": 151120,
     "estimateCents": 3980,
     "savingCents": 15000,
-    "incomeCents": 395000
+    "incomeCents": 395000,
+    "billsCents": 155100,
+    "afterCents": 224900,
+    "monthlyBillsCount": 4,
+    "monthlyBillsCents": 140870
    },
    {
     "month": "2027-05",
@@ -1771,6 +1969,8 @@
       "category": "transport",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-05-01",
       "cents": 6470,
       "state": "known"
@@ -1780,6 +1980,8 @@
       "category": "fitness",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-05-01",
       "cents": 5900,
       "state": "known"
@@ -1789,6 +1991,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "monthly": true,
       "date": "2027-05-02",
       "cents": 105000,
       "state": "known"
@@ -1798,6 +2001,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-05-03",
       "cents": 99,
       "state": "known"
@@ -1807,6 +2012,7 @@
       "category": "loans",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "monthly": true,
       "date": "2027-05-05",
       "cents": 28900,
       "state": "known"
@@ -1816,6 +2022,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-05-05",
       "cents": 2300,
       "state": "known"
@@ -1825,6 +2033,7 @@
       "category": "investments",
       "kind": "saving",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "monthly": true,
       "date": "2027-05-06",
       "cents": 15000,
       "state": "known"
@@ -1834,6 +2043,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-05-07",
       "cents": 1799,
       "state": "known"
@@ -1843,6 +2054,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-05-12",
       "cents": 1199,
       "state": "known"
@@ -1852,6 +2065,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-05-14",
       "cents": 7499,
       "state": "known"
@@ -1861,6 +2076,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "monthly": true,
       "date": "2027-05-15",
       "cents": 4722,
       "state": "estimate"
@@ -1870,6 +2086,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-05-18",
       "cents": 1299,
       "state": "known"
@@ -1879,6 +2097,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "monthly": true,
       "date": "2027-05-20",
       "cents": 2990,
       "state": "known"
@@ -1888,6 +2107,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-05-20",
       "cents": 1199,
       "state": "known"
@@ -1902,10 +2123,14 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 164654,
+    "knownCents": 136890,
     "estimateCents": 4722,
     "savingCents": 15000,
-    "incomeCents": 395000
+    "incomeCents": 395000,
+    "billsCents": 141612,
+    "afterCents": 238388,
+    "monthlyBillsCount": 4,
+    "monthlyBillsCents": 141612
    },
    {
     "month": "2027-06",
@@ -1915,6 +2140,8 @@
       "category": "transport",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-06-01",
       "cents": 6470,
       "state": "known"
@@ -1924,6 +2151,8 @@
       "category": "fitness",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-06-01",
       "cents": 5900,
       "state": "known"
@@ -1933,6 +2162,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "monthly": true,
       "date": "2027-06-02",
       "cents": 105000,
       "state": "known"
@@ -1942,6 +2172,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-06-03",
       "cents": 99,
       "state": "known"
@@ -1951,6 +2183,7 @@
       "category": "loans",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "monthly": true,
       "date": "2027-06-05",
       "cents": 28900,
       "state": "known"
@@ -1960,6 +2193,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-06-05",
       "cents": 2300,
       "state": "known"
@@ -1969,6 +2204,7 @@
       "category": "investments",
       "kind": "saving",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "monthly": true,
       "date": "2027-06-06",
       "cents": 15000,
       "state": "known"
@@ -1978,6 +2214,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-06-07",
       "cents": 1799,
       "state": "known"
@@ -1987,6 +2225,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-06-12",
       "cents": 1199,
       "state": "known"
@@ -1996,6 +2236,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-06-14",
       "cents": 7499,
       "state": "known"
@@ -2005,6 +2247,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "monthly": true,
       "date": "2027-06-15",
       "cents": 3465,
       "state": "estimate"
@@ -2014,6 +2257,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-06-18",
       "cents": 1299,
       "state": "known"
@@ -2023,6 +2268,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "monthly": true,
       "date": "2027-06-20",
       "cents": 2990,
       "state": "known"
@@ -2032,6 +2278,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-06-20",
       "cents": 1199,
       "state": "known"
@@ -2046,10 +2294,14 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 164654,
+    "knownCents": 136890,
     "estimateCents": 3465,
     "savingCents": 15000,
-    "incomeCents": 395000
+    "incomeCents": 395000,
+    "billsCents": 140355,
+    "afterCents": 239645,
+    "monthlyBillsCount": 4,
+    "monthlyBillsCents": 140355
    },
    {
     "month": "2027-07",
@@ -2059,6 +2311,8 @@
       "category": "transport",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-07-01",
       "cents": 6470,
       "state": "known"
@@ -2068,6 +2322,8 @@
       "category": "fitness",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-07-01",
       "cents": 5900,
       "state": "known"
@@ -2077,6 +2333,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "monthly": true,
       "date": "2027-07-02",
       "cents": 105000,
       "state": "known"
@@ -2086,6 +2343,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-07-03",
       "cents": 99,
       "state": "known"
@@ -2095,6 +2354,7 @@
       "category": "loans",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "monthly": true,
       "date": "2027-07-05",
       "cents": 28900,
       "state": "known"
@@ -2113,6 +2373,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-07-05",
       "cents": 2300,
       "state": "known"
@@ -2122,6 +2384,7 @@
       "category": "investments",
       "kind": "saving",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "monthly": true,
       "date": "2027-07-06",
       "cents": 15000,
       "state": "known"
@@ -2131,6 +2394,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-07-07",
       "cents": 1799,
       "state": "known"
@@ -2140,6 +2405,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-07-12",
       "cents": 1199,
       "state": "known"
@@ -2149,6 +2416,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-07-14",
       "cents": 7499,
       "state": "known"
@@ -2158,6 +2427,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "monthly": true,
       "date": "2027-07-15",
       "cents": 4621,
       "state": "estimate"
@@ -2167,6 +2437,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-07-18",
       "cents": 1299,
       "state": "known"
@@ -2176,6 +2448,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "monthly": true,
       "date": "2027-07-20",
       "cents": 2990,
       "state": "known"
@@ -2185,6 +2458,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-07-20",
       "cents": 1199,
       "state": "known"
@@ -2199,10 +2474,14 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 178884,
+    "knownCents": 151120,
     "estimateCents": 4621,
     "savingCents": 15000,
-    "incomeCents": 395000
+    "incomeCents": 395000,
+    "billsCents": 155741,
+    "afterCents": 224259,
+    "monthlyBillsCount": 4,
+    "monthlyBillsCents": 141511
    },
    {
     "month": "2027-08",
@@ -2212,6 +2491,8 @@
       "category": "transport",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-08-01",
       "cents": 6470,
       "state": "known"
@@ -2221,6 +2502,8 @@
       "category": "fitness",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-08-01",
       "cents": 5900,
       "state": "known"
@@ -2230,6 +2513,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "monthly": true,
       "date": "2027-08-02",
       "cents": 105000,
       "state": "known"
@@ -2239,6 +2523,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-08-03",
       "cents": 99,
       "state": "known"
@@ -2248,6 +2534,7 @@
       "category": "loans",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "monthly": true,
       "date": "2027-08-05",
       "cents": 28900,
       "state": "known"
@@ -2257,6 +2544,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-08-05",
       "cents": 2300,
       "state": "known"
@@ -2266,6 +2555,7 @@
       "category": "investments",
       "kind": "saving",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "monthly": true,
       "date": "2027-08-06",
       "cents": 15000,
       "state": "known"
@@ -2275,6 +2565,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-08-07",
       "cents": 1799,
       "state": "known"
@@ -2284,6 +2576,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-08-12",
       "cents": 1199,
       "state": "known"
@@ -2293,6 +2587,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-08-14",
       "cents": 7499,
       "state": "known"
@@ -2302,6 +2598,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "monthly": true,
       "date": "2027-08-15",
       "cents": 5224,
       "state": "estimate"
@@ -2311,6 +2608,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-08-18",
       "cents": 1299,
       "state": "known"
@@ -2320,6 +2619,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "monthly": true,
       "date": "2027-08-20",
       "cents": 2990,
       "state": "known"
@@ -2329,6 +2629,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-08-20",
       "cents": 1199,
       "state": "known"
@@ -2343,10 +2645,14 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 164654,
+    "knownCents": 136890,
     "estimateCents": 5224,
     "savingCents": 15000,
-    "incomeCents": 395000
+    "incomeCents": 395000,
+    "billsCents": 142114,
+    "afterCents": 237886,
+    "monthlyBillsCount": 4,
+    "monthlyBillsCents": 142114
    },
    {
     "month": "2027-09",
@@ -2356,6 +2662,8 @@
       "category": "transport",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-09-01",
       "cents": 6470,
       "state": "known"
@@ -2365,6 +2673,8 @@
       "category": "fitness",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-09-01",
       "cents": 5900,
       "state": "known"
@@ -2374,6 +2684,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "monthly": true,
       "date": "2027-09-02",
       "cents": 105000,
       "state": "known"
@@ -2383,6 +2694,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-09-03",
       "cents": 99,
       "state": "known"
@@ -2392,6 +2705,7 @@
       "category": "loans",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "monthly": true,
       "date": "2027-09-05",
       "cents": 28900,
       "state": "known"
@@ -2401,6 +2715,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-09-05",
       "cents": 2300,
       "state": "known"
@@ -2410,6 +2726,7 @@
       "category": "investments",
       "kind": "saving",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "monthly": true,
       "date": "2027-09-06",
       "cents": 15000,
       "state": "known"
@@ -2419,6 +2736,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-09-07",
       "cents": 1799,
       "state": "known"
@@ -2428,6 +2747,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-09-12",
       "cents": 1199,
       "state": "known"
@@ -2437,6 +2758,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-09-14",
       "cents": 7499,
       "state": "known"
@@ -2446,6 +2769,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "monthly": true,
       "date": "2027-09-15",
       "cents": 4489,
       "state": "estimate"
@@ -2455,6 +2779,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-09-18",
       "cents": 1299,
       "state": "known"
@@ -2464,6 +2790,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "monthly": true,
       "date": "2027-09-20",
       "cents": 2990,
       "state": "known"
@@ -2473,6 +2800,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-09-20",
       "cents": 1199,
       "state": "known"
@@ -2487,12 +2816,17 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 164654,
+    "knownCents": 136890,
     "estimateCents": 4489,
     "savingCents": 15000,
-    "incomeCents": 395000
+    "incomeCents": 395000,
+    "billsCents": 141379,
+    "afterCents": 238621,
+    "monthlyBillsCount": 4,
+    "monthlyBillsCents": 141379
    }
   ],
+  "billsCents": 1905058,
   "yearlyCents": 56920,
   "reserveMonthlyCents": 4743,
   "unknownCount": 0

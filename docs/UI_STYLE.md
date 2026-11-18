@@ -20,6 +20,7 @@ with it. A new word for a thing already named here is not added: the term below 
 | The section of accounts and debts | *Varat ja velat* | *Varallisuus* |
 | Income less spending of a month | *Tulos*; in the reports *Käteen jäi* | *Yli jäi*, *Jäännös*, *jäämä* |
 | Income and spending as short labels (a table, a row of figures) | *Tulot*, *Menot*, *Erotus* | *Maksettu*, *Saatu*, *Ero* |
+| The pays of a month on Laskut less its bills and its regular saving | *Laskujen jälkeen* | *Erotus* (that is income less spending) |
 | The sums of the filtered rows on Tapahtumat, own transfers left out | *Menot*, *Tulot*, *Erotus*, and *Säästöön siirretty* or *Otettu säästöistä* for what the rows move to or from savings, named as on Yhteenveto | *Rahaa ulos*, *Rahaa sisään* |
 | Taking a bank connection into use | *yhdistä* (a bank, an account), *Yhdistä uudelleen* | *linkitä*, *liitä* (*liitä osoite* stays: that is pasting text) |
 | How long a bank connection is valid | *suostumus* (*Uusi suostumus*), the connection *vanhenee* | *lupa*, *consent*, *yhteyden päättyminen* |

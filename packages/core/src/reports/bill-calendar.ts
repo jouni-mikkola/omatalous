@@ -33,6 +33,8 @@ interface BillRow {
   kind: "bill" | "income" | "loan" | "saving";
   /** The series the row comes from; null on a typed-in bill, a card's bill and a loan no series pays. */
   seriesId: string | null;
+  /** A bill, loan payment or saving that comes every month: a series of a monthly cadence, or a plan that pays each month. A long view folds these. */
+  monthly?: true;
   /**
    * A card, or an account the balance does not count, pays it: no account the balance counts is charged, so it is in no
    * sum of the month (a card's bill holds it, as Nyt takes it).
@@ -53,6 +55,13 @@ interface BillMonth {
   savingCents: number;
   /** The pays of the month, known and estimated. */
   incomeCents: number;
+  /** The month's bills still to pay, known and estimated: `knownCents` and `estimateCents` together. */
+  billsCents: number;
+  /** The pays less the bills and the regular saving still to come. Null while a bill's sum is not known (`unknownCount`): that is not a figure of 0. */
+  afterCents: number | null;
+  /** The rows of `monthly` that are bills or loan payments still to pay, not on a card: how many, and what they add up to. */
+  monthlyBillsCount: number;
+  monthlyBillsCents: number;
 }
 
 interface BillCalendar {
@@ -61,6 +70,8 @@ interface BillCalendar {
   to: IsoDate;
   /** Twelve calendar months from the one of today. */
   months: BillMonth[];
+  /** The bills still to pay of the twelve months, the months' `billsCents` together. */
+  billsCents: number;
   /** The rare bills of the same twelve months, whichever account pays them, and what to set aside each month for them, as `upcoming` has them. */
   yearlyCents: number;
   reserveMonthlyCents: number;
@@ -130,7 +141,14 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
   const rare = new Set(rareSeries(ctx).map((s) => s.id));
   for (const s of ctx.recurring) {
     if (loanSeries.has(s.id) || !s.active || (s.overdue && !rare.has(s.id)) || s.category === "card_bill" || !isBillSeries(s, true) || isCancelled(cancelled, s)) continue;
-    const base = { payee: s.merchant, category: s.category, kind: getCategory(s.category).kind === "savings" ? ("saving" as const) : ("bill" as const), seriesId: s.id, ...offOf(s) };
+    const base = {
+      payee: s.merchant,
+      category: s.category,
+      kind: getCategory(s.category).kind === "savings" ? ("saving" as const) : ("bill" as const),
+      seriesId: s.id,
+      ...(s.cadence === "monthly" ? { monthly: true as const } : {}),
+      ...offOf(s),
+    };
     if (s.lastDate >= windowStart && s.lastAmountCents !== 0) rows.push({ ...base, state: "paid", date: s.lastDate, cents: Math.abs(s.lastAmountCents) });
     // a bill that a payment from another account settled is paid in the month it fell due
     for (const o of s.settled ?? []) if (o.due >= windowStart && o.due <= windowEnd && s.typicalAmountCents > 0) rows.push({ ...base, state: "paid", date: o.due, cents: s.typicalAmountCents });
@@ -166,8 +184,8 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
 
   for (const loan of loans) {
     const series = paying.get(loan.id);
-    const row = (date: IsoDate, cents: number, state: BillState = "known"): BillRow => ({
-      date, payee: loan.name, category: series?.category ?? null, cents, state, kind: "loan", seriesId: series?.id ?? null, ...(series ? offOf(series) : {}),
+    const row = (date: IsoDate, cents: number, state: BillState = "known", monthly = series?.cadence === "monthly"): BillRow => ({
+      date, payee: loan.name, category: series?.category ?? null, cents, state, kind: "loan", seriesId: series?.id ?? null, ...(monthly ? { monthly: true as const } : {}), ...(series ? offOf(series) : {}),
     });
     // the series charged this month: that is the month's payment, so the plan's payment of the month is no second row
     const paidNow = series !== undefined && series.lastDate >= windowStart && series.lastAmountCents !== 0;
@@ -177,7 +195,8 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       if (loan.endDate !== null && loan.endDate >= today && loan.endDate <= windowEnd && loan.endDate > loan.balanceDate) {
         const owed = loanBalanceOn(loan, addDays(loan.endDate, -1)).cents;
         if (owed === null) unknownCount++;
-        else if (owed > 0) rows.push(row(loan.endDate, owed));
+        // the lump sum is no monthly bill, whatever the cadence of the interest series that pays the loan
+        else if (owed > 0) rows.push(row(loan.endDate, owed, "known", false));
       }
       continue;
     }
@@ -198,7 +217,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
         unknownCount++;
         break;
       }
-      rows.push(row(next.date, next.cents));
+      rows.push(row(next.date, next.cents, "known", next.intervalMonths === 1));
     }
   }
 
@@ -223,15 +242,27 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
     const month = addMonths(firstMonth, i);
     const own = rows.filter((r) => monthOf(r.date) === month).sort(byDay);
     const sum = (keep: (r: BillRow) => boolean) => own.reduce((total, r) => (keep(r) ? total + r.cents : total), 0);
+    const count = (keep: (r: BillRow) => boolean) => own.filter(keep).length;
     const bill = (r: BillRow, state: BillState) => (r.kind === "bill" || r.kind === "loan") && r.state === state && !r.onCard;
+    const toPay = (r: BillRow) => (r.kind === "bill" || r.kind === "loan") && r.state !== "paid";
+    const saving = (r: BillRow) => r.kind === "saving" && r.state !== "paid" && !r.onCard;
+    const knownCents = sum((r) => bill(r, "known"));
+    const estimateCents = sum((r) => bill(r, "estimate"));
+    const savingCents = sum(saving);
+    const incomeCents = sum((r) => r.kind === "income");
     return {
       month,
       rows: own,
-      knownCents: sum((r) => bill(r, "known")),
-      estimateCents: sum((r) => bill(r, "estimate")),
-      savingCents: sum((r) => r.kind === "saving" && r.state !== "paid" && !r.onCard),
-      incomeCents: sum((r) => r.kind === "income"),
+      knownCents,
+      estimateCents,
+      savingCents,
+      incomeCents,
+      billsCents: knownCents + estimateCents,
+      afterCents: unknownCount > 0 ? null : incomeCents - knownCents - estimateCents - savingCents,
+      monthlyBillsCount: count((r) => r.monthly === true && toPay(r) && !r.onCard),
+      monthlyBillsCents: sum((r) => r.monthly === true && toPay(r) && !r.onCard),
     };
   });
-  return { from: today, to: windowEnd, months, ...rareYear(occurrences, today), unknownCount };
+  const billsCents = months.reduce((total, m) => total + m.billsCents, 0);
+  return { from: today, to: windowEnd, months, billsCents, ...rareYear(occurrences, today), unknownCount };
 }

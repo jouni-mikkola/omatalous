@@ -1,17 +1,11 @@
 // Decision: which bills, contracts and subscriptions the household has, in one list where each stands once
 import { addMonthsToDate, isCancelled, isContract, isEndedContract, isSavingsPlan, isSubscription, missedOn, seriesMarkSubject, type UserMark } from "@banking/core";
-import { t } from "../../text.ts";
 import type { Recurring as Series, ReportsData } from "../../types.ts";
 
 export type TypedBill = ReportsData["upcoming"]["manual"][number];
 
 /** What a row is. A series is one of these by core's own definitions; a bill the household typed in is its own. */
-export type Kind = "bill" | "subscription" | "contract" | "saving" | "ended" | "typed";
-
-export const kindLabel = (kind: Kind): string => t(`bills.kind_${kind}`);
-
-/** Every row of the list is of one kind, so a tag naming the kind tells nothing. */
-export const hasOneKind = (items: readonly Pick<Item, "kind">[]): boolean => new Set(items.map((i) => i.kind)).size === 1;
+type Kind = "bill" | "subscription" | "contract" | "saving" | "ended" | "typed";
 
 /**
  * The subject of the mark (`dismissed`) that says a found bill is no recurring bill: `not-recurring:` and the key a mark

@@ -706,6 +706,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:chk:Sato",
+      "monthly": true,
       "state": "paid",
       "date": "2026-10-02",
       "cents": 105000
@@ -715,6 +716,7 @@
       "category": "mortgage",
       "kind": "bill",
       "seriesId": "out:chk:Nordea Bank Abp",
+      "monthly": true,
       "state": "paid",
       "date": "2026-10-05",
       "cents": 61240
@@ -733,6 +735,7 @@
       "category": "kids",
       "kind": "bill",
       "seriesId": "out:chk:Helsingin Kaupunki",
+      "monthly": true,
       "state": "paid",
       "date": "2026-10-08",
       "cents": 27990
@@ -742,6 +745,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:chk:Helen",
+      "monthly": true,
       "state": "paid",
       "date": "2026-10-12",
       "cents": 5077
@@ -751,6 +755,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Spotify",
+      "monthly": true,
+      "onCard": true,
       "state": "paid",
       "date": "2026-10-12",
       "cents": 1199
@@ -760,6 +766,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Netflix",
+      "monthly": true,
+      "onCard": true,
       "state": "paid",
       "date": "2026-10-14",
       "cents": 1599
@@ -769,6 +777,7 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:chk:Sanoma Media Finland",
+      "monthly": true,
       "date": "2026-10-18",
       "cents": 3290,
       "state": "known"
@@ -778,6 +787,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:chk:Elisa",
+      "monthly": true,
       "date": "2026-10-20",
       "cents": 1990,
       "state": "known"
@@ -795,7 +805,11 @@
     "knownCents": 5280,
     "estimateCents": 0,
     "savingCents": 0,
-    "incomeCents": 352000
+    "incomeCents": 352000,
+    "billsCents": 5280,
+    "afterCents": 346720,
+    "monthlyBillsCount": 2,
+    "monthlyBillsCents": 5280
    },
    {
     "month": "2026-11",
@@ -805,6 +819,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:chk:Sato",
+      "monthly": true,
       "date": "2026-11-02",
       "cents": 105000,
       "state": "known"
@@ -814,6 +829,7 @@
       "category": "mortgage",
       "kind": "bill",
       "seriesId": "out:chk:Nordea Bank Abp",
+      "monthly": true,
       "date": "2026-11-05",
       "cents": 61240,
       "state": "known"
@@ -823,15 +839,26 @@
       "category": "kids",
       "kind": "bill",
       "seriesId": "out:chk:Helsingin Kaupunki",
+      "monthly": true,
       "date": "2026-11-08",
       "cents": 27990,
       "state": "known"
+     },
+     {
+      "date": "2026-11-10",
+      "payee": "Nordea Gold",
+      "category": "transfer",
+      "cents": 63077,
+      "state": "known",
+      "kind": "bill",
+      "seriesId": null
      },
      {
       "payee": "Helen",
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:chk:Helen",
+      "monthly": true,
       "date": "2026-11-12",
       "cents": 11790,
       "state": "estimate"
@@ -841,6 +868,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-11-12",
       "cents": 1199,
       "state": "known"
@@ -850,6 +879,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-11-14",
       "cents": 1599,
       "state": "known"
@@ -859,6 +890,7 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:chk:Sanoma Media Finland",
+      "monthly": true,
       "date": "2026-11-18",
       "cents": 3290,
       "state": "known"
@@ -868,6 +900,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:chk:Elisa",
+      "monthly": true,
       "date": "2026-11-20",
       "cents": 1990,
       "state": "known"
@@ -882,10 +915,14 @@
       "state": "known"
      }
     ],
-    "knownCents": 202308,
+    "knownCents": 262587,
     "estimateCents": 11790,
     "savingCents": 0,
-    "incomeCents": 352000
+    "incomeCents": 352000,
+    "billsCents": 274377,
+    "afterCents": 77623,
+    "monthlyBillsCount": 6,
+    "monthlyBillsCents": 211300
    },
    {
     "month": "2026-12",
@@ -895,6 +932,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:chk:Sato",
+      "monthly": true,
       "date": "2026-12-02",
       "cents": 105000,
       "state": "known"
@@ -904,6 +942,7 @@
       "category": "mortgage",
       "kind": "bill",
       "seriesId": "out:chk:Nordea Bank Abp",
+      "monthly": true,
       "date": "2026-12-05",
       "cents": 61240,
       "state": "known"
@@ -913,6 +952,7 @@
       "category": "kids",
       "kind": "bill",
       "seriesId": "out:chk:Helsingin Kaupunki",
+      "monthly": true,
       "date": "2026-12-08",
       "cents": 27990,
       "state": "known"
@@ -922,6 +962,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:chk:Helen",
+      "monthly": true,
       "date": "2026-12-12",
       "cents": 10637,
       "state": "estimate"
@@ -931,6 +972,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-12-12",
       "cents": 1199,
       "state": "known"
@@ -940,6 +983,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2026-12-14",
       "cents": 1599,
       "state": "known"
@@ -949,6 +994,7 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:chk:Sanoma Media Finland",
+      "monthly": true,
       "date": "2026-12-18",
       "cents": 3290,
       "state": "known"
@@ -958,6 +1004,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:chk:Elisa",
+      "monthly": true,
       "date": "2026-12-20",
       "cents": 1990,
       "state": "known"
@@ -972,10 +1019,14 @@
       "state": "known"
      }
     ],
-    "knownCents": 202308,
+    "knownCents": 199510,
     "estimateCents": 10637,
     "savingCents": 0,
-    "incomeCents": 352000
+    "incomeCents": 352000,
+    "billsCents": 210147,
+    "afterCents": 141853,
+    "monthlyBillsCount": 6,
+    "monthlyBillsCents": 210147
    },
    {
     "month": "2027-01",
@@ -985,6 +1036,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:chk:Sato",
+      "monthly": true,
       "date": "2027-01-02",
       "cents": 105000,
       "state": "known"
@@ -994,6 +1046,7 @@
       "category": "mortgage",
       "kind": "bill",
       "seriesId": "out:chk:Nordea Bank Abp",
+      "monthly": true,
       "date": "2027-01-05",
       "cents": 61240,
       "state": "known"
@@ -1012,6 +1065,7 @@
       "category": "kids",
       "kind": "bill",
       "seriesId": "out:chk:Helsingin Kaupunki",
+      "monthly": true,
       "date": "2027-01-08",
       "cents": 27990,
       "state": "known"
@@ -1021,6 +1075,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:chk:Helen",
+      "monthly": true,
       "date": "2027-01-12",
       "cents": 10929,
       "state": "estimate"
@@ -1030,6 +1085,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-01-12",
       "cents": 1199,
       "state": "known"
@@ -1039,6 +1096,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-01-14",
       "cents": 1599,
       "state": "known"
@@ -1048,6 +1107,7 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:chk:Sanoma Media Finland",
+      "monthly": true,
       "date": "2027-01-18",
       "cents": 3290,
       "state": "known"
@@ -1057,6 +1117,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:chk:Elisa",
+      "monthly": true,
       "date": "2027-01-20",
       "cents": 1990,
       "state": "known"
@@ -1071,10 +1132,14 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 216538,
+    "knownCents": 213740,
     "estimateCents": 10929,
     "savingCents": 0,
-    "incomeCents": 352000
+    "incomeCents": 352000,
+    "billsCents": 224669,
+    "afterCents": 127331,
+    "monthlyBillsCount": 6,
+    "monthlyBillsCents": 210439
    },
    {
     "month": "2027-02",
@@ -1084,6 +1149,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:chk:Sato",
+      "monthly": true,
       "date": "2027-02-02",
       "cents": 105000,
       "state": "known"
@@ -1093,6 +1159,7 @@
       "category": "mortgage",
       "kind": "bill",
       "seriesId": "out:chk:Nordea Bank Abp",
+      "monthly": true,
       "date": "2027-02-05",
       "cents": 61240,
       "state": "known"
@@ -1102,6 +1169,7 @@
       "category": "kids",
       "kind": "bill",
       "seriesId": "out:chk:Helsingin Kaupunki",
+      "monthly": true,
       "date": "2027-02-08",
       "cents": 27990,
       "state": "known"
@@ -1111,6 +1179,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:chk:Helen",
+      "monthly": true,
       "date": "2027-02-12",
       "cents": 10994,
       "state": "estimate"
@@ -1120,6 +1189,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-02-12",
       "cents": 1199,
       "state": "known"
@@ -1129,6 +1200,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-02-14",
       "cents": 1599,
       "state": "known"
@@ -1138,6 +1211,7 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:chk:Sanoma Media Finland",
+      "monthly": true,
       "date": "2027-02-18",
       "cents": 3290,
       "state": "known"
@@ -1147,6 +1221,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:chk:Elisa",
+      "monthly": true,
       "date": "2027-02-20",
       "cents": 1990,
       "state": "known"
@@ -1161,10 +1236,14 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 202308,
+    "knownCents": 199510,
     "estimateCents": 10994,
     "savingCents": 0,
-    "incomeCents": 352000
+    "incomeCents": 352000,
+    "billsCents": 210504,
+    "afterCents": 141496,
+    "monthlyBillsCount": 6,
+    "monthlyBillsCents": 210504
    },
    {
     "month": "2027-03",
@@ -1174,6 +1253,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:chk:Sato",
+      "monthly": true,
       "date": "2027-03-02",
       "cents": 105000,
       "state": "known"
@@ -1183,6 +1263,7 @@
       "category": "mortgage",
       "kind": "bill",
       "seriesId": "out:chk:Nordea Bank Abp",
+      "monthly": true,
       "date": "2027-03-05",
       "cents": 61240,
       "state": "known"
@@ -1192,6 +1273,7 @@
       "category": "kids",
       "kind": "bill",
       "seriesId": "out:chk:Helsingin Kaupunki",
+      "monthly": true,
       "date": "2027-03-08",
       "cents": 27990,
       "state": "known"
@@ -1201,6 +1283,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:chk:Helen",
+      "monthly": true,
       "date": "2027-03-12",
       "cents": 12666,
       "state": "estimate"
@@ -1210,6 +1293,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-03-12",
       "cents": 1199,
       "state": "known"
@@ -1219,6 +1304,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-03-14",
       "cents": 1599,
       "state": "known"
@@ -1228,6 +1315,7 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:chk:Sanoma Media Finland",
+      "monthly": true,
       "date": "2027-03-18",
       "cents": 3290,
       "state": "known"
@@ -1237,6 +1325,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:chk:Elisa",
+      "monthly": true,
       "date": "2027-03-20",
       "cents": 1990,
       "state": "known"
@@ -1251,10 +1340,14 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 202308,
+    "knownCents": 199510,
     "estimateCents": 12666,
     "savingCents": 0,
-    "incomeCents": 352000
+    "incomeCents": 352000,
+    "billsCents": 212176,
+    "afterCents": 139824,
+    "monthlyBillsCount": 6,
+    "monthlyBillsCents": 212176
    },
    {
     "month": "2027-04",
@@ -1264,6 +1357,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:chk:Sato",
+      "monthly": true,
       "date": "2027-04-02",
       "cents": 105000,
       "state": "known"
@@ -1273,6 +1367,7 @@
       "category": "mortgage",
       "kind": "bill",
       "seriesId": "out:chk:Nordea Bank Abp",
+      "monthly": true,
       "date": "2027-04-05",
       "cents": 61240,
       "state": "known"
@@ -1291,6 +1386,7 @@
       "category": "kids",
       "kind": "bill",
       "seriesId": "out:chk:Helsingin Kaupunki",
+      "monthly": true,
       "date": "2027-04-08",
       "cents": 27990,
       "state": "known"
@@ -1300,6 +1396,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:chk:Helen",
+      "monthly": true,
       "date": "2027-04-12",
       "cents": 5147,
       "state": "estimate"
@@ -1309,6 +1406,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-04-12",
       "cents": 1199,
       "state": "known"
@@ -1318,6 +1417,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-04-14",
       "cents": 1599,
       "state": "known"
@@ -1327,6 +1428,7 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:chk:Sanoma Media Finland",
+      "monthly": true,
       "date": "2027-04-18",
       "cents": 3290,
       "state": "known"
@@ -1336,6 +1438,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:chk:Elisa",
+      "monthly": true,
       "date": "2027-04-20",
       "cents": 1990,
       "state": "known"
@@ -1350,10 +1453,14 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 216538,
+    "knownCents": 213740,
     "estimateCents": 5147,
     "savingCents": 0,
-    "incomeCents": 352000
+    "incomeCents": 352000,
+    "billsCents": 218887,
+    "afterCents": 133113,
+    "monthlyBillsCount": 6,
+    "monthlyBillsCents": 204657
    },
    {
     "month": "2027-05",
@@ -1363,6 +1470,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:chk:Sato",
+      "monthly": true,
       "date": "2027-05-02",
       "cents": 105000,
       "state": "known"
@@ -1372,6 +1480,7 @@
       "category": "mortgage",
       "kind": "bill",
       "seriesId": "out:chk:Nordea Bank Abp",
+      "monthly": true,
       "date": "2027-05-05",
       "cents": 61240,
       "state": "known"
@@ -1381,6 +1490,7 @@
       "category": "kids",
       "kind": "bill",
       "seriesId": "out:chk:Helsingin Kaupunki",
+      "monthly": true,
       "date": "2027-05-08",
       "cents": 27990,
       "state": "known"
@@ -1390,6 +1500,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:chk:Helen",
+      "monthly": true,
       "date": "2027-05-12",
       "cents": 4289,
       "state": "estimate"
@@ -1399,6 +1510,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-05-12",
       "cents": 1199,
       "state": "known"
@@ -1408,6 +1521,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-05-14",
       "cents": 1599,
       "state": "known"
@@ -1417,6 +1532,7 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:chk:Sanoma Media Finland",
+      "monthly": true,
       "date": "2027-05-18",
       "cents": 3290,
       "state": "known"
@@ -1426,6 +1542,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:chk:Elisa",
+      "monthly": true,
       "date": "2027-05-20",
       "cents": 1990,
       "state": "known"
@@ -1440,10 +1557,14 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 202308,
+    "knownCents": 199510,
     "estimateCents": 4289,
     "savingCents": 0,
-    "incomeCents": 352000
+    "incomeCents": 352000,
+    "billsCents": 203799,
+    "afterCents": 148201,
+    "monthlyBillsCount": 6,
+    "monthlyBillsCents": 203799
    },
    {
     "month": "2027-06",
@@ -1453,6 +1574,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:chk:Sato",
+      "monthly": true,
       "date": "2027-06-02",
       "cents": 105000,
       "state": "known"
@@ -1462,6 +1584,7 @@
       "category": "mortgage",
       "kind": "bill",
       "seriesId": "out:chk:Nordea Bank Abp",
+      "monthly": true,
       "date": "2027-06-05",
       "cents": 61240,
       "state": "known"
@@ -1471,6 +1594,7 @@
       "category": "kids",
       "kind": "bill",
       "seriesId": "out:chk:Helsingin Kaupunki",
+      "monthly": true,
       "date": "2027-06-08",
       "cents": 27990,
       "state": "known"
@@ -1480,6 +1604,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:chk:Helen",
+      "monthly": true,
       "date": "2027-06-12",
       "cents": 4487,
       "state": "estimate"
@@ -1489,6 +1614,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-06-12",
       "cents": 1199,
       "state": "known"
@@ -1498,6 +1625,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-06-14",
       "cents": 1599,
       "state": "known"
@@ -1507,6 +1636,7 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:chk:Sanoma Media Finland",
+      "monthly": true,
       "date": "2027-06-18",
       "cents": 3290,
       "state": "known"
@@ -1516,6 +1646,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:chk:Elisa",
+      "monthly": true,
       "date": "2027-06-20",
       "cents": 1990,
       "state": "known"
@@ -1530,10 +1661,14 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 202308,
+    "knownCents": 199510,
     "estimateCents": 4487,
     "savingCents": 0,
-    "incomeCents": 352000
+    "incomeCents": 352000,
+    "billsCents": 203997,
+    "afterCents": 148003,
+    "monthlyBillsCount": 6,
+    "monthlyBillsCents": 203997
    },
    {
     "month": "2027-07",
@@ -1543,6 +1678,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:chk:Sato",
+      "monthly": true,
       "date": "2027-07-02",
       "cents": 105000,
       "state": "known"
@@ -1552,6 +1688,7 @@
       "category": "mortgage",
       "kind": "bill",
       "seriesId": "out:chk:Nordea Bank Abp",
+      "monthly": true,
       "date": "2027-07-05",
       "cents": 61240,
       "state": "known"
@@ -1570,6 +1707,7 @@
       "category": "kids",
       "kind": "bill",
       "seriesId": "out:chk:Helsingin Kaupunki",
+      "monthly": true,
       "date": "2027-07-08",
       "cents": 27990,
       "state": "known"
@@ -1579,6 +1717,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:chk:Helen",
+      "monthly": true,
       "date": "2027-07-12",
       "cents": 4861,
       "state": "estimate"
@@ -1588,6 +1727,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-07-12",
       "cents": 1199,
       "state": "known"
@@ -1597,6 +1738,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-07-14",
       "cents": 1599,
       "state": "known"
@@ -1606,6 +1749,7 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:chk:Sanoma Media Finland",
+      "monthly": true,
       "date": "2027-07-18",
       "cents": 3290,
       "state": "known"
@@ -1615,6 +1759,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:chk:Elisa",
+      "monthly": true,
       "date": "2027-07-20",
       "cents": 1990,
       "state": "known"
@@ -1629,10 +1774,14 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 216538,
+    "knownCents": 213740,
     "estimateCents": 4861,
     "savingCents": 0,
-    "incomeCents": 352000
+    "incomeCents": 352000,
+    "billsCents": 218601,
+    "afterCents": 133399,
+    "monthlyBillsCount": 6,
+    "monthlyBillsCents": 204371
    },
    {
     "month": "2027-08",
@@ -1642,6 +1791,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:chk:Sato",
+      "monthly": true,
       "date": "2027-08-02",
       "cents": 105000,
       "state": "known"
@@ -1651,6 +1801,7 @@
       "category": "mortgage",
       "kind": "bill",
       "seriesId": "out:chk:Nordea Bank Abp",
+      "monthly": true,
       "date": "2027-08-05",
       "cents": 61240,
       "state": "known"
@@ -1660,6 +1811,7 @@
       "category": "kids",
       "kind": "bill",
       "seriesId": "out:chk:Helsingin Kaupunki",
+      "monthly": true,
       "date": "2027-08-08",
       "cents": 27990,
       "state": "known"
@@ -1669,6 +1821,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:chk:Helen",
+      "monthly": true,
       "date": "2027-08-12",
       "cents": 4042,
       "state": "estimate"
@@ -1678,6 +1831,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-08-12",
       "cents": 1199,
       "state": "known"
@@ -1687,6 +1842,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-08-14",
       "cents": 1599,
       "state": "known"
@@ -1696,6 +1853,7 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:chk:Sanoma Media Finland",
+      "monthly": true,
       "date": "2027-08-18",
       "cents": 3290,
       "state": "known"
@@ -1705,6 +1863,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:chk:Elisa",
+      "monthly": true,
       "date": "2027-08-20",
       "cents": 1990,
       "state": "known"
@@ -1719,10 +1878,14 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 202308,
+    "knownCents": 199510,
     "estimateCents": 4042,
     "savingCents": 0,
-    "incomeCents": 352000
+    "incomeCents": 352000,
+    "billsCents": 203552,
+    "afterCents": 148448,
+    "monthlyBillsCount": 6,
+    "monthlyBillsCents": 203552
    },
    {
     "month": "2027-09",
@@ -1732,6 +1895,7 @@
       "category": "housing",
       "kind": "bill",
       "seriesId": "out:chk:Sato",
+      "monthly": true,
       "date": "2027-09-02",
       "cents": 105000,
       "state": "known"
@@ -1741,6 +1905,7 @@
       "category": "mortgage",
       "kind": "bill",
       "seriesId": "out:chk:Nordea Bank Abp",
+      "monthly": true,
       "date": "2027-09-05",
       "cents": 61240,
       "state": "known"
@@ -1750,6 +1915,7 @@
       "category": "kids",
       "kind": "bill",
       "seriesId": "out:chk:Helsingin Kaupunki",
+      "monthly": true,
       "date": "2027-09-08",
       "cents": 27990,
       "state": "known"
@@ -1759,6 +1925,7 @@
       "category": "utilities",
       "kind": "bill",
       "seriesId": "out:chk:Helen",
+      "monthly": true,
       "date": "2027-09-12",
       "cents": 4078,
       "state": "estimate"
@@ -1768,6 +1935,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Spotify",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-09-12",
       "cents": 1199,
       "state": "known"
@@ -1777,6 +1946,8 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:card:Netflix",
+      "monthly": true,
+      "onCard": true,
       "date": "2027-09-14",
       "cents": 1599,
       "state": "known"
@@ -1786,6 +1957,7 @@
       "category": "subscriptions",
       "kind": "bill",
       "seriesId": "out:chk:Sanoma Media Finland",
+      "monthly": true,
       "date": "2027-09-18",
       "cents": 3290,
       "state": "known"
@@ -1795,6 +1967,7 @@
       "category": "telecom",
       "kind": "bill",
       "seriesId": "out:chk:Elisa",
+      "monthly": true,
       "date": "2027-09-20",
       "cents": 1990,
       "state": "known"
@@ -1809,12 +1982,17 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 202308,
+    "knownCents": 199510,
     "estimateCents": 4078,
     "savingCents": 0,
-    "incomeCents": 352000
+    "incomeCents": 352000,
+    "billsCents": 203588,
+    "afterCents": 148412,
+    "monthlyBillsCount": 6,
+    "monthlyBillsCents": 203588
    }
   ],
+  "billsCents": 2389577,
   "yearlyCents": 56920,
   "reserveMonthlyCents": 4743,
   "unknownCount": 0

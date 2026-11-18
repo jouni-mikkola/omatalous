@@ -7,7 +7,6 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.col_due": "Due date",
   "home.col_payee": "Payee",
   "home.col_sum": "Amount",
-  "home.payments_before_payday": "Payments before payday",
   "home.hide_payments": "Hide payments",
   "home.show_payments": "Show payments",
   "home.category_over": "{label}: {spent}, {over} over the goal.",

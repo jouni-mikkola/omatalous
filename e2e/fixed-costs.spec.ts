@@ -2,23 +2,20 @@ import { expect, test } from "@playwright/test";
 import { join } from "node:path";
 import { overflow, plain, watch } from "./helpers.ts";
 
-// Raportit > Kiinteät menot on the demo household: Laskut links to it once, it holds the month's total, a line
+// Raportit > Kiinteät menot on the demo household: it holds the month's total, a line
 // opens its payments, and a payment's day opens the payee's row of that day in Tapahtumat. At a phone's width and a desktop's.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const SHOTS = process.env.E2E_SHOTS ?? "";
 
 for (const width of [390, 1440]) {
-  test(`${width} px: Kiinteät menot holds the month, Laskut links to it, and a line opens the rows behind it`, async ({ browser }) => {
+  test(`${width} px: Kiinteät menot holds the month, and a line opens the rows behind it`, async ({ browser }) => {
     const phone = width < 600;
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 }, isMobile: phone, hasTouch: phone });
     const page = await context.newPage();
     const seen = watch(page);
 
-    await page.goto("/#/bills");
+    await page.goto("/#/reports?q=kiinteat");
     const euros = (s: string) => plain(s).replace(/\D/g, "");
-    await expect(page.locator("#laskut-taulukko .card-datum")).toHaveCount(0);
-    await page.locator("#laskut-taulukko").getByRole("link", { name: "Kiinteät menot", exact: true }).click();
-    await expect(page).toHaveURL(/#\/reports\?q=kiinteat/);
     const block = page.locator("#kiinteat-menot");
     await expect(block.getByRole("table", { name: "Kiinteät menot kuussa ja vuodessa" })).toBeVisible();
     // about today: the page draws no period switch

@@ -1,7 +1,7 @@
 /**
  * Laskut: the opened row of a bill that did not come offers the mark that ends it (the answer Lopetettu of
- * Tarkistettavat) and still the removal of a series that was never a bill; the rows of Päättyneet head their date as
- * the last one.
+ * Tarkistettavat) and still the removal of a series that was never a bill; what has ended waits in a folded group whose
+ * rows show their last day.
  */
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { marksBySubject } from "@banking/core";
@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import { BillsTable } from "../src/components/bills/BillsTable.tsx";
 import { billItems } from "../src/components/bills/items.ts";
 import type { Recurring } from "../src/types.ts";
+import { bill, calendar, lateBill, month } from "./bill-calendar-fixture.ts";
 import { stubApi } from "./dom-kit.ts";
 
 const TODAY = "2026-10-11";
@@ -45,29 +46,67 @@ describe("Laskut: a bill that did not come, opened", () => {
     stubApi({ "GET /api/transactions": { items: [], total: 0 } });
     const items = billItems({ series: [power], typed: [], cancelled: new Set(), marks: marksBySubject([]), today: TODAY });
     const controls = { markOf: () => null, busy: false, set: () => {}, clear: () => {} };
-    render(createElement(BillsTable, { items, controls, label: (id: string) => id, cards: new Set<string>(), today: TODAY, scope: "own", onRemoved: () => {} }));
+    const cal = calendar([month("2026-10", [bill({ date: "2026-10-15", payee: "Sähköyhtiö", state: "estimate", seriesId: power.id })])]);
+    render(createElement(BillsTable, { calendar: cal, items, controls, label: (id: string) => id, scope: "own", onRemoved: () => {} }));
     const row = screen.getByRole("row", { name: /Sähköyhtiö/ });
-    expect(within(row).getByText("Ei tullut 5.9.")).toBeTruthy();
     fireEvent.click(within(row).getByRole("button", { name: /Tiedot: Sähköyhtiö/ }));
     expect(screen.getByRole("button", { name: /Merkitse lopetetuksi/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Poista lasku/ })).toBeTruthy();
   });
 });
 
+describe("Laskut: a bill that did not come, in the calendar core makes", () => {
+  it("is a row marked Ei tullut that offers both actions, though the calendar has no row of it", () => {
+    stubApi({ "GET /api/transactions": { items: [], total: 0 } });
+    const { today, series, power: late, calendar: cal } = lateBill();
+    expect(late.overdue).toBe(true);
+    expect(cal.months.flatMap((m) => m.rows).filter((r) => r.seriesId === late.id)).toEqual([]);
+    const items = billItems({ series, typed: [], cancelled: new Set(), marks: marksBySubject([]), today });
+    const controls = { markOf: () => null, busy: false, set: () => {}, clear: () => {} };
+    render(createElement(BillsTable, { calendar: cal, items, controls, label: (id: string) => id, scope: "own", onRemoved: () => {} }));
+    const row = screen.getByRole("row", { name: /Esimerkki Energia/ });
+    expect(within(row).getByText("Ei tullut")).toBeTruthy();
+    fireEvent.click(within(row).getByRole("button", { name: /Tiedot: Esimerkki Energia/ }));
+    expect(screen.getByRole("button", { name: /Merkitse lopetetuksi/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Poista lasku/ })).toBeTruthy();
+  });
+});
+
+describe("Laskut: a later month opened", () => {
+  it("lists the bills that come less often than monthly one by one and folds the monthly ones into one row with core's count and sum", () => {
+    stubApi({});
+    const monthly = (day: string, payee: string, cents: number) => bill({ date: day, payee, cents, monthly: true });
+    const cal = calendar([
+      month("2026-10", []),
+      month("2026-11", []),
+      month("2026-12", [monthly("2026-12-12", "Vesiyhtiö", 2000), monthly("2026-12-15", "Kaasuyhtiö", 3000), bill({ date: "2026-12-20", payee: "Vakuutus", cents: 40000 })], { monthlyBillsCount: 2, monthlyBillsCents: 5000 }),
+    ]);
+    const controls = { markOf: () => null, busy: false, set: () => {}, clear: () => {} };
+    render(createElement(BillsTable, { calendar: cal, items: [], controls, label: (id: string) => id, scope: "own", onRemoved: () => {} }));
+    expect(screen.queryByText("Vakuutus")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Joulukuu 2026/ }));
+    expect(screen.getByText("Vakuutus")).toBeTruthy();
+    const fold = screen.getByRole("row", { name: /Kuukausittaiset laskut, 2 kpl/ });
+    expect((fold.textContent ?? "").replace(/[  ]/g, " ")).toContain("50,00 €");
+    expect(screen.queryByText("Kaasuyhtiö")).toBeNull();
+    fireEvent.click(within(fold).getByRole("button", { name: /Tiedot/ }));
+    expect(screen.getByText("Kaasuyhtiö")).toBeTruthy();
+  });
+});
+
 describe("Laskut: Päättyneet", () => {
-  it("heads the date of an ended row Viimeksi, which a phone shows as its label, and the live rows Seuraava", () => {
+  it("folds what has ended and shows the last day of each row once opened", () => {
     stubApi({});
     const ended = { ...power, id: "out:acc-1:Vanhayhtiö", merchant: "Vanhayhtiö", contract: { ...contract, ended: true, endedOn: "2026-09-05" } };
     const live = { ...power, active: true, lastDate: "2026-10-05", nextDate: "2026-11-05" };
     const items = billItems({ series: [live, ended], typed: [], cancelled: new Set(), marks: marksBySubject([]), today: TODAY });
     const controls = { markOf: () => null, busy: false, set: () => {}, clear: () => {} };
-    const { container } = render(createElement(BillsTable, { items, controls, label: (id: string) => id, cards: new Set<string>(), today: TODAY, scope: "own", onRemoved: () => {} }));
-    const dateCell = (name: string) => within(screen.getByRole("row", { name: new RegExp(name) })).getAllByRole("cell").find((c) => c.classList.contains("next-col"))!;
-    expect(dateCell("Vanhayhtiö").getAttribute("data-label")).toBe("Viimeksi");
-    expect(dateCell("Vanhayhtiö").textContent).toBe("5.8.");
-    expect(dateCell("Sähköyhtiö").getAttribute("data-label")).toBe("Seuraava");
-    const heads = [...container.querySelectorAll("details.sub-ended th")].map((th) => th.textContent?.trim());
-    expect(heads).toContain("Viimeksi");
-    expect(heads).not.toContain("Seuraava");
+    const cal = calendar([month("2026-10", [bill({ date: "2026-11-05", payee: "Sähköyhtiö", seriesId: live.id })])]);
+    render(createElement(BillsTable, { calendar: cal, items, controls, label: (id: string) => id, scope: "own", onRemoved: () => {} }));
+    expect(screen.queryByRole("row", { name: /Vanhayhtiö/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Päättyneet 1/ }));
+    const row = screen.getByRole("row", { name: /Vanhayhtiö/ });
+    expect(within(row).getByText(/^5\.8\./)).toBeTruthy();
+    expect(within(row).getByText("Päättynyt")).toBeTruthy();
   });
 });
