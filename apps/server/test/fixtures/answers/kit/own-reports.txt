@@ -2374,6 +2374,7 @@
      "cents": 0,
      "unknown": null
     },
+    "cost": null,
     "payoff": {
      "date": "2026-11-10",
      "unknown": null,
@@ -2400,6 +2401,11 @@
   },
   "interestKnown": true,
   "withoutRate": 0,
+  "cost12": {
+   "cents": 0,
+   "interestCents": 0,
+   "feeCents": 0
+  },
   "payments": {
    "monthlyCents": 0,
    "counted": 0,
