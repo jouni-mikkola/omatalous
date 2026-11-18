@@ -55,7 +55,7 @@ describe("Täydennä lainat", () => {
     show([listOf(debts, null, 1)]);
     expect(document.querySelector(".review-item")!.textContent).toContain("Täydennä lainat");
     const names = [...document.querySelectorAll(".review-debt-name")].map((h) => plain(h.textContent));
-    expect(names).toEqual([plain("Esimerkkipankki · Asuntolaina · 861,41 €/kk · eräpäivä 16."), plain("Autolaina · Autolaina · Jäljellä 12 000,00 €")]);
+    expect(names).toEqual([plain("Esimerkkipankki · Asuntolaina · 861,41 €/kk · eräpäivä 16."), plain("Autolaina · Jäljellä 12 000,00 €")]);
     // the total is unknown while a debt has no balance: a dash, never a sum the page adds itself
     expect(totals()).toBe(plain("Velat yhteensä –Ilman saldoa 1"));
   });
@@ -176,6 +176,22 @@ describe("Täydennä lainat", () => {
     fireEvent.click(within(openRow(0)).getByRole("button", { name: "Ei ole laina" }));
     await waitFor(() => expect(seen.some((s) => s.path === "/api/marks")).toBe(true), T);
     expect(seen.find((s) => s.path === "/api/marks")!.body).toEqual(notLoanMark({ key: "j" }));
+  });
+
+  it("gives the one connected loan account with no loan to a proposed loan only when no other row could take it", async () => {
+    queryClient.clear();
+    stubApi({ "GET /api/loans": { loans: [], fixings: {} } });
+    const account = { id: "loan-acc", name: "Laina", type: "loan", balanceCents: -500_000, balanceAt: "2026-10-08", creditLimitCents: null };
+    const debt = debtOf({ id: "proposal:k", source: "proposal", name: "Esimerkkirahoitus", key: "k", kind: "consumer", monthlyCents: 25_000, latestCents: 25_000, lastDate: "2026-09-05" });
+    // two rows: each asks its own balance, empty, so one account's balance is never saved with two loans
+    const two = show([listOf([debt, { ...debt, id: "proposal:j", key: "j", name: "Toinen rahoitus" }])], metaOf([account]));
+    for (const n of [0, 1]) expect((await within(openRow(n)).findByLabelText<HTMLInputElement>(/^Jäljellä/, {}, T)).value).toBe("");
+    two.unmount();
+    // one row: the account's balance is its own, so the row does not ask it
+    queryClient.clear();
+    show([listOf([debt])], metaOf([account]));
+    await within(openRow(0)).findByRole("button", { name: "Tallenna" }, T);
+    expect(within(openRow(0)).queryByLabelText(/^Jäljellä/)).toBeNull();
   });
 
   it("shows the error of the other forms when the loans cannot be read", async () => {

@@ -64,7 +64,7 @@ function resultLine(loan: Loan, fixings: Fixings, today: string): string {
 function factsOf(debt: LoanTermsDebt): string[] {
   const due = debt.terms?.dueDate ?? debt.lastDate;
   return [
-    debt.placed && debt.source !== "card_bill" ? KIND_LABEL[debt.kind] : null,
+    debt.placed && debt.source !== "card_bill" && KIND_LABEL[debt.kind] !== debt.name ? KIND_LABEL[debt.kind] : null,
     debt.monthlyCents === null ? null : t("rpt.ln_per_month", { amount: money(debt.monthlyCents) }),
     due === null ? null : t("set.rc.lt_due_day", { day: Number(due.slice(8, 10)) }),
     debt.owedCents === null ? null : `${t("set.loans.remaining")} ${money(debt.owedCents)}`,
@@ -100,6 +100,8 @@ interface RowProps {
   onSend: (send: () => Promise<string>) => void;
   /** A loan the row's form saved. */
   onSaved: (loan: Loan) => void;
+  /** The row's form may take the one connected loan account with no loan: only when no other row of the list could take it too. */
+  ownsAccount: boolean;
 }
 
 export function LoanTermsChoices({ item, meta, busy, onAnswer, onHold, onReload }: { item: LoanTermsListItem; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void; onHold: () => void; onReload: () => void }) {
@@ -115,6 +117,10 @@ export function LoanTermsChoices({ item, meta, busy, onAnswer, onHold, onReload 
   if (fresh.length > 0) setOrder([...order, ...fresh.map((d) => d.id)]);
   const open = item.debts.filter((d) => !closed.some((c) => c.id === d.id));
   const done = open.length === 0;
+  // forms filled from rows share the connected loan accounts: with two of them in the list, neither takes one by itself
+  const fromRows = (debts: readonly LoanTermsDebt[]) => debts.filter((d) => d.source === "proposal" || d.source === "card_bill").length;
+  const [oneAtOpen] = useState(() => fromRows(item.debts) <= 1);
+  const ownsAccount = oneAtOpen && fromRows(open) <= 1;
 
   // the form that had the focus is gone: the focus goes to the line it closed into, or to Seuraava at the end
   useEffect(() => {
@@ -150,7 +156,6 @@ export function LoanTermsChoices({ item, meta, busy, onAnswer, onHold, onReload 
         )}
         <span>{t("set.rc.lt_no_balance", { count: done ? 0 : item.noBalance })}</span>
       </p>
-      {!done && <p className="review-note">{t("set.rc.lt_fill_in")}</p>}
       {loans.error && !loans.data && (
         <Notice tone="error" className="review-error" as="p">
           {loans.error}
@@ -178,7 +183,7 @@ export function LoanTermsChoices({ item, meta, busy, onAnswer, onHold, onReload 
                 {debt.name}
                 {facts.length > 0 && <span className="review-debt-facts"> · {facts.join(" · ")}</span>}
               </h3>
-              {loans.data && <DebtRow debt={debt} meta={meta} answer={loans.data} busy={busy || sending !== null} onSend={send(debt)} onSaved={(loan) => close(debt, resultLine(loan, loans.data?.fixings ?? {}, meta.today))} />}
+              {loans.data && <DebtRow debt={debt} meta={meta} answer={loans.data} ownsAccount={ownsAccount} busy={busy || sending !== null} onSend={send(debt)} onSaved={(loan) => close(debt, resultLine(loan, loans.data?.fixings ?? {}, meta.today))} />}
               {problem?.id === id && (
                 <Notice tone="error" className="review-error" as="p">
                   {problem.message}
@@ -263,9 +268,9 @@ function SavedRow({ debt, meta, answer, busy, onSend, onSaved }: RowProps) {
 }
 
 /** The form of a loan filled from a debt's rows and linked to its series. */
-function rowsForm(debt: LoanTermsDebt, kind: LoanKind, meta: Meta, answer: LoansAnswer): { initial: LoanForm; ask: LoanFieldKey[] } {
+function rowsForm(debt: LoanTermsDebt, kind: LoanKind, meta: Meta, answer: LoansAnswer, ownsAccount: boolean): { initial: LoanForm; ask: LoanFieldKey[] } {
   const noMonthly = debt.latestCents === null;
-  const proposed = formOfProposal({ key: debt.key ?? "", payee: debt.name, paymentCents: debt.latestCents ?? 0, kind }, meta.today, meta.accounts, answer.loans, debt.terms);
+  const proposed = formOfProposal({ key: debt.key ?? "", payee: debt.name, paymentCents: debt.latestCents ?? 0, kind }, meta.today, ownsAccount ? meta.accounts : [], answer.loans, debt.terms);
   // a lender's few payments tell no monthly payment: the household types that
   const initial = noMonthly ? { ...proposed, values: { ...proposed.values, paymentCents: "" } } : proposed;
   return { initial, ask: proposalAsk(initial, noMonthly) };
@@ -275,10 +280,10 @@ function rowsForm(debt: LoanTermsDebt, kind: LoanKind, meta: Meta, answer: Loans
  * A loan the rows show and nobody saved. A kind the rows only suggest is asked first, the guess picked; the form follows
  * with that kind and saves the loan linked to its series. Ei ole laina keeps the series from being asked again.
  */
-function ProposalRow({ debt, meta, answer, busy, onSend, onSaved }: RowProps) {
+function ProposalRow({ debt, meta, answer, busy, onSend, onSaved, ownsAccount }: RowProps) {
   const [kind, setKind] = useState<LoanKind>(debt.kind);
   const [key, setKey] = useState(0);
-  const { initial, ask } = rowsForm(debt, kind, meta, answer);
+  const { initial, ask } = rowsForm(debt, kind, meta, answer, ownsAccount);
   const notLoan = (
     <ChoiceButton busy={busy} onClick={() => onSend(() => loanCalls.notLoan(debt.key ?? "").then(() => t("set.rc.not_a_loan")))}>
       <span>{t("set.rc.not_a_loan")}</span>
@@ -307,11 +312,11 @@ function ProposalRow({ debt, meta, answer, busy, onSend, onSaved }: RowProps) {
  * of kind card, linked to its bills. A card already saved under Lainat with no link is told by linking that loan to the
  * series, so its debt is not saved twice; with several such loans the household says which one it is.
  */
-function CardBillRow({ debt, meta, answer, busy, onSend, onSaved }: RowProps) {
+function CardBillRow({ debt, meta, answer, busy, onSend, onSaved, ownsAccount }: RowProps) {
   const [saving, setSaving] = useState(false);
   const [picking, setPicking] = useState(false);
   if (saving) {
-    const { initial, ask } = rowsForm(debt, "card", meta, answer);
+    const { initial, ask } = rowsForm(debt, "card", meta, answer, ownsAccount);
     return <RowForm initial={initial} ask={ask} answer={answer} meta={meta} cancelLabel={t("set.rc.cancel")} onSave={async (body) => onSaved((await loanCalls.add(body)).loan)} onCancel={() => setSaving(false)} />;
   }
   const link = (id: string) => onSend(async () => resultLine(await linkSavedCard(id, debt.key ?? ""), answer.fixings, meta.today));

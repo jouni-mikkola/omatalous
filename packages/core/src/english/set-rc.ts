@@ -44,5 +44,4 @@ export const EN_SET_RC: Record<keyof typeof FI_SET_RC, string> = {
   "set.rc.lt_ends": "last instalment {date}",
   "set.rc.lt_interest": "interest left {amount}",
   "set.rc.lt_set_aside": "No more reminders",
-  "set.rc.lt_fill_in": "Fill in the fields that have no value.",
 };
