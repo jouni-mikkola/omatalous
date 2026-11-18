@@ -202,9 +202,9 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
                 </label>
               )}
               {key === "marginBp" && rate !== null && (
-                <output id={idOf("rate-now")} className="loan-rate-now">
+                <span id={idOf("rate-now")} className="loan-rate-now">
                   {t("set.loans.rate_now", { rate: percent(rate / 10_000, 2) })}
-                </output>
+                </span>
               )}
               {errors[key] && (
                 <span id={idOf(`${key}-error`)} className="field-error">

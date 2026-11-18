@@ -30,7 +30,7 @@
 .loan-field.to-check input:not([type="checkbox"]), .loan-field.to-check select { border-color: var(--warn); }
 .loan-source { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); overflow-wrap: anywhere; }
 /* the rate a loan on a euribor has now, counted from the fixing and the margin under it */
-.loan-rate-now { font-size: var(--fs-body); font-variant-numeric: tabular-nums; }
+.loan-rate-now { display: block; font-size: var(--fs-body); font-variant-numeric: tabular-nums; }
 .loan-confirm { display: inline-flex; align-items: center; gap: var(--sp-8); font-size: var(--fs-body); align-self: flex-start; cursor: pointer; }
 .loan-confirm input { margin: 0; accent-color: var(--fill); }
 
