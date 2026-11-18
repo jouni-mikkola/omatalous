@@ -22,7 +22,7 @@ function relation(rows: readonly Transaction[], a: KeyOf, b: KeyOf): { groupsA: 
     for (const t of keyed) seen.set(x(t)!, (seen.get(x(t)!) ?? new Set()).add(y(t)!));
     return [...seen.values()].filter((s) => s.size > 1).length;
   };
-  return { groupsA: new Set(keyed.map(a)).size, groupsB: new Set(keyed.map(b)).size, aSplitsB: within(a, b), bSplitsA: within(b, a) };
+  return { groupsA: new Set(keyed.map((t) => a(t))).size, groupsB: new Set(keyed.map((t) => b(t))).size, aSplitsB: within(a, b), bSplitsA: within(b, a) };
 }
 
 const income = (rows: readonly Transaction[]) => rows.filter((t) => t.amountCents > 0);
