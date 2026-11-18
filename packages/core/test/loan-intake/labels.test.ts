@@ -84,8 +84,8 @@ describe("loan intake: the label lists of wording-loan-pages.ts", () => {
   });
 
   it("a lender's line names a bank or a finance company", () => {
-    for (const name of ["Esimerkkipankki Oyj", "Mallirahoitus Bank AB", "Esimerkki Finance Oy", "Mallin Osuuspankki", "Malliluotto Oy", "Esimerkki A/S"]) expect(isLoanLenderLine(fold(name)), name).toBe(true);
-    for (const other of ["Verkkopankki", "Asunto Oy Mallila", "As Oy Mallila", "Koy Mallila", "Pankkitunnukset", "Malli Vahinkovakuutus Oyj", "Asuntolaina", "Oyster"]) expect(isLoanLenderLine(fold(other)), other).toBe(false);
+    for (const name of ["Esimerkkipankki Oyj", "Mallirahoitus Bank AB", "Esimerkki Finance Oy", "Mallin Osuuspankki", "Malliluotto Oy", "Esimerkki A/S", "Mallin Hypoteekkiyhdistys", "Esimerkki Hypoteekkilaitos"]) expect(isLoanLenderLine(fold(name)), name).toBe(true);
+    for (const other of ["Verkkopankki", "Asunto Oy Mallila", "As Oy Mallila", "Koy Mallila", "Pankkitunnukset", "Malli Vahinkovakuutus Oyj", "Asuntolaina", "Hypoteekkilaina", "Oyster"]) expect(isLoanLenderLine(fold(other)), other).toBe(false);
   });
 
   it("a rate written as its parts is told apart from a rate", () => {

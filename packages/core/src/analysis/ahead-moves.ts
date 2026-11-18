@@ -236,7 +236,9 @@ interface BilledCard {
  * Whether a card is shown paid in full each time: each of its last `MIN_PAYMENTS` bills was at least what the card owed
  * at the end of the day the bill before it reached the card (so the bill before the first of them must exist), and the
  * card has no interest row since the first of those bills. A card with a balance that revolves has one of the two
- * wrong; a card with no balance walk is not proven. The last bill alone (`paidWhole` of `cardBills`) sizes the next bill, which is
+ * wrong; a card with no balance walk is not proven. One partial bill in a month, a one-off, keeps the card unproven until
+ * three whole bills follow it: its interest stays unknown for those months, which is the cost of never calling a card paid in
+ * full that is not. The last bill alone (`paidWhole` of `cardBills`) sizes the next bill, which is
  * all the window of the coming days needs; the interest figures need this.
  */
 function paidInFull(ctx: AnalysisContext, cardId: string, walk: BalanceWalk | null, paid: readonly PaidBill[]): boolean {

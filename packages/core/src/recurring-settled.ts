@@ -10,8 +10,8 @@ import { addDays, dayNumber } from "./dates.ts";
 import { UNKNOWN_MERCHANT } from "./merchant.ts";
 import { isActiveAt, isOverdue, parseSeriesId, projectDates, type RecurringSeries, type SettledOccurrence } from "./recurring.ts";
 import { CADENCES, type CadenceDef } from "./recurring-cadence.ts";
+import { typicalAmountOf } from "./recurring-cost.ts";
 import { amountsDiffer } from "./recurring-occurrence.ts";
-import { median } from "./stats.ts";
 import { normalizeIban } from "./transfers.ts";
 import type { Account, IsoDate, Transaction } from "./types.ts";
 
@@ -61,9 +61,10 @@ const before = (a: SettleRow, b: SettleRow) => a.bookingDate.localeCompare(b.boo
 function expectations(s: RecurringSeries, own: readonly SettleRow[]) {
   const byDay = new Map<IsoDate, number>();
   for (const t of own) byDay.set(t.bookingDate, (byDay.get(t.bookingDate) ?? 0) + sumOf(t));
-  const sums = [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, cents]) => cents);
+  const days = [...byDay.entries()].sort(([a], [b]) => a.localeCompare(b));
+  const sums = days.map(([, cents]) => cents);
   const last = sums[sums.length - 1] ?? 0;
-  const typical = s.priceChange ? last : Math.round(median(sums.slice(-3)));
+  const typical = s.priceChange || !days.length ? last : typicalAmountOf(days.map(([date, cents]) => ({ date, cents, ids: [] })));
   const six = sums.slice(-6);
   const band = s.kind === "bill" && six.length ? { low: Math.min(...six) * (1 - BAND_WIDEN), high: Math.max(...six) * (1 + BAND_WIDEN) } : null;
   return { typical, last, fits: (cents: number) => !amountsDiffer(cents, typical) || !amountsDiffer(cents, last) || (!!band && cents >= band.low && cents <= band.high) };

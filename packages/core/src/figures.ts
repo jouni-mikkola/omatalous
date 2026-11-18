@@ -171,7 +171,7 @@ export const FIGURES = {
   },
   usualSpend: {
     name: "Tavalliset menot",
-    definition: "The row of Varat ja velat: the expected spending (Odotettu) of the running month, all its days, so the buffer and the row read one figure. One-offs are left out. The direction word compares the last three complete months with the mean of up to twelve, which is shown nowhere.",
+    definition: "The row of Varat ja velat: the expected spending (Odotettu) of the running month, all its days, so the buffer and the row read one figure. One-offs are left out.",
     source: { file: "home.ts", fn: "homeDirection", field: "usualCents" },
     unit: "cents",
     scope: "own",

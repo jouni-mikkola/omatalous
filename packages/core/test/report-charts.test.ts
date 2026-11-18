@@ -4,8 +4,8 @@ import { buildReports } from "../src/reports/index.ts";
 import type { Account } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";
 
-// the fields the charts of Raportit read (PD-raportit): the savings rate beside earlier months, the usual savings rate, like-for-like
-// change per category, the lowest day and the events of the balance line
+// the fields the charts of Raportit read (PD-raportit): like-for-like
+// change per category, the lowest day of the balance line
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
 const today = "2026-10-09";
 const rows = [
@@ -58,11 +58,9 @@ describe("report fields of the Raportit charts", () => {
     expect(r.income.types.every((t) => t.changeCents === null)).toBe(true);
   });
 
-  it("names the lowest day and marks the large purchase", () => {
+  it("names the lowest day", () => {
     expect(r.balances.lowest).not.toBeNull();
     expect(r.balances.lowest!.day >= "2025-11-01" && r.balances.lowest!.day <= today).toBe(true);
-    expect(r.balances.events.map((e) => e.day)).toContain("2026-06-14");
-    expect(r.balances.events.find((e) => e.day === "2026-06-14")!.cents).toBe(-189000);
   });
 
   it("draws the balance by day from the range's first day, with the dip of the purchase on its day", () => {
@@ -77,26 +75,6 @@ describe("report fields of the Raportit charts", () => {
     expect(r.balances.change).toEqual({ from: "2025-10-31", to: today, cents: d.cents[d.cents.length - 1]! - (d.cents[0]! - firstDay), basis: "dayBefore" });
     expect(Math.min(...d.cents.filter((v): v is number => v !== null))).toBe(r.balances.lowest!.cents);
   });
-
-  it("gives a purchase its step on the line, and none when pay the same day hides it", () => {
-    const finnair = r.balances.events.find((e) => e.day === "2026-06-14")!;
-    expect(finnair.step).not.toBeNull();
-    expect(finnair.step!.afterCents - finnair.step!.beforeCents).toBeLessThanOrEqual(-189000);
-    const pay = rows.find((t) => t.category === "salary" && t.bookingDate.startsWith("2026-07"))!.bookingDate;
-    const payday = createContext([...rows, tx({ bookingDate: pay, amountCents: -150000, category: "electronics", merchant: "Verkkokauppa" })], [checking], today);
-    const b = buildReports({ ctx: payday, range: { from: "2025-11-01", to: today }, balances: [{ id: "acc-1", name: "Käyttötili", type: "checking", balanceCents: 500000, ownerName: null, balanceAt: null }] }).balances;
-    expect(b.events.find((e) => e.day === pay)!.step).toBeNull();
-    expect(b.events.find((e) => e.day === "2026-06-14")!.step).not.toBeNull();
-  });
-
-  it("names the pay days of the line's days", () => {
-    const pays = r.balances.payDays;
-    expect(pays.length).toBeGreaterThanOrEqual(10);
-    expect(pays.every((d) => d >= r.balances.daily.from && d <= today)).toBe(true);
-    expect(pays).toEqual([...pays].sort());
-  });
-
-
 
   it("marks rent as fixed and groceries as not", () => {
     const stats = r.categories.groups.flatMap((g) => g.categories);

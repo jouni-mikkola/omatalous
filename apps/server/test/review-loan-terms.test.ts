@@ -184,6 +184,9 @@ describe("the question of a connected card with no terms", () => {
     await account(t, t.adminId, "card", "credit_card", -50_000);
     const id = await save(t.admin, { name: "Kortti", kind: "card", balanceCents: 40_000, balanceDate: "2026-10-01", limitCents: 200_000, accountId: "card" });
     expect(await queue(t.admin)).toEqual([expect.objectContaining({ id: `loan_terms:${id}`, loanId: id, accountId: "card", owedCents: 50_000, balanceDate: "2026-10-09", missing: "rate", subject: loanTermsSubject(id) })]);
+    // saved again with the rate left empty, the card is still asked
+    expect((await t.admin.call("PUT", `/api/loans/${id}`, { name: "Kortti", kind: "card", balanceCents: 40_000, balanceDate: "2026-10-01", limitCents: 200_000, accountId: "card", rateBp: null })).status).toBe(200);
+    expect((await queue(t.admin)).map((i) => i.loanId)).toEqual([id]);
     expect((await t.admin.call("PUT", `/api/loans/${id}`, { name: "Kortti", kind: "card", balanceCents: 40_000, balanceDate: "2026-10-01", limitCents: 200_000, accountId: "card", rateBp: 1_900 })).status).toBe(200);
     expect(await queue(t.admin)).toEqual([]);
   });

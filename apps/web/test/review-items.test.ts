@@ -153,7 +153,7 @@ describe("the choices", () => {
     const loan: ReviewItem = { kind: "loan", id: "l", cents: 300_000, key: "k", payee: "Pankki", paymentCents: 25_000, months: 14, firstDate: "2026-01-05", lastDate: "2026-10-05", guess: "car", placed: true, rowCount: 10 };
     expect(figureOf(payee).unit).toBe("yhteensä");
     expect(figureOf(loan).unit).toBe("kuussa");
-    // the line counts the rows the card shows, not the calendar months the series spans
+    // the line counts the rows the card shows
     expect(figureOf(loan).line).toBe("10 maksua 5.1. alkaen, viimeksi 5.10.");
   });
 });

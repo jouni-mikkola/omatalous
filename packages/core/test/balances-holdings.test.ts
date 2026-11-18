@@ -4,7 +4,8 @@
  * figures: the debt total, the day walk and `loanBalanceOn`. Made-up accounts and loans only.
  */
 import { describe, expect, it } from "vitest";
-import { addDays } from "../src/dates.ts";
+import { payDays } from "../src/behaviour/payday.ts";
+import { addDays, dayNumber, fromDayNumber } from "../src/dates.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { buildHousing } from "../src/housing.ts";
@@ -406,10 +407,10 @@ function paysHousehold(pays: Array<[number, number, "salary" | "benefit"]>) {
 
 
 
-describe("pay day markers of the balance report", () => {
+describe("pay days", () => {
   const markers = (pays: Array<[number, number, "salary" | "benefit"]>) => {
     const ctx = paysHousehold(pays);
-    return balanceReport(ctx, { from: "2026-06-01", to: "2026-10-18" }, [], inputsOf([])).payDays.map((d) => Number(d.slice(8)));
+    return payDays(ctx).filter((d) => d >= dayNumber("2026-06-01") && d <= dayNumber("2026-10-18")).map((d) => Number(fromDayNumber(d).slice(8)));
   };
   it("a benefit of 600 € beside a salary of 4 000 € adds no marker", () => {
     expect([...new Set(markers([[25, 400_000, "salary"], [10, 60_000, "benefit"]]))]).toEqual([25]);

@@ -196,6 +196,20 @@ describe("an opening below the asking sum", () => {
     expect(rowOf(t, "back").parts.some((p) => p.owner === "o")).toBe(true);
     expect(questionsOf(t, [])).toEqual([]);
   });
+
+  it("counts what is spent net of a refund: a purchase, its refund and another purchase of 60 euros spent 60", () => {
+    const first = row("first", "2025-07-03", -6000);
+    const t = replay([first, row("back", "2025-07-10", 6000, { from: { refundOf: first.key } }), row("second", "2025-07-12", -6000)], 312045);
+    expect(sum(t.rows.flatMap((r) => r.parts.filter((p) => p.owner === "o").map((p) => (r.cents < 0 ? p.cents : 0))))).toBe(12000);
+    expect(questionsOf(t, [])).toEqual([]);
+  });
+
+  it("asks once the net spent reaches the limit, and tells the net as the open sum", () => {
+    const first = row("first", "2025-07-03", -8000);
+    const t = replay([first, row("back", "2025-07-10", 3000, { from: { refundOf: first.key } }), row("second", "2025-07-12", -6000)], 312045);
+    // 80 € less 30 € back and 60 € more: 110 € of the opening is spent
+    expect(questionsOf(t, [])).toEqual([{ kind: "opening", key: "o", cents: 312045, day: d("2025-07-03"), openCents: 11000 }]);
+  });
 });
 
 describe("the split", () => {

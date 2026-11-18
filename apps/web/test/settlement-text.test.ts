@@ -49,20 +49,16 @@ describe("the answer under the balance chart", () => {
     return /<p class="qc-a">(.*?)<\/p>/.exec(html)?.[1] ?? null;
   };
   const data = {
-    months: ["2026-09", "2026-10"], total: [100_000, 120_000], monthChange: [null, 20_000], missing: [], accountsLessDebt: [null, null], payDays: [],
+    months: ["2026-09", "2026-10"], total: [100_000, 120_000], monthChange: [null, 20_000], missing: [], accountsLessDebt: [null, null],
     daily: { from: "2026-09-30", cents: [100_000, 120_000] }, change: null, holdings: { accounts: [], cards: [], loans: [], debtCents: 0, unsavedLoans: null, netCents: null },
     accounts: [{ accountId: "a", name: "Käyttötili", asOf: "2026-10-11", values: [100_000, 120_000], changeCents: 20_000 }], debt: { day: "2026-10-11", cents: 0, savedCents: 0 },
   };
-  const purchase = { day: "2026-10-05", label: "Esimerkkiputiikki", cents: -1_329_900, step: null };
-
-  it("names the lowest balance and picks out no purchase", () => {
-    const answer = answerOf({ ...data, lowest: { day: "2026-10-02", cents: 5000 }, events: [purchase] });
-    expect(answer).toContain("Alin saldo");
-    expect(answer).not.toMatch(/kertaosto|Esimerkkiputiikki|13\s?299/);
+  it("names the lowest balance", () => {
+    expect(answerOf({ ...data, lowest: { day: "2026-10-02", cents: 5000 } })).toContain("Alin saldo");
   });
 
-  it("has no answer line when there is no lowest balance, however large a purchase was", () => {
-    expect(answerOf({ ...data, lowest: null, events: [purchase] })).toBe("");
+  it("has no answer line when there is no lowest balance", () => {
+    expect(answerOf({ ...data, lowest: null })).toBe("");
   });
 });
 

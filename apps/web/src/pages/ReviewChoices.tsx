@@ -214,6 +214,12 @@ function LoanTermsChoices({ item, meta, busy, onAnswer }: { item: Extract<Review
   useEffect(() => {
     if (formShown) formBox.current?.querySelector<HTMLElement>("input, select")?.focus();
   }, [formShown]);
+  // the loan was deleted, or the card unlinked, since the queue was read: nothing is left to ask, so the item leaves with no error
+  const gone = editing && loans.data !== null && initial === null;
+  useEffect(() => {
+    if (gone) onAnswer(async () => undefined);
+  }, [gone]);
+  if (gone) return null;
   if (editing && loans.data && initial) {
     return (
       <LoanLinks.Provider value={{ accounts: meta.accounts, loans: loans.data.loans }}>

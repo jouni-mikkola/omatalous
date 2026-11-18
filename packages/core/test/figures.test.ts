@@ -223,11 +223,10 @@ const ANSWERS: Record<FigureKey, Answers> = {
     const ctx = contextOf(h);
     const report = balanceReport(ctx, running(h), h.balances, h.inputs);
     const accounts = report.accounts.map((a) => a.changeCents);
-    // the accounts' changes are over the same two days and add up to the total's, and so do the lines of the cash flow's bridge
+    // the accounts' changes are over the same two days and add up to the total's
     return {
       report: report.change?.cents ?? null,
       accounts: accounts.length && accounts.every((c) => c !== null) ? accounts.reduce((sum, c) => sum! + c!, 0) : null,
-      bridge: cashflowReport(ctx, running(h), h.balances).moneyBridge?.lines.reduce((sum, l) => sum + l.cents, 0) ?? null,
     };
   },
   cash: (h) => {
