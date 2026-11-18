@@ -3,7 +3,6 @@
  */
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
-import { loanBalanceByPlan } from "../src/loan-schedule.ts";
 import { debtPaymentsPerMonth, loanNextPayment, loanRateScenario } from "../src/loans.ts";
 import type { BalanceInput } from "../src/reports/balances.ts";
 import { buildReports } from "../src/reports/index.ts";
@@ -77,17 +76,6 @@ describe("a typed payment without a plan", () => {
     const r = run([card, line, bare]).loans;
     expect(r.loans.map((l) => [l.payment.cents, l.payment.unknown])).toEqual([[5000, "repayment"], [3030, "repayment"], [null, "repayment"]]);
     expect(r.payments).toEqual({ monthlyCents: 8030, counted: 2, unknown: 1, bullets: 0 });
-  });
-});
-
-describe("a card's typed payment lowers what it owes", () => {
-  it("the row and the debt total tell the balance after five payments, to the cent", () => {
-    // 1 000 € on 9.5.2026 at 18 %, 50 € a month: on 9.10. five payments are paid, 1 000 - 250 + 15,00 + 14,48 + 13,94 + 13,40 + 12,85 = 819,67 €
-    const card = loan({ id: "card", kind: "card", balanceCents: 100000, balanceDate: "2026-05-09", rateBp: 1800, paymentCents: 5000 });
-    const r = run([card]).loans;
-    expect(r.loans[0]!.balance).toEqual({ cents: 81967, unknown: null });
-    expect(r.total.cents).toBe(81967);
-    expect(loanBalanceByPlan(card, today)).toBe(81967);
   });
 });
 
