@@ -161,20 +161,21 @@ describe("the bridge with the debt told in its kinds", () => {
       ["debt", 10_000],
       ["subtotal", 185_000],
       ["principal", 25_000],
+      ["saved", 0],
       ["left", 160_000],
     ]);
   });
 
   it("leaves out what is not split when nothing is, and Tulos is the same", () => {
     const view = bridgeView(totals, { interestCents: 5_000, principalCents: 35_000, unsplitCents: 0 });
-    expect(view.figures.map((f) => f.key)).toEqual(["income", "consumption", "interest", "subtotal", "principal", "left"]);
+    expect(view.figures.map((f) => f.key)).toEqual(["income", "consumption", "interest", "subtotal", "principal", "saved", "left"]);
     expect(view.figures.at(-1)!.cents).toBe(totals.leftCents);
   });
 
   it("tells the debt whole when the split tells no interest and no repayment", () => {
     const view = bridgeView(totals, { interestCents: 0, principalCents: 0, unsplitCents: 40_000 });
     expect(view.debtSplit).toBe(false);
-    expect(view.figures.map((f) => f.key)).toEqual(["income", "consumption", "debt", "left"]);
+    expect(view.figures.map((f) => f.key)).toEqual(["income", "consumption", "debt", "saved", "left"]);
     expect(view.figures.map((f) => f.key)).toEqual(bridgeView(totals).figures.map((f) => f.key));
   });
 

@@ -218,7 +218,7 @@ export function debtSplit(ctx: AnalysisContext, range: DateRange, inputs: UserIn
   const rows = counted.filter((t) => t.flows.debt !== 0);
   const split: DebtSplit = { interestCents: 0, principalCents: 0, unsplitCents: 0 };
   if (!rows.length) return split;
-  const candidates = rows.filter((t) => t.flows.debt > 0 && t.flows.debt === -t.amountCents && !t.isTransfer && !UNSPLIT_CATEGORIES.has(t.category) && t.category !== "interest");
+  const candidates = rows.filter((t) => t.flows.debt > 0 && t.flows.debt + t.amountCents === 0 && !t.isTransfer && !UNSPLIT_CATEGORIES.has(t.category) && t.category !== "interest");
   const fromAccount = accountInterest(ctx, candidates, inputs);
   const fromPlan = engineParts(ctx, inputs);
   for (const t of rows) {
