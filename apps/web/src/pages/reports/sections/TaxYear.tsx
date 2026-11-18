@@ -26,12 +26,12 @@ const incomeColumns = (): Column<TaxIncomeRow>[] => [
 ];
 
 /** A part with no rows is left out: a "no rows" line under a heading says nothing the household can act on. */
-function Rows({ caption, rows, total }: { caption: string; rows: readonly TaxRow[]; total?: { label: string; cents: number } }) {
+function Rows({ caption, rows, total }: { caption: string; rows: readonly TaxRow[]; total?: { label: string; cents: number | null } }) {
   if (rows.length === 0) return null;
   return (
     <>
       <h3 className="sheet-part">{caption}</h3>
-      <Table<TaxRow> caption={caption} rows={rows} rowKey={(r) => r.id} columns={rowColumns()} total={total && { label: total.label, cells: { amount: money(total.cents) } }} toolbar={false} />
+      <Table<TaxRow> caption={caption} rows={rows} rowKey={(r) => r.id} columns={rowColumns()} total={total && { label: total.label, cells: { amount: total.cents === null ? "–" : money(total.cents) } }} toolbar={false} />
     </>
   );
 }
@@ -55,7 +55,7 @@ function TaxYear({ ctx }: SectionProps) {
         </>
       )}
       <Rows caption={t("tax.refunds")} rows={r.refunds.rows} />
-      <Rows caption={t("tax.interest")} rows={r.interest.rows} />
+      <Rows caption={t("tax.interest")} rows={r.interest.rows} total={{ label: t("sheet.total"), cents: r.interest.cents }} />
       {r.loanPayments.length > 0 && (
         <>
           <h3 className="sheet-part">{t("tax.loans")}</h3>

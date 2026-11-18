@@ -12,7 +12,7 @@ import { balanceReport } from "../src/reports/balances.ts";
 import { incomeReport } from "../src/reports/income.ts";
 import { spendingMonthsReport } from "../src/reports/spending-months.ts";
 import { taxYearDays, taxYearReport } from "../src/reports/tax-year.ts";
-import type { Account, BalanceInput, Transaction } from "../src/types.ts";
+import { type Account, type BalanceInput, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking", bank: "Pankki" };
@@ -140,7 +140,7 @@ describe("the money of an unknown month", () => {
     for (const type of r.types) expect(type.months[r.months.findIndex((m) => m.month === "2025-02")], type.type).toBeNull();
     expect(r.totalCents).toBe(9 * 250_000 + 50_000 + 4 * 100);
     expect(r.types.reduce((a, t) => a + t.totalCents, 0)).toBe(r.totalCents);
-    const year = taxYearReport(withOld, RANGE, incomeReport(withOld, taxYearDays(withOld, RANGE), balances));
+    const year = taxYearReport(withOld, RANGE, incomeReport(withOld, taxYearDays(withOld, RANGE), balances), NO_INPUTS);
     expect(year.income.totalCents).toBe(9 * 250_000 + 50_000 + 4 * 100);
     const s = spendingMonthsReport(withOld, RANGE);
     expect(s.totals[s.months.indexOf("2025-02")]).toBeNull();
