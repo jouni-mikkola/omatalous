@@ -183,6 +183,19 @@ describe("a saved loan linked to a connected account is one debt", () => {
     }
   });
 
+  it("a linked card with a payment and rate typed months ago owes what the bank says, not that less the payments since", () => {
+    // typed on 15.5. at 18 % with 50 € a month: the bank's 800 € of today has those payments in it already
+    const planned = loan({ id: "planned", name: "Kortti", kind: "card", balanceCents: 124_000, balanceDate: "2026-05-15", rateBp: 1800, paymentCents: 5_000, intervalMonths: 1, accountId: "card" });
+    const debts = householdDebts([card], inputsOf([planned]), today);
+    expect(debts.connected[0]).toMatchObject({ balanceCents: 80_000, balanceDate: today });
+    expect(loanBalanceOn(debts.connected[0]!, today)).toEqual({ cents: 80_000, unknown: null });
+    expect(debts.total.cents).toBe(80_000);
+    // a balance the bank gave on an earlier day starts the plan on that day
+    const given = householdDebts([{ ...card, balanceAt: "2026-08-01" }], inputsOf([planned]), today);
+    expect(given.connected[0]!.balanceDate).toBe("2026-08-01");
+    expect(given.total.cents).toBeLessThan(80_000);
+  });
+
   it("two saved loans that name one account: the first in saved order takes it and the other counts as typed", () => {
     // the ids run against the saved order, so the order decides and not the id
     const first = loan({ id: "z-first", name: "Kortti A", kind: "card", balanceCents: 50_000, rateBp: 1500, accountId: "card" });

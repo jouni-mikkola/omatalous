@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
-import { debtPaymentsPerMonth, debtTotalOn, loanBalanceOn, loanNextPayment, loanRateScenario } from "../src/loans.ts";
+import { debtPaymentsPerMonth, debtTotalOn, loanBalanceOn, loanInterestNext12Months, loanNextPayment, loanRateScenario } from "../src/loans.ts";
 import type { BalanceInput } from "../src/reports/balances.ts";
 import { buildReports } from "../src/reports/index.ts";
 import type { Account, Loan } from "../src/types.ts";
@@ -74,7 +74,7 @@ describe("a typed payment without a plan", () => {
     const line = loan({ id: "line", kind: "credit_line", balanceCents: 3000, rateBp: 1200, paymentCents: 5000, intervalMonths: 1 });
     const bare = loan({ id: "bare", kind: "card", balanceCents: 50000 });
     const r = run([card, line, bare]).loans;
-    expect(r.loans.map((l) => [l.payment.cents, l.payment.unknown])).toEqual([[5000, "repayment"], [3030, "repayment"], [null, "repayment"]]);
+    expect(r.loans.map((l) => [l.payment.cents, l.payment.unknown])).toEqual([[5000, "repayment"], [3030, null], [null, "repayment"]]);
     expect(r.payments).toEqual({ monthlyCents: 8030, counted: 2, unknown: 1, bullets: 0 });
   });
 
@@ -90,6 +90,24 @@ describe("a typed payment without a plan", () => {
     expect(debtTotalOn([card, bare], day).cents).toBe(81967 + 50000);
     // the plan ends the loan: a payment of 1 000 € clears it, and nothing is owed after its last day
     expect(loanBalanceOn(loan({ id: "clears", kind: "credit_line", balanceCents: 30000, balanceDate: "2026-01-15", rateBp: 1200, paymentCents: 100000, intervalMonths: 1 }), day)).toEqual({ cents: 0, unknown: null });
+  });
+
+  it("a payment that does not cover the interest leaves the stated balance, and the interest and next payment stay unknown with it", () => {
+    // 1 000 € at 18 % is 15 € of interest a month: 10 € a month would only make the debt grow
+    const slow = loan({ id: "slow", kind: "card", balanceCents: 100000, balanceDate: "2026-01-15", rateBp: 1800, paymentCents: 1000, intervalMonths: 1 });
+    const day = "2026-06-15";
+    expect(loanBalanceOn(slow, day)).toEqual({ cents: 100000, unknown: "repayment" });
+    expect(loanNextPayment(slow, day)).toMatchObject({ cents: 1000, date: null, unknown: "repayment" });
+    expect(loanInterestNext12Months(slow, day)).toEqual({ cents: 18000, unknown: "repayment" });
+  });
+
+  it("the interest and the next payment of a card whose balance follows its plan are the plan's", () => {
+    const card = loan({ id: "card", kind: "card", balanceCents: 100000, balanceDate: "2026-01-15", rateBp: 1800, paymentCents: 5000, intervalMonths: 1 });
+    const day = "2026-06-15";
+    // after 819,67 € the month's interest is 12,30 € and the rest of the 50 € pays the balance
+    expect(loanNextPayment(card, day)).toEqual({ cents: 5000, interestCents: 1230, amortisationCents: 3770, intervalMonths: 1, date: "2026-07-15", unknown: null });
+    // the twelve payments to come carry less than the rate of the whole balance, 147,54 €
+    expect(loanInterestNext12Months(card, day)).toEqual({ cents: 10829, unknown: null });
   });
 });
 
@@ -206,7 +224,8 @@ describe("a move of the rate that has nothing to tell, and a loan whose balance 
     // 500 € a month is the month's interest of 150 000 € at 4 %: the loan never ends, so no move has a payment or an interest to tell
     expect(run([mortgage({ rateBp: 400, paymentCents: 50000 })]).loans.loans[0]!.scenarios).toEqual([]);
     const line = loan({ id: "cl", name: "Joustoluotto", kind: "credit_line", balanceCents: 300000, rateBp: 700, reference: "euribor_3", marginBp: 450, paymentCents: 10000, intervalMonths: 1 });
-    expect(run([line]).loans.loans[0]!.scenarios.map((s) => [s.paymentCents, s.interestCents])).toEqual([[null, 18000], [null, 24000]]);
+    // its balance follows its payment of 100 € a month, so a year's interest at 6 % and at 8 % is less than the rate of the whole balance
+    expect(run([line]).loans.loans[0]!.scenarios.map((s) => [s.paymentCents, s.interestCents])).toEqual([[null, 15149], [null, 20401]]);
   });
 
   it("a balance dated after today is a payment that is not known, and no loan without a rate", () => {

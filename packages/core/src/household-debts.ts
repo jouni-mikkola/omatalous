@@ -153,7 +153,9 @@ export function householdDebts(accounts: readonly DebtAccount[], inputs: UserInp
       const terms = part ? atPart(holder, part) : holder;
       const pair = { ...terms, limitCents: terms.limitCents ?? told.limitCents };
       const stale = balanceDayOf(account.balanceAt, day) < holder.balanceDate;
-      connected.push(stale ? pair : { ...pair, balanceCents: told.balanceCents, balanceDate: loanLastDueDate(holder, day) ?? holder.balanceDate });
+      // a card's own plan pays down the balance it is dated at, so the bank's balance, which has the payments in it, is dated the day the bank gave it
+      const bankDate = isRevolving(holder.kind) && holder.repayment === null ? balanceDayOf(account.balanceAt, day) : holder.balanceDate;
+      connected.push(stale ? pair : { ...pair, balanceCents: told.balanceCents, balanceDate: loanLastDueDate(holder, day) ?? bankDate });
       // where the account tells nothing yet the pair counts as typed: whole terms, cut at each figure
       sources.push({ loanId: holder.id, accountId: account.id, linked: true, typed: part ? { ...holder, part } : holder });
       if (part) parts.set(holder.id, part);

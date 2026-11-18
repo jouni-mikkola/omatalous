@@ -304,12 +304,19 @@ export function loanPaymentAfter(loan: Loan, from: IsoDate): number | null {
 /**
  * What is owed on a day by the plan the schedule counts: the balance after its last payment on or before the day. A card or
  * credit line pays its typed payment each month here, so it is lower than the balance stated on the balance date. Null
- * where the loan has no plan or the day is before the balance date.
+ * where the loan has no plan, the day is before the balance date, or the payments never clear the balance (one does not
+ * cover its interest): a balance that grows is no known figure.
  */
 export function loanBalanceByPlan(loan: Loan, from: IsoDate): number | null {
   const plan = schedulePlan(loan);
   if (typeof plan === "string" || from < loan.balanceDate) return null;
-  return startAt(loan, plan, from).balanceCents;
+  let owed = loan.balanceCents;
+  let last = loan.balanceCents;
+  for (const p of payments(loan, plan)) {
+    if (p.date <= from) owed = p.balanceCents;
+    last = p.balanceCents;
+  }
+  return last > 0 ? null : owed;
 }
 
 /** The rate of a loan on a day and what it is made of. */

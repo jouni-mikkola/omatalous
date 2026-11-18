@@ -95,10 +95,14 @@ export function loansOf(inputs: UserInputs): readonly Loan[] {
   });
 }
 
+/** What a card or credit line with no repayment kind owes by its typed payment and rate, null where it has no such plan on the day. */
+const revolvingPlanBalance = (loan: Loan, day: IsoDate): number | null => (isRevolving(loan.kind) && loan.repayment === null ? loanBalanceByPlan(loan, day) : null);
+
 /**
  * What is owed on a day: the stated balance moved forward by the plan. A loan without a plan keeps its stated balance
  * until its last due date and names the missing field. A card or credit line with a typed payment and rate pays that
- * payment each month (`loanBalanceByPlan`), so it owes less than it was stated at. Before the balance date nothing is known.
+ * payment each month (`loanBalanceByPlan`), so it owes less than it was stated at, unless the payment does not cover
+ * the interest: then the balance would grow and the stated one stays. Before the balance date nothing is known.
  */
 export function loanBalanceOn(loan: Debt, day: IsoDate): LoanFigure {
   const cut = partly(loan);
@@ -108,7 +112,7 @@ export function loanBalanceOn(loan: Debt, day: IsoDate): LoanFigure {
   if ("missing" in plan) {
     const end = endOf(loan);
     if (end !== null && day >= end) return { cents: 0, unknown: null };
-    const byPlan = isRevolving(loan.kind) && loan.repayment === null ? loanBalanceByPlan(loan, day) : null;
+    const byPlan = revolvingPlanBalance(loan, day);
     return byPlan === null ? { cents: loan.balanceCents, unknown: plan.missing } : { cents: byPlan, unknown: null };
   }
   let cents = loan.balanceCents;
@@ -138,6 +142,11 @@ export function loanInterestNext12Months(loan: Debt, day: IsoDate): LoanFigure {
   if ("missing" in plan) {
     const end = endOf(loan);
     if (end !== null && day >= end) return { cents: 0, unknown: null };
+    if (revolvingPlanBalance(loan, day) !== null) {
+      // the balance follows the plan, so the interest is the plan's: what the payments due in the year carry
+      const rows = loanSchedule(loan, day).rows.filter((r) => r.date <= to);
+      return { cents: rows.reduce((sum, r) => sum + (r.interestCents ?? 0), 0), unknown: null };
+    }
     const owedDays = daysBetween(day, end !== null && end < to ? end : to);
     return { cents: divRound(Math.max(0, loan.balanceCents) * loan.rateBp * owedDays, 10_000 * daysBetween(day, to)), unknown: plan.missing };
   }
@@ -305,6 +314,12 @@ export function loanNextPayment(loan: Debt, day: IsoDate): NextPayment {
   }
   const owed = loanBalanceOn(loan, day).cents ?? 0;
   if (owed <= 0) return none(null);
+  if (revolvingPlanBalance(loan, day) !== null) {
+    // the balance follows the plan, so the next payment is the plan's, with its split and its day
+    const next = loanSchedule(loan, day).rows[0];
+    if (next === undefined) return none(null);
+    return { cents: (next.interestCents ?? 0) + next.principalCents, interestCents: next.interestCents, amortisationCents: next.principalCents, intervalMonths: 1, date: next.date, unknown: null };
+  }
   if (loan.paymentCents === null || loan.paymentCents <= 0) return none(plan.missing);
   // the typed amortisation is known, the interest on top of it is not
   if (loan.repayment === "equal_principal") return { ...none(plan.missing), amortisationCents: Math.min(loan.paymentCents, owed) };
