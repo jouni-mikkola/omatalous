@@ -15,6 +15,7 @@ import { paydayOf, runwayOf } from "../src/analysis/runway.ts";
 import { expectedEverydayPerDay, expectedIncome, expectedSpending } from "../src/analysis/expected.ts";
 import { completeMonthsBefore, earnedIncome } from "../src/analysis/usual.ts";
 import { type CostKind, costKindOf } from "../src/cost-kinds.ts";
+import { debtCost } from "../src/debt-cost.ts";
 import { addMonths, daysBetween, monthEnd, monthOf } from "../src/dates.ts";
 import { FIGURES } from "../src/figures.ts";
 import { lowPoint } from "../src/low-point.ts";
@@ -28,6 +29,7 @@ import { bufferReport } from "../src/reports/buffer.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
 import { fixedCostsReport } from "../src/reports/fixed-costs.ts";
 import { incomeReport, regularIncomeMonths } from "../src/reports/income.ts";
+import { loansReport } from "../src/reports/loans.ts";
 import { upcomingReport } from "../src/reports/upcoming.ts";
 
 type FigureKey = keyof typeof FIGURES;
@@ -265,6 +267,21 @@ const ANSWERS: Record<FigureKey, Answers> = {
     return {
       holdings: monthly(holdings.loans),
       dashboard: monthly(buildDashboard(ctx, running(h), h.balances, inputs).holdings.loans),
+    };
+  },
+  debtRate: (h) => {
+    // the typed loan alone: no connected card is in the report, so no debt of unknown rate hides the figure
+    const row = loansReport(contextOf(h), [], { ...h.inputs, loans: [typedLoan(h)] }).loans[0]!;
+    return { report: row.cost?.rateMilli ?? null, debtCost: debtCost(typedLoan(h), h.today)?.rateMilli ?? null };
+  },
+  debtCost12: (h) => {
+    const r = loansReport(contextOf(h), [], { ...h.inputs, loans: [typedLoan(h)] });
+    const rows = r.loans.map((l) => l.cost?.next12?.cents ?? null);
+    return {
+      report: r.cost12.cents,
+      // the rows added up, and unknown when any row is: no answer passes by leaving a debt out
+      rows: rows.some((c) => c === null) ? null : rows.reduce<number>((sum, c) => sum + c!, 0),
+      debtCost: debtCost(typedLoan(h), h.today)?.next12?.cents ?? null,
     };
   },
   rareBillsYear: (h) => {

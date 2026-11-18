@@ -16,14 +16,14 @@ const row = (over: Partial<LoanRow> = {}): LoanRow =>
     id: "home", name: "Kodin laina", lender: "Esimerkkipankki", kind: "mortgage", accountType: null, linkedAccount: null,
     balance: { cents: 12_000_000, unknown: null }, balanceDate: day, rateBp: 325, reference: "euribor_12", repayment: "annuity",
     payment: { cents: 100_000, interestCents: 32_500, amortisationCents: 67_500, intervalMonths: 1, date: null, unknown: null },
-    interest: { cents: 380_000, unknown: null }, payoff: { date: "2040-02-01", unknown: null, never: false }, scenarios: [],
+    interest: { cents: 380_000, unknown: null }, cost: null, payoff: { date: "2040-02-01", unknown: null, never: false }, scenarios: [],
     ...over,
   }) as LoanRow;
 /** No loan the path can move forward: no chart. */
 const NO_PATH: NonNullable<LoansReport["path"]> = { days: [day], balanceCents: [0], interestCents: [0], tops: [0], payoff: null, moves: [] };
 const report = (rows: LoanRow[], over: Partial<LoansReport> = {}) => ({
   day, saved: rows.length, loans: rows, unsaved: [], total: { cents: 12_000_000, unknown: [] }, totalKnown: true, interest: { cents: 380_000, unknown: [] }, interestKnown: true,
-  withoutRate: 0, payments: { monthlyCents: 100_000, counted: 1, unknown: 0, bullets: 0 }, path: NO_PATH, maybeTwice: [], overdraftTwice: [], ...over,
+  withoutRate: 0, cost12: { cents: 380_000, interestCents: 380_000, feeCents: 0 }, payments: { monthlyCents: 100_000, counted: 1, unknown: 0, bullets: 0 }, path: NO_PATH, maybeTwice: [], overdraftTwice: [], ...over,
 });
 const balanceData = {
   months: ["2026-09", "2026-10"], total: [100_000, 120_000], monthChange: [null, 20_000], missing: [], accountsLessDebt: [null, -11_880_000], lowest: null,
@@ -277,8 +277,9 @@ describe("Raportit: Lainat", () => {
     expect(mine).not.toContain("Täydennä");
   });
 
-  it("lists the debts by rate, highest first, and the debt with no rate last", () => {
-    const out = html(loans, context(report([card(), row({ id: "low", name: "Matala", rateBp: 325 }), row({ id: "high", name: "Korkea", rateBp: 900 })])));
+  it("lists the debts by Todellinen korko, highest first, and the debt with no cost last", () => {
+    const cost = (rateMilli: number, costClass: "cheap" | "dear") => ({ rateMilli, costClass, next12: { cents: 1000, interestCents: 1000, feeCents: 0 }, leftCents: 1000, feePerPaymentCents: 0, unknown: null });
+    const out = html(loans, context(report([card(), row({ id: "low", name: "Matala", rateBp: 325, cost: cost(3_300, "cheap") }), row({ id: "high", name: "Korkea", rateBp: 900, cost: cost(9_400, "dear") })])));
     const names = [...out.matchAll(/<strong>([^<]*)<\/strong>/g)].map((m) => m[1]);
     expect(names.filter((n) => ["Korkea", "Matala", "Esimerkkikortti Gold"].includes(n!))).toEqual(["Korkea", "Matala", "Esimerkkikortti Gold"]);
   });

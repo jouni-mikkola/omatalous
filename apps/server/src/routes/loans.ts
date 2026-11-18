@@ -204,19 +204,31 @@ export async function parseLoan(raw: unknown, today: string, accounts: OwnAccoun
     const day = date(stepDate, oldest, latest, `Koron muutoksen päivä voi olla enintään ${YEARS_BACK} vuotta sitten ja ${YEARS_AHEAD} vuoden päässä.`);
     const stepRate = rate(stepBp, "Uuden koron");
     if (!hasReferenceRate(loan)) {
-      if (loan.rateBp === null) throw new UserError("Koron muutokselle pitää antaa myös nykyinen korko.");
+      if (loan.rateBp === null) throw new UserError("Koron muutokselle pitää antaa myös korko ennen muutosta.");
       loan.rateStepDate = day;
       loan.rateStepBp = stepRate;
     }
   }
   // The one way a balance could grow: a payment that holds the interest and is smaller than it. The interest only
-  // shrinks with the balance, so a payment that covers the first interval covers every later one.
+  // shrinks with the balance, so a payment that covers the first interval covers every later one, until the rate steps up.
   const holdsInterest = loan.repayment === "annuity" || loan.repayment === "fixed_instalment";
   if (holdsInterest && loan.paymentCents !== null && loan.rateBp !== null && loan.intervalMonths !== null) {
     if (loan.paymentCents < loanPeriodInterest(loan.balanceCents, loan.rateBp, loan.intervalMonths)) {
       throw new UserError(
         "Maksuerä on pienempi kuin lyhennysvälin korko, joten laina ei lyhenisi. Tarkista luvut tai jätä maksuerä tyhjäksi, jos maksat vain korkoa.",
       );
+    }
+    // After a step the interest is the step rate's on what is left of the balance then. The least that can be left is the
+    // balance less the payments due before the step (no interest in them). An annuity with a last due date sets its
+    // payment again at the step, so it needs no check.
+    const { rateStepDate, rateStepBp } = loan;
+    if (rateStepDate && rateStepBp != null && !(loan.repayment === "annuity" && loan.endDate !== null)) {
+      let paid = 0;
+      while (addMonthsToDate(loan.balanceDate, (paid + 1) * loan.intervalMonths) <= rateStepDate) paid++;
+      const left = Math.max(0, loan.balanceCents - paid * loan.paymentCents);
+      if (left > 0 && loan.paymentCents < loanPeriodInterest(left, rateStepBp, loan.intervalMonths)) {
+        throw new UserError("Maksuerä on pienempi kuin koron muutoksen jälkeinen lyhennysvälin korko, joten laina ei lyhenisi muutoksen jälkeen. Tarkista luvut tai jätä maksuerä tyhjäksi, jos maksat vain korkoa.");
+      }
     }
   }
   // Read last, so a body that fails a cheaper check costs no query. A loan with no link has no field: it is saved and

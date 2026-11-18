@@ -401,6 +401,13 @@ describe("loans", () => {
       expect(await stored(id)).toEqual({ rate_step_date: null, rate_step_bp: null });
     }
 
+    // a payment that covers the interest before the step and not after it is refused: the balance could not be paid down
+    const small = { ...promo, paymentCents: 1000 };
+    expect((await admin.call("POST", "/api/loans", { ...small, rateStepDate: "2027-03-01", rateStepBp: 1990 })).status).toBe(400);
+    // the same payment with no step, or a step that falls after the payments have cleared the balance, is accepted
+    expect((await admin.call("POST", "/api/loans", small)).status).toBe(200);
+    expect((await admin.call("POST", "/api/loans", { ...small, paymentCents: 60_000, rateStepDate: "2027-03-01", rateStepBp: 1990 })).status).toBe(200);
+
     // a loan on a euribor has none: its reviews set the rate, so a step sent with it is checked and dropped
     const euribor = await admin.call("POST", "/api/loans", { ...mortgage, rateStepDate: "2027-03-01", rateStepBp: 1990 });
     expect(euribor.status).toBe(200);
