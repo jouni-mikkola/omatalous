@@ -507,6 +507,11 @@ describe("settlement routes", () => {
     expect((await w.as(w.ville).call("GET", "/api/settlement/agreements/pool-v")).status).toBe(404);
   });
 
+  it("names the month of the pool's first booked row in every answer, so the page can offer the months from it", async () => {
+    const w = await both(SEPTEMBER);
+    for (const month of ["2026-09", "2026-10"]) expect(((await get(w, w.aino, month))[0] as unknown as { firstMonth: string }).firstMonth).toBe(MONTH);
+  });
+
   it("keeps no month from before the pool's first booked row, however a month is asked", async () => {
     const w = await both(SEPTEMBER);
     const kept = async () => (await w.db.all<{ month: string }>("SELECT month FROM settlement_closed ORDER BY month")).map((r) => r.month);

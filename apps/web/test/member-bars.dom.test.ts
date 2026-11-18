@@ -1,5 +1,5 @@
 /** Raportit > Yhteiset menot: the member bars and their place in the settlement block. */
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -63,10 +63,30 @@ describe("Yhteiset menot: the member bars", () => {
 });
 
 const empty = { status: { open: true }, unknownPaid: 0, unknownOwed: 0, unknownPaidBy: [], unknownOwedBy: [], unknownHolder: [], netCost: 0, lines: [], agreements: [], incomeMissing: false, fellBack: false };
-const pool = (settlement: object) => ({ month: "2026-10", pools: [{ accountId: "acc-1", name: "Yhteistili", names: { u1: "Aino", u2: "Eero" }, removed: [], labels: {}, settlement: { month: "2026-10", ...empty, ...settlement } }] });
+const pool = (settlement: object, firstMonth: string | null = "2026-10") => ({ month: "2026-10", pools: [{ accountId: "acc-1", name: "Yhteistili", firstMonth, names: { u1: "Aino", u2: "Eero" }, removed: [], labels: {}, settlement: { month: "2026-10", ...empty, ...settlement } }] });
 const context = { meta: { today: "2026-10-09", accounts: [{ id: "acc-1" }], sharedAccounts: [] }, range: { from: "2026-10-01", to: "2026-10-09" } } as unknown as ReportContext;
 
 beforeEach(() => queryClient.clear());
+
+describe("Yhteiset menot: the month menu", () => {
+  const months = () => [...screen.getByRole("combobox").querySelectorAll("option")].map((o) => o.value);
+  const settled = { members: [{ owner: "u1", paid: 30000, owed: 20000, over: 10000 }, { owner: "u2", paid: 10000, owed: 20000, over: -10000 }] };
+
+  it("reaches back to the month of the pool's first row, however old", async () => {
+    stubApi({ "GET /api/settlement": pool(settled, "2024-02") });
+    render(createElement(section.Component, { ctx: context }));
+    await screen.findByRole("group", { name: "Yhteiset menot: Yhteistili" });
+    await waitFor(() => expect(months()).toHaveLength(33));
+    expect([months()[0], months()[32]]).toEqual(["2026-10", "2024-02"]);
+  });
+
+  it("offers no month before the first row", async () => {
+    stubApi({ "GET /api/settlement": pool(settled, "2026-08") });
+    render(createElement(section.Component, { ctx: context }));
+    await screen.findByRole("group", { name: "Yhteiset menot: Yhteistili" });
+    await waitFor(() => expect(months()).toEqual(["2026-10", "2026-09", "2026-08"]));
+  });
+});
 
 describe("Yhteiset menot: the bars in the settlement block", () => {
   it("shows a pair of bars a member from the settlement's paid and share", async () => {

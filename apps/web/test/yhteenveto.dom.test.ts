@@ -172,6 +172,15 @@ describe("Yhteenveto's month", () => {
       expect(linesOf(onDay("2026-02-28"))).toEqual(WHOLE);
     });
 
+    it("a month that is over reads all of the month before, also when both end on the 31st", () => {
+      const d = data({
+        running: false,
+        range: { from: "2026-08-01", to: "2026-08-31", previousFrom: "2026-07-01" },
+        pace: { ...data().pace, month: "2026-08", previous: { month: "2026-07", curve: [], day: 31, toToday: 140000 } },
+      } as never);
+      expect(figuresIn(summaryIn(d))[1]!.lines[0]).toBe("Koko viime kuussa 1 400 €");
+    });
+
     it("a month before shorter than today's day is read whole, the 31st of October against September", () => {
       expect(linesOf(onDay("2026-10-31"))).toEqual(WHOLE);
       expect(linesOf(onDay("2026-03-30"))).toEqual(WHOLE);
