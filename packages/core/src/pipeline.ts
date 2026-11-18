@@ -13,7 +13,7 @@ import { isSharedPurchase, SHARE_DAYS } from "./mobilepay.ts";
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { dayNumber } from "./dates.ts";
 import { applyPayerConsistency } from "./payer-consistency.ts";
-import { answeredWalletRows, applyPayerRoles, steadyPayers, WALLET_PAYER_KEY } from "./payer-role.ts";
+import { answeredWalletRows, applyPayerRoles, pooledIbans, steadyPayers, WALLET_PAYER_KEY } from "./payer-role.ts";
 import { median } from "./stats.ts";
 import { matchReturns, monthlyRunRows, partyKey, returnClassOf, SHARE_WINDOW_DAYS, steadyParties } from "./returns.ts";
 import { mayBeTransferLeg } from "./pairing.ts";
@@ -309,7 +309,8 @@ export function enrichIsland(input: IslandInput): IslandResult {
   // MobilePay money answered as shares of purchases reads the rows of other merchants: its purchase
   if (input.payers?.roles.some((r) => r.role === "cost_share" && r.counterpartyKey === WALLET_PAYER_KEY)) return { ok: false, reason: "answered MobilePay shares read the purchases of other merchants" };
   if (input.payers?.roles.length && !input.payerRows) return { ok: false, reason: "payer roles read the payer's rows outside the merchant" };
-  const typicals = input.payerRows && input.payers?.roles.length ? steadyPayers(input.payerRows) : undefined;
+  const pooled = input.payerRows && input.payers?.roles.length ? pooledIbans(input.payerRows) : undefined;
+  const typicals = pooled && input.payerRows ? steadyPayers(input.payerRows, pooled) : undefined;
   if (rows.some((t) => t.categorySource === "transfer")) return { ok: false, reason: "a row of the merchant is paired as a transfer" };
   const ownIbans = ownIbansOf(accounts, input.household);
   const holders = holdersOf(accounts);
@@ -330,7 +331,7 @@ export function enrichIsland(input: IslandInput): IslandResult {
     // as in the full run: the member's rules and both rows of every return are the roles' to leave
     const locked = new Set([...staged.byUserRule, ...staged.returns.keys(), ...staged.returns.values()]);
     applyPayerConsistency(next, locked);
-    applyPayerRoles(next, locked, input.payers, typicals);
+    applyPayerRoles(next, locked, input.payers, typicals, pooled);
     applyDeclaredMortgages(next, locked, input.loans);
     return next;
   };

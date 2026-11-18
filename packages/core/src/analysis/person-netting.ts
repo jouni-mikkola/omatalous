@@ -4,7 +4,7 @@
  *
  * Money from a person that no rule, pair or answer placed (Maksut henkilöiltä, income that is not earned) settles what
  * the household sent to the same person (Maksut henkilöille, one payer key, `identifiedPayerKeyOf`; an account that many
- * unrelated senders pay from is told apart by name, `pooledIbans`) in the same month. The row
+ * unrelated senders pay from is told apart by name, `pooledIbans`, the one set of the context) in the same month. The row
  * takes what is left of those payments, oldest first, and lowers Maksut henkilöille by that much, as a row with its
  * minus. Only the rest of the row stays income, as Maksut henkilöiltä, which is no earned income. Income less spending
  * stays what it was, since the cents leave the income and the spending together, and Tulos is the same with and
@@ -16,7 +16,7 @@
  * sent. A row the split guess claims (`splitShareIds`) is a friend's share of a bill, which is asked about, and is left
  * alone. The result depends on the rows only, not on their order.
  */
-import { identifiedPayerKeyOf, pooledIbans, steadyPayers } from "../payer-role.ts";
+import { identifiedPayerKeyOf, steadyPayers } from "../payer-role.ts";
 import type { AnalysisTx } from "./context.ts";
 
 /** Maksut henkilöille: money in on it is from a person. */
@@ -34,10 +34,11 @@ const byDay = (a: Pick<Row, "day" | "id">, b: Pick<Row, "day" | "id">) => a.day 
 
 /**
  * Every row of money from a person that settles payments to the same person in its month, by its id, with what it takes
- * of each: less than its amount where the month sent less. Call it after `moneyIn` was applied. `claimed` gives the ids
- * the split guess claims; it is asked only when a row could net.
+ * of each: less than its amount where the month sent less. Call it after `moneyIn` was applied. `pooled`: the accounts
+ * that many senders pay from (`pooledIbans` of the rows). `claimed` gives the ids the split guess claims; it is asked
+ * only when a row could net.
  */
-export function netPersons(rows: readonly Row[], claimed: () => ReadonlySet<string> = () => new Set()): Map<string, Netting> {
+export function netPersons(rows: readonly Row[], pooled: ReadonlySet<string>, claimed: () => ReadonlySet<string> = () => new Set()): Map<string, Netting> {
   const out = new Map<string, Netting>();
   const incoming = rows
     .filter(
@@ -52,8 +53,6 @@ export function netPersons(rows: readonly Row[], claimed: () => ReadonlySet<stri
     )
     .sort(byDay);
   if (!incoming.length) return out;
-  // an account many unrelated senders pay from is no one person: its rows are told apart by name
-  const pooled = pooledIbans(rows);
   const open = new Map<string, { id: string; left: number }[]>();
   for (const t of [...rows].sort(byDay)) {
     const left = t.spend - t.refunded;

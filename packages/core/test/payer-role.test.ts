@@ -52,17 +52,64 @@ describe("the payer of a row", () => {
     expect(payerKeyOf(row)).toBe(WALLET_PAYER_KEY);
   });
 
-  it("keys the money of an account three or more unrelated names pay from by the name", () => {
-    const named = (counterparty: string) => ({ counterpartyIban: VILLE_IBAN, counterparty });
-    const rows = [named("Ville Esimerkki"), named("Liisa Testinen"), named("Matti Meikalainen"), named("Meikalainen Matti")];
-    expect(pooledIbans(rows)).toEqual(new Set([VILLE_IBAN]));
-    const keyOf = payerKeysOf(rows);
-    expect(new Set(rows.map(keyOf)).size).toBe(3);
-    expect(keyOf(rows[0]!)).toBe("name:ESIMERKKI VILLE");
-    expect(keyOf(rows[2]!)).toBe(keyOf(rows[3]!));
-    // two names are a couple's or one person's account: the number still tells the payer
-    expect(pooledIbans(rows.slice(2))).toEqual(new Set());
-    expect(payerKeysOf(rows.slice(2))(rows[2]!)).toBe(VILLE);
+  describe("on an account many unrelated senders pay from", () => {
+    const named = (counterparty: string | null, amountCents = eur(10), description?: string) => ({ counterpartyIban: VILLE_IBAN, counterparty, amountCents, ...(description ? { description } : {}) });
+    const keysOf = (rows: ReturnType<typeof named>[]) => {
+      const keyOf = payerKeysOf(rows, pooledIbans(rows));
+      return rows.map((t) => keyOf(t));
+    };
+    const permutations = <T>(items: readonly T[]): T[][] => (items.length < 2 ? [[...items]] : items.flatMap((item, i) => permutations([...items.slice(0, i), ...items.slice(i + 1)]).map((rest) => [item, ...rest])));
+
+    it("keys the money by the name", () => {
+      const rows = [named("Ville Esimerkki"), named("Liisa Testinen"), named("Matti Meikalainen"), named("Meikalainen Matti")];
+      expect(pooledIbans(rows)).toEqual(new Set([VILLE_IBAN]));
+      const keys = keysOf(rows);
+      expect(new Set(keys).size).toBe(3);
+      expect(keys[0]).toBe("name:ESIMERKKI VILLE");
+      expect(keys[2]).toBe(keys[3]);
+      // two names are a couple's or one person's account: the number still tells the payer
+      expect(pooledIbans(rows.slice(2))).toEqual(new Set());
+      expect(keysOf(rows.slice(2))[0]).toBe(VILLE);
+    });
+
+    it("keeps the account number of a row that names no sender", () => {
+      const rows = [named("Ville Esimerkki"), named("Liisa Testinen"), named("Matti Meikalainen"), named(null, eur(10), "Maksu")];
+      expect(pooledIbans(rows)).toEqual(new Set([VILLE_IBAN]));
+      expect(keysOf(rows)[3]).toBe(VILLE);
+      expect(payerKeyOf(rows[3]!, pooledIbans(rows))).toBe(VILLE);
+    });
+
+    it("counts the senders, not the payees: two names in and one out is no pool", () => {
+      const rows = [named("Ville Esimerkki"), named("Liisa Testinen"), named("Matti Meikalainen", -eur(10))];
+      expect(pooledIbans(rows)).toEqual(new Set());
+      expect(keysOf(rows.slice(0, 2))).toEqual([VILLE, VILLE]);
+    });
+
+    it("is no pool of the names one employer is written with", () => {
+      const rows = [named("Firma Oy"), named("Firma Oy Ab"), named("FIRMA OY PALKAT"), named("Firma Kiinteistot Oy")];
+      expect(pooledIbans(rows)).toEqual(new Set());
+      expect(pooledIbans([...rows, named("Ville Esimerkki"), named("Liisa Testinen")])).toEqual(new Set());
+    });
+
+    it("is no pool of the names of a way to pay", () => {
+      const rows = [named("E-LASKU"), named("MOB.PAY"), named("Mobile Pay"), named("Ville Esimerkki"), named("Liisa Testinen")];
+      expect(pooledIbans(rows)).toEqual(new Set());
+    });
+
+    it("is no pool of a joint account's holders with their one-word and initial variants", () => {
+      const rows = [named("Matti Meikalainen"), named("Liisa Meikalainen"), named("M Meikalainen"), named("MEIKALAINEN"), named("Matti M")];
+      expect(pooledIbans(rows)).toEqual(new Set());
+      // a third sender who is no one of them makes it a pool
+      expect(pooledIbans([...rows, named("Ville Esimerkki")])).toEqual(new Set());
+      expect(pooledIbans([...rows, named("Ville Esimerkki"), named("Aino Testinen")])).toEqual(new Set([VILLE_IBAN]));
+    });
+
+    it("counts alike whatever the order of the rows", () => {
+      // the father's and the son's names both hold the short name, and do not match each other
+      const names = ["Matti Meikalainen", "Meikalainen Matti Juhani", "Meikalainen Matti Pekka", "Ville Esimerkki"];
+      for (const order of permutations(names)) expect(pooledIbans(order.map((n) => named(n))), order.join(", ")).toEqual(new Set());
+      for (const order of permutations([...names, "Liisa Testinen"])) expect(pooledIbans(order.map((n) => named(n))), order.join(", ")).toEqual(new Set([VILLE_IBAN]));
+    });
   });
 
   it("is none for a row with neither: its description alone is never a payer", () => {
@@ -81,6 +128,15 @@ describe("which answer reaches a row", () => {
     expect(roleOf(roles, row("Ville Esimerkki"))).toBe("gift");
     expect(roleOf(roles, row("Esimerkki Ville"))).toBe("gift");
     expect(roleOf(roles, row("Esimerkki Ville Matias"))).toBe("gift");
+  });
+
+  it("reaches wallet money that names no sender by the wallet's answer, else by an answer given for the wallet operator's account", () => {
+    const wallet = tx({ bookingDate: "2026-10-03", amountCents: eur(20), counterparty: null, counterpartyIban: VILLE_IBAN, description: "MobilePay" });
+    expect(roleOf([member("1", VILLE, "gift")], wallet)).toBe("gift");
+    expect(roleOf([member("1", VILLE, "gift"), member("1", WALLET_PAYER_KEY, "sales")], wallet)).toBe("sales");
+    expect(roleOf([member("1", WALLET_PAYER_KEY, "sales")], wallet)).toBe("sales");
+    // a named sender on the same account is still told by the account's answer
+    expect(roleOf([member("1", VILLE, "gift")], row("Liisa Testinen", VILLE_IBAN))).toBe("gift");
   });
 
   it("lets the IBAN decide whatever the name says, and a name answer reach an IBAN row that has no IBAN answer", () => {
@@ -531,7 +587,7 @@ describe("the questions about a payer", () => {
 describe("payerKeysOf", () => {
   const keyed = (rows: Partial<Transaction>[]) => {
     const all = rows.map((r) => tx({ bookingDate: "2026-10-01", amountCents: eur(10), ...r }));
-    const keyOf = payerKeysOf(all);
+    const keyOf = payerKeysOf(all, pooledIbans(all));
     return all.map((t) => keyOf(t));
   };
 
@@ -553,7 +609,7 @@ describe("payerKeysOf", () => {
   describe("never joins two people", () => {
     const apart = (rows: Partial<Transaction>[]) => {
       const all = rows.map((r) => tx({ bookingDate: "2026-10-01", amountCents: eur(10), ...r }));
-      const keyOf = payerKeysOf(all);
+      const keyOf = payerKeysOf(all, pooledIbans(all));
       expect(all.map((t) => keyOf(t))).toEqual(all.map((t) => payerKeyOf(t)));
     };
 

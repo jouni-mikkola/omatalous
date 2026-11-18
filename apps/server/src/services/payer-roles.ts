@@ -36,7 +36,7 @@ export async function answerPayer(s: Services, userId: string, answer: PayerAnsw
     // a payer the member's own rows have: a key from nowhere is stored under nothing
     const { ctx } = await s.analysis.get(s, userId, "own");
     // the key a question carries is the merged one (`payerKeysOf`): one person's rows, and a pooled account's rows by name
-    const keyOf = payerKeysOf(ctx.txs.filter((t) => t.amountCents > 0));
+    const keyOf = payerKeysOf(ctx.txs.filter((t) => t.amountCents > 0), ctx.pooled);
     if (!ctx.txs.some((t) => t.amountCents > 0 && (keyOf(t) === answer.key || payerKeyOf(t) === answer.key))) throw new UserError("Maksajaa ei löydy.");
     await repo.setPayerRole(answer.key, answer.role, s.now().toISOString());
   }

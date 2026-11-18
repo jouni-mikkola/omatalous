@@ -405,9 +405,9 @@ describe("money from a person", () => {
 
   describe("an account many unrelated senders pay from", () => {
     const POOL = "FI2112345600000785";
-    const [LIISA, VILLE] = ["Liisa Esimerkki", "Ville Testinen"];
+    const [LIISA, VILLE, AINO] = ["Liisa Esimerkki", "Ville Testinen", "Aino Mallinen"];
     const viaPool = (name: string): Partial<Transaction> => ({ counterparty: name, counterpartyIban: POOL });
-    const strangers = [from("2026-09-05", 20, LIISA, viaPool(LIISA)), from("2026-09-06", 20, VILLE, viaPool(VILLE))];
+    const strangers = [from("2026-09-05", 20, LIISA, viaPool(LIISA)), from("2026-09-06", 20, VILLE, viaPool(VILLE)), from("2026-09-07", 20, AINO, viaPool(AINO))];
 
     it("is told apart by name: what one sender sent does not settle a payment to another", () => {
       const ctx = contextOf([to("2026-10-04", 50, MATTI, viaPool(MATTI)), from("2026-10-11", 30, LIISA, viaPool(LIISA)), ...strangers]);
@@ -424,6 +424,13 @@ describe("money from a person", () => {
     it("is one person's account while two names or fewer use it", () => {
       const ctx = contextOf([to("2026-10-04", 50, MATTI, viaPool(MATTI)), from("2026-10-11", 30, MATTI, { counterparty: "Meikalainen Matti", counterpartyIban: POOL }), strangers[0]!]);
       expect(ctx.netted.size).toBe(1);
+    });
+
+    it("counts the names of the money in alone: two senders and a payee are no pool, so the account tells the payer in the netting too", () => {
+      const ctx = contextOf([to("2026-10-04", 50, MATTI, viaPool(MATTI)), from("2026-10-11", 30, LIISA, viaPool(LIISA)), strangers[1]!]);
+      expect(ctx.pooled.size).toBe(0);
+      expect(ctx.netted.size).toBe(1);
+      expect(contextOf([to("2026-10-04", 50, MATTI, viaPool(MATTI)), ...strangers]).pooled).toEqual(new Set([POOL]));
     });
   });
 
