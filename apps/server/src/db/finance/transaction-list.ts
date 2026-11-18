@@ -2,13 +2,13 @@
  * What the transactions page and the export read: the filter, its two sides (own rows and shared accounts) and
  * the pages. Every side starts with a user_id condition, so a filter can never reach another member's rows.
  * The rows are the bank's, whole, in every view; the sums above the list are sums of the viewer's parts, and they and
- * the category filter count a row as the view does (`toldSql`, `listSumsSql`): a payment that arrived short adds its fee.
+ * the category filter count a row as the view does (`toldSql`): a payment that arrived short adds its fee.
  */
 import { CATEGORIES, fold, MAX_LIST_ROWS } from "@banking/core";
 import { type Row, type StoredTransaction, TX_COLUMNS_LIGHT, toTransaction } from "../rows.ts";
 import type { SqlValue } from "../types.ts";
 import type { FinanceContext } from "./context.ts";
-import { listSumsSql, notLeftSql, type OwnRows, toldSql } from "./part-sql.ts";
+import { notLeftSql, type OwnRows, toldSql } from "./part-sql.ts";
 
 const INCOME_CATEGORIES = CATEGORIES.filter((c) => c.kind === "income").map((c) => c.id);
 
@@ -16,14 +16,6 @@ const INCOME_CATEGORIES = CATEGORIES.filter((c) => c.kind === "income").map((c) 
 export interface DayCount {
   date: string;
   count: number;
-}
-
-/** What the rows of one payee add up to, as a day's sums do. */
-export interface MerchantSum {
-  merchant: string;
-  count: number;
-  inCents: number;
-  outCents: number;
 }
 
 export interface TransactionFilter {
@@ -142,32 +134,6 @@ export class TransactionListRepo {
     const items = await this.pageRows(sides, Math.min(Math.max(f.limit ?? 100, 1), MAX_LIST_ROWS), Math.max(f.offset ?? 0, 0));
     const days = [...byDay.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
     return { total, ids, days, items };
-  }
-
-  /**
-   * The filter's rows of each of `merchants` added up as a day's are (`listTransactions`): the head of a payee's group
-   * when the list is grouped by payee says what all its rows come to, the parts of joint rows and no own transfer.
-   */
-  async merchantSums(f: TransactionFilter, accountIds: readonly string[] | undefined, merchants: readonly string[]): Promise<MerchantSum[]> {
-    if (!merchants.length) return [];
-    const { amount: part, moved } = listSumsSql(f.own);
-    const byMerchant = new Map<string, MerchantSum>();
-    for (const side of this.filterSides(f, accountIds)) {
-      const rows = await this.ctx.db.all<{ m: string; c: number; inc: number | null; outc: number | null }>(
-        `SELECT merchant AS m, COUNT(*) AS c, SUM(CASE WHEN amount_cents > 0 AND ${moved.sql} = 0 THEN ${part.sql} END) AS inc,
-                -SUM(CASE WHEN amount_cents < 0 AND ${moved.sql} = 0 THEN ${part.sql} END) AS outc
-         FROM transactions WHERE ${side.where.join(" AND ")} AND merchant IN (${merchants.map(() => "?").join(",")}) GROUP BY merchant`,
-        [...moved.params, ...part.params, ...moved.params, ...part.params, ...side.params, ...merchants],
-      );
-      for (const r of rows) {
-        const sum = byMerchant.get(r.m) ?? { merchant: r.m, count: 0, inCents: 0, outCents: 0 };
-        sum.count += Number(r.c);
-        sum.inCents += Number(r.inc ?? 0);
-        sum.outCents += Number(r.outc ?? 0);
-        byMerchant.set(r.m, sum);
-      }
-    }
-    return [...byMerchant.values()];
   }
 
   /**

@@ -33,7 +33,6 @@ export interface TransactionsQuery {
   kind?: string;
   merchant?: string;
   q?: string;
-  sums?: string;
   scope?: string;
   limit?: number;
   offset?: number;
@@ -82,8 +81,6 @@ export async function transactionsView(s: Services, userId: string, q: Transacti
     return { date, count: countOfDay.get(date) ?? 0, inCents: incomeCents, outCents: expenseCents, savedCents };
   });
   const { incomeCents: inCents, expenseCents: outCents, savedCents } = totalsOf(counted.map((t) => t.flows));
-  // the list grouped by payee (`sums=merchant`): each listed payee's whole sums, as each listed day has its own
-  const merchantSums = q.sums === "merchant" ? await repo.merchantSums(filter, shared.map((a) => a.id), [...new Set(stored.map((t) => t.merchant))]) : undefined;
   const items = stored.map((t) => ({ ...t, ...own.told.get(t.id) }));
   // which company and industry an "industry" category came from, shown on hover; a shared row's category came from its
   // owner's lookups, so the owners' requests count too. The extensions' fields and the viewer's own rule a row's category
@@ -111,7 +108,6 @@ export async function transactionsView(s: Services, userId: string, q: Transacti
     // the totals strip's histogram and each listed day's whole sums
     histogram: span && !updating ? moneyBins(days, histogramFrom(span), span.to) : null,
     daySums: updating ? [] : days.filter((d) => onPage.has(d.date)),
-    ...(merchantSums ? { merchantSums } : {}),
     items: items.map((t) => {
       const part = own.parts.get(t.accountId);
       const share = own.shares?.get(t.id);
