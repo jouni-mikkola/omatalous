@@ -102,6 +102,4 @@ export const EN_TABLES: Record<keyof typeof FI_TABLES, string> = {
   "select.category": "Category",
   "ics.file": "bank-connection",
   // Rows
-  "row.day_one": "{count} transaction",
-  "row.day_many": "{count} transactions",
 };

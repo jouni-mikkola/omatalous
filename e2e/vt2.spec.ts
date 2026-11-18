@@ -35,11 +35,11 @@ test("a row is one line of 33 px, a day's row about 25 px", async ({ browser }) 
 
 test("a day's row says the server's whole-day sums, also for a day the page cuts", async ({ browser }) => {
   const { context, page, seen } = await open(browser, "/#/transactions?period=all");
-  const answer = (await (await page.request.get("/api/transactions?limit=100&scope=own")).json()) as { items: { bookingDate: string }[]; daySums: { date: string; count: number; outCents: number }[] };
+  const answer = (await (await page.request.get("/api/transactions?limit=100&scope=own")).json()) as { items: { bookingDate: string }[]; daySums: { date: string; outCents: number }[] };
   await expect(rows(page).first()).toBeVisible();
   const first = page.locator("table.tx-table tr.rt-group").first();
   const sum = answer.daySums.find((d) => d.date === answer.items[0]!.bookingDate)!;
-  await expect(first.locator(".rt-group-count")).toHaveText(new RegExp(`^${sum.count} tapahtuma`));
+  await expect(first.locator(".rt-group-count")).toHaveCount(0);
   if (sum.outCents > 0) expect(cents((await first.locator(".rt-sub").first().innerText()).trim())).toBe(-sum.outCents);
   expect(seen.problems).toEqual([]);
   await context.close();

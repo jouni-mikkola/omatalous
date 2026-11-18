@@ -48,7 +48,7 @@ test("390 px: rows sit under day groups, newest first, each a block of the merch
   const year = new Date().getFullYear();
   const days: number[] = [];
   for (const text of (await headers.allTextContents()).slice(0, 12)) {
-    const m = /^(su|ma|ti|ke|to|pe|la) (\d{1,2})\.(\d{1,2})\.(\d{4})?\s*\d+ tapahtuma/.exec(text.trim());
+    const m = /^(su|ma|ti|ke|to|pe|la) (\d{1,2})\.(\d{1,2})\.(\d{4})?$/.exec(text.trim());
     expect(m, `"${text}" is a day group`).not.toBeNull();
     const [, weekday, d, mo, y] = m!;
     const time = Date.UTC(Number(y ?? year), Number(mo) - 1, Number(d));
@@ -257,7 +257,7 @@ test("1366 px: the page is the table under the filter chips, the download in the
   await expect(page.locator("table.tx-table thead th")).toHaveText(["Saaja tai maksaja", "Tili", "Kategoria", "Summa"]);
   await expect(page.locator(DATA_ROW).first()).toBeVisible();
   // the day is the group row above its rows, with how many there are
-  await expect(page.locator("table.tx-table tr.rt-group th").first()).toHaveText(/^(su|ma|ti|ke|to|pe|la) \d{1,2}\.\d{1,2}\.(\d{4})? *\d+ tapahtuma/);
+  await expect(page.locator("table.tx-table tr.rt-group th").first()).toHaveText(/^(su|ma|ti|ke|to|pe|la) \d{1,2}\.\d{1,2}\.(\d{4})?$/);
   await expect(page.locator(".tx-day")).toHaveCount(0);
   // no native select on the page: the filters are chips, a row's category a chip
   await expect(page.locator(".tx-page select")).toHaveCount(0);

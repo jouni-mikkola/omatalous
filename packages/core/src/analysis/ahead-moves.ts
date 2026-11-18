@@ -20,6 +20,7 @@ import type { BalanceInput, IsoDate } from "../types.ts";
 import { type BalanceWalk, balanceWalk } from "./balance-walk.ts";
 import { owedAfter } from "./card-payments.ts";
 import type { AnalysisContext, AnalysisTx } from "./context.ts";
+import { isLateFee } from "./fees.ts";
 import { USUAL_MONTHS } from "../thresholds.ts";
 
 /** Fewer bills than this say nothing of a card's bill day or its usual bill: nothing is guessed. */
@@ -235,7 +236,8 @@ interface BilledCard {
 /**
  * Whether a card is shown paid in full each time: each of its last `MIN_PAYMENTS` bills was at least what the card owed
  * at the end of the day the bill before it reached the card (so the bill before the first of them must exist), and the
- * card has no interest row since the first of those bills. A card with a balance that revolves has one of the two
+ * card has no interest row and no late fee row since the first of those bills (a reminder or late interest says a bill
+ * went unpaid, whatever the later bills held). A card with a balance that revolves has one of the two
  * wrong; a card with no balance walk is not proven. One partial bill in a month, a one-off, keeps the card unproven until
  * three whole bills follow it: its interest stays unknown for those months, which is the cost of never calling a card paid in
  * full that is not. The last bill alone (`paidWhole` of `cardBills`) sizes the next bill, which is
@@ -249,7 +251,7 @@ function paidInFull(ctx: AnalysisContext, cardId: string, walk: BalanceWalk | nu
     return held !== null && -held <= -b.out.amountCents;
   });
   const since = bills[0]!.out.bookingDate;
-  return covered && !ctx.txs.some((t) => t.accountId === cardId && t.category === "interest" && t.bookingDate >= since);
+  return covered && !ctx.txs.some((t) => t.accountId === cardId && t.bookingDate >= since && (t.category === "interest" || isLateFee(t)));
 }
 
 /** Adds the bills of one card expected from `from` to `until`, its payments in the order of their days, to `into`. */
