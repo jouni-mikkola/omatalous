@@ -13,7 +13,7 @@ import { seriesId } from "./series-id.ts";
 import type { IsoDate, LoanKind } from "./types.ts";
 import { hasLoanText, isFinanceCompanyName } from "./wording-lenders.ts";
 import { loanKindOfType } from "./wording-loan-pages.ts";
-import { CONSUMER_LENDER_WORDS, INSTALMENT_SERVICE_WORDS, isLenderName } from "./wording.ts";
+import { CONSUMER_LENDER_WORDS, INSTALMENT_SERVICE_WORDS, isInstalmentPlanText, isLenderName } from "./wording.ts";
 
 /** Under this a monthly charge is a fee or a small service, whatever its text says, and a credit paid in a refund. */
 export const MIN_LOAN_PAYMENT_CENTS = 2000;
@@ -46,12 +46,17 @@ export const isLenderPayment = (payee: string, text: string): boolean => (isKnow
 const PLAN_BAND_CENTS = 5;
 /** Plan payments in a row before a plan is told: two could be two purchases. */
 const MIN_PLAN_MONTHS = 3;
+/** Plan payments in a row before a plan is told where each row says it is one: two instalments are consumer credit. */
+const MIN_TOLD_PLAN_MONTHS = 2;
+
+/** A row that says it pays a purchase in parts, filed as a loan for it (categorize.ts). */
+const toldPlan = (t: AnalysisTx): boolean => t.category === "loans" && isInstalmentPlanText(fold(`${t.merchant} ${t.counterparty ?? ""} ${t.description ?? ""}`));
 
 /**
  * The plans in an instalment service's payments: for each sum (within `PLAN_BAND_CENTS` of the latest payment of it),
  * the latest run of months, a month after the month before with no gap, as its rows oldest first. Two plans of other
  * sums run side by side. A run of fewer than `MIN_PLAN_MONTHS` months is no plan: one-off or varying payments (pay later
- * of single purchases) are none.
+ * of single purchases) are none. A run of `MIN_TOLD_PLAN_MONTHS` whose rows each say they pay in parts (`toldPlan`) is one.
  */
 export function planRuns(rows: readonly AnalysisTx[]): AnalysisTx[][] {
   const sum = (t: AnalysisTx) => -billCents(t);
@@ -69,7 +74,7 @@ export function planRuns(rows: readonly AnalysisTx[]): AnalysisTx[][] {
     }
     const run: AnalysisTx[] = [];
     for (let month = monthOf(lead.bookingDate), t = byMonth.get(month); t; month = addMonths(month, -1), t = byMonth.get(month)) run.unshift(t);
-    if (run.length >= MIN_PLAN_MONTHS) runs.push(run);
+    if (run.length >= MIN_PLAN_MONTHS || (run.length >= MIN_TOLD_PLAN_MONTHS && run.every(toldPlan))) runs.push(run);
   }
   return runs;
 }
@@ -98,19 +103,43 @@ export function drawnKind(draws: readonly AnalysisTx[], payee: string): LoanKind
   return kinds.size === 1 ? [...kinds][0]! : null;
 }
 
-/**
- * What a payee is owed at least, from the rows: every credit it paid in, less everything paid to it since the first
- * of them, never below zero. Interest and fees are not on the rows, so the debt is this or more. Null for a payee
- * that paid in no credit.
- */
-export function owedAtLeast(txs: readonly AnalysisTx[], draws: readonly AnalysisTx[], payee: string, today: IsoDate): { cents: number; since: IsoDate } | null {
-  const own = draws.filter((d) => drawnBy(d.merchant, payee));
-  if (!own.length) return null;
-  const since = own.reduce((first, d) => (d.bookingDate < first ? d.bookingDate : first), own[0]!.bookingDate);
-  const folded = fold(payee);
-  const paid = txs.reduce((sum, t) => (t.amountCents < 0 && !t.isTransfer && t.bookingDate >= since && t.bookingDate <= today && fold(t.merchant) === folded ? sum - billCents(t) : sum), 0);
-  return { cents: Math.max(0, own.reduce((sum, d) => sum + billCents(d), 0) - paid), since };
+/** What a payee's credits leave owed (`owedAtLeast`), and the day its payments last brought that to zero. */
+interface DrawLedger {
+  /** The credits paid in since `repaidOn`, less the payments since the first of them; null with no credit since. */
+  owed: { cents: number; since: IsoDate } | null;
+  /** The latest day a payment paid back every credit before it, or null where none was. */
+  repaidOn: IsoDate | null;
 }
+
+/**
+ * The credits a payee paid in and its payments, by day (a credit before a payment of the same day), with the payments
+ * matched to the payee as the credits are (`drawnBy`): the company's name and its product's both. A payment before any
+ * credit, or past a credit paid back in full, pays nothing off. Where the payments brought what was owed to zero, the
+ * credits and payments before that day are done: a credit paid back in full hides no later loan.
+ */
+function drawLedger(txs: readonly AnalysisTx[], draws: readonly AnalysisTx[], payee: string, today: IsoDate): DrawLedger {
+  const own = draws.filter((d) => drawnBy(d.merchant, payee));
+  const paid = txs.filter((t) => t.amountCents < 0 && !t.isTransfer && t.bookingDate <= today && drawnBy(t.merchant, payee));
+  const events = [...own.map((t) => ({ t, drawn: true })), ...paid.map((t) => ({ t, drawn: false }))].sort((a, b) => a.t.day - b.t.day || Number(b.drawn) - Number(a.drawn));
+  let owed: DrawLedger["owed"] = null;
+  let repaidOn: IsoDate | null = null;
+  for (const { t, drawn } of events) {
+    if (drawn) owed = { cents: (owed?.cents ?? 0) + billCents(t), since: owed?.since ?? t.bookingDate };
+    else if (owed) {
+      const left = owed.cents + billCents(t);
+      if (left > 0) owed = { ...owed, cents: left };
+      else [owed, repaidOn] = [null, t.bookingDate];
+    }
+  }
+  return { owed, repaidOn };
+}
+
+/**
+ * What a payee is owed at least, from the rows: the credits it paid in since its payments last paid back every credit
+ * before, less the payments since the first of them. Interest and fees are not on the rows, so the debt is this or
+ * more. Null for a payee with no such credit: none paid in, or every one paid back.
+ */
+export const owedAtLeast = (txs: readonly AnalysisTx[], draws: readonly AnalysisTx[], payee: string, today: IsoDate): { cents: number; since: IsoDate } | null => drawLedger(txs, draws, payee, today).owed;
 
 /** A lender's payments no monthly series tells, as a series of no monthly figure, with what the payee is owed at least. */
 interface FewPayments {
@@ -121,9 +150,9 @@ interface FewPayments {
 /**
  * The payments to a known lender (no instalment service) that none of `series` holds, by payee and account: two or
  * more, or one or more after a credit the payee paid in that is not paid back yet, the latest in the last
- * `LENDER_ACTIVE_DAYS`. Any sum and any number of months: a short or small loan is a loan too. A payee with a running
- * series has its loan told there. The series has no monthly figure, since the rows show no plan; its id names the
- * account and the sum of the latest payment.
+ * `LENDER_ACTIVE_DAYS`. Only the payments after a credit paid back in full count (`drawLedger`). Any sum and any number
+ * of months: a short or small loan is a loan too. A payee with a running series has its loan told there. The series has
+ * no monthly figure, since the rows show no plan; its id names the account and the sum of the latest payment.
  */
 export function fewPayments(txs: readonly AnalysisTx[], series: readonly RecurringSeries[], today: IsoDate): FewPayments[] {
   const held = new Set(series.flatMap((s) => s.transactionIds));
@@ -136,15 +165,17 @@ export function fewPayments(txs: readonly AnalysisTx[], series: readonly Recurri
   }
   const draws = creditDraws(txs, today);
   const out: FewPayments[] = [];
-  for (const rows of byPayee.values()) {
-    rows.sort((a, b) => a.day - b.day);
-    const [first, last] = [rows[0]!, rows.at(-1)!];
+  for (const payments of byPayee.values()) {
+    payments.sort((a, b) => a.day - b.day);
+    const last = payments.at(-1)!;
     const payee = fold(last.merchant);
     const text = fold([last.merchant, last.counterparty, last.description].filter(Boolean).join(" "));
     if (!isLenderPayment(payee, text) || daysBetween(last.bookingDate, today) > LENDER_ACTIVE_DAYS) continue;
-    const owed = owedAtLeast(txs, draws, last.merchant, today);
-    // a credit paid back in full is no debt, however many payments it took
-    if (owed === null ? rows.length < 2 : owed.cents === 0 || last.bookingDate < owed.since) continue;
+    const { owed, repaidOn } = drawLedger(txs, draws, last.merchant, today);
+    // a credit paid back in full is no debt, however many payments it took; the payments after it may be a new loan's
+    const rows = repaidOn === null ? payments : payments.filter((t) => t.bookingDate > repaidOn);
+    const first = rows[0];
+    if (!first || (owed === null ? rows.length < 2 : last.bookingDate < owed.since)) continue;
     const cents = -billCents(last);
     out.push({
       series: {

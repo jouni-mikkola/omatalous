@@ -20,6 +20,7 @@ import type { Debt } from "./debt-part.ts";
 import { belowWhole, cardDebtOf, householdDebts, maybeTwice, paidFrom, type UnsavedLoans, unsavedLoans } from "./household-debts.ts";
 import { type LoanProposal, loanProposals } from "./loan-detect.ts";
 import { creditUse, debtPaymentsPerMonth, loanBalanceOn, loanPayoffDate } from "./loans.ts";
+import { hasMonthly } from "./shared.ts";
 import { normalizeIban } from "./transfers.ts";
 import type { AccountUse, BalanceInput, IsoDate, Loan, Part, UserInputs } from "./types.ts";
 
@@ -149,6 +150,8 @@ export interface Holdings {
   netCents: number | null;
   /** The loans the rows show and nobody saved, which `debtCents` cannot hold: told beside it ("Lainoja, joiden saldo puuttuu: N (X €/kk)"). Left out with none. */
   unsavedLoans?: UnsavedLoans;
+  /** The credits of a lender's few payments nobody saved (`fewPayments`): debts `debtCents` cannot hold either, counted in the name of `netCents` and in no sum, as the rows tell no monthly payment of them. Left out with none. */
+  unsavedFewPayments?: number;
 }
 
 /** The known figures added once, in the order given; null when none is known, so that an unknown sum is not read as 0. */
@@ -209,8 +212,9 @@ export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceIn
   };
   const loans = heldLoans(balances, debts).map(({ row }) => ({ ...row, paidOff: row.leftCents === 0 && quiet(row.id) }));
   // a plan is a debt with its monthly payment; a lender's few payments tell no monthly figure to sum, so they wait here
-  const unsavedOf = unsavedLoans(proposals.filter((p) => p.monthlyCents !== null));
-  const unsaved = unsavedOf ? { unsavedLoans: unsavedOf } : {};
+  const unsavedOf = unsavedLoans(proposals.filter(hasMonthly));
+  const few = proposals.filter((p) => !hasMonthly(p)).length;
+  const unsaved = { ...(unsavedOf ? { unsavedLoans: unsavedOf } : {}), ...(few ? { unsavedFewPayments: few } : {}) };
   const balancesOf = accounts.map((a) => a.balanceCents);
   const accountsCents = sumKnown(balancesOf);
   const sumOfType = (type: Holdings["accounts"][number]["type"]) => sumKnown(accounts.filter((a) => a.type === type).map((a) => a.balanceCents));

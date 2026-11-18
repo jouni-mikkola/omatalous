@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 import { loanProposals } from "../src/loan-detect.ts";
 import { unsavedLoans } from "../src/household-debts.ts";
-import { isCut, paymentOf, sharedOf, sharedRow, sumShared } from "../src/shared.ts";
+import { hasMonthly, isCut, paymentOf, sharedOf, sharedRow, sumShared } from "../src/shared.ts";
 import { NO_INPUTS } from "../src/types.ts";
 import { generateHousehold } from "./kit/generate.ts";
 import type { Spec } from "./kit/truth.ts";
@@ -58,7 +58,8 @@ describe("the members of a household add up to it where the split is said, and c
         const h = generateHousehold(spec, 1);
         const [household, ...members] = viewsOf(h);
         expect(members.length, h.name).toBe(spec.members);
-        const proposals = (v: typeof household) => loanProposals(v!.ctx, NO_INPUTS);
+        // a proposal of no monthly figure is in no sum of monthly payments (`hasMonthly`)
+        const proposals = (v: typeof household) => loanProposals(v!.ctx, NO_INPUTS).filter(hasMonthly);
         const whole = proposals(household);
         expect(whole.length, h.name).toBeGreaterThan(0);
         const byMember = members.map(proposals);
@@ -66,7 +67,7 @@ describe("the members of a household add up to it where the split is said, and c
           const mine = byMember.flatMap((list) => list.filter((x) => x.key === p.key));
           // every member sees the loan, so the counted-whole case multiplies by all of them
           if (countedWhole(spec)) expect(mine.length, `${h.name}: ${p.key}`).toBe(spec.members);
-          expect(sumShared(mine.map(paymentOf), "part"), `${h.name}: ${p.key}`).toBe(countedWhole(spec) ? (p.monthlyCents ?? 0) * mine.length : p.monthlyCents ?? 0);
+          expect(sumShared(mine.map(paymentOf), "part"), `${h.name}: ${p.key}`).toBe(countedWhole(spec) ? p.monthlyCents * mine.length : p.monthlyCents);
           for (const x of mine) expect(x.paymentCents, `${h.name}: ${p.key}`).toBe(p.paymentCents);
         }
       }
@@ -81,7 +82,7 @@ describe("the members of a household add up to it where the split is said, and c
         const h = generateHousehold(spec, 1);
         const [household, ...members] = viewsOf(h);
         // null is the answer of a view with no unsaved loan, and it is not a zero: a household that tells none would pass the sum empty
-        const total = (v: typeof household) => unsavedLoans(loanProposals(v!.ctx, NO_INPUTS))?.paymentCents ?? null;
+        const total = (v: typeof household) => unsavedLoans(loanProposals(v!.ctx, NO_INPUTS).filter(hasMonthly))?.paymentCents ?? null;
         const whole = total(household);
         expect(whole, `${h.name}: the household`).not.toBeNull();
         // a member who pays no unsaved loan has no part in it; the members who do are the ones that add up

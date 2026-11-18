@@ -23,11 +23,23 @@ export const sharedOf = (part: number, whole: number = part): Shared => ({ part,
 /** The two readings of a row: its cents as the view counts them and as the bank wrote them. */
 export const sharedRow = (t: Pick<Transaction, "amountCents" | "wholeCents">): Shared => sharedOf(t.amountCents, t.wholeCents ?? t.amountCents);
 
+/** A proposed loan the rows tell a monthly payment of: the only kind a sum of monthly payments takes. */
+export type MonthlyProposal<P extends Pick<LoanProposal, "monthlyCents"> = Pick<LoanProposal, "paymentCents" | "monthlyCents">> = P & { monthlyCents: number };
+
+/** Whether the rows tell the proposal's monthly payment. One of no monthly figure (`fewPayments`) is filtered out before a sum. */
+export const hasMonthly = <P extends Pick<LoanProposal, "monthlyCents">>(p: P): p is MonthlyProposal<P> => p.monthlyCents !== null;
+
 /**
  * The two readings of a proposed loan's payment: `monthlyCents` is the viewer's part and `paymentCents` the bank's whole.
- * A proposal of no monthly figure adds nothing on either side: its latest payment is no month's.
+ * Only a proposal with a monthly figure has them (`hasMonthly`): the latest of a few payments is no month's.
  */
-export const paymentOf = (p: Pick<LoanProposal, "paymentCents" | "monthlyCents">): Shared => (p.monthlyCents === null ? sharedOf(0) : sharedOf(p.monthlyCents, p.paymentCents));
+export const paymentOf = (p: MonthlyProposal): Shared => sharedOf(p.monthlyCents, p.paymentCents);
+
+/**
+ * What a proposal weighs in the questions' order: a year of its payments where it is paid monthly. One of no monthly
+ * figure (`fewPayments`) has no year of payments: it weighs what it owes at least, or else its latest payment once.
+ */
+export const proposalWeight = (p: Pick<LoanProposal, "paymentCents" | "monthlyCents" | "owedAtLeastCents">): number => (p.monthlyCents === null ? (p.owedAtLeastCents ?? p.paymentCents) : 12 * p.paymentCents);
 
 /** Whether the row is cut to a part of the bank's amount (`applyUse` set `wholeCents`). */
 export const isCut = (t: Pick<Transaction, "wholeCents">): boolean => t.wholeCents !== undefined;

@@ -1,7 +1,8 @@
 /**
  * A lender paid too few times or too little for a monthly series is still a loan: two payments, or one after a credit
  * the lender paid in, are proposed with no monthly figure, and a credit paid in tells what is owed at least and the
- * kind of the loan. An instalment service's invoices stay purchases. Made-up names and sums.
+ * kind of the loan. An instalment service's invoices stay purchases; two of its instalments that say so are a plan.
+ * Made-up names and sums.
  */
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
@@ -45,10 +46,12 @@ describe("a lender paid twice", () => {
     expect(p!.owedAtLeastCents).toBeUndefined();
   });
 
-  it("is asked what loan it is, and stays out of the unsaved loans' monthly sum", () => {
+  it("is asked what loan it is, weighed by its latest payment once, and stays out of the unsaved loans' monthly sum but in their count", () => {
     const ctx = contextOf(rows);
-    expect(buildQuestions(ctx, range, NO_INPUTS).items.filter((q) => q.kind === "loan")).toHaveLength(1);
-    expect(buildDashboard(ctx, range).holdings.unsavedLoans).toBeUndefined();
+    expect(buildQuestions(ctx, range, NO_INPUTS).items.filter((q) => q.kind === "loan").map((q) => q.cents)).toEqual([1500]);
+    const { holdings } = buildDashboard(ctx, range);
+    expect(holdings.unsavedLoans).toBeUndefined();
+    expect(holdings.unsavedFewPayments).toBe(1);
   });
 
   it("is set aside by Ei ole laina", () => {
@@ -64,6 +67,15 @@ describe("a credit paid in and paid back in part", () => {
     const [p, ...rest] = proposed(rows);
     expect(rest).toEqual([]);
     expect(p).toMatchObject({ payee: "Malli Rahoitus Oy", paymentCents: 6000, monthlyCents: null, owedAtLeastCents: 44_000, kind: "credit_line" });
+  });
+
+  it("is weighed in the questions by what it owes at least", () => {
+    expect(buildQuestions(contextOf(rows), range, NO_INPUTS).items.filter((q) => q.kind === "loan").map((q) => q.cents)).toEqual([44_000]);
+  });
+
+  it("counts a payment under the name of the credit's product as paid back too", () => {
+    const product = row("MALLI RAHOITUS JOUSTOLUOTTO", "LYHENNYS", -100, "2026-08-25");
+    expect(proposed([...rows, product])[0]).toMatchObject({ payee: "Malli Rahoitus Oy", owedAtLeastCents: 34_000 });
   });
 
   it("adds up every credit the lender paid in", () => {
@@ -83,6 +95,39 @@ describe("a credit paid in and paid back in part", () => {
   });
 });
 
+describe("a credit paid back in full before", () => {
+  const repaid = [drawn(200, "2026-05-20"), paid(100, "2026-06-05"), paid(100, "2026-07-05")];
+
+  it("leaves two payments after it a loan of their own, with no lower bound", () => {
+    const [p, ...rest] = proposed([...repaid, paid(40, "2026-09-05"), paid(40, "2026-10-05")]);
+    expect(rest).toEqual([]);
+    expect(p).toMatchObject({ paymentCents: 4000, monthlyCents: null, firstDate: "2026-09-05", months: 2 });
+    expect(p!.rowIds).toHaveLength(2);
+    expect(p!.owedAtLeastCents).toBeUndefined();
+  });
+
+  it("leaves one payment after it no loan", () => {
+    expect(proposed([...repaid, paid(40, "2026-10-05")])).toEqual([]);
+  });
+});
+
+describe("two parts of an instalment service's plan", () => {
+  const rows = [row("KLARNA BANK AB", "OSAMAKSU 1", -30, "2026-09-12"), row("KLARNA BANK AB", "OSAMAKSU 2", -30, "2026-10-12")];
+
+  it("are an instalment plan whose monthly figure is the instalment", () => {
+    const [p, ...rest] = proposed(rows);
+    expect(rest).toEqual([]);
+    expect(p).toMatchObject({ paymentCents: 3000, monthlyCents: 3000, months: 2, plan: true, kind: "instalment" });
+  });
+
+  it("stand beside the debt total as an unsaved loan, and each instalment counts once, as a debt payment", () => {
+    const board = buildDashboard(contextOf(rows), range);
+    expect(board.holdings.unsavedLoans).toMatchObject({ count: 1, paymentCents: 3000 });
+    expect(board.holdings.debtCents).toBe(0);
+    expect(board.totals).toMatchObject({ consumptionCents: 0, debtCents: 3000 });
+  });
+});
+
 describe("what is no lender's few payments", () => {
   it.each([
     ["one payment and no credit", [paid(60, "2026-10-05")]],
@@ -90,7 +135,7 @@ describe("what is no lender's few payments", () => {
     ["two payments that stopped in the summer", [paid(15, "2026-07-05"), paid(15, "2026-08-05")]],
     ["a credit paid back in full", [drawn(500, "2026-08-20"), paid(250, "2026-09-05"), paid(250, "2026-10-05")]],
     ["two invoices of an instalment service", [row("KLARNA BANK AB", "LASKU", -30, "2026-09-12"), row("KLARNA BANK AB", "LASKU", -30, "2026-10-12")]],
-    ["two parts of an instalment service's plan", [row("KLARNA BANK AB", "OSAMAKSU 1", -30, "2026-09-12"), row("KLARNA BANK AB", "OSAMAKSU 2", -30, "2026-10-12")]],
+    ["two parts of an instalment service's plan of other sums", [row("KLARNA BANK AB", "OSAMAKSU 1", -30, "2026-09-12"), row("KLARNA BANK AB", "OSAMAKSU 2", -45, "2026-10-12")]],
     ["two card purchases through an instalment service", [row("KLARNA*KAUPPA", null, -45, "2026-09-12", "5651"), row("KLARNA*KAUPPA", null, -45, "2026-10-12", "5651")]],
     ["a relative's loan paid back", [row("ESIMERKKI EINO", "laina", 100, "2026-08-20"), row("ESIMERKKI EINO", null, -50, "2026-09-05"), row("ESIMERKKI EINO", null, -50, "2026-10-05")]],
   ])("%s", (_name, rows) => {

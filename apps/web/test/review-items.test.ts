@@ -1,6 +1,7 @@
 /** Tarkistettavat's sitting and words: at most 25 items, the guess first, a split asked with no guess (owner rule L5). */
 import { describe, expect, it } from "vitest";
 import "./fixed-clock.ts";
+import { money } from "../src/format.ts";
 import { eyebrow, figureOf, groupCategories, leftText, offeredCategories, loanKindChoices, nameOf, NEW_SITTING, openItems, payerChoices, planEnd, questionOf, readableText, type ReviewItem, SITTING, sittingView, withFetch } from "../src/pages/review-items.ts";
 
 const payee = (n: number): ReviewItem => ({ kind: "payee_out", id: `payee_out:Kauppa ${n}`, cents: 100_000 - n, merchant: `Kauppa ${n}`, count: 3, lastDate: "2026-09-20", picks: [] });
@@ -158,6 +159,10 @@ describe("the choices", () => {
     expect(figureOf(loan).unit).toBe("kuussa");
     // the line counts the rows the card shows
     expect(figureOf(loan).line).toBe("10 maksua 5.1. alkaen, viimeksi 5.10.");
+    // a lender's few payments tell no month: the figure is the latest payment
+    const few: ReviewItem = { ...loan, noMonthly: true, months: 2, firstDate: "2026-09-05", rowCount: 2 };
+    expect([figureOf(few).text, figureOf(few).unit]).toEqual([money(25_000), "viimeisin maksu"]);
+    expect(figureOf(few).line).toBe("2 maksua 5.9. alkaen, viimeksi 5.10.");
   });
 });
 

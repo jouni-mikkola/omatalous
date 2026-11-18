@@ -3,8 +3,8 @@
  * page that lets the household save it (`Loan`, loans.ts) or say "Ei ole laina".
  *
  * What is proposed: a series of `ctx.recurring` that is active, monthly, money out, in a loan's category (mortgage,
- * loans, student_loan), with three or more charges and one payment reference, or any references when the payee is a
- * lender and no instalment service (a consumer lender's invoice brings a new one each month). The charges are of at
+ * loans, student_loan), with three or more charges (two of a plan whose rows say so, `planRuns`) and one payment
+ * reference, or any references when the payee is a lender and no instalment service (a consumer lender's invoice brings a new one each month). The charges are of at
  * least 20 € unless the payee is such a lender (`isLenderPayment`), whose payment is a loan's at any sum.
  * recurring.ts owns what a monthly series is and whether it still runs. A lender's payments of about one sum, about
  * one a calendar month, that it found no monthly series in (the day moves too much for a cadence) are one more series
@@ -83,7 +83,8 @@ export interface LoanProposal {
    */
   placed: boolean;
   /**
-   * An instalment plan of a payment service (Klarna and the like): the same sum in three or more months running (`planRun`).
+   * An instalment plan of a payment service (Klarna and the like): the same sum in three or more months running, or two
+   * whose rows say they pay in parts (`planRuns`).
    * Its balance is never assumed, so it is no debt in the totals, and the household is asked how many payments are left.
    */
   plan: boolean;
@@ -397,7 +398,8 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
     // a lender's payment is a loan's at any sum; the floor keeps a small fee or service of anyone else out
     const anySum = isFew || (!!newest && isLenderPayment(fold(newest.counterparty ?? s.merchant), fold([s.merchant, newest.counterparty, newest.description].filter(Boolean).join(" "))));
     const charges = anySum ? rows : rows.filter((t) => -billCents(t) >= MIN_LOAN_PAYMENT_CENTS);
-    if (!isFew && charges.length < MIN_LOAN_CHARGES) continue;
+    // two instalments whose rows say they pay in parts are a plan (`planRuns`); any other loan takes three charges
+    if (!isFew && charges.length < MIN_LOAN_CHARGES && !planRuns(charges).length) continue;
     const paymentCents = isFew ? s.typicalAmountCents : wholePayment(s.typicalAmountCents, charges);
     if (!anySum && paymentCents < MIN_LOAN_PAYMENT_CENTS) continue;
     charges.sort((a, b) => a.day - b.day);
@@ -408,7 +410,7 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
     // separate invoices each bring their own reference and a contract keeps one, but a lender's monthly invoice names
     // the month; an instalment service's invoices are separate purchases
     const references = new Set(latest.map(referenceOf).filter((r) => r !== ""));
-    // an instalment service is a plan only for the same sum in three months running; its other payments are purchases
+    // an instalment service is a plan only for the same sum in three months running, or two that say so; its other payments are purchases
     const plan = INSTALMENT_SERVICE.test(text);
     if (plan && planRuns(charges).length === 0) continue;
     const invoicedLoan = isLenderPayment(payee, text) || hasLoanText(payee);
