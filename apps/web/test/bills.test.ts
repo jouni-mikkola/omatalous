@@ -106,7 +106,7 @@ describe("Laskut: the table and the mark on one subscription", () => {
       month("2026-12", [monthly("2026-12-12", "Vesiyhtiö", 2000), monthly("2026-12-15", "Kaasuyhtiö", 3000), bill({ date: "2026-12-20", payee: "Vakuutus", cents: 40000 })], { monthlyBillsCount: 2, monthlyBillsCents: 5000 }),
     ]);
     const out = cardOf([], [], cal);
-    expect(out.match(/Vesiyhtiö/g)).toHaveLength(2);
+    expect(out.match(/Tiedot: Vesiyhtiö/g)).toHaveLength(2);
     expect(out).not.toContain("Kaasuyhtiö");
     expect(out).toContain("Kuukausittaiset laskut, 2 kpl");
     expect(out).toContain("50,00 €");
@@ -125,7 +125,7 @@ describe("Laskut: the table and the mark on one subscription", () => {
     expect(out).not.toContain("Erotus");
   });
 
-  it("a bill that did not come says so with its day and stays a live row until the payments say it ended", () => {
+  it("a bill that did not come stays a live row until the payments say it ended", () => {
     // due 5.9., not paid: on 11.10. it is 36 days late, past `active`, short of contract.ts's end (46 days)
     const contract = { startDate: "2025-09-05", firstPaymentCents: null, lastDate: "2026-08-05", ended: false, endedOn: null, monthlyCents: 6420, totalPaidCents: 77040, refund: null, costAfterRefundCents: 77040 };
     const power = sub({ id: "out:acc-1:Sähköyhtiö", merchant: "Sähköyhtiö", category: "utilities", kind: "bill", lastDate: "2026-08-05", nextDate: "2026-09-05", typicalAmountCents: 6420, active: false, overdue: false, contract });
@@ -134,18 +134,13 @@ describe("Laskut: the table and the mark on one subscription", () => {
       ["Sähköyhtiö", "contract", false, "2026-09-05"],
       ["Spotify", "subscription", false, null],
     ]);
-    const out = cardOf([power, spotify], []);
-    expect(out).toContain("Ei tullut 5.9.");
-    expect(out).not.toContain("sub-ended");
+    expect(cardOf([power, spotify], [])).not.toContain("Päättyneet");
     // once the payments say it ended, it is an ended row with its last day
     const ended = cardOf([{ ...power, contract: { ...contract, ended: true, endedOn: "2026-09-05" } }], []);
-    expect(ended).toContain("Päättyneet <b>1</b>");
-    expect(ended).not.toContain("Ei tullut");
+    expect(ended).toContain("Päättyneet 1");
     // answered as ended in Tarkistettavat: an ended row with the mark and its undo
     const answered = billItems({ series: [power], typed: [], cancelled: cancelledSubjects({ ...NO_INPUTS, marks: [mark(seriesMarkSubject(power), "cancelled")] }), marks: marksBySubject([mark(seriesMarkSubject(power), "cancelled")]), today: TODAY });
     expect(answered.map((i) => [i.kind, i.ended, i.stopped, i.missed])).toEqual([["ended", true, true, null]]);
-    // a bill a few days late and still active says the same
-    expect(cardOf([{ ...power, active: true, overdue: true, nextDate: "2026-10-03", lastDate: "2026-09-03" }], [])).toContain("Ei tullut 3.10.");
     // past `active` the fixed costs leave it out, so its row has no month's share; while active it keeps the share
     expect(items[0]!.monthlyCents).toBeNull();
     const late = billItems({ series: [{ ...power, typicalAmountCents: 19260, active: true, overdue: true, nextDate: "2026-10-03", lastDate: "2026-09-03" }], typed: [], cancelled: new Set(), marks: marksBySubject([]), today: TODAY });
@@ -170,8 +165,8 @@ describe("Laskut: the table and the mark on one subscription", () => {
 
   it("a subscription marked as cancelled is an ended row, and one that is not has none", () => {
     const marked = cardOf([spotify], [mark(seriesMarkSubject(spotify), "cancelled")]);
-    expect(marked).toContain("Päättyneet <b>1</b>");
-    expect(cardOf([spotify], [])).not.toContain("sub-ended");
+    expect(marked).toContain("Päättyneet 1");
+    expect(cardOf([spotify], [])).not.toContain("Päättyneet");
   });
 
   it("the one action of a row marks it as cancelled, and a mark that stands is undone under its own subject", () => {

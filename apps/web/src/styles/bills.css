@@ -35,6 +35,12 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .rt-wrap[data-block] .rt.bill-table tr.rt-group { grid-template-columns: minmax(0, 1fr); }
 .rt-wrap[data-block] .rt.bill-table tr.rt-group > td:not([data-label]) { grid-column: 1; grid-row: 2; text-align: left; }
 .rt-wrap[data-block] .bill-sums { justify-content: flex-start; }
+.rt-wrap[data-block] .bill-sums > span { white-space: normal; }
+/* a row on a phone is two lines: the day and the sum, then the payee and the status, with no name of a column before them */
+.rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td[data-label]::before { display: none; }
+.rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(2) { display: block; grid-column: 1; grid-row: 2; padding-top: 0; }
+.rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(5) { display: block; grid-column: 2; grid-row: 2; padding-top: 0; text-align: right; }
+.rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(5):empty { display: none; }
 /* the one row for the monthly bills of a later month */
 .bill-fold { font-weight: var(--w-strong); }
 
