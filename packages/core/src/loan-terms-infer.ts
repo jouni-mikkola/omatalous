@@ -4,7 +4,9 @@
  * Decision: the household types only what the bank's rows cannot tell.
  *
  * The rows of an annuity on a reference rate hold one payment between reviews and step at each review, every 3, 6 or 12
- * months. An equal principal loan's payment falls a little at nearly every payment, as its interest follows the balance.
+ * months. One step tells no cycle (a fixed loan's payment may change once), so a cycle needs two steps at least, and two
+ * steps in one month (an extra payment and the usual one after it) count as one. An equal principal loan's payment falls
+ * a little at nearly every payment, as its interest follows the balance.
  * A fixed instalment holds the same payment for more than a year. A bank that moves a payment off a weekend still pays
  * most of them on the due day, so the day most rows fall on is the due day.
  */
@@ -41,6 +43,8 @@ const STEP_PER_MILLE = 2.5;
 const FALLING_SHARE = 0.75;
 /** A payment held this many months with no step is a fixed instalment. */
 const FIXED_MONTHS = 12;
+/** Steps whose spacing tells a review cycle: one step alone may be a fixed loan changed once. */
+const MIN_STEPS = 2;
 const CYCLES = [[12, "euribor_12"], [6, "euribor_6"], [3, "euribor_3"]] as const;
 
 /** The day of the month most rows fall on, the earliest of a tie: a moved payment falls after its due day. */
@@ -102,7 +106,10 @@ export function inferLoanTerms(rows: readonly LoanPaymentRow[]): InferredLoanTer
   if (changes.filter((c) => c < 0).length >= FALLING_SHARE * changes.length) return { ...terms, repayment: "equal_principal" };
   const steps = changes.flatMap((c, i) => (Math.abs(c) > Math.max(STEP_MIN_CENTS, (sorted[i]!.cents * STEP_PER_MILLE) / 1000) ? [i + 1] : []));
   if (steps.length === 0) return months.at(-1)! - months[0]! >= FIXED_MONTHS ? { ...terms, repayment: "fixed_instalment" } : terms;
-  const cycle = cycleOf(steps.map((i) => months[i]!), months[0]!, months.at(-1)!);
+  // steps 0 months apart are one change of the month, not two reviews
+  const stepMonths = steps.map((i) => months[i]!).filter((m, j, all) => j === 0 || m !== all[j - 1]);
+  if (stepMonths.length < MIN_STEPS) return terms;
+  const cycle = cycleOf(stepMonths, months[0]!, months.at(-1)!);
   if (cycle === null) return terms;
   const lastStep = dues[steps.at(-1)!]!;
   let next = lastStep;

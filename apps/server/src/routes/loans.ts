@@ -186,7 +186,8 @@ export async function parseLoan(raw: unknown, today: string, accounts: OwnAccoun
   }
   if (loan.repayment === "bullet" && loan.paymentCents !== null) throw new UserError("Kertalyhenteisellä lainalla ei ole maksuerää. Jätä maksuerä tyhjäksi.");
   // A loan on a euribor sent with its margin alone is saved at the rate in force on its balance date: the fixing of the
-  // review day before it and the margin. With no fixing stored that early its rate stays unknown, as one sent with none.
+  // review day before it and the margin. With no review day, or no fixing stored that early, its rate stays unknown, as
+  // one sent with none.
   if (fixingsSince && loan.rateBp === null && hasReferenceRate(loan) && loan.marginBp !== null) {
     const derived = euriborRateBp(loan, loan.balanceDate, await fixingsSince(addMonthsToDate(loan.balanceDate, -12)));
     if (derived !== null) loan.rateBp = rate(derived, "Koron");

@@ -301,10 +301,11 @@ describe("loans", () => {
     const save = async (payload: Record<string, unknown>) => (await admin.call("POST", "/api/loans", payload)).body.loan.rateBp;
     // the review day 14.3. holds the fixing of 13.3. until the balance date 1.10.: 2,310 % + 0,65 %
     expect(await save({ ...mortgage, rateBp: null, rateReviewDate: "2027-03-14" })).toBe(296);
-    // with no review day the newest fixing on the balance date counts
-    expect(await save({ ...mortgage, rateBp: null })).toBe(315);
+    // with no review day the fixing in force is not known (it may be a cycle older than the balance date): no rate is guessed
+    expect(await save({ ...mortgage, rateBp: null })).toBeNull();
     // a rate sent is kept, and a loan with no fixing stored, a fixed rate or no margin has none
     expect(await save({ ...mortgage, rateReviewDate: "2027-03-14" })).toBe(340);
+    expect(await save({ ...mortgage })).toBe(340);
     expect(await save({ ...mortgage, rateBp: null, reference: "euribor_6" })).toBeNull();
     expect(await save({ ...mortgage, rateBp: null, reference: "fixed" })).toBeNull();
     expect(await save({ ...mortgage, rateBp: null, marginBp: null })).toBeNull();

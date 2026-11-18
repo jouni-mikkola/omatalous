@@ -4,7 +4,7 @@
  */
 import "@banking/core/late";
 import { describe, expect, it } from "vitest";
-import { emptyForm, formOfProposal, rateNow, readForm, setValue, shownFields } from "../src/components/loans/form.ts";
+import { emptyForm, formOfLoan, formOfProposal, rateNow, readForm, setValue, shownFields } from "../src/components/loans/form.ts";
 import { proposalQuestion } from "../src/components/loans/proposal-words.ts";
 import { eurosText } from "../src/format.ts";
 import type { Account, LoanProposalRow } from "../src/types.ts";
@@ -146,6 +146,17 @@ describe("the form of a proposal with the terms its rows tell", () => {
     // with no margin yet the field of the margin is the one asked
     expect(shownFields(filled, fixings)).not.toContain("rateBp");
     expect(rateNow(filled, fixings)).toBeNull();
+  });
+
+  it("asks the rate of a euribor with no review day, as the fixing in force is not known, and keeps a saved loan's typed rate", () => {
+    const noDay = setValue(setValue(setValue(filled, "balanceCents", "150 000"), "marginBp", "0,65"), "rateReviewDate", "");
+    expect(shownFields(noDay, fixings)).toContain("rateBp");
+    expect(rateNow(noDay, fixings)).toBeNull();
+    // a saved loan on a euribor with a margin and no review day: its edit sends the typed rate, never a counted one
+    const saved = { id: "s1", name: "Kotilaina", kind: "mortgage", balanceCents: 15_000_000, balanceDate: "2026-10-05", rateBp: 339, reference: "euribor_12", marginBp: 65, rateReviewDate: null, repayment: "annuity", intervalMonths: 1, paymentCents: 80_000, accountId: null } as unknown as Loan;
+    const edited = formOfLoan(saved);
+    expect(shownFields(edited, fixings)).toContain("rateBp");
+    expect(readForm(edited, fixings).body).toMatchObject({ rateBp: 339, marginBp: 65, rateReviewDate: null });
   });
 });
 

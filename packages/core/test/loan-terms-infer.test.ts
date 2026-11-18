@@ -41,11 +41,15 @@ describe("the latest payment and its due date", () => {
   it("reads payments every quarter", () => {
     expect(inferLoanTerms(rows("2025-01-30", 8, () => 120_000, 3))).toMatchObject({ dueDate: "2026-10-30", intervalMonths: 3 });
   });
+  it("keeps the usual interval when a month's payment is missing", () => {
+    const list = rows("2026-01-10", 10, () => 40_000).filter((_, i) => i !== 4);
+    expect(inferLoanTerms(list)).toMatchObject({ dueDate: "2026-10-10", intervalMonths: 1 });
+  });
 });
 
 describe("the way of paying back", () => {
   it("is an annuity on the 12 month euribor when the payment steps once a year", () => {
-    const list = moved(rows("2025-11-16", 13, (i) => (i < 12 ? 84_364 : 86_141)), { 6: "2026-05-18" });
+    const list = moved(rows("2024-11-16", 25, (i) => (i < 12 ? 82_100 : i < 24 ? 84_364 : 86_141)), { 18: "2026-05-18" });
     expect(inferLoanTerms(list)).toEqual({ paymentCents: 86_141, dueDate: "2026-11-16", intervalMonths: 1, repayment: "annuity", reference: "euribor_12", nextReview: "2027-11-16" });
   });
   it("is an annuity on the 6 month euribor when the payment steps every half year", () => {
@@ -57,6 +61,18 @@ describe("the way of paying back", () => {
     const cents = [30_000, 31_000, 30_500, 29_600, 29_000];
     const list = rows("2025-12-05", 12, (i) => cents[Math.floor((i + 1) / 3)]!);
     expect(inferLoanTerms(list)).toMatchObject({ paymentCents: 29_000, repayment: "annuity", reference: "euribor_3", nextReview: "2027-02-05" });
+  });
+  it("is an annuity on the 3 month euribor from two steps a quarter apart", () => {
+    const list = rows("2026-01-05", 8, (i) => (i < 3 ? 30_000 : i < 6 ? 31_000 : 30_500));
+    expect(inferLoanTerms(list)).toMatchObject({ repayment: "annuity", reference: "euribor_3", nextReview: "2026-10-05" });
+  });
+  it("tells no euribor from one step: a fixed loan whose payment changed once", () => {
+    const list = rows("2025-09-10", 14, (i) => (i < 8 ? 18_990 : 19_450));
+    expect(inferLoanTerms(list)).toMatchObject({ paymentCents: 19_450, intervalMonths: 1, repayment: null, reference: null, nextReview: null });
+  });
+  it("tells no cycle from an extra payment booked late in a month", () => {
+    const list = [...rows("2025-10-10", 14, () => 40_000), { date: "2026-03-27", cents: 200_000 }];
+    expect(inferLoanTerms(list)).toMatchObject({ paymentCents: 40_000, intervalMonths: 1, reference: null, nextReview: null });
   });
   it("is an equal principal when the payment falls a little at nearly every payment", () => {
     const falling = rows("2025-11-28", 12, (i) => 125_000 - i * 208);

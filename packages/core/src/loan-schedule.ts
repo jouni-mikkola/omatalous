@@ -359,21 +359,19 @@ export function loanRateLine(loan: Loan, day: IsoDate): RateLine | null {
 /**
  * The rate in force on `day` of a loan that follows a euribor, in hundredths of a percent, a half up: the fixing of the
  * latest review day on or before `day`, counted from the typed review day as `ratePathOf` counts them, and the margin.
- * Without a review day it is the newest fixing on or before `day`. Null for a fixed or unknown reference, without a
- * margin, and without a fixing that early. The rate a loan saved with only its margin is stored at.
+ * Null for a fixed or unknown reference, without a margin, without a review day and without a fixing that early: the
+ * fixing in force may be up to a cycle older than `day`, so with no review day the rate is the household's to type. The
+ * rate a loan saved with only its margin is stored at.
  */
 export function euriborRateBp(loan: Pick<Loan, "reference" | "marginBp" | "rateReviewDate">, day: IsoDate, fixings: Fixings): number | null {
   const { reference, marginBp, rateReviewDate } = loan;
-  if (reference === null || reference === "fixed" || marginBp === null) return null;
-  let on = day;
-  if (rateReviewDate) {
-    const months = REVIEW_MONTHS[reference];
-    const reviewDay = (k: number) => addMonthsToDate(rateReviewDate, k * months);
-    let k = Math.floor((monthIndex(monthOf(day)) - monthIndex(monthOf(rateReviewDate))) / months);
-    while (reviewDay(k) > day) k--;
-    while (reviewDay(k + 1) <= day) k++;
-    on = reviewDay(k);
-  }
+  if (reference === null || reference === "fixed" || marginBp === null || !rateReviewDate) return null;
+  const months = REVIEW_MONTHS[reference];
+  const reviewDay = (k: number) => addMonthsToDate(rateReviewDate, k * months);
+  let k = Math.floor((monthIndex(monthOf(day)) - monthIndex(monthOf(rateReviewDate))) / months);
+  while (reviewDay(k) > day) k--;
+  while (reviewDay(k + 1) <= day) k++;
+  const on = reviewDay(k);
   const fixing = (fixings[reference] ?? []).filter(([from]) => from <= on).at(-1);
   return fixing === undefined ? null : Math.round((Math.max(0, fixing[1]) + marginBp * 10) / 10);
 }

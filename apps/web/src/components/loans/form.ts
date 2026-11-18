@@ -176,15 +176,16 @@ export const isCredit = (kind: LoanKind | "") => kind !== "" && isRevolving(kind
 const euriborOf = (form: LoanForm, margin: number | null) => ({ reference: (form.values.reference || null) as Loan["reference"], marginBp: margin, rateReviewDate: form.values.rateReviewDate || null });
 
 /**
- * A loan on a euribor whose fixing of the last review day before its balance date is stored: its rate is that fixing
- * and the margin. A saved rate with no margin stays in its field, so an edit does not lose it.
+ * A loan on a euribor with a review day whose fixing of the last review day before its balance date is stored: its rate
+ * is that fixing and the margin. A saved rate with no margin, or with no review day, stays in its field, so an edit does
+ * not lose it.
  */
 const marginOnly = (form: LoanForm, fixings: Fixings | undefined): boolean =>
   fixings !== undefined && form.values.balanceDate !== "" && (form.values.marginBp.trim() !== "" || form.values.rateBp.trim() === "") && euriborRateBp(euriborOf(form, 0), form.values.balanceDate, fixings) !== null;
 
 /**
  * The rate the server saves a loan on a euribor at: the stored fixing of its last review day before the balance date
- * and the typed margin. Null for another rate, with no margin typed, and with no fixing that early.
+ * and the typed margin. Null for another rate, with no margin or review day typed, and with no fixing that early.
  */
 export function rateNow(form: LoanForm, fixings: Fixings | undefined): number | null {
   const margin = parseRate(form.values.marginBp.trim());
@@ -195,7 +196,7 @@ export function rateNow(form: LoanForm, fixings: Fixings | undefined): number | 
  * The fields the chosen kind has. A card or a credit line has a limit and no repayment plan (the server refuses one);
  * other loans have no limit. A loan paid back at once has no payment. A fixed rate has no review day. A loan on a
  * euribor whose fixing is stored is asked its margin alone, and its rate is counted (`rateNow`). Before a kind is
- * chosen every field shows.
+ * chosen every field shows. A euribor with no review day keeps its rate field.
  */
 export function shownFields(form: LoanForm, fixings?: Fixings): LoanFieldKey[] {
   const hidden = new Set<LoanFieldKey>();
