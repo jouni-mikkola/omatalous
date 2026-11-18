@@ -66,14 +66,25 @@ function toBank(uid, row, n) {
   };
 }
 
+/** A Finnish IBAN of a bank code and an account part, with its check digits worked out (ISO 13616), so no number is written out here. */
+function finnishIban(bank, account) {
+  const check = 98 - Number(BigInt(`${bank}${account}151800`) % 97n);
+  return `FI${String(check).padStart(2, "0")}${bank}${account}`;
+}
+
 /**
  * The accounts the household has and the bank's answers about them, for the day `today` (YYYY-MM-DD). With `own` it is the
  * same household under other account ids and with a joint account of its own: a spec that links it shares no joint account
- * with the other specs on its server, whose closed months of that account the server keeps (settlement_closed).
+ * with the other specs on its server, whose closed months of that account the server keeps (settlement_closed). `"alone"`
+ * is a third copy, with a joint account that not even the specs using `own` link: the spec that needs a joint account
+ * nobody has answered for, whatever ran before it on its server.
+ * @param {string} today
+ * @param {boolean | "alone"} [own]
  */
 export function household(today, own = false) {
-  const iban = own ? { ...IBAN, joint: "FI1212345600000850" } : IBAN;
-  const id = (name) => (own ? name.replace(/^fb-/, "fb-own-") : name);
+  const iban = own ? { ...IBAN, joint: own === "alone" ? finnishIban("123456", "00000900") : "FI1212345600000850" } : IBAN;
+  const prefix = own === "alone" ? "fb-alone-" : "fb-own-";
+  const id = (name) => (own ? name.replace(/^fb-/, prefix) : name);
   const random = seeded(20261012);
   const between = (low, high) => low + Math.floor(random() * (high - low + 1));
   const pick = (list) => list[between(0, list.length - 1)];

@@ -5,10 +5,11 @@
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { missingCards, missingCardsTitle } from "../src/analysis/card-bills.ts";
+import { missingCardPurchases, missingCards, missingCardsTitle } from "../src/analysis/card-bills.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { dataQualityReport, knownSpending } from "../src/analysis/data-quality.ts";
+import { addDays } from "../src/dates.ts";
 import { normalizeMerchant } from "../src/merchant.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import type { Account, Transaction } from "../src/types.ts";
@@ -63,4 +64,27 @@ describe("missing card purchases", () => {
       expect(dashboard).not.toHaveProperty("connectNotice");
     });
   }
+});
+
+describe("a bill near the first row of a connected card", () => {
+  const first = "2026-09-01";
+  const bill = (bookingDate: string, euros: number) =>
+    tx({ accountId: "chk", bookingDate, amountCents: -euros * 100, category: "card_bill", merchant: "Morrow Bank", counterparty: "MORROW BANK ASA" });
+  const ctx = createContext(
+    [tx({ accountId: "morrow", bookingDate: first, amountCents: -1_000, category: "groceries", merchant: "K-Market" }), bill("2026-08-31", 110), bill(first, 120), bill(addDays(first, 31), 130), bill(addDays(first, 32), 140)],
+    [checking, morrowCard],
+    today,
+  );
+  const range = { from: "2026-08-01", to: today };
+
+  it("pays purchases in no row up to 31 days after the first row, and pairs with none of them from day 32", () => {
+    expect(missingCardPurchases(ctx, range)).toMatchObject([
+      { issuer: "Morrow Bank", reason: "before_history", cents: 36_000, count: 3, lastDate: "2026-10-02", since: first },
+      { issuer: "Morrow Bank", reason: "unmatched", cents: 14_000, count: 1, lastDate: "2026-10-03", since: first },
+    ]);
+  });
+
+  it("leaves the gap total as the sum of the bills, whichever reason tells them", () => {
+    expect(missingCards(ctx, range).cents).toBe(50_000);
+  });
 });

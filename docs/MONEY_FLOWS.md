@@ -256,7 +256,7 @@ card's own, or a statement's.
   is therefore not learned: only the payments that pair are transfers, and the others keep the category the rules above
   gave them. The channel belongs to the card with the most pairs.
 - **Before the card's first row and after.** A payment to a known channel that paired with nothing is a transfer when
-  the card's own rows began more than a billing month (`BILLING_MONTH_DAYS`) before it: the purchases it pays are on
+  the card's own rows began more than a billing month (31 days, `paysPurchasesBeforeRows`) before it: the purchases it pays are on
   the card account. A payment within that time of the card's first row, or before it, is a card bill (*Luottokortin
   lasku*, debt service), since the purchases it pays are in no row. A channel that several cards share pays
   the card whose rows began last before the payment, so a new card's first bill is a card bill whatever the old card's
@@ -274,7 +274,9 @@ card's own, or a statement's.
   a debt, savings or *Muut* category. A rule to a purchase category (*Koti*) and a category set by hand on a row stay.
 - **Data quality.** The card bills that are no transfer show in Tietojen laatu (*Korttilaskuja … ilman ostoja*) as a table by
   issuer: the bills of 12 months, and why the purchases are missing: no card of that issuer is connected, or the bank
-  gives the card's purchases only from a day on.
+  gives the card's purchases only from a day on. A bill dated before the card's first row, or up to 31 days after it
+  (`paysPurchasesBeforeRows`, the rule of the transfer pairing above), is of that second kind. A later bill that pairs
+  with none of the card's rows is *unmatched*. The sum is the same whichever way a bill is told.
 - **Missing card purchases.** *Kortin ostot puuttuvat* has one owner, `missingCards` in `analysis/card-bills.ts`: the
   bills of `missingCardPurchases` over a range, for every reason, and their sum. Its one title is `missingCardsTitle`.
   The data quality signal reads it over its range. The first page's reliability line, the questions and the known share
@@ -615,6 +617,12 @@ accounts*).
   linked to its account once. *Lainaa jäljellä* is what is left on the day (`leftCents`), and a loan whose balance is not
   known shows a dash and is left out of the debt total. *Kuukausierä* is the next payment spread over a month, and only a
   loan that has one shows it. The last row is *Lainat yhteensä*, `loansCents`: the loans' known balances added together.
+  Debts with no balance stand under the totals as rows of their own (`unsavedLoans.rows`): a lender paid every month whose
+  loan nobody saved, and a card whose bills are paid and whose account is not connected (`unconnectedCards`). Each shows
+  its monthly payment, when it has one, and *saldo puuttuu*. Their balance is never added and never read as 0, so while
+  such a row is there the loans' total is named *Lainat yhteensä, tiedossa* and the debt total *Velat yhteensä, tiedossa*,
+  and the first page's accounts less the debts says how many debts it leaves out. A card saved as a loan, marked *Ei ole laina*, or
+  from the issuer of a connected card account joins no row, and a card loan saved with no link takes one series.
 - **The sums of the groups and of the debts.** A group's sum comes from core (`accountsCents`, `cardsCents`, `loansCents`:
   each null when no figure is known, never 0), and the page adds nothing up. When a card has something used and there are
   loans, a row under all three groups gives `debtCents`: *Velat yhteensä*, the one debt total of `householdDebts`, in which
@@ -952,7 +960,7 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
   (`overdraftTwice` in `household-debts.ts`). Lainat and Saldot say so where they show that figure, and that the right
   figure is then larger by the saved loan. They advise no step: removing the saved loan would take the debt out of the
   debt total, which holds it once.
-- The debt total is one number. The Lainat report, the first page's *Velat yhteensä* (*Lainat yhteensä*, the loans' balances added, is the same figure when no card owes anything), the accounts less the debts and
+- The debt total is one number. The Lainat report, the first page's *Velat yhteensä* (*Lainat yhteensä*, the loans' balances added, is the same figure when no card owes anything; both are named *tiedossa* while a debt with no balance is listed under them), the accounts less the debts and
   the Velat lines of the Säästövinkit loan area all read `householdDebts` (`owners.test.ts` and
   `balances-holdings.test.ts` in `packages/core/test` hold them together).
 - The accounts less the debts ("Tilit miinus velat", `accountsLessDebt` of `balanceReport`) are the connected

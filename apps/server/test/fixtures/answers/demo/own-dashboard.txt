@@ -1153,7 +1153,14 @@
    "names": [
     "Nordea Rahoitus Suomi Oy"
    ],
-   "paymentCents": 28900
+   "paymentCents": 28900,
+   "rows": [
+    {
+     "name": "Nordea Rahoitus Suomi Oy",
+     "monthlyCents": 28900,
+     "card": false
+    }
+   ]
   }
  },
  "overview": {

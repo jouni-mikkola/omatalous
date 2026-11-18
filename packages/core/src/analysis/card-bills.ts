@@ -7,7 +7,9 @@
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { messageIn } from "../messages.ts";
 import { finnishList, formatEur, formatFiDate } from "./format.ts";
+import { dayNumber } from "../dates.ts";
 import { cardIssuerName, cardIssuerOfAccountText, cardName, fold } from "../merchant.ts";
+import { paysPurchasesBeforeRows } from "../transfers.ts";
 import type { Account, BalanceInput, IsoDate } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, inDays, loweredRows } from "./context.ts";
 import { type DateRange, toDayRange } from "./period.ts";
@@ -28,8 +30,9 @@ export interface MissingCardPurchases {
   lastDate: IsoDate;
   /**
    * Why the purchases are not in the data: no card of the issuer is connected (`not_connected`), a connected card's rows
-   * begin after these bills (`before_history`: nothing can be asked, the bank gives no older rows), or the bills are of
-   * the time a connected card has rows and still pair with none of them (`unmatched`).
+   * begin after these bills or less than a billing month before them (`before_history`: nothing can be asked, the bank
+   * gives no older rows), or the bills are of the time a connected card has rows and still pair with none of them
+   * (`unmatched`).
    */
   reason: "not_connected" | "before_history" | "unmatched";
   /** The day the connected card's rows begin; null for not_connected. */
@@ -48,8 +51,9 @@ function issuerOfAccount(a: Account): { listed: string | null; words: Set<string
 
 /**
  * The card bills of a range that count as spending, by issuer: what they sum to, how many, the last, and why the
- * purchases behind them are in no category. A bill dated before the day a connected card's rows begin is the bank's
- * history (`before_history`); a bill on or after that day pairs with none of the card's rows (`unmatched`); a bill of an
+ * purchases behind them are in no category. A bill dated before the day a connected card's rows begin, or within a
+ * billing month after it (`paysPurchasesBeforeRows`, the rule the transfer pairing uses), pays purchases the bank gives no
+ * rows for (`before_history`); a later bill pairs with none of the card's rows (`unmatched`); a bill of an
  * issuer none of whose cards is connected is `not_connected`. An issuer with more than one kind has a row for each. Largest sum first. A card matches an issuer by the
  * list's name, or for an issuer outside the list by a whole word of its name that the card's bank or names also hold.
  * `balances` give the cards' numbers for the label of a row.
@@ -71,7 +75,7 @@ export function missingCardPurchases(ctx: AnalysisContext, range: DateRange, bal
       sinceOf.set(issuer, first ? { since: first.since, card: first.account } : null);
     }
     const since = sinceOf.get(issuer)?.since ?? null;
-    const reason = since === null ? "not_connected" : t.bookingDate < since ? "before_history" : "unmatched";
+    const reason = since === null ? "not_connected" : paysPurchasesBeforeRows(dayNumber(since), dayNumber(t.bookingDate)) ? "before_history" : "unmatched";
     const key = `${issuer}\u0000${reason}`;
     const had = bills.get(key);
     if (had) {

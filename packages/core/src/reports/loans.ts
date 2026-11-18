@@ -11,6 +11,7 @@ import { debtsOf } from "../analysis/card-settled.ts";
 import type { AnalysisContext } from "../analysis/context.ts";
 import { type DebtPath, debtPath } from "../loan-path.ts";
 import { type MaybeTwice, maybeTwice, overdraftTwice } from "../household-debts.ts";
+import { type UnsavedRow, unsavedDebts } from "../holdings.ts";
 import {
   type DebtFigure,
   type DebtPayments,
@@ -88,9 +89,11 @@ export interface LoanRow {
 
 export interface LoansReport {
   day: IsoDate;
-  /** How many loans the household saved, linked ones too. The section shows only when there is one. */
+  /** How many loans the household saved, linked ones too. The section shows only when there is one or `unsaved` has a row. */
   saved: number;
   loans: LoanRow[];
+  /** The loans the rows show and the cards whose bills the rows show that nobody saved: no balance is known, so `total` holds none of them (`unsavedDebts`). */
+  unsaved: readonly UnsavedRow[];
   /** What is owed in all (`householdDebts`). */
   total: DebtFigure;
   /** False when a loan is left out of `total` for its balance date (`householdDebts`): the total reads "ei tiedossa". */
@@ -164,6 +167,7 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
     day,
     saved: loansOf(inputs).length,
     loans,
+    unsaved: unsavedDebts(ctx, inputs).rows,
     total: debts.total,
     totalKnown: debts.totalKnown,
     interest: debts.interest,

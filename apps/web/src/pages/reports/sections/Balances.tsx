@@ -9,7 +9,7 @@ import { date, money, monthLong, moneyIn, plural, signedMoney } from "../../../f
 import "../../../styles/statement.css";
 import { BALANCES_ID } from "./ids.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
-import { overdraftTwice } from "./Loans.tsx";
+import { listsLoans, overdraftTwice } from "./Loans.tsx";
 import { accountsLessDebt, sameDebtTwice } from "../parts.tsx";
 import { rich, t } from "../../../text.ts";
 
@@ -86,8 +86,8 @@ function Balances({ ctx }: SectionProps) {
       )}
       <QuestionChart id="saldot-kaavio" question={t("rpt.bal_q_trend")} answer={answer} table={tableView} />
       <hr className="qc-rule" />
-      {/* the page is named Varat ja velat, and Lainat (shown with a saved loan) lists the loans and their total */}
-      <Holdings holdings={r.holdings} meta={ctx.meta} title={null} loansListed={ctx.data.loans.saved > 0} />
+      {/* the page is named Varat ja velat, and Lainat (shown with a saved or an unsaved loan) lists the loans and their total */}
+      <Holdings holdings={r.holdings} meta={ctx.meta} title={null} loansListed={listsLoans(ctx.data.loans)} />
       {r.missing.length > 0 && (
         <>
           <hr className="qc-rule" />

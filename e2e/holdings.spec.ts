@@ -263,8 +263,10 @@ test("a loan's name opens the report Lainat, the sums of the block stand on one 
 
   // the loan's own sums, the sum of the loans, and the debts of the block under all three groups on one right edge
   const foot = holdings.locator(".holding-foot");
-  await expect(lainat.locator(".st-total .st-name")).toHaveText("Lainat yhteensä");
-  await expect(foot.locator(".st-name")).toHaveText(["Velat yhteensä", "Lainoja, joiden saldo puuttuu"]);
+  await expect(lainat.locator(".st-total .st-name")).toHaveText("Lainat yhteensä, tiedossa");
+  // the debts nobody told the balance of are rows of their own under a total that names itself the known one
+  await expect(foot.locator(".st-name").first()).toHaveText("Velat yhteensä, tiedossa");
+  await expect(foot.locator(".st-row").nth(1).locator(".st-num")).toContainText("saldo puuttuu");
   const edges = [...(await rights(lainat.locator(".st-num"))), ...(await rights(foot.locator(".st-num")))];
   expect(edges.length).toBeGreaterThanOrEqual(4);
   expect(new Set(edges).size, `the sums of Lainat and the foot end at ${edges.join(", ")}`).toBe(1);

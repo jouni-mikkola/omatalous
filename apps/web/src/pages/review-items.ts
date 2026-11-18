@@ -8,7 +8,7 @@ import { PAYER_ROLE_LABEL, WALLET_ROLE_LABEL } from "../components/questions.ts"
 import { date, dateTime, money } from "../format.ts";
 import type { SyncRun } from "../types.ts";
 import { t, tn } from "../text.ts";
-import type { LoanDriftItem, LoanTermsItem } from "./review-loan-items.ts";
+import type { CardBillItem, LoanDriftItem, LoanTermsItem } from "./review-loan-items.ts";
 
 export interface Base {
   id: string;
@@ -182,7 +182,7 @@ interface FetchItem extends Base {
   message: string | null;
 }
 
-export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | MortgageItem | LoanTermsItem | LoanDriftItem | MoneyBackItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | FetchItem;
+export type ReviewItem = PayeeItem | PayerItem | LoanItem | CardBillItem | PlanItem | SplitItem | SubscriptionItem | MortgageItem | LoanTermsItem | LoanDriftItem | MoneyBackItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | FetchItem;
 
 /**
  * A failed fetch is a queue item (design, section 4): the last run that failed stays first in the queue until a later
@@ -216,7 +216,7 @@ export type SittingView =
  * The kinds this page has a card for. An item of a kind that is not here (the server's `extension`, which no source
  * sends today, the `input` an older server asked a tip's number with, or a newer server's) is left out, since the words below have nothing to say of it.
  */
-const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan: true, plan: true, split: true, subscription: true, mortgage: true, loan_terms: true, loan_drift: true, money_back: true, balance: true, card_balance: true, consent: true, bill: true, row: true, unresolved: true, fetch: true };
+const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan: true, card_bill: true, plan: true, split: true, subscription: true, mortgage: true, loan_terms: true, loan_drift: true, money_back: true, balance: true, card_balance: true, consent: true, bill: true, row: true, unresolved: true, fetch: true };
 const hasCard = (item: { kind: string }): boolean => Object.hasOwn(KINDS, item.kind);
 
 /** The items still open: the queue without what this sitting has answered. The one number its heading and the header's mark show. */
@@ -249,6 +249,8 @@ export function eyebrow(item: ReviewItem): string {
     case "loan":
     case "loan_drift":
       return t("set.ri.loan");
+    case "card_bill":
+      return t("set.ri.credit_card");
     case "loan_terms":
       return t(item.accountId === null ? "set.ri.loan" : "set.ri.credit_card");
     case "money_back":
@@ -289,6 +291,7 @@ export function nameOf(item: ReviewItem): string {
     case "payer":
       return item.wallet ? "MobilePay" : item.merchant;
     case "loan":
+    case "card_bill":
     case "plan":
       return item.payee;
     case "loan_drift":
@@ -330,6 +333,8 @@ export function questionOf(item: ReviewItem): string {
       return t("set.ri.what_are_these_payments");
     case "loan":
       return t("set.ri.which_loan_is_this");
+    case "card_bill":
+      return t("set.ri.card_bill_question");
     case "plan":
       return t("set.ri.how_many_payments_are_left");
     case "split":
@@ -386,7 +391,8 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
       // the sum of the rows of the last 365 days: one payment, or a few weeks of history, would read as a year's figure with "vuodessa"
       return { text: money(item.cents), unit: t("set.ri.in_total"), line: tn(item.count, "set.ri.payments_year_one", "set.ri.payments_year_many", { last: date(item.lastDate) }) };
     case "loan":
-      return { text: money(item.paymentCents), unit: t(item.noMonthly ? "set.ri.latest_payment" : "set.ri.a_month"), line: tn(item.rowCount ?? item.months, "set.ri.payments_since_one", "set.ri.payments_since_many", { first: date(item.firstDate), last: date(item.lastDate) }) };
+    case "card_bill":
+      return { text: money(item.paymentCents), unit: t(item.kind === "loan" && item.noMonthly ? "set.ri.latest_payment" : "set.ri.a_month"), line: tn(item.rowCount ?? item.months, "set.ri.payments_since_one", "set.ri.payments_since_many", { first: date(item.firstDate), last: date(item.lastDate) }) };
     case "plan":
       return { text: money(item.paymentCents), unit: t("set.ri.a_month"), line: t("set.ri.latest_payment_date_the_amount", { date: date(item.lastDate) }) };
     case "split":
