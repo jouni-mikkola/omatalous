@@ -1,5 +1,5 @@
 // Decision: which debt to pay down first, and whether the payments hold when the reference rate moves
-import { belowWhole, cardLimitCents, type LoanRow, type LoansReport, type MaybeTwice, type RateScenario } from "@banking/core";
+import { belowWhole, cardLimitCents, inCostOrder, type LoanRow, type LoansReport, type MaybeTwice, type RateScenario } from "@banking/core";
 import { Fragment } from "react";
 import { LOAN_LINK_PARAM } from "../../../components/loans/form.ts";
 import { LoanDrill } from "../../../components/loans/LoanDrill.tsx";
@@ -100,12 +100,14 @@ function Loan({ l, limitCents, today }: { l: LoanRow; limitCents: number | null;
     : [unlessName(KIND_LABEL[l.kind], l.name), l.lender].filter(Boolean).join(" · ");
   const about = [kind, typedByText(l.typedBy)].filter(Boolean).join(" · ");
   const moves = l.scenarios.map(scenario).filter((line): line is string => line !== null);
+  // a debt that owes and has no rate says so where the rate would be: its interest is not known, and it is listed last
+  const rateMissing: LoanFigureProps[] = l.rateBp === null && l.interest.unknown === "rate" ? [{ label: t("rpt.ln_rate"), value: null, sub: t("rpt.ln_wi_missing_rate") }] : [];
   const figures: LoanFigureProps[] = card
-    ? [{ label: t("rpt.ln_used"), value: l.balance.cents !== null ? money(l.balance.cents) : null }, ...(limitCents !== null ? [{ label: t("rpt.ln_limit"), value: money(limitCents) }] : [])]
+    ? [{ label: t("rpt.ln_used"), value: l.balance.cents !== null ? money(l.balance.cents) : null }, ...(limitCents !== null ? [{ label: t("rpt.ln_limit"), value: money(limitCents) }] : []), ...rateMissing]
     : [
         // a balance no plan moved forward is the one that was told, with its day
         { label: t("rpt.ln_debt"), value: l.balance.cents !== null ? money(l.balance.cents) : null, sub: l.balance.cents !== null && l.balance.unknown ? t("rpt.ln_left_on", { date: date(l.balanceDate) }) : null },
-        { label: t("rpt.ln_rate"), value: l.rateBp !== null ? percent(l.rateBp / 10_000, 2) : null, sub: l.reference ? referenceName(l.reference) : null },
+        { label: t("rpt.ln_rate"), value: l.rateBp !== null ? percent(l.rateBp / 10_000, 2) : null, sub: l.rateBp === null && rateMissing.length > 0 ? t("rpt.ln_wi_missing_rate") : l.reference ? referenceName(l.reference) : null },
         { label: t("rpt.ln_payment"), ...payment(l) },
         { label: t("rpt.ln_interest12"), value: l.interest.cents !== null ? money(l.interest.cents, false) : null },
         { label: t("rpt.ln_last_due"), value: lastPayment(l) },
@@ -284,7 +286,7 @@ function Loans({ ctx }: SectionProps) {
       )}
       {path && path.tops[0]! > 0 && <hr className="qc-rule" />}
       <ul className="loan-list">
-        {r.loans.map((l) => (
+        {inCostOrder(r.loans).map((l) => (
           <Loan key={l.id} l={l} limitCents={limitOf(l)} today={ctx.meta.today} />
         ))}
       </ul>
