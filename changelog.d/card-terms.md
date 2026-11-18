@@ -1,2 +1,2 @@
 section: Look
-- The loan and card question in Tarkistettavat has 44 px buttons on a phone and drops out when its loan is gone.
+- The loan and card question has 44 px targets on a phone and drops out with its loan.
