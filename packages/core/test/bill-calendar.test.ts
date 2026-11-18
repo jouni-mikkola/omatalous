@@ -5,7 +5,7 @@ import { nytAnswer } from "../src/analysis/nyt.ts";
 import { addDays, dateIn, monthOf, weekdayOf } from "../src/dates.ts";
 import { billCalendar } from "../src/reports/bill-calendar.ts";
 import { upcomingReport } from "../src/reports/upcoming.ts";
-import { type Account, type ExpectedBill, type IsoDate, type Loan, NO_INPUTS, type Transaction, type UserInputs } from "../src/types.ts";
+import { type Account, type BalanceInput, type ExpectedBill, type IsoDate, type Loan, NO_INPUTS, type Transaction, type UserInputs } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";
 
 // The bill calendar: the twelve months from the one of today, a row for each bill, loan payment and pay. Made-up payees and sums only.
@@ -215,6 +215,25 @@ describe("the bill calendar", () => {
     expect(rowsOf(run([], { marks: [], expectedBills: [], loans: [{ ...bullet, endDate: "2027-10-31" }] }).cal)).toEqual([]);
   });
 
+  it("has the lump sum of a bullet loan that a monthly series pays as no monthly bill", () => {
+    const bullet: Loan = {
+      id: "loan-3", name: "Siltalaina", lender: "ESIMERKKIPANKKI", kind: "car", grantedCents: null, balanceCents: 4_000_000, balanceDate: "2026-09-15", rateBp: null,
+      reference: null, marginBp: null, repayment: "bullet", intervalMonths: null, paymentCents: 91_240, endDate: "2027-03-31", limitCents: null, seriesKey: null,
+    };
+    const interest = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"].map((m) =>
+      tx({ accountId: "own", bookingDate: `${m}-02`, amountCents: -91_240, merchant: "ESIMERKKIPANKKI", counterparty: "ESIMERKKIPANKKI", category: "mortgage" }),
+    );
+    const { cal } = run(interest, { marks: [], expectedBills: [], loans: [bullet] }, "2026-10-09");
+    const loanRows = rowsOf(cal).filter((r) => r.kind === "loan");
+    const lump = loanRows.find((r) => r.date === "2027-03-31")!;
+    expect(lump.cents).toBe(4_000_000);
+    // the series that pays the interest is the loan's: its own rows are monthly, the lump sum is not
+    expect(lump.seriesId).not.toBeNull();
+    expect(lump.monthly).toBeUndefined();
+    expect(loanRows.some((r) => r.monthly === true)).toBe(true);
+    expect(cal.months[5]!.monthlyBillsCount).toBe(0);
+  });
+
   it("has a regular saving as a row of its own kind, in no sum of the bills", () => {
     const saving = MONTHS.map((m) => tx({ accountId: "own", bookingDate: `${m}-20`, amountCents: -20_000, merchant: "Esimerkki Rahasto", category: "investments" }));
     const { cal } = run([...household(), ...saving]);
@@ -243,5 +262,67 @@ describe("the bill calendar", () => {
     // a fortnight gives three pays in a month now and then
     expect(pay("2027-04").map((r) => r.date)).toEqual(["2027-04-02", "2027-04-16", "2027-04-30"]);
     expect(cal.months.find((m) => m.month === "2027-04")!.incomeCents).toBe(3 * 150_000);
+  });
+
+  describe("the sums a month shows", () => {
+    const saving = () => MONTHS.map((m) => tx({ accountId: "own", bookingDate: `${m}-20`, amountCents: -20_000, merchant: "Esimerkki Rahasto", category: "investments" }));
+    const rowSum = (rows: readonly { cents: number }[]) => rows.reduce((total, r) => total + r.cents, 0);
+
+    it("has the bills of a month as its known and estimated bills together, and the twelve months as the calendar's bills", () => {
+      const { cal } = run([...household(), ...saving()]);
+      for (const m of cal.months) {
+        const bills = m.rows.filter((r) => (r.kind === "bill" || r.kind === "loan") && r.state !== "paid" && !r.onCard);
+        expect(m.billsCents, m.month).toBe(rowSum(bills));
+        expect(m.billsCents, m.month).toBe(m.knownCents + m.estimateCents);
+      }
+      expect(cal.billsCents).toBe(cal.months.reduce((total, m) => total + rowSum(m.rows.filter((r) => (r.kind === "bill" || r.kind === "loan") && r.state !== "paid" && !r.onCard)), 0));
+    });
+
+    it("has what is left after the bills as the pays less the bills and the regular saving, to the cent", () => {
+      const { ctx, cal } = run([...household(), ...saving()]);
+      for (const m of cal.months) expect(m.afterCents, m.month).toBe(m.incomeCents - m.billsCents - m.savingCents);
+      const november = cal.months[1]!;
+      expect(november.afterCents).toBe(PAY - (RENT + MUSIC + INSURANCE + typical(ctx, "Esimerkki Energia")) - 20_000);
+    });
+
+    it("leaves a bill on a card or an account the balance does not count out of every sum, and counts it apart", () => {
+      const other: Account = { id: "other", name: "Muu tili", iban: null, currency: "EUR", type: "savings" };
+      const balances: BalanceInput[] = [
+        { id: "own", name: "Käyttötili", type: "checking", balanceCents: 500_000, ownerName: null, balanceAt: TODAY },
+        { id: "other", name: "Muu tili", type: "savings", balanceCents: 0, ownerName: null, balanceAt: TODAY },
+      ];
+      const magazine = MONTHS.map((m) => tx({ accountId: "other", bookingDate: `${m}-07`, amountCents: -2_500, merchant: "Esimerkki Lehti", category: "entertainment" }));
+      const ctx = createContext([...household(), ...magazine], [own, other], TODAY);
+      const cal = billCalendar(ctx, NO_INPUTS, balances);
+      const november = cal.months[1]!;
+      const row = november.rows.find((r) => r.payee === "Esimerkki Lehti");
+      expect(row).toMatchObject({ cents: 2_500, onCard: true, monthly: true });
+      expect(november.knownCents).toBe(RENT + MUSIC + INSURANCE);
+      expect(november.billsCents).toBe(november.knownCents + november.estimateCents);
+      expect(november.monthlyBillsCount).toBe(3);
+      expect(november.monthlyBillsCents).toBe(RENT + MUSIC + typical(ctx, "Esimerkki Energia"));
+      expect(november.afterCents).toBe(november.incomeCents - november.billsCents - november.savingCents);
+    });
+
+    it("counts the monthly bills of a month and adds them up, to the cent", () => {
+      const { ctx, cal } = run([...household(), ...saving()]);
+      for (const m of cal.months) {
+        const monthly = m.rows.filter((r) => r.monthly === true && r.state !== "paid");
+        const bills = monthly.filter((r) => (r.kind === "bill" || r.kind === "loan") && !r.onCard);
+        expect([m.monthlyBillsCount, m.monthlyBillsCents], m.month).toEqual([bills.length, rowSum(bills)]);
+      }
+      // November: the quarterly insurance is no monthly bill
+      const november = cal.months[1]!;
+      expect(november.monthlyBillsCount).toBe(3);
+      expect(november.monthlyBillsCents).toBe(RENT + MUSIC + typical(ctx, "Esimerkki Energia"));
+      expect(november.rows.find((r) => r.payee === "Esimerkki Vakuutus")!.monthly).toBeUndefined();
+    });
+
+    it("gives no figure for what is left while a bill's sum is not known, however many months have rows", () => {
+      const { cal } = run(household(), withBills(typedBill("Esimerkki Vero", 0, "2026-12-05")));
+      expect(cal.unknownCount).toBe(1);
+      expect(cal.months.map((m) => m.afterCents)).toEqual(Array.from({ length: 12 }, () => null));
+      expect(cal.months[1]!.billsCents).toBe(RENT + MUSIC + INSURANCE + cal.months[1]!.estimateCents);
+    });
   });
 });

@@ -43,3 +43,15 @@ export function partRowsOf(t: { trace: Trace; open: (p: SourcePart) => boolean }
   }
   return out;
 }
+
+/** What a reader needs to know of an account before it counts it: whether it has a trace, and whether it is cut by it. */
+export interface TraceFacts {
+  key: string;
+  /** What the parts were built from: part of a cache key. */
+  signature: string;
+  /** The account is a pool with a trace stored. */
+  hasTrace: boolean;
+  /** The account is cut by its rows' parts: it has a trace and a split row. */
+  traced: boolean;
+  split?: { by: "app" | "user"; at: string };
+}

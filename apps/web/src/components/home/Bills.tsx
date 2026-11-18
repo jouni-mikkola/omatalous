@@ -19,12 +19,12 @@ type Shown = Row & { at: number };
 /** The rows the block shows; the rest are one line and the link to Laskut. */
 const BILLS_SHOWN = 6;
 
-/** Laskut at the list the block shows: the bills before the payday that the tile takes off, or its list of what is coming. */
+/** Laskut at the table of the bills, where the bills the tile takes off and the ones coming stand by month. */
 const billsHref = (anchor: string) => hashOf({ page: "bills", params: new URLSearchParams(), anchor });
 
 /**
- * The rows and the sum of the block, as Laskut has them: before a known payday the payments of `ahead.rows` before it
- * and `nyt.left.billsCents` (BeforePayday, which the Käytettävissä tile takes off), else the first group of
+ * The rows and the sum of the block: before a known payday the payments of `ahead.rows` before it
+ * and `nyt.left.billsCents` (which the Käytettävissä tile takes off), else the first group of
  * `upcomingGroups` with its own sum: the bills to the payday when there is one but no balance to start from, the 30
  * days when there is none. Null with no window at all.
  */
@@ -35,7 +35,7 @@ function billsOf(data: Data): { rows: Row[]; cents: number; elsewhereCents: numb
   if (left.known && ahead.payday) {
     const rows = ahead.rows.filter(isPayment).filter((r) => r.source !== "income" && r.date < left.payday.date);
     const outside = ahead.outside.filter((r) => r.cents !== null && r.cents < 0 && r.date < left.payday.date);
-    return { rows, cents: left.billsCents, elsewhereCents: left.elsewhereCents, elsewhere: elsewhereLabel(outside), until: t("home.bills_until", { date: dayMonth(left.payday.date) }), none: t("home.bills_none"), anchor: "ennen-palkkapaivaa" };
+    return { rows, cents: left.billsCents, elsewhereCents: left.elsewhereCents, elsewhere: elsewhereLabel(outside), until: t("home.bills_until", { date: dayMonth(left.payday.date) }), none: t("home.bills_none"), anchor: "laskut-taulukko" };
   }
   const first = upcomingGroups(ahead)[0];
   if (!first) return null;
@@ -72,7 +72,7 @@ function Left({ data, linked }: { data: Data; linked: boolean }) {
     </>
   );
   return linked ? (
-    <a className={className} data-tile="left" href={billsHref("ennen-palkkapaivaa")}>
+    <a className={className} data-tile="left" href={billsHref("laskut-taulukko")}>
       {parts}
     </a>
   ) : (

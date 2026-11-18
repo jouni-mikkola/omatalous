@@ -337,26 +337,15 @@ async function desk(/** @type {Film} */ film) {
   await film.read({ poster: true });
 
   // 5. from the figure to the bills behind it
-  await film.click(answer.locator('a[href*="ennen-palkkapaivaa"]'));
-  const list = page.locator("#ennen-palkkapaivaa .bp-rows");
+  await film.click(answer.locator('a[href*="laskut-taulukko"]'));
+  const list = page.locator("#laskut-taulukko");
   await list.waitFor({ state: "visible" });
-  const due = [];
-  for (const row of await list.locator('.bp-row[data-kind="bill"]').all()) {
-    due.push({ name: plain(await row.locator(".bp-name").textContent()), date: plain(await row.locator(".bp-date").textContent()), sum: cents(plain(await row.locator(".bp-sum").textContent())) });
-  }
-  if (!due.length) throw new Error("Laskut has no bill before payday today: the film needs at least one");
-  const total = list.locator('.bp-row[data-kind="total"]');
-  const totalCents = cents(plain(await total.textContent()));
-  if (due.reduce((s, b) => s + b.sum, 0) !== totalCents) throw new Error(`Laskut: the bills before payday do not add up to ${totalCents}`);
-  film.marks = [await film.box(list.locator('.bp-row[data-kind="bill"]').first(), total)];
-  // two bills are named; more would make the caption too long to read, and one bill's sum is the figure already said
-  const one = due.length === 1 && due[0];
-  const named = one
-    ? `${one.name} on ${englishDate(one.date)}`
-    : due.length <= 2
-      ? due.map((b) => `${b.name} ${euros(b.sum)} on ${englishDate(b.date)}`).join(" and ")
-      : `${due.length} bills before payday`;
-  await film.say(`Laskut (bills): the ${euros(totalCents)} is ${named}.`);
+  // the first group of the table is the month of today, its head carries core's sum of the month's bills
+  const month = list.locator("tr.rt-group").first();
+  const sum = /Laskut ([\d ,]+ €)/.exec(plain(await month.textContent()))?.[1];
+  if (!sum) throw new Error("Laskut: the month of today has no sum of bills in its head");
+  film.marks = [await film.box(month)];
+  await film.say(`Laskut (bills): the month's bills are listed by day, ${euros(cents(sum))} in all.`);
   await film.glide(film.beside(/** @type {Box} */ (film.marks[0])));
   await film.read();
   film.marks = [];
@@ -384,20 +373,18 @@ async function phone(/** @type {Film} */ film) {
   await film.say("The same pages on a phone, with the tabs at the bottom.");
   // a finger's tap has no glide before it
   await film.read({}, CLICK_MS - GLIDE_MS);
-  await film.click(answer.locator('a[href*="ennen-palkkapaivaa"]'));
-  const list = page.locator("#ennen-palkkapaivaa .bp-rows");
+  await film.click(answer.locator('a[href*="laskut-taulukko"]'));
+  const list = page.locator("#laskut-taulukko");
   await list.waitFor({ state: "visible" });
   await film.shoot(700);
-  // the bills and their total above the tab bar at the bottom of the screen, and the header that scrolls away gone whole
-  const total = list.locator('.bp-row[data-kind="total"]');
-  const bar = await page.getByRole("navigation", { name: "Päävalikko" }).boundingBox();
-  const end = await total.boundingBox();
-  const head = await page.locator("header.topbar").boundingBox();
-  if (!bar || !end) throw new Error("Laskut on the phone has no tab bar or no total");
-  let dy = Math.round(end.y + end.height - (bar.y - 24));
-  if (dy > 0 && head && head.y + head.height > 0) dy = Math.max(dy, Math.ceil(head.y + head.height));
+  // the head of the month of today below the header that scrolls away
+  const month = list.locator("tr.rt-group").first();
+  const top = await month.boundingBox();
+  const header = await page.locator("header.topbar").boundingBox();
+  if (!top) throw new Error("Laskut on the phone has no month");
+  const dy = Math.round(top.y - (header ? Math.max(header.y + header.height, 0) : 0) - 16);
   if (dy > 0) await film.scroll(dy);
-  film.marks = [await film.box(list.locator('.bp-row[data-kind="bill"]').first(), total)];
+  film.marks = [await film.box(month)];
   await film.shoot(1800);
   film.marks = [];
 }

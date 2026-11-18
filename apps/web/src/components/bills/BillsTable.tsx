@@ -1,33 +1,34 @@
 /**
- * Decision: which bill, contract or subscription to look at, to drop or to answer, and what it costs a month.
+ * Decision: which bill, contract or subscription to look at, to drop or to answer, and what each month leaves after the bills.
  *
- * Laskut' one table: every bill, contract, subscription, saving plan and every bill typed in, each once, in the table
- * kit with no search, chips or sorting: the rows come in the order of the next payment. What has ended waits in a folded
- * group of its own under it. One column holds the amount and, only when it differs, the month's share of it. A row opens in
- * place: how often it comes, a year of it and its earlier payments with their sum (DrillRows), and the one action of a subscription, "Merkitse lopetetuksi" with its undo, or the
- * removal of a bill typed in. A bill the app found that is no recurring bill is removed the same way: the mark
- * `wrongBillSubject` takes it out of the list and of every sum of what is coming. The table adds nothing up: the fixed costs a month are the figure of Raportit > Kiinteät menot, which the head links to once.
- * Whether a service is still used is asked in Tarkistettavat, never here.
+ * Laskut' one table: the bill calendar of core, a group for each of the twelve months, in the table kit with no search,
+ * chips or sorting. A row is a bill, a loan payment, a pay or a regular saving with its day, its amount and whether the
+ * day and the amount are known (Tiedossa), an estimate (Arvio) or paid (Maksettu). A bill a card pays says so in the
+ * status and is in no sum. The head of a month carries core's sums (`billsCents`, `estimateCents`, `incomeCents`,
+ * `afterCents`); the page adds up nothing, and while a bill's sum is not known the sum of what is left is a status.
+ * This month and the next list every row; the later months list the bills that come less often than monthly one by one
+ * and fold the monthly ones into one row that opens to them, with the number and sum core gives. A row opens in place:
+ * how often it comes and its earlier payments with their sum (DrillRows), and the one action of a subscription,
+ * "Merkitse lopetetuksi" with its undo (what has ended waits in a folded group of its own), or the removal of a bill typed
+ * in. A bill the app found that is no recurring bill is removed the same way: the mark `wrongBillSubject` takes it out of
+ * the list and of every sum of what is coming. Whether a service is still used is asked in Tarkistettavat.
  */
 import { type MarkKind, parseSeriesId, seriesOfMarkSubject, type UserMark } from "@banking/core";
 import { useEffect, useState } from "react";
 import { api } from "../../api.ts";
-import { CADENCE_LABEL, date, dayHeading, money, monthYear, seriesName } from "../../format.ts";
+import { CADENCE_LABEL, dayMonth, date, money, monthLong, seriesName } from "../../format.ts";
 import { t } from "../../text.ts";
 import type { Recurring as Series, Scope } from "../../types.ts";
 import { ConfirmDialog } from "../ConfirmDialog.tsx";
 import { MerchantAvatar } from "../MerchantAvatar.tsx";
-import { DeltaChip, MarkCell } from "../table/Cells.tsx";
+import { MarkCell } from "../table/Cells.tsx";
+import { DrillRows } from "../table/DrillRows.tsx";
 import { type Column, Table } from "../table/Table.tsx";
 import { Button } from "../ui/Button.tsx";
 import { Notice } from "../ui/Notice.tsx";
-import { hashOf } from "../../routes.ts";
 import { cadenceLabel } from "./BillForm.tsx";
-import { DrillRows } from "../table/DrillRows.tsx";
-import { hasOneKind, type Item, kindLabel, type TypedBill, wrongBillSubject } from "./items.ts";
-
-/** The report of the fixed costs a month, the one place their sum is shown. */
-const FIXED_REPORT_HREF = hashOf({ page: "reports", params: new URLSearchParams({ q: "kiinteat" }) });
+import { type CalBill, type Calendar, type CalGroup, type CalMonth, type CalRow, calendarGroups, ENDED_GROUP, OPEN_MONTHS } from "./calendar-rows.ts";
+import { type Item, type TypedBill, wrongBillSubject } from "./items.ts";
 
 /** What one subscription row can do next to the mark it already has. */
 export interface MarkControls {
@@ -47,39 +48,62 @@ function frequency(s: Series): string {
   return s.cadence === "monthly" && perYear < 12 ? t("bills.times_year", { n: perYear }) : (CADENCE_LABEL[s.cadence] ?? "–");
 }
 
+const capital = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slice(1);
+
+/** The status of a row: whether the day and the sum are known, an estimate, or paid; a card's bill says who pays it. */
+function status(bill: CalBill): string {
+  if (bill.onCard) return t("bills.on_card");
+  return bill.state === "paid" ? t("bills.status_paid") : bill.state === "estimate" ? t("bills.status_estimate") : t("bills.status_known");
+}
+
+/** What the row is when it has no category of its own. */
+function kindOf(bill: CalBill): string {
+  if (bill.kind === "saving") return t("bills.kind_saving");
+  if (bill.kind === "income") return t("home.fig_income");
+  return bill.kind === "loan" ? t("bills.kind_loan") : "–";
+}
+
+/** The sums of a month's head, all core's: bills (with the estimated part), pays and what is left after the bills and the saving. */
+function MonthSums({ month }: { month: CalMonth }) {
+  const income = month.incomeCents > 0;
+  return (
+    <span className="bill-sums">
+      <span>{month.estimateCents > 0 ? t("bills.sum_bills_estimate", { sum: money(month.billsCents), estimate: money(month.estimateCents) }) : t("bills.sum_bills", { sum: money(month.billsCents) })}</span>
+      {income && <span>{t("bills.sum_income", { sum: money(month.incomeCents) })}</span>}
+      {income && <span>{month.afterCents === null ? t("bills.sum_after_unknown") : t("bills.sum_after", { sum: money(month.afterCents) })}</span>}
+    </span>
+  );
+}
+
 export function BillsTable({
+  calendar,
   items,
   controls,
   label,
-  cards,
-  today,
   scope,
   onRemoved,
 }: {
+  calendar: Calendar;
   items: Item[];
   controls: MarkControls;
   label: (id: string) => string;
-  /** The ids of the credit card accounts: a series charged to one is "Kortilla". */
-  cards: ReadonlySet<string>;
-  today: string;
   scope: Scope;
-  /** A bill typed in was removed: the page reads its answers again. */
+  /** A bill typed in or a found one was removed: the page reads its answers again. */
   onRemoved: () => void;
 }) {
   const [open, setOpen] = useState<string | null>(null);
-  const [foldOpen, setFoldOpen] = useState(false);
+  /** The groups the reader opened or closed; the others are open for this month and the next. */
+  const [toggled, setToggled] = useState<ReadonlyMap<string, boolean>>(new Map());
   const [removing, setRemoving] = useState<{ id: string; name: string } | null>(null);
-  /** A found bill asked about: the row and the name the question says. */
-  const [wrong, setWrong] = useState<{ key: string; series: Series; name: string } | null>(null);
-  /** The rows marked away since the list was read: the next read leaves them out itself. */
-  const [gone, setGone] = useState<ReadonlySet<string>>(new Set());
+  /** A found bill asked about: the series and the name the question says. */
+  const [wrong, setWrong] = useState<{ series: Series; name: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  if (!items.length) return null;
-  const live = items.filter((i) => !i.ended && !gone.has(i.key));
-  const ended = items.filter((i) => i.ended);
   const listed = items.flatMap((i) => (i.series ? [i.series.id] : []));
-  const nameOf = (i: Item) => (i.series ? seriesName(i.series.id, i.series.typicalAmountCents, listed) ?? i.name : i.name);
-  const onCard = (i: Item) => !!i.series && cards.has(parseSeriesId(i.series.id)?.accountId ?? "");
+  const nameOf = (i: Item) => (i.series ? (seriesName(i.series.id, i.series.typicalAmountCents, listed) ?? i.name) : i.name);
+  const isOpen = (key: string) => toggled.get(key) ?? (key !== ENDED_GROUP && calendar.months.findIndex((m) => m.month === key) < OPEN_MONTHS);
+  const toggle = (key: string) => setToggled((before) => new Map(before).set(key, !isOpen(key)));
+  const typed = items.flatMap((i) => (i.typed ? [i.typed] : []));
+  const groups = calendarGroups(calendar, items, typed, isOpen);
 
   const remove = async (id: string) => {
     setRemoving(null);
@@ -92,12 +116,11 @@ export function BillsTable({
     }
   };
 
-  const markWrong = async ({ key, series }: { key: string; series: Series }) => {
+  const markWrong = async ({ series }: { series: Series }) => {
     setWrong(null);
     setError(null);
     try {
       await api("/api/marks", { method: "PUT", body: { subject: wrongBillSubject(series), mark: "dismissed" } });
-      setGone((before) => new Set(before).add(key));
       setOpen(null);
       onRemoved();
     } catch (e) {
@@ -105,109 +128,96 @@ export function BillsTable({
     }
   };
 
-  // a list of one kind says it in its title: the tag beside the name is for a list that mixes kinds, and then it is on every row, as nothing else on the page says which kind is the usual one
-  const sameKind = hasOneKind(live);
-  const columns: Column<Item>[] = [
+  // a subscription just marked as stopped leaves the calendar and lands in the group of what has ended, opened, so its undo is in sight
+  const marking: MarkControls = {
+    ...controls,
+    set: (s, mark) => {
+      controls.set(s, mark);
+      setToggled((before) => new Map(before).set(ENDED_GROUP, true));
+      setOpen(s.id);
+    },
+  };
+
+  const rowName = (r: CalRow): string => (r.kind === "fold" ? t("bills.monthly_fold", { count: r.count }) : r.kind === "ended" ? nameOf(r.item) : r.item ? nameOf(r.item) : r.bill.payee);
+  const columns: Column<CalRow>[] = [
     {
-      key: "name",
+      key: "day",
+      label: t("table.day"),
+      kind: "date",
+      rowHead: true,
+      cell: (r) => (r.kind === "row" ? dayMonth(r.bill.date) : r.kind === "ended" ? (r.item.series ? date(r.item.series.lastDate) : "–") : ""),
+    },
+    {
+      key: "payee",
       label: t("bills.payee"),
       kind: "text",
-      rowHead: true,
-      cell: (i) => (
-        <MarkCell name={i.name} mark={<MerchantAvatar name={i.name} person={false} size="m" />}>
-          <span className="sub-merchant">{nameOf(i)}</span>
-          <span className="sub-category">
-            {i.category ? label(i.category) : kindLabel(i.kind)}
-            {i.stopped ? <span className="badge warn sub-kind">{t("bills.stopped")}</span> : i.category && !i.ended && !sameKind && <span className="mb-tag sub-kind">{kindLabel(i.kind)}</span>}
-          </span>
-        </MarkCell>
-      ),
+      cell: (r) =>
+        r.kind === "fold" ? (
+          <span className="bill-fold">{rowName(r)}</span>
+        ) : (
+          <MarkCell name={rowName(r)} mark={<MerchantAvatar name={rowName(r)} person={r.kind === "row" && r.bill.kind === "income"} size="m" />}>
+            <span className="sub-merchant">{rowName(r)}</span>
+          </MarkCell>
+        ),
     },
     {
-      key: "next",
-      label: t("bills.next"),
-      kind: "date",
-      className: () => "next-col",
-      cell: (i) => (
-        <>
-          {/* a charge that did not come is a status with the day it was due: a day heading would read as the next charge */}
-          {i.missed ? <span className="badge warn">{t("bills.missed", { date: date(i.missed, today) })}</span> : i.next ? dayHeading(i.next, today) : "–"}
-          {onCard(i) && <span className="mb-tag sub-card">{t("bills.on_card")}</span>}
-        </>
-      ),
+      key: "category",
+      label: t("row.category_col"),
+      kind: "text",
+      phone: "hide",
+      cell: (r) => (r.kind === "fold" ? "" : r.kind === "ended" ? (r.item.category ? label(r.item.category) : "–") : r.bill.category ? label(r.bill.category) : kindOf(r.bill)),
     },
     {
-      key: "price",
+      key: "amount",
       label: t("bills.amount"),
       kind: "money",
       main: true,
-      cents: (i) => i.cents,
       precision: "cents",
-      cell: (i) => {
-        const last = i.series?.priceSteps?.at(-1);
-        // the month's share is news only when the charge is not a month's
-        const share = !i.ended && i.monthlyCents !== null && i.monthlyCents !== i.cents ? i.monthlyCents : null;
-        return (
-          <>
-            <span className="sub-price">{money(i.cents)}</span>
-            {share !== null && <span className="sub-share">{t("bills.per_month_short", { amount: money(share) })}</span>}
-            {last?.deltaCents !== undefined && (
-              <span className="sub-chip" title={t("bills.since", { month: monthYear(last.date) })}>
-                <DeltaChip delta={last.deltaCents} text={money(Math.abs(last.deltaCents))} meaning="spend" />
-              </span>
-            )}
-          </>
-        );
-      },
+      cents: (r) => (r.kind === "row" ? r.bill.cents : r.kind === "fold" ? r.cents : r.item.cents),
+      cell: (r) => (r.kind === "row" && r.bill.kind === "income" ? `+${money(r.bill.cents)}` : r.kind === "row" ? money(r.bill.cents) : r.kind === "fold" ? money(r.cents) : money(r.item.cents)),
+    },
+    {
+      key: "state",
+      label: t("row.status"),
+      kind: "text",
+      cell: (r) => (r.kind === "row" ? (r.missed ? t("bills.status_missed") : status(r.bill)) : r.kind === "ended" ? t("bills.kind_ended") : ""),
     },
   ];
-  // what has ended has no next charge: its column is the last one, under its own heading, which a phone shows as the
-  // label of each row's date. Every ended row comes from a series (items.ts); the dash only guards the type
-  const endedColumns = columns.map((c): Column<Item> => (c.key === "next" ? { ...c, label: t("bills.last"), cell: (i) => (i.series ? date(i.series.lastDate) : "–") } : c));
-  const table = (caption: string, rows: Item[], cols: Column<Item>[]) => (
-    <Table<Item>
-      caption={caption}
-      className="sub-table"
-      search={false}
-      rows={rows}
-      rowKey={(i) => i.key}
-      columns={cols}
-      rowClassName={(i) => (i.ended || i.stopped ? "sub-stopped" : undefined)}
-      open={open}
-      onOpen={setOpen}
-      drill={(i) => <Drill i={i} name={nameOf(i)} controls={controls} scope={scope} onRemove={(b) => setRemoving({ id: b.id, name: b.name })} onWrong={(series) => setWrong({ key: i.key, series, name: nameOf(i) })} />}
-      drillLabel={(i) => t("bills.details", { name: nameOf(i) })}
-    />
+
+  const head = (g: CalGroup) => (
+    <button type="button" className="bill-month" aria-expanded={isOpen(g.key)} onClick={() => toggle(g.key)}>
+      <span aria-hidden="true">{isOpen(g.key) ? "▾" : "▸"}</span>
+      {g.month ? capital(monthLong(g.month.month)) : `${t("bills.ended")} ${g.ended}`}
+    </button>
   );
+  const rowGroups = groups.map((g) => ({ key: g.key, title: head(g), figure: g.month ? <MonthSums month={g.month} /> : undefined, figureSpan: columns.length - 2, rows: g.rows }));
+  const rows = groups.flatMap((g) => g.rows);
+
   return (
     <div className="card subs" id="laskut-taulukko">
       <div className="card-head tb">
         <div className="card-name">
           <h2>{t("bills.title")}</h2>
         </div>
-        {/* the tool cell: a phone puts it under the name on its own row */}
-        <div className="card-tool">
-          <Button variant="link" href={FIXED_REPORT_HREF}>
-            {t("bills.fixed_report")}
-          </Button>
-        </div>
       </div>
       {error && <Notice tone="error">{error}</Notice>}
-      {live.length > 0 && table(t("bills.title"), live, columns)}
-      {ended.length > 0 && (
-        // a row the household just marked as stopped lands here with its detail open: the fold opens with it
-        <details className="sub-ended" open={foldOpen || ended.some((i) => i.key === open)} onToggle={(e) => {
-            const now = e.currentTarget.open;
-            setFoldOpen(now);
-            if (!now && ended.some((i) => i.key === open)) setOpen(null);
-          }}
-        >
-          <summary>
-            {t("bills.ended")} <b>{ended.length}</b>
-          </summary>
-          {table(t("bills.ended"), ended, endedColumns)}
-        </details>
-      )}
+      <div className="bill-frame">
+      <Table<CalRow>
+        caption={t("bills.title")}
+        className="sub-table bill-table"
+        search={false}
+        csv={false}
+        rows={rows}
+        rowKey={(r) => r.key}
+        columns={columns}
+        groups={rowGroups}
+        rowClassName={(r) => (r.kind === "ended" || (r.kind === "row" && r.bill.state === "paid") ? "sub-stopped" : undefined)}
+        open={open}
+        onOpen={setOpen}
+        drill={(r) => <Drill r={r} name={rowName(r)} controls={marking} scope={scope} onRemove={(b) => setRemoving({ id: b.id, name: b.name })} onWrong={(series) => setWrong({ series, name: rowName(r) })} />}
+        drillLabel={(r) => t("bills.details", { name: rowName(r) })}
+      />
+      </div>
       {removing && (
         <ConfirmDialog title={t("bills.remove_ask", { name: removing.name })} confirmLabel={t("bills.remove")} onConfirm={() => void remove(removing.id)} onCancel={() => setRemoving(null)} />
       )}
@@ -221,36 +231,68 @@ export function BillsTable({
 /** How many earlier payments an opened row lists before the link to the whole list. */
 const HISTORY_ROWS = 100;
 
+/** The monthly bills one row of a later month stands for: the day, the payee and the sum of each. */
+function Folded({ bills, name }: { bills: CalBill[]; name: string }) {
+  const columns: Column<CalBill>[] = [
+    { key: "day", label: t("table.day"), kind: "date", rowHead: true, cell: (b) => dayMonth(b.date) },
+    { key: "payee", label: t("bills.payee"), kind: "text", cell: (b) => b.payee },
+    { key: "amount", label: t("bills.amount"), kind: "money", main: true, precision: "cents", cents: (b) => b.cents },
+  ];
+  return <Table<CalBill> caption={name} rows={bills} rowKey={(b) => `${bills.indexOf(b)}`} columns={columns} toolbar={false} />;
+}
+
 /**
- * The row opened: how often it comes, a year of it, its last day, its history (the earlier payments and their sum),
- * and the one action. The history is the payee's rows on the bill's account, which are the series' own only when the
- * payee has one product there: a series that is one product among several (`product` of its id) shows none.
+ * The row opened. A row of a series: how often it comes, a year of it, its last day, its history (the earlier payments
+ * and their sum) and its action. The history is the payee's rows on the bill's account, which are the series' own only
+ * when the payee has one product there: a series that is one product among several (`product` of its id) shows none. A
+ * bill typed in: when it repeats and its next day, and its removal. Any other row (a pay, a loan payment, a saving) shows
+ * the payments of its payee.
  */
-function Drill({ i, name, controls, scope, onRemove, onWrong }: { i: Item; name: string; controls: MarkControls; scope: Scope; onRemove: (b: TypedBill) => void; onWrong: (s: Series) => void }) {
-  const s = i.series;
-  if (i.typed) {
-    const b = i.typed;
+function Drill({ r, name, controls, scope, onRemove, onWrong }: { r: CalRow; name: string; controls: MarkControls; scope: Scope; onRemove: (b: TypedBill) => void; onWrong: (s: Series) => void }) {
+  if (r.kind === "fold") return <Folded bills={r.bills} name={name} />;
+  const i = r.item;
+  const typed = r.kind === "row" ? r.typed : null;
+  if (typed) {
     return (
       <div className="sub-drill">
         <dl className="sub-facts">
           <div>
             <dt>{t("bills.repeats")}</dt>
-            <dd>{cadenceLabel(b.cadence)}</dd>
+            <dd>{cadenceLabel(typed.cadence)}</dd>
           </div>
           <div>
-            <dt>{b.nextDate ? t("bills.next") : t("bills.due_was")}</dt>
-            <dd>{date(b.nextDate ?? b.dueDate)}</dd>
+            <dt>{typed.nextDate ? t("bills.next") : t("bills.due_was")}</dt>
+            <dd>{date(typed.nextDate ?? typed.dueDate)}</dd>
           </div>
         </dl>
         <div className="sub-actions">
-          <Button aria-label={t("bills.remove_named", { name: b.name })} onClick={() => onRemove(b)}>
+          <Button aria-label={t("bills.remove_named", { name: typed.name })} onClick={() => onRemove(typed)}>
             {t("bills.remove")}
           </Button>
         </div>
       </div>
     );
   }
-  if (!s) return null;
+  const s = i?.series;
+  if (!i || !s) {
+    // no series stands behind the row (a pay, a loan payment, a bill a card holds): the payments of its payee are its history
+    const bill = r.kind === "row" ? r.bill : null;
+    const id = bill?.seriesId ? parseSeriesId(bill.seriesId) : null;
+    // a series that is one product among several of its payee shows no history: the payee's rows are not its own
+    if (!bill || id?.product != null) return null;
+    return (
+      <div className="sub-drill">
+        <DrillRows
+          filter={{ merchant: id?.merchant ?? bill.payee, accountId: id?.accountId || undefined, scope }}
+          name={name}
+          limit={HISTORY_ROWS}
+          payee={false}
+          sign={bill.kind === "income" ? 1 : -1}
+          sumLabel={t("bills.contract.total")}
+        />
+      </div>
+    );
+  }
   const id = parseSeriesId(s.id);
   return (
     <div className="sub-drill">

@@ -53,11 +53,12 @@ import { type AnswerRow, accountKey } from "../db/household-repo.ts";
 import type { StoredAccount } from "../db/rows.ts";
 import { todayIn } from "../platform/config.ts";
 import { UserError } from "../platform/errors.ts";
-import { bumpSeers, isPool, usesInView } from "./account-use.ts";
+import { bumpSeers, fullestCopy, isPool, usesInView } from "./account-use.ts";
 import { pendingOf } from "./agreement-pending.ts";
 import type { Services } from "./context.ts";
 import { withUserLock } from "./enrich.ts";
-import { offerOf, partRowsOf, windowOf } from "./money-trace-parts.ts";
+import { offerOf, partRowsOf, type TraceFacts, windowOf } from "./money-trace-parts.ts";
+import type { RequestReads } from "./request-reads.ts";
 
 /** Everything the trace of a pool reads about the household, loaded once. */
 interface Household {
@@ -124,18 +125,6 @@ export interface SettledTrace {
   offer: { userId: string | null; percent: number }[] | null;
 }
 
-/** What a reader needs to know of an account before it counts it: whether it has a trace, and whether it is cut by it. */
-export interface TraceFacts {
-  key: string;
-  /** What the parts were built from: part of a cache key. */
-  signature: string;
-  /** The account is a pool with a trace stored. */
-  hasTrace: boolean;
-  /** The account is cut by its rows' parts: it has a trace and a split row. */
-  traced: boolean;
-  split?: { by: "app" | "user"; at: string };
-}
-
 /**
  * The owner a user of an account is in a trace: `u:<id>`. The holders who have no login are the household member their
  * line of holders names, matched as the bank writes the name (`m:<id>`), else nobody in particular (`u:`).
@@ -149,12 +138,6 @@ function ownerOf(h: Household, u: AccountUser): Owner {
 const weighted = (use: AccountUse) => use.users.filter((u) => u.weight > 0);
 const sha = (value: unknown): string => createHash("sha256").update(JSON.stringify(value)).digest("hex").slice(0, 40);
 
-/** Of an account's copies the one whose line of holders names the most, as `usesInView` reads the line: its label of the holders who are no user is whole. */
-function fullest(copies: readonly StoredAccount[]): StoredAccount {
-  const count = (a: StoredAccount) => holdersIn(a.holder).length;
-  return copies.reduce((best, a) => (count(a) > count(best) || (count(a) === count(best) && (a.holder ?? "") < (best.holder ?? "")) ? a : best));
-}
-
 async function loadHousehold(s: Services): Promise<Household> {
   const [accounts, users, members, agreements] = await Promise.all([s.household.allAccounts(), s.users.list(), s.agreements.members(), s.agreements.allAgreements()]);
   const byKey = new Map<string, StoredAccount[]>();
@@ -162,7 +145,7 @@ async function loadHousehold(s: Services): Promise<Household> {
   const uses = new Map<string, AccountUse>();
   const first = users[0];
   if (first && byKey.size) {
-    const standing = [...byKey.values()].map(fullest);
+    const standing = [...byKey.values()].map(fullestCopy);
     const read = await usesInView(s, first.id, standing);
     for (const a of standing) uses.set(accountKey(a), read.get(a.id)!.use);
   }
@@ -423,12 +406,14 @@ async function rebuild(s: Services, key: string): Promise<void> {
 /**
  * Makes sure of the trace of one real account: when what its parts were built from differs from what the household
  * holds now, they are built again. Null for an account that is no pool. A read of the parts after this sees a whole
- * build or the one before, never half of one.
+ * build or the one before, never half of one. `reads` (one request's) holds the household for the pools it asks of.
  */
-export async function ensureTrace(s: Services, key: string): Promise<TraceFacts | null> {
-  const h = await loadHousehold(s);
+export async function ensureTrace(s: Services, key: string, reads?: RequestReads): Promise<TraceFacts | null> {
+  const h = await (reads ? reads.once("household", "", () => loadHousehold(s)) : loadHousehold(s));
+  // a build ends what `reads` holds
+  const build = () => withUserLock(`trace:${key}`, () => rebuild(s, key)).then(() => reads?.changed());
   if (!isPool(h.uses.get(key))) {
-    if (await s.household.partsState(key)) await withUserLock(`trace:${key}`, () => rebuild(s, key));
+    if (await s.household.partsState(key)) await build();
     return null;
   }
   let state = await s.household.partsState(key);
@@ -436,7 +421,7 @@ export async function ensureTrace(s: Services, key: string): Promise<TraceFacts 
   for (let round = 0; round < 2; round++) {
     const now = await signatureOf(s, round === 0 ? h : await loadHousehold(s), key, h.today);
     if (state?.signature === now.signature) break;
-    await withUserLock(`trace:${key}`, () => rebuild(s, key));
+    await build();
     state = await s.household.partsState(key);
   }
   const split = (await s.household.splitRows([key]))[0];

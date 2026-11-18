@@ -4,7 +4,7 @@
  * refunds, friends' shares, a pending purchase and a row whose category the user set (figures-household.ts). The
  * readers are the fields the pages draw: Yhteenveto (the running month's `/api/dashboard`: Summary, Months, Categories),
  * Raportit (`/api/reports`: Rahankäyttö, Tulot, Kiinteät menot), Tapahtumat (`/api/transactions`), Laskut
- * (`/api/recurring` and the dashboard's `ahead`, as BeforePayday lists it). A complete
+ * (`/api/recurring`, `/api/reports`' bill calendar and the dashboard's `ahead`). A complete
  * month and the running month are both read; Yhteenveto shows only the running one. Two figures that may differ by
  * what they count have two names; this file holds only the ones that are one figure.
  */
@@ -158,7 +158,7 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
     const dash = await get(`/api/dashboard?${ranges(running, h.day).month}`);
     const left = dash.nyt?.left;
     if (!left?.known || !dash.ahead?.payday) return;
-    // the rows of BeforePayday.tsx: the payments of `ahead.rows` before the payday, the pay itself left out
+    // the rows of the block on Yhteenveto: the payments of `ahead.rows` before the payday, the pay itself left out
     const rows = dash.ahead.rows.filter((r: any) => r.cents !== null && r.cents < 0 && r.source !== "income" && r.date < left.payday.date);
     expectOne("Maksut ennen palkkapäivää", { "Yhteenveto and Laskut": left.billsCents, "Laskut, its rows added up": rows.reduce((s: number, r: any) => s - r.cents, 0) });
   });

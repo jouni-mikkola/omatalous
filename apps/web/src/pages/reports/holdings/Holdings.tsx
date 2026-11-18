@@ -16,7 +16,7 @@
 import { Fragment, type ReactNode } from "react";
 import { cardName } from "@banking/core";
 import { query } from "../../../api.ts";
-import { date, money, moneyIn } from "../../../format.ts";
+import { date, money, moneyIn, monthYear } from "../../../format.ts";
 import { t, tn } from "../../../text.ts";
 import { partText, typedByText } from "../../../part.ts";
 import { LOANS_REPORT_ANCHOR } from "../../../routes.ts";
@@ -240,7 +240,7 @@ function Cards({ holdings, meta, ahead, common, stamp }: { holdings: Answer; met
 
 /** The loans show the figures of the report Lainat, whose calculations open there: no door is repeated here. */
 function Loans({ holdings }: { holdings: Answer }) {
-  const { loans, loansCents } = holdings;
+  const { loans, loansCents, loansEndDate } = holdings;
   return (
     <section>
       <h3 className="st-cap">{t("holdings.loans")}</h3>
@@ -266,7 +266,7 @@ function Loans({ holdings }: { holdings: Answer }) {
           </Unit>
         ))}
       </ul>
-      {loansCents !== null && loansCents > 0 && <Total label={t("holdings.loans_total")} cents={loansCents} />}
+      {loansCents !== null && loansCents > 0 && <Total label={t("holdings.loans_total")} cents={loansCents} note={loansEndDate ? t("holdings.last_payment", { month: monthYear(loansEndDate).replace(/^0/, "") }) : t("holdings.last_payment_unknown")} />}
     </section>
   );
 }

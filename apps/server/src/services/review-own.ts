@@ -5,6 +5,7 @@
  */
 import type { AnalysisContext, BalanceInput, HouseholdMember, UserInputs } from "@banking/core";
 import type { ScopeAccount } from "./analysis.ts";
+import type { RequestReads } from "./request-reads.ts";
 import type { MemberMoneyItem } from "./review-members.ts";
 
 export interface OwnView {
@@ -14,6 +15,8 @@ export interface OwnView {
   inputs: UserInputs;
   /** `requestInputs` stamp of the balances and inputs: the key the queue's memos take. */
   stamp: string;
+  /** What the queue read of the household while it read the view: a source that needs the uses or the traces asks here. */
+  reads: RequestReads;
   /** The household's members, read on the first ask. */
   members(): Promise<HouseholdMember[]>;
   /** The money in from other members that nothing explained, worked out on the first ask. */
