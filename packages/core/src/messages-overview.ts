@@ -97,7 +97,7 @@ export const FI_OVERVIEW = {
   "home.coming_estimate": "{sum} (arviota {estimate})",
   "home.low": "Alin saldo {days} pv: {date}, arviolta {range}",
   "home.low_label": "Alin saldo",
-  "home.low_cards": "Kortin ostot puuttuvat",
+  "home.low_cards": "Kortin ostot eivät näy historiassa",
   "home.buffer": "Puskuri {months} kk",
   "home.buffer_label": "Puskuri",
   "home.buffer_no_balance": "Ei saldoa",

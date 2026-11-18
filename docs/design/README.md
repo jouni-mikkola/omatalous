@@ -34,7 +34,7 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
   the sum a day and the payday. The figure links to the bills table of Laskut, which lists what it takes off. Under it
   stands one line, the lowest balance of the next 60 days (`home.lowPoint`): *Alin saldo 60 pv: 13.12., arviolta
   120–480 €*. With no figure the line says why, as core gives it: the reasons of the figure above, *Liian lyhyt historia*
-  or *Kortin ostot puuttuvat*.
+  or *Kortin ostot eivät näy historiassa*.
 - Tulevat kuukaudet, the third block: this month and the two after it, a row each with the bills (and the estimated
   part of them), the pays expected and what is left after the bills. Each figure is a field of the month in
   `billCalendar` (`billsCents`, `estimateCents`, `incomeCents`, `afterCents`), the answer Laskut's month heads read, so

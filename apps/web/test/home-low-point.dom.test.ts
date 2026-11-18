@@ -30,7 +30,7 @@ describe("LowPoint", () => {
     ["no-balance", "Alin saldo Käyttötilin saldo puuttuu"],
     ["no-card-balance", "Alin saldo Kortin saldo puuttuu"],
     ["history", "Alin saldo Liian lyhyt historia"],
-    ["cards", "Alin saldo Kortin ostot puuttuvat"],
+    ["cards", "Alin saldo Kortin ostot eivät näy historiassa"],
   ] as const)("says the reason %s and no figure", (reason, text) => {
     const { container } = render(createElement(LowPoint, { lowPoint: { known: false, reason } }));
     expect(flat(container.textContent)).toBe(text);

@@ -94,7 +94,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.coming_estimate": "{sum} (estimated {estimate})",
   "home.low": "Lowest balance in {days} days: {date}, about {range}",
   "home.low_label": "Lowest balance",
-  "home.low_cards": "Card purchases missing",
+  "home.low_cards": "Card purchases are not in the history",
   "home.buffer": "Buffer {months} mo",
   "home.buffer_label": "Buffer",
   "home.buffer_no_balance": "No balance",
