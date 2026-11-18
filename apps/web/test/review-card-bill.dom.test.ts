@@ -18,7 +18,7 @@ const meta = { accounts: [], sharedAccounts: [], bank: { banks: [] }, today: "20
 const show = (item: unknown, reload = () => {}) => render(createElement(Review, { meta, queue: { data: { items: [item as ReviewItem] }, error: null, reload } }));
 
 describe("the question of a card that is not connected", () => {
-  const card = { id: "card_bill:out:chk:Esimerkkikortti", kind: "card_bill", cents: 552_000, key: "out:chk:Esimerkkikortti", payee: "Esimerkkikortti", paymentCents: 46_000, months: 7, firstDate: "2026-03-12", lastDate: "2026-09-12" };
+  const card = { id: "card_bill:out:chk:Esimerkkikortti", kind: "card_bill", cents: 552_000, key: "out:chk:Esimerkkikortti", payee: "Esimerkkikortti", paymentCents: 46_000, months: 7, firstDate: "2026-03-12", lastDate: "2026-09-12", savedCards: [] };
 
   it("offers to connect the card or to enter what it owes, and the second opens the loan form asking the balance", async () => {
     queryClient.clear();
