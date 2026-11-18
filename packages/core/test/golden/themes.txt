@@ -1,10 +1,9 @@
-# themes: 138 statements on demo, kit:base, bank:op-couple, bank:s-pankki-single, bank:danske-family, plain:1, plain:2, plain:3, plain:4, plain:5, settled:1, settled:2, settled:3, settled:4, settled:5. Rewrite with pnpm findings --golden.
+# themes: 139 statements on demo, kit:base, bank:op-couple, bank:s-pankki-single, bank:danske-family, plain:1, plain:2, plain:3, plain:4, plain:5, settled:1, settled:2, settled:3, settled:4, settled:5. Rewrite with pnpm findings --golden.
 
 themes · demo · themes:car (quiet)
   Auto
-  = 411.74 € a month, 4940.91 € a year
+  = 122.74 € a month, 1472.91 € a year
   | Polttoaine: 122.74 € a month, 1472.91 € a year
-  | Rahoitus: 289.00 € a month, 3468.00 € a year
 
 themes · demo · themes:food (quiet)
   Ruoka
@@ -38,6 +37,11 @@ themes · demo · themes:leisure (quiet)
   | Vapaa-aika ja harrastukset: 9.01 € a month, 108.17 € a year
   | Matkat: 52.92 € a month, 635.00 € a year
   | Rahapelit: 6.07 € a month, 72.78 € a year
+
+themes · demo · themes:loans (quiet)
+  Velanhoito
+  = 289.00 € a month, 3468.00 € a year
+  | Kulutusluotot: 289.00 € a month, 3468.00 € a year
 
 themes · demo · themes:media (quiet)
   Viestintä ja tilaukset

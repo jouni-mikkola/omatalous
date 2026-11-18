@@ -864,7 +864,7 @@
      {
       "date": "2026-11-10",
       "payee": "Nordea Gold",
-      "category": "transfer",
+      "category": "card_bill",
       "cents": 63077,
       "state": "known",
       "kind": "bill",
@@ -938,9 +938,9 @@
     "incomeCents": 352000,
     "billsCents": 274377,
     "essentialCents": 146770,
-    "debtCents": 61240,
+    "debtCents": 124317,
     "contractCents": 0,
-    "optionalCents": 66367,
+    "optionalCents": 3290,
     "afterCents": 77623,
     "monthlyBillsCount": 6,
     "monthlyBillsCents": 211300
