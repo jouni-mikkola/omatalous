@@ -116,7 +116,7 @@ describe("the month table adds up to the dashboard and the category file", () =>
     const lines = rows.slice(0, -1);
     expect(lines.length).toBeGreaterThan(3);
     // a row is its label and group, a cell for each month, its total and its average; the head of the months says how many
-    const months = head.filter((h) => /^\d{4}-\d{2}$/.test(h));
+    const months = head!.filter((h) => /^\d{4}-\d{2}$/.test(h));
     expect(months).toEqual(["2026-08", "2026-09"]);
     const cell = (r: string[], i: number) => cents(r[2 + i]);
     const total = (r: string[]) => cents(r[2 + months.length]);
@@ -139,7 +139,7 @@ describe("the month table adds up to the dashboard and the category file", () =>
     expect(sum(categories.map((r) => cents(r[2])))).toBe(api.totalCents);
     expect(api.totalCents).toBe(expense);
     expect(pivotTotal).toBe(api.totalCents);
-    expect(sum(categories.map((r) => cents(r[4])))).toBe(sum(api.groups.flatMap((g: { categories: { count: number }[] }) => g.categories.map((c) => c.count))));
+    expect(sum(categories.map((r) => Number(r[4])))).toBe(sum(api.groups.flatMap((g: { categories: { count: number }[] }) => g.categories.map((c) => c.count))));
   });
 
   it("has each category of the category file at the rows of the rows file in that category (household view)", async () => {
@@ -152,6 +152,6 @@ describe("the month table adds up to the dashboard and the category file", () =>
       if (cents(c[2]) !== spent) mismatches.push(`${c[1]}: category file ${cents(c[2])}, rows file ${spent}`);
     }
     expect(categories.length).toBeGreaterThan(3);
-    expect(mismatches).toEqual([]);
+    expect(mismatches.join("\n")).toBe("");
   });
 });

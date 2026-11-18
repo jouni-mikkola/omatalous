@@ -30,11 +30,11 @@ const merchantOf = (ctx: AnalysisContext, counterparty: string): string => {
 };
 const isCardBill = (t: { category: string; amountCents: number }) => t.category === "card_bill" && t.amountCents < 0;
 
-/** What the flows of a merchant's rows in a range spend and save, net of what came back: the figure the SQL sums claim to be. */
+/** What the flows of a merchant's rows in a range spend and save less what they earn, net of what came back: the figure the SQL sums claim to be. */
 function flowsNet(ctx: AnalysisContext, merchant: string, range: { from: string; to: string }): { net: number; rows: number } {
   const rows = ctx.txs.filter((t) => t.merchant === merchant && !t.isTransfer && !isCardBill(t) && t.bookingDate >= range.from && t.bookingDate <= range.to);
   const totals = totalsOf(rows.map((t) => t.flows));
-  return { net: totals.expenseCents + totals.savedCents, rows: rows.length };
+  return { net: totals.expenseCents + totals.savedCents - totals.incomeCents, rows: rows.length };
 }
 
 describe("the merchant list sums what the flows of the same rows sum", () => {
@@ -50,16 +50,23 @@ describe("the merchant list sums what the flows of the same rows sum", () => {
         if (m.totalCents - m.inCents !== core.net) mismatches.push(`${range.from} ${m.merchant}: list ${m.totalCents} - ${m.inCents}, flows ${core.net}`);
       }
     }
-    expect(mismatches).toEqual([]);
+    expect(mismatches.join("\n")).toBe("");
   });
 
-  it.each(SCOPES)("the merchants of a month add up to the dashboard's spending and saving of that month (%s view)", async (scope) => {
+  it.each(SCOPES)("the merchants of a month add up to the dashboard's spending and saving less its income (%s view)", async (scope) => {
+    const ctx = await contextOf(home.aino, scope);
+    const mismatches: string[] = [];
     for (const range of [AUGUST, SEPTEMBER]) {
       const { items } = await get(home.aino, `/api/merchants?limit=1000&${query(range, scope)}`);
       const listed = (items as MerchantItem[]).reduce((n, m) => n + m.totalCents - m.inCents, 0);
       const { totals } = await get(home.aino, `/api/dashboard?${query(range, scope)}`);
-      expect(listed, `${range.from} ${scope}`).toBe(totals.expenseCents + totals.savedCents);
+      const wanted = totals.expenseCents + totals.savedCents - totals.incomeCents;
+      if (listed !== wanted) {
+        const lines = (items as MerchantItem[]).map((m) => `${m.merchant} ${m.totalCents - m.inCents} (flows ${flowsNet(ctx, m.merchant, range).net})`);
+        mismatches.push(`${range.from} ${scope}: merchants ${listed}, dashboard ${wanted}; ${lines.join(", ")}`);
+      }
     }
+    expect(mismatches.join("\n")).toBe("");
   });
 
   it("a refund lowers what the merchant was paid in both views, and the joint account counts at its half in the own view only", async () => {
@@ -93,7 +100,7 @@ describe("one merchant's summary agrees with the strip of its transaction list",
       const sumOfMonths = (summary.months as { outCents: number }[]).reduce((n, m) => n + m.outCents, 0);
       if (sumOfMonths !== summary.year.outCents) mismatches.push(`${merchant}: months ${sumOfMonths}, year ${summary.year.outCents}`);
     }
-    expect(mismatches).toEqual([]);
+    expect(mismatches.join("\n")).toBe("");
   });
 });
 
