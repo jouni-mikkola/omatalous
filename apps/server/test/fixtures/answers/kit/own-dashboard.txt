@@ -956,7 +956,6 @@
    "other": null
   },
   "netCents": 1894423,
-  "accountsAddUp": true,
   "accountShares": [
    12,
    88

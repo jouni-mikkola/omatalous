@@ -32,6 +32,18 @@ for (const scale of [100, 200]) {
   });
 }
 
+test("Asetukset > Pankkiyhteydet, 390 px with a finger: the Muokkaa of an account is 44 px high", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 900 }, bypassCSP: true, isMobile: true, hasTouch: true });
+  const page = await context.newPage();
+  await page.goto("/#/settings/banks");
+  await page.reload();
+  await expect(page.locator(".loading")).toHaveCount(0, { timeout: 15_000 });
+  const edit = page.locator("button[data-edit]").first();
+  await edit.scrollIntoViewIfNeeded();
+  expect((await edit.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await context.close();
+});
+
 test("the top pages, 390 px with a finger and text at 200 %: nothing scrolls sideways and every target is 44 px", async ({ browser }) => {
   test.setTimeout(240_000);
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 900 }, bypassCSP: true, isMobile: true, hasTouch: true });
