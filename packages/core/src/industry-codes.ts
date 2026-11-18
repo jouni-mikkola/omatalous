@@ -155,6 +155,11 @@ export function electricityRoleOf(code: string): "seller" | "network" | "other" 
   return code === "35" || code.startsWith("351") ? null : "other";
 }
 
+/** Work the household deduction covers, by TOL code: 81.2 cleaning and 81.3 yard work are labour, 43 building trades carry materials too. */
+export function deductibleWorkOf(code: string): "cleaning" | "other" | null {
+  return code.startsWith("812") || code.startsWith("813") ? "cleaning" : code.startsWith("43") ? "other" : null;
+}
+
 /** What a card code says beyond its category, for the views that split one further (Optimoi's car, tax and kids areas). */
 type MccKind = "parking" | "charging" | "car_service" | "fuel" | "cleaning" | "building" | "child_care";
 const MCC_KINDS: ReadonlyArray<readonly [number, number, MccKind]> = [
