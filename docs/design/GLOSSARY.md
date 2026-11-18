@@ -23,6 +23,7 @@ Each row: the thing, the Finnish term, the English term. Only the first term in 
 | A savings account | *Säästötili* | *Savings account* |
 | Income less spending of a month | *Tulos*; in the reports *Käteen jäi* | *Result* |
 | Income, spending and their difference as labels | *Tulot*, *Menot*, *Erotus* | *Income*, *Spending*, *Difference* |
+| The pays of a month on Laskut less its bills and its regular saving | *Laskujen jälkeen* | *After bills* |
 | The consumption flow | *Kulutus* | *Consumption* |
 | Money drawn from credit | *Luotonnostot* | *Credit drawn* |
 | The group a row belongs to | *Kategoria* | *Category* |

@@ -42,15 +42,18 @@ test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi t
     };
     expect((await asked()).map((i) => i.monthlyCents)).toEqual([1299]);
 
-    // Laskut: one merchant, two rows, each with its price in its name; a row's one action is in its drill
+    // Laskut: one merchant, two series, each with its price in its name, in every month that holds it; a row's one action is in its drill
     await page.goto("/#/bills");
     const subs = page.locator("#laskut-taulukko");
-    const drill = (price: string) => page.getByRole("button", { name: new RegExp(`^Tiedot: Apple ${price}\\s€$`) });
+    const drill = (price: string) => page.getByRole("button", { name: new RegExp(`^Tiedot: Apple ${price}\\s€$`) }).first();
     const row = (price: string) => subs.locator("tr", { has: drill(price) });
-    // the rows of the table that carry a drill door and the badge; the open drill has the badge too but no door
-    const stopped = subs.locator("tbody tr").filter({ has: page.locator("button.rt-drill") }).filter({ hasText: "Merkitty lopetetuksi" });
+    // the rows of the group of what has ended, which carry a drill door and the status Päättynyt
+    const stopped = subs.locator("tbody tr").filter({ has: page.locator("button.rt-drill") }).filter({ hasText: "Päättynyt" });
     // a stopped subscription waits in the folded Päättyneet
-    const unfold = () => subs.locator("details.sub-ended").evaluate((d: HTMLDetailsElement) => (d.open = true));
+    const unfold = async () => {
+      const head = subs.getByRole("button", { name: /^Päättyneet/ });
+      if ((await head.getAttribute("aria-expanded")) === "false") await head.click();
+    };
     // the month's fixed costs are the figure of Raportit > Kiinteät menot, read from that page in whole euros as it prints them
     const report = await context.newPage();
     const total = async () => {
@@ -59,8 +62,8 @@ test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi t
       const datum = await report.locator("#kiinteat-menot .card-datum").first().innerText();
       return Number(plain(datum).split(" kuussa")[0]!.replace(/\D/g, ""));
     };
-    await expect(drill("0,99")).toHaveCount(1);
-    await expect(drill("12,99")).toHaveCount(1);
+    await expect(drill("0,99")).toBeVisible();
+    await expect(drill("12,99")).toBeVisible();
     const before = await total();
     expect(before).toBeGreaterThan(100);
 
@@ -91,8 +94,10 @@ test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi t
     expect(await overflow(page), "Laskut with two subscriptions of one merchant scrolls sideways at 390px").toBeLessThanOrEqual(1);
     await page.setViewportSize({ width: 1280, height: 800 });
 
-    // Kumoa takes the mark away: the sum is as it was
+    // Kumoa takes the mark away: the series is back in its months and the sum is as it was
     await page.getByRole("button", { name: /^Kumoa: Apple 12,99\s€$/ }).click();
+    await expect(stopped.filter({ has: drill("12,99") })).toHaveCount(0);
+    await drill("12,99").click();
     await expect(page.getByRole("button", { name: /^Merkitse lopetetuksi: Apple 12,99\s€$/ })).toBeVisible();
     await expect.poll(total).toBe(before);
 
@@ -108,8 +113,9 @@ test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi t
     await expect.poll(async () => before - (await total())).toBeGreaterThanOrEqual(13);
     expect(before - (await total())).toBeLessThanOrEqual(14);
     await page.getByRole("button", { name: "Kumoa: Apple", exact: true }).click();
+    await expect(stopped.filter({ hasText: "Apple" })).toHaveCount(0);
+    await drill("0,99").click();
     await expect(page.getByRole("button", { name: /^Merkitse lopetetuksi: Apple 0,99\s€$/ })).toBeVisible();
-    await expect(stopped).toHaveCount(0);
     await expect.poll(total).toBe(before);
 
     // the question in Tarkistettavat is answered for the one series it names; Laskut asks nothing of it
@@ -118,9 +124,9 @@ test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi t
     expect((await context.request.put("/api/marks", { headers: FETCH, data: { subject: question!.subject, mark: "in_use" } })).status()).toBe(200);
     expect(await asked()).toEqual([]);
     await page.goto("/#/bills");
-    await expect(row("12,99")).toHaveCount(1);
+    await expect(row("12,99").first()).toBeVisible();
     await expect(subs.getByRole("button", { name: /^Käytössä/ })).toHaveCount(0);
-    await expect(stopped).toHaveCount(0);
+    await expect(stopped.filter({ hasText: "Apple" })).toHaveCount(0);
 
     expect(seen.problems).toEqual([]);
   } finally {

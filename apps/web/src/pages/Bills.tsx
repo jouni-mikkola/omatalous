@@ -1,42 +1,36 @@
 /**
- * Decision: what is coming, and which bill, contract or subscription to drop.
+ * Decision: what is coming in the next twelve months, and which bill, contract or subscription to drop.
  *
- * Tulossa (docs/design/README.md 1.3) answers in the order the household asks: the next payment, what the payments
- * before the payday take of what the accounts hold (bars of the days, then the rows by day), and under them the one
- * table of bills, contracts and subscriptions in the order of their next day, with no search and no sorting. A bill the
- * history cannot know yet is added by hand behind "Lisää lasku", a secondary action of the head, and is a row of the
- * table. Every figure comes from one definition in core
- * (`isSubscription`, `isContract`, `isSavingsPlan`) and opens its rows where the
- * app works it out; the fixed costs a month are not summed here, the head links to their report; a subscription marked as cancelled is out of every total. A mark is on one series
+ * Laskut answers with one table in the order of the calendar: a group for each of the twelve months, with the bills, the
+ * pays and the regular saving of the month and what is left after the bills (BillsTable). Above it one line says what the
+ * bills of the year come to and what the ones that come less often than monthly take a month. A bill the history cannot
+ * know yet is added by hand behind "Lisää lasku", a secondary action of the head, and is a row of the table. Every figure
+ * comes from core's bill calendar and `upcoming` report (`billCalendar`, `isSubscription`, `isContract`, `isSavingsPlan`);
+ * the page adds up nothing. A subscription marked as cancelled is out of every total. A mark is on one series
  * (`seriesMarkSubject`); an old one on a merchant still covers every series of it. Instalment plans and loans are asked
  * in Tarkistettavat, never here.
  */
 import { cancelledSubjects, countingMark, type MarkKind, marksBySubject, NO_INPUTS, seriesMarkSubject, type UserMark } from "@banking/core";
 import { useState } from "react";
 import { api, query } from "../api.ts";
+import { BillForm } from "../components/bills/BillForm.tsx";
 import { BillsTable, type MarkControls } from "../components/bills/BillsTable.tsx";
 import { billItems } from "../components/bills/items.ts";
-import { BeforePayday } from "../components/bills/BeforePayday.tsx";
-import { BillForm } from "../components/bills/BillForm.tsx";
-import { NextPayment } from "../components/bills/NextPayment.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
 import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
+import { answerMoney } from "../format.ts";
 import { useApi } from "../hooks.ts";
-import { t } from "../text.ts";
-import { periodRange } from "../period.ts";
-import type { DashboardData, Meta, Recurring as Series, ReportsData, Scope } from "../types.ts";
+import { t, tn } from "../text.ts";
+import type { Meta, Recurring as Series, ReportsData, Scope } from "../types.ts";
 import "../styles/table.css";
 import "../styles/bills.css";
 import "../styles/statement.css";
 
 export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
   const recurring = useApi<{ series: Series[]; marks: UserMark[] }>(`/api/recurring${query({ scope })}`);
-  // the bills typed in are the `upcoming` report's list
-  const reports = useApi<ReportsData>(`/api/reports${query({ scope, reports: "upcoming" })}`);
-  // the same request as Yhteenveto's: its payments before the payday are the rows of the first section
-  const hasData = meta.accounts.length > 0 || (scope === "household" && meta.sharedAccounts.length > 0);
-  const dashboard = useApi<DashboardData>(hasData ? `/api/dashboard${query({ ...periodRange("month", meta.today), scope })}` : null, true);
+  // the calendar of the twelve months, and the bills typed in, which are the `upcoming` report's list
+  const reports = useApi<ReportsData>(`/api/reports${query({ scope, reports: "billCalendar,upcoming" })}`);
   // what the last save answered: fresher than the list the page was loaded with
   const [saved, setSaved] = useState<UserMark[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -58,11 +52,12 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
   if (!recurring.data || !reports.data) return <BillsLoading />;
 
   const { series } = recurring.data;
+  const { billCalendar: calendar, upcoming } = reports.data;
   const label = (id: string) => meta.categories.find((c) => c.id === id)?.label ?? id;
   const markList = saved ?? recurring.data.marks;
   const marks = marksBySubject(markList);
   const cancelled = cancelledSubjects({ ...NO_INPUTS, marks: markList });
-  // a typed-in bill changes what the list holds
+  // a typed-in bill or a mark changes what the calendar holds
   const refresh = () => reports.reload();
   // the line that says a bill was added goes with the bill
   const removed = () => {
@@ -73,7 +68,10 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
     setBusy(true);
     setMarkError(null);
     api<{ marks: UserMark[] }>("/api/marks", { method: "PUT", body: { subject, mark } })
-      .then((res) => setSaved(res.marks))
+      .then((res) => {
+        setSaved(res.marks);
+        refresh();
+      })
       .catch((e: Error) => setMarkError(e.message))
       .finally(() => setBusy(false));
   };
@@ -84,8 +82,8 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
     set: (s, mark) => save(seriesMarkSubject(s), mark),
     clear: (mark) => save(mark.subject, null),
   };
-  const cards = new Set(meta.accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
-  const items = billItems({ series, typed: reports.data.upcoming.manual, cancelled, marks, today: meta.today });
+  const items = billItems({ series, typed: upcoming.manual, cancelled, marks, today: meta.today });
+  const listed = items.length > 0 || calendar.months.some((m) => m.rows.length > 0);
 
   return (
     <div className={`page-grid ${recurring.loading || reports.loading ? "loading" : ""}`}>
@@ -120,17 +118,15 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
             {t("bills.added", { name: added })}
           </p>
         )}
-        {dashboard.data && (
-          <div className="bills-answer">
-            <NextPayment data={dashboard.data} />
-            <BeforePayday data={dashboard.data} />
-          </div>
-        )}
+        <p className="bills-year">
+          {t("bills.year", { bills: answerMoney(calendar.billsCents), rare: answerMoney(calendar.yearlyCents), reserve: answerMoney(calendar.reserveMonthlyCents) })}
+          {calendar.unknownCount > 0 && <span className="bills-unknown">{tn(calendar.unknownCount, "bills.unknown_one", "bills.unknown_many")}</span>}
+        </p>
       </section>
       {markError && <Notice tone="error">{markError}</Notice>}
-      {items.length > 0 ? (
+      {listed ? (
         <div className="span-12">
-          <BillsTable items={items} controls={controls} label={label} cards={cards} today={meta.today} scope={scope} onRemoved={removed} />
+          <BillsTable calendar={calendar} items={items} controls={controls} label={label} scope={scope} onRemoved={removed} />
         </div>
       ) : (
         <div className="card span-12 bills-first">
