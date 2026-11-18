@@ -1017,10 +1017,10 @@
   },
   "lowPoint": {
    "known": true,
-   "date": "2026-10-20",
-   "cents": 383241,
-   "lowCents": 380512,
-   "highCents": 386441,
+   "date": "2026-10-23",
+   "cents": 324294,
+   "lowCents": 307063,
+   "highCents": 340687,
    "days": 60
   },
   "pace": {

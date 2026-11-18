@@ -60,11 +60,16 @@ for (const width of [390, 1440] as const) {
     await expect(low).toHaveCount(1);
     const { lowPoint } = home;
     if (lowPoint.known) {
-      const [lowest, highest] = sums(`${await low.innerText()}`.replace(/(\d)–/, "$1 €–"));
+      const text = plain(await low.innerText());
+      const [lowest, highest] = text.split("arviolta ")[1]!.split(/ ?– ?/).map(cents);
       expect(lowest, "the low end of the lowest balance").toBe(whole(lowPoint.lowCents));
       expect(highest, "the high end of the lowest balance").toBe(whole(lowPoint.highCents));
-      expect(plain(await low.innerText())).toContain(`Alin saldo ${lowPoint.days} pv:`);
-    } else expect(plain(await low.innerText())).not.toMatch(/\d/);
+      const [, month, day] = lowPoint.date.split("-").map(Number);
+      expect(text).toContain(`Alin saldo ${lowPoint.days} pv: ${day}.${month}.,`);
+    } else {
+      const text = plain(await low.innerText());
+      expect(text).toMatch(new RegExp(`^Alin saldo ${lowPoint.days} pv: \\D+$`));
+    }
     await expect(low.locator("a")).toHaveCount(0);
     // the month's figures are no list's sum, so they lead nowhere; the one link of Nyt is the figure's, to Laskut' table
     await expect(page.locator(".home-figs a, .home-figs button")).toHaveCount(0);

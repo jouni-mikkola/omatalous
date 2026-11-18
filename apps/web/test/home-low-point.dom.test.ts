@@ -20,21 +20,27 @@ describe("LowPoint", () => {
     expect(lineOf(known())).toBe("Alin saldo 60 pv: 13.12., arviolta 120–480 €");
   });
 
-  it("says a range below zero as core gives it", () => {
-    expect(lineOf(known({ lowCents: -25_000, highCents: 5_000 }))).toBe("Alin saldo 60 pv: 13.12., arviolta −250–50 €");
+  it("spaces the dash of a range that starts below zero, mixed or all below it, so the minus is not read as the dash", () => {
+    expect(lineOf(known({ lowCents: -25_000, highCents: 5_000 }))).toBe("Alin saldo 60 pv: 13.12., arviolta −250 – 50 €");
+    expect(lineOf(known({ cents: -30_000, lowCents: -48_000, highCents: -12_000 }))).toBe("Alin saldo 60 pv: 13.12., arviolta −480 – −120 €");
+  });
+
+  it("keeps the dash of a range that stays above zero tight", () => {
+    expect(lineOf(known({ lowCents: 0, highCents: 5_000 }))).toBe("Alin saldo 60 pv: 13.12., arviolta 0–50 €");
   });
 
   it.each([
-    ["no-payday", "Alin saldo Palkkapäivä ei vielä tiedossa"],
-    ["late", "Alin saldo Palkkasi on myöhässä"],
-    ["no-balance", "Alin saldo Käyttötilin saldo puuttuu"],
-    ["no-card-balance", "Alin saldo Kortin saldo puuttuu"],
-    ["history", "Alin saldo Liian lyhyt historia"],
-    ["cards", "Alin saldo Kortin ostot eivät näy historiassa"],
+    ["no-payday", "Alin saldo 60 pv: Palkkapäivä ei vielä tiedossa"],
+    ["late", "Alin saldo 60 pv: Palkkasi on myöhässä"],
+    ["no-balance", "Alin saldo 60 pv: Käyttötilin saldo puuttuu"],
+    ["no-card-balance", "Alin saldo 60 pv: Kortin saldo puuttuu"],
+    ["history", "Alin saldo 60 pv: Liian lyhyt historia"],
+    ["cards", "Alin saldo 60 pv: Kortin ostot eivät näy historiassa"],
+    ["bills", "Alin saldo 60 pv: Laskun summa tai päivä ei ole tiedossa"],
   ] as const)("says the reason %s and no figure", (reason, text) => {
-    const { container } = render(createElement(LowPoint, { lowPoint: { known: false, reason } }));
+    const { container } = render(createElement(LowPoint, { lowPoint: { known: false, reason, days: 60 } }));
     expect(flat(container.textContent)).toBe(text);
-    expect(container.textContent).not.toMatch(/\d/);
+    expect(container.querySelector(".home-low-status")?.textContent).not.toMatch(/\d/);
   });
 
   it("shows nothing when core gives nothing", () => {

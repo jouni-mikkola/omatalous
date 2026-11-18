@@ -12,13 +12,17 @@ function reasonText(reason: Extract<Low, { known: false }>["reason"]): string {
   if (reason === "no-card-balance") return t("home.tile_no_card_balance");
   if (reason === "history") return t("home.buffer_history");
   if (reason === "cards") return t("home.low_cards");
+  if (reason === "bills") return t("home.low_bills");
   return t("home.tile_no_payday");
 }
 
-/** A range of sums as the page says one: the euro sign stands once, after the range, in Finnish ("120–480 €"). */
+/**
+ * A range of sums as the page says one: the euro sign stands once, after the range, in Finnish ("120–480 €"). A range that
+ * starts below zero has spaces round its dash, so the minus sign is not taken for it ("−250 – 50 €", "−480 – −120 €").
+ */
 const range = (lowCents: number, highCents: number): string => {
   const low = answerMoney(lowCents);
-  return `${language() === "en" ? low : low.replace(/\s*€$/, "")}–${answerMoney(highCents)}`;
+  return `${language() === "en" ? low : low.replace(/\s*€$/, "")}${lowCents < 0 ? " – " : "–"}${answerMoney(highCents)}`;
 };
 
 /**
@@ -31,7 +35,7 @@ export function LowPoint({ lowPoint }: { lowPoint: DashboardData["home"]["lowPoi
   if (!lowPoint.known) {
     return (
       <p className="home-low" data-low="none">
-        <span className="home-low-label">{t("home.low_label")}</span>
+        <span className="home-low-label">{t("home.low_label", { days: String(lowPoint.days) })}</span>
         {" "}
         <span className="home-low-status">{reasonText(lowPoint.reason)}</span>
       </p>
