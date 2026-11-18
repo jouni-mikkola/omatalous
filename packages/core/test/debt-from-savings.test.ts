@@ -35,7 +35,7 @@ const rows = [
   tx({ bookingDate: "2026-10-06", amountCents: -50_000, merchant: "Oma siirto", category: "transfer", isTransfer: true }),
   tx({ bookingDate: "2026-10-06", amountCents: 50_000, accountId: "acc-2", merchant: "Oma siirto", category: "transfer", isTransfer: true }),
   fromSavings("2026-10-08", INTEREST, { category: "interest", counterpartyIban: IBAN_LOAN }),
-  fromSavings("2026-10-09", INSTALMENT, { category: "mortgage" }),
+  fromSavings("2026-10-09", INSTALMENT, { category: "mortgage", counterpartyIban: IBAN_LOAN }),
 ];
 const ctx = createContext(rows, [checking, savings], today);
 
@@ -68,7 +68,8 @@ describe("a debt paid from a savings account", () => {
     // the categories hold what the identity leaves out, and nothing else
     expect(d.categories.reduce((sum, c) => sum + c.cents, 0)).toBe(d.totals.expenseCents + INTEREST + INSTALMENT);
 
-    // the interest counts on the sheet as it pays a saved home loan, whichever account paid it
+    // the interest counts on the sheet as it pays a saved home loan, whichever account paid it, and the instalment of the
+    // same month to that loan holds no interest of its own
     const withLoan = createContext(rows, [checking, savings, loanAccount], today);
     const r = buildReports({ ctx: withLoan, range, balances: [], inputs: saved }, ["spendingMonths", "taxYear"]);
     expect(r.spendingMonths.totalCents).toBe(d.totals.expenseCents + INTEREST + INSTALMENT);

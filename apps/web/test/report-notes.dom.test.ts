@@ -66,6 +66,16 @@ describe("Verovuoden rivit", () => {
     const whole = showTax(taxReport(false));
     expect(plain(whole.container.querySelector(".card-datum")!.textContent)).toBe("1.1.–31.12.2025");
   });
+
+  it("shows an interest sum that is not known as unknown, never 0, also with no interest row", () => {
+    const unknown = { ...taxReport(true), interest: { cents: null, rows: [] }, loanPayments: [{ category: "mortgage", cents: 138_200, count: 1 }] } as unknown as Tax;
+    const onlyUnknown = { ...unknown, refunds: { cents: 0, rows: [] }, residual: { cents: 0, rows: [] }, loanPayments: [], household: { cents: 0, rows: [] } } as unknown as Tax;
+    expect(tax.visible?.(taxContext(onlyUnknown))).toBe(true);
+    showTax(unknown);
+    const text = plain(screen.getByRole("table", { name: "Lainojen ja luottojen korot" }).textContent);
+    expect(text).toMatch(/Yhteensä\s*–/);
+    expect(text).not.toContain("0,00 €");
+  });
 });
 
 type Spending = ReportsData["spendingMonths"];
