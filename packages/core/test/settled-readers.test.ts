@@ -7,6 +7,7 @@ import { cashAhead } from "../src/analysis/ahead.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { expectedBillRows } from "../src/analysis/forecast.ts";
 import { expectedCharges } from "../src/commitments.ts";
+import { billCalendar } from "../src/reports/bill-calendar.ts";
 import { upcomingReport } from "../src/reports/upcoming.ts";
 import { type Account, type BalanceInput, type ExpectedBill, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
@@ -21,22 +22,30 @@ describe("the year of rare bills: a yearly bill paid from another account", () =
   const history = ["2023-12-15", "2024-12-15", "2025-12-15"].map((bookingDate) => paid({ bookingDate }));
   const today = "2026-12-10";
   const year = (extra: Transaction[], on = today) => upcomingReport(createContext([...history, ...extra], ACCOUNTS, on), NO_INPUTS);
-  const december = (u: ReturnType<typeof year>) => u.months[0]!;
+  const calendar = (extra: Transaction[], on = today) => billCalendar(createContext([...history, ...extra], ACCOUNTS, on), NO_INPUTS);
+  const december = (c: ReturnType<typeof calendar>) => c.months[0]!;
+  /** What each month's rows add up to, paid or still coming. */
+  const totals = (c: ReturnType<typeof calendar>) => c.months.map((m) => m.rows.reduce((s, r) => s + r.cents, 0));
+  const paidRows = (c: ReturnType<typeof calendar>) => c.months.flatMap((m) => m.rows.filter((r) => r.state === "paid").map((r) => ({ payee: r.payee, date: r.date })));
 
   it("is the same figure before and after the paying row, and the month's entry is paid", () => {
     const before = year([]);
+    const calendarBefore = calendar([]);
     expect(before).toMatchObject({ yearlyCents: 12_000 });
-    expect(december(before)).toMatchObject({ month: "2026-12", cents: 12_000, paid: [] });
+    expect(december(calendarBefore)).toMatchObject({ month: "2026-12", knownCents: 12_000, estimateCents: 0 });
+    expect(paidRows(calendarBefore)).toEqual([]);
     expect(before.items.map((i) => i.merchant)).toEqual([PAYEE]);
 
     for (const status of ["booked", "pending"] as const) {
-      const after = year([paid({ bookingDate: "2026-12-09", accountId: "acc-2", status })]);
+      const extra = [paid({ bookingDate: "2026-12-09", accountId: "acc-2", status })];
+      const after = year(extra);
+      const calendarAfter = calendar(extra);
       expect(after.yearlyCents).toBe(before.yearlyCents);
       expect(after.reserveMonthlyCents).toBe(before.reserveMonthlyCents);
-      expect(after.months.map((m) => m.cents)).toEqual(before.months.map((m) => m.cents));
+      expect(totals(calendarAfter)).toEqual(totals(calendarBefore));
       // the bill is paid in the month it fell due, with the series' typical sum, and is no longer coming
-      expect(december(after).paid).toEqual([{ merchant: PAYEE, date: "2026-12-15" }]);
-      expect(december(after).names).toEqual([PAYEE]);
+      expect(paidRows(calendarAfter)).toEqual([{ payee: PAYEE, date: "2026-12-15" }]);
+      expect(december(calendarAfter)).toMatchObject({ knownCents: 0, estimateCents: 0 });
       expect(after.items).toEqual([]);
     }
   });
@@ -44,18 +53,18 @@ describe("the year of rare bills: a yearly bill paid from another account", () =
   it("counts nothing twice when the series' own row comes later too", () => {
     const [a, b] = [paid({ bookingDate: "2026-12-09", accountId: "acc-2" }), paid({ bookingDate: "2026-12-16" })];
     const later = year([a, b], "2026-12-17");
+    const calendarLater = billCalendar(createContext([...history, a, b], ACCOUNTS, "2026-12-17"), NO_INPUTS);
     expect(later.yearlyCents).toBe(12_000);
-    expect(later.months[0]!.cents).toBe(12_000);
-    expect(later.months[0]!.paid).toEqual([{ merchant: PAYEE, date: "2026-12-16" }]);
+    expect(calendarLater.months[0]!.rows).toMatchObject([{ date: "2026-12-16", cents: 12_000, state: "paid" }]);
     // the next one is a year on, outside the twelve months
-    expect(later.months.slice(1).every((m) => m.cents === 0)).toBe(true);
+    expect(totals(calendarLater).slice(1).every((cents) => cents === 0)).toBe(true);
   });
 
   it("a payment made last month for a bill due in this one keeps the figure, as the series' own row does", () => {
     // 28.11. is 17 days before the 15.12.: it settles the bill, the year starts on 1.12. and the bill stays in it
     const early = year([paid({ bookingDate: "2026-11-28", accountId: "acc-2" })]);
     expect(early.yearlyCents).toBe(12_000);
-    expect(december(early).paid).toEqual([{ merchant: PAYEE, date: "2026-12-15" }]);
+    expect(paidRows(calendar([paid({ bookingDate: "2026-11-28", accountId: "acc-2" })]))).toEqual([{ payee: PAYEE, date: "2026-12-15" }]);
     expect(year([paid({ bookingDate: "2026-11-28" })]).yearlyCents).toBe(12_000);
     // a quarterly bill: four a year in the same way, the settled one among them
     const quarterly = ["2025-06-15", "2025-09-15", "2025-12-15", "2026-03-15", "2026-06-15", "2026-09-15"].map((bookingDate) => paid({ bookingDate }));
@@ -70,14 +79,17 @@ describe("the year of rare bills: a yearly bill paid from another account", () =
     const [without, withRow] = [on([]), on([paid({ bookingDate: "2026-12-02", accountId: "acc-2" })])];
     expect(createContext([...lateHistory, paid({ bookingDate: "2026-12-02", accountId: "acc-2" })], ACCOUNTS, "2026-12-03").recurring[0]!.settled).toHaveLength(1);
     expect(withRow.yearlyCents).toBe(without.yearlyCents);
-    expect(withRow.months.map((m) => m.cents)).toEqual(without.months.map((m) => m.cents));
-    expect(withRow.months.every((m) => m.paid.length === 0)).toBe(true);
+    const calendarOn = (extra: Transaction[]) => billCalendar(createContext([...lateHistory, ...extra], ACCOUNTS, "2026-12-03"), NO_INPUTS);
+    const [calendarWithout, calendarWith] = [calendarOn([]), calendarOn([paid({ bookingDate: "2026-12-02", accountId: "acc-2" })])];
+    expect(totals(calendarWith)).toEqual(totals(calendarWithout));
+    expect(totals(calendarWith).reduce((s, c) => s + c, 0)).toBe(12_000);
+    expect(paidRows(calendarWith)).toEqual([]);
   });
 
   it("a payment that settles no bill (another sum) changes nothing in the year", () => {
     const stray = year([paid({ bookingDate: "2026-12-09", accountId: "acc-2", amountCents: -4_000 })]);
     expect(stray.yearlyCents).toBe(12_000);
-    expect(december(stray).paid).toEqual([]);
+    expect(paidRows(calendar([paid({ bookingDate: "2026-12-09", accountId: "acc-2", amountCents: -4_000 })]))).toEqual([]);
     expect(stray.items).toHaveLength(1);
   });
 });

@@ -6,7 +6,8 @@
 import { partCents } from "./account-use.ts";
 import { addMonthsToDate } from "./dates.ts";
 import { type Debt, partly } from "./debt-part.ts";
-import { endOf, type Payment, planOf } from "./loan-plan.ts";
+import { endOf, planOf } from "./loan-plan.ts";
+import type { Payment } from "./loan-schedule.ts";
 import { hasReferenceRate, loanBalanceOn, type LoanUnknown, movedRate, planFrom } from "./loans.ts";
 import type { IsoDate } from "./types.ts";
 
@@ -63,7 +64,8 @@ function pathPayments(loan: Debt, day: IsoDate, shiftBp: number): { start: numbe
   }
   const plan = planOf(loan);
   if ("missing" in plan) return plan.missing ?? "repayment";
-  const from = planFrom(loan, plan, day, hasReferenceRate(loan) ? movedRate(loan.rateBp, loan.marginBp, shiftBp) : loan.rateBp);
+  const moves = hasReferenceRate(loan);
+  const from = planFrom(loan, plan, day, moves ? movedRate(loan.rateBp, loan.marginBp, shiftBp) : loan.rateBp, moves ? shiftBp : 0);
   if (from === null) return "end_date";
   const list = [...from.payments()];
   if (list.length === 0 || list.at(-1)!.balanceCents > 0) return "end_date";

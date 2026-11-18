@@ -259,6 +259,23 @@ export type LoanReference = "euribor_12" | "euribor_6" | "euribor_3" | "fixed";
 /** The reference rates a loan can name: the ids the Optimoi `loan_rate` input offers. */
 export const LOAN_REFERENCES = ["euribor_12", "euribor_6", "euribor_3", "fixed"] as const satisfies readonly LoanReference[];
 
+/** The rate a loan pays from a day on, in thousandths of a percent (3978 is 3,978 %). Oldest first. */
+export type RatePath = readonly (readonly [IsoDate, number])[];
+
+/**
+ * The published fixings of the reference rates, each reference's oldest first: the day and the rate in thousandths of a
+ * percent as published (3328 is 3,328 %), negative where it was. `loansOf` turns them into each loan's `ratePath`.
+ */
+export type Fixings = Readonly<Partial<Record<Exclude<LoanReference, "fixed">, RatePath>>>;
+
+/** What a document stated of one payment: its split into repayment, interest and fees, in cents, none below zero. */
+interface PaymentParts {
+  dueDate: IsoDate;
+  principalCents: number;
+  interestCents: number;
+  feeCents: number;
+}
+
 /**
  * A loan the user typed in, pasted or read from a picture, and confirmed: the bank connection shows payment accounts
  * only. Money is what is owed, positive, in cents. Rates are hundredths of a percent (325 is 3,25 %). A field the
@@ -309,6 +326,18 @@ export interface Loan {
    * loan depends on it, and a day that has passed is kept: the rate has been reviewed since.
    */
   rateReviewDate?: IsoDate | null;
+  /**
+   * The payments whose split a document stated. The newest one's fee is the fee of every payment to come
+   * (`loan-schedule.ts`). Left out means none.
+   */
+  paymentParts?: readonly PaymentParts[];
+  /**
+   * The rate from each review day on, set by `loansOf` from the fixings (`ratePathOf`) and never stored or sent. Left out
+   * means the typed `rateBp` holds on every day.
+   */
+  ratePath?: RatePath;
+  /** The first review day that counts the newest fixing again, set with `ratePath`. */
+  rateFlatFrom?: IsoDate | null;
 }
 
 /**
@@ -321,6 +350,8 @@ export interface UserInputs {
   expectedBills: readonly ExpectedBill[];
   /** Left out means none, so a caller that builds its inputs by hand still compiles. Read with `loansOf` (`loans.ts`). */
   loans?: readonly Loan[];
+  /** The published reference rates, read per request like the loans. Left out means none: every loan counts at its typed rate. */
+  fixings?: Fixings;
   /** The member's payer roles. Left out, no payer is asked about; given (even empty), the steady ones are. */
   payers?: PayerInput;
   /** The monthly spending goal in cents (`spending-goal.ts`). Left out or null, the user has set none. */

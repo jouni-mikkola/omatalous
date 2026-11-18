@@ -14,6 +14,7 @@ packages/core/src/analysis/questions.ts  paymentCents  2
 packages/core/src/analysis/statement-explain.ts  wholeCents  4
 packages/core/src/household-debts.ts  paymentCents  1
 packages/core/src/loan-detect.ts  paymentCents  2
-packages/core/src/loan-plan.ts  paymentCents  5
+packages/core/src/loan-plan.ts  paymentCents  1
+packages/core/src/loan-schedule.ts  paymentCents  2
 packages/core/src/loans.ts  paymentCents  10
 packages/core/src/reports/loans.ts  paymentCents  1
