@@ -286,7 +286,9 @@ found gives the category. An unclear match is left alone.
 
 ## Loans
 
-- A loan is a short form the household types. The app reads no picture or PDF of a loan.
+- A loan is a short form the household types or fills by pasting text or choosing a PDF. The browser reads the text or PDF
+  (pdf.js, served from the app's own address) and sends nothing but the fields the household saves. The server takes no
+  file, and no picture is read.
 - Loans belong to the user who saved them: the list of loans and every change read the typist's own rows. A member sees
   another member's loan only as *Who sees what* says, when it is paid from an account in the member's view. A loan's
   series key is not checked against the typist's accounts when it is saved, so a member who is named a user of an

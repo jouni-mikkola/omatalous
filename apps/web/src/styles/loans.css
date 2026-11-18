@@ -18,6 +18,20 @@
 .loan-field-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .loan-interest { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
 
+/* the input box: text pasted or a PDF dropped or chosen */
+.loan-box { display: flex; flex-direction: column; gap: var(--sp-8); border: 1px dashed var(--axis); border-radius: var(--radius-m); background: var(--surface); padding: var(--sp-12); }
+.loan-box.over { border-color: var(--accent); background: var(--info-bg); }
+.loan-box textarea { min-height: var(--sp-48); resize: vertical; font-family: inherit; font-size: var(--fs-body); }
+.loan-box .form-row, .loan-box p { margin: 0; }
+.loan-box input[type="file"] { display: none; }
+.loan-readline { display: flex; align-items: center; flex-wrap: wrap; gap: var(--sp-8) var(--sp-12); }
+
+/* a field read with doubt: marked until the household has confirmed or changed it */
+.loan-field.to-check input:not([type="checkbox"]), .loan-field.to-check select { border-color: var(--warn); }
+.loan-source { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); overflow-wrap: anywhere; }
+.loan-confirm { display: inline-flex; align-items: center; gap: var(--sp-8); font-size: var(--fs-body); align-self: flex-start; cursor: pointer; }
+.loan-confirm input { margin: 0; accent-color: var(--fill); }
+
 /* editing a saved loan: the same form in a dialog, wide enough for two columns */
 dialog.loan-dialog { width: 100%; max-width: min(680px, calc(100vw - 32px)); }
 dialog.loan-dialog h2 { margin-bottom: 16px; }

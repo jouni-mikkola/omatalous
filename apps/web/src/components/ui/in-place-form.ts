@@ -6,7 +6,7 @@ const FIELD = "form :is(input, select, textarea):not([type=hidden]):not(:disable
  * A form that opens in place of its button. The button unmounts on open and the form on close, so without help the
  * focus falls to the start of the page both times. The region (the card around both) gets `region`: on open the focus
  * goes to the form's first field, on close back to the element marked `data-opener`. Escape closes a form nobody has
- * typed in yet; once a field changed, Escape does nothing, so a slip of the key loses no input.
+ * typed in yet; once a field changed or something was pasted or dropped in, Escape does nothing, so a slip of the key loses no input.
  */
 export function useInPlaceForm(initial = false) {
   const [open, setOpenState] = useState(initial);
@@ -29,6 +29,13 @@ export function useInPlaceForm(initial = false) {
   const region = {
     ref,
     onChange: (e: SyntheticEvent) => {
+      if (own(e)) changed.current = true;
+    },
+    // a paste or a drop can fill a form without a change event of a field
+    onPaste: (e: SyntheticEvent) => {
+      if (own(e)) changed.current = true;
+    },
+    onDrop: (e: SyntheticEvent) => {
       if (own(e)) changed.current = true;
     },
     onKeyDown: (e: KeyboardEvent) => {
