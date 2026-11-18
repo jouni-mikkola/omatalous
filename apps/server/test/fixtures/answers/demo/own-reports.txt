@@ -610,8 +610,6 @@
    "day": "2026-10-07",
    "cents": 1205857
   },
-  "events": [],
-  "payDays": [],
   "holdings": {
    "accounts": [
     {

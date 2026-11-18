@@ -5,21 +5,19 @@
  * Everything the first page (Yhteenveto) says in its four blocks, as data the page only draws: the answer (what is left
  * after the payments, per day, and on the payday as a range), the month's pace against the expected month with the
  * range of the base months, the few categories that make the difference, the findings worth acting on, and the
- * direction of spending. Every figure is one of the registry (`figures.ts`); the page adds up and compares no money.
+ * buffer. Every figure is one of the registry (`figures.ts`); the page adds up and compares no money.
  */
 import { daysBetween, monthOf } from "./dates.ts";
 import { type LowPoint, lowPoint } from "./low-point.ts";
 import { type BufferGap, bufferReport } from "./reports/buffer.ts";
-import { DIRECTION_MONTHS, DIRECTION_RECENT_MONTHS, MIN_COMPARE_MONTHS } from "./thresholds.ts";
 import type { BalanceInput, IsoDate, UserInputs } from "./types.ts";
 import type { AheadBasis } from "./analysis/ahead.ts";
 import { cardGapCause } from "./analysis/card-bills.ts";
 import type { AnalysisContext } from "./analysis/context.ts";
 import { knownSpending } from "./analysis/data-quality.ts";
 import type { MonthPace } from "./analysis/forecast.ts";
-import { expectedFor, expectedLevel } from "./analysis/expected.ts";
+import { expectedFor } from "./analysis/expected.ts";
 import { paydayOf, type Runway, runwayOf } from "./analysis/runway.ts";
-import { completeMonthsBefore, gateFor, spendingThrough } from "./analysis/usual.ts";
 
 /**
  * The answer in one word. "enough": the payments are covered and the payday's range stays above zero. "tight": the
@@ -81,9 +79,6 @@ interface HomeDirection {
   usualCents: number | null;
   /** How many complete months `usualCents` is read from. */
   months: number;
-  /** The last three complete months' mean less the mean of up to twelve; null under three months. The direction is read from it, and neither mean is shown. */
-  recentChangeCents: number | null;
-  direction: "up" | "down" | "flat" | null;
   /** Cash on checking and savings accounts in months of expected spending; negative when the card debt and the bills due exceed the cash. null without a balance or an expected level. */
   bufferMonths: number | null;
   /** The two figures `bufferMonths` is the quotient of: net cash and the expected month's spending (Odotettu), which is not the average above. Both null with `bufferMonths`. */
@@ -155,27 +150,13 @@ function homePace(pace: MonthPace): HomePace | null {
   };
 }
 
-/**
- * The month's usual spending and where the last three complete months stand against the mean of up to twelve. The
- * mean of whole months holds every one-off of the year (a car, a loan paid off) and, before a card was connected, its
- * bills whole, so it is no figure of its own on the page: the row shows the expected spending, and the mean only
- * gives the direction its word.
- */
+/** The month's usual spending and the buffer the accounts hold against it. */
 function homeDirection(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs): HomeDirection {
-  const month = monthOf(ctx.today);
   const buffer = bufferReport(ctx, balances, inputs);
   const basis = buffer.bufferMonths === null ? { bufferNetCents: null, bufferSpendCents: null, bufferGap: buffer.bufferGap } : { bufferNetCents: buffer.netCents, bufferSpendCents: buffer.expectedSpendCents, bufferGap: null };
-  const usual = { usualCents: buffer.expectedSpendCents, months: expectedFor(ctx, month)?.months.length ?? 0 };
-  // `spendingThrough` is the booked spending, the base of the buffer and Odotettu; no page shows this direction under Menot, so it needs no flows base
-  const spent = completeMonthsBefore(ctx, month, DIRECTION_MONTHS).map((m) => spendingThrough(ctx, m));
-  const averageCents = spent.length < MIN_COMPARE_MONTHS ? null : expectedLevel(spent);
-  if (averageCents === null) return { ...usual, recentChangeCents: null, direction: null, bufferMonths: buffer.bufferMonths, ...basis };
-  const recentChangeCents = expectedLevel(spent.slice(-DIRECTION_RECENT_MONTHS))! - averageCents;
-  const gate = gateFor(averageCents);
   return {
-    ...usual,
-    recentChangeCents,
-    direction: recentChangeCents > gate ? "up" : recentChangeCents < -gate ? "down" : "flat",
+    usualCents: buffer.expectedSpendCents,
+    months: expectedFor(ctx, monthOf(ctx.today))?.months.length ?? 0,
     bufferMonths: buffer.bufferMonths,
     ...basis,
   };
@@ -197,7 +178,7 @@ interface HomeInput {
   inputs: UserInputs;
 }
 
-/** The first page's answer, month and direction. */
+/** The first page's answer, month and buffer. */
 export function buildHome(ctx: AnalysisContext, { basis, pace, balances, inputs }: HomeInput): Home {
   const homePaced = homePace(pace);
   return {

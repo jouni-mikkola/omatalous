@@ -277,16 +277,3 @@ function refinePay(rows: readonly AnalysisTx[], out: Map<string, IncomeType>): v
 // banking days and pay days moved to pay-day.ts: what was importable from here still is
 export { addBankingDays, isBankingDay, nextPayDate, type PayDay, payDate, payDayOf, type PayRule } from "../pay-day.ts";
 
-/**
- * The share of a range's income that nothing has told yet (`isUnknownIncome`), 0 to 1, beside the unknown spending
- * share (`unknownSpending`): Raportit says so when it is over 20 %.
- */
-export function unknownIncomeShare(rows: readonly (Pick<AnalysisTx, "flows"> & Pick<IncomeRow, "category" | "categorySource">)[]): number {
-  let unknown = 0;
-  let all = 0;
-  for (const t of rows) {
-    all += t.flows.income;
-    if (isUnknownIncome(t)) unknown += t.flows.income;
-  }
-  return all > 0 ? Math.min(1, Math.max(0, unknown / all)) : 0;
-}

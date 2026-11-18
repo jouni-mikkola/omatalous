@@ -352,7 +352,7 @@ export function monthResult(h: GeneratedHousehold, v: HouseholdView, dashboard: 
   const shares = view.figures.flatMap((f) => (f.incomeUnits === null ? [] : [f.incomeUnits]));
   const shown = shares.reduce((s, n) => s + n, 0);
   if (view.draws && view.cover.gapCents === 0 && view.cover.creditRepaidCents === 0 && shown !== 100) say(`Tulojen käyttö shares add up to ${shown}`);
-  const row = cashflow(v.ctx, range, v.balances).rows.find((r) => r.month === month);
+  const row = cashflow(v.ctx, range).rows.find((r) => r.month === month);
   // the report has a row for every month of its range, so a missing row is a failure of the comparison, not a pass
   if (!row) say(`the cash flow report has no row for ${month}`);
   else {

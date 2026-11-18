@@ -2,9 +2,7 @@
 import { type BalanceChange, balanceChange, balanceDays, totalOn } from "../analysis/balance-change.ts";
 import { type BalanceWalk, balanceWalk } from "../analysis/balance-walk.ts";
 import { debtsOf } from "../analysis/card-settled.ts";
-import { type AnalysisContext, inDays } from "../analysis/context.ts";
-import { largePurchases } from "../analysis/large.ts";
-import { payDays } from "../behaviour/payday.ts";
+import type { AnalysisContext } from "../analysis/context.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { dayNumber, fromDayNumber, fromMonthIndex, monthEnd } from "../dates.ts";
 import { buildHoldings, type Holdings } from "../holdings.ts";
@@ -75,13 +73,6 @@ export interface BalanceReport {
   /** The lowest end-of-day total of the range and the first day it was reached (`lowestDayBalance`); null when an account is not known at the start. */
   lowest: { day: IsoDate; cents: number } | null;
   /**
-   * The large purchases of the range (`largePurchases`), the events the balance line marks: the eight largest, oldest
-   * first. `step` is the total at the end of the day before and of the day itself when the day took at least the
-   * purchase from it, so a tick runs from the one to the other; null when other money that day hid it (pay on the same
-   * day) or a day is not known: such a purchase is told in the readout, with no tick.
-   */
-  events: { day: IsoDate; label: string; cents: number; step: { beforeCents: number; afterCents: number } | null }[];
-  /**
    * The change at each month end from the month before: `total[i]` less `total[i - 1]`, so the column is the plain
    * difference of the balances shown. An account that has its first value in month `i` brings its whole balance with it, and
    * one that has no value any more takes it away; null where `total` of either month is unknown.
@@ -92,8 +83,6 @@ export interface BalanceReport {
    * currency its balance in that currency (`foreign`, never added to euros), with no balance told `foreign` is null.
    */
   missing: { accountId: string; name: string; type: AccountType; foreign: { currency: string; cents: number } | null }[];
-  /** The pay days of `daily`'s days (`payDays`), oldest first: the days the line climbs with the pay. */
-  payDays: IsoDate[];
   /** What the household has and owes today, laid out for the first page: the same answer as `DashboardData.holdings`. */
   holdings: Holdings;
 }
@@ -167,20 +156,6 @@ export function balanceReport(ctx: AnalysisContext, range: DateRange, accounts: 
   const daily: (number | null)[] = [];
   const { fromDay: dailyFrom } = balanceDays(ctx, range);
   for (let d = dailyFrom; d <= toDay && all.length; d++) daily.push(totalOn(all, d));
-  const large = largePurchases(ctx);
-  const events = inDays(ctx, { fromDay, toDay })
-    .filter((x) => large.has(x.id))
-    .sort((a, b) => a.amountCents - b.amountCents || a.day - b.day)
-    .slice(0, 8)
-    .sort((a, b) => a.day - b.day)
-    .map((x) => {
-      const before = all.length ? totalOn(all, x.day - 1) : null;
-      const after = all.length ? totalOn(all, x.day) : null;
-      // the day took at least the purchase: a pay or a refund the same day leaves no step of its size to point at
-      const step = before !== null && after !== null && after - before <= x.amountCents ? { beforeCents: before, afterCents: after } : null;
-      return { day: x.bookingDate, label: x.counterparty ?? x.description ?? "", cents: x.amountCents, step };
-    });
-  const pays = payDays(ctx).filter((d) => d >= dailyFrom && d <= toDay).map(fromDayNumber);
   // one definition (critic): the total's change and each account's are over the same two days, so the rows add up to the head
   const moved = balanceChange(all, dailyFrom, toDay);
   const withChange = series.map((s) => ({ ...s, changeCents: moved?.byAccount.get(s.accountId) ?? null }));
@@ -190,5 +165,5 @@ export function balanceReport(ctx: AnalysisContext, range: DateRange, accounts: 
   // a connected loan with no balance is still in `accountsLessDebt` as the loan was typed: it is not missing from the picture
   const typedDebt = new Set(debts.sources.filter((s) => s.typed !== null).map((s) => s.accountId));
   const missing = accounts.filter((a) => !walks.has(a.id) && !typedDebt.has(a.id)).map((a) => ({ accountId: a.id, name: a.name, type: a.type, foreign: a.foreign ?? null }));
-  return { months: monthLabels(months), accounts: withChange, total, monthChange, missing, accountsLessDebt, debt, daily: { from: fromDayNumber(dailyFrom), cents: daily }, change, lowest: low && { day: fromDayNumber(low.day), cents: low.cents }, events, payDays: pays, holdings: buildHoldings(ctx, accounts, inputs) };
+  return { months: monthLabels(months), accounts: withChange, total, monthChange, missing, accountsLessDebt, debt, daily: { from: fromDayNumber(dailyFrom), cents: daily }, change, lowest: low && { day: fromDayNumber(low.day), cents: low.cents }, holdings: buildHoldings(ctx, accounts, inputs) };
 }

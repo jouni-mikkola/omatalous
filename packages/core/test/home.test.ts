@@ -4,7 +4,6 @@ import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { expectedEveryday, expectedFor, expectedSpending } from "../src/analysis/expected.ts";
 import { formatEur } from "../src/analysis/format.ts";
-import { gateFor } from "../src/analysis/usual.ts";
 import { addDays, dateIn, daysBetween, fromMonthIndex, monthIndex, weekdayOf } from "../src/dates.ts";
 import { type Account, type BalanceInput, type IsoDate, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
@@ -129,13 +128,10 @@ describe("home.pace", () => {
 });
 
 describe("home.direction and home.reliability", () => {
-  it("tells the usual month and where the last three stand against the year", () => {
+  it("tells the usual month and the months it is read from", () => {
     const { direction } = homeOf([...pays(), ...rents(), ...shopping("2026-03-01", 4000)]);
     expect(direction.usualCents).not.toBeNull();
     expect(direction.months).toBeGreaterThanOrEqual(3);
-    expect(direction.direction).toBe("flat");
-    // the months differ by a day or two of the daily purchase, which the gate of the direction ignores
-    expect(Math.abs(direction.recentChangeCents!)).toBeLessThan(gateFor(direction.usualCents!));
   });
 
   // 1.2.0 showed the plain mean of twelve months beside the month, so a car bought in June made every month look dearer
@@ -164,13 +160,6 @@ describe("home.direction and home.reliability", () => {
     expect(direction.bufferSpendCents).toBe(direction.usualCents);
     if (dash.pace.expected) expect(dash.pace.expected.curve.at(-1)).toBe(direction.usualCents);
     expect(direction.months).toBe(expectedFor(ctx, "2026-11")!.months.length);
-  });
-
-  it("reads the direction up when the last months cost more than the year", () => {
-    const rows = [...pays(), ...rents(), ...shopping("2026-03-01", 4000).map((t) => (t.bookingDate >= "2026-07-01" && t.bookingDate < "2026-10-01" ? { ...t, amountCents: -9000 } : t))];
-    const { direction } = homeOf(rows);
-    expect(direction.direction).toBe("up");
-    expect(direction.recentChangeCents!).toBeGreaterThan(0);
   });
 
   it("gives the two sums of the buffer and no reason while it has a figure", () => {
@@ -213,10 +202,10 @@ describe("home.direction and home.reliability", () => {
     expect(short.bufferGap).toBe("history");
   });
 
-  it("tells too few months as no mean", () => {
+  it("tells too few months as no usual month", () => {
     const { direction } = homeOf([...pays().slice(-2), ...shopping("2026-10-01", 4000)]);
     expect(direction.usualCents).toBeNull();
-    expect(direction.direction).toBeNull();
+    expect(direction.bufferGap).toBe("history");
   });
 
   it("has no missing card purchases in a household with no card", () => {

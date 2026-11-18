@@ -12,12 +12,7 @@ const households = [demoHousehold(), ...[1, 2, 3].map((seed) => seededHousehold(
 describe.each(households.map((h) => [h.name, h] as const))("%s", (_, h) => {
   const ctx = contextOf(h);
   const range = { from: `${addMonths(monthOf(h.today), -11)}-01`, to: h.today };
-  const report = cashflowReport(ctx, range, h.balances);
-
-  it("Säästöön tilien ulkopuolelle counts only money that left the accounts, so it is never above zero, while Säästöön is net of what was taken out", () => {
-    const out = report.moneyBridge?.lines.find((l) => l.key === "investedOut");
-    if (out) expect(out.cents).toBeLessThanOrEqual(0);
-  });
+  const report = cashflowReport(ctx, range);
 
   it("the table in cents adds up: every row, the running month's too, is the total row to the cent, for every part", () => {
     const sum = (key: "incomeCents" | "consumptionCents" | "debtCents" | "savedCents" | "leftCents") => report.rows.reduce((s, x) => s + x[key], 0);

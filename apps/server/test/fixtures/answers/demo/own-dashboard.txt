@@ -1043,8 +1043,6 @@
   "direction": {
    "usualCents": 340316,
    "months": 6,
-   "recentChangeCents": 36059,
-   "direction": "up",
    "bufferMonths": 3.520980500476028,
    "bufferNetCents": 1198246,
    "bufferSpendCents": 340316,
