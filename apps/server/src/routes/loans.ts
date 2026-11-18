@@ -131,7 +131,7 @@ async function parseAccountId(value: unknown, accounts: OwnAccounts): Promise<st
  * (the sum is exact in core). Whether they fit the loan's own payment is for the form to tell: a document may state a
  * payment that differs from the usual one.
  */
-function parseLastPayment(given: unknown, today: string): PaymentParts | null {
+export function parseLastPayment(given: unknown, today: string): PaymentParts | null {
   if (absent(given)) return null;
   const input = strictObject(given, LAST_PAYMENT_FIELDS);
   const part: PaymentParts = {

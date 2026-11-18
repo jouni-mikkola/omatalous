@@ -6,10 +6,20 @@
  */
 import type { PaymentParts } from "@banking/core";
 import type { Row } from "../rows.ts";
+import type { Statement } from "../types.ts";
 import type { FinanceContext } from "./context.ts";
 
 /** A loan keeps the newest of these: two years of monthly payments are more than any figure reads. */
 const MAX_PAYMENT_PARTS = 24;
+
+/** The statement that keeps the newest `MAX_PAYMENT_PARTS` of a user's loan and deletes the older ones: a save and an import both end with it. */
+export function trimPartsStatement(userId: string, loanId: string): Statement {
+  return {
+    sql: `DELETE FROM loan_payment_parts WHERE user_id = ? AND loan_id = ? AND due_date NOT IN (
+         SELECT due_date FROM loan_payment_parts WHERE user_id = ? AND loan_id = ? ORDER BY due_date DESC LIMIT ?)`,
+    params: [userId, loanId, userId, loanId, MAX_PAYMENT_PARTS],
+  };
+}
 
 /**
  * The column a loan's select adds to read its parts in the same statement: the parts of that loan as a JSON list,
@@ -39,11 +49,8 @@ export class LoanPartsRepo {
       [part.dueDate, part.principalCents, part.interestCents, part.feeCents, this.ctx.userId, loanId],
     );
     if (saved.changes === 0) return false;
-    await this.ctx.db.run(
-      `DELETE FROM loan_payment_parts WHERE user_id = ? AND loan_id = ? AND due_date NOT IN (
-         SELECT due_date FROM loan_payment_parts WHERE user_id = ? AND loan_id = ? ORDER BY due_date DESC LIMIT ?)`,
-      [this.ctx.userId, loanId, this.ctx.userId, loanId, MAX_PAYMENT_PARTS],
-    );
+    const trim = trimPartsStatement(this.ctx.userId, loanId);
+    await this.ctx.db.run(trim.sql, trim.params);
     return true;
   }
 }
