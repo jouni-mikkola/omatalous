@@ -702,7 +702,9 @@
        }
       ],
       "source": "owner"
-     }
+     },
+     "costClass": null,
+     "costRank": null
     }
    ],
    "cardsCents": 285586,

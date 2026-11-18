@@ -990,6 +990,8 @@
      ],
      "source": "owner"
     },
+    "costClass": null,
+    "costRank": null,
     "reconcile": "unknown"
    }
   ],
