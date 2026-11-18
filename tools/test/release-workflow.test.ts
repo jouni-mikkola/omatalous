@@ -733,7 +733,7 @@ function proofScopeFaults(text: string): string[] {
   // main, a hand start and a diff that cannot be read keep the proof on
   if (!text.includes("\n          proof=true\n          if [[ $EVENT == pull_request ]]; then\n")) out.push("scope does not start from the proof and narrow it on a pull request only");
   if (!text.includes("&& [[ -n $files ]]")) out.push("scope leaves the proof out when the diff is empty or fails");
-  for (const path of ["Dockerfile", "docker-compose", "pnpm-lock", "^(release|scripts|deploy|contracts|tools/ci|apps/server/migrations|apps/server/src/entry|apps/server/src/db)/", "workflows/full"]) {
+  for (const path of ["Dockerfile", "docker-compose", "pnpm-lock", "LICENSE|THIRD_PARTY_NOTICES|docs/RELEASING\\.md|apps/server/src/(cli[^/]*|version)\\.ts", "^(release|scripts|deploy|contracts|tools/ci|tools/lib|apps/server/migrations|apps/server/src/entry|apps/server/src/db|apps/server/src/platform|apps/server/test/fixtures/db)/", "workflows/full"]) {
     if (!text.includes(path)) out.push(`scope does not name ${path}`);
   }
   return out;
@@ -754,6 +754,8 @@ describe("full.yml leaves the proof out by path", () => {
     expect(faults(full.replace("&& [[ -n $files ]]", ""))).toMatch(/diff is empty or fails/);
     expect(faults(full.replace("proof=true\n          if", "proof=false\n          if"))).toMatch(/start from the proof/);
     expect(faults(full.replace("|tools/ci|", "|"))).toMatch(/scope does not name/);
+    expect(faults(full.replace("|apps/server/test/fixtures/db)/", ")/"))).toMatch(/scope does not name/);
+    expect(faults(full.replace("|LICENSE|", "|"))).toMatch(/scope does not name/);
     expect(faults(full.replace("needs.scope.outputs.proof == 'true'", "true"))).toMatch(/proof does not wait/);
   });
 });

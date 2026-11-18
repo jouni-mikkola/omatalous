@@ -60,7 +60,7 @@ jobs:
           if [[ $EVENT == pull_request ]]; then
             # any failure of the diff leaves proof on
             if files=$(git diff --name-only "origin/$BASE_REF...HEAD") && [[ -n $files ]]; then
-              if grep -Eq '^(Dockerfile|\.dockerignore|docker-compose[^/]*\.yml|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|\.npmrc|\.github/workflows/full\.yml|(apps|packages)/[^/]+/package\.json)$|^(release|scripts|deploy|contracts|tools/ci|apps/server/migrations|apps/server/src/entry|apps/server/src/db)/' <<<"$files"; then
+              if grep -Eq '^(Dockerfile|\.dockerignore|docker-compose[^/]*\.yml|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|\.npmrc|\.github/workflows/full\.yml|LICENSE|THIRD_PARTY_NOTICES|docs/RELEASING\.md|apps/server/src/(cli[^/]*|version)\.ts|(apps|packages)/[^/]+/package\.json)$|^(release|scripts|deploy|contracts|tools/ci|tools/lib|apps/server/migrations|apps/server/src/entry|apps/server/src/db|apps/server/src/platform|apps/server/test/fixtures/db)/' <<<"$files"; then
                 proof=true
               else
                 proof=false
@@ -112,16 +112,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build
         run: pnpm build
-      - name: Playwright version
-        id: playwright
-        run: |
-          version=$(pnpm exec playwright --version | awk '{print $2}')
-          echo "version=$version" >>"$GITHUB_OUTPUT"
-      - name: Browser download cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
       - name: Browser
         run: pnpm exec playwright install --with-deps chromium
       - name: pnpm e2e
