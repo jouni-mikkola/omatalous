@@ -6,13 +6,14 @@
  */
 import { isDeepStrictEqual } from "node:util";
 import { type AgreementRow, addMonths, type RunningPool, agreementRefusal, CLOSE_DAYS, type ClosedMonth, dayNumber, fromDayNumber, type Incomes, isEarnedIncome, isRealDay, monthLast, nettedMonth, type Owner, type Settlement, type SettlementLine, settlement, type Trace, type TraceUser } from "@banking/core";
-import type { StoredAgreement, StoredClosedMonth, StoredMember } from "../db/agreement-repo.ts";
+import type { StoredAgreement, StoredMember } from "../db/agreement-repo.ts";
 import { accountKey } from "../db/household-repo.ts";
 import { NotFound, UserError } from "../platform/errors.ts";
 import { strictObject } from "../platform/validate.ts";
 import type { Services } from "./context.ts";
 import { confirmedBy, confirmedByOnly, namedUsers, pendingOf, plainValue, sameRow } from "./agreement-pending.ts";
 import { isCardAccount, poolUsers, settledTrace } from "./money-trace.ts";
+import { closedOf, localDayOf, usesSaidOn } from "./settlement-inputs.ts";
 
 const KINDS = ["equal", "share", "income", "fixed"] as const;
 type Kind = (typeof KINDS)[number];
@@ -75,19 +76,6 @@ async function poolOf(s: Services, userId: string, accountId: string): Promise<P
   return { key: accountKey(card), ids: [card.id], name: card.name, users, card: true };
 }
 
-/** A stored month as core reads it; a row that is no month's settlement (nobody writes one) is no snapshot. */
-function closedOf(row: StoredClosedMonth): ClosedMonth | null {
-  let v: Record<string, unknown> | null = null;
-  try {
-    v = JSON.parse(row.snapshot) as Record<string, unknown> | null;
-  } catch {
-    return null;
-  }
-  const status = v?.status as { open?: unknown; closedOn?: unknown } | undefined;
-  const shaped = !!v && v.month === row.month && status?.open === false && typeof status.closedOn === "string" && ["members", "lines", "unknownPaidBy", "unknownOwedBy"].every((k) => Array.isArray(v[k]));
-  return shaped ? (v as unknown as ClosedMonth) : null;
-}
-
 /**
  * Why a closed month an import brings is not taken, or null when it is: the month has ended (today is past its last day), the
  * day it says it closed on is one core can give (from its last day to CLOSE_DAYS after it, not in the future) with the reason
@@ -106,7 +94,7 @@ function closedMonthRefusal(month: string, closedOn: string, snapshot: string, t
 }
 
 /** A stored row as core reads it; a row of a kind nobody knows or a value that is no object is no agreement. */
-function agreementOf(row: StoredAgreement): AgreementRow | null {
+function agreementOf(row: StoredAgreement, setOn?: string): AgreementRow | null {
   if (!(KINDS as readonly string[]).includes(row.kind)) return null;
   let value: unknown;
   try {
@@ -116,7 +104,7 @@ function agreementOf(row: StoredAgreement): AgreementRow | null {
   }
   if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
   // who has put a row that shows the income ratio is for the page to read, not for the sums
-  return { accountKey: row.accountKey, validFrom: row.validFrom, kind: row.kind as Kind, value: plainValue(row.kind, value as Record<string, unknown>) };
+  return { accountKey: row.accountKey, validFrom: row.validFrom, kind: row.kind as Kind, value: plainValue(row.kind, value as Record<string, unknown>), ...(setOn ? { setOn } : {}) };
 }
 
 /** Earned income by user and month, from the rows of each user's own accounts. */
@@ -173,13 +161,14 @@ interface PoolSettlement {
 async function engineOf(s: Services, pool: Pool) {
   const t = await settledTrace(s, pool.key);
   if (!t) return null;
-  const stored = await s.agreements.agreementRows([pool.key, ...t.cards.map((c) => c.key)]);
-  // a row that waits for a partner is not in force: the earlier row holds
-  const agreements = stored.filter((r) => !pendingOf(r)).flatMap((r) => agreementOf(r) ?? []);
+  const keys = [pool.key, ...t.cards.map((c) => c.key)];
+  const [stored, saidOn] = await Promise.all([s.agreements.agreementRows(keys), usesSaidOn(s, keys)]);
+  // a row that waits for a partner is not in force: the earlier row holds; a row in force was said when it was set or its last partner put it
+  const agreements = stored.filter((r) => !pendingOf(r)).flatMap((r) => agreementOf(r, localDayOf(s, r.setAt)) ?? []);
   // a card bill the bank's category names whose card is not connected: a key no card holds, so core cannot say whose it is
   const trace: Trace = { ...t.raw, rows: t.raw.rows.map((r) => (r.cardKey === undefined && r.cents < 0 && t.cardBills.has(r.key) ? { ...r, cardKey: UNCONNECTED_CARD } : r)) };
   const incomes = agreements.some((a) => JSON.stringify(a).includes('"income"')) ? await incomesOf(s, t.users.map((u) => u.owner)) : new Map();
-  const compute = (m: string, closed: readonly ClosedMonth[]) => settlement(m, { key: pool.key, trace, answers: t.said, users: t.users, ...(t.split ? { split: t.split } : {}) }, agreements, t.members, t.cards, incomes, s.today(), closed);
+  const compute = (m: string, closed: readonly ClosedMonth[]) => settlement(m, { key: pool.key, trace, answers: t.said, users: t.users, ...(t.split ? { split: t.split } : {}), usesSaidOn: saidOn }, agreements, t.members, t.cards, incomes, s.today(), closed);
   // a month before the pool's first booked row has no settlement to keep: nothing is stored for it, however it is asked
   const firstDay = Math.min(...trace.rows.filter((r) => !r.pending).map((r) => r.day));
   return { t, compute, firstMonth: Number.isFinite(firstDay) ? fromDayNumber(firstDay).slice(0, 7) : null };
@@ -260,10 +249,16 @@ export async function importedMonthRefusal(s: Services, userId: string, row: Rea
   return own && sameMonth(String(row.snapshot), own) ? null : "differs";
 }
 
-/** Whether a month's text is what this server works out, both with the unknown sources netted: an export from before the netting still agrees. */
+/**
+ * Whether a month's text is what this server works out, both with the unknown sources netted: an export from before the netting
+ * still agrees. One from before corrections recorded their rows is held against this server's month without them.
+ */
 function sameMonth(snapshot: string, own: ClosedMonth): boolean {
   try {
-    return isDeepStrictEqual(JSON.parse(JSON.stringify(nettedMonth(JSON.parse(snapshot) as ClosedMonth))), JSON.parse(JSON.stringify(nettedMonth(own))));
+    const given = JSON.parse(snapshot) as ClosedMonth;
+    const unrecorded = given.lines.every((l) => l.byRow === undefined);
+    const mine = unrecorded ? { ...own, lines: own.lines.map(({ byRow: _r, undid: _u, ...l }) => l) } : own;
+    return isDeepStrictEqual(JSON.parse(JSON.stringify(nettedMonth(given))), JSON.parse(JSON.stringify(nettedMonth(mine))));
   } catch {
     return false;
   }
@@ -426,7 +421,7 @@ export async function addAgreement(s: Services, userId: string, accountId: strin
   const waiting = have ? pendingOf(have) : null;
   if (have && waiting && have.kind === kind && waiting.who.includes(me) && sameRow(kind, have.value, value)) {
     // the same row from another user it names: put by one more, in force when every named user has put it
-    if (!waiting.confirmed.includes(me) && !(await s.agreements.confirmAgreement(pool.key, validFrom, have.value, confirmedBy(have.value, me)))) throw new UserError("Tälle päivälle on jo sopimus.");
+    if (!waiting.confirmed.includes(me) && !(await s.agreements.confirmAgreement(pool.key, validFrom, have.value, confirmedBy(have.value, me), s.now().toISOString()))) throw new UserError("Tälle päivälle on jo sopimus.");
   } else {
     // a row that shows the partners' income ratio is put by the one who writes it and waits for the others it names
     const named = namedUsers(kind, value, [...owners]);
