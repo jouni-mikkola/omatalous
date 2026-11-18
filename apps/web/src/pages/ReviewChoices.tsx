@@ -2,7 +2,7 @@
  * The choices of a Tarkistettavat item, one kind each: large buttons with the guess first and framed, a payee's
  * categories with the sheet of all of them, a plan's end, a loan's form. Each answer goes through its source's route.
  */
-import { LOAN_KIND_ANSWERS, type LoanKind, loanKindSubject, type LoanTermsMissing, monthOf, MORTGAGE_QUESTION, planSubject } from "@banking/core";
+import { LOAN_KIND_ANSWERS, type LoanKind, loanKindSubject, loanTermsDismissible, type LoanTermsMissing, monthOf, MORTGAGE_QUESTION, planSubject } from "@banking/core";
 import type { Loan } from "@banking/core";
 import { useEffect, useRef, useState } from "react";
 import { api, loanCalls, payerCalls } from "../api.ts";
@@ -11,6 +11,7 @@ import { formOfCard, formOfLoan, formOfProposal, type LoanForm, shownFields } fr
 import type { LoanFieldKey } from "../components/loans/labels.ts";
 import { editorHelp } from "../components/loans/proposal-words.ts";
 import { useApi } from "../hooks.ts";
+import { eurosText } from "../format.ts";
 import { SETTINGS_ANCHOR, settingsCardHash, settingsHash } from "../routes.ts";
 import type { Category, Meta } from "../types.ts";
 import { answerCall, answerLabel, ownerOf, ownersOf } from "./settings/account-use.ts";
@@ -157,6 +158,7 @@ export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta
           onPick={(value) => onAnswer(mark(item.subject, value))}
         />
       );
+    case "loan_drift":
     case "loan_terms":
       return <LoanTermsChoices item={item} meta={meta} busy={busy} onAnswer={onAnswer} />;
     case "mortgage":
@@ -181,19 +183,28 @@ const ASKED_FOR: Record<LoanTermsMissing, LoanFieldKey[]> = {
   payment: ["paymentCents"],
   rate: ["rateBp", "reference", "marginBp"],
   end_date: ["endDate"],
+  margin: ["marginBp"],
+  review_date: ["rateReviewDate"],
 };
+
+/** The loan's form with the payment the bank took, and the day it moved on when the loan has a reference rate. */
+function withNewPayment(form: LoanForm, { paymentCents, reviewDate }: { paymentCents: number; reviewDate: string | null }): LoanForm {
+  return { ...form, values: { ...form.values, paymentCents: eurosText(paymentCents), ...(reviewDate === null ? {} : { rateReviewDate: reviewDate }) } };
+}
 
 /**
  * A debt that lacks a fact. A saved loan's own form, as Asetukset > Lainat edits it, opens here; a connected card with no
  * saved loan gets the form of a new loan linked to it, filled with the bank's balance and limit, and one whose linked
- * loan has no rate gets that loan's form. The item goes once the loan is saved with the fact. Älä muistuta tästä enää sets the question aside with the mark of the item.
+ * loan has no rate gets that loan's form. The item goes once the loan is saved with the fact. Älä muistuta tästä enää sets the question aside with the mark of the item, except for
+ * the rate and the payment, which keep asking. A payment the plan did not expect opens the loan's form with the new payment filled in, and with the day it moved on as the review day of a loan on a reference rate.
  */
-function LoanTermsChoices({ item, meta, busy, onAnswer }: { item: Extract<ReviewItem, { kind: "loan_terms" }>; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void }) {
+function LoanTermsChoices({ item, meta, busy, onAnswer }: { item: Extract<ReviewItem, { kind: "loan_terms" | "loan_drift" }>; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void }) {
   const [editing, setEditing] = useState(false);
   const loans = useApi<{ loans: Loan[] }>(editing ? "/api/loans" : null);
   const loan = loans.data?.loans.find((l) => l.id === item.loanId);
-  const card = meta.accounts.find((a) => a.id === item.accountId);
-  const initial = loan ? formOfLoan(loan) : card ? formOfCard(card, meta.today) : null;
+  const accountId = item.kind === "loan_terms" ? item.accountId : null;
+  const card = meta.accounts.find((a) => a.id === accountId);
+  const initial = loan ? (item.kind === "loan_drift" ? withNewPayment(formOfLoan(loan), item) : formOfLoan(loan)) : card ? formOfCard(card, meta.today) : null;
   const waiting = editing && !loans.data && !loans.error;
   const formShown = editing && loans.data !== null && initial !== null;
   const formBox = useRef<HTMLDivElement>(null);
@@ -209,7 +220,7 @@ function LoanTermsChoices({ item, meta, busy, onAnswer }: { item: Extract<Review
             initial={initial}
             today={meta.today}
             cancelLabel={t("set.rc.cancel")}
-            ask={ASKED_FOR[item.missing]}
+            ask={item.kind === "loan_drift" ? (item.reviewDate === null ? ["paymentCents"] : ["paymentCents", "rateReviewDate"]) : ASKED_FOR[item.missing]}
             onSave={async (body) => {
               // the editor shows its own error; the page moves on only after the loan is saved
               await (loan ? loanCalls.replace(loan.id, body) : loanCalls.add(body));
@@ -232,11 +243,13 @@ function LoanTermsChoices({ item, meta, busy, onAnswer }: { item: Extract<Review
             loans.reload();
           }}
         >
-          <span>{t(item.accountId === null ? "set.rc.complete_the_loan" : "set.rc.complete_the_card_terms")}</span>
+          <span>{t(item.kind === "loan_drift" ? "set.rc.update_the_loan_payment" : accountId === null ? "set.rc.complete_the_loan" : "set.rc.complete_the_card_terms")}</span>
         </ChoiceButton>
-        <ChoiceButton busy={busy || waiting} onClick={() => onAnswer(mark(item.subject, "dismissed"))}>
-          <span>{t("set.rc.do_not_remind_of_this")}</span>
-        </ChoiceButton>
+        {item.kind === "loan_terms" && loanTermsDismissible(item.missing) && (
+          <ChoiceButton busy={busy || waiting} onClick={() => onAnswer(mark(item.subject, "dismissed"))}>
+            <span>{t("set.rc.do_not_remind_of_this")}</span>
+          </ChoiceButton>
+        )}
       </div>
       {loans.error && (
         <Notice tone="error" className="review-error" as="p">

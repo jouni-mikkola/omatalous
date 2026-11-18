@@ -74,6 +74,15 @@ describe("the question of a loan whose payments cannot be placed", () => {
     expect((await queue(t.admin)).map((i) => i.loanId)).toEqual([other]);
   });
 
+  it("keeps asking for the rate and the payment of a loan whose mark says dismissed, and honours it for the rest", async () => {
+    const t = await setupApp();
+    const noRate = await save(t.admin, { ...BASE, repayment: "annuity", intervalMonths: 1, paymentCents: 90_000 });
+    const noPayment = await save(t.admin, { ...BASE, name: "Toinen laina", repayment: "annuity", intervalMonths: 1, rateBp: 350 });
+    const noInterval = await save(t.admin, { ...BASE, name: "Kolmas laina", repayment: "annuity", paymentCents: 90_000, rateBp: 350 });
+    for (const id of [noRate, noPayment, noInterval]) expect((await t.admin.call("PUT", "/api/marks", { subject: loanTermsSubject(id), mark: "dismissed" })).status).toBe(200);
+    expect((await queue(t.admin)).map((i) => [i.loanId, i.missing]).sort()).toEqual([[noRate, "rate"], [noPayment, "payment"]].sort());
+  });
+
   it("is a member's own: another member's loan, paid from an account shared with the first user, is not asked of them", async () => {
     const t = await setupApp();
     const ville = await t.member("ville", "Ville");
@@ -120,6 +129,30 @@ const paidInFullCard = async (t: Awaited<ReturnType<typeof setupApp>>) => {
   await reprocess(repo, t.s.settings);
 };
 
+describe("the question of a loan on a reference rate", () => {
+  const EURIBOR = { ...FULL, reference: "euribor_12" };
+  it("asks the margin, then the day the rate is reviewed, and goes once the loan has both", async () => {
+    const t = await setupApp();
+    const id = await save(t.admin, EURIBOR);
+    expect(await queue(t.admin)).toEqual([expect.objectContaining({ loanId: id, missing: "margin" })]);
+    expect((await t.admin.call("PUT", `/api/loans/${id}`, { ...EURIBOR, marginBp: 80 })).status).toBe(200);
+    expect(await queue(t.admin)).toEqual([expect.objectContaining({ loanId: id, missing: "review_date" })]);
+    expect((await t.admin.call("PUT", `/api/loans/${id}`, { ...EURIBOR, marginBp: 80, rateReviewDate: "2027-01-05" })).status).toBe(200);
+    expect(await queue(t.admin)).toEqual([]);
+  });
+  it("asks nothing more of a loan with a fixed rate", async () => {
+    const t = await setupApp();
+    await save(t.admin, { ...FULL, reference: "fixed" });
+    expect(await queue(t.admin)).toEqual([]);
+  });
+  it("may be set aside with the mark of the loan", async () => {
+    const t = await setupApp();
+    const id = await save(t.admin, EURIBOR);
+    expect((await t.admin.call("PUT", "/api/marks", { subject: loanTermsSubject(id), mark: "dismissed" })).status).toBe(200);
+    expect(await queue(t.admin)).toEqual([]);
+  });
+});
+
 describe("the question of a loan linked to a connected account", () => {
   it("asks when the account owes and the typed balance says nothing is owed, and tells what the account owes", async () => {
     const t = await setupApp();
@@ -162,12 +195,12 @@ describe("the question of a connected card with no terms", () => {
     expect(await queue(t.admin)).toEqual([]);
   });
 
-  it("is set aside for a linked card by the loan's own mark", async () => {
+  it("keeps asking for the rate of a linked card whatever the loan's mark says", async () => {
     const t = await setupApp();
     await account(t, t.adminId, "card", "credit_card", -50_000);
     const id = await save(t.admin, { name: "Kortti", kind: "card", balanceCents: 50_000, balanceDate: "2026-10-01", limitCents: 200_000, accountId: "card" });
     expect((await t.admin.call("PUT", "/api/marks", { subject: loanTermsSubject(id), mark: "dismissed" })).status).toBe(200);
-    expect(await queue(t.admin)).toEqual([]);
+    expect((await queue(t.admin)).map((i) => i.loanId)).toEqual([id]);
   });
 
   it("asks nothing of a card the rows show paid in full, whether a loan without a rate is linked to it or not", async () => {
@@ -206,13 +239,13 @@ describe("the question of a connected card with no terms", () => {
     expect(await queue(t.admin)).toEqual([]);
   });
 
-  it("is set aside with the mark, for that card alone", async () => {
+  it("keeps asking for the rate of a card whatever its mark says", async () => {
     const t = await setupApp();
     await account(t, t.adminId, "card", "credit_card", -50_000);
     await account(t, t.adminId, "card-2", "credit_card", -20_000);
     expect((await t.admin.call("PUT", "/api/marks", { subject: loanTermsSubject("account:card"), mark: "in_use" })).status).toBe(400);
     expect((await t.admin.call("PUT", "/api/marks", { subject: loanTermsSubject("account:card"), mark: "dismissed" })).status).toBe(200);
-    expect((await queue(t.admin)).map((i) => i.accountId)).toEqual(["card-2"]);
+    expect((await queue(t.admin)).map((i) => i.accountId).sort()).toEqual(["card", "card-2"]);
   });
 
   it("is the member's own: another member's card, shared with the first user or not, is not asked of them", async () => {
@@ -223,5 +256,59 @@ describe("the question of a connected card with no terms", () => {
     await t.s.household.share(ville.id, "v-card", t.adminId);
     expect(await queue(t.admin)).toEqual([]);
     expect((await queue(ville)).map((i) => i.accountId).sort()).toEqual(["v-card", "v-hidden"]);
+  });
+});
+
+describe("the question of a payment the loan's plan did not expect", () => {
+  const KEY = "out:chk:Esimerkkirahoitus";
+  const LOAN = { ...FULL, balanceDate: "2026-08-01", seriesKey: KEY };
+  const payment = (date: string, cents: number) => raw(date, -cents, "ESIMERKKIRAHOITUS OY", "LAINAN LYHENNYS");
+  const drift = async (c: Caller) => ((await c.call("GET", "/api/review")).body.items as Item[]).filter((i) => i.kind === "loan_drift");
+
+  /** A household whose loan was saved in August, with the rows of the lender on its checking account. */
+  const household = async (rows: ReturnType<typeof raw>[], body: object = LOAN) => {
+    const t = await setupApp();
+    await account(t, t.adminId, "chk", "checking", 100_000);
+    const repo = t.s.finance(t.adminId);
+    await ingestTransactions(repo, "chk", rows, "csv");
+    await reprocess(repo, t.s.settings);
+    const id = await save(t.admin, body);
+    const [saved] = await repo.listLoans();
+    await repo.updateLoan(saved!, "2026-08-02T06:00:00.000Z");
+    return { t, id };
+  };
+
+  it("names the payment the bank took, the one the plan expected and the payment to save, with the row", async () => {
+    const { t, id } = await household([payment("2026-09-02", 90_000), payment("2026-10-02", 95_000)]);
+    expect(await drift(t.admin)).toEqual([expect.objectContaining({ id: `loan_drift:${id}`, cents: 0, loanId: id, name: "Asuntolaina", date: "2026-10-02", paidCents: 95_000, expectedCents: 90_000, paymentCents: 95_000, reviewDate: null, rowCount: 1 })]);
+    expect(await queue(t.admin)).toEqual([]);
+  });
+
+  it("asks nothing while the payments are the plan's, within the bank's rounding", async () => {
+    const { t } = await household([payment("2026-09-02", 90_000), payment("2026-10-02", 90_500)]);
+    expect(await drift(t.admin)).toEqual([]);
+  });
+
+  it("goes when the loan is saved after the row", async () => {
+    const { t, id } = await household([payment("2026-09-02", 90_000), payment("2026-10-02", 95_000)]);
+    expect(await drift(t.admin)).toHaveLength(1);
+    expect((await t.admin.call("PUT", `/api/loans/${id}`, { ...LOAN, paymentCents: 95_000 })).status).toBe(200);
+    expect(await drift(t.admin)).toEqual([]);
+  });
+
+  it("proposes the due date as the review day of a loan on a reference rate", async () => {
+    const { t } = await household([payment("2026-09-02", 90_000), payment("2026-10-02", 95_000)], { ...LOAN, reference: "euribor_12", marginBp: 80, rateReviewDate: "2026-09-01" });
+    expect(await drift(t.admin)).toEqual([expect.objectContaining({ paymentCents: 95_000, reviewDate: "2026-10-01" })]);
+  });
+
+  it("leaves the loan's terms first: a loan that lacks a fact has no drift question", async () => {
+    const { t, id } = await household([payment("2026-09-02", 90_000), payment("2026-10-02", 95_000)], { ...LOAN, reference: "euribor_12" });
+    expect(await queue(t.admin)).toEqual([expect.objectContaining({ loanId: id, missing: "margin" })]);
+    expect(await drift(t.admin)).toEqual([]);
+  });
+
+  it("asks nothing of a loan with no series", async () => {
+    const { t } = await household([payment("2026-09-02", 90_000), payment("2026-10-02", 95_000)], { ...LOAN, seriesKey: null });
+    expect(await drift(t.admin)).toEqual([]);
   });
 });

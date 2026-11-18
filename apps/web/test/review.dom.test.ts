@@ -91,7 +91,7 @@ describe("Tarkistettavat", () => {
     const meta = { accounts: [], sharedAccounts: [], bank: { banks: [] }, today: "2026-10-09" } as unknown as Meta;
     render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => {} } }));
     expect(document.querySelector(".review-item")!.textContent).toContain("Mikä on lainan kokonaiskorko?");
-    expect(choices().map((b) => b.textContent?.trim())).toEqual(["Täydennä laina", "Älä muistuta tästä enää"]);
+    expect(choices().map((b) => b.textContent?.trim())).toEqual(["Täydennä laina"]);
     fireEvent.click(screen.getByRole("button", { name: "Täydennä laina" }));
     // the missing fact alone is asked; the rest of the form is behind one button
     await screen.findByLabelText(/^Kokonaiskorko/, {}, T);
@@ -114,7 +114,7 @@ describe("Tarkistettavat", () => {
     const meta = { accounts: [card], sharedAccounts: [], bank: { banks: [] }, today: "2026-10-09" } as unknown as Meta;
     render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => {} } }));
     expect(document.querySelector(".review-item")!.textContent).toContain("Mikä on kortin kokonaiskorko?");
-    expect(choices().map((b) => b.textContent?.trim())).toEqual(["Täydennä kortin ehdot", "Älä muistuta tästä enää"]);
+    expect(choices().map((b) => b.textContent?.trim())).toEqual(["Täydennä kortin ehdot"]);
     fireEvent.click(screen.getByRole("button", { name: "Täydennä kortin ehdot" }));
     const rate = await screen.findByLabelText(/^Kokonaiskorko/, {}, T);
     // the form opens at its first field
@@ -153,14 +153,39 @@ describe("Tarkistettavat", () => {
     expect((await screen.findByRole("alert", {}, T)).textContent).toContain("Lainoja ei voitu lukea.");
   });
 
-  it("sets a saved loan's question aside with the mark of the item", async () => {
+  it("sets a saved loan's question aside with the mark of the item, except the rate and the payment, which keep asking", async () => {
     const seen = stubApi({ "PUT /api/marks": {} });
-    const item = { id: "loan_terms:loan-7", kind: "loan_terms", cents: 0, loanId: "loan-7", accountId: null, name: "Asuntolaina", owedCents: 15_000_000, balanceDate: "2026-10-01", missing: "payment", subject: "question:loan-terms:loan-7" } as unknown as ReviewItem;
+    const asked = { id: "loan_terms:loan-7", kind: "loan_terms", cents: 0, loanId: "loan-7", accountId: null, name: "Asuntolaina", owedCents: 15_000_000, balanceDate: "2026-10-01", subject: "question:loan-terms:loan-7" };
+    const metaOf = { accounts: [], sharedAccounts: [], bank: { banks: [] }, today: "2026-10-09" } as unknown as Meta;
+    for (const missing of ["rate", "payment"]) {
+      const view = render(createElement(Review, { meta: metaOf, queue: { data: { items: [{ ...asked, missing } as unknown as ReviewItem] }, error: null, reload: () => {} } }));
+      expect(choices().map((b) => b.textContent?.trim())).toEqual(["Täydennä laina"]);
+      view.unmount();
+    }
+    const item = { id: "loan_terms:loan-7", kind: "loan_terms", cents: 0, loanId: "loan-7", accountId: null, name: "Asuntolaina", owedCents: 15_000_000, balanceDate: "2026-10-01", missing: "interval", subject: "question:loan-terms:loan-7" } as unknown as ReviewItem;
     const meta = { accounts: [], sharedAccounts: [], bank: { banks: [] }, today: "2026-10-09" } as unknown as Meta;
     render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => {} } }));
     fireEvent.click(screen.getByRole("button", { name: "Älä muistuta tästä enää" }));
     await waitFor(() => expect(seen).toHaveLength(1), T);
     expect(seen[0]!.body).toEqual({ subject: "question:loan-terms:loan-7", mark: "dismissed" });
+  });
+
+  it("opens the loan's form with the payment the bank took and the day it moved on, asks that alone, and has no dismissal", async () => {
+    queryClient.clear();
+    const loan = { id: "loan-7", name: "Asuntolaina", lender: null, kind: "mortgage", grantedCents: null, balanceCents: 15_000_000, balanceDate: "2026-10-01", rateBp: 350, reference: "euribor_12", marginBp: 80, rateReviewDate: "2027-01-05", repayment: "annuity", intervalMonths: 1, paymentCents: 90_000, endDate: "2046-01-05", limitCents: null, seriesKey: null };
+    const seen = stubApi({ "GET /api/loans": { loans: [loan] }, "PUT /api/loans/loan-7": { loan } });
+    const item = { id: "loan_drift:loan-7", kind: "loan_drift", cents: 0, loanId: "loan-7", name: "Asuntolaina", date: "2026-11-05", paidCents: 95_000, expectedCents: 90_000, paymentCents: 95_000, reviewDate: "2026-11-05" } as unknown as ReviewItem;
+    const meta = { accounts: [], sharedAccounts: [], bank: { banks: [] }, today: "2026-11-18" } as unknown as Meta;
+    render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => {} } }));
+    expect(document.querySelector(".review-item")!.textContent).toContain("Onko lainan maksuerä muuttunut?");
+    expect(choices().map((b) => b.textContent?.trim())).toEqual(["Päivitä lainan maksuerä"]);
+    fireEvent.click(screen.getByRole("button", { name: "Päivitä lainan maksuerä" }));
+    expect(((await screen.findByLabelText(/^Maksuerä/, {}, T)) as HTMLInputElement).value).toMatch(/^950/);
+    expect((screen.getByLabelText(/^Koron tarkistuspäivä/) as HTMLInputElement).value).toBe("2026-11-05");
+    expect(screen.queryByLabelText(/^Lainaa jäljellä/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
+    await waitFor(() => expect(seen.some((s) => s.method === "PUT" && s.path === "/api/loans/loan-7")).toBe(true), T);
+    expect(seen.find((s) => s.method === "PUT")!.body).toMatchObject({ paymentCents: 95_000, rateReviewDate: "2026-11-05" });
   });
 
   it("answers money a merchant may owe back with the mark of its alert: asked, right, and asked again once the wait is over", async () => {
