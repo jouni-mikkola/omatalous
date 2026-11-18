@@ -374,11 +374,37 @@ describe("the bill calendar", () => {
       expect(november.rows.find((r) => r.payee === "Esimerkki Vakuutus")!.monthly).toBeUndefined();
     });
 
-    it("gives no figure for what is left while a bill's sum is not known, however many months have rows", () => {
-      const { cal } = run(household(), withBills(typedBill("Esimerkki Vero", 0, "2026-12-05")));
+    it("gives no figure for what is left in the month of a bill whose sum is not known, and the other months theirs", () => {
+      const { ctx, cal } = run(household(), withBills(typedBill("Esimerkki Vero", 0, "2026-12-05")));
+      expect(cal.unknownCount).toBe(1);
+      expect(cal.months.map((m) => m.afterCents === null)).toEqual(FIRST_MONTHS.map((m) => m === "2026-12"));
+      expect(cal.months[1]!.billsCents).toBe(RENT + MUSIC + INSURANCE + cal.months[1]!.estimateCents);
+      // November: the pay, less the rent, the music, the quarterly insurance and the typical electricity
+      expect(cal.months[1]!.afterCents).toBe(PAY - RENT - MUSIC - INSURANCE - typical(ctx, "Esimerkki Energia"));
+    });
+
+    it("gives the months before a bill far ahead their figure, however far its sum is from known", () => {
+      const base = run(household()).cal;
+      const { cal } = run(household(), withBills(typedBill("Esimerkki Vero", 0, "2027-09-05")));
+      expect(cal.unknownCount).toBe(1);
+      // only September 2027, the twelfth month, has no figure; the eleven before it are what they are without the bill
+      expect(cal.months.map((m) => m.afterCents === null)).toEqual(FIRST_MONTHS.map((m) => m === "2027-09"));
+      expect(cal.months.slice(0, 11).map((m) => m.afterCents)).toEqual(base.months.slice(0, 11).map((m) => m.afterCents));
+      expect(base.months[11]!.afterCents).not.toBeNull();
+      // by hand: the pay, less the rent, the music and the electricity of the same month of last year; the quarterly insurance falls due in February
+      expect(cal.months[2]!.afterCents).toBe(PAY - RENT - MUSIC - power("2025-12"));
+      expect(cal.months[3]!.afterCents).toBe(PAY - RENT - MUSIC - power("2026-01"));
+      expect(cal.months[4]!.afterCents).toBe(PAY - RENT - MUSIC - INSURANCE - power("2026-02"));
+    });
+
+    it("gives no month a figure while the day of a loan's payment is not known", () => {
+      const loan: Loan = {
+        id: "loan-4", name: "Remonttilaina", lender: "ESIMERKKIPANKKI", kind: "mortgage", grantedCents: null, balanceCents: 1_000_000, balanceDate: "2026-10-01", rateBp: null,
+        reference: null, marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: null, endDate: null, limitCents: null, seriesKey: null,
+      };
+      const { cal } = run(household(), { marks: [], expectedBills: [], loans: [loan] });
       expect(cal.unknownCount).toBe(1);
       expect(cal.months.map((m) => m.afterCents)).toEqual(Array.from({ length: 12 }, () => null));
-      expect(cal.months[1]!.billsCents).toBe(RENT + MUSIC + INSURANCE + cal.months[1]!.estimateCents);
     });
   });
 });

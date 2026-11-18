@@ -18,14 +18,14 @@ const capital = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slic
 /** The bills of a month, with the estimated part when there is one: the figure Laskut's month head gives. */
 const billsText = (m: Month) => (m.estimateCents > 0 ? t("home.coming_estimate", { sum: money(m.billsCents), estimate: money(m.estimateCents) }) : money(m.billsCents));
 
-/** What is left of the pays after the bills, as Laskut's month head tells it: below 0 in a month with no pay, and a status while a bill's sum is not known, never 0. */
+/** What is left of the pays after the bills, as Laskut's month head tells it: below 0 in a month with no pay, and a status in a month a bill with no known sum falls in, never 0. */
 const afterText = (m: Month) => (m.afterCents === null ? t("home.coming_after_unknown") : money(m.afterCents));
 
 /**
  * Tulevat kuukaudet: this month and the two after it, each with the bills (and the estimated part of them), the pays
  * expected and what is left after the bills. Every figure is a field of the month in `billCalendar`, the answer Laskut's
  * month heads read, so a month has the same sums in both places: `billsCents`, `estimateCents`, `incomeCents` and
- * `afterCents`, which is null while a bill's sum is not known (`unknownCount`). Nothing is added up here.
+ * `afterCents`, which is null in a month a bill with no known sum falls in (`unknowns`), and in every month while a bill has no day. Nothing is added up here.
  */
 export function ComingMonths({ calendar }: { calendar: Calendar }) {
   const months = calendar.months.slice(0, COMING_MONTHS);

@@ -6,7 +6,7 @@ import { runwayOf } from "../src/analysis/runway.ts";
 import { addDays, dateIn, daysBetween, fromMonthIndex, monthIndex, weekdayOf } from "../src/dates.ts";
 import { lowPoint } from "../src/low-point.ts";
 import { LOW_POINT_DAYS } from "../src/thresholds.ts";
-import { type Account, type BalanceInput, type ExpectedBill, type IsoDate, NO_INPUTS, type Transaction, type UserInputs } from "../src/types.ts";
+import { type Account, type BalanceInput, type ExpectedBill, type IsoDate, type Loan, NO_INPUTS, type Transaction, type UserInputs } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
 // The lowest balance of the next days, worked by hand. One household on one checking account, today 26.10.2026: the pay
@@ -146,6 +146,26 @@ describe("lowPoint that cannot be said", () => {
     // the same household with the sum known has a figure
     const typed = { ...NO_INPUTS, expectedBills: [{ ...unknown, amountCents: 8000 }] };
     expect(walk([...pays(), ...rents(), ...everyday], [bal(900_000)], undefined, typed).point.known).toBe(true);
+  });
+
+  it("gives the reason for a bill with no sum on the 60th day, and a figure for one on the 61st or far beyond", () => {
+    // the 60 days run from 26.10. to 24.12.
+    const rows = [...pays(), ...rents(), ...everyday];
+    const bills = (dueDate: string): UserInputs => ({ ...NO_INPUTS, expectedBills: [{ id: "b2", name: "Sähkö Oy", amountCents: 0, dueDate, cadence: "once", category: "utilities" }] });
+    const without = walk(rows, [bal(900_000)]).point;
+    expect(without.known).toBe(true);
+    expect(walk(rows, [bal(900_000)], undefined, bills("2026-12-24")).point).toEqual({ known: false, reason: "bills", days: 60 });
+    // a bill that falls on the 61st day or ten months later cannot change the lowest balance of the 60 days
+    expect(walk(rows, [bal(900_000)], undefined, bills("2026-12-25")).point).toEqual(without);
+    expect(walk(rows, [bal(900_000)], undefined, bills("2027-09-05")).point).toEqual(without);
+  });
+
+  it("gives the reason while the day of a loan's payment is not known", () => {
+    const loan: Loan = {
+      id: "loan-1", name: "Remonttilaina", lender: "ESIMERKKIPANKKI", kind: "mortgage", grantedCents: null, balanceCents: 1_000_000, balanceDate: "2026-10-01", rateBp: null,
+      reference: null, marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: null, endDate: null, limitCents: null, seriesKey: null,
+    };
+    expect(walk([...pays(), ...rents(), ...everyday], [bal(900_000)], undefined, { ...NO_INPUTS, loans: [loan] }).point).toEqual({ known: false, reason: "bills", days: 60 });
   });
 });
 

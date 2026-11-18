@@ -44,6 +44,19 @@ interface BillRow {
   onCard?: true;
 }
 
+/**
+ * A bill, loan payment, saving or pay whose sum or day is not known, so it has no row. `days` are the days it falls on in the
+ * window, none when no day is known; `open` says it goes on after them (a loan's payments after the first one with no sum,
+ * the pays beyond the ones found), so every later month holds it too.
+ */
+interface UnknownSum {
+  days: IsoDate[];
+  open: boolean;
+  kind: BillRow["kind"];
+  /** Paid by a card or an account the balance does not count: no sum of the month holds it, as no row of it does. */
+  onCard: boolean;
+}
+
 interface BillMonth {
   /** `YYYY-MM`. */
   month: string;
@@ -60,8 +73,10 @@ interface BillMonth {
   /** The month's bills still to pay, known and estimated: `knownCents` and `estimateCents` together. */
   billsCents: number;
   /**
-   * The pays less the bills and the regular saving still to come. Null while a bill's sum is not known (`unknownCount`) and while no pay
-   * is found at all, since an income that is not known is no income of 0. A month with no pay, in a household with pays, is below 0.
+   * The pays less the bills and the regular saving still to come. Null while a sum of this month is not known (`unknownMarks` of the
+   * calendar: a bill, a saving or a pay of this month, or one with no day) and while no pay is found at all, since an income that is not
+   * known is no income of 0. A month with no pay, in a household with pays, is below 0. The months are not added up: a bill with no sum in
+   * one month leaves the others their figure.
    */
   afterCents: number | null;
   /** The rows of `monthly` that are bills or loan payments still to pay, not on a card: how many, and what they add up to. */
@@ -83,9 +98,20 @@ interface BillCalendar {
    */
   yearlyCents: number;
   reserveMonthlyCents: number;
-  /** The bills and loans whose sum or date is not known, so they have no row. */
+  /** The bills and loans whose sum or date is not known, so they have no row: `unknowns` counted. */
   unknownCount: number;
+  unknowns: UnknownSum[];
 }
+
+/** Whether a sum that is not known is part of the month's sums: one with no day is part of every month, a dated one of the months it falls in and, when it goes on, of the later ones. */
+const holdsMonth = (u: UnknownSum, month: string): boolean => !u.onCard && (u.days.length === 0 || (u.open ? month >= monthOf(u.days[0]!) : u.days.some((d) => monthOf(d) === month)));
+
+/**
+ * Whether a bill, loan payment or saving whose sum is not known may fall on or before `last`: one with no day may, as may a dated one.
+ * A card's or an outside account's is no payment of the balance, and a pay that is not known cannot lower it, so neither counts.
+ */
+export const unknownPaymentBy = (calendar: Pick<BillCalendar, "unknowns">, last: IsoDate): boolean =>
+  calendar.unknowns.some((u) => !u.onCard && u.kind !== "income" && (u.days.length === 0 || u.days.some((d) => d <= last)));
 
 const byDay = (a: BillRow, b: BillRow) =>
   a.date.localeCompare(b.date) || Number(a.kind === "income") - Number(b.kind === "income") || b.cents - a.cents || a.payee.localeCompare(b.payee);
@@ -116,7 +142,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
   const windowStart = `${firstMonth}-01`;
   const windowEnd = monthEnd(addMonths(firstMonth, YEAR_MONTHS - 1));
   const rows: BillRow[] = [];
-  let unknownCount = 0;
+  const unknowns: UnknownSum[] = [];
   const byId = standingById(ctx);
   const rowsOf = (s: RecurringSeries) => s.transactionIds.flatMap((id) => byId.get(id) ?? []);
   const cancelled = cancelledSubjects(inputs, today);
@@ -164,7 +190,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
     const dates = projectDates(s, windowEnd).filter((d) => !s.overdue || d >= today);
     if (!dates.length) continue;
     if (s.typicalAmountCents <= 0) {
-      unknownCount++;
+      unknowns.push({ days: dates.map((d) => (d < today ? today : d)), open: false, kind: base.kind, onCard: paidElsewhere(s.id) });
       continue;
     }
     // a fixed-price series is of kind "subscription" (`isFixedAmount`): any other kind of bill varies
@@ -180,7 +206,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
   // a bill typed in under the name of a rare bill the history found is the found one (`ManualBill.counted`)
   const { occurrences, isDuplicate } = rareOccurrences(ctx, inputs);
   for (const b of expectedBillRows(ctx, inputs.expectedBills.filter((e) => !isDuplicate(e.name)), today, windowEnd)) {
-    if (b.amountCents <= 0) unknownCount++;
+    if (b.amountCents <= 0) unknowns.push({ days: [b.date], open: false, kind: "bill", onCard: false });
     else rows.push({ date: b.date, payee: b.name, category: b.category, cents: b.amountCents, state: "known", kind: "bill", seriesId: null });
   }
 
@@ -203,7 +229,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       // the whole balance falls due on the last day; a bullet with no day, or a day past, has nothing in these months
       if (loan.endDate !== null && loan.endDate >= today && loan.endDate <= windowEnd && loan.endDate > loan.balanceDate) {
         const owed = loanBalanceOn(loan, addDays(loan.endDate, -1)).cents;
-        if (owed === null) unknownCount++;
+        if (owed === null) unknowns.push({ days: [loan.endDate], open: false, kind: "loan", onCard: series ? paidElsewhere(series.id) : false });
         // the lump sum is no monthly bill, whatever the cadence of the interest series that pays the loan
         else if (owed > 0) rows.push(row(loan.endDate, owed, "known", false));
       }
@@ -219,7 +245,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       // no plan places the payment: the series that pays it does, at the typed payment
       const bill = typedBill(loan, today);
       const dates = series && bill !== null ? projectDates(series, windowEnd) : [];
-      if (bill === null || !dates.length) unknownCount++;
+      if (bill === null || !dates.length) unknowns.push({ days: [], open: false, kind: "loan", onCard: series ? paidElsewhere(series.id) : false });
       else for (const d of dates) rows.push(row(d < today ? today : d, bill));
       continue;
     }
@@ -230,7 +256,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       intervalStart = next.date;
       if (paidNow && monthOf(next.date) === firstMonth) continue;
       if (next.cents === null || next.cents <= 0) {
-        unknownCount++;
+        unknowns.push({ days: [next.date], open: true, kind: "loan", onCard: series ? paidElsewhere(series.id) : false });
         break;
       }
       rows.push(row(next.date, next.cents, review !== null && started !== null && started >= review ? "estimate" : "known", next.intervalMonths === 1));
@@ -240,7 +266,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
   const waited = new Set(found.major.map((p) => p.s));
   for (const { s, past, expected, dates } of found.pays) {
     if (s.typicalAmountCents <= 0) {
-      unknownCount++;
+      unknowns.push({ days: dates, open: true, kind: "income", onCard: false });
       continue;
     }
     const income = { payee: s.merchant, category: s.category, kind: "income" as const, seriesId: s.id };
@@ -274,11 +300,11 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       savingCents,
       incomeCents,
       billsCents: knownCents + estimateCents,
-      afterCents: unknownCount > 0 || found.pays.length === 0 ? null : incomeCents - knownCents - estimateCents - savingCents,
+      afterCents: found.pays.length === 0 || unknowns.some((u) => holdsMonth(u, month)) ? null : incomeCents - knownCents - estimateCents - savingCents,
       monthlyBillsCount: count((r) => r.monthly === true && toPay(r) && !r.onCard),
       monthlyBillsCents: sum((r) => r.monthly === true && toPay(r) && !r.onCard),
     };
   });
   const billsCents = months.reduce((total, m) => total + m.billsCents, 0);
-  return { from: today, to: windowEnd, months, billsCents, ...rareYearCounted(occurrences, today, balances), unknownCount };
+  return { from: today, to: windowEnd, months, billsCents, ...rareYearCounted(occurrences, today, balances), unknownCount: unknowns.length, unknowns };
 }

@@ -35,12 +35,12 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
   stands one line, the lowest balance of the next 60 days (`home.lowPoint`): *Alin saldo 60 pv: 13.12., arviolta
   120–480 €*; a range that starts below zero has spaces round its dash (*−250 – 50 €*). With no figure the line says why,
   as core gives it: the reasons of the figure above, *Liian lyhyt historia*, *Kortin ostot eivät näy historiassa* or
-  *Laskun summa tai päivä ei ole tiedossa* (the same bills Tulevat kuukaudet leaves at "Ei tiedossa").
+  *Laskun summa tai päivä ei ole tiedossa* (a bill with no sum within the 60 days, or with no day).
 - Tulevat kuukaudet, the third block: this month and the two after it, a row each with the bills (and the estimated
   part of them), the pays expected and what is left after the bills. Each figure is a field of the month in
   `billCalendar` (`billsCents`, `estimateCents`, `incomeCents`, `afterCents`), the answer Laskut's month heads read, so
-  both places tell the same sums. A sum that is not known is "Ei tiedossa", never 0, and a line counts the bills with
-  no sum (`unknownCount`). The block has no link: the figure of Nyt is the way to Laskut.
+  both places tell the same sums. A sum that is not known is "Ei tiedossa", never 0, in the months the unknown bill
+  falls in, and a line counts the bills with no sum (`unknownCount`). The block has no link: the figure of Nyt is the way to Laskut.
 - The twelve months of income and spending (`overview.months`, with the usual month as a dashed line) are a section of
   Raportit > Menot, *Tulot ja menot*, not a block of the first page.
 - Varat ja velat: the block of Raportit > Varat ja velat. The accounts in their types (checking, savings, other), a
