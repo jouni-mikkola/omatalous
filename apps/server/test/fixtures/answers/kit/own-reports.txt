@@ -2426,7 +2426,7 @@
    "rows": []
   },
   "interest": {
-   "cents": 0,
+   "cents": null,
    "rows": []
   },
   "loanPayments": [
