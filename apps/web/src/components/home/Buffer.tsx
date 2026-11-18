@@ -17,6 +17,7 @@ export function Buffer({ direction }: { direction: Direction }) {
     return (
       <div className="home-buffer" data-buffer="none">
         <span className="home-buffer-label">{t("home.buffer_label")}</span>
+        {" "}
         <span className="home-buffer-status">{bufferGap === "no-balance" ? t("home.buffer_no_balance") : t("home.buffer_history")}</span>
       </div>
     );
