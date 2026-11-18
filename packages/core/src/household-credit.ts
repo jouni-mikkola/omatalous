@@ -7,9 +7,11 @@
  * Source of the class list: the tax authority's page "Mistä töistä saa vähennyksen" (vero.fi, Henkilöasiakkaat >
  * Vähennykset > Kotitalousvähennys, last updated 27.10.2026), read against the TOL classes below. These classes keep their
  * numbers in TOL 2008 and TOL 2025, so one list serves both code sets. Work the page refuses is left out when a class
- * tells it apart: hairdressers, removals, security services, new building, demolition and groundwork, child day care
- * and VAT-exempt health care. Chimney sweeping, which the page refuses, shares class 81.22 with the window and building
- * cleaning it accepts, so its rows are listed too and the household checks the invoice.
+ * tells it apart: hairdressers, removals, security services, new building, demolition and groundwork, child day care,
+ * VAT-exempt health care and repair of communication equipment (a phone repair counter, where the work is not done at
+ * home). Chimney sweeping, which the page refuses, shares class 81.22 with the window and building cleaning it accepts,
+ * and roofing (43.91) serves new building as well as repair, so such rows are listed too and the household checks the
+ * invoice.
  */
 import { isLookupName, type RegisterAnswer } from "./industry.ts";
 
@@ -21,7 +23,8 @@ const COVERED_PREFIXES = [
   "813", // landscape services: garden and yard care, tree felling, lawn mowing
   "432", // electrical, plumbing and heating, other building installation
   "433", // building completion: painting, wallpapering, floors, glazing, plastering
-  "951", // repair of computers and communication equipment: IT installation and maintenance
+  "4391", // roofing: roof repair and renovation of a house, outer cladding
+  "9511", // repair of computers and peripherals: computer installation, software and maintenance at home
   "8810", // home care of the elderly and disabled, without accommodation
 ] as const;
 

@@ -647,8 +647,9 @@ describe("the tax year lists household-credit work by the payee's industry", () 
 
   it("covers cleaning, installation, garden, IT and home care and leaves out other classes", () => {
     const covered = (code: string) => paysHouseholdCreditWork("Esimerkki Oy", answer(code));
-    for (const code of ["81210", "81220", "81290", "81300", "43210", "43221", "43341", "95110", "88101"]) expect(covered(code)).toBe(true);
-    for (const code of ["56101", "43110", "43910", "43991", "49420", "96021", "80100", "88910", "86230", "47190"]) expect(covered(code)).toBe(false);
+    for (const code of ["81210", "81220", "81290", "81300", "43210", "43221", "43341", "43910", "95110", "88101"]) expect(covered(code)).toBe(true);
+    // roofing is covered, other specialised construction and a phone repair counter are not
+    for (const code of ["56101", "43110", "43991", "95120", "49420", "96021", "80100", "88910", "86230", "47190"]) expect(covered(code)).toBe(false);
     expect(paysHouseholdCreditWork("Esimerkki Oy", undefined)).toBe(false);
     expect(paysHouseholdCreditWork("Esimerkki Oy", { code: null, codeSet: null, companyName: "Esimerkki Oy" })).toBe(false);
   });
