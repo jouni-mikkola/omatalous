@@ -14,7 +14,7 @@ import { MarkCell } from "../components/table/Cells.tsx";
 import { date, money } from "../format.ts";
 import { publishReviewCount } from "../review-count.ts";
 import type { Meta } from "../types.ts";
-import { eyebrow, figureOf, isPerson, leftText, nameOf, NEW_SITTING, openItems, questionOf, readableText, type ReviewAnswer, type ReviewItem, type Sitting, sittingView, withFetch } from "./review-items.ts";
+import { eyebrow, figureOf, isPerson, leftText, linkedFirst, nameOf, NEW_SITTING, openItems, questionOf, readableText, type ReviewAnswer, type ReviewItem, type Sitting, sittingView, withFetch } from "./review-items.ts";
 import { ChoiceButton } from "./review-buttons.tsx";
 import { Choices } from "./ReviewChoices.tsx";
 import "../styles/review.css";
@@ -29,7 +29,8 @@ interface Queue {
   reload: () => void;
 }
 
-export function Review({ meta, queue }: { meta: Meta; queue: Queue }) {
+/** `first`: the id of an item a link opens the page at (`#/review?item=loan-terms`); it goes before the others while it is open. */
+export function Review({ meta, queue, first = null }: { meta: Meta; queue: Queue; first?: string | null }) {
   const [sitting, setSitting] = useState<Sitting>(NEW_SITTING);
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
@@ -40,7 +41,7 @@ export function Review({ meta, queue }: { meta: Meta; queue: Queue }) {
   const [held, setHeld] = useState<ReviewItem | null>(null);
   // the header's mark and the page's heading say the number the queue below does, an answer included
   // a failed fetch is an item of the queue, first in it: made here from the last run the server tells
-  const read = queue.data ? withFetch(queue.data.items, meta.lastSync) : null;
+  const read = queue.data ? linkedFirst(withFetch(queue.data.items, meta.lastSync), first) : null;
   const items = read && held && !read.some((i) => i.id === held.id) ? [held, ...read] : read;
   const left = items ? openItems(items, sitting).length : undefined;
   // the shell's count adds the failed fetch itself, so what is published is the server's kind of count

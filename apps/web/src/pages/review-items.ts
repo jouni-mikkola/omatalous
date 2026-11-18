@@ -167,6 +167,12 @@ export type ReviewItem = PayeeItem | PayerItem | LoanTermsListItem | SplitItem |
  */
 export const withFetch = (items: readonly ReviewItem[], run: SyncRun | null | undefined): ReviewItem[] => run?.status === "failed" ? [{ kind: "fetch", id: `fetch:${run.id}`, cents: 0, at: run.finishedAt ?? run.startedAt, message: run.message }, ...items] : [...items];
 
+/** The queue with the item a link names (`#/review?item=loan-terms`) first; an id the queue lacks changes nothing. */
+export function linkedFirst(items: readonly ReviewItem[], id: string | null): ReviewItem[] {
+  const linked = id === null ? undefined : items.find((i) => i.id === id);
+  return linked ? [linked, ...items.filter((i) => i !== linked)] : [...items];
+}
+
 export interface ReviewAnswer {
   items: ReviewItem[];
 }

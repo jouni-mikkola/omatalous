@@ -22,7 +22,7 @@ import { query } from "../../../api.ts";
 import { date, money, moneyIn, monthYear } from "../../../format.ts";
 import { t, tn } from "../../../text.ts";
 import { partText, typedByText } from "../../../part.ts";
-import { LOANS_REPORT_ANCHOR } from "../../../routes.ts";
+import { LOAN_TERMS_HASH, LOANS_REPORT_ANCHOR } from "../../../routes.ts";
 import type { DashboardData, Meta, ReconcileState } from "../../../types.ts";
 import { cardBankOf } from "../../../components/BankLogo.tsx";
 import { Figure } from "../../../components/Figure.tsx";
@@ -332,7 +332,8 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), b
               <dt className="st-name">{u.card ? `${u.name} · ${t("set.ri.credit_card")}` : u.name}</dt>
               <dd className="st-num">
                 {u.monthlyCents === null ? null : `${t("rpt.ln_per_month", { amount: money(u.monthlyCents) })} · `}
-                {t("holdings.balance_missing")}
+                {/* the missing balance is typed in Tarkistettavat, the list of debts that lack one */}
+                <a href={LOAN_TERMS_HASH}>{t("holdings.balance_missing")}</a>
               </dd>
             </div>
           ))}

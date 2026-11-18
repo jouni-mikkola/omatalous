@@ -109,6 +109,9 @@ export function settingsHash(target: SettingsTarget, anchor?: string, params: UR
 /** Where a bank is connected: Pankkiyhteydet opens its bank list. */
 export const CONNECT_BANK_HASH = hashOf({ page: `settings/${FIRST_TARGET}`, params: new URLSearchParams({ add: "1" }) });
 
+/** Where a debt's missing balance is typed: Tarkistettavat opens at Täydennä lainat (the item `loan-terms` of the server). */
+export const LOAN_TERMS_HASH = hashOf({ page: "review", params: new URLSearchParams({ item: "loan-terms" }) });
+
 /** The address of a card of Asetukset by its anchor: the card's target is looked up, so a link names only the card. */
 export function settingsCardHash(anchor: string, params?: URLSearchParams): string {
   return settingsHash(targetOfCard(anchor) ?? FIRST_TARGET, anchor, params);
