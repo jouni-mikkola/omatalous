@@ -9,7 +9,7 @@ import { Estimate } from "./Estimate.tsx";
  */
 export { approxText, Estimate } from "./Estimate.tsx";
 
-export function BasisDoor({ text, estimate = false, children }: { label?: string; text: string; estimate?: boolean; open?: boolean; onToggle?: () => void; controls?: string; className?: string; children?: ReactNode }) {
+export function BasisDoor({ text, estimate = false, className, children }: { label?: string; text: string; estimate?: boolean; open?: boolean; onToggle?: () => void; controls?: string; className?: string; children?: ReactNode }) {
   const figure = <Estimate when={estimate}>{children ?? text}</Estimate>;
   return className ? <span className={className}>{figure}</span> : figure;
 }
