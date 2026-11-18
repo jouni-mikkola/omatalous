@@ -66,6 +66,7 @@ export * from "./returns.ts";
 export { isUnnamedMobilePay } from "./mobilepay.ts";
 export * from "./analysis/flows.ts";
 export * from "./analysis/bridge-view.ts";
+export * from "./analysis/debt-split.ts";
 export * from "./analysis/printed.ts";
 export { isCardBill } from "./analysis/card-bills.ts";
 export * from "./analysis/period.ts";

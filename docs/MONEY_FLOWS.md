@@ -81,6 +81,19 @@ euros shown add up. The cash flow report's row of the month has the same Tulos
 (`leftCents`) and the same difference of income less consumption and debt service. `monthResult` in
 `packages/core/test/kit/invariants.ts` holds all of it for every generated household.
 
+## The debt service in its parts
+
+`debtSplit` in `analysis/debt-split.ts` tells the debt service of a range (`PeriodTotals.debtCents`) in three sums that add
+up to it to the cent: interest and fees (*Korot ja luottokulut*), repayments (*Lyhennykset*) and what no evidence splits
+(*Velanhoito, erittelemättä*). Each debt row counts once, in one of them. The evidence, in order: the interest rows the
+connected loan account booked on the day of the payment; the plan of a saved loan whose payment series holds the row,
+within `LOAN_ROW_DAYS` of a due date and the tolerance of the payment the plan expects (the known fee is a cost, the rest
+repays); otherwise the row stays unsplit. A row of the category `interest` is interest as a whole, and a card bill and a
+collection row are never split. An unknown part is never counted as 0. *Tulos* stays cash and no total moves (ADR 0028):
+Yhteenveto and the cash flow report tell the same sums, in the order Tulot, Kulutus, Korot ja luottokulut,
+Velanhoito erittelemättä (when it is not 0), a subtotal of the income less these costs, Lyhennykset, the rows for saving
+and credit, Tulos.
+
 ## Tulos and borrowed money
 
 *Tulos* is what a period left on the accounts: income + credit drawn − spending − debt service − saved (ADR 0014).
