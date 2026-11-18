@@ -7,7 +7,8 @@
  *
  * How a loan is counted:
  * - Interest of one payment interval is balance × rate × months / 12 (`loanPeriodInterest`). Months, since the loan
- *   does not say how its bank counts days. Every interest figure is rounded once, to the nearest cent, a half cent up.
+ *   does not say how its bank counts days. A euribor loan with a rate path counts the actual days over a 360-day year,
+ *   as the rate is published (`countsDays`). Every interest figure is rounded once, to the nearest cent, a half cent up.
  * - The rate of a loan a reference rate moves is the typed rate until its first review day, then the rate of each review
  *   (`ratePath`, set by `loansOf` from the fixings). Interest counts at the rate in force when the interval starts, in
  *   thousandths of a percent (`loan-schedule.ts`). With no fixings every loan counts at its typed rate on every day.
@@ -28,7 +29,7 @@ import { partCents } from "./account-use.ts";
 import { addDays, addMonthsToDate, daysBetween } from "./dates.ts";
 import { centsOf, type Debt, figureOf, partly } from "./debt-part.ts";
 import { divRound, endOf, type Instalments, intervalOf, loanLastDueDate, loanPeriodInterest, MAX_LOAN_PAYMENTS, planOf } from "./loan-plan.ts";
-import { annuityPayment, loanSchedule, type Payment, payments, rateMilliAt, ratePathOf } from "./loan-schedule.ts";
+import { annuityPayment, countsDays, loanSchedule, type Payment, payments, rateMilliAt, ratePathOf } from "./loan-schedule.ts";
 import type { Account, IsoDate, Loan, LoanReference, UserInputs } from "./types.ts";
 
 /** The Finnish name of each reference rate: the one list every page reads. */
@@ -408,7 +409,7 @@ export function planFrom(loan: Loan, plan: Instalments, day: IsoDate, rateBp: nu
   const shifted: Loan = loan.ratePath === undefined || shiftBp === 0 ? loan : { ...loan, ratePath: loan.ratePath.map(([on, rate]) => [on, movedRate(rate, margin, shiftBp * 10)] as const) };
   if (left > 0 && loan.repayment === "annuity" && loan.ratePath !== undefined && endOf(loan) !== null) {
     // an annuity with a last due date sets its payment again at every review: the payment in force, or the one the move asks
-    payment = shiftBp === 0 ? current : annuityPayment(balance, rateMilliAt(shifted.ratePath, rateBp, day), plan.months, left);
+    payment = shiftBp === 0 ? current : annuityPayment(balance, rateMilliAt(shifted.ratePath, rateBp, day), plan.months, left, countsDays(shifted));
   } else if (left > 0 && loan.repayment === "annuity" && loan.rateBp !== null && rateBp !== loan.rateBp) {
     if (!ends) return null;
     const anInterval = (bp: number) => (bp * plan.months) / 120_000;

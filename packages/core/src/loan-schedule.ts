@@ -4,10 +4,12 @@
  * the debt total agree on every day (ADR 0004).
  *
  * Rates are thousandths of a percent (`rateMilli`): a typed rate is `rateBp * 10`, a reference rate from a review day on
- * is `max(0, fixing) + margin` (`ratePathOf`). A loan with no `ratePath` counts at its typed rate on every day.
+ * is `max(0, fixing) + margin` (`ratePathOf`). A loan with no `ratePath` counts at its typed rate on every day, an
+ * interval's interest by its months. A loan that follows a euribor and has one counts the actual days over a 360-day
+ * year, as the rate is published (`countsDays`, `dayInterest`).
  */
-import { addMonthsToDate, monthIndex, monthOf } from "./dates.ts";
-import { dueDates, endOf, type Instalments, intervalInterest, intervalOf, MAX_LOAN_PAYMENTS, planOf, typedPayment } from "./loan-plan.ts";
+import { addMonthsToDate, daysBetween, monthIndex, monthOf } from "./dates.ts";
+import { dayInterest, dueDates, endOf, type Instalments, intervalInterest, intervalOf, MAX_LOAN_PAYMENTS, planOf, typedPayment } from "./loan-plan.ts";
 import type { LoanUnknown } from "./loans.ts";
 import { type Fixings, type IsoDate, isRevolving, type Loan, type RatePath } from "./types.ts";
 
@@ -35,10 +37,19 @@ export function rateMilliAt(path: RatePath | undefined, typedBp: number, day: Is
   return milli;
 }
 
-/** The payment that ends a balance in `left` payments at a rate, to the nearest cent, a half cent up. */
-export function annuityPayment(balanceCents: number, rateMilli: number, months: number, left: number): number {
+/** Does the loan's interest count the actual days over a 360-day year? A euribor loan does once its rate path is known. */
+export const countsDays = (loan: Loan): boolean => loan.ratePath !== undefined && loan.reference !== null && loan.reference !== "fixed";
+
+/** The days of an average year over the 360 of a reference rate's year: what an interval of months costs more at act/360. */
+const ACTUAL_OVER_360 = 365.25 / 360;
+
+/**
+ * The payment that ends a balance in `left` payments at a rate, to the nearest cent, a half cent up. `actual360` counts
+ * an interval of its average days over a 360-day year (a loan with a rate path), as its interest is.
+ */
+export function annuityPayment(balanceCents: number, rateMilli: number, months: number, left: number, actual360 = false): number {
   if (left <= 1) return balanceCents;
-  const i = (rateMilli * months) / 1_200_000;
+  const i = ((rateMilli * months) / 1_200_000) * (actual360 ? ACTUAL_OVER_360 : 1);
   return Math.round(i === 0 ? balanceCents / left : (balanceCents * i) / (1 - (1 + i) ** -left));
 }
 
@@ -52,6 +63,7 @@ export function annuityPayment(balanceCents: number, rateMilli: number, months: 
 export function* payments(loan: Loan, plan: Instalments, from: { balanceCents: number; after: IsoDate } = { balanceCents: loan.balanceCents, after: loan.balanceDate }, keepPayment = false): Generator<Payment> {
   const end = endOf(loan);
   const path = loan.ratePath;
+  const days = countsDays(loan);
   const reset = !keepPayment && plan.withInterest && loan.repayment === "annuity" && end !== null && path !== undefined;
   const listed = reset ? [...dueDates(loan, plan.months)] : null;
   const dates = listed ?? dueDates(loan, plan.months);
@@ -66,9 +78,10 @@ export function* payments(loan: Loan, plan: Instalments, from: { balanceCents: n
     if (date <= from.after) continue;
     if (balance <= 0) return;
     const rate = plan.rateBp === null ? null : rateMilliAt(path, plan.rateBp, start);
-    if (reset && rate !== set) payment = annuityPayment(balance, rate!, plan.months, total - index);
+    if (reset && rate !== set) payment = annuityPayment(balance, rate!, plan.months, total - index, days);
     set = rate;
-    const interest = rate === null ? null : intervalInterest(balance, rate, plan.months);
+    // a loan that follows a reference rate counts the actual days of the interval, the others its months
+    const interest = rate === null ? null : days ? dayInterest(balance, rate, daysBetween(start, date)) : intervalInterest(balance, rate, plan.months);
     const planned = plan.withInterest ? payment - interest! : payment;
     const amortisation = date === end || planned > balance ? balance : planned;
     balance -= amortisation;
@@ -200,7 +213,7 @@ function paymentsAfter(loan: Loan, plan: Instalments, from: IsoDate, change: Sch
   let next = step;
   if (options.lower && plan.rateBp !== null && owed > 0) {
     const left = [...dueDates(target, plan.months)].filter((d) => d > lastDate).length;
-    next = { ...step, paymentCents: annuityPayment(owed, rateMilliAt(loan.ratePath, plan.rateBp, lastDate), plan.months, left) };
+    next = { ...step, paymentCents: annuityPayment(owed, rateMilliAt(loan.ratePath, plan.rateBp, lastDate), plan.months, left, countsDays(loan)) };
   }
   return [...head, ...payments(target, next, { balanceCents: owed, after: lastDate }, options.keepPayment)];
 }

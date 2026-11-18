@@ -41,6 +41,8 @@ services:
       SETUP_CODE: ${SETUP_CODE:-}
       # trade register lookup until an admin changes it in Asetukset > Palvelin; false = off
       INDUSTRY_LOOKUP: ${INDUSTRY_LOOKUP:-true}
+      # the daily fetch of the published euribor fixings for loans that follow them; false = off
+      REFERENCE_RATES: ${REFERENCE_RATES:-true}
       DATA_DIR: /data
       # Encrypts the bank keys stored in the database. Created on first start (mode 600)
       # in its own volume, never an environment value (that would show in `docker inspect`).

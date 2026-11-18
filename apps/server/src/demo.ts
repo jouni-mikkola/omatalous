@@ -1,6 +1,8 @@
 import type { FinanceRepo } from "./db/finance-repo.ts";
+import type { ReferenceRatesRepo } from "./db/reference-rates-repo.ts";
 import type { SettingsRepo } from "./db/settings-repo.ts";
 import { addDays } from "@banking/core";
+import { EURIBOR_REFERENCES, type FixingRow } from "./providers/reference-rates/client.ts";
 import { type DemoAccount, generateDemoData } from "./demo-data.ts";
 import { accountKey } from "./db/household-repo.ts";
 import { reprocess } from "./services/enrich.ts";
@@ -63,6 +65,27 @@ export async function loadDemoData(repo: FinanceRepo, settings: SettingsRepo, to
   }
   await reprocess(repo, settings);
   return { accounts: accounts.length, transactions };
+}
+
+/** The made-up level of each rate on its first day, in thousandths of a percent. */
+const DEMO_FIXING_LEVEL = { euribor_3: 2000, euribor_6: 2150, euribor_12: 2300 } as const;
+/** The days of fixings before today, a little over the 26 months of the longest demo. */
+const DEMO_FIXING_DAYS = 800;
+
+/**
+ * Made-up fixings of the three euribor rates, one on each weekday up to yesterday: a slow wave round a level of the rate's
+ * own. A demo, a picture and a test show these and never a published rate. Loaded only where the daily fetch is off
+ * (`REFERENCE_RATES=false`), since a real install keeps the real fixings.
+ */
+export async function loadDemoFixings(rates: ReferenceRatesRepo, today: string): Promise<void> {
+  const rows: FixingRow[] = [];
+  for (let back = DEMO_FIXING_DAYS; back >= 1; back--) {
+    const day = addDays(today, -back);
+    const weekday = new Date(`${day}T00:00:00Z`).getUTCDay();
+    if (weekday === 0 || weekday === 6) continue;
+    for (const reference of EURIBOR_REFERENCES) rows.push({ reference, day, rateMilli: DEMO_FIXING_LEVEL[reference] + Math.round(150 * Math.sin(back / 40)) });
+  }
+  await rates.upsert(rows);
 }
 
 /** The demo rows of the add-on module (extensions.ts) when one is loaded. */

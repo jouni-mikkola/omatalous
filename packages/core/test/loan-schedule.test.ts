@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { dayNumber } from "../src/dates.ts";
-import { intervalInterest } from "../src/loan-plan.ts";
+import { dayInterest, intervalInterest } from "../src/loan-plan.ts";
 import { annuityPayment, loanSchedule, loanWhatIf, ratePathOf } from "../src/loan-schedule.ts";
 import { debtTotalOn, loanBalanceOn, loanInterestNext12Months, loanNextPayment, loanPayoffDate, loansOf } from "../src/loans.ts";
 import { type Fixings, type Loan, NO_INPUTS, type RatePath } from "../src/types.ts";
@@ -232,11 +232,11 @@ describe("the rate path of a reference rate", () => {
     const index = a.findIndex((r) => r.date === "2026-05-31");
     expect(a[index]!.rateMilli).toBe(3500);
     expect(b[index]!.rateMilli).toBe(3501);
-    // 0,001 % a year of the balance owed (a little under 1 170 000 €, so a little under 100 cents), a month's share, rounded half up on each side
+    // 0,001 % a year of the balance owed (1 170 000 €), the 31 days of May over a 360-day year, rounded half up on each side
     const owed = a[index - 1]!.balanceCents;
-    expect(b[index]!.interestCents! - a[index]!.interestCents!).toBe(intervalInterest(owed, 3501, 1) - intervalInterest(owed, 3500, 1));
-    expect(b[index]!.interestCents! - a[index]!.interestCents!).toBeGreaterThanOrEqual(97);
-    expect(b[index]!.interestCents! - a[index]!.interestCents!).toBeLessThanOrEqual(98);
+    expect(owed).toBe(117_000_000);
+    expect(b[index]!.interestCents! - a[index]!.interestCents!).toBe(dayInterest(owed, 3501, 31) - dayInterest(owed, 3500, 31));
+    expect(b[index]!.interestCents! - a[index]!.interestCents!).toBe(101);
     expect(b[index - 1]!.interestCents).toBe(a[index - 1]!.interestCents);
   });
 
@@ -271,6 +271,34 @@ describe("the rate path of a reference rate", () => {
     expect(ratePathOf(euribor3({ marginBp: null }), fixings)).toBeNull();
     expect(ratePathOf(euribor3({ rateReviewDate: null }), fixings)).toBeNull();
     expect(ratePathOf(euribor3(), { euribor_6: [["2026-04-30", 2600]] })).toBeNull();
+  });
+});
+
+describe("the days a euribor loan counts", () => {
+  const euribor3 = loan({ reference: "euribor_3", rateBp: 400, marginBp: 100, rateReviewDate: "2026-01-31", balanceDate: "2026-01-31", balanceCents: 1_200_000, repayment: "equal_principal", paymentCents: 100_000, endDate: "2027-07-31" });
+  const interestOf = (inputs: Partial<typeof NO_INPUTS & { fixings: Fixings }>) => loanSchedule(loansOf({ ...NO_INPUTS, loans: [euribor3], ...inputs })[0]!, "2026-01-31").rows.slice(0, 4).map((r) => r.interestCents);
+
+  it("counts the actual days of each interval over a 360-day year, a half cent up", () => {
+    // 28, 31, 30 and 31 days; the rate is 4,000 % until the review on 30 April, then 2,500 % and the margin 1,000 %
+    // 1 200 000 × 4,000 % × 28 / 360 = 3 733,33; 1 100 000 × 4,000 % × 31 / 360 = 3 788,89; 1 000 000 × 4,000 % × 30 / 360 = 3 333,33; 900 000 × 3,500 % × 31 / 360 = 2 712,50
+    expect(interestOf({ fixings: { euribor_3: [["2026-01-30", 2500]] } })).toEqual([3733, 3789, 3333, 2713]);
+  });
+
+  it("counts months when no fixing gives the loan a rate path", () => {
+    // 1 200 000 × 4,000 % / 12 = 4 000, and the balance falls 100 000 each month
+    expect(interestOf({})).toEqual([4000, 3667, 3333, 3000]);
+  });
+
+  it("counts months for a loan that no euribor moves", () => {
+    const fixed = { ...euribor3, reference: "fixed" as const };
+    expect(loanSchedule(loansOf({ ...NO_INPUTS, loans: [fixed], fixings: { euribor_3: [["2026-01-30", 2500]] } })[0]!, "2026-01-31").rows[0]!.interestCents).toBe(4000);
+  });
+
+  it("an annuity with a last due date still ends on it and clears the balance", () => {
+    const annuity = { ...euribor3, repayment: "annuity" as const, paymentCents: 70_000, balanceCents: 1_200_000, endDate: "2027-07-31" };
+    const rows = loanSchedule(loansOf({ ...NO_INPUTS, loans: [annuity], fixings: { euribor_3: [["2026-01-30", 2500], ["2026-04-30", 1500]] } })[0]!, "2026-01-31").rows;
+    expect(rows.at(-1)!.date).toBe("2027-07-31");
+    expect(rows.at(-1)!.balanceCents).toBe(0);
   });
 });
 
@@ -346,6 +374,18 @@ describe("an exact interest at the largest balance and rate", () => {
     expect(intervalInterest(1_000_000_000, rateMilli, 12)).toBe(700_000_000);
     for (const [balance, milli, months] of [[999_999_999, 69_999, 12], [1_000_000_000, 70_000, 366], [987_654_321, 65_432, 365], [1_000_000_000, 1, 1]] as const) {
       expect(intervalInterest(balance, milli, months)).toBe(exact(balance, milli, months));
+    }
+  });
+
+  it("counts days as exactly over 360 days: 10 000 000 € at 70 % for 366 days", () => {
+    const exactDays = (balance: number, rateMilli: number, days: number) => {
+      const n = BigInt(balance) * BigInt(rateMilli) * BigInt(days);
+      return Number((2n * n + 36_000_000n) / 72_000_000n);
+    };
+    expect(1_000_000_000 * 70_000 * 366).toBeGreaterThan(Number.MAX_SAFE_INTEGER);
+    expect(dayInterest(1_000_000_000, 70_000, 360)).toBe(700_000_000);
+    for (const [balance, milli, days] of [[999_999_999, 69_999, 31], [1_000_000_000, 70_000, 366], [987_654_321, 65_432, 365], [1_000_000_000, 1, 1], [1, 1, 1]] as const) {
+      expect(dayInterest(balance, milli, days)).toBe(exactDays(balance, milli, days));
     }
   });
 

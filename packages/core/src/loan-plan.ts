@@ -25,12 +25,27 @@ export function divRound(n: number, d: number): number {
  * rate over twelve months is about 6e14); a rate with a margin and a fixing on top can pass it.
  */
 export function intervalInterest(balanceCents: number, rateMilli: number, months: number): number {
-  const product = balanceCents * rateMilli * months;
-  if (Number.isSafeInteger(product) || ![balanceCents, rateMilli, months].every(Number.isSafeInteger)) return divRound(product, 1_200_000);
-  const n = BigInt(balanceCents) * BigInt(rateMilli) * BigInt(months);
-  const d = 1_200_000n;
-  const rest = ((n % d) + d) % d;
-  return Number((n - rest) / d + (2n * rest >= d ? 1n : 0n));
+  return roundedProduct(balanceCents, rateMilli, months, 1_200_000);
+}
+
+/**
+ * The interest of one interval of `days` days at a rate in thousandths of a percent, counted on the actual days over a
+ * 360-day year (act/360, the way a reference rate is published and a loan that follows it is charged): balance × rate ×
+ * days / 360, to the nearest cent, a half cent up (36 000 000 = thousandths of a percent × days a year). Exact, as
+ * `intervalInterest` is.
+ */
+export function dayInterest(balanceCents: number, rateMilli: number, days: number): number {
+  return roundedProduct(balanceCents, rateMilli, days, 36_000_000);
+}
+
+/** a × b × c / d to the nearest whole number, a half up, in whole numbers of a wider type where the product passes 2^53. */
+function roundedProduct(a: number, b: number, c: number, d: number): number {
+  const product = a * b * c;
+  if (Number.isSafeInteger(product) || ![a, b, c].every(Number.isSafeInteger)) return divRound(product, d);
+  const n = BigInt(a) * BigInt(b) * BigInt(c);
+  const divisor = BigInt(d);
+  const rest = ((n % divisor) + divisor) % divisor;
+  return Number((n - rest) / divisor + (2n * rest >= divisor ? 1n : 0n));
 }
 
 /** The interest of one interval at a typed rate in hundredths of a percent (`intervalInterest` at ten times the rate). */
