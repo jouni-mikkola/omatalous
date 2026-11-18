@@ -185,13 +185,63 @@ describe("the bill calendar", () => {
     );
     const today = "2026-10-09";
     const without = run(instalments, NO_INPUTS, today);
-    expect(rowsOf(without.cal).filter((r) => r.kind === "bill" && r.payee === "ESIMERKKIPANKKI").length).toBeGreaterThanOrEqual(11);
+    // the charge of this month and the eleven months after it
+    expect(rowsOf(without.cal).filter((r) => r.kind === "bill" && r.payee === "ESIMERKKIPANKKI")).toHaveLength(12);
     const { ctx, cal } = run(instalments, { marks: [], expectedBills: [], loans: [loan] }, today);
     const rows = rowsOf(cal);
     const loanRows = rows.filter((r) => r.kind === "loan");
-    expect(loanRows.length).toBeGreaterThanOrEqual(11);
-    expect(new Set(loanRows.map((r) => monthOf(r.date))).size).toBe(loanRows.length);
-    expect(loanRows.every((r) => r.payee === "Asuntolaina" && r.state === "known" && r.cents > 0 && r.seriesId === ctx.recurring[0]!.id)).toBe(true);
+    // one row a month: the instalment of October was charged on the 2nd, so the plan's of the 15th is no second one
+    expect(loanRows).toHaveLength(12);
+    expect(loanRows.map((r) => monthOf(r.date))).toEqual(FIRST_MONTHS);
+    expect(loanRows[0]).toMatchObject({ date: "2026-10-02", cents: 91_240, state: "paid" });
+    expect(loanRows.slice(1).every((r) => r.state === "known")).toBe(true);
+    expect(loanRows.every((r) => r.payee === "Asuntolaina" && r.cents > 0 && r.seriesId === ctx.recurring[0]!.id)).toBe(true);
+    expect(cal.months[0]).toMatchObject({ knownCents: 0, estimateCents: 0 });
     expect(rows.filter((r) => r.kind === "bill")).toEqual([]);
+  });
+
+  it("has the whole balance of a loan with one payment on its last day, as a row on that day", () => {
+    const bullet: Loan = {
+      id: "loan-2", name: "Autolaina", lender: "ESIMERKKIPANKKI", kind: "car", grantedCents: null, balanceCents: 500_000, balanceDate: "2026-10-01", rateBp: null,
+      reference: null, marginBp: null, repayment: "bullet", intervalMonths: null, paymentCents: null, endDate: "2027-03-31", limitCents: null, seriesKey: null,
+    };
+    const { cal } = run([], { marks: [], expectedBills: [], loans: [bullet] });
+    expect(rowsOf(cal).map((r) => [r.date, r.payee, r.cents, r.state, r.kind])).toEqual([["2027-03-31", "Autolaina", 500_000, "known", "loan"]]);
+    expect(cal.months[5]!.knownCents).toBe(500_000);
+    expect(cal.unknownCount).toBe(0);
+    // a loan that owes nothing has no row of 0 cents
+    expect(rowsOf(run([], { marks: [], expectedBills: [], loans: [{ ...bullet, balanceCents: 0 }] }).cal)).toEqual([]);
+    // a last day past the twelve months is no row
+    expect(rowsOf(run([], { marks: [], expectedBills: [], loans: [{ ...bullet, endDate: "2027-10-31" }] }).cal)).toEqual([]);
+  });
+
+  it("has a regular saving as a row of its own kind, in no sum of the bills", () => {
+    const saving = MONTHS.map((m) => tx({ accountId: "own", bookingDate: `${m}-20`, amountCents: -20_000, merchant: "Esimerkki Rahasto", category: "investments" }));
+    const { cal } = run([...household(), ...saving]);
+    const row = rowsOf(cal).filter((r) => r.payee === "Esimerkki Rahasto");
+    expect(row).toHaveLength(12);
+    expect(row.every((r) => r.kind === "saving")).toBe(true);
+    const november = cal.months[1]!;
+    expect(november.savingCents).toBe(20_000);
+    expect(november.knownCents).toBe(RENT + MUSIC + INSURANCE);
+    expect(cal.months[0]!.savingCents).toBe(0);
+  });
+
+  it("takes the largest charge of the month a year ago, not what two charges add up to", () => {
+    const extra = tx({ accountId: "own", bookingDate: "2025-12-12", amountCents: -2_500, merchant: "Esimerkki Energia", category: "utilities" });
+    const { cal } = run([...household(), extra]);
+    const december = cal.months.find((m) => m.month === "2026-12")!.rows.find((r) => r.payee === "Esimerkki Energia")!;
+    expect(december.cents).toBe(power("2025-12"));
+  });
+
+  it("has an estimated pay on the days of its cadence, every one of a month", () => {
+    const fortnight: Transaction[] = [];
+    for (let d = "2026-03-06"; d <= TODAY; d = addDays(d, 14)) fortnight.push(tx({ accountId: "own", bookingDate: d, amountCents: 150_000, merchant: "Esimerkki Oy", category: "salary" }));
+    const { cal } = run(fortnight);
+    const pay = (month: string) => cal.months.find((m) => m.month === month)!.rows.filter((r) => r.kind === "income");
+    expect(pay("2027-02").map((r) => [r.date, r.state])).toEqual([["2027-02-05", "estimate"], ["2027-02-19", "estimate"]]);
+    // a fortnight gives three pays in a month now and then
+    expect(pay("2027-04").map((r) => r.date)).toEqual(["2027-04-02", "2027-04-16", "2027-04-30"]);
+    expect(cal.months.find((m) => m.month === "2027-04")!.incomeCents).toBe(3 * 150_000);
   });
 });

@@ -241,7 +241,7 @@ const ANSWERS: Record<FigureKey, Answers> = {
       dashboard: monthly(buildDashboard(ctx, running(h), h.balances, inputs).holdings.loans),
     };
   },
-  billsYear: (h) => {
+  rareBillsYear: (h) => {
     const ctx = contextOf(h);
     // the typed bills of the demo household have none of the rare ones, so a typed yearly bill is added to be read as well
     const inputs = { ...h.inputs, expectedBills: [...h.inputs.expectedBills, { id: "typed-insurance", name: "Esimerkkivakuutus", amountCents: 24_000, dueDate: addMonths(monthOf(h.today), 2) + "-10", cadence: "yearly" as const, category: "insurance", reference: null, payeeIban: null }] };

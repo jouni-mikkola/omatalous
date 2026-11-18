@@ -97,8 +97,8 @@ export const FIGURES = {
     additive: false,
     pages: ["Yhteenveto", "Laskut"],
   },
-  billsYear: {
-    name: "Laskut 12 kk",
+  rareBillsYear: {
+    name: "Harvemmin kuin kuukausittain 12 kk",
     definition: "The bills that come every second month or less often, found in the history or typed in, over the twelve calendar months from the one of today, a bill paid this month included. Laskut and the report of rare bills read the one figure.",
     source: { file: "reports/bill-calendar.ts", fn: "billCalendar", field: "yearlyCents" },
     unit: "cents",

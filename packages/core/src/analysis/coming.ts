@@ -23,7 +23,7 @@ import { nextPayDate, payDayOf } from "./income.ts";
  * dates. The month of the last pay is tried too: a pay booked late in the next month, or on the Friday before the 1st,
  * leaves that month's pay still to come. A day less than 15 days after the last pay is that pay itself, not the next one.
  */
-function payDates(s: RecurringSeries, paidOn: readonly IsoDate[], to: IsoDate): IsoDate[] {
+export function payDates(s: RecurringSeries, paidOn: readonly IsoDate[], to: IsoDate): IsoDate[] {
   const pd = s.cadence === "monthly" && s.nextDate ? payDayOf(paidOn) : null;
   if (!pd) return projectDates(s, to);
   const out: IsoDate[] = [];
