@@ -25,8 +25,9 @@ export const NAV: readonly NavEntry[] = [
 export const readsScope = (page: string): boolean => NAV.some((e) => e.id === page);
 
 /**
- * Whether the page opens with a heading of its own, so its name needs no line above it: the four pages of the header and
- * Tarkistettavat, whose cards are named. Asetukset and the page of an add-on module have none, and the shell draws theirs.
+ * Whether the page's cards are named, so its name needs no visible title above them: the four pages of the header and
+ * Tarkistettavat. The shell still gives them the name as a heading that only a screen reader meets, and draws a visible
+ * title for Asetukset and the page of an add-on module, whose content has no heading that names the page.
  */
 export const namesItself = (page: string): boolean => readsScope(page) || page === REVIEW.id;
 
