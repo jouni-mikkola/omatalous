@@ -3,6 +3,7 @@
  * say it, and what stays on the server (a member's own name as their accounts give it).
  */
 import { describe, expect, it } from "vitest";
+import { fullestCopy, usesInView } from "../src/services/account-use.ts";
 import { type Client, setupApp } from "./helpers.ts";
 
 const AINO = "MEIKALAINEN AINO";
@@ -71,6 +72,23 @@ describe("the use of an account in /api/meta", () => {
     expect(hers.part).toEqual({ from: 0, to: 1, of: 1, split: "unknown" });
     expect(his.part).toEqual(hers.part);
     expect(JSON.stringify(await metaOf(eero))).not.toMatch(/vieras/i);
+  });
+});
+
+describe("the line of holders of an account's copies", () => {
+  it("two copies that name as many holders: the view and the money trace read the same line, the first in order", async () => {
+    const { s, aino, eero } = await household();
+    await link(s, aino.id, "aino-tied", `${AINO}, ${EERO}, VIERAS VILLE`, "idn-tied");
+    await link(s, eero.id, "eero-tied", `${AINO}, ${EERO}, VIERAS VEIKKO`, "idn-tied");
+    const copies = (await s.household.allAccounts()).filter((a) => a.identity === "idn-tied");
+    expect(copies).toHaveLength(2);
+    // the trace stands for this copy; the view must name the holders of the same line on every copy
+    const standing = fullestCopy(copies);
+    expect(standing.id).toBe("eero-tied");
+    for (const copy of copies) {
+      const read = (await usesInView(s, aino.id, [copy])).get(copy.id)!.use;
+      expect(read.users.find((u) => u.userId === null)?.label).toBe(copy.id === standing.id ? "Vieras Veikko" : OTHER);
+    }
   });
 });
 
