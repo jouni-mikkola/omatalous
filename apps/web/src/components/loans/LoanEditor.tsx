@@ -56,7 +56,9 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
   const fields = shownFields(form, links.fixings);
   // on a euribor whose fixing is stored the margin stands in for the rate, so asking the rate asks the margin
   const asked: readonly LoanFieldKey[] = ask?.includes("rateBp") && !fields.includes("rateBp") ? [...ask, "marginBp"] : (ask ?? []);
-  const shown = fields.filter((key) => !compact || asked.includes(key));
+  // a review day asked shows while a euribor is chosen: a fixed rate has none and an unknown one is picked first
+  const euribor = form.values.reference !== "" && form.values.reference !== "fixed";
+  const shown = fields.filter((key) => !compact || (asked.includes(key) && (key !== "rateReviewDate" || euribor)));
   const interest = interestOverPayment(form, links.fixings);
   const rate = rateNow(form, links.fixings);
   const left = checksLeft(form);

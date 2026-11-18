@@ -217,6 +217,39 @@ describe("Tarkistettavat", () => {
     expect(seen.find((s) => s.method === "PUT")!.body).toMatchObject({ paymentCents: 95_000, rateReviewDate: "2026-11-05" });
   });
 
+  it("saves a proposed loan on a euribor from its margin and review day, shows the saved loan's rate and balance in place, and moves on with Seuraava", async () => {
+    queryClient.clear();
+    const terms = { paymentCents: 31_250, dueDate: "2026-10-05", intervalMonths: 1, repayment: "annuity", reference: "euribor_12", nextReview: "2027-03-14" };
+    const saved = { id: "loan-1", name: "Asuntolaina", lender: "Esimerkkipankki", kind: "mortgage", grantedCents: null, balanceCents: 10_000_000, balanceDate: "2026-10-05", rateBp: 296, reference: "euribor_12", marginBp: 65, rateReviewDate: "2027-03-14", repayment: "annuity", intervalMonths: 1, paymentCents: 31_250, endDate: null, limitCents: null, seriesKey: "k" };
+    const seen = stubApi({ "GET /api/loans": { loans: [], fixings: { euribor_12: [["2026-03-13", 2310], ["2026-09-30", 2500]] } }, "POST /api/loans": { loan: saved } });
+    const items = [
+      { kind: "loan", id: "loan:k", cents: 375_000, key: "k", payee: "Esimerkkipankki", paymentCents: 31_250, months: 12, firstDate: "2025-11-05", lastDate: "2026-10-05", guess: "mortgage", placed: true, terms },
+      { id: "m", kind: "mortgage", cents: 0 },
+    ] as unknown as ReviewItem[];
+    const meta = { accounts: [], sharedAccounts: [], bank: { banks: [] }, today: "2026-10-12" } as unknown as Meta;
+    render(createElement(Review, { meta, queue: { data: { items }, error: null, reload: () => {} } }));
+    const heading = () => screen.getByRole("heading", { level: 2 });
+    fireEvent.click(screen.getByRole("button", { name: "Asuntolaina Ehdotus" }));
+    // the review day comes from the cycle the payments step at; with it and a stored fixing the margin stands in for the rate
+    expect(((await screen.findByLabelText(/^Koron tarkistuspäivä/, {}, T)) as HTMLInputElement).value).toBe("2027-03-14");
+    expect(screen.queryByLabelText(/^Korko/)).toBeNull();
+    fireEvent.change(screen.getByLabelText(/^Lainaa jäljellä/), { target: { value: "100 000" } });
+    fireEvent.change(screen.getByLabelText(/^Marginaali/), { target: { value: "0,65" } });
+    fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
+    await waitFor(() => expect(seen.some((s) => s.method === "POST" && s.path === "/api/loans")).toBe(true), T);
+    expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ kind: "mortgage", reference: "euribor_12", marginBp: 65, rateReviewDate: "2027-03-14", rateBp: null, balanceCents: 10_000_000 });
+    // the saved loan shows in the form's place: the rate counted now and the balance, with the question still open
+    const facts = await screen.findByText("Korko nyt", {}, T);
+    expect(facts.nextElementSibling!.textContent).toMatch(/^2,96\s%$/);
+    expect(screen.getByText("Jäljellä").nextElementSibling!.textContent).toMatch(/^100\s000,00\s€$/);
+    expect(screen.queryByLabelText(/^Marginaali/)).toBeNull();
+    expect(heading().textContent).toContain("Kysymys 1 / 2");
+    const next = screen.getByRole("button", { name: "Seuraava" });
+    expect(document.activeElement).toBe(next);
+    fireEvent.click(next);
+    await waitFor(() => expect(heading().textContent).toContain("Kysymys 2 / 2"), T);
+  });
+
   it("answers money a merchant may owe back with the mark of its alert: asked, right, and asked again once the wait is over", async () => {
     const seen = stubApi({ "PUT /api/marks": {} });
     const item = { id: "money_back:double:r2", kind: "money_back", cents: 16_743, merchant: "Verkkokauppa", reason: "double", count: 2, lastDate: "2026-09-20", askedOn: null, subject: "alert:double:r2" } as unknown as ReviewItem;

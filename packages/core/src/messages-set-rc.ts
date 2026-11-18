@@ -23,6 +23,8 @@ export const FI_SET_RC = {
   "set.rc.save": "Tallenna",
   "set.rc.last_month": "Viimeinen kuukausi",
   "set.rc.save_month": "Tallenna kuukausi",
+  "set.rc.next": "Seuraava",
+  "set.rc.rate_now": "Korko nyt",
   "set.rc.i_don_t_know": "En tiedä",
   "set.rc.not_a_loan": "Ei ole laina",
   "set.rc.complete_the_loan": "Täydennä laina",
