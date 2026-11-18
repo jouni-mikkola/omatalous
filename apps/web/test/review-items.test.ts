@@ -1,7 +1,7 @@
 /** Tarkistettavat's sitting and words: at most 25 items, the guess first, a split asked with no guess (owner rule L5). */
 import { describe, expect, it } from "vitest";
 import "./fixed-clock.ts";
-import { eyebrow, figureOf, groupCategories, leftText, offeredCategories, loanKindChoices, nameOf, NEW_SITTING, openItems, payerChoices, planEnd, questionOf, readableText, type ReviewItem, SITTING, sittingView, withFetch } from "../src/pages/review-items.ts";
+import { eyebrow, figureOf, groupCategories, leftText, linkedFirst, offeredCategories, loanKindChoices, nameOf, NEW_SITTING, openItems, payerChoices, planEnd, questionOf, readableText, type ReviewItem, SITTING, sittingView, withFetch } from "../src/pages/review-items.ts";
 
 const payee = (n: number): ReviewItem => ({ kind: "payee_out", id: `payee_out:Kauppa ${n}`, cents: 100_000 - n, merchant: `Kauppa ${n}`, count: 3, lastDate: "2026-09-20", picks: [] });
 const queue = (n: number) => Array.from({ length: n }, (_, i) => payee(i));
@@ -230,6 +230,18 @@ describe("a card with no balance", () => {
     const sek = { ...card, currency: "SEK" } as ReviewItem;
     expect([eyebrow(sek), nameOf(sek), questionOf(sek)]).toEqual(["Kortin saldo", "Luottokortti", "Kortin saldo on muussa valuutassa"]);
     expect(figureOf(sek).line).toBe("Kortin Luottokortti saldo on valuutassa SEK. Laskemme Käytettävissä palkkapäivään -luvun vain euroista, joten emme voi näyttää sitä, kun tämä kortti on mukana.");
+  });
+});
+
+describe("a link to one item", () => {
+  it("shows that item first and keeps the order of the rest", () => {
+    const items = queue(3);
+    expect(linkedFirst(items, items[2]!.id).map((i) => i.id)).toEqual([items[2]!.id, items[0]!.id, items[1]!.id]);
+  });
+  it("changes nothing when the item is not in the queue or no item is named", () => {
+    const items = queue(3);
+    expect(linkedFirst(items, "loan-terms")).toEqual(items);
+    expect(linkedFirst(items, null)).toEqual(items);
   });
 });
 
