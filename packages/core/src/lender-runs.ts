@@ -39,6 +39,9 @@ export function isKnownLender(payee: string, text: string): boolean {
   return isLenderName(text) || CONSUMER_LENDER.test(text) || isFinanceCompanyName(payee) || lexiconCategory({ merchant: payee, counterparty: payee, description: null })?.category === "loans";
 }
 
+/** A payment to a known lender, or to a payee named for a loan, and no instalment service: a loan's at any sum. */
+export const isLenderPayment = (payee: string, text: string): boolean => (isKnownLender(payee, text) || hasLoanText(payee)) && !INSTALMENT_SERVICE.test(text);
+
 /** Payments of one sum, in cents: instalments of one plan differ by the rounding of the last cent at most. */
 const PLAN_BAND_CENTS = 5;
 /** Plan payments in a row before a plan is told: two could be two purchases. */
@@ -138,7 +141,7 @@ export function fewPayments(txs: readonly AnalysisTx[], series: readonly Recurri
     const [first, last] = [rows[0]!, rows.at(-1)!];
     const payee = fold(last.merchant);
     const text = fold([last.merchant, last.counterparty, last.description].filter(Boolean).join(" "));
-    if (!(isKnownLender(payee, text) || hasLoanText(payee)) || INSTALMENT_SERVICE.test(text) || daysBetween(last.bookingDate, today) > LENDER_ACTIVE_DAYS) continue;
+    if (!isLenderPayment(payee, text) || daysBetween(last.bookingDate, today) > LENDER_ACTIVE_DAYS) continue;
     const owed = owedAtLeast(txs, draws, last.merchant, today);
     // a credit paid back in full is no debt, however many payments it took
     if (owed === null ? rows.length < 2 : owed.cents === 0 || last.bookingDate < owed.since) continue;

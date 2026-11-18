@@ -3,8 +3,9 @@
  * page that lets the household save it (`Loan`, loans.ts) or say "Ei ole laina".
  *
  * What is proposed: a series of `ctx.recurring` that is active, monthly, money out, in a loan's category (mortgage,
- * loans, student_loan), with three or more charges of at least 20 € and one payment reference, or any references when
- * the payee is a lender and no instalment service (a consumer lender's invoice brings a new one each month).
+ * loans, student_loan), with three or more charges and one payment reference, or any references when the payee is a
+ * lender and no instalment service (a consumer lender's invoice brings a new one each month). The charges are of at
+ * least 20 € unless the payee is such a lender (`isLenderPayment`), whose payment is a loan's at any sum.
  * recurring.ts owns what a monthly series is and whether it still runs. A lender's payments of about one sum, about
  * one a calendar month, that it found no monthly series in (the day moves too much for a cadence) are one more series
  * (`lenderInstalments`). A known lender's payments no series tells, of any sum, two or more or after a credit it paid in
@@ -31,7 +32,7 @@ import { referenceOf } from "./card-channel.ts";
 import { isCut } from "./shared.ts";
 import { cancelledSubjects, isCancelled, isContract } from "./commitments.ts";
 import { daysBetween, monthIndex, monthOf } from "./dates.ts";
-import { creditDraws, drawnKind, fewPayments, INSTALMENT_SERVICE, isKnownLender, LENDER_ACTIVE_DAYS, LOAN_CATEGORIES, MIN_LOAN_PAYMENT_CENTS, ofService, owedAtLeast, planRuns } from "./lender-runs.ts";
+import { creditDraws, drawnKind, fewPayments, INSTALMENT_SERVICE, isKnownLender, isLenderPayment, LENDER_ACTIVE_DAYS, LOAN_CATEGORIES, MIN_LOAN_PAYMENT_CENTS, ofService, owedAtLeast, planRuns } from "./lender-runs.ts";
 import { loansOf, typedBill } from "./loans.ts";
 import { planAnswers } from "./plan-answer.ts";
 import { cardIssuerName, fold } from "./merchant.ts";
@@ -391,10 +392,14 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
     // a lender's few payments are a loan's at any sum: the rows show no plan to hold them to
     const fewOwed = few.get(s.id);
     const isFew = fewOwed !== undefined;
-    const charges = s.transactionIds.map((id) => byId.get(id)).filter((t): t is AnalysisTx => !!t && (isFew || -billCents(t) >= MIN_LOAN_PAYMENT_CENTS));
+    const rows = s.transactionIds.map((id) => byId.get(id)).filter((t): t is AnalysisTx => !!t);
+    const newest = rows.reduce<AnalysisTx | undefined>((a, t) => (a && a.day > t.day ? a : t), undefined);
+    // a lender's payment is a loan's at any sum; the floor keeps a small fee or service of anyone else out
+    const anySum = isFew || (!!newest && isLenderPayment(fold(newest.counterparty ?? s.merchant), fold([s.merchant, newest.counterparty, newest.description].filter(Boolean).join(" "))));
+    const charges = anySum ? rows : rows.filter((t) => -billCents(t) >= MIN_LOAN_PAYMENT_CENTS);
     if (!isFew && charges.length < MIN_LOAN_CHARGES) continue;
     const paymentCents = isFew ? s.typicalAmountCents : wholePayment(s.typicalAmountCents, charges);
-    if (!isFew && paymentCents < MIN_LOAN_PAYMENT_CENTS) continue;
+    if (!anySum && paymentCents < MIN_LOAN_PAYMENT_CENTS) continue;
     charges.sort((a, b) => a.day - b.day);
     const latest = charges.slice(-MIN_LOAN_CHARGES);
     const last = latest.at(-1)!;
@@ -406,7 +411,7 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
     // an instalment service is a plan only for the same sum in three months running; its other payments are purchases
     const plan = INSTALMENT_SERVICE.test(text);
     if (plan && planRuns(charges).length === 0) continue;
-    const invoicedLoan = (isKnownLender(payee, text) && !INSTALMENT_SERVICE.test(text)) || hasLoanText(payee);
+    const invoicedLoan = isLenderPayment(payee, text) || hasLoanText(payee);
     if (references.size > 1 && !invoicedLoan && !plan) continue;
     // an insurer, a landlord, a lessor and a housing company charging for its own loan are paid no loan of the household's
     if (isInsuranceText(text) || isRent(text) || isLeaseText(text) || isHousingCompanyName(payee)) continue;

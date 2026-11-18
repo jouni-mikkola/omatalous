@@ -147,9 +147,8 @@ describe("what is never proposed", () => {
     ["a loan's payment protection, named LAINATURVA", monthly(8, 32, { counterparty: "NORDEA BANK ABP", description: "LAINATURVA 1234567" })],
     ["a loan's insurance at a lender", monthly(8, 32, { counterparty: "SANTANDER CONSUMER FINANCE OY", description: "LAINAVAKUUTUS 1234567" })],
     ["a subscription", monthly(8, 21.99, { counterparty: "NETFLIX", description: "NETFLIX.COM" })],
-    ["an instalment under 20 €", monthly(8, 15, { counterparty: "SANTANDER CONSUMER FINANCE OY", description: "OSAMAKSU" })],
-    ["an instalment that has been 20 € only twice", monthly(4, (i) => (i < 2 ? 15 : 25), { counterparty: "SANTANDER CONSUMER FINANCE OY", description: "OSAMAKSU" })],
-    ["an instalment that is under 20 € now, though five earlier charges reached it", monthly(8, (i) => (i < 5 ? 20.5 : 19.5), { counterparty: "SANTANDER CONSUMER FINANCE OY", description: "OSAMAKSU" })],
+    ["a loan's payment under 20 € to a payee that is no lender", monthly(8, 15, { counterparty: "ESIMERKKI KAUPPA OY", description: "LAINA" })],
+    ["a loan share under 20 € paid to a person", monthly(8, 15, { counterparty: "PEKKA VIRTANEN", description: "LAINAOSUUS" })],
     ["monthly deposits at a bank that also lends", monthly(6, 200, { counterparty: "BIGBANK AS SUOMEN SIVULIIKE", description: "" })],
     ["a bond bought every month", monthly(6, 100, { counterparty: "NORDEA BANK ABP", description: "OSAKEINDEKSILAINA MERKINTÄ" })],
     ["a lease at a car maker's finance company", monthly(6, 399, { counterparty: "VOLKSWAGEN FINANCIAL SERVICES", description: "YKSITYISLEASING 123" })],
@@ -179,8 +178,14 @@ describe("what is never proposed", () => {
     },
   );
 
-  it("a lender paid twice is proposed with no monthly figure", () => {
-    expect(proposalsOf([...pay, ...carLoan(2)]).map((p) => [p.payee, p.paymentCents, p.monthlyCents])).toEqual([["Toyota Finance Finland", 25000, null]]);
+  // a lender's payment is a loan's at any sum: a monthly series gives its monthly figure, a short run none
+  it.each<[string, Transaction[], number, number | null]>([
+    ["an instalment under 20 €", monthly(8, 15, { counterparty: "SANTANDER CONSUMER FINANCE OY", description: "OSAMAKSU" }), 1500, 1500],
+    ["an instalment that has been 20 € only twice", monthly(4, (i) => (i < 2 ? 15 : 25), { counterparty: "SANTANDER CONSUMER FINANCE OY", description: "OSAMAKSU" }), 2500, 2500],
+    ["an instalment that is under 20 € now, though five earlier charges reached it", monthly(8, (i) => (i < 5 ? 20.5 : 19.5), { counterparty: "SANTANDER CONSUMER FINANCE OY", description: "OSAMAKSU" }), 1950, 1950],
+    ["a lender paid twice", carLoan(2), 25000, null],
+  ])("a lender's small or short run is proposed: %s", (_name, rows, paymentCents, monthlyCents) => {
+    expect(proposalsOf([...pay, ...rows]).map((p) => [p.paymentCents, p.monthlyCents])).toEqual([[paymentCents, monthlyCents]]);
   });
 
   it("a loan share paid to anyone else is proposed", () => {
