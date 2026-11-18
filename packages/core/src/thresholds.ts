@@ -75,6 +75,10 @@ export const THRESHOLDS = {
   loanRowDays: threshold(7, "days", "A judgement: a bank books a loan payment within a week of its due date (a weekend, a holiday), and a loan's due dates are a month or more apart, so a row is at most one due date's."),
   loanRowToleranceCents: threshold(100, "cents", "A judgement: the bank rounds an annuity and counts its interest on its own day count, so a payment differs from the plan's by cents; 1 € is room for that and none for a different payment."),
   loanRowToleranceShare: threshold(0.01, "share", "A judgement: a payment within 1 % of the plan's is the plan's payment, as the bank counted it. The larger of this and 1 € is the room, so a large loan's rounding is not read as another payment."),
+  cheapDebtBelowPoints: threshold(7, "points", "A judgement: a home or student loan at a euribor of 2 to 3 % and its margin costs less than 7 % a year, consumer credit rarely does. The kind of a debt never sets its class, its cost does."),
+  dearDebtBelowPoints: threshold(15, "points", "A judgement: consumer credit and a car loan cost 7 to 15 % a year; a card or a flexible credit at interest, or a small plan with a fee on each payment, costs more."),
+  debtPlanBufferMonths: threshold(1, "months", "A judgement: a month of usual spending in the accounts before any extra money goes to a debt, so the next surprise is paid from the buffer and not with new credit."),
+  snowballGapCents: threshold(5000, "cents", "A judgement: paying the smallest debt first costs this much more interest than the dearest first before it is worth a line; the gap is usually a few euros."),
 } as const;
 
 export const USUAL_MONTHS = THRESHOLDS.usualMonths.value;
