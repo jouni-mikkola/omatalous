@@ -230,14 +230,15 @@ describe("Tarkistettavat", () => {
     const view = render(createElement(Review, { meta, queue: { data: { items }, error: null, reload: () => {} } }));
     const heading = () => screen.getByRole("heading", { level: 2 });
     fireEvent.click(screen.getByRole("button", { name: "Asuntolaina Ehdotus" }));
-    // the review day comes from the cycle the payments step at; with it and a stored fixing the margin stands in for the rate
+    // the review day comes from the cycle the payments step at; with it and a stored fixing the margin stands in for the
+    // rate, counted from the fixing of the last review day before the balance day (2,31 % on 13.3.2026) and the margin
     expect(((await screen.findByLabelText(/^Koron tarkistuspäivä/, {}, T)) as HTMLInputElement).value).toBe("2027-03-14");
     expect(screen.queryByLabelText(/^Korko/)).toBeNull();
     fireEvent.change(screen.getByLabelText(/^Lainaa jäljellä/), { target: { value: "100 000" } });
     fireEvent.change(screen.getByLabelText(/^Marginaali/), { target: { value: "0,65" } });
     fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
     await waitFor(() => expect(seen.some((s) => s.method === "POST" && s.path === "/api/loans")).toBe(true), T);
-    expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ kind: "mortgage", reference: "euribor_12", marginBp: 65, rateReviewDate: "2027-03-14", rateBp: null, balanceCents: 10_000_000 });
+    expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ kind: "mortgage", reference: "euribor_12", marginBp: 65, rateReviewDate: "2027-03-14", rateBp: 296, balanceCents: 10_000_000 });
     // the saved loan shows in the form's place: the rate counted now and the balance, with the question still open
     const facts = await screen.findByText("Korko nyt", {}, T);
     expect(facts.nextElementSibling!.textContent).toMatch(/^2,96\s%$/);

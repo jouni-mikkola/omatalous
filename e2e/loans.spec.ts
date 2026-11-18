@@ -32,6 +32,22 @@ function typed(day: string): { balanceDate: string; endDate: string; end: string
   return { balanceDate: `${day.slice(0, 8)}01`, endDate: `${y + 20}${day.slice(4)}`, end: `${d}.${m}.${y + 20}` };
 }
 
+/** The same day a year later; the days used here are firsts of a month, which every month has. */
+const nextYear = (day: string): string => `${Number(day.slice(0, 4)) + 1}${day.slice(4)}`;
+
+/**
+ * The rate the server stores for a 12 month euribor whose last review day is `on`: the demo's fixing of that day or the
+ * one before it and the margin, in hundredths of a percent, a half up. A fixing under zero counts as zero.
+ */
+function rateOn(fixings: Record<string, [string, number][]>, on: string, marginBp: number): number {
+  const fixing = (fixings.euribor_12 ?? []).filter(([from]) => from <= on).at(-1);
+  expect(fixing, "the made-up fixings of the demo reach the day").toBeDefined();
+  return Math.round((Math.max(0, fixing![1]) + marginBp * 10) / 10);
+}
+
+/** A rate as the page writes it, "2,96 %", any space before the sign. */
+const percentText = (bp: number): string => `${Math.floor(bp / 100)},${String(bp % 100).padStart(2, "0")}\\s%`;
+
 const lainat = (page: Page) => page.locator("#lainat");
 /** The message line of the card (Loans.tsx). */
 const said = (card: Locator, text: string) => expect(card.getByRole("status").filter({ hasText: text })).toHaveText(text);
@@ -81,7 +97,11 @@ test("a loan is typed into the form, a missing kind holds Tallenna back, and the
   await form.getByLabel("Saldon päivä", { exact: true }).fill(loan.balanceDate);
   await form.getByLabel("Myönnetty määrä (€)").fill("150 000,00");
   await form.getByLabel("Korko (%)").fill("3,39");
-  await form.getByLabel("Viitekorko", { exact: true }).selectOption("fixed");
+  await form.getByLabel("Viitekorko", { exact: true }).selectOption("euribor_12");
+  await form.getByLabel("Marginaali (%)").fill("0,65");
+  // a euribor with no review day keeps the typed rate: the fixing in force is not known without it
+  await expect(form.getByLabel("Korko (%)")).toHaveValue("3,39");
+  await expect(form.locator(".loan-rate-now")).toHaveCount(0);
   await form.getByLabel("Lyhennystapa", { exact: true }).selectOption("annuity");
   await form.getByLabel("Lyhennysväli", { exact: true }).selectOption("1");
   await form.getByLabel("Maksuerä (€)").fill("689,20");
@@ -143,15 +163,24 @@ test("a saved loan is edited in a dialog and removed after a question", async ({
   await expect(dialog.getByRole("alert")).toContainText("Maksuerä on pienempi kuin korko.");
   await dialog.getByRole("button", { name: "Tyhjennä maksuerä" }).click();
   await expect(dialog.getByLabel("Maksuerä (€)")).toHaveValue("");
+  // with its review day the euribor's rate is counted from the fixing of the last review day and the margin
+  const { fixings } = (await (await context.request.get("/api/loans", RESEND)).json()) as { fixings: Record<string, [string, number][]> };
+  const balanceDate = `${(await today(context)).slice(0, 8)}01`;
+  const rateBp = rateOn(fixings, balanceDate, 65);
+  await expect(dialog.getByLabel("Korko (%)")).toBeVisible();
+  await dialog.getByLabel("Koron tarkistuspäivä", { exact: true }).fill(nextYear(balanceDate));
+  await expect(dialog.getByLabel("Korko (%)")).toHaveCount(0);
+  await expect(dialog.locator(".loan-rate-now")).toHaveText(new RegExp(`^Korko nyt ${percentText(rateBp)}$`));
   await dialog.getByRole("button", { name: "Tallenna" }).click();
   await expect(dialog).toHaveCount(0);
   await said(card, "Muutokset tallennettu.");
   const row = card.getByRole("row").filter({ hasText: "Kodin laina" });
   await expect(row).toContainText(/119\s500,00\s€/);
-  // the fields the form did not touch went back as they were
+  await expect(row).toContainText(new RegExp(percentText(rateBp)));
+  // the fields the form did not touch went back as they were, and the rate is the one counted
   const { loans } = await (await context.request.get("/api/loans", RESEND)).json();
   expect(loans).toHaveLength(1);
-  expect(loans[0]).toMatchObject({ name: "Kodin laina", kind: "mortgage", lender: "Esimerkkipankki Oyj", balanceCents: 11_950_000, grantedCents: 15_000_000, rateBp: 339, reference: "fixed", marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: null, limitCents: null, seriesKey: null });
+  expect(loans[0]).toMatchObject({ name: "Kodin laina", kind: "mortgage", lender: "Esimerkkipankki Oyj", balanceCents: 11_950_000, grantedCents: 15_000_000, rateBp, reference: "euribor_12", marginBp: 65, rateReviewDate: nextYear(balanceDate), repayment: "annuity", intervalMonths: 1, paymentCents: null, limitCents: null, seriesKey: null });
 
   await card.getByRole("button", { name: "Poista laina Kodin laina" }).click();
   const question = page.getByRole("dialog", { name: "Poista Kodin laina?" });
@@ -231,11 +260,10 @@ test("on a phone a loan on a euribor is typed with its margin alone, the form sh
   await clearLoans(context);
   const day = await today(context);
   const { fixings } = (await (await context.request.get("/api/loans", RESEND)).json()) as { fixings: Record<string, [string, number][]> };
-  const fixing = (fixings.euribor_12 ?? []).filter(([from]) => from <= day).at(-1);
-  test.skip(!fixing, "needs the made-up fixings of the demo");
-  // the fixing and the margin, in hundredths of a percent, a half up: the rate the server stores
-  const rateBp = Math.round((Math.max(0, fixing![1]) + 650) / 10);
-  const rate = new RegExp(`${Math.floor(rateBp / 100)},${String(rateBp % 100).padStart(2, "0")}\\s%`);
+  // the next review a year from the first of this month: the fixing of that first day is the one in force
+  const reviewDay = nextYear(`${day.slice(0, 8)}01`);
+  const rateBp = rateOn(fixings, `${day.slice(0, 8)}01`, 65);
+  const rate = new RegExp(percentText(rateBp));
   const page = await context.newPage();
   await page.setViewportSize({ width: 390, height: 844 });
   const seen = watch(page);
@@ -247,31 +275,34 @@ test("on a phone a loan on a euribor is typed with its margin alone, the form sh
   await form.getByLabel("Nimi").fill("Marginaalilaina");
   await form.getByLabel("Lainaa jäljellä (€)").fill("80 000");
 
-  // the dates are the browser's own date fields, which a Finnish page shows as d.m.yyyy, whole on a phone
-  expect(await page.evaluate(() => new Intl.DateTimeFormat().format(new Date(2026, 9, 5)))).toBe("5.10.2026");
+  // the dates are the browser's own date fields, whole on a phone; the saved one shows in the list as d.m.yyyy
   const balanceDay = form.getByLabel("Saldon päivä", { exact: true });
   await expect(balanceDay).toHaveAttribute("type", "date");
   await expect(balanceDay).toHaveValue(day);
   expect(await balanceDay.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
 
-  // a euribor whose fixing is stored asks the margin, and the rate is counted from it
+  // a euribor with its review day and a stored fixing asks the margin, and the rate is counted from them
   await form.getByLabel("Viitekorko", { exact: true }).selectOption("euribor_12");
+  const review = form.getByLabel("Koron tarkistuspäivä", { exact: true });
+  await expect(review).toHaveAttribute("type", "date");
+  await review.fill(reviewDay);
+  expect(await review.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
   await expect(form.getByLabel("Korko (%)")).toHaveCount(0);
   const margin = form.getByLabel("Marginaali (%)");
   await margin.fill("0,65");
   await expect(form.locator(".loan-rate-now")).toHaveText(new RegExp(`^Korko nyt ${rate.source}$`));
   await expect(margin).toHaveAccessibleDescription(new RegExp(`Korko nyt ${rate.source}`));
-  const review = form.getByLabel("Koron tarkistuspäivä", { exact: true });
-  await expect(review).toHaveAttribute("type", "date");
-  expect(await review.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
   expect(await overflow(page)).toBeLessThanOrEqual(1);
 
   await form.getByRole("button", { name: "Tallenna" }).click();
   await said(card, "Marginaalilaina tallennettu.");
   const { loans } = await (await context.request.get("/api/loans", RESEND)).json();
-  expect(loans).toMatchObject([{ name: "Marginaalilaina", reference: "euribor_12", marginBp: 65, rateBp }]);
-  // the saved rate is the figure the form showed
-  await expect(card.getByRole("row").filter({ hasText: "Marginaalilaina" })).toContainText(rate);
+  expect(loans).toMatchObject([{ name: "Marginaalilaina", reference: "euribor_12", marginBp: 65, rateReviewDate: reviewDay, rateBp, balanceDate: day }]);
+  // the saved rate is the figure the form showed, and the balance day reads d.m.yyyy
+  const saved = card.getByRole("row").filter({ hasText: "Marginaalilaina" });
+  await expect(saved).toContainText(rate);
+  const [y, m, d] = day.split("-").map(Number) as [number, number, number];
+  await expect(saved).toContainText(`${d}.${m}.${y}`);
   expect(seen.problems).toEqual([]);
   await clearLoans(context);
   await context.close();
