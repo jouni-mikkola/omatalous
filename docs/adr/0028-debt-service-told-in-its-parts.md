@@ -15,21 +15,24 @@ counts once, in one of them. The split is computed per request and stored nowher
 
 The evidence for a row, in order:
 
-1. A payment part a loan document stated (comes with the loan intake).
-2. The interest rows of the connected loan account on the day of the payment. The rest of the payment is repayment.
-3. The plan of a saved loan with a complete plan, whose payment series holds the row, when the row is within
+1. The interest rows of the connected loan account on the day of the payment. The rest of the payment is repayment. When
+   the payer's own account has a row of the category `interest` for that loan on the same day, the loan account's
+   booking is that interest already and is not counted again.
+2. The plan of a saved loan with a complete plan, whose payment series holds the row, when the row is within
    `LOAN_ROW_DAYS` of a due date and within `LOAN_ROW_TOLERANCE_CENTS` or `LOAN_ROW_TOLERANCE_SHARE` of the payment the
-   plan expects. The interest of the interval is the schedule's, the known fee is a cost, and the rest repays.
-4. Otherwise the row is not split. A row of the category `interest` is interest as a whole. A card bill and a collection
+   plan expects, and the row is wholly debt. The interest of the interval is the schedule's, the fee of the newest
+   payment part a document stated is a cost, and the rest repays.
+3. Otherwise the row is not split. A row of the category `interest` is interest as a whole. A card bill and a collection
    row are never split.
 
 A due date takes its nearest payment, the earlier on a tie. A row whose evidence leaves less than nothing to repay, and a
 loan with no known rate, stay unsplit: an unknown part is never counted as 0. The check and the plan read the bank's whole
 row and the whole loan, and the result is cut once to the viewer's part (ADR 0016).
 
-*Tulos* stays cash (ADR 0014). The split moves no total: only the way Yhteenveto and the cash report tell the debt
-service changes. The table reads Tulot, Kulutus, Korot ja luottokulut, Velanhoito erittelemättä (only when it is not 0),
-a subtotal of the income less the spending and these costs, Lyhennykset, the rows for saving and credit, and Tulos. A
+*Tulos* stays cash (ADR 0014). The split moves no total. Yhteenveto shows it: the table reads Tulot, Kulutus, Korot ja
+luottokulut, Velanhoito, erittelemättä (only when it is not 0), a subtotal of the income less the spending and these
+costs, Lyhennykset, the rows for saving and credit, and Tulos. The cash flow report data carries the same sums, and no
+page shows them there yet. A
 household whose split tells no interest and no repayment sees the debt as one row, *Maksettu velanhoito*, as before.
 
 ## Consequences

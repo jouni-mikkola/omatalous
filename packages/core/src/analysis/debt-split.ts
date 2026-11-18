@@ -72,15 +72,26 @@ function accountInterest(ctx: AnalysisContext, rows: readonly AnalysisTx[], inpu
   if (!booked.size) return out;
   const loans = loansOf(inputs);
   const keys = loans.flatMap((l) => l.seriesKey ?? []);
-  const taken = new Set<string>();
-  for (const t of rows) {
+  /** The loan account a row pays: by the account number it names, else by the series of a saved loan connected to it. */
+  const accountOf = (t: AnalysisTx): string | undefined => {
     const iban = normalizeIban(t.counterpartyIban);
     const linked = loans.find((l) => l.accountId != null && ids.has(l.accountId) && l.seriesKey !== null && paysSeries(l.seriesKey, { accountId: t.accountId, merchant: t.merchant, amountCents: billCents(t) }, keys));
-    const account = (iban !== null ? byIban.get(iban) : undefined) ?? linked?.accountId ?? undefined;
+    return (iban !== null ? byIban.get(iban) : undefined) ?? linked?.accountId ?? undefined;
+  };
+  // a day on which the payer's own account counts the interest as a row of its own is that interest already: the loan account's booking of it is not counted again
+  const paid = new Set<string>();
+  for (const t of ctx.txs) {
+    if (t.category !== "interest" || t.flows.debt <= 0 || ids.has(t.accountId)) continue;
+    const account = accountOf(t);
+    if (account !== undefined) paid.add(`${account}:${t.day}`);
+  }
+  const taken = new Set<string>();
+  for (const t of rows) {
+    const account = accountOf(t);
     if (account === undefined) continue;
     const key = `${account}:${t.day}`;
     const interest = booked.get(key);
-    if (interest === undefined || taken.has(key)) continue;
+    if (interest === undefined || taken.has(key) || paid.has(key)) continue;
     taken.add(key);
     out.set(t.id, { interestCents: interest, feeCents: 0 });
   }
@@ -200,7 +211,7 @@ function engineParts(ctx: AnalysisContext, inputs: UserInputs): Map<string, RowP
   if (!loans.length) return out;
   const keys = loans.flatMap((l) => l.seriesKey ?? []);
   const claimed = new Set<string>();
-  const debtRows = ctx.txs.filter((t) => t.amountCents < 0 && t.flows.debt > 0 && !UNSPLIT_CATEGORIES.has(t.category) && t.category !== "interest");
+  const debtRows = ctx.txs.filter((t) => t.flows.debt > 0 && t.flows.debt + t.amountCents === 0 && !t.isTransfer && !UNSPLIT_CATEGORIES.has(t.category) && t.category !== "interest");
   for (const loan of loans) {
     const rows = debtRows.filter((t) => !claimed.has(t.id) && paysSeries(loan.seriesKey!, { accountId: t.accountId, merchant: t.merchant, amountCents: billCents(t) }, keys));
     for (const t of rows) claimed.add(t.id);

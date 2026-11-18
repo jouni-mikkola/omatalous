@@ -105,6 +105,13 @@ describe("the debt service told in its kinds", () => {
     expect(sum(w.split)).toBe(w.debt);
   });
 
+  it("never splits a row that is only partly debt against its whole amount", () => {
+    const ctx = createContext([instalment("2026-09-05", 30_000)], [checking], today);
+    const row = ctx.txs[0]!;
+    row.flows = { ...row.flows, debt: 10_000 };
+    expect(debtSplit(ctx, range, inputs(annuity()))).toEqual({ interestCents: 0, principalCents: 0, unsplitCents: 10_000 });
+  });
+
   it("leaves a loan with no known rate unsplit", () => {
     const w = split(dues(30_000), inputs(annuity({ rateBp: null })));
     expect(w.split).toEqual({ interestCents: 0, principalCents: 0, unsplitCents: 90_000 });
@@ -139,6 +146,17 @@ describe("the debt service told in its kinds", () => {
       const loan = annuity({ seriesKey: "out:acc-1:Esimerkkipankki", accountId: "acc-2" });
       const w = split(rows, inputs(loan), [checking, loanAccount]);
       expect(w.split).toEqual({ interestCents: 4_000, principalCents: 26_000, unsplitCents: 0 });
+    });
+
+    it("does not count the interest twice when the payer's account has a row of interest of its own that day", () => {
+      const rows = [
+        ...booked("2026-09-05", 88_000, 12_000),
+        tx({ bookingDate: "2026-09-05", amountCents: -12_000, merchant: "Esimerkkipankki", counterpartyIban: IBAN_LOAN, category: "interest", categorySource: "rule" }),
+      ];
+      const w = split(rows, NO_INPUTS, [checking, loanAccount]);
+      // 12 000 once, as the row of interest; the payment is not split against the same interest again
+      expect(w.split).toEqual({ interestCents: 12_000, principalCents: 0, unsplitCents: 88_000 });
+      expect(sum(w.split)).toBe(w.debt);
     });
 
     it("leaves a payment unsplit on a day the account booked no interest", () => {
