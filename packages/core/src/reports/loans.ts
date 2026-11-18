@@ -143,9 +143,11 @@ const CLASSES_DEAREST_FIRST: readonly NonNullable<DebtCost["costClass"]>[] = ["v
 
 /**
  * The 12-month cost of the debts added up. A debt that owes nothing adds nothing; one whose cost is not known leaves the
- * whole null, never the sum of the others. A part is null when a debt does not split it.
+ * whole null, never the sum of the others, and so does a debt the household has not saved (`lacksTerms`): it costs money
+ * with no terms to price. A part is null when a debt does not split it.
  */
-function cost12Of(costs: readonly (DebtCost | null)[]): Cost12Total {
+function cost12Of(costs: readonly (DebtCost | null)[], lacksTerms: boolean): Cost12Total {
+  if (lacksTerms) return { cents: null, interestCents: null, feeCents: null };
   const sum = { cents: 0, interestCents: 0 as number | null, feeCents: 0 as number | null };
   for (const cost of costs) {
     if (cost === null) continue;
@@ -158,18 +160,20 @@ function cost12Of(costs: readonly (DebtCost | null)[]): Cost12Total {
 }
 
 /**
- * The rows in the order the Lainat list shows them: Todellinen korko, highest first, then the class, dearest first. A
- * row whose cost is not known comes last. Rows still equal go by the cost of the 12 months, highest first, a row
- * without that figure after those with one, and by the order given where both are equal. Only the order changes: no row,
- * figure or sum does. A pure view of rows, so `LoansReport.loans` itself stays in the order the debts are listed (saved
- * loans, then connected accounts).
+ * The rows in the order the Lainat list shows them: the debts that cost something by Todellinen korko, highest first,
+ * then the class, dearest first; then the debts whose cost is not known; a debt that is Maksuton (free) last, as it is
+ * the last to pay down. Rows still equal go by the cost of the 12 months, highest first, a row without that figure after
+ * those with one, and by the order given where both are equal. Only the order changes: no row, figure or sum does. A
+ * pure view of rows, so `LoansReport.loans` itself stays in the order the debts are listed (saved loans, then connected
+ * accounts).
  */
 export function inCostOrder(rows: readonly LoanRow[]): LoanRow[] {
+  const part = (r: LoanRow) => (r.cost?.rateMilli == null ? 1 : r.cost.costClass === "free" ? 2 : 0);
   const rate = (r: LoanRow) => r.cost?.rateMilli ?? Number.NEGATIVE_INFINITY;
   const dearness = (r: LoanRow) => (r.cost?.costClass ? CLASSES_DEAREST_FIRST.length - CLASSES_DEAREST_FIRST.indexOf(r.cost.costClass) : Number.NEGATIVE_INFINITY);
   const year = (r: LoanRow) => r.cost?.next12?.cents ?? Number.NEGATIVE_INFINITY;
   const byDescending = (a: number, b: number) => (a === b ? 0 : a < b ? 1 : -1);
-  return [...rows].sort((a, b) => byDescending(rate(a), rate(b)) || byDescending(dearness(a), dearness(b)) || byDescending(year(a), year(b)));
+  return [...rows].sort((a, b) => part(a) - part(b) || byDescending(rate(a), rate(b)) || byDescending(dearness(a), dearness(b)) || byDescending(year(a), year(b)));
 }
 
 /**
@@ -191,6 +195,7 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
   const { day } = debts;
   const accountOf = new Map(balances.map((b) => [b.id, b]));
   const sourceOf = new Map(debts.sources.map((s) => [s.loanId, s]));
+  const unsaved = unsavedDebts(ctx, inputs);
   const loans = debts.loans.map((loan): LoanRow => {
     const balance = loanBalanceOn(loan, day);
     const moves = hasReferenceRate(loan) && loan.rateBp !== null && (balance.cents ?? 0) > 0;
@@ -222,13 +227,16 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
     day,
     saved: loansOf(inputs).length,
     loans,
-    unsaved: unsavedDebts(ctx, inputs).rows,
+    unsaved: unsaved.rows,
     total: debts.total,
     totalKnown: debts.totalKnown,
     interest: debts.interest,
     interestKnown: debts.interestKnown,
     withoutRate: loansWithoutRate(debts.interest),
-    cost12: cost12Of(loans.map((l) => l.cost)),
+    cost12: cost12Of(
+      loans.map((l) => l.cost),
+      unsaved.rows.length > 0 || unsaved.few > 0,
+    ),
     payments: debtPaymentsPerMonth(debts.loans, day),
     path: debtPath(debts.loans, day, RATE_SHIFTS_BP),
     maybeTwice: maybeTwice(balances, debts),

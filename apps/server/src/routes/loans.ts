@@ -6,7 +6,7 @@
  * within a lifetime of today, and no plan can make the balance grow. So a balance on any day is a whole number of
  * cents between zero and the stated balance.
  */
-import { addMonthsToDate, DEBT_ACCOUNT_TYPES, euriborRateBp, type Fixings, hasReferenceRate, isRevolving, LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, loanPeriodInterest, MAX_LOAN_INTERVAL_MONTHS, mortgageSeriesKeys, type PaymentParts } from "@banking/core";
+import { addMonthsToDate, DEBT_ACCOUNT_TYPES, dueDates, euriborRateBp, type Fixings, hasReferenceRate, isRevolving, LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, loanPeriodInterest, MAX_LOAN_INTERVAL_MONTHS, mortgageSeriesKeys, type PaymentParts } from "@banking/core";
 import { Hono } from "hono";
 import { NotFound, UserError } from "../platform/errors.ts";
 import { randomToken } from "../platform/ids.ts";
@@ -224,8 +224,13 @@ export async function parseLoan(raw: unknown, today: string, accounts: OwnAccoun
     // payment again at the step, so it needs no check.
     const { rateStepDate, rateStepBp } = loan;
     if (rateStepDate && rateStepBp != null && !(loan.repayment === "annuity" && loan.endDate !== null)) {
+      // a payment due on the step day is the first at the new rate, so only the due dates before it are counted
       let paid = 0;
-      while (addMonthsToDate(loan.balanceDate, (paid + 1) * loan.intervalMonths) <= rateStepDate) paid++;
+      // the loan has no id yet; its due dates read the other fields only
+      for (const due of dueDates({ ...loan, id: "" }, loan.intervalMonths)) {
+        if (due >= rateStepDate) break;
+        paid++;
+      }
       const left = Math.max(0, loan.balanceCents - paid * instalment);
       if (left > 0 && instalment < loanPeriodInterest(left, rateStepBp, loan.intervalMonths)) {
         throw new UserError("Maksuerä on pienempi kuin koron muutoksen jälkeinen lyhennysvälin korko, joten laina ei lyhenisi muutoksen jälkeen. Tarkista luvut tai jätä maksuerä tyhjäksi, jos maksat vain korkoa.");

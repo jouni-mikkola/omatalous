@@ -28,7 +28,7 @@
 import { partCents } from "./account-use.ts";
 import { addDays, addMonthsToDate, daysBetween } from "./dates.ts";
 import { centsOf, type Debt, figureOf, partly } from "./debt-part.ts";
-import { divRound, endOf, type Instalments, intervalOf, loanLastDueDate, loanPeriodInterest, MAX_LOAN_PAYMENTS, planOf, rateDaysInterest } from "./loan-plan.ts";
+import { divRound, dueDates, endOf, type Instalments, intervalOf, loanLastDueDate, loanPeriodInterest, MAX_LOAN_PAYMENTS, planOf, rateDaysInterest } from "./loan-plan.ts";
 import { annuityPayment, countsDays, loanBalanceByPlan, loanSchedule, type Payment, payments, rateDaysBetween, rateMilliAt, ratePathOf } from "./loan-schedule.ts";
 import { type Account, type IsoDate, isRevolving, type Loan, type LoanReference, type UserInputs } from "./types.ts";
 
@@ -41,7 +41,7 @@ export const LOAN_REFERENCE_LABEL: Record<LoanReference, string> = {
 };
 import { loanKindOfName } from "./wording-loan-pages.ts";
 
-export { endOf, loanLastDueDate, loanPeriodInterest, MAX_LOAN_PAYMENTS };
+export { dueDates, endOf, loanLastDueDate, loanPeriodInterest, MAX_LOAN_PAYMENTS };
 
 /** What a figure could not know: a field the loan lacks, or a day before the day its balance was told. */
 export type LoanUnknown = "repayment" | "interval" | "payment" | "rate" | "end_date" | "limit" | "before_balance_date";

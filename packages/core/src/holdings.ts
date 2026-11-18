@@ -67,7 +67,7 @@ function percentsOf(parts: readonly (number | null)[], total: number): (number |
 /**
  * How dear a debt is. `costClass` is the class of its yearly cost with fees in (`debtCost`), null where that cost is
  * not known or nothing is owed: an unknown cost is no class, never a guess. `costRank` is 1 for the dearest debt of its
- * list, counted over the debts whose cost is known, and null for the rest.
+ * list, counted over the debts that cost something, and null for the rest (a debt whose cost is not known, a Maksuton one).
  */
 interface Dearness {
   costClass: DebtClass | null;
@@ -76,8 +76,8 @@ interface Dearness {
 
 /**
  * Every list is in the order of the accounts the request holds, except the cards and the loans: they stand by what they
- * cost, the dearest first and those whose cost is not known last, each otherwise in its own order (the loans in the
- * order of `householdDebts`). A name is the series' name: with the owner's name in brackets when the account is shared
+ * cost, the dearest first, then those whose cost is not known, and a debt that is Maksuton last, each otherwise in its own
+ * order (the loans in the order of `householdDebts`). A name is the series' name: with the owner's name in brackets when the account is shared
  * with the viewer. A cent figure that is not known is null, never 0.
  */
 export interface Holdings {
@@ -217,11 +217,16 @@ function paymentsOf(ctx: AnalysisContext, debt: Debt, keys: readonly string[]): 
   return ctx.txs.filter((t) => splittable(t) && paysSeries(key, { accountId: t.accountId, merchant: t.merchant, amountCents: billCents(t) }, keys)).map((t) => ({ date: t.bookingDate, cents: -billCents(t) }));
 }
 
-/** The rows in the order of what their debts cost, the dearest first and those whose cost is not known last in their own order: each row gets its class and its rank. */
+/**
+ * The rows in the order of what their debts cost: those that cost something, the dearest first, then those whose cost is
+ * not known in their own order, and a debt that is Maksuton (free) last. Each row gets its class; a rank only the debts
+ * that cost something have, since a debt that costs nothing is not one to pay down first.
+ */
 function rankedByCost<R extends object>(items: readonly { row: R; cost: DebtCost | null }[]): (R & Dearness)[] {
-  const known = items.filter((i) => i.cost?.rateMilli != null).sort((a, b) => b.cost!.rateMilli! - a.cost!.rateMilli!);
-  const rest = items.filter((i) => i.cost?.rateMilli == null);
-  return [...known, ...rest].map((item, at) => ({ ...item.row, costClass: item.cost?.costClass ?? null, costRank: item.cost?.rateMilli == null ? null : at + 1 }));
+  const costing = items.filter((i) => i.cost?.rateMilli != null && i.cost.costClass !== "free").sort((a, b) => b.cost!.rateMilli! - a.cost!.rateMilli!);
+  const unknown = items.filter((i) => i.cost?.rateMilli == null);
+  const free = items.filter((i) => i.cost?.rateMilli != null && i.cost.costClass === "free");
+  return [...costing, ...unknown, ...free].map((item, at) => ({ ...item.row, costClass: item.cost?.costClass ?? null, costRank: at < costing.length ? at + 1 : null }));
 }
 
 /** A loan with nothing left is paid off when its account has had no row for this many days. */

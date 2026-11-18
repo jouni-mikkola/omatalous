@@ -324,7 +324,7 @@ export const FIGURES = {
   },
   debtCost12: {
     name: "Korot ja kulut 12 kk",
-    definition: "The interest and fees of the payments of the 12 months after today, of every debt that owes, the viewer's part of each. The parts add up to it: the interest and the fees. Not known, never the sum of the others, while any debt that owes has no cost. It is what the debts will cost, where Korot ja luottokulut is the interest and fees already paid.",
+    definition: "The interest and fees of the payments of the 12 months after today, of every debt that owes, the viewer's part of each. The parts add up to it: the interest and the fees. Not known, never the sum of the others, while any debt lacks its terms: one that owes and has no cost, or a loan or card the rows show that nobody saved. It is what the debts will cost, where Korot ja luottokulut is the interest and fees already paid.",
     source: { file: "reports/loans.ts", fn: "loansReport", field: "cost12" },
     unit: "cents",
     scope: "own",
