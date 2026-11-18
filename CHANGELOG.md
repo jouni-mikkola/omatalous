@@ -3,6 +3,18 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.6.2
+
+Money and reports
+
+- January compares with December, as every other month compares with the month before.
+- Payment channels and shared payment accounts are no longer mistaken for one person's money.
+- Tulot and Tulos say "Koko viime kuussa" when the month before is read whole, as Menot already did.
+
+Look
+
+- The opener of a table row no longer overlaps its name with a mouse.
+
 ## 1.6.1
 
 - Every new version is offered to installs as soon as it is published; the early-versions switch is gone.
