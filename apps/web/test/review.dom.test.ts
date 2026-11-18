@@ -99,7 +99,7 @@ describe("Tarkistettavat", () => {
     expect(screen.queryByLabelText(/^Lainaa jäljellä/)).toBeNull();
     expect(screen.queryByLabelText("Nimi")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Näytä kaikki kentät" }));
-    // the form is the one of the loan the item names, not another saved loan
+    // the form is the one of the loan the item names
     expect((await screen.findByLabelText("Nimi", {}, T) as HTMLInputElement).value).toBe("Asuntolaina");
     expect(screen.getByLabelText(/^Maksuerä/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
@@ -141,6 +141,35 @@ describe("Tarkistettavat", () => {
     await waitFor(() => expect(seen.some((s) => s.method === "PUT" && s.path === "/api/loans/loan-9")).toBe(true), T);
     expect(seen.some((s) => s.method === "POST" && s.path === "/api/loans")).toBe(false);
     expect(seen.find((s) => s.method === "PUT" && s.path === "/api/loans/loan-9")!.body).toMatchObject({ kind: "card", accountId: "card-1", rateBp: 1_900 });
+  });
+
+  it("saves a card's terms with the rate left empty and sets no mark, so the question comes back", async () => {
+    queryClient.clear();
+    const card = { id: "card-1", name: "Luottokortti", type: "credit_card", balanceCents: -50_000, balanceAt: "2026-10-08", creditLimitCents: 200_000 };
+    const loan = { id: "loan-9", name: "Kortti", lender: null, kind: "card", grantedCents: null, balanceCents: 40_000, balanceDate: "2026-10-01", rateBp: null, reference: null, marginBp: null, repayment: null, intervalMonths: null, paymentCents: null, endDate: null, limitCents: 200_000, seriesKey: null, accountId: "card-1" };
+    const seen = stubApi({ "GET /api/loans": { loans: [loan] }, "PUT /api/loans/loan-9": { loan }, "PUT /api/marks": {} });
+    const item = { id: "loan_terms:loan-9", kind: "loan_terms", cents: 0, loanId: "loan-9", accountId: "card-1", name: "Luottokortti", owedCents: 50_000, balanceDate: "2026-10-08", missing: "rate", subject: "question:loan-terms:loan-9" } as unknown as ReviewItem;
+    const meta = { accounts: [card], sharedAccounts: [], bank: { banks: [] }, today: "2026-10-09" } as unknown as Meta;
+    render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => {} } }));
+    fireEvent.click(screen.getByRole("button", { name: "Täydennä kortin ehdot" }));
+    await screen.findByLabelText(/^Kokonaiskorko/, {}, T);
+    fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
+    await waitFor(() => expect(seen.some((s) => s.method === "PUT" && s.path === "/api/loans/loan-9")).toBe(true), T);
+    expect(seen.find((s) => s.method === "PUT" && s.path === "/api/loans/loan-9")!.body).toMatchObject({ rateBp: null });
+    expect(seen.some((s) => s.path === "/api/marks")).toBe(false);
+  });
+
+  it("lets a question go with no error when its loan was deleted after the queue was read", async () => {
+    queryClient.clear();
+    stubApi({ "GET /api/loans": { loans: [] } });
+    const item = { id: "loan_terms:loan-7", kind: "loan_terms", cents: 0, loanId: "loan-7", accountId: null, name: "Asuntolaina", owedCents: 15_000_000, balanceDate: "2026-10-01", missing: "payment", subject: "question:loan-terms:loan-7" } as unknown as ReviewItem;
+    const meta = { accounts: [], sharedAccounts: [], bank: { banks: [] }, today: "2026-10-09" } as unknown as Meta;
+    let reloads = 0;
+    render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => void reloads++ } }));
+    fireEvent.click(screen.getByRole("button", { name: "Täydennä laina" }));
+    await waitFor(() => expect(reloads).toBe(1), T);
+    expect(document.querySelector(".review-item")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("shows the error of the other forms when the loans cannot be read", async () => {
