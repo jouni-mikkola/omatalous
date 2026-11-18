@@ -6,7 +6,7 @@
  * statement is paid from the checking account, the rows of a loan account, money moved to a savings account and to a
  * fund, and the rows of a joint account that each of the two counts at its half. Made-up names; the IBANs are the kit's examples.
  */
-import type { AccountType, RawTransaction } from "@banking/core";
+import { type AccountType, type RawTransaction, seriesMarkSubject } from "@banking/core";
 import { IBAN } from "../../../packages/core/test/kit/frame.ts";
 import { reprocess } from "../src/services/enrich.ts";
 import { ingestTransactions } from "../src/services/ingest.ts";
@@ -21,7 +21,7 @@ const EERO = "KORHONEN EERO";
 
 type Member = Client & { id: string };
 type App = Awaited<ReturnType<typeof setupApp>>;
-export type SumsHousehold = App & { aino: Member; eero: Member };
+export type SumsHousehold = App & { aino: Member; eero: Member; /** The merchant of the bill Aino marked as no recurring bill. */ wrongBill: string };
 
 const raw = (bookingDate: string, euros: number, counterparty: string | null, extra: Partial<RawTransaction> = {}): RawTransaction => ({
   externalId: null, bookingDate, valueDate: null, amountCents: Math.round(euros * 100), currency: "EUR", status: "booked",
@@ -30,7 +30,13 @@ const raw = (bookingDate: string, euros: number, counterparty: string | null, ex
 
 const OWN_TRANSFER = { description: "OMA SIIRTO" };
 
+/** A bill of three months that the app finds as a recurring one and Aino marks as wrong. */
+const WRONG_BILL = "VOIMA ESIMERKKI OY";
+
 const CHECKING = [
+  raw("2026-07-10", -45, WRONG_BILL, { description: "LASKU" }),
+  raw("2026-08-10", -45, WRONG_BILL, { description: "LASKU" }),
+  raw("2026-09-10", -45, WRONG_BILL, { description: "LASKU" }),
   raw("2026-08-02", 2400, "TYÖNANTAJA OY", { description: "PALKKA" }),
   raw("2026-08-05", -60, "KAUPPA OY", { mcc: "5411" }),
   raw("2026-08-08", -100, "NORDNET BANK AB", { description: "RAHASTOSÄÄSTÖ" }),
@@ -93,8 +99,14 @@ export async function loadSumsHousehold(): Promise<SumsHousehold> {
   await reprocess(eerosRepo, app.s.settings);
   expectOk((await aino.call("PUT", `/api/accounts/joint/shares/${eero.id}`)).status, "share");
   expectOk((await aino.call("PUT", "/api/accounts/joint/use", { users: [{ userId: aino.id, weight: 1 }, { userId: eero.id, weight: 1 }] })).status, "use");
-  return { ...app, aino, eero };
+  // the pages leave a bill marked as wrong out of what recurs; the rows stay, so the sums over them do not change
+  const found = ((await aino.call("GET", "/api/recurring")).body.series as Series[]).filter((x) => x.merchant.toLowerCase().includes("voima"));
+  if (found.length !== 1) throw new Error(`sums household: ${found.length} series of the bill, wanted one`);
+  expectOk((await aino.call("PUT", "/api/marks", { subject: `not-recurring:${seriesMarkSubject(found[0]!).slice("series:".length)}`, mark: "dismissed" })).status, "mark");
+  return { ...app, aino, eero, wrongBill: found[0]!.merchant };
 }
+
+type Series = Parameters<typeof seriesMarkSubject>[0] & { merchant: string };
 
 function expectOk(status: number, what: string): void {
   if (status !== 200) throw new Error(`sums household: ${what} answered ${status}`);

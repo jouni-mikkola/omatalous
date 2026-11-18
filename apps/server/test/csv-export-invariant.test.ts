@@ -142,6 +142,17 @@ describe("the month table adds up to the dashboard and the category file", () =>
     expect(sum(categories.map((r) => Number(r[4])))).toBe(sum(api.groups.flatMap((g: { categories: { count: number }[] }) => g.categories.map((c) => c.count))));
   });
 
+  it.each(SCOPES)("has each category of the category file at the figures Raportit shows, with a bill the member marked as wrong (%s view)", async (scope) => {
+    // the pages drop the series; the rows of it stay in every sum
+    const { series } = (await home.aino.call("GET", "/api/recurring")).body as { series: { merchant: string }[] };
+    expect(series.map((s) => s.merchant)).not.toContain(home.wrongBill);
+    const [, ...categories] = await csvOf(`/api/export/report.csv?report=categories&${query(BOTH_MONTHS, scope)}`);
+    const api = (await home.aino.call("GET", `/api/reports?reports=categories&${query(BOTH_MONTHS, scope)}`)).body.categories as { groups: { categories: { label: string; totalCents: number; count: number; monthlyAvgCents: number | null }[] }[] };
+    const page = api.groups.flatMap((g) => g.categories);
+    expect(page.length).toBeGreaterThan(3);
+    expect(categories.map((r) => [r[1], cents(r[2]), Number(r[4]), centsOf(r[6])])).toEqual(page.map((c) => [c.label, c.totalCents, c.count, c.monthlyAvgCents]));
+  });
+
   it("has each category of the category file at the rows of the rows file in that category (household view)", async () => {
     const [, ...categories] = await csvOf(`/api/export/report.csv?report=categories&${query(BOTH_MONTHS, "household")}`);
     const [, ...rows] = await csvOf(`/api/export/transactions.csv?${query(BOTH_MONTHS, "household")}`);

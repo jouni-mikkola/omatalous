@@ -30,8 +30,19 @@ const merchantOf = (ctx: AnalysisContext, counterparty: string): string => {
 };
 const isCardBill = (t: { category: string; amountCents: number }) => t.category === "card_bill" && t.amountCents < 0;
 
-/** A merchant whose rows are all on the loan account: the flows leave those rows out, the merchant list adds them up (see the report on the sum invariants). */
-const onlyLoanRows = (ctx: AnalysisContext, merchant: string): boolean => ctx.txs.filter((t) => t.merchant === merchant).every((t) => t.accountId === "loan");
+/** The merchants of the loan account whose rows are all on it: the flows count nothing of those rows, so the list has no such merchant. */
+const loanOnlyMerchants = (ctx: AnalysisContext): string[] => [...new Set(ctx.txs.filter((t) => t.accountId === "loan").map((t) => t.merchant))].filter((m) => ctx.txs.filter((t) => t.merchant === m).every((t) => t.accountId === "loan"));
+
+/** What the merchant list of a month adds up to and what the dashboard's spending and saving less income come to, the money moved to savings taken off the second as the list leaves transfers out. */
+async function monthAgainstDashboard(ctx: AnalysisContext, scope: Scope, range: { from: string; to: string }): Promise<{ listed: number; wanted: number; text: string }> {
+  const { items } = await get(home.aino, `/api/merchants?limit=1000&${query(range, scope)}`);
+  const listed = (items as MerchantItem[]).reduce((n, m) => n + m.totalCents - m.inCents, 0);
+  const { totals } = await get(home.aino, `/api/dashboard?${query(range, scope)}`);
+  // money moved to a savings account is saved in the dashboard; the merchant list leaves a transfer out
+  const movedToSavings = ctx.txs.filter((t) => t.isTransfer && t.bookingDate >= range.from && t.bookingDate <= range.to).reduce((n, t) => n + t.flows.saved, 0);
+  const wanted = totals.expenseCents + totals.savedCents - movedToSavings - totals.incomeCents;
+  return { listed, wanted, text: `${range.to} ${scope}: merchants ${listed}, dashboard ${wanted}, moved ${movedToSavings}` };
+}
 
 /** What the flows of a merchant's rows in a range spend and save less what they earn, net of what came back: the figure the SQL sums claim to be. */
 function flowsNet(ctx: AnalysisContext, merchant: string, range: { from: string; to: string }): { net: number; rows: number } {
@@ -46,7 +57,7 @@ describe("the merchant list sums what the flows of the same rows sum", () => {
     const mismatches: string[] = [];
     const { items } = await get(home.aino, `/api/merchants?limit=1000&${query(range, scope)}`);
     expect(items.length).toBeGreaterThan(5);
-    for (const m of (items as MerchantItem[]).filter((x) => !onlyLoanRows(ctx, x.merchant))) {
+    for (const m of items as MerchantItem[]) {
       const core = flowsNet(ctx, m.merchant, range);
       if (m.count !== core.rows) mismatches.push(`${m.merchant.slice(0, 14)} count ${m.count}/${core.rows}`);
       if (m.totalCents - m.inCents !== core.net) mismatches.push(`${m.merchant.slice(0, 14)} L${m.totalCents}-${m.inCents} F${core.net}`);
@@ -58,15 +69,27 @@ describe("the merchant list sums what the flows of the same rows sum", () => {
     const ctx = await contextOf(home.aino, scope);
     const mismatches: string[] = [];
     for (const range of [AUGUST, SEPTEMBER]) {
-      const { items } = await get(home.aino, `/api/merchants?limit=1000&${query(range, scope)}`);
-      const listed = (items as MerchantItem[]).filter((m) => !onlyLoanRows(ctx, m.merchant)).reduce((n, m) => n + m.totalCents - m.inCents, 0);
-      const { totals } = await get(home.aino, `/api/dashboard?${query(range, scope)}`);
-      // money moved to a savings account is saved in the dashboard; the merchant list leaves a transfer out
-      const movedToSavings = ctx.txs.filter((t) => t.isTransfer && t.bookingDate >= range.from && t.bookingDate <= range.to).reduce((n, t) => n + t.flows.saved, 0);
-      const wanted = totals.expenseCents + totals.savedCents - movedToSavings - totals.incomeCents;
-      if (listed !== wanted) mismatches.push(`${range.to} ${scope}: merchants ${listed}, dashboard ${wanted}, moved ${movedToSavings}`);
+      const month = await monthAgainstDashboard(ctx, scope, range);
+      if (month.listed !== month.wanted) mismatches.push(month.text);
     }
     expect(mismatches.length, mismatches.join(" | ")).toBe(0);
+  });
+
+  it.each(SCOPES)("the rows of a loan account are in no merchant's figures, and the month's merchants still add up to the dashboard (%s view)", async (scope) => {
+    const ctx = await contextOf(home.aino, scope);
+    // the loan account of the fixture holds 300 received and 12 paid, which the flows count as nothing: the checking account's payment is what counts
+    const loanRows = ctx.txs.filter((t) => t.accountId === "loan");
+    expect(loanRows.map((t) => t.amountCents).sort((a, b) => a - b)).toEqual([-1200, 30000]);
+    const merchants = loanOnlyMerchants(ctx);
+    expect(merchants.length).toBe(2);
+    for (const range of [BOTH_MONTHS, AUGUST, SEPTEMBER]) {
+      const names = ((await get(home.aino, `/api/merchants?limit=1000&${query(range, scope)}`)).items as MerchantItem[]).map((m) => m.merchant);
+      for (const merchant of merchants) expect(names, `${merchant} ${range.to} ${scope}`).not.toContain(merchant);
+    }
+    // the month of the loan rows adds up to the dashboard, which a list that counted them would miss by 1200 - 30000
+    const month = await monthAgainstDashboard(ctx, scope, SEPTEMBER);
+    expect(month.listed, month.text).toBe(month.wanted);
+    for (const merchant of merchants) expect((await get(home.aino, `/api/merchants/summary?merchant=${encodeURIComponent(merchant)}&scope=${scope}`)).summary, merchant).toBeNull();
   });
 
   it("a refund lowers what the merchant was paid in both views, and the joint account counts at its half in the own view only", async () => {
