@@ -8,7 +8,7 @@
 import { partCents } from "./account-use.ts";
 import type { Debt } from "./debt-part.ts";
 import type { LoanProposal } from "./loan-detect.ts";
-import { paymentOf, type Side, sumShared } from "./shared.ts";
+import { type MonthlyProposal, paymentOf, type Side, sumShared } from "./shared.ts";
 import { creditAccountLoan, type DebtFigure, debtInterestNext12Months, debtTotalOn, loanBalanceOn, loanLastDueDate, loansOf, settledCardLoan } from "./loans.ts";
 import { belowWhole } from "./part-shape.ts";
 import { parseSeriesId } from "./series-id.ts";
@@ -273,7 +273,7 @@ export interface UnsavedLoans {
  * leaves it out and says so beside it. Null when every loan the rows show is saved or marked "Ei ole laina". The sum is
  * of one side of the payments (`side`): the viewer's part by default. Where the split of a joint account is said the members' totals add up to the household's; with an unknown split each member counts the account whole (ADR 0017).
  */
-export function unsavedLoans(proposals: readonly Pick<LoanProposal, "payee" | "monthlyCents" | "paymentCents">[], side: Side = "part"): UnsavedLoans | null {
+export function unsavedLoans(proposals: readonly MonthlyProposal<Pick<LoanProposal, "payee" | "monthlyCents" | "paymentCents">>[], side: Side = "part"): UnsavedLoans | null {
   if (!proposals.length) return null;
   return { count: proposals.length, names: proposals.map((p) => p.payee), paymentCents: sumShared(proposals.map(paymentOf), side) };
 }

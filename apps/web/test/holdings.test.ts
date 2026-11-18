@@ -77,6 +77,16 @@ describe("Holdings", () => {
       expect(undated(some)).toContain("Varat ja velat Varat velkojen jälkeen (ilman 2 lainaa) −119 000 €");
     });
 
+    it("counts a lender's few payments with the loans left out and adds them to no monthly sum", () => {
+      const saved = { ...base, netCents: -11_900_000, loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000 };
+      const both = html(answer({ ...saved, unsavedLoans: { count: 2, names: [], paymentCents: 30_000 }, unsavedFewPayments: 1 }));
+      expect(undated(both)).toContain("Varat ja velat Varat velkojen jälkeen (ilman 3 lainaa) −119 000 €");
+      expect(text(both)).toContain("Lainoja, joiden saldo puuttuu 2 (300,00 €/kk)");
+      const alone = html(answer({ ...saved, unsavedFewPayments: 1 }));
+      expect(undated(alone)).toContain("Varat ja velat Varat velkojen jälkeen (ilman 1 lainaa) −119 000 €");
+      expect(text(alone)).not.toContain("Lainoja, joiden saldo puuttuu");
+    });
+
     it("is a dash while the debt total is unknown, whatever the accounts hold", () => {
       const unknown = html(answer({ ...base, netCents: null, debtCents: null, loans: [loan({ leftCents: null })] }));
       expect(undated(unknown)).toContain("Varat ja velat Varat velkojen jälkeen –");

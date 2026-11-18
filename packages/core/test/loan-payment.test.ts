@@ -241,6 +241,9 @@ describe("a user who said what the loan is (f)", () => {
 
   it("holds the answers' subject as the marks route reads it", () => {
     expect(parseLoanKindSubject(loanKindSubject("mortgage", key))).toEqual({ kind: "mortgage", key });
+    for (const kind of ["credit_line", "instalment"] as const) expect(parseLoanKindSubject(loanKindSubject(kind, key))).toEqual({ kind, key });
+    // a card is saved with its form, never answered here
+    expect(parseLoanKindSubject(`question:loan-kind:card:${key}`)).toBeNull();
     expect(parseLoanKindSubject(`question:loan-kind:castle:${key}`)).toBeNull();
     expect(parseLoanKindSubject("question:loan-kind:car:nothing")).toBeNull();
     expect(parseLoanKindSubject("question:mortgage")).toBeNull();

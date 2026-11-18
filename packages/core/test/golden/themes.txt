@@ -1,10 +1,9 @@
-# themes: 126 statements on demo, kit:base, bank:op-couple, bank:s-pankki-single, bank:danske-family, plain:1, plain:2, plain:3, plain:4, plain:5, settled:1, settled:2, settled:3, settled:4, settled:5. Rewrite with pnpm findings --golden.
+# themes: 139 statements on demo, kit:base, bank:op-couple, bank:s-pankki-single, bank:danske-family, plain:1, plain:2, plain:3, plain:4, plain:5, settled:1, settled:2, settled:3, settled:4, settled:5. Rewrite with pnpm findings --golden.
 
 themes · demo · themes:car (quiet)
   Auto
-  = 411.74 € a month, 4940.91 € a year
+  = 122.74 € a month, 1472.91 € a year
   | Polttoaine: 122.74 € a month, 1472.91 € a year
-  | Rahoitus: 289.00 € a month, 3468.00 € a year
 
 themes · demo · themes:food (quiet)
   Ruoka
@@ -38,6 +37,11 @@ themes · demo · themes:leisure (quiet)
   | Vapaa-aika ja harrastukset: 9.01 € a month, 108.17 € a year
   | Matkat: 52.92 € a month, 635.00 € a year
   | Rahapelit: 6.07 € a month, 72.78 € a year
+
+themes · demo · themes:loans (quiet)
+  Velanhoito
+  = 289.00 € a month, 3468.00 € a year
+  | Kulutusluotot: 289.00 € a month, 3468.00 € a year
 
 themes · demo · themes:media (quiet)
   Viestintä ja tilaukset
@@ -87,9 +91,8 @@ themes · kit:base · themes:health (quiet)
 
 themes · kit:base · themes:housing (quiet)
   Asuminen
-  = 1736.07 € a month, 20832.78 € a year
+  = 1123.67 € a month, 13483.98 € a year
   | Vuokra ja vastike: 1050.00 € a month, 12600.00 € a year
-  | Asuntolaina: 612.40 € a month, 7348.80 € a year
   | Sähkö, vesi ja lämpö: 73.67 € a month, 883.98 € a year
 
 themes · kit:base · themes:insurance (quiet)
@@ -101,6 +104,11 @@ themes · kit:base · themes:kids (quiet)
   Lapset
   = 256.58 € a month, 3078.90 € a year
   | Lapset: 256.58 € a month, 3078.90 € a year
+
+themes · kit:base · themes:loans (quiet)
+  Velanhoito
+  = 612.40 € a month, 7348.80 € a year
+  | Asuntolaina: 612.40 € a month, 7348.80 € a year
 
 themes · kit:base · themes:media (quiet)
   Viestintä ja tilaukset
@@ -189,7 +197,7 @@ themes · bank:s-pankki-single · themes:housing (quiet)
   | Vuokra ja vastike: 495.00 € a month, 5940.00 € a year
 
 themes · bank:s-pankki-single · themes:loans (quiet)
-  Lainat ja luotot
+  Velanhoito
   = 98.00 € a month, 1176.00 € a year
   | Opintolaina: 98.00 € a month, 1176.00 € a year
 
@@ -234,14 +242,18 @@ themes · bank:danske-family · themes:health (quiet)
 
 themes · bank:danske-family · themes:housing (quiet)
   Asuminen
-  = 1030.80 € a month, 12369.60 € a year
-  | Asuntolaina: 987.00 € a month, 11844.00 € a year
+  = 43.80 € a month, 525.60 € a year
   | Sähkö, vesi ja lämpö: 43.80 € a month, 525.60 € a year
 
 themes · bank:danske-family · themes:kids (quiet)
   Lapset
   = 261.25 € a month, 3135.00 € a year
   | Lapset: 261.25 € a month, 3135.00 € a year
+
+themes · bank:danske-family · themes:loans (quiet)
+  Velanhoito
+  = 987.00 € a month, 11844.00 € a year
+  | Asuntolaina: 987.00 € a month, 11844.00 € a year
 
 themes · bank:danske-family · themes:media (quiet)
   Viestintä ja tilaukset
@@ -284,9 +296,14 @@ themes · plain:1 · themes:health (quiet)
 
 themes · plain:1 · themes:housing (quiet)
   Asuminen
-  = 614.14 € a month, no year
-  | Asuntolaina: 560.76 € a month, no year
+  = 53.38 € a month, no year
   | Sähkö, vesi ja lämpö: 53.38 € a month, no year
+
+themes · plain:1 · themes:loans (quiet)
+  Velanhoito
+  = 595.56 € a month, no year
+  | Asuntolaina: 560.75 € a month, no year
+  | Luottokortin lasku: 34.81 € a month, no year
 
 themes · plain:1 · themes:media (quiet)
   Viestintä ja tilaukset
@@ -296,9 +313,8 @@ themes · plain:1 · themes:media (quiet)
 
 themes · plain:1 · themes:other (quiet)
   Raha-asiat
-  = 342.18 € a month, no year
+  = 307.38 € a month, no year
   | Maksut henkilöille: 28.76 € a month, no year
-  | Luottokortin lasku: 34.80 € a month, no year
   | Muut menot: 278.62 € a month, no year
 
 themes · plain:1 · themes:shopping (quiet)
@@ -332,9 +348,13 @@ themes · plain:2 · themes:health (quiet)
 
 themes · plain:2 · themes:housing (quiet)
   Asuminen
-  = 520.20 € a month, no year
-  | Asuntolaina: 489.32 € a month, no year
+  = 30.88 € a month, no year
   | Sähkö, vesi ja lämpö: 30.88 € a month, no year
+
+themes · plain:2 · themes:loans (quiet)
+  Velanhoito
+  = 489.32 € a month, no year
+  | Asuntolaina: 489.32 € a month, no year
 
 themes · plain:2 · themes:media (quiet)
   Viestintä ja tilaukset
@@ -379,9 +399,13 @@ themes · plain:3 · themes:health (quiet)
 
 themes · plain:3 · themes:housing (quiet)
   Asuminen
-  = 744.24 € a month, no year
-  | Asuntolaina: 712.25 € a month, no year
+  = 31.99 € a month, no year
   | Sähkö, vesi ja lämpö: 31.99 € a month, no year
+
+themes · plain:3 · themes:loans (quiet)
+  Velanhoito
+  = 712.25 € a month, no year
+  | Asuntolaina: 712.25 € a month, no year
 
 themes · plain:3 · themes:media (quiet)
   Viestintä ja tilaukset
@@ -426,9 +450,13 @@ themes · plain:4 · themes:health (quiet)
 
 themes · plain:4 · themes:housing (quiet)
   Asuminen
-  = 817.66 € a month, no year
-  | Asuntolaina: 756.56 € a month, no year
+  = 61.10 € a month, no year
   | Sähkö, vesi ja lämpö: 61.10 € a month, no year
+
+themes · plain:4 · themes:loans (quiet)
+  Velanhoito
+  = 756.56 € a month, no year
+  | Asuntolaina: 756.56 € a month, no year
 
 themes · plain:4 · themes:media (quiet)
   Viestintä ja tilaukset
@@ -473,9 +501,13 @@ themes · plain:5 · themes:health (quiet)
 
 themes · plain:5 · themes:housing (quiet)
   Asuminen
-  = 609.26 € a month, no year
-  | Asuntolaina: 533.95 € a month, no year
+  = 75.31 € a month, no year
   | Sähkö, vesi ja lämpö: 75.31 € a month, no year
+
+themes · plain:5 · themes:loans (quiet)
+  Velanhoito
+  = 533.95 € a month, no year
+  | Asuntolaina: 533.95 € a month, no year
 
 themes · plain:5 · themes:media (quiet)
   Viestintä ja tilaukset
@@ -520,10 +552,14 @@ themes · settled:1 · themes:health (quiet)
 
 themes · settled:1 · themes:housing (quiet)
   Asuminen
-  = 1452.08 € a month, 17424.99 € a year
+  = 1044.73 € a month, 12536.79 € a year
   | Vuokra ja vastike: 930.48 € a month, 11165.76 € a year
-  | Asuntolaina: 407.35 € a month, 4888.20 € a year
   | Sähkö, vesi ja lämpö: 114.25 € a month, 1371.03 € a year
+
+themes · settled:1 · themes:loans (quiet)
+  Velanhoito
+  = 407.35 € a month, 4888.20 € a year
+  | Asuntolaina: 407.35 € a month, 4888.20 € a year
 
 themes · settled:1 · themes:media (quiet)
   Viestintä ja tilaukset
@@ -568,10 +604,14 @@ themes · settled:2 · themes:health (quiet)
 
 themes · settled:2 · themes:housing (quiet)
   Asuminen
-  = 1466.97 € a month, 17603.67 € a year, +2 %
+  = 1154.67 € a month, 13856.07 € a year, +3 %
   | Vuokra ja vastike: 1036.44 € a month, 12437.28 € a year
-  | Asuntolaina: 312.30 € a month, 3747.60 € a year
   | Sähkö, vesi ja lämpö: 118.23 € a month, 1418.79 € a year, +35 %
+
+themes · settled:2 · themes:loans (quiet)
+  Velanhoito
+  = 312.30 € a month, 3747.60 € a year
+  | Asuntolaina: 312.30 € a month, 3747.60 € a year
 
 themes · settled:2 · themes:media (quiet)
   Viestintä ja tilaukset
@@ -616,10 +656,14 @@ themes · settled:3 · themes:health (quiet)
 
 themes · settled:3 · themes:housing (quiet)
   Asuminen
-  = 1350.67 € a month, no year
+  = 974.90 € a month, no year
   | Vuokra ja vastike: 861.74 € a month, no year
-  | Asuntolaina: 375.77 € a month, no year
   | Sähkö, vesi ja lämpö: 113.16 € a month, no year
+
+themes · settled:3 · themes:loans (quiet)
+  Velanhoito
+  = 375.77 € a month, no year
+  | Asuntolaina: 375.77 € a month, no year
 
 themes · settled:3 · themes:media (quiet)
   Viestintä ja tilaukset
@@ -663,10 +707,14 @@ themes · settled:4 · themes:health (quiet)
 
 themes · settled:4 · themes:housing (quiet)
   Asuminen
-  = 1381.80 € a month, 16581.61 € a year, -4 %
+  = 1082.20 € a month, 12986.41 € a year, -4 %
   | Vuokra ja vastike: 993.90 € a month, 11926.80 € a year
-  | Asuntolaina: 299.60 € a month, 3595.20 € a year
   | Sähkö, vesi ja lämpö: 88.30 € a month, 1059.61 € a year, -36 %
+
+themes · settled:4 · themes:loans (quiet)
+  Velanhoito
+  = 299.60 € a month, 3595.20 € a year
+  | Asuntolaina: 299.60 € a month, 3595.20 € a year
 
 themes · settled:4 · themes:media (quiet)
   Viestintä ja tilaukset
@@ -711,10 +759,14 @@ themes · settled:5 · themes:health (quiet)
 
 themes · settled:5 · themes:housing (quiet)
   Asuminen
-  = 1282.59 € a month, 15391.07 € a year
+  = 890.18 € a month, 10682.15 € a year
   | Vuokra ja vastike: 792.14 € a month, 9505.68 € a year
-  | Asuntolaina: 392.41 € a month, 4708.92 € a year
   | Sähkö, vesi ja lämpö: 98.04 € a month, 1176.47 € a year
+
+themes · settled:5 · themes:loans (quiet)
+  Velanhoito
+  = 392.41 € a month, 4708.92 € a year
+  | Asuntolaina: 392.41 € a month, 4708.92 € a year
 
 themes · settled:5 · themes:media (quiet)
   Viestintä ja tilaukset

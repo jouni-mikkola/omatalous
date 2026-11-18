@@ -403,10 +403,11 @@ function PlanChoices({ item, busy, onAnswer }: { item: Extract<ReviewItem, { kin
 
 /**
  * What a proposal still asks: the rate, the way of paying back and the amount granted (the limit of a card or credit
- * line), and the balance only where no connected loan account told it. The rows gave the rest.
+ * line), the balance only where no connected loan account told it, and the payment where the rows told none a month.
+ * The rows gave the rest.
  */
-function proposalAsk(form: LoanForm): LoanFieldKey[] {
-  const own = shownFields(form).filter((key) => key === "grantedCents" || key === "limitCents" || key === "rateBp" || key === "repayment");
+function proposalAsk(form: LoanForm, noMonthly: boolean): LoanFieldKey[] {
+  const own = shownFields(form).filter((key) => key === "grantedCents" || key === "limitCents" || key === "rateBp" || key === "repayment" || (key === "paymentCents" && noMonthly));
   return form.values.balanceCents === "" ? ["balanceCents", ...own] : own;
 }
 
@@ -422,7 +423,9 @@ function LoanChoices({ item, meta, busy, onAnswer }: { item: Extract<ReviewItem,
   const named = (c: { label: string; guess: boolean }) => (c.guess ? `${c.label} ${t("set.rc.suggestion")}` : c.label);
   if (kind && loans.data) {
     const row = { key: item.key, payee: item.payee, paymentCents: item.paymentCents, months: item.months, firstDate: item.firstDate, lastDate: item.lastDate, kind };
-    const initial = formOfProposal(row, meta.today, meta.accounts, loans.data.loans);
+    const proposed = formOfProposal(row, meta.today, meta.accounts, loans.data.loans);
+    // the latest of a lender's few payments is no monthly payment: the household types that
+    const initial = item.noMonthly ? { ...proposed, values: { ...proposed.values, paymentCents: "" } } : proposed;
     return (
       <LoanLinks.Provider value={{ accounts: meta.accounts, loans: loans.data.loans }}>
         <div className="review-loan">
@@ -431,7 +434,7 @@ function LoanChoices({ item, meta, busy, onAnswer }: { item: Extract<ReviewItem,
             initial={initial}
             today={meta.today}
             cancelLabel={t("set.rc.cancel")}
-            ask={proposalAsk(initial)}
+            ask={proposalAsk(initial, item.noMonthly === true)}
             onSave={async (body) => {
               // the editor shows its own error; the page moves on only after the loan is saved
               await loanCalls.add(body);

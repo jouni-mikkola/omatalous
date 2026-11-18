@@ -6,6 +6,7 @@ import { isOffMedian, isPersonName, PAYER_ROLES, payerKeyOf, payerKeysOf, payerR
 import { serviceNamed } from "../payment-services.ts";
 import { nameOf, userNameOf } from "../person-names.ts";
 import { steadyBy } from "../returns.ts";
+import { proposalWeight } from "../shared.ts";
 import { normalizeIban } from "../transfers.ts";
 import type { IsoDate, PayerInput, PayerRole, UserInputs } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, netSpend, spendRows } from "./context.ts";
@@ -47,7 +48,7 @@ interface LoanQuestion {
   key: string;
   payee: string;
   paymentCents: number;
-  /** Twelve payments. */
+  /** What the loan weighs in the order (`proposalWeight`): twelve payments, or with no monthly figure what it owes at least or its latest payment. */
   cents: number;
 }
 
@@ -248,7 +249,7 @@ export function buildQuestions(ctx: AnalysisContext, range: DateRange, inputs: U
     for (const [merchant, g] of groups) if (g.cents > 0 && !dismissed.has(merchant) && !(kind === "payee_in" && asked.covered.has(merchant))) items.push({ kind, merchant, cents: g.cents, count: g.count, rowIds: g.rowIds, lastDate: g.lastDate, ...(kind === "payee_out" && serviceNamed(merchant) ? { service: serviceNamed(merchant)! } : {}) });
   }
   for (const p of proposals) {
-    const asked = { key: p.key, payee: p.payee, paymentCents: p.paymentCents, cents: 12 * p.paymentCents };
+    const asked = { key: p.key, payee: p.payee, paymentCents: p.paymentCents, cents: proposalWeight(p) };
     if (p.plan) {
       if (p.planAnswer === null) items.push({ kind: "plan", ...asked, lastDate: p.lastDate });
     } else if (!p.placed) items.push({ kind: "loan", ...asked });

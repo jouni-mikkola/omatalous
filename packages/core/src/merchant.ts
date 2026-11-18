@@ -78,7 +78,7 @@ const SERVICE_GROUP = "(?:GROUP|HOLDING|EUROPE|NORDIC|NORDICS|BANK)";
  * and a word that starts with a letter after it ("PAYTRAIL OYJ KAUPPA ILO OY"). A short code is no company's name.
  */
 const PROCESSOR_PREFIX = new RegExp(
-  String.raw`^(?:${[...PAYMENT_SERVICES.flatMap((s) => [...s.names, ...(s.codes ?? [])]).map(spelled), "SP", "VFI", MOBILEPAY_SHOP_PREFIX].sort((a, b) => b.length - a.length).join("|")})(?:[\s_-]*[*/]\s*|(?<=[A-Z]{4})(?:\s+${SERVICE_GROUP}(?:\s+(?:${SERVICE_FORMS}))?|\s+(?:${SERVICE_FORMS}))(?:\s*/\s*|\s+)(?=[A-ZÄÖÅÜ]))`,
+  String.raw`^(?:${[...PAYMENT_SERVICES.flatMap((s) => [...s.names, ...(s.codes ?? [])]).map(spelled), "SP", "VFI", MOBILEPAY_SHOP_PREFIX].sort((a, b) => b.length - a.length).join("|")})(?:[\s_-]*[*/]\s*|(?<=[A-Z]{4})(?:\s+${SERVICE_GROUP}(?:\s+(?:${SERVICE_FORMS})){0,2}|(?:\s+(?:${SERVICE_FORMS})){1,2})(?:\s*/\s*|\s+)(?=[A-ZÄÖÅÜ]))`,
 );
 
 /**
@@ -341,6 +341,8 @@ export function namesUnknownMerchant(rule: { field: string; pattern: string }): 
 /** The most of a bank text the cleaning reads. No name or card mask is longer; a cap keeps a regex that is slow on some long text from holding the event loop. */
 const BANK_TEXT_MAX = 200;
 const capBankText = (s: string) => (s.length > BANK_TEXT_MAX ? s.slice(0, BANK_TEXT_MAX) : s);
+/** A company form in brackets ("AB (PUBL)", a listed Swedish company's): a word like any form, so the service in front and the end of a name see it. */
+const BRACKETED_FORM = new RegExp(String.raw`\s*\((${SERVICE_FORMS})\)`, "g");
 
 /**
  * Upper-cases and strips payment-processor prefixes, card masks, dates,
@@ -348,7 +350,7 @@ const capBankText = (s: string) => (s.length > BANK_TEXT_MAX ? s.slice(0, BANK_T
  * `fold` the result for matching.
  */
 export function cleanDescription(raw: string): string {
-  let s = dropCardAccountPrefix(capBankText(raw).toUpperCase().trim());
+  let s = dropCardAccountPrefix(capBankText(raw).toUpperCase().trim()).replace(BRACKETED_FORM, " $1");
   for (let i = 0; i < 2; i++) s = dropProcessor(s);
   s = s
     .replace(NOISE_WORDS, " ")
