@@ -195,8 +195,10 @@ function withNewPayment(form: LoanForm, { paymentCents, reviewDate }: { paymentC
 /**
  * A debt that lacks a fact. A saved loan's own form, as Asetukset > Lainat edits it, opens here; a connected card with no
  * saved loan gets the form of a new loan linked to it, filled with the bank's balance and limit, and one whose linked
- * loan has no rate gets that loan's form. The item goes once the loan is saved with the fact. Älä muistuta tästä enää sets the question aside with the mark of the item, except for
- * the rate and the payment, which keep asking. A payment the plan did not expect opens the loan's form with the new payment filled in, and with the day it moved on as the review day of a loan on a reference rate.
+ * loan has no rate gets that loan's form. The item goes once the loan is saved with the fact. Älä muistuta tästä enää
+ * sets the question aside with the mark of the item, except for the rate and the payment, which keep asking. A payment
+ * the plan did not expect opens the loan's form with the new payment filled in, and for a loan on a reference rate the
+ * day it moved on as the review day.
  */
 function LoanTermsChoices({ item, meta, busy, onAnswer }: { item: Extract<ReviewItem, { kind: "loan_terms" | "loan_drift" }>; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void }) {
   const [editing, setEditing] = useState(false);
