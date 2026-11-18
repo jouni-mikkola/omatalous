@@ -278,6 +278,17 @@ const isRefund = (t: Pick<Transaction, "category">): boolean => t.category === "
 export const steadyPayers = (rows: readonly Pick<Transaction, "counterparty" | "counterpartyIban" | "amountCents" | "bookingDate">[], pooled: ReadonlySet<string>): Map<string, number> =>
   steadyBy(rows.filter((t) => t.amountCents > 0), (t) => payerKeyOf(t, pooled));
 
+/** The pooled accounts and the medians of the money in, read from the same rows, so a payer has one key in both. */
+export interface PayerHistory {
+  pooled: ReadonlySet<string>;
+  steady: ReadonlyMap<string, number>;
+}
+
+export function payerHistoryOf(rows: readonly (Pick<Transaction, "counterparty" | "counterpartyIban" | "amountCents" | "bookingDate"> & Partial<Pick<Transaction, "description">>)[]): PayerHistory {
+  const pooled = pooledIbans(rows);
+  return { pooled, steady: steadyPayers(rows, pooled) };
+}
+
 /** What pairing decided before the roles: a transfer leg, a return, a card bill. */
 const DECIDED = new Set(["transfer", "match"]);
 
@@ -287,18 +298,17 @@ const DECIDED = new Set(["transfer", "match"]);
  * decided (a transfer leg, a card bill, a return with both its rows), a refund, then the role. `locked`: the rows of the member's
  * own rules and both rows of every return. For a steady payer with `cost_share` or `gift`, a
  * row more than the band from the payer's median keeps today's reading. Changes `next` in place; no roles, no change.
- * `steady` and `pooled`: the medians and the pooled accounts of the whole history when `next` is only some of its rows
- * (one merchant's); else read from `next`.
+ * `history`: the medians and the pooled accounts of the whole history when `next` is only some of its rows (one
+ * merchant's); else read from `next`.
  * MobilePay money that names no sender and is answered as shares of shared purchases (`cost_share`) is no income: it
  * nets against the category of the nearest household purchase in the 14 days before it, else against "other". Returns
  * those rows' purchase ids (null: none found), for the panel; the rows then read other rows, so the run is the full one.
  */
-export function applyPayerRoles(next: readonly Transaction[], locked: ReadonlySet<string>, payers: PayerInput | undefined, steady?: ReadonlyMap<string, number>, pooled?: ReadonlySet<string>): Map<string, string | null> {
+export function applyPayerRoles(next: readonly Transaction[], locked: ReadonlySet<string>, payers: PayerInput | undefined, history?: PayerHistory): Map<string, string | null> {
   const shares = new Map<string, string | null>();
   if (!payers || !payers.roles.length) return shares;
   const roleOf = resolver(payers.roles, payers.memberId);
-  pooled ??= pooledIbans(next);
-  steady ??= steadyPayers(next, pooled);
+  const { pooled, steady } = history ?? payerHistoryOf(next);
   let purchases: { id: string; day: number; cents: number; category: string }[] | undefined;
   for (const t of next) {
     if (locked.has(t.id) || DECIDED.has(t.categorySource) || t.isTransfer || t.category === "card_bill" || isRefund(t)) continue;
