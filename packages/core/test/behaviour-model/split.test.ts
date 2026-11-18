@@ -17,6 +17,18 @@ describe("D3 split bills, asked", () => {
     expect(q!.shares).toEqual({ value: [600, 600], confidence: "guess", evidence: ids });
   });
 
+  it("tells friends who pay from one wallet operator's account apart by name, as the netting and the payer questions do", () => {
+    const via = (who: string, cents: number, after: number): RowSpec => ({ ...from(who, cents, after), iban: "FI2112345600000785", ibanIn: true });
+    const strangers = [via("ANNA NIEMINEN", 900, -30), via("AINO MALLINEN", 900, -29)];
+    const { ctx, ids } = withRows([court(), via("LIISA VIRTANEN", 600, 1), via("PEKKA KORHONEN", 600, 2), ...strangers]);
+    expect(ctx.pooled.size).toBe(1);
+    expect(splitCandidates(ctx).questions.map((q) => q.purchaseId)).toEqual([ids[0]]);
+    // two names or fewer: the account is one payer, and two payments from it are not two friends
+    const few = withRows([court(), via("LIISA VIRTANEN", 600, 1), via("PEKKA KORHONEN", 600, 2)]);
+    expect(few.ctx.pooled.size).toBe(0);
+    expect(splitCandidates(few.ctx).questions).toEqual([]);
+  });
+
   it("does not ask when the shares come four days later", () => {
     const { ctx } = withRows([court(), from("LIISA VIRTANEN", 600, 4), from("PEKKA KORHONEN", 600, 4)]);
     expect(splitCandidates(ctx).questions).toEqual([]);

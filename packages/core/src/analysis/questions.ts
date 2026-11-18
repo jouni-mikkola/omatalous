@@ -165,7 +165,7 @@ function payerQuestions(ctx: AnalysisContext, rows: readonly AnalysisTx[], payer
   const money = rows.filter((t) => t.amountCents > 0);
   // one person is one payer, however their rows name them (the same keys Tarkistettavat's member money reads)
   const incoming = ctx.txs.filter((t) => t.amountCents > 0);
-  const keyOf = payerKeysOf(incoming);
+  const keyOf = payerKeysOf(incoming, ctx.pooled);
   // the run's median: every row of the member's, not the window's (applyPayerRoles reads the same rows)
   const steady = steadyBy(incoming, keyOf);
   // the keys a payer's rows were known by before they were one: a payer put aside under any of them stays aside

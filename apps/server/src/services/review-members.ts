@@ -41,7 +41,7 @@ export async function memberMoneyItems(s: Services, userId: string, own: OwnView
   if (!payers) return [];
   const members = await own.members();
   const from = addDays(s.today(), -364);
-  return memberMoney(ctx.txs, members, userId, from, (t) => payerRoleOf(payers.roles, t, payers.memberId) !== null).map((m) => ({
+  return memberMoney(ctx.txs, members, userId, from, (t) => payerRoleOf(payers.roles, t, payers.memberId) !== null, ctx.pooled).map((m) => ({
     kind: "payer",
     id: `payer:${m.key}`,
     cents: m.cents,

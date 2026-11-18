@@ -3,7 +3,8 @@
  * of what the household sent to that same person.
  *
  * Money from a person that no rule, pair or answer placed (Maksut henkilöiltä, income that is not earned) settles what
- * the household sent to the same person (Maksut henkilöille, one payer key, `identifiedPayerKeyOf`) in the same month. The row
+ * the household sent to the same person (Maksut henkilöille, one payer key, `identifiedPayerKeyOf`; an account that many
+ * unrelated senders pay from is told apart by name, `pooledIbans`, the one set of the context) in the same month. The row
  * takes what is left of those payments, oldest first, and lowers Maksut henkilöille by that much, as a row with its
  * minus. Only the rest of the row stays income, as Maksut henkilöiltä, which is no earned income. Income less spending
  * stays what it was, since the cents leave the income and the spending together, and Tulos is the same with and
@@ -33,10 +34,11 @@ const byDay = (a: Pick<Row, "day" | "id">, b: Pick<Row, "day" | "id">) => a.day 
 
 /**
  * Every row of money from a person that settles payments to the same person in its month, by its id, with what it takes
- * of each: less than its amount where the month sent less. Call it after `moneyIn` was applied. `claimed` gives the ids
- * the split guess claims; it is asked only when a row could net.
+ * of each: less than its amount where the month sent less. Call it after `moneyIn` was applied. `pooled`: the accounts
+ * that many senders pay from (`pooledIbans` of the rows). `claimed` gives the ids the split guess claims; it is asked
+ * only when a row could net.
  */
-export function netPersons(rows: readonly Row[], claimed: () => ReadonlySet<string> = () => new Set()): Map<string, Netting> {
+export function netPersons(rows: readonly Row[], pooled: ReadonlySet<string>, claimed: () => ReadonlySet<string> = () => new Set()): Map<string, Netting> {
   const out = new Map<string, Netting>();
   const incoming = rows
     .filter(
@@ -54,7 +56,7 @@ export function netPersons(rows: readonly Row[], claimed: () => ReadonlySet<stri
   const open = new Map<string, { id: string; left: number }[]>();
   for (const t of [...rows].sort(byDay)) {
     const left = t.spend - t.refunded;
-    const payer = identifiedPayerKeyOf(t);
+    const payer = identifiedPayerKeyOf(t, pooled);
     if (t.category !== TO_PERSONS || t.amountCents >= 0 || t.isTransfer || left <= 0 || !payer) continue;
     const key = `${monthOfRow(t)}|${payer}`;
     const list = open.get(key);
@@ -62,10 +64,10 @@ export function netPersons(rows: readonly Row[], claimed: () => ReadonlySet<stri
     else open.set(key, [{ id: t.id, left }]);
   }
   if (!open.size) return out;
-  const steady = steadyPayers(rows);
+  const steady = steadyPayers(rows, pooled);
   const split = claimed();
   for (const t of incoming) {
-    const payer = identifiedPayerKeyOf(t);
+    const payer = identifiedPayerKeyOf(t, pooled);
     if (!payer || steady.has(payer) || split.has(t.id)) continue;
     const taken: [string, number][] = [];
     let rest = t.amountCents;

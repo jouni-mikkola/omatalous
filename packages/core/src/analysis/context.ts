@@ -15,6 +15,7 @@ import { type Flows, flowsOf, incomeOf, type PeriodTotals, spendCentsOf, totalsO
 import { shortFees } from "./fee-short.ts";
 import { moneyIn } from "./money-in.ts";
 import { splitShareIds } from "../behaviour/split.ts";
+import { pooledIbans } from "../payer-role.ts";
 import { netPersons } from "./person-netting.ts";
 import type { DayRange } from "./period.ts";
 import { type ExplainedTx, explainStatements, type StatementBill, type StatementState } from "./statement-explain.ts";
@@ -81,6 +82,8 @@ export interface AnalysisContext {
   returns: ReadonlyMap<string, string>;
   /** The rows of money from a person that settled payments to the same person (`netPersons`): they moved to Maksut henkilöille, and the split guess still reads them as money from a person. */
   netted: ReadonlySet<string>;
+  /** The accounts many unrelated senders pay from (`pooledIbans`): their rows are told apart by name. The one set every payer key of the context reads. */
+  pooled: ReadonlySet<string>;
   recurring: readonly RecurringSeries[];
   /**
    * The rows read off card statements, as spending on their own days (`statement-explain.ts`). They are in none of `txs`,
@@ -231,7 +234,8 @@ function* contextSteps(transactions: readonly Transaction[], accounts: readonly 
   // money from a person nets against what was sent to the same person in its month: after the refunds, which it never
   // takes, and leaving the friends' shares that the split guess asks about
   const netted = new Set<string>();
-  for (const [id, netting] of netPersons(txs, () => splitShareIds({ today, txs, returns, netted }))) {
+  const pooled = pooledIbans(txs);
+  for (const [id, netting] of netPersons(txs, pooled, () => splitShareIds({ today, txs, returns, netted, pooled }))) {
     netted.add(id);
     lower(id, netting);
     // a month that sent less than came in keeps the rest as income
@@ -259,7 +263,7 @@ function* contextSteps(transactions: readonly Transaction[], accounts: readonly 
   const { entries: explained, states, lowered } = explainStatements(txs, accounts, statements);
 
   return {
-    today, todayDay: dayNumber(today), fees, paymentAccounts: paying.ids, loanAccounts: loanIds, paymentFlow: paying.flow, dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, netted, recurring, explained, lowered, statements: states, foreignRows, history,
+    today, todayDay: dayNumber(today), fees, paymentAccounts: paying.ids, loanAccounts: loanIds, paymentFlow: paying.flow, dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, netted, pooled, recurring, explained, lowered, statements: states, foreignRows, history,
     fixedIds: cut?.fixedIds ?? fixedIds, habitIds: cut?.habitIds ?? habitIds, ...(cut ? { standing: cut } : {}),
   };
 }

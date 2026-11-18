@@ -13,7 +13,7 @@ import { isSharedPurchase, SHARE_DAYS } from "./mobilepay.ts";
 import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { dayNumber } from "./dates.ts";
 import { applyPayerConsistency } from "./payer-consistency.ts";
-import { answeredWalletRows, applyPayerRoles, steadyPayers, WALLET_PAYER_KEY } from "./payer-role.ts";
+import { answeredWalletRows, applyPayerRoles, payerHistoryOf, WALLET_PAYER_KEY } from "./payer-role.ts";
 import { median } from "./stats.ts";
 import { matchReturns, monthlyRunRows, partyKey, returnClassOf, SHARE_WINDOW_DAYS, steadyParties } from "./returns.ts";
 import { mayBeTransferLeg } from "./pairing.ts";
@@ -278,7 +278,7 @@ export interface IslandInput {
    * Every row of the history that is money in, as far as a payer is told from it (payer, sum, day): a payer's median reads
    * rows outside the island. Needed when `payers` has a role; without it the full run answers.
    */
-  payerRows?: readonly Pick<Transaction, "counterparty" | "counterpartyIban" | "amountCents" | "bookingDate">[];
+  payerRows?: readonly Pick<Transaction, "counterparty" | "counterpartyIban" | "description" | "amountCents" | "bookingDate">[];
 }
 
 export type IslandResult = { ok: true; changed: Transaction[] } | { ok: false; reason: string };
@@ -309,7 +309,7 @@ export function enrichIsland(input: IslandInput): IslandResult {
   // MobilePay money answered as shares of purchases reads the rows of other merchants: its purchase
   if (input.payers?.roles.some((r) => r.role === "cost_share" && r.counterpartyKey === WALLET_PAYER_KEY)) return { ok: false, reason: "answered MobilePay shares read the purchases of other merchants" };
   if (input.payers?.roles.length && !input.payerRows) return { ok: false, reason: "payer roles read the payer's rows outside the merchant" };
-  const typicals = input.payerRows && input.payers?.roles.length ? steadyPayers(input.payerRows) : undefined;
+  const history = input.payerRows && input.payers?.roles.length ? payerHistoryOf(input.payerRows) : undefined;
   if (rows.some((t) => t.categorySource === "transfer")) return { ok: false, reason: "a row of the merchant is paired as a transfer" };
   const ownIbans = ownIbansOf(accounts, input.household);
   const holders = holdersOf(accounts);
@@ -330,7 +330,7 @@ export function enrichIsland(input: IslandInput): IslandResult {
     // as in the full run: the member's rules and both rows of every return are the roles' to leave
     const locked = new Set([...staged.byUserRule, ...staged.returns.keys(), ...staged.returns.values()]);
     applyPayerConsistency(next, locked);
-    applyPayerRoles(next, locked, input.payers, typicals);
+    applyPayerRoles(next, locked, input.payers, history);
     applyDeclaredMortgages(next, locked, input.loans);
     return next;
   };

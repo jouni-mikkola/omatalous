@@ -78,18 +78,18 @@ const isPurchase = (t: AnalysisTx) =>
   t.amountCents < 0 && !t.isTransfer && t.kind === "expense" && isSharedPurchase(t.category) && !NEVER_SHARED.has(t.category) && -t.amountCents >= MIN_PURCHASE_CENTS;
 
 /** Questions about the purchases of the last `days` days: an old court booking is not worth asking about. */
-export function splitCandidates(ctx: Pick<AnalysisContext, "today" | "txs" | "returns" | "netted">, days = 90): SplitCandidates {
+export function splitCandidates(ctx: Pick<AnalysisContext, "today" | "txs" | "returns" | "netted" | "pooled">, days = 90): SplitCandidates {
   const today = dayNumber(ctx.today);
   // a row that settled payments to its payer moved to Maksut henkilöille but is still money from a person, so the steady and busy payers stay what they were
   const incoming = ctx.txs.filter((t) => isFromPerson(t) || ctx.netted.has(t.id));
-  const busy = busyPayersOf(incoming, today);
+  const busy = busyPayersOf(incoming, today, ctx.pooled);
   const busyKeys = new Set(busy.map((b) => b.key));
-  const steady = steadyPayers(incoming);
+  const steady = steadyPayers(incoming, ctx.pooled);
   const matched = new Set([...ctx.returns.keys()].filter((id) => !ctx.netted.has(id)));
   const purchases = ctx.txs.filter((t) => isPurchase(t) && t.refunded === 0 && today - t.day <= days);
 
   const eligible = incoming.filter((t) => {
-    const key = payerKeyOf(t);
+    const key = payerKeyOf(t, ctx.pooled);
     return !matched.has(t.id) && !(key && (steady.has(key) || busyKeys.has(key)));
   });
 
@@ -103,7 +103,7 @@ export function splitCandidates(ctx: Pick<AnalysisContext, "today" | "txs" | "re
       const share = eligible[i]!.amountCents / -p.amountCents;
       if (share >= MIN_SHARE && share <= MAX_SHARE) near.push(eligible[i]!);
     }
-    const best = bestGroup(-p.amountCents, distinctPayers(near), SHARED_CATEGORIES.has(p.category));
+    const best = bestGroup(-p.amountCents, distinctPayers(near, ctx.pooled), SHARED_CATEGORIES.has(p.category));
     if (best) fits.push({ p, ...best });
   }
   fits.sort((x, y) => x.miss - y.miss || y.p.amountCents - x.p.amountCents || (x.p.id < y.p.id ? -1 : 1));
@@ -135,7 +135,7 @@ export function splitCandidates(ctx: Pick<AnalysisContext, "today" | "txs" | "re
 }
 
 /** The ids of the payments the questions of `splitCandidates` take for shares: `netPersons` leaves them to the household's answer. */
-export const splitShareIds = (ctx: Pick<AnalysisContext, "today" | "txs" | "returns" | "netted">): Set<string> =>
+export const splitShareIds = (ctx: Pick<AnalysisContext, "today" | "txs" | "returns" | "netted" | "pooled">): Set<string> =>
   new Set(splitCandidates(ctx).questions.flatMap((q) => q.shares.evidence.slice(1)));
 
 /**
@@ -169,10 +169,10 @@ function bestGroup(cents: number, payments: readonly AnalysisTx[], together: boo
 }
 
 /** One payment per payer, the first; payments that name nobody are each their own payer, since nothing tells them apart. */
-function distinctPayers(rows: readonly AnalysisTx[]): AnalysisTx[] {
+function distinctPayers(rows: readonly AnalysisTx[], pooled: ReadonlySet<string>): AnalysisTx[] {
   const seen = new Set<string>();
   return rows.filter((t) => {
-    const key = isUnnamedMobilePay(t) ? `row:${t.id}` : (payerKeyOf(t) ?? `row:${t.id}`);
+    const key = isUnnamedMobilePay(t) ? `row:${t.id}` : (payerKeyOf(t, pooled) ?? `row:${t.id}`);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -180,10 +180,10 @@ function distinctPayers(rows: readonly AnalysisTx[]): AnalysisTx[] {
 }
 
 /** Payers with `BUSY_ROWS` payments or more in the last 90 days and `BUSY_DAYS_NEEDED` days of `BUSY_DAY_ROWS` or more. */
-function busyPayersOf(incoming: readonly AnalysisTx[], today: number): BusyPayer[] {
+function busyPayersOf(incoming: readonly AnalysisTx[], today: number, pooled: ReadonlySet<string>): BusyPayer[] {
   const byKey = new Map<string, Map<number, number>>();
   for (const t of incoming) {
-    const key = payerKeyOf(t);
+    const key = payerKeyOf(t, pooled);
     if (!key || today - t.day > BUSY_DAYS) continue;
     const days = byKey.get(key) ?? new Map<number, number>();
     days.set(t.day, (days.get(t.day) ?? 0) + 1);

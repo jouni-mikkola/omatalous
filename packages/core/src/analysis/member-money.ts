@@ -7,7 +7,7 @@
  * Decision: the household settles what a member's money is (a share of the costs, a gift, a sale) once per payer, and
  * the rest of the unexplained money between members stays in view as a question and in no other figure.
  */
-import { payerKeysOf } from "../payer-role.ts";
+import { payerKeysOf, pooledIbans } from "../payer-role.ts";
 import { memberNamed, type Name, nameOf } from "../person-names.ts";
 import { normalizeIban } from "../transfers.ts";
 import type { IsoDate } from "../types.ts";
@@ -55,10 +55,10 @@ const SETTLED = new Set(["user", "match", "transfer", "payer"]);
  * The unexplained money in from other members, by payer, from `from` on, the largest first. `answered`: the rows whose
  * payer has a role, which is the role's to say. The viewer's own accounts and rows that name the viewer are no one else's.
  */
-export function memberMoney(rows: readonly AnalysisTx[], members: readonly HouseholdMember[], viewerId: string, from: IsoDate, answered: (t: AnalysisTx) => boolean): MemberMoney[] {
+export function memberMoney(rows: readonly AnalysisTx[], members: readonly HouseholdMember[], viewerId: string, from: IsoDate, answered: (t: AnalysisTx) => boolean, pooled: ReadonlySet<string> = pooledIbans(rows)): MemberMoney[] {
   const groups = new Map<string, { largest: AnalysisTx; cents: number; ids: string[]; last: IsoDate }>();
   // the keys the front's payer questions use, so a member who writes their name two ways is asked about once
-  const keyOf = payerKeysOf(rows.filter((t) => t.amountCents > 0));
+  const keyOf = payerKeysOf(rows.filter((t) => t.amountCents > 0), pooled);
   for (const t of rows) {
     if (t.amountCents <= 0 || t.flows.income <= 0 || t.status !== "booked" || t.isTransfer || t.bookingDate < from || SETTLED.has(t.categorySource) || answered(t)) continue;
     const member = memberOfRow(members, t, viewerId);

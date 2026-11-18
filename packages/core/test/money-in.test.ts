@@ -396,6 +396,44 @@ describe("money from a person", () => {
     expect(monthOn(ctx)).toMatchObject({ spent: 5_000, income: 3_000 });
   });
 
+  it.each([["E-LASKU", "Kuukausimaksu"], ["MOB.PAY", "Illan osuus"], ["Mobile Pay", "Kiitos"]])("nets nothing for a payer named by a way to pay that its key splits into words (%s)", (name, message) => {
+    const [sent, back] = [paid("2026-10-04", 50, name, "p2p", { counterparty: name, description: message }), got("2026-10-11", 30, name, "p2p_in", { counterparty: name, description: message })];
+    const ctx = contextOf([sent, back]);
+    expect(ctx.netted.size).toBe(0);
+    expect(monthOn(ctx)).toMatchObject({ spent: 5_000, income: 3_000 });
+  });
+
+  describe("an account many unrelated senders pay from", () => {
+    const POOL = "FI2112345600000785";
+    const [LIISA, VILLE, AINO] = ["Liisa Esimerkki", "Ville Testinen", "Aino Mallinen"];
+    const viaPool = (name: string): Partial<Transaction> => ({ counterparty: name, counterpartyIban: POOL });
+    const strangers = [from("2026-09-05", 20, LIISA, viaPool(LIISA)), from("2026-09-06", 20, VILLE, viaPool(VILLE)), from("2026-09-07", 20, AINO, viaPool(AINO))];
+
+    it("is told apart by name: what one sender sent does not settle a payment to another", () => {
+      const ctx = contextOf([to("2026-10-04", 50, MATTI, viaPool(MATTI)), from("2026-10-11", 30, LIISA, viaPool(LIISA)), ...strangers]);
+      expect(ctx.netted.size).toBe(0);
+      expect(monthOn(ctx)).toMatchObject({ spent: 5_000, income: 3_000 });
+    });
+
+    it("still settles a payment by money from the same name", () => {
+      const ctx = contextOf([to("2026-10-04", 50, MATTI, viaPool(MATTI)), from("2026-10-11", 30, MATTI, viaPool(MATTI)), ...strangers]);
+      expect(ctx.netted.size).toBe(1);
+      expect(monthOn(ctx)).toMatchObject({ spent: 2_000, income: 0 });
+    });
+
+    it("is one person's account while two names or fewer use it", () => {
+      const ctx = contextOf([to("2026-10-04", 50, MATTI, viaPool(MATTI)), from("2026-10-11", 30, MATTI, { counterparty: "Meikalainen Matti", counterpartyIban: POOL }), strangers[0]!]);
+      expect(ctx.netted.size).toBe(1);
+    });
+
+    it("counts the names of the money in alone: two senders and a payee are no pool, so the account tells the payer in the netting too", () => {
+      const ctx = contextOf([to("2026-10-04", 50, MATTI, viaPool(MATTI)), from("2026-10-11", 30, LIISA, viaPool(LIISA)), strangers[1]!]);
+      expect(ctx.pooled.size).toBe(0);
+      expect(ctx.netted.size).toBe(1);
+      expect(contextOf([to("2026-10-04", 50, MATTI, viaPool(MATTI)), ...strangers]).pooled).toEqual(new Set([POOL]));
+    });
+  });
+
   it("nets nothing for a row already on Maksut henkilöille: it is not money from a person to settle anything", () => {
     const back = got("2026-10-11", 30, MATTI, "p2p", { counterparty: MATTI });
     const ctx = contextOf([to("2026-10-04", 50, MATTI), back]);
