@@ -1,7 +1,7 @@
 /**
  * The themes are the main classes above the categories (themes.ts). Every row that counts in Menot has one theme and
  * one line in it, so the themes of a month add up to its Menot to the cent, in both views of every fixture household.
- * Auto takes the car's insurance, tax, finance and lease out of their categories, and exists only for a household
+ * Auto takes the car's insurance, tax and lease out of their categories, and exists only for a household
  * that has a car. The car's cost in Säästövinkit reads its lines from the same classifier.
  */
 import { describe, expect, it } from "vitest";
@@ -82,7 +82,7 @@ describe("the table of themes", () => {
       "Vapaa-aika",
       "Vakuutukset",
       "Verot ja maksut",
-      "Lainat ja luotot",
+      "Velanhoito",
       "Raha-asiat",
     ]);
     expect(new Set(THEMES.map((t) => t.id)).size).toBe(15);
@@ -108,11 +108,16 @@ describe("the table of themes", () => {
       "Katsastus",
       "Liikenne- ja autovakuutus",
       "Ajoneuvovero",
-      "Rahoitus",
       "Leasing",
       "Muut",
       "Auton osto",
     ]);
+  });
+
+  it("has the car's finance under Velanhoito, not in Auto", () => {
+    expect(THEMES.find((t) => t.id === "car")!.lines.some((l) => l.id === "finance")).toBe(false);
+    expect(THEMES.find((t) => t.id === "loans")!.lines.map((l) => l.id)).toContain("loans");
+    expect(places([carLoan()])).toEqual(["Velanhoito / Kulutusluotot"]);
   });
 });
 
@@ -130,7 +135,7 @@ describe("a row's theme and line", () => {
       ]),
     ).toEqual([
       "Asuminen / Vuokra ja vastike",
-      "Asuminen / Asuntolaina",
+      "Velanhoito / Asuntolaina",
       "Ruoka / Ruokakauppa",
       "Ostokset / Koti ja elektroniikka",
       "Verot ja maksut / Jäsenmaksut",
@@ -160,8 +165,8 @@ describe("a row's theme and line", () => {
     expect(places([vehicleTax(), paid("2026-10-06", 300, "Verohallinto", "taxes", "JAANNOSVERO")])).toEqual(["Auto / Ajoneuvovero", "Verot ja maksut / Verot, maksut ja sakot"]);
   });
 
-  it("a loan that names the car is Auto, another loan is Lainat ja luotot", () => {
-    expect(places([carLoan(), paid("2026-10-07", 120, LENDER, "loans", "KULUTUSLUOTTO")])).toEqual(["Auto / Rahoitus", "Lainat ja luotot / Kulutusluotot"]);
+  it("a loan that names the car is debt service like another loan: Velanhoito, never Auto", () => {
+    expect(places([carLoan(), paid("2026-10-07", 120, LENDER, "loans", "KULUTUSLUOTTO")])).toEqual(["Velanhoito / Kulutusluotot", "Velanhoito / Kulutusluotot"]);
   });
 
   it("a lease is Auto whatever its category, the same payee's other bill is not", () => {
@@ -194,8 +199,8 @@ describe("a row's theme and line", () => {
 
 describe("the theme Auto of a household that has not said how many cars it has", () => {
   const rows = [fuel("2026-10-01"), carInsurance(), vehicleTax(), carLoan(), lease()];
-  const inAuto = ["Auto / Polttoaine", "Auto / Liikenne- ja autovakuutus", "Auto / Ajoneuvovero", "Auto / Rahoitus", "Auto / Leasing"];
-  const noAuto = ["Liikkuminen / Auto, polttoaine ja pysäköinti", "Vakuutukset / Vakuutukset", "Verot ja maksut / Verot, maksut ja sakot", "Lainat ja luotot / Kulutusluotot", "Raha-asiat / Muut menot"];
+  const inAuto = ["Auto / Polttoaine", "Auto / Liikenne- ja autovakuutus", "Auto / Ajoneuvovero", "Velanhoito / Kulutusluotot", "Auto / Leasing"];
+  const noAuto = ["Liikkuminen / Auto, polttoaine ja pysäköinti", "Vakuutukset / Vakuutukset", "Verot ja maksut / Verot, maksut ja sakot", "Velanhoito / Kulutusluotot", "Raha-asiat / Muut menot"];
 
   it("exists with six purchases of fuel or charging in the window, and with five every row stays in the theme of its category", () => {
     expect(places(rows, notAsked(6))).toEqual(inAuto);

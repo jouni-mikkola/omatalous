@@ -185,8 +185,8 @@
    {
     "id": "housing",
     "heading": "Asuminen",
-    "monthlyCents": 173607,
-    "yearCents": 2083278,
+    "monthlyCents": 112367,
+    "yearCents": 1348398,
     "changePct": null,
     "lines": [
      {
@@ -194,13 +194,6 @@
       "heading": "Vuokra ja vastike",
       "monthlyCents": 105000,
       "yearCents": 1260000,
-      "changePct": null
-     },
-     {
-      "id": "mortgage",
-      "heading": "Asuntolaina",
-      "monthlyCents": 61240,
-      "yearCents": 734880,
       "changePct": null
      },
      {
@@ -239,6 +232,22 @@
       "monthlyCents": 12939,
       "yearCents": 155267,
       "changePct": 75
+     }
+    ]
+   },
+   {
+    "id": "loans",
+    "heading": "Velanhoito",
+    "monthlyCents": 61240,
+    "yearCents": 734880,
+    "changePct": null,
+    "lines": [
+     {
+      "id": "mortgage",
+      "heading": "Asuntolaina",
+      "monthlyCents": 61240,
+      "yearCents": 734880,
+      "changePct": null
      }
     ]
    },
