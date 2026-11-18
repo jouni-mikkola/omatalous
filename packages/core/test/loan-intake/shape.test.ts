@@ -21,7 +21,7 @@ function randomText(seed: number): string {
   return parts.join("");
 }
 
-const MONEY: LoanDraftKey[] = ["grantedCents", "balanceCents", "paymentCents", "limitCents"];
+const MONEY: LoanDraftKey[] = ["grantedCents", "balanceCents", "instalmentCents", "limitCents"];
 const RATES: LoanDraftKey[] = ["rateBp", "marginBp"];
 const DATES: LoanDraftKey[] = ["balanceDate", "endDate"];
 
@@ -31,7 +31,7 @@ const fieldsOf = (draft: LoanDraft) => Object.values(draft).filter((f) => typeof
 function expectWellFormed(draft: LoanDraft, text: string): void {
   const keys = (Object.keys(draft) as (LoanDraftKey | "warnings" | "paymentKind")[]).filter((k): k is LoanDraftKey => k !== "warnings" && k !== "paymentKind");
   // the kind of the payment comes with the payment and with nothing else
-  expect(draft.paymentKind === undefined, text).toBe(draft.paymentCents === undefined);
+  expect(draft.paymentKind === undefined, text).toBe(draft.instalmentCents === undefined);
   expect(keys.some((k) => k !== "lender"), text).toBe(true);
   for (const key of keys) {
     const field = draft[key]!;

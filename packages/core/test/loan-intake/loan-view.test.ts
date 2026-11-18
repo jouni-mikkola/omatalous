@@ -72,7 +72,7 @@ const DIALOG_FIELDS = {
   repayment: "annuity sure",
   endDate: "2052-03-14 sure",
   // no "Seuraava maksu": the amortisation alone is what the text gives of the payment
-  paymentCents: "30177 check",
+  instalmentCents: "30177 check",
 };
 const ASOF = { asOf: "2026-10-12" } as const;
 
@@ -93,13 +93,13 @@ describe("loan intake: a bank's Lainan tiedot dialog", () => {
   it("with the page lines before and after it, the page gives the heading's kind, the rate and the whole payment", () => {
     const [draft, ...others] = parseLoanText(text(PAGE_ABOVE, DIALOG, PAGE_BELOW), ASOF);
     expect(others).toEqual([]);
-    expect(read(draft!)).toEqual({ ...DIALOG_FIELDS, rateBp: "309 check", paymentCents: "74210 sure" });
+    expect(read(draft!)).toEqual({ ...DIALOG_FIELDS, rateBp: "309 check", instalmentCents: "74210 sure" });
     expect(draft!.paymentKind).toBe("whole");
     expect(draft!.kind).toBe("mortgage");
     expect(draft!.warnings).toEqual([]);
     // the page lines in the middle of the dialog's, on either side of it
     expect(read(parseLoanText(text(DIALOG, PAGE_BELOW), ASOF)[0]!)).toEqual(DIALOG_FIELDS);
-    expect(read(parseLoanText(text(PAGE_ABOVE, DIALOG), ASOF)[0]!)).toEqual({ ...DIALOG_FIELDS, rateBp: "309 check", paymentCents: "74210 sure" });
+    expect(read(parseLoanText(text(PAGE_ABOVE, DIALOG), ASOF)[0]!)).toEqual({ ...DIALOG_FIELDS, rateBp: "309 check", instalmentCents: "74210 sure" });
   });
 
   it("the lender is read when the recognition makes the mark after its name a glued o (a picture at device scale 1)", () => {
@@ -118,7 +118,7 @@ describe("loan intake: a bank's Lainan tiedot dialog", () => {
 
   it("the sum left comes from the figure over Maksamatta, to check, and the dialog's own label makes it sure", () => {
     expect(parseLoanText(text("171 240,55", "Maksamatta")).map(read)).toEqual([{ balanceCents: "17124055 check" }]);
-    expect(parseLoanText(text(PAGE_ABOVE)).map(read)).toEqual([{ balanceCents: "17124055 check", paymentCents: "74210 sure", rateBp: "309 check" }]);
+    expect(parseLoanText(text(PAGE_ABOVE)).map(read)).toEqual([{ balanceCents: "17124055 check", instalmentCents: "74210 sure", rateBp: "309 check" }]);
     expect(parseLoanText(text(PAGE_ABOVE, "Pääomaa maksamatta 171 240,55")).map((d) => read(d).balanceCents)).toEqual(["17124055 sure"]);
   });
 
@@ -176,16 +176,16 @@ describe("loan intake: a bank's Lainan tiedot dialog", () => {
   });
 
   it("Seuraava maksu is the whole payment, and the next day and the first day are no field", () => {
-    expect(parseLoanText(text("Seuraava maksu 742,10", "Pääomaa maksamatta 5 000,00")).map(read)).toEqual([{ paymentCents: "74210 sure", balanceCents: "500000 sure" }]);
+    expect(parseLoanText(text("Seuraava maksu 742,10", "Pääomaa maksamatta 5 000,00")).map(read)).toEqual([{ instalmentCents: "74210 sure", balanceCents: "500000 sure" }]);
     // the days of the dialog have no field in the draft
     expect(parseLoanText(text("Seuraava maksupäivä 16.10.2026", "Seuraava koron erääntymispäivä 16.10.2026", "Ensimmäinen nostopäivä 14.3.2022"))).toEqual([]);
   });
 
   it("the amortisation alone is the payment of a loan paid another way only when the way and the balance were read too", () => {
     const rows = (...lines: string[]) => parseLoanText(text(...lines)).map((d) => [read(d), d.paymentKind]);
-    expect(rows("Lyhennystyyppi Annuiteetti", "Pääomaa maksamatta 5 000,00", "Lyhennys 301,77")).toEqual([[{ repayment: "annuity sure", balanceCents: "500000 sure", paymentCents: "30177 check" }, "amortisation"]]);
+    expect(rows("Lyhennystyyppi Annuiteetti", "Pääomaa maksamatta 5 000,00", "Lyhennys 301,77")).toEqual([[{ repayment: "annuity sure", balanceCents: "500000 sure", instalmentCents: "30177 check" }, "amortisation"]]);
     // a whole payment in the text is the payment
-    expect(rows("Lyhennystyyppi Annuiteetti", "Pääomaa maksamatta 5 000,00", "Lyhennys 301,77", "Seuraava maksu 742,10")).toEqual([[{ repayment: "annuity sure", balanceCents: "500000 sure", paymentCents: "74210 sure" }, "whole"]]);
+    expect(rows("Lyhennystyyppi Annuiteetti", "Pääomaa maksamatta 5 000,00", "Lyhennys 301,77", "Seuraava maksu 742,10")).toEqual([[{ repayment: "annuity sure", balanceCents: "500000 sure", instalmentCents: "74210 sure" }, "whole"]]);
     // near misses: no balance, no way of paying back
     expect(rows("Lyhennystyyppi Annuiteetti", "Lyhennys 301,77")).toEqual([[{ repayment: "annuity sure" }, undefined]]);
     expect(rows("Pääomaa maksamatta 5 000,00", "Lyhennys 301,77")).toEqual([[{ balanceCents: "500000 sure" }, undefined]]);
@@ -216,7 +216,7 @@ describe("loan intake: what the dialog and the page print that is no value of th
 
   it("Lyhennys vähintään 2,00% is no rate and no amortisation", () => {
     const [draft] = parseLoanText(text("Lyhennystyyppi Tasalyhennys", "Pääomaa maksamatta 5 000,00", "Lyhennys 230,60", "Lyhennys vähintään 2,00%"));
-    expect(read(draft!)).toEqual({ repayment: "equal_principal sure", balanceCents: "500000 sure", paymentCents: "23060 sure" });
+    expect(read(draft!)).toEqual({ repayment: "equal_principal sure", balanceCents: "500000 sure", instalmentCents: "23060 sure" });
     expect(parseLoanText(text("Pääomaa maksamatta 5 000,00", "Lyhennys vähintään 2,00%")).map(read)).toEqual([{ balanceCents: "500000 sure" }]);
   });
 
@@ -261,7 +261,7 @@ describe("loan intake: what the dialog and the page print that is no value of th
     ];
     for (const rows of layouts) {
       const drafts = parseLoanText(text("Pääomaa maksamatta 171 240,55", "Seuraava maksu 742,10", ...rows, "Lyhennystyyppi Annuiteetti"));
-      expect(drafts.map(read), rows.join(" / ")).toEqual([{ balanceCents: "17124055 sure", paymentCents: "74210 sure", repayment: "annuity sure" }]);
+      expect(drafts.map(read), rows.join(" / ")).toEqual([{ balanceCents: "17124055 sure", instalmentCents: "74210 sure", repayment: "annuity sure" }]);
     }
     // and without it the table gives no payment either
     for (const rows of layouts) expect(parseLoanText(text("Pääomaa maksamatta 171 240,55", ...rows)).map(read), rows.join(" / ")).toEqual([{ balanceCents: "17124055 sure" }]);
@@ -279,7 +279,7 @@ describe("loan intake: a flexible credit's page", () => {
       intervalMonths: "1 sure",
       repayment: "equal_principal sure",
       // an equal-principal loan stores the amortisation, not the whole payment of the card
-      paymentCents: "23060 sure",
+      instalmentCents: "23060 sure",
     });
     expect(draft!.paymentKind).toBe("amortisation");
     expect(draft!.kind).toBe("credit_line");

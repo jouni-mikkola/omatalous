@@ -24,7 +24,7 @@ describe("loan intake: the label lists of wording-loan-pages.ts", () => {
       ["Marginaali", "marginBp"],
       ["Lyhennystapa", "repayment"],
       ["Lyhennysväli", "intervalMonths"],
-      ["Kuukausierä", "paymentCents"],
+      ["Kuukausierä", "instalmentCents"],
       ["Lyhennys", "amortisationCents"],
       ["Viimeinen eräpäivä", "endDate"],
       ["Luottoraja", "limitCents"],
@@ -39,7 +39,7 @@ describe("loan intake: the label lists of wording-loan-pages.ts", () => {
     const labels: [string, LoanLabelField][] = [
       ["Myönnetty", "grantedCents"],
       ["Pääomaa maksamatta", "balanceCents"],
-      ["Seuraava maksu", "paymentCents"],
+      ["Seuraava maksu", "instalmentCents"],
       ["Lyhennystyyppi", "repayment"],
       ["Viimeinen lyhennys", "endDate"],
       ["Velkoja", "lender"],

@@ -32,7 +32,7 @@ describe("loan intake: a SECCI form", () => {
         lender: "Esimerkkiluotto Oy sure",
         // the form's description stands between the label and the value
         grantedCents: "800000 check",
-        paymentCents: "16210 sure",
+        instalmentCents: "16210 sure",
         // words around the value: the label's own tail and "kiinteä"
         rateBp: "790 check",
       },
@@ -43,7 +43,7 @@ describe("loan intake: a SECCI form", () => {
 
   it("a value beside its label is sure", () => {
     const [draft] = parseLoanText(text("Luoton kokonaismäärä 8 000,00 euroa", "Lainakorko 7,90 %", "Kuukausierä: 162,10 euroa"));
-    expect(read(draft!)).toEqual({ grantedCents: "800000 sure", rateBp: "790 sure", paymentCents: "16210 sure" });
+    expect(read(draft!)).toEqual({ grantedCents: "800000 sure", rateBp: "790 sure", instalmentCents: "16210 sure" });
   });
 
   it("the annual percentage rate, late interest and the total to pay are not the loan's rate or amount", () => {
@@ -76,7 +76,7 @@ describe("loan intake: a SECCI form", () => {
   it("two forms in one paste give two drafts", () => {
     const second = FORM.replace("Esimerkkiluotto Oy", "Mallirahoitus Bank AB").replace("8 000,00 euroa", "3 500,00 euroa").replace("162,10", "71,05");
     const drafts = parseLoanText(`${FORM}\n\n${second}`);
-    expect(drafts.map((d) => [d.lender?.value, d.grantedCents?.value, d.paymentCents?.value])).toEqual([
+    expect(drafts.map((d) => [d.lender?.value, d.grantedCents?.value, d.instalmentCents?.value])).toEqual([
       ["Esimerkkiluotto Oy", 800000, 16210],
       ["Mallirahoitus Bank AB", 350000, 7105],
     ]);
@@ -90,7 +90,7 @@ describe("loan intake: a SECCI form", () => {
 
   it("OCR noise gives check, never sure", () => {
     const [draft] = parseLoanText(text("Luoton kokonaismaara 8 OOO euroa", "Lainakorko 7 90 %", "Kuukausiera l62,lO €"));
-    expect(read(draft!)).toEqual({ grantedCents: "800000 check", rateBp: "790 check", paymentCents: "16210 check" });
+    expect(read(draft!)).toEqual({ grantedCents: "800000 check", rateBp: "790 check", instalmentCents: "16210 check" });
   });
 
   it("a form with no figures filled in gives an empty list", () => {

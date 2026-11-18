@@ -38,7 +38,7 @@ const MAX_LINES = 5000;
 
 /** A second label on a line is its own after a tab, two spaces, a bar or a semicolon. */
 const HARD_BREAK = /(?:\t| {2,}|[|;] ?)$/;
-const NUMERIC: ReadonlySet<LoanReadField> = new Set(["grantedCents", "balanceCents", "paymentCents", "amortisationCents", "limitCents", "rateBp", "marginBp", "endDate", "balanceDate", "fixedUntil", "contractDate", "lastDate", "lastFee", "lastPrincipal", "lastInterest"]);
+const NUMERIC: ReadonlySet<LoanReadField> = new Set(["grantedCents", "balanceCents", "instalmentCents", "amortisationCents", "limitCents", "rateBp", "marginBp", "endDate", "balanceDate", "fixedUntil", "contractDate", "lastDate", "lastFee", "lastPrincipal", "lastInterest"]);
 /** Lines of description a SECCI form may put between a label and its value. */
 const MAX_PROSE = 2;
 const isProse = (line: Line) => wordCount(line) >= 5 && !/\d/.test(line.text);
@@ -157,7 +157,7 @@ type ReadHit = Omit<LoanLabelHit, "field"> & { field: LoanReadField };
 
 interface Open {
   fields: OpenFields;
-  /** `paymentCents` is the amortisation alone: the draft's `paymentKind` says so. */
+  /** `instalmentCents` is the amortisation alone: the draft's `paymentKind` says so. */
   amortisationOnly?: boolean;
   /** Label field or marker to the label phrase that was read: the same phrase again is the next loan. */
   seen: Map<string, string>;
@@ -286,7 +286,7 @@ class Drafts {
   }
 
   /**
-   * The loan's `paymentCents` is the whole payment, except for an equal-principal loan, where it is the amortisation
+   * The draft's `instalmentCents` is the whole payment, except for an equal-principal loan, where it is the amortisation
    * alone. So Lyhennys is the payment of such a loan and nothing for any other, and a whole payment read for an
    * equal-principal loan stays with a warning: the user types the amortisation.
    */
@@ -295,21 +295,21 @@ class Drafts {
     delete d.fields.amortisationCents;
     if (repayment?.value !== "equal_principal") {
       // the form tells the household that only the amortisation was read; with less read than this, nothing is made of it
-      if (amortisationCents && repayment && d.fields.balanceCents && !d.fields.paymentCents) d.alone = amortisationCents;
+      if (amortisationCents && repayment && d.fields.balanceCents && !d.fields.instalmentCents) d.alone = amortisationCents;
       return;
     }
     if (!amortisationCents) {
-      if (d.fields.paymentCents) lower(d.fields, d.warnings, "payment_whole", ["paymentCents"]);
+      if (d.fields.instalmentCents) lower(d.fields, d.warnings, "payment_whole", ["instalmentCents"]);
       return;
     }
     // right only if Lyhennystapa was read right; and a warning that names the payment keeps it to check
-    const doubted = repayment.confidence === "check" || d.warnings.some((w) => w.fields.includes("paymentCents"));
-    d.fields.paymentCents = doubted ? { ...amortisationCents, confidence: "check" } : amortisationCents;
+    const doubted = repayment.confidence === "check" || d.warnings.some((w) => w.fields.includes("instalmentCents"));
+    d.fields.instalmentCents = doubted ? { ...amortisationCents, confidence: "check" } : amortisationCents;
     d.amortisationOnly = true;
     // the payment keeps the place a whole payment had in the reading order, or takes the amortisation's
-    if (d.order.includes("paymentCents")) return;
-    d.order = d.order.map((k) => (k === "amortisationCents" ? "paymentCents" : k));
-    if (d.repeat === "amortisationCents") d.repeat = "paymentCents";
+    if (d.order.includes("instalmentCents")) return;
+    d.order = d.order.map((k) => (k === "amortisationCents" ? "instalmentCents" : k));
+    if (d.repeat === "amortisationCents") d.repeat = "instalmentCents";
   }
 
   /**
@@ -331,7 +331,7 @@ class Drafts {
     const [d, p] = [mine[0]!, theirs[0]!];
     for (const [key, f] of Object.entries(p.fields) as [keyof OpenFields, LoanDraftField<unknown>][]) {
       // a whole payment is what an amortisation stood in for; the amortisation itself is the dialog's
-      if (d.fields[key] || (key === "amortisationCents" && d.fields.paymentCents)) continue;
+      if (d.fields[key] || (key === "amortisationCents" && d.fields.instalmentCents)) continue;
       (d.fields as Record<string, LoanDraftField<unknown>>)[key] = { ...f, confidence: "check" };
       d.order.push(key);
     }
@@ -360,10 +360,10 @@ class Drafts {
       }
       crossCheck(d.fields, d.warnings, { referenceBp: d.referenceBp, amortisationOnly: d.amortisationOnly }, options);
       // no check knows what the amortisation of an annuity should be, so it joins the draft after them
-      if (d.alone) d.fields.paymentCents = { ...d.alone, confidence: "check" };
+      if (d.alone) d.fields.instalmentCents = { ...d.alone, confidence: "check" };
       if (options.source === "ocr") for (const f of Object.values(d.fields)) f.confidence = "check";
       const paymentKind = d.amortisationOnly || d.alone ? "amortisation" : "whole";
-      drafts.push({ ...d.fields, ...(d.fields.paymentCents ? { paymentKind } : {}), ...(d.kind ? { kind: d.kind } : {}), warnings: d.warnings });
+      drafts.push({ ...d.fields, ...(d.fields.instalmentCents ? { paymentKind } : {}), ...(d.kind ? { kind: d.kind } : {}), warnings: d.warnings });
     });
     return drafts;
   }

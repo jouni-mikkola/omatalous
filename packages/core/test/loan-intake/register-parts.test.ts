@@ -37,7 +37,7 @@ describe("loan intake: the register's rate, kind and last payment", () => {
       marginBp: "65 sure",
       repayment: "annuity sure",
       intervalMonths: "1 sure",
-      paymentCents: "68700 sure",
+      instalmentCents: "68700 sure",
       endDate: "2046-10-31 sure",
       lastPayment: "[object Object] sure",
     });
@@ -72,7 +72,7 @@ describe("loan intake: the register's rate, kind and last payment", () => {
   it("lowers the payment and the last payment when the parts do not add up to the payment", () => {
     const [draft] = parseLoanText(text(...MORTGAGE.map((l) => (l.startsWith("Kuukausierä") ? "Kuukausierä: 760,00 €" : l)), ...LAST));
     expect(warned(draft!)).toContain("last_payment_sum");
-    expect(draft!.paymentCents!.confidence).toBe("check");
+    expect(draft!.instalmentCents!.confidence).toBe("check");
     expect(draft!.lastPayment!.confidence).toBe("check");
   });
 
@@ -85,7 +85,7 @@ describe("loan intake: the register's rate, kind and last payment", () => {
     const loan = ["Esimerkkipankki Oyj", "Luoton saldo: 12 000,00 € (30.9.2026)", "Kokonaiskorko: 3,00 %", "Lyhennystapa: Tasalyhennys", "Lyhennys: 100,00 €", "Viimeinen eräpäivä: 31.8.2036"];
     // the loan's own Lyhennys comes before the label of the last payment, so the one after it is that payment's principal
     const [same] = parseLoanText(text(...loan, "Viimeisin maksutapahtuma: 15.9.2026", "Lyhennys: 100,00 €", "Korko: 30,00 €", "Muut luottokulut: 0,00 €"));
-    expect(same!.paymentCents!.value).toBe(10000);
+    expect(same!.instalmentCents!.value).toBe(10000);
     expect(same!.lastPayment!.value).toEqual({ date: "2026-09-15", principalCents: 10000, interestCents: 3000, feeCents: 0 });
     expect(warned(same!)).toEqual([]);
     const [other] = parseLoanText(text(...loan, "Viimeisin maksutapahtuma: 15.9.2026", "Lyhennys: 150,00 €", "Korko: 30,00 €", "Muut luottokulut: 0,00 €"));

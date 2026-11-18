@@ -8,11 +8,11 @@ const ROWS: [LoanDraftKey, string][] = [
   ["balanceCents", "Luoton saldo 12 345,67 €"],
   ["rateBp", "Kokonaiskorko 3,25 %"],
   ["marginBp", "Marginaali 0,65 %"],
-  ["paymentCents", "Kuukausierä 1 215,30 €"],
+  ["instalmentCents", "Kuukausierä 1 215,30 €"],
   ["endDate", "Viimeinen eräpäivä 31.12.2031"],
 ];
 const CLEAN = text(...ROWS.map(([, line]) => line));
-const SURE = { grantedCents: "2000000 sure", balanceCents: "1234567 sure", rateBp: "325 sure", marginBp: "65 sure", paymentCents: "121530 sure", endDate: "2031-12-31 sure" };
+const SURE = { grantedCents: "2000000 sure", balanceCents: "1234567 sure", rateBp: "325 sure", marginBp: "65 sure", instalmentCents: "121530 sure", endDate: "2031-12-31 sure" };
 const CHECK = Object.fromEntries(Object.entries(SURE).map(([key, value]) => [key, value.replace("sure", "check")]));
 
 describe("loan intake: OCR noise", () => {
@@ -55,8 +55,8 @@ describe("loan intake: OCR noise", () => {
 
   it("a lost comma can leave a well-formed number: the cross-checks and the ocr source are what catch it", () => {
     // as text this is 68 920 €, printed as such; from a picture it may be 689,20 €
-    expect(parseLoanText("Kuukausierä 68920 €").map(read)).toEqual([{ paymentCents: "6892000 sure" }]);
-    expect(parseLoanText("Kuukausierä 68920 €", { source: "ocr" }).map(read)).toEqual([{ paymentCents: "6892000 check" }]);
+    expect(parseLoanText("Kuukausierä 68920 €").map(read)).toEqual([{ instalmentCents: "6892000 sure" }]);
+    expect(parseLoanText("Kuukausierä 68920 €", { source: "ocr" }).map(read)).toEqual([{ instalmentCents: "6892000 check" }]);
     // 4,5 % read as 45 %
     const [high] = parseLoanText("Kokonaiskorko 45 %");
     expect([read(high!), warned(high!)]).toEqual([{ rateBp: "4500 check" }, ["rate_high"]]);

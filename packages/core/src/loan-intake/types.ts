@@ -44,7 +44,7 @@ export interface LoanDraftValues {
    * The whole payment (Kuukausierä). For `equal_principal` it is the amortisation alone, read from Lyhennys; a whole
    * payment read for such a loan stays here as `check` with the warning `payment_whole`.
    */
-  paymentCents: number;
+  instalmentCents: number;
   endDate: IsoDate;
   limitCents: number;
   /** The day the bank sets the rate again: the end of a fixed period. */
@@ -76,7 +76,7 @@ export interface LoanDraftWarning {
 }
 
 /**
- * What the draft's `paymentCents` holds: the `whole` payment (Kuukausierä, with the interest in it) or the
+ * What the draft's `instalmentCents` holds: the `whole` payment (Kuukausierä, with the interest in it) or the
  * `amortisation` alone (Lyhennys). An equal-principal loan stores the amortisation, every other loan the whole payment.
  */
 export type LoanDraftPaymentKind = "whole" | "amortisation";
@@ -84,7 +84,7 @@ export type LoanDraftPaymentKind = "whole" | "amortisation";
 /** A field is absent when its label was not found or its value could not be read: nothing is guessed. */
 export type LoanDraft = { [K in LoanDraftKey]?: LoanDraftField<LoanDraftValues[K]> } & {
   /**
-   * Present with `paymentCents`. It is no field of the loan and is not saved. The form that shows the draft reads
+   * Present with `instalmentCents`. It is no field of the loan and is not saved. The form that shows the draft reads
    * it when the user changes Lyhennystapa, and does what the parser does for a text that names that type: a `whole`
    * payment under `equal_principal` stays to check with the `payment_whole` warning, an `amortisation` under any other
    * type is emptied for the user to type, and a kind that fits the type (`amortisation` for `equal_principal`, `whole`

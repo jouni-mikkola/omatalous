@@ -57,12 +57,12 @@ describe("loan intake: cross-checks", () => {
 
   it("the payment is about the annuity of the balance, the rate and the end date", () => {
     const paying = (payment: string) => one([...LOAN, `Kuukausierä ${payment}`], ASOF);
-    expect(read(paying("689,20 €"))).toEqual({ balanceCents: "12000000 sure", rateBp: "339 sure", endDate: "2046-10-31 sure", paymentCents: "68920 sure" });
+    expect(read(paying("689,20 €"))).toEqual({ balanceCents: "12000000 sure", rateBp: "339 sure", endDate: "2046-10-31 sure", instalmentCents: "68920 sure" });
     for (const fine of ["689,20 €", "600,00 €", "780,00 €"]) expect(warned(paying(fine)), fine).toEqual([]);
 
     const off = paying("68,92 €");
-    expect(read(off)).toEqual({ balanceCents: "12000000 check", rateBp: "339 check", endDate: "2046-10-31 check", paymentCents: "6892 check" });
-    expect(off.warnings).toEqual([{ id: "payment_annuity", text: "Maksuerä ei vastaa jäljellä olevaa lainaa, korkoa ja viimeistä eräpäivää. Tarkista luvut.", fields: ["paymentCents", "balanceCents", "rateBp", "endDate"] }]);
+    expect(read(off)).toEqual({ balanceCents: "12000000 check", rateBp: "339 check", endDate: "2046-10-31 check", instalmentCents: "6892 check" });
+    expect(off.warnings).toEqual([{ id: "payment_annuity", text: "Maksuerä ei vastaa jäljellä olevaa lainaa, korkoa ja viimeistä eräpäivää. Tarkista luvut.", fields: ["instalmentCents", "balanceCents", "rateBp", "endDate"] }]);
     for (const wrong of ["6 892,00 €", "500,00 €", "1 000,00 €"]) expect(warned(paying(wrong)), wrong).toEqual(["payment_annuity"]);
   });
 
@@ -97,21 +97,21 @@ describe("loan intake: cross-checks", () => {
 });
 
 describe("loan intake: the payment of an equal-principal loan", () => {
-  // The loan's paymentCents is the whole payment, except for tasalyhennys, where it is the amortisation alone.
+  // The draft's instalmentCents is the whole payment, except for tasalyhennys, where it is the amortisation alone.
   it("Lyhennys is the payment when the loan is paid in equal principal parts", () => {
     const draft = one(["Lyhennystapa: Tasalyhennys", "Lyhennys: 500,00 €", "Kuukausierä: 839,00 €"]);
-    expect(read(draft)).toEqual({ repayment: "equal_principal sure", paymentCents: "50000 sure" });
-    expect(draft.paymentCents!.line).toBe("Lyhennys: 500,00 €");
+    expect(read(draft)).toEqual({ repayment: "equal_principal sure", instalmentCents: "50000 sure" });
+    expect(draft.instalmentCents!.line).toBe("Lyhennys: 500,00 €");
     expect(warned(draft)).toEqual([]);
     // the order of the rows does not matter
-    expect(read(one(["Kuukausierä: 839,00 €", "Lyhennys: 500,00 €", "Lyhennystapa: Tasalyhennys"]))).toEqual({ repayment: "equal_principal sure", paymentCents: "50000 sure" });
+    expect(read(one(["Kuukausierä: 839,00 €", "Lyhennys: 500,00 €", "Lyhennystapa: Tasalyhennys"]))).toEqual({ repayment: "equal_principal sure", instalmentCents: "50000 sure" });
   });
 
   it("a whole payment on an equal-principal loan stays, to check, with a warning", () => {
     const draft = one(["Lyhennystapa: Tasalyhennys", "Kuukausierä: 839,00 €"]);
-    expect(read(draft)).toEqual({ repayment: "equal_principal sure", paymentCents: "83900 check" });
+    expect(read(draft)).toEqual({ repayment: "equal_principal sure", instalmentCents: "83900 check" });
     expect(draft.warnings).toEqual([
-      { id: "payment_whole", text: "Kirjaa tasalyhennyslainan maksueräksi pelkkä lyhennys. Tekstin maksuerässä on korko mukana. Tarkista maksuerä.", fields: ["paymentCents"] },
+      { id: "payment_whole", text: "Kirjaa tasalyhennyslainan maksueräksi pelkkä lyhennys. Tekstin maksuerässä on korko mukana. Tarkista maksuerä.", fields: ["instalmentCents"] },
     ]);
   });
 
@@ -126,7 +126,7 @@ describe("loan intake: the payment of an equal-principal loan", () => {
   });
 
   it("Lyhennys is no payment for any other loan", () => {
-    expect(read(one(["Lyhennystapa: Annuiteetti", "Lyhennys: 350,10 €", "Kuukausierä: 689,20 €"]))).toEqual({ repayment: "annuity sure", paymentCents: "68920 sure" });
+    expect(read(one(["Lyhennystapa: Annuiteetti", "Lyhennys: 350,10 €", "Kuukausierä: 689,20 €"]))).toEqual({ repayment: "annuity sure", instalmentCents: "68920 sure" });
     expect(read(one(["Lyhennystapa: Annuiteetti", "Lyhennys: 350,10 €"]))).toEqual({ repayment: "annuity sure" });
     // the way of paying back is not in the text: Lyhennys may be a part of an annuity payment
     expect(read(one(["Luoton saldo 120 000,00 €", "Lyhennys: 350,10 €"]))).toEqual({ balanceCents: "12000000 sure" });
@@ -135,7 +135,7 @@ describe("loan intake: the payment of an equal-principal loan", () => {
 
   it("the payment is no surer than the way of paying back it rests on", () => {
     const draft = one(["Lyhennystapa: Tasalyhennys, lyhennysvapaa 6 kk", "Lyhennys: 500,00 €"]);
-    expect(read(draft)).toEqual({ repayment: "equal_principal check", paymentCents: "50000 check" });
+    expect(read(draft)).toEqual({ repayment: "equal_principal check", instalmentCents: "50000 check" });
   });
 
   it("the amortisation is about the balance over the payments left, with no rate in it", () => {
@@ -143,8 +143,8 @@ describe("loan intake: the payment of an equal-principal loan", () => {
     // 120 000 € over 240 months
     expect(warned(paying(["Lyhennys 500,00 €"]))).toEqual([]);
     const off = paying(["Lyhennys 50,00 €"]);
-    expect(read(off)).toEqual({ balanceCents: "12000000 check", rateBp: "339 sure", endDate: "2046-10-31 check", repayment: "equal_principal sure", paymentCents: "5000 check" });
-    expect(off.warnings.map((w) => [w.id, w.fields])).toEqual([["payment_annuity", ["paymentCents", "balanceCents", "endDate"]]]);
+    expect(read(off)).toEqual({ balanceCents: "12000000 check", rateBp: "339 sure", endDate: "2046-10-31 check", repayment: "equal_principal sure", instalmentCents: "5000 check" });
+    expect(off.warnings.map((w) => [w.id, w.fields])).toEqual([["payment_annuity", ["instalmentCents", "balanceCents", "endDate"]]]);
     // a whole payment is judged as one: 500 € and 339 € of interest
     expect(warned(paying(["Kuukausierä 839,00 €"]))).toEqual(["payment_whole"]);
     expect(warned(paying(["Kuukausierä 83,90 €"]))).toEqual(["payment_whole", "payment_annuity"]);

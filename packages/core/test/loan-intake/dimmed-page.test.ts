@@ -49,13 +49,13 @@ const ASOF = { asOf: "2026-10-12" } as const;
 describe("loan intake: a dialog over its dimmed page", () => {
   it("the page behind gives the rate and the whole payment, each to check, and the dialog's fields stay as read", () => {
     const drafts = parseLoanText(PICTURE, ASOF);
-    expect(drafts.map(read)).toEqual([{ ...DIALOG_FIELDS, rateBp: "309 check", paymentCents: "74210 check" }]);
+    expect(drafts.map(read)).toEqual([{ ...DIALOG_FIELDS, rateBp: "309 check", instalmentCents: "74210 check" }]);
     expect(drafts.map(warned)).toEqual([[]]);
     const [draft] = drafts;
     expect(draft!.paymentKind).toBe("whole");
     expect(draft!.kind).toBe("mortgage");
     expect(draft!.rateBp!.line).toBe("Korko 3,085%");
-    expect(draft!.paymentCents!.line).toBe("Seuraava maksu 742,10");
+    expect(draft!.instalmentCents!.line).toBe("Seuraava maksu 742,10");
   });
 
   it("read from a picture, every field is to check, as any picture's", () => {
@@ -75,7 +75,7 @@ describe("loan intake: a dialog over its dimmed page", () => {
     for (const view of [DIALOG, text(DIALOG, DIMMED_PAGE_LINE), text(DIALOG, DIMMED_PAGE_LINE, PAGE_TABLE)]) {
       const [draft, ...others] = parseLoanText(view, ASOF);
       expect(others).toEqual([]);
-      expect(read(draft!)).toEqual({ ...DIALOG_FIELDS, paymentCents: "30177 check" });
+      expect(read(draft!)).toEqual({ ...DIALOG_FIELDS, instalmentCents: "30177 check" });
       expect(draft!.paymentKind).toBe("amortisation");
     }
   });
@@ -84,32 +84,32 @@ describe("loan intake: a dialog over its dimmed page", () => {
     for (const page of [text(PAGE_TOP, PAGE_TABLE), text(PAGE_TOP, "Korko 440,33", PAGE_TABLE)]) {
       const [draft, ...others] = parseLoanText(text(DIALOG, DIMMED_PAGE_LINE, page), ASOF);
       expect(others).toEqual([]);
-      expect(read(draft!)).toEqual({ ...DIALOG_FIELDS, paymentCents: "74210 check" });
+      expect(read(draft!)).toEqual({ ...DIALOG_FIELDS, instalmentCents: "74210 check" });
     }
   });
 
   it("the reader's line counts only between the dialog and the page: the same page lines before the dialog are read as one text", () => {
     const [draft] = parseLoanText(text(PAGE_TOP, PAGE_RATE, DIALOG), ASOF);
-    expect(read(draft!)).toEqual({ ...DIALOG_FIELDS, rateBp: "309 check", paymentCents: "74210 sure" });
+    expect(read(draft!)).toEqual({ ...DIALOG_FIELDS, rateBp: "309 check", instalmentCents: "74210 sure" });
   });
 
   it("a page behind with two loans is not known to be the dialog's, and gives nothing", () => {
     const page = text("Asuntolaina", "Seuraava maksu 742,10", "Korko 3,085%", "Joustoluotto", "Seuraava maksu 250,00", "Korko 8,400%");
     const drafts = parseLoanText(text(DIALOG, DIMMED_PAGE_LINE, page), ASOF);
-    expect(drafts.map(read)).toEqual([{ ...DIALOG_FIELDS, paymentCents: "30177 check" }]);
+    expect(drafts.map(read)).toEqual([{ ...DIALOG_FIELDS, instalmentCents: "30177 check" }]);
   });
 
   it("a dialog with no loan in it leaves the page's loan, every field to check", () => {
     // two figures on one line over two captions are neither caption's
     const drafts = parseLoanText(text("Evästeet", "Hyväksy kaikki", DIMMED_PAGE_LINE, PAGE_TOP, PAGE_RATE), ASOF);
-    expect(drafts.map(read)).toEqual([{ paymentCents: "74210 check", rateBp: "309 check" }]);
+    expect(drafts.map(read)).toEqual([{ instalmentCents: "74210 check", rateBp: "309 check" }]);
   });
 
   it("an equal-principal dialog keeps its amortisation as the payment over the page's whole payment", () => {
     const dialog = DIALOG.replace("Annuiteetti", "Tasalyhennys");
     const [alone] = parseLoanText(dialog, ASOF);
     const [draft] = parseLoanText(text(dialog, DIMMED_PAGE_LINE, PAGE_TOP, PAGE_RATE), ASOF);
-    expect(draft!.paymentCents).toEqual(alone!.paymentCents);
+    expect(draft!.instalmentCents).toEqual(alone!.instalmentCents);
     expect(draft!.paymentKind).toBe("amortisation");
     expect(read(draft!).rateBp).toBe("309 check");
   });

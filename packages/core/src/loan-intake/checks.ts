@@ -62,13 +62,13 @@ function paymentOf(repayment: LoanDraftValues["repayment"], balance: number, rat
 export interface CheckInputs {
   /** The reference rate's own value, when the text printed one beside Viitekorko. It is no field of the loan. */
   referenceBp?: number;
-  /** `paymentCents` came from Lyhennys: the principal part of an equal-principal loan's payment, with no interest. */
+  /** `instalmentCents` came from Lyhennys: the principal part of an equal-principal loan's payment, with no interest. */
   amortisationOnly?: boolean;
 }
 
 export function crossCheck(fields: DraftFields, warnings: LoanDraftWarning[], { referenceBp, amortisationOnly }: CheckInputs, options: LoanTextOptions): void {
   const warn = (id: LoanDraftWarningId, ...keys: LoanDraftKey[]) => lower(fields, warnings, id, keys);
-  const { rateBp, marginBp, balanceCents, grantedCents, limitCents, paymentCents, endDate } = fields;
+  const { rateBp, marginBp, balanceCents, grantedCents, limitCents, instalmentCents, endDate } = fields;
 
   if (rateBp && rateBp.value > RATE_HIGH_BP) warn("rate_high", "rateBp");
   // a margin is a part of the rate, so the same limit finds its lost comma ("Marginaali 65 %" for 0,65 %)
@@ -77,8 +77,8 @@ export function crossCheck(fields: DraftFields, warnings: LoanDraftWarning[], { 
     if (Math.abs(rateBp.value - referenceBp - marginBp.value) > RATE_SUM_SLACK_BP) warn("rate_sum", "rateBp", "marginBp");
   }
   const last = fields.lastPayment?.value;
-  if (last && paymentCents && !within(paymentCents.value, amortisationOnly ? [last.principalCents] : [last.principalCents + last.interestCents, last.principalCents + last.interestCents + last.feeCents])) {
-    warn("last_payment_sum", "lastPayment", "paymentCents");
+  if (last && instalmentCents && !within(instalmentCents.value, amortisationOnly ? [last.principalCents] : [last.principalCents + last.interestCents, last.principalCents + last.interestCents + last.feeCents])) {
+    warn("last_payment_sum", "lastPayment", "instalmentCents");
   }
   if (balanceCents && grantedCents && balanceCents.value > grantedCents.value) warn("balance_over_granted", "balanceCents", "grantedCents");
   if (balanceCents && limitCents && balanceCents.value > limitCents.value) warn("balance_over_limit", "balanceCents", "limitCents");
@@ -89,7 +89,7 @@ export function crossCheck(fields: DraftFields, warnings: LoanDraftWarning[], { 
   if (!endDate || !asOf) return;
   if (endDate.value < asOf) return warn("end_passed", "endDate", "balanceDate");
   // the amortisation alone needs no rate: it is the balance over the payments left
-  if (!paymentCents || !balanceCents || balanceCents.value <= 0 || (!rateBp && !amortisationOnly)) return;
+  if (!instalmentCents || !balanceCents || balanceCents.value <= 0 || (!rateBp && !amortisationOnly)) return;
   const interval = fields.intervalMonths?.value ?? 1;
   const periods = Math.max(1, Math.round(monthsBetween(asOf, endDate.value) / interval));
   const rate = amortisationOnly ? 0 : ((rateBp?.value ?? 0) / 10_000 / 12) * interval;
@@ -98,7 +98,7 @@ export function crossCheck(fields: DraftFields, warnings: LoanDraftWarning[], { 
   const expected = kinds.flatMap((kind) => [periods - 1, periods, periods + 1].filter((n) => n >= 1).map((n) => paymentOf(kind, balanceCents.value, rate, n)));
   const low = Math.min(...expected) * (1 - PAYMENT_SLACK) - PAYMENT_SLACK_CENTS;
   const high = Math.max(...expected) * (1 + PAYMENT_SLACK) + PAYMENT_SLACK_CENTS;
-  if (paymentCents.value >= low && paymentCents.value <= high) return;
-  if (amortisationOnly) warn("payment_annuity", "paymentCents", "balanceCents", "endDate");
-  else warn("payment_annuity", "paymentCents", "balanceCents", "rateBp", "endDate");
+  if (instalmentCents.value >= low && instalmentCents.value <= high) return;
+  if (amortisationOnly) warn("payment_annuity", "instalmentCents", "balanceCents", "endDate");
+  else warn("payment_annuity", "instalmentCents", "balanceCents", "rateBp", "endDate");
 }

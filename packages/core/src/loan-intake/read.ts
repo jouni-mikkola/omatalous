@@ -41,7 +41,7 @@ export function readLender(text: string): Got | null {
 export function read(field: LoanReadField, text: string, folded: string, certain = true): Got | null {
   switch (field) {
     case "grantedCents":
-    case "paymentCents":
+    case "instalmentCents":
     case "amortisationCents":
     case "limitCents":
       return isLoanTotal(folded) ? null : readMoney(text);

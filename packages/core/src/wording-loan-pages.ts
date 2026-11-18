@@ -29,7 +29,7 @@ export type LoanLabelField =
   | "marginBp"
   | "repayment"
   | "intervalMonths"
-  | "paymentCents"
+  | "instalmentCents"
   | "amortisationCents"
   | "endDate"
   | "limitCents"
@@ -57,7 +57,7 @@ export const LOAN_LABELS: Readonly<Record<LoanLabelField, string>> = {
   marginBp: "MARGINAALI|KORKOMARGINAALI|LAINAN MARGINAALI",
   repayment: "LYHENNYSTAPA|LYHENNYSTYYPPI",
   intervalMonths: "LYHENNYSVALI",
-  paymentCents: "KUUKAUSIERA|KUUKAUSIERAN SUURUUS|MAKSUERA|MAKSUERAN SUURUUS|SEURAAVA MAKSU",
+  instalmentCents: "KUUKAUSIERA|KUUKAUSIERAN SUURUUS|MAKSUERA|MAKSUERAN SUURUUS|SEURAAVA MAKSU",
   amortisationCents: "LYHENNYS|LYHENNYKSEN MAARA|LYHENNYKSEN SUURUUS|KUUKAUSILYHENNYS",
   endDate: "VIIMEINEN ERAPAIVA|VIIMEINEN MAKSUPAIVA|VIIMEINEN LYHENNYS|LAINA-AIKA PAATTYY",
   limitCents: "LUOTTORAJA",
