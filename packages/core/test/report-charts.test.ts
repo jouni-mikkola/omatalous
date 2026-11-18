@@ -4,7 +4,7 @@ import { buildReports } from "../src/reports/index.ts";
 import type { Account } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";
 
-// the fields the charts of Raportit read (PD-raportit): the savings rate beside earlier months, the usual savings rate, like-for-like
+// the fields the charts of Raportit read (PD-raportit): like-for-like
 // change per category, the lowest day of the balance line
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
 const today = "2026-10-09";

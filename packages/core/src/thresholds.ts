@@ -37,6 +37,7 @@ export const THRESHOLDS = {
   rangeLow: threshold(0.25, "share", "The lower quartile: a quarter of the base months spent less by the same day. The range is the middle half of the months (ADR 0021)."),
   rangeHigh: threshold(0.75, "share", "The upper quartile: a quarter of the base months spent more by the same day."),
   dailyPoints: threshold(2000, "days", "The chart's budget is 2 000 points a series (ENGINE 3): the balance by day of a longer range is drawn and counted over its newest 2 000 days."),
+  // directionMonths and directionRecentMonths no longer feed a figure; they stay while add-on API version 1 lists DIRECTION_MONTHS and DIRECTION_RECENT_MONTHS
   directionMonths: threshold(12, "months", "A judgement: a year of spending holds every season once, so its mean is the household's level and not a winter's or a summer's."),
   directionRecentMonths: threshold(3, "months", "A judgement: the last three complete months are a season, long enough that one odd month does not turn the direction."),
   afterPayDays: threshold(4, "days", "The pay day and the three days after it, as the payday model (D6) counts them."),

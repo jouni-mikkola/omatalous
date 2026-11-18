@@ -264,10 +264,9 @@ function engineParts(ctx: AnalysisContext, inputs: UserInputs): Map<string, RowP
 /**
  * The debt service of a range as interest, repayment and unsplit. `interestCents + principalCents + unsplitCents` is
  * `spendTotals(ctx, range).debtCents`, to the cent, on every range: each row of that sum is counted once, in one part.
- * `counted` is the rows the sum is over when it is not the dashboard's (`spendRows`): the cash report's are `inDays`.
  */
-export function debtSplit(ctx: AnalysisContext, range: DateRange, inputs: UserInputs, counted: readonly AnalysisTx[] = spendRows(ctx, toDayRange(range))): DebtSplit {
-  const rows = counted.filter((t) => t.flows.debt !== 0);
+export function debtSplit(ctx: AnalysisContext, range: DateRange, inputs: UserInputs): DebtSplit {
+  const rows = spendRows(ctx, toDayRange(range)).filter((t) => t.flows.debt !== 0);
   const split: DebtSplit = { interestCents: 0, principalCents: 0, unsplitCents: 0 };
   if (!rows.length) return split;
   const candidates = rows.filter(splittable);

@@ -26,7 +26,7 @@ export interface BalanceChange {
 
 /**
  * The days Saldot reads a range over: the range's end or today, and its start, cut to the newest `DAILY_POINTS` days (the
- * chart's budget is 2 000 points a series, ENGINE 3). The change and the bridge of the cash flow both count over these.
+ * chart's budget is 2 000 points a series, ENGINE 3). The change counts over these.
  */
 export function balanceDays(ctx: AnalysisContext, range: DateRange): { fromDay: number; toDay: number } {
   const toDay = Math.min(dayNumber(range.to), ctx.todayDay);
