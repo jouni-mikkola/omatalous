@@ -275,18 +275,21 @@ const ANSWERS: Record<FigureKey, Answers> = {
     return { report: row.cost?.rateMilli ?? null, debtCost: debtCost(typedLoan(h), h.today)?.rateMilli ?? null };
   },
   debtCost12: (h) => {
-    const ctx = contextOf(h);
     const inputs = { ...h.inputs, loans: [typedLoan(h)] };
-    const r = loansReport(ctx, [], inputs);
+    // the rule of the code on the household's own rows: unknown while any loan or card the rows show is not saved
+    const own = contextOf(h);
+    const unsaved = unsavedDebts(own, inputs);
+    const lacksTerms = unsaved.rows.length > 0 || unsaved.few > 0;
+    const whole = loansReport(own, [], inputs).cost12.cents;
+    if (lacksTerms) expect(whole, `${h.name}: unknown beside an unsaved debt`).toBeNull();
+    // every household has an unsaved debt, so the figure is read against its rows on a context with none: the report, the
+    // rows added up (unknown when any row is) and the debt's own cost
+    const r = loansReport(createContext([], [], h.today), [], inputs);
     const rows = r.loans.map((l) => l.cost?.next12?.cents ?? null);
-    // the rule of the code: unknown while any loan or card the rows show is not saved, else the rows added up and unknown when any row is
-    const unsaved = unsavedDebts(ctx, inputs);
-    const unknown = unsaved.rows.length > 0 || unsaved.few > 0 || rows.some((c) => c === null);
     return {
       report: r.cost12.cents,
-      rows: unknown ? null : rows.reduce<number>((sum, c) => sum + c!, 0),
-      // the typed loan alone, as it is the only row of this report
-      debtCost: unknown ? null : (debtCost(typedLoan(h), h.today)?.next12?.cents ?? null),
+      rows: rows.some((c) => c === null) ? null : rows.reduce<number>((sum, c) => sum + c!, 0),
+      debtCost: debtCost(typedLoan(h), h.today)?.next12?.cents ?? null,
     };
   },
   rareBillsYear: (h) => {
