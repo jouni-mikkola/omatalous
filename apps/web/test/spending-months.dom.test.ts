@@ -83,7 +83,7 @@ describe("Menot kategorioittain: a category's average beside a card connected la
     cleanup();
     show({ ...report(true), fromSavings: [0, 0, 0, 0, 0, 460_00], fromSavingsCents: 460_00 });
     const months = screen.getByRole("table", { name: "Menot kuukausittain" });
-    expect(within(months).getAllByRole("columnheader").map((h) => plain(h.textContent))).toEqual(["Kuukausi", "Summa", "Säästöistä maksettu"]);
+    expect(within(months).getAllByRole("columnheader").map((h) => plain(h.textContent))).toEqual(["Kuukausi", "Maksettu yhteensä", "Säästöistä maksettu"]);
     expect(plain(Array.from(months.querySelectorAll("tbody tr")).at(-1)!.textContent)).toContain("460 €");
   });
 

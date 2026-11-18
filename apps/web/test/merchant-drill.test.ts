@@ -1,6 +1,14 @@
 /** The opened row's twelve months on a phone: which months keep their name under the bar. */
 import { describe, expect, it } from "vitest";
-import { phoneMonthLabels } from "../src/pages/transactions/MerchantDrill.tsx";
+import { meanLabel, phoneMonthLabels } from "../src/pages/transactions/MerchantDrill.tsx";
+
+describe("meanLabel", () => {
+  it("calls the mean of a shop an average basket and that of a transfer, a loan or a repeating payment the average", () => {
+    expect(meanLabel("groceries", false)).toBe("tx.mean");
+    expect(meanLabel("transfer", false)).toBe("tx.mean_plain");
+    expect(meanLabel("groceries", true)).toBe("tx.mean_plain");
+  });
+});
 
 const kept = (count: number, peak: number) => phoneMonthLabels(count, peak).flatMap((on, i) => (on ? [i] : []));
 

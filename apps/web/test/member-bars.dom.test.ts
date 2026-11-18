@@ -129,7 +129,77 @@ describe("Yhteiset menot: the bars in the settlement block", () => {
     expect(text).not.toContain("Kerro, miten tili jakautuu");
     // the answer's blocks keep their names for readers of the page
     expect(screen.getByRole("group", { name: "Et ole kertonut jakoa" })).toBeTruthy();
-    expect(screen.getByRole("group", { name: "Ei tiedossa" })).toBeTruthy();
+    expect(screen.getByText("Muiden maksamat")).toBeTruthy();
+    expect(screen.queryByText("Ei tiedossa")).toBeNull();
+  });
+
+  it("has one row for the money of others, with the open sum and its sources under it", async () => {
+    stubApi({
+      "GET /api/settlement": pool({
+        members: [
+          { owner: "u1", paid: 30000, owed: 20000, over: 10000 },
+          { owner: "u2", paid: 10000, owed: 20000, over: -15000 },
+        ],
+        unknownPaidBy: [{ owner: "x", cents: 5000 }],
+      }),
+    });
+    const { container } = render(createElement(section.Component, { ctx: context }));
+    await screen.findByRole("group", { name: "Yhteiset menot: Yhteistili" });
+    const drill = container.querySelector("details")!;
+    const summary = plain(drill.querySelector("summary .st-name")!.textContent);
+    expect(summary).toBe("Muiden maksamat");
+    expect(plain(drill.querySelector("summary .st-num")!.textContent)).toBe("50,00 €");
+    expect(plain(drill.textContent)).toContain("Maksanut: Nimetön maksaja");
+    const sources = [...drill.querySelectorAll(":scope > div.st-row .st-name")].map((n) => plain(n.textContent));
+    expect(sources).toEqual(["Maksanut: Nimetön maksaja"]);
+    expect(sources).not.toContain(summary);
+  });
+
+  it("names the open sum by its direction: others still owe it when the members paid more than their shares", async () => {
+    stubApi({
+      "GET /api/settlement": pool({
+        members: [
+          { owner: "u1", paid: 30000, owed: 20000, over: 10000 },
+          { owner: "u2", paid: 20000, owed: 20000, over: 5000 },
+        ],
+        unknownOwedBy: [{ owner: "x", cents: 15000 }],
+      }),
+    });
+    const { container } = render(createElement(section.Component, { ctx: context }));
+    await screen.findByRole("group", { name: "Yhteiset menot: Yhteistili" });
+    const drill = container.querySelector("details")!;
+    const summary = plain(drill.querySelector("summary .st-name")!.textContent);
+    expect(summary).toBe("Muilta saamatta");
+    expect(plain(drill.querySelector("summary .st-num")!.textContent)).toBe("150,00 €");
+    expect(plain(drill.textContent)).toContain("Osuus: Nimetön maksaja");
+    const sources = [...drill.querySelectorAll(":scope > div.st-row .st-name")].map((n) => plain(n.textContent));
+    expect(sources).toEqual(["Osuus: Nimetön maksaja"]);
+    expect(sources).not.toContain(summary);
+    expect(sources).not.toContain("Muiden maksamat");
+  });
+
+  it("folds the corrections to months over a year back and lists the newer ones", async () => {
+    const correction = (key: string, cents: number) => ({ kind: "late_change", key, day: 1, cents, paid: [], owed: [] });
+    stubApi({
+      "GET /api/settlement": pool({
+        members: [
+          { owner: "u1", paid: 30000, owed: 20000, over: 10000 },
+          { owner: "u2", paid: 10000, owed: 20000, over: -10000 },
+        ],
+        lines: [correction("2026-05", 1200), correction("2025-09", -3400), correction("2025-10", 560)],
+      }),
+    });
+    const { container } = render(createElement(section.Component, { ctx: context }));
+    await screen.findByRole("group", { name: "Yhteiset menot: Yhteistili" });
+    const folded = [...container.querySelectorAll("details")].find((d) => plain(d.querySelector("summary")!.textContent) === "Korjaukset yli 12 kk:n takaa")!;
+    expect(plain(folded.textContent)).toContain("syyskuu 2025");
+    expect(plain(folded.textContent)).not.toContain("toukokuu 2026");
+    expect(plain(folded.textContent)).not.toContain("lokakuu 2025");
+    const shown = [...container.querySelectorAll(".st-rows:not(details) .st-row")].filter((r) => plain(r.textContent).startsWith("Korjaus")).map((r) => [plain(r.querySelector(".st-name")!.textContent), plain(r.querySelector(".st-num")!.textContent)]);
+    expect(shown).toEqual([
+      ["Korjaus aiempaan kuukauteen: toukokuu 2026", "+12,00 €"],
+      ["Korjaus aiempaan kuukauteen: lokakuu 2025", "+5,60 €"],
+    ]);
   });
 
   it("draws no bars where nobody has told the split: the untold sum is all there is", async () => {

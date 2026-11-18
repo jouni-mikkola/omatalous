@@ -65,6 +65,11 @@ describe("the button that is pressed", () => {
     expect(splitOf(said(600, 400))).toBe("percent");
     expect(splitOf(said(60000, 40000))).toBe("percent");
   });
+
+  it("is none while nobody has said the split, and who paid when that is set", () => {
+    expect(splitOf({ ...joint(), split: "unknown" })).toBeNull();
+    expect(splitOf({ ...joint(), split: "unknown", mode: "source" })).toBe("source");
+  });
 });
 
 describe("the fields of Osuuksien mukaan", () => {

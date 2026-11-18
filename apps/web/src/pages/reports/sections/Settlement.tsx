@@ -9,7 +9,7 @@ import { useApi } from "../../../hooks.ts";
 import type { Meta } from "../../../types.ts";
 import { isJoint } from "../../settings/account-use.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
-import { isSharedCredit, monthRange, NETTED_SOURCE, settlementSums } from "@banking/core";
+import { addMonths, isSharedCredit, monthRange, NETTED_SOURCE, settlementSums } from "@banking/core";
 import { hasNothing, holderNameOf } from "./settlement-text.ts";
 import { Notice } from "../../../components/ui/Notice.tsx";
 import { Empty } from "../../../components/ui/Empty.tsx";
@@ -39,10 +39,33 @@ function unknownName(owner: string, labels: Record<string, string>, holder: stri
 /** The line of a member who paid more or less than the share; nothing when it came out even. */
 const overLine = (over: number): { label: string; cents: number } | null => (over === 0 ? null : { label: t(over > 0 ? "rpt.se_over_more" : "rpt.se_over_less"), cents: Math.abs(over) });
 
-function Pool({ pool, holder }: { pool: Answer["pools"][number]; holder: string | null }) {
+/** A correction older than this many months is folded: it changed a month the household settled long ago. */
+const LATE_SHOWN_MONTHS = 12;
+
+function LateRows({ lines }: { lines: SettlementLine[] }) {
+  return (
+    <>
+      {lines.map((l) => (
+        <div key={`${l.key}:${l.day}`} className="st-row">
+          <span className="st-name">{t("rpt.se_late", { month: monthLong(l.key) })}</span>
+          {/* to the cent, as every other row of the block: a sum under a euro is no ±0 */}
+          <span className="st-num">
+            {l.cents > 0 ? "+" : "−"}
+            {money(Math.abs(l.cents))}
+          </span>
+        </div>
+      ))}
+    </>
+  );
+}
+
+function Pool({ pool, month, holder }: { pool: Answer["pools"][number]; month: string; holder: string | null }) {
   const s = pool.settlement;
   // a correction that moved who paid and left the sum at 0,00 has no figure to show: the members' rows hold what it changed
-  const late = s.lines.filter((l: SettlementLine) => l.kind === "late_change" && l.cents !== 0);
+  const corrections = s.lines.filter((l: SettlementLine) => l.kind === "late_change" && l.cents !== 0);
+  const cutoff = addMonths(month, -LATE_SHOWN_MONTHS);
+  const late = corrections.filter((l) => l.key >= cutoff);
+  const older = corrections.filter((l) => l.key < cutoff);
   // what the page shows is core's sums: it adds up nothing of its own
   const { transfers, owedCents: owedTotal, untoldCents: untold, heldBackCents: heldBack, creditCents: credits, debtCents: debts, openCents: open } = settlementSums(s);
   // a block of its own after the users: money no user of the pool paid or owes reads as nobody's
@@ -55,7 +78,7 @@ function Pool({ pool, holder }: { pool: Answer["pools"][number]; holder: string 
   // no split told: every member reads 0,00 paid and 0,00 share, so the block of the untold sum is all there is to say
   const noSplit = untold !== 0 && s.members.every((m) => m.paid === 0 && m.owed === 0);
   const even = credits === 0 && debts === 0 && unknown.length === 0 && untold === 0;
-  const owes = even || transfers.length > 0 || open > 0;
+  const owes = even || transfers.length > 0;
   return (
     <div className="settle-pool" role="group" aria-label={t("rpt.se_group", { name: pool.name })}>
       <h3 className="use-head">
@@ -75,12 +98,6 @@ function Pool({ pool, holder }: { pool: Answer["pools"][number]; holder: string 
               <span className="st-num">{money(x.cents)}</span>
             </div>
           ))}
-          {open > 0 && (
-            <div className="st-row">
-              <span className="st-name">{t("rpt.se_unknown")}</span>
-              <span className="st-num">{money(open)}</span>
-            </div>
-          )}
           {transfers.length > 0 && (
             <div className="st-row st-total">
               <span className="st-name">{t("rpt.total")}</span>
@@ -102,32 +119,33 @@ function Pool({ pool, holder }: { pool: Answer["pools"][number]; holder: string 
           </div>
         </div>
       )}
-      {unknown.length > 0 && (
-        <div className="st-rows" role="group" aria-label={t("rpt.se_unknown")}>
-          <div className="st-row">
-            <strong className="st-name">{t("rpt.se_unknown")}</strong>
-          </div>
+      {/* one row for what no user paid or owes: its sum is the difference the transfers leave, named by its direction (debts larger: others paid; credits larger: others still owe), and its sources open under it */}
+      {(unknown.length > 0 || open > 0) && (
+        <details className="st-rows">
+          <summary className="st-row">
+            <span className="st-name">{t(credits > debts ? "rpt.se_others_unpaid" : "rpt.se_others_paid")}</span>
+            {open > 0 && <span className="st-num">{money(open)}</span>}
+          </summary>
           {unknown.map((u) => (
             <div key={u.label} className="st-row">
               <span className="st-name" title={u.label}>{u.label}</span>
               <span className="st-num">{money(u.cents)}</span>
             </div>
           ))}
-        </div>
+        </details>
       )}
       {late.length > 0 && (
         <div className="st-rows">
-          {late.map((l) => (
-            <div key={`${l.key}:${l.day}`} className="st-row">
-              <span className="st-name">{t("rpt.se_late", { month: monthLong(l.key) })}</span>
-              {/* to the cent, as every other row of the block: a sum under a euro is no ±0 */}
-              <span className="st-num">
-                {l.cents > 0 ? "+" : "−"}
-                {money(Math.abs(l.cents))}
-              </span>
-            </div>
-          ))}
+          <LateRows lines={late} />
         </div>
+      )}
+      {older.length > 0 && (
+        <details className="st-rows">
+          <summary className="st-row">
+            <span className="st-name">{t("rpt.se_late_older", { months: LATE_SHOWN_MONTHS })}</span>
+          </summary>
+          <LateRows lines={older} />
+        </details>
       )}
     </div>
   );
@@ -142,7 +160,7 @@ function Month({ month, meta }: { month: string; meta: Meta }) {
   return (
     <>
       {pools.map((p) => (
-        <Pool key={p.accountId} pool={p} holder={holderNameOf([...meta.accounts, ...meta.sharedAccounts].find((a) => a.id === p.accountId)?.use)} />
+        <Pool key={p.accountId} pool={p} month={answer.month} holder={holderNameOf([...meta.accounts, ...meta.sharedAccounts].find((a) => a.id === p.accountId)?.use)} />
       ))}
     </>
   );

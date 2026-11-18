@@ -43,6 +43,16 @@ describe("LowPoint", () => {
     expect(container.querySelector(".home-low-status")?.textContent).not.toMatch(/\d/);
   });
 
+  it.each(["no-balance", "no-card-balance"] as const)("links the reason %s to the state of the fetch, and no other reason", (reason) => {
+    const { container } = render(createElement(LowPoint, { lowPoint: { known: false, reason, days: 60 } }));
+    expect(container.querySelector(".home-low-status a")?.getAttribute("href")).toBe("#/settings/banks");
+  });
+
+  it.each(["no-payday", "late", "history", "cards", "bills"] as const)("leaves the reason %s as plain text", (reason) => {
+    const { container } = render(createElement(LowPoint, { lowPoint: { known: false, reason, days: 60 } }));
+    expect(container.querySelector(".home-low-status a")).toBeNull();
+  });
+
   it("shows nothing when core gives nothing", () => {
     expect(render(createElement(LowPoint, { lowPoint: null })).container.textContent).toBe("");
   });

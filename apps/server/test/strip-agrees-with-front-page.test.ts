@@ -17,7 +17,7 @@ const raw = (bookingDate: string, euros: number, extra: Partial<RawTransaction> 
   counterparty: null, counterpartyIban: null, description: null, reference: null, mcc: null, ...extra,
 });
 
-type Strip = { inCents: number; outCents: number; netCents: number; savedCents: number };
+type Strip = { inCents: number; outCents: number; netCents: number; savedCents: number; leftCents: number };
 type Totals = { incomeCents: number; expenseCents: number; savedCents: number; borrowedCents: number; leftCents: number };
 
 /** The strip of a month and the front page's totals for it, over the same range. */
@@ -32,6 +32,8 @@ function expectAgreement(strip: Strip, totals: Totals, label: string) {
   expect({ inCents: strip.inCents, outCents: strip.outCents, savedCents: strip.savedCents }, label).toEqual({ inCents: totals.incomeCents, outCents: totals.expenseCents, savedCents: totals.savedCents });
   // Erotus less what moved to savings, with the credit drawn, is Tulos
   expect(strip.netCents - strip.savedCents + totals.borrowedCents, label).toBe(totals.leftCents);
+  // and the strip tells that Tulos itself, so the page does not add it up
+  expect(strip.leftCents, label).toBe(totals.leftCents);
 }
 
 describe("the strip of Tapahtumat and the front page", () => {

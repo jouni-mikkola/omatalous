@@ -116,7 +116,8 @@ function SpendingMonths({ ctx }: SectionProps) {
         rowKey={(m) => m.month}
         columns={[
           { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName({ ...m, unknown: m.cents === null }, ctx.running) },
-          { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "euros", cents: (m) => m.cents },
+          // with debt paid from savings the sum holds it, while the first page's Menot leave it out: the label says so
+          { key: "sum", label: t(r.fromSavings.some((c) => !!c) ? "rpt.sm_sum_with_savings" : "rpt.sum"), kind: "money", main: true, precision: "euros", cents: (m) => m.cents },
           ...(r.fromSavings.some((c) => !!c) ? ([{ key: "savings", label: t("rpt.sm_from_savings"), kind: "money", precision: "euros", cents: (m) => m.savingsCents ?? null }] satisfies Column<MonthRow>[]) : []),
         ]}
         toolbar={false}
