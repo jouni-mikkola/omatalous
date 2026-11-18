@@ -40,7 +40,6 @@ const noSavedLoans = async (card: Locator) => {
   await expect(card.getByText("Ei lainoja.")).toBeVisible();
   await expect(card.getByRole("table", { name: "Lainat", exact: true })).toHaveCount(0);
 };
-const field = (scope: Locator, label: string) => scope.locator(".loan-field", { has: scope.page().getByLabel(label, { exact: true }) });
 const loanWrites = (page: Page): string[] => {
   const seen: string[] = [];
   page.on("request", (r) => {
