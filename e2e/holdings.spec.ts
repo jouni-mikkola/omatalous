@@ -315,7 +315,7 @@ test("a loan's name opens the report Lainat, the sums of the block stand on one 
 });
 
 test("a dear loan says Erittäin kallis or Kallis in its row, a cheaper one says nothing, and the rows hold at 390 px with the text at 200 %", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 800 }, isMobile: true, hasTouch: true });
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 800 }, bypassCSP: true, isMobile: true, hasTouch: true });
   const loans = [["Esimerkkilaina A", "very_dear"], ["Esimerkkilaina B", "dear"], ["Esimerkkilaina C", "cheap"]].map(([name, costClass], i) => ({
     id: `rank-${i}`, name, lender: "Esimerkkirahoitus Oy", kind: "consumer", ownerName: null, leftCents: 500_000, monthlyPaymentCents: 30_000, endDate: "2030-01-01", source: "typed", maybeTwice: false, paidOff: false, costClass, costRank: i + 1,
   }));
