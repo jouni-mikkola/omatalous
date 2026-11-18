@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { dayNumber } from "../src/dates.ts";
 import { dayInterest, intervalInterest } from "../src/loan-plan.ts";
-import { annuityPayment, euriborRateBp, loanBalanceByPlan, loanPaymentAfter, loanRateLine, loanSchedule, loanWhatIf, ratePathOf } from "../src/loan-schedule.ts";
+import { annuityPayment, euriborRateBp, loanBalanceByPlan, loanPaymentAfter, loanRateLine, loanSchedule, loanWhatIf, rateMilliAt, ratePathOf } from "../src/loan-schedule.ts";
 import { debtTotalOn, loanBalanceOn, loanInterestNext12Months, loanNextPayment, loanPayoffDate, loanRateScenario, loansOf } from "../src/loans.ts";
 import { type Fixings, type Loan, NO_INPUTS, type RatePath } from "../src/types.ts";
 
@@ -593,5 +593,59 @@ describe("the rate a loan has on a day", () => {
   it("has no fixing or review for a fixed rate, and nothing without a rate", () => {
     expect(loanRateLine(loan({ reference: "fixed", rateBp: 350 }), START)).toEqual({ rateMilli: 3500, reference: "fixed", fixingMilli: null, marginBp: null, reviewDate: null });
     expect(loanRateLine(loan(), START)).toBeNull();
+  });
+});
+
+describe("a step in the typed rate", () => {
+  // 0 % until 15 April 2026, 12 % from then on: the interval that starts on the step counts at the new rate
+  const promo = loan({ balanceCents: 120_000, rateBp: 0, repayment: "fixed_instalment", paymentCents: 10_000, rateStepDate: "2026-04-15", rateStepBp: 1200 });
+  const withStep = (l: Loan) => loansOf({ ...NO_INPUTS, loans: [l] })[0]!;
+
+  it("gives the typed rate until the step and the step's rate from its day on", () => {
+    expect(ratePathOf(promo, {})).toEqual({ path: [["2026-04-15", 12_000]], flatFrom: null });
+    expect(ratePathOf({ ...promo, reference: "fixed" }, {})).toEqual({ path: [["2026-04-15", 12_000]], flatFrom: null });
+    expect(rateMilliAt(withStep(promo).ratePath, 0, "2026-04-14")).toBe(0);
+    expect(rateMilliAt(withStep(promo).ratePath, 0, "2026-04-15")).toBe(12_000);
+  });
+
+  it("leaves an unknown rate unknown, and a loan with no step without a path", () => {
+    expect(ratePathOf({ ...promo, rateBp: null }, {})).toBeNull();
+    expect(ratePathOf({ ...promo, rateStepDate: null, rateStepBp: null }, {})).toBeNull();
+    expect(ratePathOf({ ...promo, rateStepBp: null }, {})).toBeNull();
+    expect(ratePathOf({ ...promo, rateStepDate: undefined }, {})).toBeNull();
+    const loans = [loan({ rateBp: 0 })];
+    expect(loansOf({ ...NO_INPUTS, loans })).toBe(loans);
+  });
+
+  it("is no part of a loan on a euribor: its reviews set the rate", () => {
+    const euribor = loan({ reference: "euribor_3", rateBp: 400, marginBp: 100, rateReviewDate: "2026-01-31", balanceDate: "2026-01-31" });
+    const fixings: Fixings = { euribor_3: [["2026-01-30", 2500]] };
+    expect(ratePathOf({ ...euribor, rateStepDate: "2026-04-15", rateStepBp: 1200 }, fixings)).toEqual(ratePathOf(euribor, fixings));
+    expect(ratePathOf({ ...euribor, rateStepDate: "2026-04-15", rateStepBp: 1200 }, {})).toBeNull();
+  });
+
+  it("the schedule counts each interval at the rate in force when it starts, in months", () => {
+    const rows = loanSchedule(withStep(promo), START).rows;
+    // 120 000 falls by 10 000 a month; 90 000 × 12 % / 12 = 900 in the interval from 15 April
+    expect(rows.slice(0, 5).map((r) => [r.date, r.rateMilli, r.interestCents, r.principalCents, r.balanceCents])).toEqual([
+      ["2026-02-15", 0, 0, 10_000, 110_000],
+      ["2026-03-15", 0, 0, 10_000, 100_000],
+      ["2026-04-15", 0, 0, 10_000, 90_000],
+      ["2026-05-15", 12_000, 900, 9100, 80_900],
+      ["2026-06-15", 12_000, 809, 9191, 71_709],
+    ]);
+  });
+
+  it("the rate line shows the rate in force on the day, and no review", () => {
+    expect(loanRateLine(withStep(promo), "2026-03-01")).toEqual({ rateMilli: 0, reference: null, fixingMilli: null, marginBp: null, reviewDate: null });
+    expect(loanRateLine(withStep(promo), "2026-05-01")?.rateMilli).toBe(12_000);
+  });
+
+  it("an annuity with a last due date sets its payment again at the step, so it still ends on that date", () => {
+    const annuity = loan({ balanceCents: 120_000, rateBp: 0, repayment: "annuity", paymentCents: 10_000, endDate: "2027-01-15", rateStepDate: "2026-04-15", rateStepBp: 1200 });
+    const rows = loanSchedule(withStep(annuity), START).rows;
+    expect(rows.at(-1)).toMatchObject({ date: "2027-01-15", balanceCents: 0 });
+    expect(rows[3]!.interestCents ?? 0).toBeGreaterThan(0);
+    expect(sumOf([rows[4]!.principalCents, rows[4]!.interestCents])).toBe(sumOf([rows[3]!.principalCents, rows[3]!.interestCents]));
   });
 });

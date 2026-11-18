@@ -35,7 +35,7 @@ export const REPAYMENT_LABEL: Record<NonNullable<Loan["repayment"]>, string> = l
 });
 
 /** A field of the loan form. Name and kind stand above them. */
-export type LoanFieldKey = "lender" | "balanceCents" | "balanceDate" | "grantedCents" | "limitCents" | "rateBp" | "reference" | "marginBp" | "rateReviewDate" | "repayment" | "intervalMonths" | "paymentCents" | "endDate";
+export type LoanFieldKey = "lender" | "balanceCents" | "balanceDate" | "grantedCents" | "limitCents" | "rateBp" | "reference" | "marginBp" | "rateReviewDate" | "rateStepDate" | "rateStepBp" | "repayment" | "intervalMonths" | "paymentCents" | "endDate";
 
 export const FIELD_LABEL: Record<LoanFieldKey, string> = labels({
   lender: () => t("set.loans.f_lender"),
@@ -47,6 +47,8 @@ export const FIELD_LABEL: Record<LoanFieldKey, string> = labels({
   reference: () => t("set.loans.f_reference"),
   marginBp: () => t("set.loans.f_margin"),
   rateReviewDate: () => t("set.loans.f_review"),
+  rateStepDate: () => t("set.loans.f_step_date"),
+  rateStepBp: () => t("set.loans.f_step_rate"),
   repayment: () => t("set.loans.f_repayment"),
   intervalMonths: () => t("set.loans.f_interval"),
   paymentCents: () => t("set.loans.f_payment"),

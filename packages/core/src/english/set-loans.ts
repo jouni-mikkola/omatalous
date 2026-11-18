@@ -43,6 +43,8 @@ export const EN_SET_LOANS: Record<keyof typeof FI_SET_LOANS, string> = {
   "set.loans.f_reference": "Reference rate",
   "set.loans.f_margin": "Margin",
   "set.loans.f_review": "Rate review date",
+  "set.loans.f_step_date": "Rate change date",
+  "set.loans.f_step_rate": "Rate after the change",
   "set.loans.f_repayment": "Repayment method",
   "set.loans.f_interval": "Repayment interval",
   "set.loans.f_payment": "Payment",

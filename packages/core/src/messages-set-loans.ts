@@ -45,6 +45,8 @@ export const FI_SET_LOANS = {
   "set.loans.f_reference": "Viitekorko",
   "set.loans.f_margin": "Marginaali",
   "set.loans.f_review": "Koron tarkistuspäivä",
+  "set.loans.f_step_date": "Koron muutospäivä",
+  "set.loans.f_step_rate": "Korko muutoksen jälkeen",
   "set.loans.f_repayment": "Lyhennystapa",
   "set.loans.f_interval": "Lyhennysväli",
   "set.loans.f_payment": "Maksuerä",
