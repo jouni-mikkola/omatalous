@@ -22,7 +22,6 @@ Money and reports
 - Yhteenveto shows loan interest and repayments apart.
 - Lainat lists debts by interest rate, highest first, and shows a missing rate on the debt.
 - Loans that follow a euribor rate now use its published daily fixings.
-- Yhteenveto has four blocks: Nyt, this month, the coming months, and accounts and debts.
 - Varat ja velat names the month of the last loan payment under the loans total.
 - Tarkistettavat asks when a loan's payment changes, and asks a euribor loan's margin and review day.
 - A loan document's last payment tells how that payment divided into interest and repayment.
