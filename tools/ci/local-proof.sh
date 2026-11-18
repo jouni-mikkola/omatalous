@@ -383,8 +383,7 @@ parts() {
   } | sort -t'|' -k1,1nr -s | while IFS='|' read -r s note label; do printf '  %4d s  %s%s\n' "$s" "$label" "${note:+ ($note)}"; done
 }
 
-# end_legs: no leg starts from now on, and the ones that run get TERM (each takes its install down). Only the first call sends
-# it: the image chain that a halt cut halts again, and a second TERM would reach a leg that still answers the first.
+# end_legs: no leg starts from now on, and the ones that run get TERM (each takes its install down), on the first call only: the image chain that a halt cut halts again
 end_legs() {
   (set -C; : >"$WORK/stop") 2>/dev/null || return 0
   local f
