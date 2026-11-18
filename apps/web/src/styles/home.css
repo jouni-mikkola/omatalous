@@ -47,7 +47,7 @@
 .home-flow-sum { font-weight: var(--w-strong); text-align: end; white-space: nowrap; }
 
 /* what is left to the payday, with the bills it is made of */
-.home-left { display: grid; justify-items: start; gap: var(--sp-4); min-block-size: var(--tap-min); padding: var(--sp-12) 0; color: var(--text); text-decoration: none; border-block-end: var(--hairline) solid var(--grid); }
+.home-left { display: grid; justify-items: start; gap: var(--sp-4); min-block-size: var(--tap-min); color: var(--text); text-decoration: none; }
 .home-left .fig-m { font-weight: var(--w-strong); }
 a.home-left:hover .home-fig-label { text-decoration: underline; }
 
@@ -60,39 +60,16 @@ a.home-left:hover .home-fig-label { text-decoration: underline; }
 }
 .home-detail { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); max-inline-size: 72ch; }
 
-/* wide: the months on the left and the bills beside them, then the accounts on the left and the categories beside them.
-   The order in the source is the order a phone reads (month, months, bills, categories, accounts): the dense flow lets
-   the accounts, which come last, fill the left of the row the categories open */
+/* wide: what is left to the payday and the month on the left, the coming months beside both, the accounts under them.
+   The order in the source is the order a phone reads: the dense flow lets the coming months, which come third, fill
+   the right of the two rows the payday figure and the month open. With no payday figure they stand across the page. */
 @media (min-width: 1040px) {
   .front { grid-auto-flow: row dense; }
-  .front > .home-months, .front > .holdings { grid-column: 1 / 8; }
-  .front > .home-bills, .front > .home-where { grid-column: 8 / -1; }
-  /* the register's split (--split-5) is of the whole page: in seven columns the accounts and the cards take half each */
-  .front .holding-groups-2, .front .holding-groups-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .front > .home-now, .front > .home-summary { grid-column: 1 / 8; }
+  .front > .home-now ~ .home-coming { grid-column: 8 / -1; grid-row: span 2; }
 }
-.home-block-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--sp-4) var(--sp-16); }
-.home-block-note { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
 .home-more { margin: var(--sp-8) 0 0; }
-
-/* the largest categories: name and sum on a line, under them the bar on the scale the rows share and the change in words */
-.where-list { margin: var(--sp-8) 0 0; padding: 0; list-style: none; display: grid; }
-.where-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; gap: var(--sp-4) var(--sp-16); padding: var(--sp-8) 0; color: var(--text); text-decoration: none; border-block-end: var(--hairline) solid var(--grid); }
-.where-row:hover .where-name { text-decoration: underline; }
-.where-row:hover .where-fill { background: var(--accent-ink); }
-.where-name { overflow-wrap: anywhere; }
-.where-sum { text-align: end; font-weight: var(--w-strong); white-space: nowrap; }
-.where-bar { grid-column: 1 / -1; position: relative; display: block; block-size: var(--bar-h); background: var(--surface-2); }
-.where-fill { display: block; block-size: 100%; background: var(--accent); }
-/* past its usual month: the darker ink, so the eye finds it without a colour of alarm */
-.where-fill.more { background: var(--accent-ink); }
-/* the category's usual month: a line across the bar and a little past it, readable on the fill and on the track */
-.where-mark { position: absolute; inset-block: calc(var(--sp-4) * -1); inline-size: calc(var(--hairline) * 2); margin-inline-start: calc(var(--hairline) * -1); background: var(--text); }
-.where-change { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); white-space: nowrap; }
-/* what the bars leave out: the other categories and the debt paid from savings, each a line with its sum */
-.where-rest { margin: 0; display: grid; }
-.where-rest > div { display: flex; justify-content: space-between; gap: var(--sp-16); padding: var(--sp-8) 0; border-block-end: var(--hairline) solid var(--grid); }
-.where-rest dt { color: var(--text-2); }
-.where-rest dd { margin: 0; font-weight: var(--w-strong); white-space: nowrap; }
+.home-coming-wait { display: block; block-size: calc(var(--row-h-roomy) * 4); }
 
 /* the first fetch of a new bank */
 .first-fetch p { margin: 0; color: var(--text-2); }
@@ -107,8 +84,7 @@ a.home-left:hover .home-fig-label { text-decoration: underline; }
 .home-skeleton .home-figs .home-gauge { margin: 0; inline-size: 100%; }
 .home-skeleton .sk-flow { block-size: calc(var(--row-h-roomy) * 4); }
 /* each block as high as it is when loaded, so the page keeps its length */
-.home-skeleton .sk-chart { block-size: calc(var(--row-h-roomy) * 7); }
-.home-skeleton .sk-bills { block-size: calc(var(--row-h-roomy) * 7); }
-.home-skeleton .sk-rows { block-size: calc(var(--row-h-roomy) * 9); }
+.home-skeleton .home-now .sk-fig { inline-size: 40%; block-size: var(--lh-fig-m); }
+.home-skeleton .sk-coming { block-size: calc(var(--row-h-roomy) * 5); }
 .home-skeleton .sk-holdings { block-size: calc(var(--row-h-roomy) * 8); }
 }

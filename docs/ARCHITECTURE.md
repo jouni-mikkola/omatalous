@@ -192,9 +192,11 @@ flowchart LR
   together (`accountsCents`, `cardsCents`, `loansCents`), and the cards' use and the loans' balance add up to the debt
   total (`debtCents`).
   `BalanceReport.holdings` (Saldot) and `DashboardData.holdings` are the same answer (`buildHoldings`), and
-  `pages/reports/holdings/Holdings.tsx` shows it as given. Yhteenveto's chart of twelve months (`charts/MonthBars.tsx`)
-  and its categories read `DashboardData.overview` (`packages/core/src/overview.ts`), whose bars and usual levels are
-  those of Menot kuukausittain (`spendingMonthsReport`) and whose income is the earned income. The block *Erääntyvät maksut* gets
+  `pages/reports/holdings/Holdings.tsx` shows it as given. The chart of twelve months of Raportit > Menot
+  (`pages/reports/sections/Months.tsx`, `charts/MonthBars.tsx`) reads `DashboardData.overview` (`packages/core/src/overview.ts`), whose bars and usual levels are
+  those of Menot kuukausittain (`spendingMonthsReport`) and whose income is the earned income. Yhteenveto's block *Tulevat kuukaudet*
+  (`components/home/Coming.tsx`) draws the first three months of the `billCalendar` answer that Laskut reads, field by field.
+   The block *Erääntyvät maksut* gets
   `AheadData` from `analysis/ahead.ts`, and `components/next-days.ts` words the line under its heading, its three figures, its warning and the rows of its two
   tables (the rules
   are in [MONEY_FLOWS.md](MONEY_FLOWS.md#the-days-to-the-payday)).

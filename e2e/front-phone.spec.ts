@@ -2,7 +2,7 @@ import { type BrowserContext, expect, type Locator, type Page, test } from "@pla
 import { join } from "node:path";
 import { overflow, OVERVIEW_TILES, watch } from "./helpers.ts";
 
-// Yhteenveto on a phone, at 320, 360 and 390 px wide: the tiles two by two, the month's line and its chart under them. Nothing scrolls sideways, no text is cut, and every control that is tapped is 44 px high and wide.
+// Yhteenveto on a phone, at 320, 360 and 390 px wide: the four blocks (Nyt, the month, the coming months, the accounts) under each other, the month's figures two by two. Nothing scrolls sideways, no text is cut, every control that is tapped is 44 px high and wide, and the page is no taller than 2600 px.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 async function open(context: BrowserContext): Promise<Page> {
@@ -10,6 +10,7 @@ async function open(context: BrowserContext): Promise<Page> {
   await page.goto("/#/overview");
   await expect(page.locator(OVERVIEW_TILES)).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.locator(".home-coming tbody tr").first()).toBeVisible({ timeout: 15_000 });
   return page;
 }
 
@@ -36,7 +37,8 @@ for (const width of [320, 360, 390]) {
     const page = await open(context);
     const seen = watch(page);
     // the lines of the one block in one column: none is beside another
-    const blocks = page.locator(".home-summary, .home-months, .home-bills, .home-where, .holdings");
+    const blocks = page.locator(".home-now, .home-summary, .home-coming, .holdings");
+    await expect(blocks).toHaveCount(4);
     let bottom = 0;
     for (const block of await blocks.all()) {
       const box = (await block.boundingBox())!;
@@ -45,7 +47,7 @@ for (const width of [320, 360, 390]) {
       bottom = box.y + box.height;
     }
     expect(await overflow(page), `the page scrolls sideways: ${(await sticking(page, width)).join("; ")}`).toBe(0);
-    expect(await cut(page.locator(".home-fig-label, .home-figs .fig, .home-fig-line, .home-fig-term, .home-flow-name, .home-flow-sum, .where-name, .where-sum")), "text cut").toEqual([]);
+    expect(await cut(page.locator(".home-fig-label, .home-figs .fig, .home-fig-line, .home-fig-term, .home-flow-name, .home-flow-sum")), "text cut").toEqual([]);
     // every figure of the month is inside the screen
     for (const cell of await page.locator(".home-figs .fig").all()) {
       const box = (await cell.boundingBox())!;
@@ -58,14 +60,11 @@ for (const width of [320, 360, 390]) {
       expect(box.y + box.height, "the figure is on the first screen").toBeLessThanOrEqual(800);
     }
     // everything that is tapped on the page is tapped with a thumb
-    expect(await small(page.locator("main :is(a:not(.mb-link), button, select, summary, input):visible, .nav a:visible")), "tap targets under 44 px").toEqual([]);
-    // a month of the chart is a column as high as the plot and a twelfth of its width: 24 px from 390 px on, about 22 px at 360 px
-    const columns = await page.locator("a.mb-link rect").evaluateAll((els) => els.map((e) => e.getBoundingClientRect()));
-    expect(columns).toHaveLength(12);
-    for (const box of columns) {
-      expect(box.height, "a month's column is as high as a thumb").toBeGreaterThanOrEqual(44);
-      if (width >= 390) expect(box.width, "a month's column is 24 px wide").toBeGreaterThanOrEqual(24);
-    }
+    expect(await small(page.locator("main :is(a, button, select, summary, input):visible, .nav a:visible")), "tap targets under 44 px").toEqual([]);
+    // the coming months are three rows, the first of them this month
+    await expect(page.locator(".home-coming tbody tr")).toHaveCount(3);
+    // the whole page, at the width a phone has: the roadmap's N11 holds it to 2600 px
+    expect(await page.evaluate(() => document.documentElement.scrollHeight), "the page is too high").toBeLessThanOrEqual(2600);
     expect(seen.problems).toEqual([]);
     await context.close();
   });

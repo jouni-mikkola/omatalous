@@ -269,9 +269,9 @@ test("every route: no control sits inside an image, and a chart's keyboard stop 
     ),
   ).toEqual([]);
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 }, bypassCSP: true });
-  const page = await visit(context, "/#/overview", OVERVIEW_TILES);
-  // Tulot ja menot: each month is a link beside the image, named by its sums, and its focus shows them
-  const months = page.getByRole("link", { name: /Avaa kuukauden tapahtumat$/ });
+  const page = await visit(context, "/#/reports?q=menot", ".month-bars");
+  // Raportit > Menot, Tulot ja menot: each month is a link beside the image, named by its sums, and its focus shows them
+  const months = page.locator(".month-bars").getByRole("link", { name: /Avaa kuukauden tapahtumat$/ });
   await expect(months).toHaveCount(12);
   await months.first().focus();
   await expect(months.first()).toBeFocused();

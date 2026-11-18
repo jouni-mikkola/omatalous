@@ -2,7 +2,7 @@
 import { render } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
-import { Bills } from "../src/components/home/Bills.tsx";
+import { Now } from "../src/components/home/Now.tsx";
 import { Summary } from "../src/components/home/Summary.tsx";
 import type { DashboardData } from "../src/types.ts";
 
@@ -264,13 +264,13 @@ describe("Yhteenveto's month", () => {
 
 describe("Yhteenveto's sum left to the payday", () => {
   const left = (d: Data) => {
-    const { container } = render(createElement(Bills, { data: d }));
+    const { container } = render(createElement(Now, { data: d }));
     return container.querySelector<HTMLElement>("[data-tile=left]")!;
   };
 
-  it("is no link of its own, since the bills beside it hold the one link to Laskut, with the sum a day and the payday", () => {
+  it("is the one link to the table of Laskut, with the sum a day and the payday", () => {
     const el = left(data());
-    expect(el.getAttribute("href")).toBeNull();
+    expect(el.getAttribute("href")).toBe("#/bills#laskut-taulukko");
     expect(el.querySelector(".home-fig-label")?.textContent).toBe("Käytettävissä palkkapäivään");
     expect(flat(el.querySelector(".fig")?.textContent)).toBe("3 100 €");
     expect(flat(el.querySelector(".home-fig-line")?.textContent)).toBe("221 € päivässä, palkkapäivä 25.11.");
@@ -296,7 +296,7 @@ describe("Yhteenveto's sum left to the payday", () => {
 
   // the notice of the payday's bills stood under the answer; it is no line of the page any more
   it("tells nothing of the payday's own bills", () => {
-    const { container } = render(createElement(Bills, { data: { ...data(), nyt: nytOf(true, 0, 42182, 123456) } }));
+    const { container } = render(createElement(Now, { data: { ...data(), nyt: nytOf(true, 0, 42182, 123456) } }));
     expect(container.textContent).not.toMatch(/Palkkapäivänä lähtee/);
   });
 });

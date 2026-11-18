@@ -30,27 +30,30 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
   - Tulos: income less spending and what moved to savings (`totals.leftCents`), against the same day of last month.
   - Tulojen käyttö under them: the bar of the income by where it went, as `bridgeView` gives it, each part with its share
     and its sum. No bar without income, or with a part below zero (ADR 0014); the parts then stand as a list.
-- Tulot ja menot: the last twelve months, an income bar and a spending bar a month (`overview.months`), the usual
-  month's spending as a dashed line (`overview.usualSpendCents`). The running month, and a month the accounts do not
-  cover from its 1st, are lighter with a dashed edge; the running one says "kesken" under its name. A month opens its
-  rows in Tapahtumat.
-- Tulevat laskut beside it: what is left after the bills before payday (`nyt.left`, *Käytettävissä palkkapäivään*) with
-  the sum a day and the payday, a link to the same list in Laskut. Under it the bills with date, payee and sum, at most
-  six and the rest as a count, and the sum of them all (`nyt.left.billsCents`); without a payday Laskut's 30 days. Opens Laskut.
+- Nyt, the first block: what is left after the bills before payday (`nyt.left`, *Käytettävissä palkkapäivään*) with
+  the sum a day and the payday. The figure links to the bills table of Laskut, which lists what it takes off.
+- Tulevat kuukaudet, the third block: this month and the two after it, a row each with the bills (and the estimated
+  part of them), the pays expected and what is left after the bills. Each figure is a field of the month in
+  `billCalendar` (`billsCents`, `estimateCents`, `incomeCents`, `afterCents`), the answer Laskut's month heads read, so
+  both places tell the same sums. A sum that is not known is "Ei tiedossa", never 0, and a line counts the bills with
+  no sum (`unknownCount`). A link opens the bills table of Laskut.
+- The twelve months of income and spending (`overview.months`, with the usual month as a dashed line) are a section of
+  Raportit > Menot, *Tulot ja menot*, not a block of the first page.
 - Tilit ja kortit: the block of Raportit > Tilit ja saldot. The accounts in their types (checking, savings, other), a
   type of two accounts or more with its total (`holdings.typeCents`), the cards with what is used, the limit and the
   next card bill (the card's row of `ahead.upcoming`), the loans with what is left. The day of the balances stands once in
   the heading and a row names its own only when it differs; a row names its bank only when the accounts are at
   several banks. A row opens its rows.
-- Menot kategorioittain beside it: this month's six largest categories with the rest as one sum
-  (`overview.categories`), each a bar with its usual month as a mark, a bar past its mark in the darker ink. A row
-  opens the category's rows of the month.
-- At 1440 px the months and the bills stand side by side, then the accounts and the categories. A phone reads the month,
-  the months, bills, categories, accounts in one column.
+- No chart and no list of categories on the first page: the categories of the month are in Raportit > Menot.
+- At 1440 px Nyt and the month stand on the left and the coming months beside them, then the accounts across the page.
+  A phone reads Nyt, the month, the coming months and the accounts in one column, no taller than 2600 px.
 - Not shown: notices (a dot on the user menu leads to Asetukset > Turvallisuus), questions (Tarkistettavat, the
   header's link), explaining sentences, goals.
 ```
- Marraskuu 2026                                                  1.–11.11.
+ Käytettävissä palkkapäivään 3 100 €        Tulevat kuukaudet   Laskut     Tulot    Jälkeen
+ 25.11. asti, 310 € päivässä                 Marraskuu 2026      1 500 €  3 000 €  1 400 €
+                                             Joulukuu 2026         800 €        –        –
+ Marraskuu 2026          1.–11.11.           Tammikuu 2027         900 €  3 100 €  Ei tiedossa
  Tulot            Menot                       Tulos
  3 900 €          2 018 €                     1 482 €
  ▇▇▇▇▇▇▇▇▇▇▇▇     ▇▇▇▇▇▇▇▇ ░░░░░░░░           ▇▇▇▇▇▇▇▇
@@ -59,15 +62,9 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
  Tulojen käyttö   ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇
  Kulutus 52 %  Maksettu velanhoito 6 %  Säästöön siirretty 4 %  Tulos 38 %
 
- Tulot ja menot                               Tulevat laskut      Palkkapäivään 25.11.
-                                              Käytettävissä palkkapäivään 3 100 €
- ▆▅ ▆▄ ▆▅ ▆▅ ▆▆ ▆▅ ▆▄ ▆▅ ▆▅ ▆▆ ▆▆ ▆░      15.11.  Sähkö                     ≈ 48 €
- - - - - - - - - - - - - - - - - - -      20.11.  Puhelin                   ≈ 30 €
- joulu tammi ...              marras      Yhteensä                          78 €
-                               kesken
- Tilit ja kortit                             Menot kategorioittain
- Käyttötilit   4 905 €   Luottokortit        Ruokakauppa     tavallisesti 667 €  317 €
- Säästötilit   8 100 €   Seuraava lasku      ████████    |
+ Tilit ja kortit
+ Käyttötilit   4 905 €   Luottokortit
+ Säästötilit   8 100 €   Seuraava lasku
 ```
 
 ### 1.2 Kuukausi: where did the money go this month compared with usual?
