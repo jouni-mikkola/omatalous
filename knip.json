@@ -19,7 +19,8 @@
     "apps/web": {
       "entry": ["src/main.tsx"],
       "project": ["src/**/*.{ts,tsx}"],
-      "includeEntryExports": true
+      "includeEntryExports": true,
+      "ignoreDependencies": ["@tesseract.js-data/fin", "@tesseract.js-data/eng"]
     }
   },
   "ignoreIssues": {

@@ -11,7 +11,7 @@
 import { addMonthsToDate, daysBetween, monthIndex, monthOf } from "./dates.ts";
 import { dayInterest, dueDates, endOf, type Instalments, intervalInterest, intervalOf, MAX_LOAN_PAYMENTS, planOf, typedPayment } from "./loan-plan.ts";
 import type { LoanUnknown } from "./loans.ts";
-import { type Fixings, type IsoDate, isRevolving, type Loan, type RatePath } from "./types.ts";
+import { type Fixings, type IsoDate, isRevolving, type Loan, type LoanReference, type RatePath } from "./types.ts";
 
 /** One payment of the plan. */
 export interface Payment {
@@ -261,7 +261,7 @@ interface WhatIf {
   /** The payments go on and the loan ends sooner. */
   shorter: { endDate: IsoDate; monthsSooner: number; interestSavedCents: number };
   /** The loan ends when it was to and the payment is lower: an annuity with an extra repayment only. */
-  lower: { paymentCents: number; interestSavedCents: number } | null;
+  lower: { cents: number; interestSavedCents: number } | null;
 }
 
 /**
@@ -285,6 +285,66 @@ export function loanWhatIf(loan: Loan, from: IsoDate, change: ScheduleChange): W
   const first = lowerList?.find((p) => p.date > (change.extra?.on ?? from));
   return {
     shorter: { endDate: last.date, monthsSooner: monthIndex(monthOf(base.endDate)) - monthIndex(monthOf(last.date)), interestSavedCents: saved(shorter) },
-    lower: lowerList === null || first === undefined || lowerList.at(-1)!.balanceCents > 0 ? null : { paymentCents: paymentOf(plan, first), interestSavedCents: saved(lowerList) },
+    lower: lowerList === null || first === undefined || lowerList.at(-1)!.balanceCents > 0 ? null : { cents: paymentOf(plan, first), interestSavedCents: saved(lowerList) },
   };
+}
+
+/**
+ * The payment the plan asks for from the next due date, the one a change of payment replaces: the whole payment of an
+ * annuity, a fixed instalment, a card or a credit line, the amortisation of an equal principal loan. Null for a loan
+ * with no plan and for a bullet, which pays no instalment.
+ */
+export function loanPaymentAfter(loan: Loan, from: IsoDate): number | null {
+  const plan = schedulePlan(loan);
+  if (typeof plan === "string" || from < loan.balanceDate) return null;
+  const cents = startAt(loan, plan, from).payment;
+  return cents !== undefined && cents > 0 ? cents : null;
+}
+
+/**
+ * What is owed on a day by the plan the schedule counts: the balance after its last payment on or before the day. A card or
+ * credit line pays its typed payment each month here, so it is lower than the balance stated on the balance date. Null
+ * where the loan has no plan or the day is before the balance date.
+ */
+export function loanBalanceByPlan(loan: Loan, from: IsoDate): number | null {
+  const plan = schedulePlan(loan);
+  if (typeof plan === "string" || from < loan.balanceDate) return null;
+  return startAt(loan, plan, from).balanceCents;
+}
+
+/** The rate of a loan on a day and what it is made of. */
+interface RateLine {
+  /** In force on the day, in thousandths of a percent. */
+  rateMilli: number;
+  reference: LoanReference | null;
+  /** The published fixing in it, in thousandths of a percent: the rate less the margin, where the rate in force is a published fixing and the margin. Null for the typed rate, which names no fixing, and without a reference rate or a margin. */
+  fixingMilli: number | null;
+  marginBp: number | null;
+  /** The next day the bank sets the rate again, counted from the typed review day. Null where none follows before the last due date. */
+  reviewDate: IsoDate | null;
+}
+
+/** The first review day after `day`, counted from the typed one as `ratePathOf` counts them and never before it. */
+function reviewDayAfter(loan: Loan, day: IsoDate): IsoDate | null {
+  const { reference, rateReviewDate } = loan;
+  if (reference === null || reference === "fixed" || !rateReviewDate) return null;
+  const months = REVIEW_MONTHS[reference];
+  const reviewDay = (k: number) => addMonthsToDate(rateReviewDate, k * months);
+  let k = Math.max(0, Math.floor((monthIndex(monthOf(day)) - monthIndex(monthOf(rateReviewDate))) / months));
+  while (k > 0 && reviewDay(k - 1) > day) k--;
+  while (reviewDay(k) <= day) k++;
+  const next = reviewDay(k);
+  const end = endOf(loan);
+  return end !== null && next >= end ? null : next;
+}
+
+/** The rate of a loan on a day: its size, the reference rate and margin it is made of, and the next review. Null where the loan has no rate. */
+export function loanRateLine(loan: Loan, day: IsoDate): RateLine | null {
+  if (loan.rateBp === null) return null;
+  const rateMilli = rateMilliAt(loan.ratePath, loan.rateBp, day);
+  const followed = loan.reference !== null && loan.reference !== "fixed";
+  // the first point of the path is the typed rate, which no fixing is known for; the later ones are a fixing and the margin
+  const published = (loan.ratePath ?? []).filter(([from]) => from <= day).length > 1;
+  const fixing = followed && published && loan.marginBp !== null ? rateMilli - loan.marginBp * 10 : null;
+  return { rateMilli, reference: loan.reference, fixingMilli: fixing !== null && fixing >= 0 ? fixing : null, marginBp: loan.marginBp, reviewDate: reviewDayAfter(loan, day) };
 }

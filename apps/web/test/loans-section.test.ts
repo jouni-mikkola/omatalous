@@ -163,6 +163,15 @@ describe("Raportit: Lainat", () => {
     expect(one).toContain('<p class="loan-scenario">Jos viitekorko nousee prosenttiyksikön: maksu 1 050,00 €, korot 12 kuukaudessa 5 000 €.</p>');
   });
 
+  it("the drill is on the viewer's own whole saved loans only: no account row, another member's loan or part of a shared one has it", () => {
+    const drills = (rows: LoanRow[]) => html(loans, context(report(rows))).split('class="loan-drill"').length - 1;
+    expect(drills([row()])).toBe(1);
+    expect(drills([card()])).toBe(0);
+    expect(drills([row({ id: "theirs", typedBy: "Aino" })])).toBe(0);
+    expect(drills([row({ id: "half", part: { from: 0, to: 2, of: 5 } })])).toBe(0);
+    expect(drills([row(), row({ id: "second" }), card(), row({ id: "theirs", typedBy: "Aino" })])).toBe(2);
+  });
+
   it("a figure nothing is known of is a dash in the totals, and no sentence says which loans a total leaves out for it", () => {
     const later = { cents: 0, unknown: [{ loanId: "home", unknown: "before_balance_date", counted: false }] } as const;
     const out = html(loans, context(report([row()], { interest: later, interestKnown: false, payments: { monthlyCents: 0, counted: 0, unknown: 1, bullets: 0 } })));

@@ -1,13 +1,21 @@
 /**
- * The text of a PDF of a loan, read in the browser: nothing is sent anywhere. pdf.js reads the PDF's text layer. It is
- * large, so it loads when the first PDF arrives, and it comes from the app's own address (the Content-Security-Policy
- * allows no other).
+ * The text of a PDF or a picture of a loan, read in the browser: nothing is sent anywhere. pdf.js reads a PDF's text
+ * layer and Tesseract reads a picture. Both are large, so each is loaded when the first file of its kind arrives, and
+ * both come from the app's own address (the Content-Security-Policy allows no other).
  *
  * A read can be ended: by its signal (a newer file, Keskeytä, the page closing) and by a stall limit. Either way the
- * pdf.js task is ended too, so a read that is dropped does not go on using the phone.
+ * Tesseract worker and the pdf.js task are ended too, so a read that is dropped does not go on using the phone.
  */
+import { DIMMED_PAGE_LINE } from "@banking/core";
+import type { Worker as Reader } from "tesseract.js";
 import { t } from "../../text.ts";
+import { findDimmedPage, liftDimmedPage } from "./dimmed-page.ts";
 import { type PdfTextPiece, pdfLines } from "./pdf-lines.ts";
+import { pictureSize } from "./picture-size.ts";
+import { tidyPictureText } from "./picture-text.ts";
+
+/** The folder of the Tesseract worker, core and language data in the build (`ocrFiles` in vite.config.ts). */
+declare const __OCR_DIR__: string;
 
 /** A file that could not be read, with a sentence for the household. */
 export class ReadError extends Error {}
@@ -16,8 +24,10 @@ export class ReadAborted extends Error {}
 
 /** A loan statement is a page or two: later pages are not read. */
 const MAX_PDF_PAGES = 20;
-/** A read that has made no move for this long is given up. Each page of a PDF restarts the clock. */
+/** A read that has made no move for this long is given up. A page of a PDF and every step of the picture reader restart the clock. */
 export const STALL_MS = 120_000;
+/** A picture over this many pixels is refused before it is decoded: it would fill the memory of a phone. */
+export const MAX_PIXELS = 40_000_000;
 
 /**
  * Runs one read under a stall limit. `run` gets a signal that ends when the outer one does or the clock runs out, and
@@ -88,6 +98,146 @@ export async function readPdf(data: ArrayBuffer, signal: AbortSignal): Promise<s
       if (stop.aborted) throw new ReadAborted();
       if ((err as Error).name === "PasswordException") throw new ReadError(t("set.ln.the_pdf_is_locked"));
       throw new ReadError(t("set.ln.the_pdf_could_not_be"));
+    } finally {
+      stop.removeEventListener("abort", end);
+      end();
+    }
+  });
+}
+
+/** `load`: the reader and its language data are on their way. `read`: the picture is being read, `share` of it done. */
+export interface PictureProgress {
+  step: "load" | "read";
+  share: number;
+}
+
+/**
+ * The reader finds letters best when they are some 30 pixels tall. A small picture is drawn larger first, and a camera
+ * picture smaller: its extra pixels only cost time. Measured on made-up screenshots of a phone (412 points wide at
+ * 1x to 3.5x) and of a desktop (1366 and 1920 wide): every field was read at each size with these limits.
+ */
+const SMALL_PIXELS = 1_200_000;
+const LARGE_PIXELS = 6_000_000;
+
+/** The picture on a canvas at the size it is read at. The browser opens it, so every format the browser shows works. */
+async function drawn(picture: Blob): Promise<HTMLCanvasElement> {
+  const declared = await pictureSize(picture);
+  if (!declared) throw new ReadError(t("set.ln.the_picture_format_is_unknown"));
+  if (declared.width * declared.height > MAX_PIXELS) throw new ReadError(t("set.ln.the_picture_is_too_large"));
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(picture);
+  } catch {
+    throw new ReadError(t("set.ln.the_picture_cannot_be_opened"));
+  }
+  const pixels = bitmap.width * bitmap.height;
+  const scale = pixels < SMALL_PIXELS ? Math.min(2, Math.sqrt((2 * SMALL_PIXELS) / pixels)) : pixels > LARGE_PIXELS ? Math.sqrt(LARGE_PIXELS / pixels) : 1;
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+  const ctx = canvas.getContext("2d")!;
+  ctx.imageSmoothingQuality = "high";
+  // a picture with see-through parts is read as dark text on white
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  return canvas;
+}
+
+/** The page dimmed behind a dialog, drawn for a read of its own, or null when the picture shows no dialog over a dimmed page. */
+function pageBehind(canvas: HTMLCanvasElement): HTMLCanvasElement | null {
+  const { width, height } = canvas;
+  const image = canvas.getContext("2d")!.getImageData(0, 0, width, height);
+  const found = findDimmedPage(image.data, width, height);
+  if (!found) return null;
+  liftDimmedPage(image.data, width, height, found);
+  const page = document.createElement("canvas");
+  page.width = width;
+  page.height = height;
+  page.getContext("2d")!.putImageData(image, 0, 0);
+  return page;
+}
+
+/** The two cores the build carries (`ocrFiles`): with WebAssembly SIMD, and without it for browsers that have none. */
+export const SIMD_CORE = "tesseract-core-simd-lstm.wasm.js";
+export const PLAIN_CORE = "tesseract-core-lstm.wasm.js";
+/** The test for SIMD that wasm-feature-detect (a dependency of tesseract.js) makes: a module with one SIMD instruction. */
+const SIMD_PROBE = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11]);
+
+/**
+ * Tesseract picks a core by itself from a folder, and prefers a relaxed-SIMD one the build does not carry, so the
+ * file is named here.
+ */
+export const coreFile = (): string => (WebAssembly.validate(SIMD_PROBE) ? SIMD_CORE : PLAIN_CORE);
+
+/**
+ * The text of a picture, in Finnish and English. `onProgress` is called many times while it runs. A dialog over a
+ * dimmed page is read twice, the dialog and then the page behind it, and the page's text follows DIMMED_PAGE_LINE.
+ */
+export async function readPicture(picture: Blob, onProgress: (progress: PictureProgress) => void, signal: AbortSignal): Promise<string> {
+  return guarded(signal, async (stop, alive) => {
+    // createWorker starts its Worker before it returns and hands it back only when the start went well. One that
+    // fails or stalls leaves the Worker running, so the ones it starts are kept here to be ended with the read.
+    const spawned: Worker[] = [];
+    let reader: Reader | undefined;
+    const end = () => {
+      for (const worker of spawned) worker.terminate();
+      void reader?.terminate().catch(() => {});
+    };
+    stop.addEventListener("abort", end, { once: true });
+    try {
+      const canvas = await raced(drawn(picture), stop);
+      const behind = pageBehind(canvas);
+      const passes = behind ? 2 : 1;
+      let pass = 0;
+      const { createWorker } = await raced(import("tesseract.js"), stop);
+      const base = new URL(`${import.meta.env.BASE_URL}${__OCR_DIR__}/`, location.href).href;
+      // a worker whose data fails to load throws inside its message handler, which no one here can catch
+      let broke!: (reason: unknown) => void;
+      const failed = new Promise<never>((_, reject) => (broke = reject));
+      failed.catch(() => {});
+      alive();
+      const Native = globalThis.Worker;
+      globalThis.Worker = class extends Native {
+        constructor(...args: ConstructorParameters<typeof Native>) {
+          super(...args);
+          spawned.push(this);
+        }
+      };
+      let starting: Promise<Reader>;
+      try {
+        starting = createWorker(["fin", "eng"], 1, {
+          workerPath: `${base}worker.min.js`,
+          corePath: `${base}${coreFile()}`,
+          langPath: base,
+          // the worker is started from the app's own address: a blob address would need its own line in the CSP
+          workerBlobURL: false,
+          // the server caches these files for good, so no second copy goes to the browser's database
+          cacheMethod: "none",
+          logger: (m) => {
+            if (stop.aborted) return;
+            alive();
+            const reading = m.status === "recognizing text";
+            onProgress({ step: reading ? "read" : "load", share: reading ? (pass + m.progress) / passes : m.progress });
+          },
+          errorHandler: (reason) => broke(new Error(String(reason))),
+        });
+      } finally {
+        globalThis.Worker = Native;
+      }
+      reader = await raced(Promise.race([starting, failed]), stop);
+      alive();
+      const text = tidyPictureText((await raced(reader.recognize(canvas), stop)).data.text);
+      if (!behind) return text;
+      pass = 1;
+      alive();
+      const page = tidyPictureText((await raced(reader.recognize(behind), stop)).data.text);
+      return `${text.trimEnd()}\n${DIMMED_PAGE_LINE}\n${page}`;
+    } catch (err) {
+      if (stop.aborted) throw new ReadAborted();
+      if (err instanceof ReadError) throw err;
+      throw new ReadError(t("set.ln.the_picture_could_not_be"));
     } finally {
       stop.removeEventListener("abort", end);
       end();

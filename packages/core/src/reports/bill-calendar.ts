@@ -9,6 +9,7 @@ import { getCategory } from "../categories.ts";
 import { cancelledSubjects, isBillSeries, isCancelled } from "../commitments.ts";
 import { addDays, addMonths, monthEnd, monthOf } from "../dates.ts";
 import { fitsPayment, takenSeries } from "../loan-detect.ts";
+import { loanRateLine } from "../loan-schedule.ts";
 import { loanBalanceOn, loanNextPayment, loansOf, typedBill } from "../loans.ts";
 import { parseSeriesId, projectDates, type RecurringSeries } from "../recurring.ts";
 import { AHEAD_DAYS, YEAR_MONTHS } from "../thresholds.ts";
@@ -16,7 +17,8 @@ import { type BalanceInput, type IsoDate, isRevolving, NO_INPUTS, type UserInput
 
 /**
  * "known": a typed-in bill, a fixed-price series, a loan payment of its plan or a card's bill of its balance. "estimate":
- * a series whose charges vary, or a pay beyond the next two. "paid": already charged this month, so no part of what is
+ * a series whose charges vary, a loan payment counted at a rate that is set after today (the newest published fixing and the
+ * margin), or a pay beyond the next two. "paid": already charged this month, so no part of what is
  * still to come.
  */
 type BillState = "known" | "estimate" | "paid";
@@ -201,6 +203,9 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       continue;
     }
     const first = loanNextPayment(loan, today);
+    // the next day the bank sets the rate again: a payment whose interval starts on or after it is counted at the newest fixing
+    // and the margin (the loan's rate path), so it is an estimate. A loan with no path keeps its typed rate.
+    const review = loan.ratePath === undefined ? null : (loanRateLine(loan, today)?.reviewDate ?? null);
     // nothing is due: the loan is paid
     if (first.unknown === null && first.cents === null) continue;
     if (first.date === null) {
@@ -211,13 +216,17 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       else for (const d of dates) rows.push(row(d < today ? today : d, bill));
       continue;
     }
+    // the due date before the payment: where its interval starts, and so which rate counts. The first payment's started on or before today.
+    let intervalStart: IsoDate | null = null;
     for (let next = first; next.date !== null && next.date <= windowEnd; next = loanNextPayment(loan, next.date)) {
+      const started = intervalStart;
+      intervalStart = next.date;
       if (paidNow && monthOf(next.date) === firstMonth) continue;
       if (next.cents === null || next.cents <= 0) {
         unknownCount++;
         break;
       }
-      rows.push(row(next.date, next.cents, "known", next.intervalMonths === 1));
+      rows.push(row(next.date, next.cents, review !== null && started !== null && started >= review ? "estimate" : "known", next.intervalMonths === 1));
     }
   }
 

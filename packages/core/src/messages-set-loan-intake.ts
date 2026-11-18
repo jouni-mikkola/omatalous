@@ -1,21 +1,28 @@
 /**
- * The catalogue of Asetukset: reading a loan from pasted text or a PDF.
+ * The catalogue of Asetukset: reading a loan from pasted text, a PDF or a picture.
  * Decision: the household reads the settings in its own language.
  * Same shape as the tables of `messages.ts`: the Finnish table gives the codes and the English one must have the same codes and holes.
  */
 export const FI_SET_LOAN_INTAKE = {
   "set.ln.box_label": "Lainan tiedot",
   "set.ln.read_the_loan_details": "Lue tiedot",
-  "set.ln.choose_a_pdf": "Valitse PDF",
+  "set.ln.choose_a_picture_or_pdf": "Valitse kuva tai PDF",
   "set.ln.reading_the_pdf": "Luemme PDF-tiedostoa…",
+  "set.ln.loading_the_picture_reader": "Valmistelemme kuvan lukijaa…",
+  "set.ln.reading_the_picture": "Luemme kuvaa…",
   "set.ln.stop": "Keskeytä",
   "set.ln.reading_stalled": "Lukeminen jumittui. Yritä uudelleen tai liitä lainan tiedot tekstinä.",
   "set.ln.the_pdf_is_locked": "PDF-tiedosto on salasanalla suojattu. Avaa se ensin ja liitä sen teksti tähän.",
   "set.ln.the_pdf_could_not_be": "Emme voineet lukea PDF-tiedostoa. Yritä uudelleen tai liitä lainan tiedot tekstinä.",
   "set.ln.the_pdf_has_only_an": "PDF-tiedostossa on pelkkä kuva. Kopioi sen teksti ja liitä se tähän.",
+  "set.ln.the_picture_could_not_be": "Emme voineet lukea kuvaa. Yritä uudelleen tai liitä lainan tiedot tekstinä.",
+  "set.ln.the_picture_is_too_large": "Kuva on liian suuri, yli 40 miljoonaa pikseliä. Ota lainan tiedoista kuvakaappaus.",
+  "set.ln.the_picture_format_is_unknown": "Emme tunnistaneet kuvan muotoa. Ota lainan tiedoista kuvakaappaus (PNG tai JPEG).",
+  "set.ln.the_picture_cannot_be_opened": "Selain ei osaa avata tätä kuvaa. Kokeile kuvakaappausta (PNG tai JPEG).",
   "set.ln.no_loan_details_were_found": "Emme löytäneet tekstistä lainan tietoja. Liitä lainan tiedot tekstinä tai lisää laina käsin.",
+  "set.ln.no_loan_details_in_the_picture": "Emme löytäneet kuvasta lainan tietoja. Kokeile tarkempaa kuvaa tai liitä lainan tiedot tekstinä.",
   "set.ln.the_file_is_too_large": "Tiedosto on liian suuri. Liitä lainan tiedot tekstinä.",
-  "set.ln.the_file_is_not_a_pdf": "Tiedosto ei ole PDF eikä teksti. Liitä lainan tiedot tekstinä.",
+  "set.ln.the_file_is_not_readable": "Tiedosto ei ole kuva, PDF eikä teksti. Liitä lainan tiedot tekstinä.",
   "set.ln.the_file_could_not_be": "Emme voineet lukea tiedostoa. Yritä uudelleen tai liitä lainan tiedot tekstinä.",
   "set.ln.mark_missing": "Ei löytynyt",
   "set.ln.mark_check": "Tarkista",

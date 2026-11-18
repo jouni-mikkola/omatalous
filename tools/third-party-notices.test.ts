@@ -38,6 +38,14 @@ describe("third-party notices", () => {
   it("is up to date in the repository and names every runtime package of the apps", () => {
     const file = readFileSync(join(REPO, "THIRD_PARTY_NOTICES"), "utf8");
     expect(file).toBe(render(collect()));
-    for (const name of ["hono", "react", "croner", "pdfjs-dist"]) expect(file).toContain(`\n${name} `);
+    for (const name of ["hono", "react", "croner", "pdfjs-dist", "tesseract.js", "tesseract.js-core", "@tesseract.js-data/fin", "@tesseract.js-data/eng"]) expect(file).toContain(`\n${name} `);
+  });
+
+  it("gives the licence of the picture reader's language data and of Leptonica in its core", () => {
+    const file = readFileSync(join(REPO, "THIRD_PARTY_NOTICES"), "utf8");
+    expect(file).toContain("tessdata_best");
+    expect(file).toContain("under the Apache License 2.0");
+    expect(file).toContain("Copyright (C) 2001-2020 Leptonica.  All rights reserved.");
+    expect(file).toContain("IN NO EVENT SHALL ANY CONTRIBUTORS BE LIABLE");
   });
 });
