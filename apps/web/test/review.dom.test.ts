@@ -90,11 +90,11 @@ describe("Tarkistettavat", () => {
     const item = { id: "loan_terms:loan-7", kind: "loan_terms", cents: 0, loanId: "loan-7", accountId: null, name: "Asuntolaina", owedCents: 15_000_000, balanceDate: "2026-10-01", missing: "rate", subject: "question:loan-terms:loan-7" } as unknown as ReviewItem;
     const meta = { accounts: [], sharedAccounts: [], bank: { banks: [] }, today: "2026-10-09" } as unknown as Meta;
     render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => {} } }));
-    expect(document.querySelector(".review-item")!.textContent).toContain("Mikä on lainan kokonaiskorko?");
+    expect(document.querySelector(".review-item")!.textContent).toContain("Mikä on lainan korko?");
     expect(choices().map((b) => b.textContent?.trim())).toEqual(["Täydennä laina"]);
     fireEvent.click(screen.getByRole("button", { name: "Täydennä laina" }));
     // the missing fact alone is asked; the rest of the form is behind one button
-    await screen.findByLabelText(/^Kokonaiskorko/, {}, T);
+    await screen.findByLabelText(/^Korko/, {}, T);
     expect(screen.queryByLabelText(/^Maksuerä/)).toBeNull();
     expect(screen.queryByLabelText(/^Lainaa jäljellä/)).toBeNull();
     expect(screen.queryByLabelText("Nimi")).toBeNull();
@@ -113,10 +113,10 @@ describe("Tarkistettavat", () => {
     const item = { id: "loan_terms:account:card-1", kind: "loan_terms", cents: 0, loanId: null, accountId: "card-1", name: "Luottokortti", owedCents: 50_000, balanceDate: "2026-10-08", missing: "rate", subject: "question:loan-terms:account:card-1" } as unknown as ReviewItem;
     const meta = { accounts: [card], sharedAccounts: [], bank: { banks: [] }, today: "2026-10-09" } as unknown as Meta;
     render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => {} } }));
-    expect(document.querySelector(".review-item")!.textContent).toContain("Mikä on kortin kokonaiskorko?");
+    expect(document.querySelector(".review-item")!.textContent).toContain("Mikä on kortin korko?");
     expect(choices().map((b) => b.textContent?.trim())).toEqual(["Täydennä kortin ehdot"]);
     fireEvent.click(screen.getByRole("button", { name: "Täydennä kortin ehdot" }));
-    const rate = await screen.findByLabelText(/^Kokonaiskorko/, {}, T);
+    const rate = await screen.findByLabelText(/^Korko/, {}, T);
     // the form opens at its first field
     await waitFor(() => expect(document.activeElement).toBe(rate), T);
     fireEvent.change(rate, { target: { value: "19" } });
@@ -136,7 +136,7 @@ describe("Tarkistettavat", () => {
     const meta = { accounts: [card], sharedAccounts: [], bank: { banks: [] }, today: "2026-10-09" } as unknown as Meta;
     render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => {} } }));
     fireEvent.click(screen.getByRole("button", { name: "Täydennä kortin ehdot" }));
-    fireEvent.change(await screen.findByLabelText(/^Kokonaiskorko/, {}, T), { target: { value: "19" } });
+    fireEvent.change(await screen.findByLabelText(/^Korko/, {}, T), { target: { value: "19" } });
     fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
     await waitFor(() => expect(seen.some((s) => s.method === "PUT" && s.path === "/api/loans/loan-9")).toBe(true), T);
     expect(seen.some((s) => s.method === "POST" && s.path === "/api/loans")).toBe(false);
@@ -152,7 +152,7 @@ describe("Tarkistettavat", () => {
     const meta = { accounts: [card], sharedAccounts: [], bank: { banks: [] }, today: "2026-10-09" } as unknown as Meta;
     render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => {} } }));
     fireEvent.click(screen.getByRole("button", { name: "Täydennä kortin ehdot" }));
-    await screen.findByLabelText(/^Kokonaiskorko/, {}, T);
+    await screen.findByLabelText(/^Korko/, {}, T);
     fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
     await waitFor(() => expect(seen.some((s) => s.method === "PUT" && s.path === "/api/loans/loan-9")).toBe(true), T);
     expect(seen.find((s) => s.method === "PUT" && s.path === "/api/loans/loan-9")!.body).toMatchObject({ rateBp: null });

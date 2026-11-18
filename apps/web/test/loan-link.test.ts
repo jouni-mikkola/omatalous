@@ -30,19 +30,17 @@ describe("the select of the loan form", () => {
     expect(editor(emptyForm(day), [card], [saved("a", "card")])).not.toContain("Sama velka pankin tilillä");
   });
 
-  it("offers Ei liitetty and the account by name, with the line that tells what a link does", () => {
+  it("offers Ei liitetty and the account by name, with no line under it", () => {
     const out = editor(formOfLoan(saved("b")), [card], [saved("a")]);
     expect(out).toContain("Sama velka pankin tilillä");
     expect(accountSelect(out)).toContain('<option value="" selected="">Ei liitetty</option><option value="card">Esimerkkikortti</option>');
-    expect(out).toContain("Kun yhdistät lainan tiliin, laskemme sen velkana vain kerran ja saldo tulee pankista.");
-    // not linked: the balance field has no line about the bank
-    expect(out).not.toContain("Velkana käytetään pankin saldoa");
+    expect(out).not.toContain("field-help");
   });
 
-  it("a linked loan shows its account chosen, and its balance says the bank's counts while the bank tells one", () => {
+  it("a linked loan shows its account chosen, with no line under the balance", () => {
     const out = editor(formOfLoan(saved("a", "card")), [card], [saved("a", "card")]);
     expect(accountSelect(out)).toContain('<option value="card" selected="">Esimerkkikortti</option>');
-    expect(out).toContain("Velkana on pankin saldo aina, kun pankki ilmoittaa sen. Muulloin velka on tähän kirjoittamasi saldo.");
+    expect(out).not.toContain("field-help");
   });
 
   it("a stored link to an account that is not offered any more is shown as no link", () => {

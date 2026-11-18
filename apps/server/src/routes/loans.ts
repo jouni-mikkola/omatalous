@@ -232,12 +232,13 @@ export function loanRoutes(s: Services) {
 
   /**
    * The saved loans and the published fixings they count from, so the web works loans out with the same `loansOf` as the
-   * server. The fixings start at the oldest balance date, with the one before it that holds until the first.
+   * server. The fixings start a year before the oldest balance date, with the one before it that holds until the first:
+   * the form shows the rate a loan on a euribor has now from the fixing of its last review day, at most a year back.
    */
   app.get("/loans", async (c) => {
     const loans = await s.finance(c.get("user").id).listLoans();
     const since = loans.reduce((oldest, loan) => (loan.balanceDate < oldest ? loan.balanceDate : oldest), s.today());
-    return c.json({ loans, fixings: await s.referenceRates.since(since) });
+    return c.json({ loans, fixings: await s.referenceRates.since(addMonthsToDate(since, -12)) });
   });
 
   /**

@@ -76,14 +76,16 @@ test("a payment that looks like a loan is asked in Tarkistettavat: saved as a lo
     // Tallenna lainaksi: the form opens in the item with what the rows show, and asks for the rest
     await item.getByRole("button", { name: "Autolaina Ehdotus" }).click();
     const form = item.locator(".review-loan");
-    // the rows gave the lender, the payment and the interval: one line says so, and only the rest is asked (at most 5 fields)
-    await expect(form.getByText(`Pankin riveistä: ${COMPANY}, 289,00 € kuukauden välein`)).toBeVisible();
-    await expect(form.locator(".loan-field")).toHaveCount(4);
+    // the rows gave the lender, the payment, the interval and the way of paying back: only the rest is asked, with no line of help
+    await expect(form.locator(".loan-field")).toHaveCount(5);
+    await expect(form.locator(".review-note, .field-help")).toHaveCount(0);
     await expect(form.getByLabel("Lainanantaja", { exact: true })).toHaveCount(0);
     await expect(form.getByLabel("Lainaa jäljellä (€)")).toHaveValue("");
-    await expect(form.getByLabel("Kokonaiskorko (%)")).toHaveValue("");
+    await expect(form.getByLabel("Korko (%)")).toHaveValue("");
+    await expect(form.getByLabel("Viitekorko", { exact: true })).toHaveValue("");
     await expect(form.getByLabel("Myönnetty määrä (€)")).toHaveValue("");
-    await expect(form.getByLabel("Lyhennystapa")).toHaveValue("");
+    // the same payment for over a year: a fixed instalment
+    await expect(form.getByLabel("Lyhennystapa")).toHaveValue("fixed_instalment");
     expect(await overflow(page)).toBeLessThanOrEqual(1);
 
     // the balance is the household's to type: without it nothing is saved
@@ -101,13 +103,15 @@ test("a payment that looks like a loan is asked in Tarkistettavat: saved as a lo
     expect(await overflow(page)).toBeLessThanOrEqual(1);
     await item.getByRole("button", { name: "Autolaina Ehdotus" }).click();
     await form.getByLabel("Lainaa jäljellä (€)").fill("6 400,50");
-    await form.getByLabel("Kokonaiskorko (%)").fill("7,90");
+    await form.getByLabel("Korko (%)").fill("7,90");
     if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-proposal-form-1280.png"), fullPage: true });
     await form.getByRole("button", { name: "Tallenna", exact: true }).click();
     await expect(name).not.toHaveText(COMPANY);
     const { loans } = await (await context.request.get("/api/loans")).json();
     expect(loans).toHaveLength(1);
-    expect(loans[0]).toMatchObject({ kind: "car", lender: COMPANY, balanceCents: 640_050, rateBp: 790, paymentCents: 28_900, intervalMonths: 1 });
+    expect(loans[0]).toMatchObject({ kind: "car", lender: COMPANY, balanceCents: 640_050, rateBp: 790, paymentCents: 28_900, intervalMonths: 1, repayment: "fixed_instalment" });
+    // the balance is dated on the last payment day the rows show
+    expect(loans[0].balanceDate).toMatch(/^\d{4}-\d{2}-05$/);
     expect(loans[0].seriesKey).toMatch(/^out:.+:Nordea Rahoitus Suomi Oy#28900$/);
     expect((await (await context.request.get("/api/loans/proposals")).json()).proposals).toEqual([]);
     expect(await queued()).toEqual([]);

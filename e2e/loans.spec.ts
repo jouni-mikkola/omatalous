@@ -81,14 +81,14 @@ test("a loan is typed into the form, a missing kind holds Tallenna back, and the
   await form.getByLabel("Lainaa jäljellä (€)").fill("120 000,00");
   await form.getByLabel("Saldon päivä", { exact: true }).fill(loan.balanceDate);
   await form.getByLabel("Myönnetty määrä (€)").fill("150 000,00");
-  await form.getByLabel("Kokonaiskorko (%)").fill("3,39");
-  await form.getByLabel("Viitekorko", { exact: true }).selectOption("euribor_12");
-  await form.getByLabel("Marginaali (%)").fill("0,65");
+  await form.getByLabel("Korko (%)").fill("3,39");
+  await form.getByLabel("Viitekorko", { exact: true }).selectOption("fixed");
   await form.getByLabel("Lyhennystapa", { exact: true }).selectOption("annuity");
   await form.getByLabel("Lyhennysväli", { exact: true }).selectOption("1");
   await form.getByLabel("Maksuerä (€)").fill("689,20");
   await form.getByLabel("Viimeinen eräpäivä", { exact: true }).fill(loan.endDate);
-  await expect(field(form, "Maksuerä (€)")).toContainText("Koko erä, korko mukana.");
+  // the labels speak for themselves: no line of help under a field
+  await expect(form.locator(".field-help")).toHaveCount(0);
   // a typed form has no marks of a reading
   await expect(form.locator(".badge")).toHaveCount(0);
 
@@ -152,7 +152,7 @@ test("a saved loan is edited in a dialog and removed after a question", async ({
   // the fields the form did not touch went back as they were
   const { loans } = await (await context.request.get("/api/loans", RESEND)).json();
   expect(loans).toHaveLength(1);
-  expect(loans[0]).toMatchObject({ name: "Kodin laina", kind: "mortgage", lender: "Esimerkkipankki Oyj", balanceCents: 11_950_000, grantedCents: 15_000_000, rateBp: 339, reference: "euribor_12", marginBp: 65, repayment: "annuity", intervalMonths: 1, paymentCents: null, limitCents: null, seriesKey: null });
+  expect(loans[0]).toMatchObject({ name: "Kodin laina", kind: "mortgage", lender: "Esimerkkipankki Oyj", balanceCents: 11_950_000, grantedCents: 15_000_000, rateBp: 339, reference: "fixed", marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: null, limitCents: null, seriesKey: null });
 
   await card.getByRole("button", { name: "Poista laina Kodin laina" }).click();
   const question = page.getByRole("dialog", { name: "Poista Kodin laina?" });
@@ -179,14 +179,13 @@ test("the day the rate is reviewed is typed in the form and kept, a fixed rate h
   await form.getByLabel("Laji").selectOption("mortgage");
   await form.getByLabel("Nimi").fill("Kotilaina");
   await form.getByLabel("Lainaa jäljellä (€)").fill("120 000");
-  await form.getByLabel("Kokonaiskorko (%)").fill("3,39");
+  await form.getByLabel("Korko (%)").fill("3,39");
   await form.getByLabel("Marginaali (%)").fill("0,65");
   const day = form.getByLabel("Koron tarkistuspäivä", { exact: true });
-  // no reference rate named yet: the field is there, with its hint, right after the margin
+  // no reference rate named yet: the field is there, right after the margin
   await expect(day).toBeVisible();
   await expect(day).toHaveAttribute("type", "date");
   await expect(day).not.toHaveAttribute("required", "");
-  await expect(field(form, "Koron tarkistuspäivä")).toContainText("Päivä, jona pankki seuraavan kerran tarkistaa viitekoron. Näkyy lainasopimuksessa ja verkkopankissa.");
   const labels = await form.locator("label.field-label").allInnerTexts();
   expect(labels.indexOf("Koron tarkistuspäivä")).toBe(labels.indexOf("Marginaali (%)") + 1);
 
@@ -195,7 +194,6 @@ test("the day the rate is reviewed is typed in the form and kept, a fixed rate h
   await day.fill("2027-03-14");
   await form.getByLabel("Viitekorko", { exact: true }).selectOption("fixed");
   await expect(day).toHaveCount(0);
-  await expect(form.getByText("Päivä, jona pankki seuraavan kerran tarkistaa viitekoron.")).toHaveCount(0);
   await form.getByLabel("Viitekorko", { exact: true }).selectOption("euribor_12");
   await expect(day).toHaveValue("2027-03-14");
   await form.getByRole("button", { name: "Tallenna" }).click();
@@ -229,6 +227,57 @@ test("the day the rate is reviewed is typed in the form and kept, a fixed rate h
   await context.close();
 });
 
+test("on a phone a loan on a euribor is typed with its margin alone, the form shows the rate now, and the list shows the saved rate", async ({ browser }) => {
+  const context = await administrator(browser);
+  await clearLoans(context);
+  const day = await today(context);
+  const { fixings } = (await (await context.request.get("/api/loans", RESEND)).json()) as { fixings: Record<string, [string, number][]> };
+  const fixing = (fixings.euribor_12 ?? []).filter(([from]) => from <= day).at(-1);
+  test.skip(!fixing, "needs the made-up fixings of the demo");
+  // the fixing and the margin, in hundredths of a percent, a half up: the rate the server stores
+  const rateBp = Math.round((Math.max(0, fixing![1]) + 650) / 10);
+  const rate = new RegExp(`${Math.floor(rateBp / 100)},${String(rateBp % 100).padStart(2, "0")}\\s%`);
+  const page = await context.newPage();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const seen = watch(page);
+  await page.goto("/#/settings/household");
+  const card = lainat(page);
+  await card.getByRole("button", { name: "Lisää laina" }).click();
+  const form = card.getByRole("region", { name: "Uusi laina" });
+  await form.getByLabel("Laji").selectOption("mortgage");
+  await form.getByLabel("Nimi").fill("Marginaalilaina");
+  await form.getByLabel("Lainaa jäljellä (€)").fill("80 000");
+
+  // the dates are the browser's own date fields, which a Finnish page shows as d.m.yyyy, whole on a phone
+  expect(await page.evaluate(() => new Intl.DateTimeFormat().format(new Date(2026, 9, 5)))).toBe("5.10.2026");
+  const balanceDay = form.getByLabel("Saldon päivä", { exact: true });
+  await expect(balanceDay).toHaveAttribute("type", "date");
+  await expect(balanceDay).toHaveValue(day);
+  expect(await balanceDay.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+
+  // a euribor whose fixing is stored asks the margin, and the rate is counted from it
+  await form.getByLabel("Viitekorko", { exact: true }).selectOption("euribor_12");
+  await expect(form.getByLabel("Korko (%)")).toHaveCount(0);
+  const margin = form.getByLabel("Marginaali (%)");
+  await margin.fill("0,65");
+  await expect(form.locator(".loan-rate-now")).toHaveText(new RegExp(`^Korko nyt ${rate.source}$`));
+  await expect(margin).toHaveAccessibleDescription(new RegExp(`Korko nyt ${rate.source}`));
+  const review = form.getByLabel("Koron tarkistuspäivä", { exact: true });
+  await expect(review).toHaveAttribute("type", "date");
+  expect(await review.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+  expect(await overflow(page)).toBeLessThanOrEqual(1);
+
+  await form.getByRole("button", { name: "Tallenna" }).click();
+  await said(card, "Marginaalilaina tallennettu.");
+  const { loans } = await (await context.request.get("/api/loans", RESEND)).json();
+  expect(loans).toMatchObject([{ name: "Marginaalilaina", reference: "euribor_12", marginBp: 65, rateBp }]);
+  // the saved rate is the figure the form showed
+  await expect(card.getByRole("row").filter({ hasText: "Marginaalilaina" })).toContainText(rate);
+  expect(seen.problems).toEqual([]);
+  await clearLoans(context);
+  await context.close();
+});
+
 test("a member sees and changes only their own loans, and the page fits a phone", async ({ browser }) => {
   const admin = await administrator(browser);
   const created = await admin.request.post("/api/users", { headers: FETCH, data: { username: "lainaaja", displayName: "Lainaaja" } });
@@ -256,7 +305,7 @@ test("a member sees and changes only their own loans, and the page fits a phone"
     await form.getByLabel("Laji").selectOption("car");
     await form.getByLabel("Nimi").fill("Auton laina");
     await form.getByLabel("Lainaa jäljellä (€)").fill("9 800,50");
-    await form.getByLabel("Kokonaiskorko (%)").fill("5,25");
+    await form.getByLabel("Korko (%)").fill("5,25");
     expect(await overflow(page)).toBeLessThanOrEqual(1);
     await form.getByRole("button", { name: "Tallenna" }).click();
     await said(card, "Auton laina tallennettu.");
@@ -309,7 +358,6 @@ test("the Lainat report offers to link a saved card to the card account, and the
   const dialog = page.getByRole("dialog", { name: "Muokkaa lainaa" });
   await expect(dialog.getByLabel("Nimi")).toHaveValue("Esimerkkikortti");
   await expect(dialog.getByLabel("Sama velka pankin tilillä")).toHaveValue(account!.id);
-  await expect(dialog.getByText("Velkana on pankin saldo aina, kun pankki ilmoittaa sen.")).toBeVisible();
   await expect(page).toHaveURL(/#\/settings\/household#lainat$/);
   await dialog.getByRole("button", { name: "Tallenna" }).click();
   await expect(dialog).toHaveCount(0);
