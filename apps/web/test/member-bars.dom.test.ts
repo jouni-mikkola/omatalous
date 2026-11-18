@@ -129,16 +129,16 @@ describe("Yhteiset menot: the bars in the settlement block", () => {
     expect(text).not.toContain("Kerro, miten tili jakautuu");
     // the answer's blocks keep their names for readers of the page
     expect(screen.getByRole("group", { name: "Et ole kertonut jakoa" })).toBeTruthy();
-    expect(screen.getByText("Tuntematon maksaja")).toBeTruthy();
+    expect(screen.getByText("Muiden maksamat")).toBeTruthy();
     expect(screen.queryByText("Ei tiedossa")).toBeNull();
   });
 
-  it("has one row for the unknown payer, with the open sum and its sources under it", async () => {
+  it("has one row for the money of others, with the open sum and its sources under it", async () => {
     stubApi({
       "GET /api/settlement": pool({
         members: [
           { owner: "u1", paid: 30000, owed: 20000, over: 10000 },
-          { owner: "u2", paid: 10000, owed: 20000, over: -5000 },
+          { owner: "u2", paid: 10000, owed: 20000, over: -15000 },
         ],
         unknownPaidBy: [{ owner: "x", cents: 5000 }],
       }),
@@ -146,9 +146,36 @@ describe("Yhteiset menot: the bars in the settlement block", () => {
     const { container } = render(createElement(section.Component, { ctx: context }));
     await screen.findByRole("group", { name: "Yhteiset menot: Yhteistili" });
     const drill = container.querySelector("details")!;
-    expect(plain(drill.querySelector("summary .st-name")!.textContent)).toBe("Tuntematon maksaja");
+    const summary = plain(drill.querySelector("summary .st-name")!.textContent);
+    expect(summary).toBe("Muiden maksamat");
     expect(plain(drill.querySelector("summary .st-num")!.textContent)).toBe("50,00 €");
-    expect(plain(drill.textContent)).toContain("Maksanut: Tuntematon maksaja");
+    expect(plain(drill.textContent)).toContain("Maksanut: Nimetön maksaja");
+    const sources = [...drill.querySelectorAll(":scope > div.st-row .st-name")].map((n) => plain(n.textContent));
+    expect(sources).toEqual(["Maksanut: Nimetön maksaja"]);
+    expect(sources).not.toContain(summary);
+  });
+
+  it("names the open sum by its direction: others still owe it when the members paid more than their shares", async () => {
+    stubApi({
+      "GET /api/settlement": pool({
+        members: [
+          { owner: "u1", paid: 30000, owed: 20000, over: 10000 },
+          { owner: "u2", paid: 20000, owed: 20000, over: 5000 },
+        ],
+        unknownOwedBy: [{ owner: "x", cents: 15000 }],
+      }),
+    });
+    const { container } = render(createElement(section.Component, { ctx: context }));
+    await screen.findByRole("group", { name: "Yhteiset menot: Yhteistili" });
+    const drill = container.querySelector("details")!;
+    const summary = plain(drill.querySelector("summary .st-name")!.textContent);
+    expect(summary).toBe("Muilta saamatta");
+    expect(plain(drill.querySelector("summary .st-num")!.textContent)).toBe("150,00 €");
+    expect(plain(drill.textContent)).toContain("Osuus: Nimetön maksaja");
+    const sources = [...drill.querySelectorAll(":scope > div.st-row .st-name")].map((n) => plain(n.textContent));
+    expect(sources).toEqual(["Osuus: Nimetön maksaja"]);
+    expect(sources).not.toContain(summary);
+    expect(sources).not.toContain("Muiden maksamat");
   });
 
   it("folds the corrections to months over a year back and lists the newer ones", async () => {

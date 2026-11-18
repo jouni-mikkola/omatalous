@@ -119,11 +119,11 @@ function Pool({ pool, month, holder }: { pool: Answer["pools"][number]; month: s
           </div>
         </div>
       )}
-      {/* one row for what no user paid or owes: its sum is the difference the transfers leave, and its sources open under it */}
+      {/* one row for what no user paid or owes: its sum is the difference the transfers leave, named by its direction (debts larger: others paid; credits larger: others still owe), and its sources open under it */}
       {(unknown.length > 0 || open > 0) && (
         <details className="st-rows">
           <summary className="st-row">
-            <span className="st-name">{t("rpt.se_unknown_payer")}</span>
+            <span className="st-name">{t(credits > debts ? "rpt.se_others_unpaid" : "rpt.se_others_paid")}</span>
             {open > 0 && <span className="st-num">{money(open)}</span>}
           </summary>
           {unknown.map((u) => (
