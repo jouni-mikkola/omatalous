@@ -28,8 +28,8 @@
 import { partCents } from "./account-use.ts";
 import { addDays, addMonthsToDate, daysBetween } from "./dates.ts";
 import { centsOf, type Debt, figureOf, partly } from "./debt-part.ts";
-import { divRound, endOf, type Instalments, intervalOf, loanLastDueDate, loanPeriodInterest, MAX_LOAN_PAYMENTS, planOf } from "./loan-plan.ts";
-import { annuityPayment, countsDays, loanBalanceByPlan, loanSchedule, type Payment, payments, rateMilliAt, ratePathOf } from "./loan-schedule.ts";
+import { divRound, dueDates, endOf, type Instalments, intervalOf, loanLastDueDate, loanPeriodInterest, MAX_LOAN_PAYMENTS, planOf, rateDaysInterest } from "./loan-plan.ts";
+import { annuityPayment, countsDays, loanBalanceByPlan, loanSchedule, type Payment, payments, rateDaysBetween, rateMilliAt, ratePathOf } from "./loan-schedule.ts";
 import { type Account, type IsoDate, isRevolving, type Loan, type LoanReference, type UserInputs } from "./types.ts";
 
 /** The Finnish name of each reference rate: the one list every page reads. */
@@ -41,7 +41,7 @@ export const LOAN_REFERENCE_LABEL: Record<LoanReference, string> = {
 };
 import { loanKindOfName } from "./wording-loan-pages.ts";
 
-export { endOf, loanLastDueDate, loanPeriodInterest, MAX_LOAN_PAYMENTS };
+export { dueDates, endOf, loanLastDueDate, loanPeriodInterest, MAX_LOAN_PAYMENTS };
 
 /** What a figure could not know: a field the loan lacks, or a day before the day its balance was told. */
 export type LoanUnknown = "repayment" | "interval" | "payment" | "rate" | "end_date" | "limit" | "before_balance_date";
@@ -127,7 +127,7 @@ export function loanBalanceOn(loan: Debt, day: IsoDate): LoanFigure {
 /**
  * The interest of the 12 months after a day: the interest parts of the payments due in them. A loan whose balance
  * stays (no plan, or a bullet) owes its rate on that balance for the days before its last due date, a whole year being
- * balance × rate whatever the year's length. A loan that owes nothing on the day costs nothing at any rate, so it
+ * balance × rate whatever the year's length. A rate that steps (`ratePath`) counts each day at the rate in force on it. A loan that owes nothing on the day costs nothing at any rate, so it
  * needs no rate to say so.
  */
 export function loanInterestNext12Months(loan: Debt, day: IsoDate): LoanFigure {
@@ -148,8 +148,9 @@ export function loanInterestNext12Months(loan: Debt, day: IsoDate): LoanFigure {
       const rows = loanSchedule(loan, day).rows.filter((r) => r.date <= to);
       return { cents: rows.reduce((sum, r) => sum + (r.interestCents ?? 0), 0), unknown: null };
     }
-    const owedDays = daysBetween(day, end !== null && end < to ? end : to);
-    return { cents: divRound(Math.max(0, loan.balanceCents) * loan.rateBp * owedDays, 10_000 * daysBetween(day, to)), unknown: plan.missing };
+    // the rate of each day, a step in it or a reference rate's review counted on its day
+    const rateDays = rateDaysBetween(loan.ratePath, loan.rateBp, day, end !== null && end < to ? end : to);
+    return { cents: rateDaysInterest(Math.max(0, loan.balanceCents), rateDays, daysBetween(day, to)), unknown: plan.missing };
   }
   let cents = 0;
   for (const p of payments(loan, plan)) {

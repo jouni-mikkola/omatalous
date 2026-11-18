@@ -7,9 +7,13 @@
  * figure of a loan is `loans.ts`'s (ADR 0004). This file lays the figures side by side, with the debts that may be
  * in a figure twice because no link says they are one (`maybeTwice` and `overdraftTwice` of `household-debts.ts`).
  */
+import { billCents } from "../account-use.ts";
 import { debtsOf } from "../analysis/card-settled.ts";
 import type { AnalysisContext } from "../analysis/context.ts";
+import { type DebtCost, debtCost, type SeriesPayment } from "../debt-cost.ts";
+import { paysSeries } from "../loan-detect.ts";
 import { type DebtPath, debtPath } from "../loan-path.ts";
+import { typedRateBpOn } from "../loan-schedule.ts";
 import { type MaybeTwice, maybeTwice, overdraftTwice } from "../household-debts.ts";
 import { type UnsavedRow, unsavedDebts } from "../holdings.ts";
 import {
@@ -71,6 +75,7 @@ export interface LoanRow {
    * has passed or when the account's balance is the older of the two (the row then holds the typed balance).
    */
   balanceDate: IsoDate;
+  /** The typed rate in force on the day: after the day of a step in it, the step's rate. Not the cost: that is `cost.rateMilli`. */
   rateBp: number | null;
   reference: Loan["reference"];
   repayment: Loan["repayment"];
@@ -78,6 +83,12 @@ export interface LoanRow {
   payment: NextPayment;
   /** Interest of the 12 months after the day. */
   interest: LoanFigure;
+  /**
+   * What the debt costs (`debtCost`): Todellinen korko, its class, and Korot ja kulut 12 kk split into interest and fees.
+   * Null when the debt owes nothing or is a card paid in full. A cost that is not known has no rate, class or 12 months
+   * and `cost.unknown` names the field that is missing.
+   */
+  cost: DebtCost | null;
   payoff: LoanPayoff;
   /**
    * The payment and the year's interest with the reference rate moved by each of `RATE_SHIFTS_BP`. None for a loan a
@@ -104,6 +115,8 @@ export interface LoansReport {
   interestKnown: boolean;
   /** Loans that `interest` leaves out for their rate (`loansWithoutRate`). */
   withoutRate: number;
+  /** Korot ja kulut 12 kk: the sum of the rows' `cost.next12`, null while any debt that owes has none. */
+  cost12: Cost12Total;
   /** The payments of a month (`debtPaymentsPerMonth`). */
   payments: DebtPayments;
   /**
@@ -118,17 +131,62 @@ export interface LoansReport {
   overdraftTwice: readonly MaybeTwice[];
 }
 
+/** Korot ja kulut 12 kk of all the debts, and its parts where every debt splits them. */
+interface Cost12Total {
+  cents: number | null;
+  interestCents: number | null;
+  feeCents: number | null;
+}
+
+/** The classes from the dearest to the cheapest. */
+const CLASSES_DEAREST_FIRST: readonly NonNullable<DebtCost["costClass"]>[] = ["very_dear", "dear", "cheap", "free"];
+
 /**
- * The rows in the order the Lainat list shows them: the rate, highest first, and a row with no rate last. Rows of the
- * same rate go by the interest of the 12 months, highest first, a row without that figure after those with one, and
- * by the order given where both are equal. Only the order changes: no row, figure or sum does. A pure view of rows, so
- * `LoansReport.loans` itself stays in the order the debts are listed (saved loans, then connected accounts).
+ * The 12-month cost of the debts added up. A debt that owes nothing adds nothing; one whose cost is not known leaves the
+ * whole null, never the sum of the others, and so does a debt the household has not saved (`lacksTerms`): it costs money
+ * with no terms to price. A part is null when a debt does not split it.
+ */
+function cost12Of(costs: readonly (DebtCost | null)[], lacksTerms: boolean): Cost12Total {
+  if (lacksTerms) return { cents: null, interestCents: null, feeCents: null };
+  const sum = { cents: 0, interestCents: 0 as number | null, feeCents: 0 as number | null };
+  for (const cost of costs) {
+    if (cost === null) continue;
+    if (cost.next12 === null) return { cents: null, interestCents: null, feeCents: null };
+    sum.cents += cost.next12.cents;
+    sum.interestCents = sum.interestCents === null || cost.next12.interestCents === null ? null : sum.interestCents + cost.next12.interestCents;
+    sum.feeCents = sum.feeCents === null || cost.next12.feeCents === null ? null : sum.feeCents + cost.next12.feeCents;
+  }
+  return sum;
+}
+
+/**
+ * The rows in the order the Lainat list shows them: the debts that cost something by Todellinen korko, highest first,
+ * then the class, dearest first; then the debts whose cost is not known; a debt that is Maksuton (free) last, as it is
+ * the last to pay down. Rows still equal go by the cost of the 12 months, highest first, a row without that figure after
+ * those with one, and by the order given where both are equal. Only the order changes: no row, figure or sum does. A
+ * pure view of rows, so `LoansReport.loans` itself stays in the order the debts are listed (saved loans, then connected
+ * accounts).
  */
 export function inCostOrder(rows: readonly LoanRow[]): LoanRow[] {
-  const rate = (r: LoanRow) => r.rateBp ?? Number.NEGATIVE_INFINITY;
-  const interest = (r: LoanRow) => r.interest.cents ?? Number.NEGATIVE_INFINITY;
+  const part = (r: LoanRow) => (r.cost?.rateMilli == null ? 1 : r.cost.costClass === "free" ? 2 : 0);
+  const rate = (r: LoanRow) => r.cost?.rateMilli ?? Number.NEGATIVE_INFINITY;
+  const dearness = (r: LoanRow) => (r.cost?.costClass ? CLASSES_DEAREST_FIRST.length - CLASSES_DEAREST_FIRST.indexOf(r.cost.costClass) : Number.NEGATIVE_INFINITY);
+  const year = (r: LoanRow) => r.cost?.next12?.cents ?? Number.NEGATIVE_INFINITY;
   const byDescending = (a: number, b: number) => (a === b ? 0 : a < b ? 1 : -1);
-  return [...rows].sort((a, b) => byDescending(rate(a), rate(b)) || byDescending(interest(a), interest(b)));
+  return [...rows].sort((a, b) => part(a) - part(b) || byDescending(rate(a), rate(b)) || byDescending(dearness(a), dearness(b)) || byDescending(year(a), year(b)));
+}
+
+/**
+ * The payments of a saved loan's linked series up to the day, as the bank booked them: the whole sum that left the
+ * account (`billCents`), whoever's part the viewer sees. They measure a fee a plan does not state and price a loan with
+ * no rate (`debtCost`).
+ */
+function paymentsOf(ctx: AnalysisContext, loans: readonly Loan[], loan: Loan, day: IsoDate): SeriesPayment[] {
+  if (loan.seriesKey === null) return [];
+  const keys = loans.flatMap((l) => l.seriesKey ?? []);
+  return ctx.txs
+    .filter((t) => t.amountCents < 0 && !t.isTransfer && t.bookingDate <= day && paysSeries(loan.seriesKey!, { accountId: t.accountId, merchant: t.merchant, amountCents: billCents(t) }, keys))
+    .map((t) => ({ date: t.bookingDate, cents: -billCents(t) }));
 }
 
 /** The household's debts on the context's today, each with its figures from `loans.ts`. */
@@ -137,6 +195,7 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
   const { day } = debts;
   const accountOf = new Map(balances.map((b) => [b.id, b]));
   const sourceOf = new Map(debts.sources.map((s) => [s.loanId, s]));
+  const unsaved = unsavedDebts(ctx, inputs);
   const loans = debts.loans.map((loan): LoanRow => {
     const balance = loanBalanceOn(loan, day);
     const moves = hasReferenceRate(loan) && loan.rateBp !== null && (balance.cents ?? 0) > 0;
@@ -154,11 +213,12 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
       ...(part ? { part } : {}),
       balance,
       balanceDate: loan.balanceDate,
-      rateBp: loan.rateBp,
+      rateBp: typedRateBpOn(loan, day),
       reference: loan.reference,
       repayment: loan.repayment,
       payment: loanNextPayment(loan, day),
       interest: loanInterestNext12Months(loan, day),
+      cost: debtCost(loan, day, paymentsOf(ctx, debts.loans, loan, day)),
       payoff: loanPayoffDate(loan),
       scenarios: moves ? RATE_SHIFTS_BP.map((shift) => loanRateScenario(loan, day, shift)).filter((s) => s.movedBp !== 0 && (s.paymentCents !== null || s.interestCents !== null)) : [],
     };
@@ -167,12 +227,16 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
     day,
     saved: loansOf(inputs).length,
     loans,
-    unsaved: unsavedDebts(ctx, inputs).rows,
+    unsaved: unsaved.rows,
     total: debts.total,
     totalKnown: debts.totalKnown,
     interest: debts.interest,
     interestKnown: debts.interestKnown,
     withoutRate: loansWithoutRate(debts.interest),
+    cost12: cost12Of(
+      loans.map((l) => l.cost),
+      unsaved.rows.length > 0 || unsaved.few > 0,
+    ),
     payments: debtPaymentsPerMonth(debts.loans, day),
     path: debtPath(debts.loans, day, RATE_SHIFTS_BP),
     maybeTwice: maybeTwice(balances, debts),

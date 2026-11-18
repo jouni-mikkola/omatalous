@@ -37,6 +37,34 @@ export function rateMilliAt(path: RatePath | undefined, typedBp: number, day: Is
   return milli;
 }
 
+/**
+ * Each day's rate from `from` up to `to` added up, in thousandths of a percent × days: what a rate that steps on the way
+ * costs a balance over those days (`rateDaysInterest`). A rate that has no path is the typed rate on every day.
+ */
+export function rateDaysBetween(path: RatePath | undefined, typedBp: number, from: IsoDate, to: IsoDate): number {
+  let milli = rateMilliAt(path, typedBp, from);
+  let at = from;
+  let sum = 0;
+  for (const [day, rate] of path ?? []) {
+    if (day <= from) continue;
+    if (day >= to) break;
+    sum += milli * daysBetween(at, day);
+    at = day;
+    milli = rate;
+  }
+  return sum + milli * daysBetween(at, to);
+}
+
+/**
+ * The typed rate in force on a day, in hundredths of a percent: a step in it counts from its day. A loan on a reference
+ * rate keeps its typed rate, which the reviews of the reference rate move (`loanRateLine`). Null with no typed rate.
+ */
+export function typedRateBpOn(loan: Loan, day: IsoDate): number | null {
+  if (loan.rateBp === null) return null;
+  const stepped = loan.reference === null || loan.reference === "fixed";
+  return stepped ? Math.round(rateMilliAt(loan.ratePath, loan.rateBp, day) / 10) : loan.rateBp;
+}
+
 /** Does the loan's interest count the actual days over a 360-day year? A euribor loan does once its rate path is known. */
 export const countsDays = (loan: Loan): boolean => loan.ratePath !== undefined && loan.reference !== null && loan.reference !== "fixed";
 

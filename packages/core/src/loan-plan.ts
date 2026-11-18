@@ -38,6 +38,15 @@ export function dayInterest(balanceCents: number, rateMilli: number, days: numbe
   return roundedProduct(balanceCents, rateMilli, days, 36_000_000);
 }
 
+/**
+ * The interest of a balance over a stretch of days at a rate that may change on the way, to the nearest cent, a half
+ * cent up: balance × `rateDays` / (100 000 × the days of a year). `rateDays` is each day's rate in thousandths of a
+ * percent added up (`rateDaysBetween`), and a year is as long as the rate is counted over (`yearDays`).
+ */
+export function rateDaysInterest(balanceCents: number, rateDays: number, yearDays: number): number {
+  return roundedProduct(balanceCents, rateDays, 1, 100_000 * yearDays);
+}
+
 /** a × b × c / d to the nearest whole number, a half up, in whole numbers of a wider type where the product passes 2^53. */
 function roundedProduct(a: number, b: number, c: number, d: number): number {
   const product = a * b * c;

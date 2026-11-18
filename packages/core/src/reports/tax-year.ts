@@ -29,13 +29,13 @@ interface TaxIncomeRow {
 
 /**
  * The categories of a loan's payment that a return may ask about, interest and principal together, since the bank row
- * does not split them. A student loan's interest is deductible from capital income and its principal is what the
- * study-loan credit rests on; consumer credit asks nothing of a return and is left out.
+ * does not split them. A return may ask about a home loan and a student loan; consumer credit asks nothing of a return
+ * and is left out. Their interest is no deduction (vero.fi): the sheet lists the rows and decides nothing.
  */
 const LOAN_PAYMENT_CATEGORIES = ["mortgage", "student_loan"] as const;
 
-/** The kinds of saved loan whose interest a return may deduct: a home loan's and a student loan's. Consumer credit, a car loan and a card are not. */
-const DEDUCTIBLE_KINDS: readonly LoanKind[] = ["mortgage", "student"];
+/** The kinds of saved loan whose interest the sheet lists: home and student loans. Consumer credit, a car loan and a card are not. */
+const HOME_AND_STUDENT_KINDS: readonly LoanKind[] = ["mortgage", "student"];
 
 interface TaxLoanPayment {
   category: (typeof LOAN_PAYMENT_CATEGORIES)[number];
@@ -56,8 +56,8 @@ export interface TaxYearReport {
   /** Rows of the tax office that name residual tax. */
   residual: { cents: number; rows: TaxRow[] };
   /**
-   * The interest of home and student loans, and its sum: the interest rows that pay a saved loan of a deductible kind
-   * (`DEDUCTIBLE_KINDS`), and the interest part of each home or student loan payment the debt split splits
+   * The interest of home and student loans, and its sum: the interest rows that pay a saved home or student loan
+   * (`HOME_AND_STUDENT_KINDS`), and the interest part of each home or student loan payment the debt split splits
    * (`debtRowParts`), the fee left out. The sum is null while any of it is not known: an interest row that reaches no
    * saved loan, or a payment the split leaves whole. A payment that reaches a saved loan whose interest the bank booked
    * as a row of its own in the same month holds no interest. A row of a saved loan of another kind is known not to count
@@ -102,7 +102,7 @@ interface TaxIncomeInput {
  * One calendar year (the year of the range's last day) gathered from the rows for checking the tax return. Nothing is
  * counted again: income is the income report's types over the year, and the spending rows are the ones every spending
  * figure counts (`spendSelect`, on the rows of `spendRows`), so a category's sum here is that category's sum on the dashboard.
- * The exception is interest: the interest rows that pay a deductible saved loan and the interest parts of home and student
+ * The exception is interest: the interest rows that pay a saved home or student loan and the interest parts of home and student
  * loan payments. The household credit
  * and residual tax lines are rows whose category and words suggest them; the sheet says "may be related" and decides
  * nothing, and it never says what can be deducted.
@@ -124,7 +124,7 @@ export function taxYearReport(ctx: AnalysisContext, range: DateRange, income: Ta
     if (loan === undefined) interestKnown = false;
     else {
       bookedApart.add(`${loan.id}:${monthOf(t.bookingDate)}`);
-      if (DEDUCTIBLE_KINDS.includes(loan.kind)) interestRows.push(rowOf(t, t.spend));
+      if (HOME_AND_STUDENT_KINDS.includes(loan.kind)) interestRows.push(rowOf(t, t.spend));
     }
   }
   const parts = debtRowParts(ctx, dayRows, inputs);

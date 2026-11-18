@@ -15,19 +15,21 @@ import { paydayOf, runwayOf } from "../src/analysis/runway.ts";
 import { expectedEverydayPerDay, expectedIncome, expectedSpending } from "../src/analysis/expected.ts";
 import { completeMonthsBefore, earnedIncome } from "../src/analysis/usual.ts";
 import { type CostKind, costKindOf } from "../src/cost-kinds.ts";
+import { debtCost } from "../src/debt-cost.ts";
 import { addMonths, daysBetween, monthEnd, monthOf } from "../src/dates.ts";
 import { FIGURES } from "../src/figures.ts";
 import { lowPoint } from "../src/low-point.ts";
 import { MIN_COMPARE_MONTHS, USUAL_MONTHS } from "../src/thresholds.ts";
 import { median } from "../src/stats.ts";
 import type { Account, ExpectedBill, Loan } from "../src/types.ts";
-import { buildHoldings } from "../src/holdings.ts";
+import { buildHoldings, unsavedDebts } from "../src/holdings.ts";
 import { balanceReport } from "../src/reports/balances.ts";
 import { billCalendar } from "../src/reports/bill-calendar.ts";
 import { bufferReport } from "../src/reports/buffer.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
 import { fixedCostsReport } from "../src/reports/fixed-costs.ts";
 import { incomeReport, regularIncomeMonths } from "../src/reports/income.ts";
+import { loansReport } from "../src/reports/loans.ts";
 import { upcomingReport } from "../src/reports/upcoming.ts";
 
 type FigureKey = keyof typeof FIGURES;
@@ -265,6 +267,29 @@ const ANSWERS: Record<FigureKey, Answers> = {
     return {
       holdings: monthly(holdings.loans),
       dashboard: monthly(buildDashboard(ctx, running(h), h.balances, inputs).holdings.loans),
+    };
+  },
+  debtRate: (h) => {
+    // the typed loan alone: no connected card is in the report, so no debt of unknown rate hides the figure
+    const row = loansReport(contextOf(h), [], { ...h.inputs, loans: [typedLoan(h)] }).loans[0]!;
+    return { report: row.cost?.rateMilli ?? null, debtCost: debtCost(typedLoan(h), h.today)?.rateMilli ?? null };
+  },
+  debtCost12: (h) => {
+    const inputs = { ...h.inputs, loans: [typedLoan(h)] };
+    // the rule of the code on the household's own rows: unknown while any loan or card the rows show is not saved
+    const own = contextOf(h);
+    const unsaved = unsavedDebts(own, inputs);
+    const lacksTerms = unsaved.rows.length > 0 || unsaved.few > 0;
+    const whole = loansReport(own, [], inputs).cost12.cents;
+    if (lacksTerms) expect(whole, `${h.name}: unknown beside an unsaved debt`).toBeNull();
+    // every household has an unsaved debt, so the figure is read against its rows on a context with none: the report, the
+    // rows added up (unknown when any row is) and the debt's own cost
+    const r = loansReport(createContext([], [], h.today), [], inputs);
+    const rows = r.loans.map((l) => l.cost?.next12?.cents ?? null);
+    return {
+      report: r.cost12.cents,
+      rows: rows.some((c) => c === null) ? null : rows.reduce<number>((sum, c) => sum + c!, 0),
+      debtCost: debtCost(typedLoan(h), h.today)?.next12?.cents ?? null,
     };
   },
   rareBillsYear: (h) => {
