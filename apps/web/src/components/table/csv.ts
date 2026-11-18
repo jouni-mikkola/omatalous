@@ -29,6 +29,9 @@ export const tableCsv = <R,>(columns: readonly Column<R>[], rows: readonly R[], 
 /** The file name: the table's name with letters and digits, and `.csv`. */
 export const csvName = (name: string): string => `${name.toLowerCase().replace(/[^a-z0-9äöå]+/g, "-").replace(/^-|-$/g, "") || t("table.csv_name")}.csv`;
 
+/** How long the file's address stays valid: the browser reads it after the click, and an address revoked at once can cancel the download. */
+const KEEP_ADDRESS_MS = 10_000;
+
 /** Hands the file to the browser as a download. */
 export function saveCsv(name: string, text: string): void {
   const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
@@ -38,5 +41,5 @@ export function saveCsv(name: string, text: string): void {
   document.body.append(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  setTimeout(() => URL.revokeObjectURL(url), KEEP_ADDRESS_MS);
 }
