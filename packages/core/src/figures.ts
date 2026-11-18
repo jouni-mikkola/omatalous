@@ -328,7 +328,7 @@ export const FIGURES = {
     source: { file: "reports/loans.ts", fn: "loansReport", field: "cost12" },
     unit: "cents",
     scope: "own",
-    additive: true,
+    additive: false,
     pages: ["Raportit"],
   },
   periodLeft: {

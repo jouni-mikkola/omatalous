@@ -61,18 +61,24 @@ describe("LoanEditor in the reader's language", () => {
   it("saves the day and the rate typed in the step fields, and sends none when they are left empty", async () => {
     setLanguage("en");
     const saved: LoanBody[] = [];
-    const initial = emptyForm(day);
-    initial.kind = "instalment";
-    initial.values = { ...initial.values, balanceCents: "1200", rateBp: "0", repayment: "fixed_instalment", intervalMonths: "1", paymentCents: "200" };
-    const { getByLabelText, container } = render(createElement(LoanLinks.Provider, { value: { accounts: [], loans: [] } }, createElement(LoanEditor, { initial, today: day, cancelLabel: "Cancel", onSave: async (body) => void saved.push(body), onCancel: () => {} })));
-    const submit = () => fireEvent.submit(container.querySelector("form")!);
-    submit();
-    await waitFor(() => expect(saved).toHaveLength(1));
+    // a form saves once, so each save has its own form
+    const save = async (type: (getByLabelText: (label: string) => HTMLElement) => void) => {
+      const initial = emptyForm(day);
+      initial.kind = "instalment";
+      initial.values = { ...initial.values, balanceCents: "1200", rateBp: "0", repayment: "fixed_instalment", intervalMonths: "1", paymentCents: "200" };
+      const { getByLabelText, container } = render(createElement(LoanLinks.Provider, { value: { accounts: [], loans: [] } }, createElement(LoanEditor, { initial, today: day, cancelLabel: "Cancel", onSave: async (body) => void saved.push(body), onCancel: () => {} })));
+      type(getByLabelText);
+      const before = saved.length;
+      fireEvent.submit(container.querySelector("form")!);
+      await waitFor(() => expect(saved).toHaveLength(before + 1));
+      cleanup();
+    };
+    await save(() => {});
     expect(saved[0]).toMatchObject({ rateStepDate: null, rateStepBp: null });
-    fireEvent.change(getByLabelText("Rate change date"), { target: { value: "2027-03-01" } });
-    fireEvent.change(getByLabelText("Rate after the change (%)"), { target: { value: "19,90" } });
-    submit();
-    await waitFor(() => expect(saved).toHaveLength(2));
+    await save((byLabel) => {
+      fireEvent.change(byLabel("Rate change date"), { target: { value: "2027-03-01" } });
+      fireEvent.change(byLabel("Rate after the change (%)"), { target: { value: "19,90" } });
+    });
     expect(saved[1]).toMatchObject({ rateStepDate: "2027-03-01", rateStepBp: 1990 });
   });
 

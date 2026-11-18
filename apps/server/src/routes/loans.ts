@@ -212,8 +212,9 @@ export async function parseLoan(raw: unknown, today: string, accounts: OwnAccoun
   // The one way a balance could grow: a payment that holds the interest and is smaller than it. The interest only
   // shrinks with the balance, so a payment that covers the first interval covers every later one, until the rate steps up.
   const holdsInterest = loan.repayment === "annuity" || loan.repayment === "fixed_instalment";
-  if (holdsInterest && loan.paymentCents !== null && loan.rateBp !== null && loan.intervalMonths !== null) {
-    if (loan.paymentCents < loanPeriodInterest(loan.balanceCents, loan.rateBp, loan.intervalMonths)) {
+  const instalment = loan.paymentCents;
+  if (holdsInterest && instalment !== null && loan.rateBp !== null && loan.intervalMonths !== null) {
+    if (instalment < loanPeriodInterest(loan.balanceCents, loan.rateBp, loan.intervalMonths)) {
       throw new UserError(
         "Maksuerä on pienempi kuin lyhennysvälin korko, joten laina ei lyhenisi. Tarkista luvut tai jätä maksuerä tyhjäksi, jos maksat vain korkoa.",
       );
@@ -225,8 +226,8 @@ export async function parseLoan(raw: unknown, today: string, accounts: OwnAccoun
     if (rateStepDate && rateStepBp != null && !(loan.repayment === "annuity" && loan.endDate !== null)) {
       let paid = 0;
       while (addMonthsToDate(loan.balanceDate, (paid + 1) * loan.intervalMonths) <= rateStepDate) paid++;
-      const left = Math.max(0, loan.balanceCents - paid * loan.paymentCents);
-      if (left > 0 && loan.paymentCents < loanPeriodInterest(left, rateStepBp, loan.intervalMonths)) {
+      const left = Math.max(0, loan.balanceCents - paid * instalment);
+      if (left > 0 && instalment < loanPeriodInterest(left, rateStepBp, loan.intervalMonths)) {
         throw new UserError("Maksuerä on pienempi kuin koron muutoksen jälkeinen lyhennysvälin korko, joten laina ei lyhenisi muutoksen jälkeen. Tarkista luvut tai jätä maksuerä tyhjäksi, jos maksat vain korkoa.");
       }
     }
