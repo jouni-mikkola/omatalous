@@ -16,7 +16,7 @@ import { tx } from "./helpers.ts";
 const today = "2026-11-18";
 const range = { from: "2026-09-01", to: "2026-11-30" };
 const IBAN_CHECKING = "FI2112345600000785";
-const IBAN_LOAN = "FI4250001510000023";
+const IBAN_LOAN = "FI1410093000123458";
 const LENDER = "Esimerkkirahoitus Oy";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: IBAN_CHECKING, currency: "EUR", type: "checking", bank: "Esimerkkipankki", balanceCents: 250_000 };
