@@ -25,7 +25,7 @@ test("Tulossa lists a lease that ended among Päättyneet, and opens with no con
   await table.getByText("Päättyneet", { exact: false }).first().click();
   const row = table.locator("tbody tr").filter({ has: page.locator("button.rt-drill") }).filter({ hasText: "ESIMERKKI LEASING OY" });
   await expect(row).toHaveCount(1);
-  await expect(table.locator("details.sub-ended").getByText("ESIMERKKI LEASING OY")).toHaveCount(1);
+  await expect(row).toContainText("Päättynyt");
 
   // the row opens with no contract panel (docs/design/README.md 1.3)
   await row.getByRole("button", { name: /^Tiedot: / }).click();

@@ -32,13 +32,13 @@ const MAX_WEIGHT = 100_000_000;
 export const isPool = (use: AccountUse | undefined): use is AccountUse => !!use && use.users.filter((u) => u.weight > 0).length >= 2;
 
 /**
- * The line of holders read for a real account: of its copies' lines the one that names the most holders, and of
- * those the first in order, so every copy reads the same line. A copy linked before holders were read must not make
- * its owner the only user while the partner's copy says two.
+ * Of a real account's copies the one whose line of holders names the most, and of those the first in order, so every
+ * reader takes the same line. A copy linked before holders were read must not make its owner the only user while the
+ * partner's copy says two. The view and the money trace both read the line through this.
  */
-function fullestLine(lines: readonly (string | null)[]): string | null {
-  const count = (line: string | null) => holdersIn(line).length;
-  return lines.reduce<string | null>((best, line) => (count(line) > count(best) || (count(line) === count(best) && (line ?? "") < (best ?? "")) ? line : best), null);
+export function fullestCopy<T extends { holder: string | null }>(copies: readonly T[]): T {
+  const count = (a: T) => holdersIn(a.holder).length;
+  return copies.reduce((best, a) => (count(a) > count(best) || (count(a) === count(best) && (a.holder ?? "") < (best.holder ?? "")) ? a : best));
 }
 
 /**
@@ -54,7 +54,7 @@ export async function usesInView(s: Services, userId: string, accounts: readonly
       const key = accountKey(account);
       const copies = held.filter((a) => a.key === key);
       const linkedBy = [...new Set(copies.map((a) => a.userId))].sort();
-      const holder = fullestLine(copies.map((a) => a.holder));
+      const holder = copies.length ? fullestCopy(copies).holder : null;
       const rows = said.filter((row) => row.key === key);
       const use = saidUse(rows, { holder }, linkedBy, members) ?? deriveUse({ holder }, linkedBy, members);
       // a holder's name is shown only where the viewer's own copy of the line has it

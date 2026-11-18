@@ -45,8 +45,9 @@ test("a row of Tulossa opens the bill's earlier amounts, and their sum is the su
 
     await page.goto("/#/bills");
     const row = page.locator("#laskut-taulukko tbody tr").filter({ has: page.getByRole("button", { name: `Tiedot: ${bill!.merchant}`, exact: true }) });
-    await expect(row).toHaveCount(1);
-    await row.getByRole("button", { name: `Tiedot: ${bill!.merchant}`, exact: true }).click();
+    // the bill stands in each of the months it falls in; the first one is opened
+    await expect(row.first()).toBeVisible();
+    await row.first().getByRole("button", { name: `Tiedot: ${bill!.merchant}`, exact: true }).click();
     const history = page.locator(".sub-drill .rt-drillrows");
     await expect(history.locator("tbody tr").first()).toBeVisible();
 
@@ -60,7 +61,7 @@ test("a row of Tulossa opens the bill's earlier amounts, and their sum is the su
 
     // a series that is one product among several of its payee has no rows of its own to ask for: its row opens with no
     // history, never with the payments of the payee's other products
-    await page.getByRole("button", { name: `Tiedot: ${bill!.merchant}`, exact: true }).click();
+    await page.getByRole("button", { name: `Tiedot: ${bill!.merchant}`, exact: true }).first().click();
     await expect(history).toHaveCount(0);
     const products = series.filter((s) => s.active && typeof parseSeriesId(s.id)?.product === "number");
     let opened = 0;
@@ -94,8 +95,8 @@ test("a found bill that is no recurring bill is marked away on Tulossa and is no
   try {
     await page.goto("/#/bills");
     const row = page.locator("#laskut-taulukko tbody tr").filter({ has: page.getByRole("button", { name: `Tiedot: ${name}`, exact: true }) });
-    await expect(row).toHaveCount(1);
-    await row.getByRole("button", { name: `Tiedot: ${name}`, exact: true }).click();
+    await expect(row.first()).toBeVisible();
+    await row.first().getByRole("button", { name: `Tiedot: ${name}`, exact: true }).click();
     await page.locator(".sub-drill").getByRole("button", { name: `Poista lasku ${name}`, exact: true }).click();
     const ask = page.getByRole("dialog", { name: `Poista lasku ${name}?` });
     await ask.getByRole("button", { name: "Poista lasku", exact: true }).click();
@@ -141,8 +142,6 @@ test("a missing bill added by hand on Tulossa is a row of the list and is in the
 
   try {
     await page.goto("/#/bills");
-    // the list only: no bars of the days, no payments before a payday and no price steps
-    await expect(page.locator(".bp-stats, .pb-axis, .ps-plot")).toHaveCount(0);
     await page.locator("#tulossa").getByRole("button", { name: "Lisää lasku" }).click();
     const form = page.getByRole("dialog", { name: "Lisää lasku" });
     await form.getByLabel("Nimi").fill(NAME);

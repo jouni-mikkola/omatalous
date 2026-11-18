@@ -53,7 +53,7 @@ import { type AnswerRow, accountKey } from "../db/household-repo.ts";
 import type { StoredAccount } from "../db/rows.ts";
 import { todayIn } from "../platform/config.ts";
 import { UserError } from "../platform/errors.ts";
-import { bumpSeers, isPool, usesInView } from "./account-use.ts";
+import { bumpSeers, fullestCopy, isPool, usesInView } from "./account-use.ts";
 import { pendingOf } from "./agreement-pending.ts";
 import type { Services } from "./context.ts";
 import { withUserLock } from "./enrich.ts";
@@ -138,12 +138,6 @@ function ownerOf(h: Household, u: AccountUser): Owner {
 const weighted = (use: AccountUse) => use.users.filter((u) => u.weight > 0);
 const sha = (value: unknown): string => createHash("sha256").update(JSON.stringify(value)).digest("hex").slice(0, 40);
 
-/** Of an account's copies the one whose line of holders names the most, as `usesInView` reads the line: its label of the holders who are no user is whole. */
-function fullest(copies: readonly StoredAccount[]): StoredAccount {
-  const count = (a: StoredAccount) => holdersIn(a.holder).length;
-  return copies.reduce((best, a) => (count(a) > count(best) || (count(a) === count(best) && (a.holder ?? "") < (best.holder ?? "")) ? a : best));
-}
-
 async function loadHousehold(s: Services): Promise<Household> {
   const [accounts, users, members, agreements] = await Promise.all([s.household.allAccounts(), s.users.list(), s.agreements.members(), s.agreements.allAgreements()]);
   const byKey = new Map<string, StoredAccount[]>();
@@ -151,7 +145,7 @@ async function loadHousehold(s: Services): Promise<Household> {
   const uses = new Map<string, AccountUse>();
   const first = users[0];
   if (first && byKey.size) {
-    const standing = [...byKey.values()].map(fullest);
+    const standing = [...byKey.values()].map(fullestCopy);
     const read = await usesInView(s, first.id, standing);
     for (const a of standing) uses.set(accountKey(a), read.get(a.id)!.use);
   }
