@@ -9,6 +9,7 @@ import { categoriesIn, kindLabelsIn } from "../services/category-names.ts";
 import { chooseAccountSource, clearAccountUse, leaveAccountSource, ownKey, parseSaidUsers, sayAccountUse, suggestAccountUse } from "../services/account-use.ts";
 import { memoOn } from "../services/context-memo.ts";
 import { proposalsOf } from "../services/request-inputs.ts";
+import { RequestReads } from "../services/request-reads.ts";
 import { dashboardOf } from "../services/dashboard-memo.ts";
 import { foreignRowsView } from "../services/foreign-rows.ts";
 import { reconcileOf, withProof } from "../services/reconcile.ts";
@@ -72,14 +73,15 @@ export function financeRoutes(s: Services) {
     const today = s.today();
     const views = connections.map((conn) => connectionView(conn, today, s.instance.current.timezone, accounts, connections));
     // the month Yhteenveto opens on, by the viewer's own pay: the running one once its pay has come
-    const own = await s.analysis.get(s, user.id, "own");
+    const reads = new RequestReads();
+    const own = await s.analysis.get(s, user.id, "own", undefined, reads);
     const { inputs: ownInputs, stamp } = await requestInputs(s, user.id, own.accounts);
     const opening = memoOn(own.ctx, "opening", stamp, () => openingMonth(cashAhead(own.ctx, [], ownInputs)));
     // the accounts the bank types as a loan that carry a loan's instalments only: one view of the own accounts decides it
     const paying = accounts.some((a) => a.type === "loan") ? own.ctx.paymentAccounts : new Set<string>();
     const { privacyUrl, termsUrl } = registrationUrls(s);
     // who uses each account in view, and the viewer's part of it
-    const { uses, traces } = await usesWithTraces(s, user.id, [...accounts, ...sharedAccounts]);
+    const { uses, traces } = await usesWithTraces(s, user.id, [...accounts, ...sharedAccounts], reads);
     // the facts of a split: served for what the viewer sees; the questions and answers only to the member who linked the account
     // the reconcile answer of every account the viewer sees: the own ones and those shared with them, nobody else's
     const reconciled = await reconcileOf(s, user.id, [...accounts, ...sharedAccounts]);
@@ -136,8 +138,9 @@ export function financeRoutes(s: Services) {
 
   app.get("/dashboard", async (c) => {
     const scope = parseScope(c.req.query("scope"));
-    const { ctx: all, accounts } = await s.analysis.get(s, c.get("user").id, scope);
     const userId = c.get("user").id;
+    const reads = new RequestReads();
+    const { ctx: all, accounts } = await s.analysis.get(s, userId, scope, undefined, reads);
     const read = await requestInputs(s, userId, accounts);
     const { balances: stated, inputs } = read;
     // what the bank's balances prove of each account's rows: the figures say which part of them is unproven
@@ -148,7 +151,7 @@ export function financeRoutes(s: Services) {
     // the questions read the member's own proposals, the total of unsaved loans those of the view asked for
     // (the view asked for is the one read above, so its proposals take what was read; the own view is read again only when it is another)
     const inView = proposalsOf(all, read);
-    const own = scope === "own" ? inView : await proposalsFor(s, userId);
+    const own = scope === "own" ? inView : await proposalsFor(s, userId, "own", reads);
     const dashboard = dashboardOf(ctx, parseRange(c, s.today()), balances, inputs, own, c.get("user").language, inView);
     // the same answer as Asetukset > Tilit, in three words; an account that is not reconciled (a loan) has none to give
     const word: Record<string, ReconcileVerdict> = { proved: "ok", differs: "diff" };

@@ -5,7 +5,8 @@
  */
 import { addDays, type AnalysisContext, type AnalysisTx, billCents, billDueSubject, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, type HouseholdMember, householdWords, isCancelled, isUnknownMerchant, type LoanKind, lenderInstalments, marksBySubject, memberOfRow, missedOn, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, type RecurringSeries, seriesMarkSubject, type UserInputs } from "@banking/core";
 import { connectionView } from "./accounts.ts";
-import { requestInputs, usesWithTraces } from "./analysis.ts";
+import { requestInputs, visibleTo } from "./analysis.ts";
+import { RequestReads } from "./request-reads.ts";
 import type { Services } from "./context.ts";
 import { memoOn } from "./context-memo.ts";
 import { industryMap } from "./enrich.ts";
@@ -296,9 +297,9 @@ const loans: Source = async (_s, _userId, own) => {
 };
 
 // the questions of a split go to the member who linked the account, as Asetukset > Tilit shows them
-const splits: Source = async (s, userId) => {
-  const accounts = await s.finance(userId).listAccounts();
-  const { traces } = await usesWithTraces(s, userId, accounts);
+const splits: Source = async (s, userId, { reads }) => {
+  // the viewer's accounts as the view read them: the uses and traces of those and of the shared ones, of which only the own are asked of
+  const { own: accounts, traces } = await visibleTo(s, userId, reads);
   const items: Sourced[] = [];
   for (const a of accounts) {
     const facts = traces.get(a.id);
@@ -443,11 +444,12 @@ const rows: Source = async (s, _userId, own) => {
 
 /** The member's own view, read once for the queue: what each source would otherwise read for itself. */
 async function ownViewOf(s: Services, userId: string): Promise<OwnView> {
-  const { ctx, accounts } = await s.analysis.get(s, userId, "own");
+  const reads = new RequestReads();
+  const { ctx, accounts } = await s.analysis.get(s, userId, "own", undefined, reads);
   const { balances, inputs, stamp } = await requestInputs(s, userId, accounts);
   let members: Promise<HouseholdMember[]> | undefined;
   let memberMoney: ReturnType<OwnView["memberMoney"]> | undefined;
-  const own: OwnView = { ctx, accounts, balances, inputs, stamp, members: () => (members ??= membersOf(s)), memberMoney: () => (memberMoney ??= memberMoneyItems(s, userId, own)) };
+  const own: OwnView = { ctx, accounts, balances, inputs, stamp, reads, members: () => (members ??= membersOf(s)), memberMoney: () => (memberMoney ??= memberMoneyItems(s, userId, own)) };
   return own;
 }
 

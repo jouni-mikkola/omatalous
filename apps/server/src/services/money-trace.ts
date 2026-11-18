@@ -58,6 +58,7 @@ import { pendingOf } from "./agreement-pending.ts";
 import type { Services } from "./context.ts";
 import { withUserLock } from "./enrich.ts";
 import { offerOf, partRowsOf, windowOf } from "./money-trace-parts.ts";
+import type { RequestReads } from "./request-reads.ts";
 
 /** Everything the trace of a pool reads about the household, loaded once. */
 interface Household {
@@ -423,12 +424,20 @@ async function rebuild(s: Services, key: string): Promise<void> {
 /**
  * Makes sure of the trace of one real account: when what its parts were built from differs from what the household
  * holds now, they are built again. Null for an account that is no pool. A read of the parts after this sees a whole
- * build or the one before, never half of one.
+ * build or the one before, never half of one. A request that asks for several pools hands `reads`: they read the
+ * household once, and a pool asked twice is checked once. A build that ran ends what `reads` kept.
  */
-export async function ensureTrace(s: Services, key: string): Promise<TraceFacts | null> {
-  const h = await loadHousehold(s);
+export async function ensureTrace(s: Services, key: string, reads?: RequestReads): Promise<TraceFacts | null> {
+  return reads ? reads.once("trace", key, () => checkedTrace(s, key, reads)) : checkedTrace(s, key);
+}
+
+async function checkedTrace(s: Services, key: string, reads?: RequestReads): Promise<TraceFacts | null> {
+  const h = await (reads ? reads.once("household", "", () => loadHousehold(s)) : loadHousehold(s));
   if (!isPool(h.uses.get(key))) {
-    if (await s.household.partsState(key)) await withUserLock(`trace:${key}`, () => rebuild(s, key));
+    if (await s.household.partsState(key)) {
+      await withUserLock(`trace:${key}`, () => rebuild(s, key));
+      reads?.changed();
+    }
     return null;
   }
   let state = await s.household.partsState(key);
@@ -437,6 +446,7 @@ export async function ensureTrace(s: Services, key: string): Promise<TraceFacts 
     const now = await signatureOf(s, round === 0 ? h : await loadHousehold(s), key, h.today);
     if (state?.signature === now.signature) break;
     await withUserLock(`trace:${key}`, () => rebuild(s, key));
+    reads?.changed();
     state = await s.household.partsState(key);
   }
   const split = (await s.household.splitRows([key]))[0];
