@@ -93,6 +93,7 @@ export const EN_TRANSACTIONS: Record<keyof typeof FI_TRANSACTIONS, string> = {
   "tx.difference": "Difference",
   "tx.saved": "Moved to savings",
   "tx.savings_drawn": "Taken out of savings",
+  "tx.result": "Result",
   "tx.updating": "The sums are updating",
   // Categories
   "category.housing": "Rent and maintenance charge",

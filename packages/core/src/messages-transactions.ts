@@ -95,6 +95,7 @@ export const FI_TRANSACTIONS = {
   "tx.difference": "Erotus",
   "tx.saved": "Säästöön siirretty",
   "tx.savings_drawn": "Otettu säästöistä",
+  "tx.result": "Tulos",
   "tx.updating": "Summat päivittyvät",
   // Categories
   "category.housing": "Vuokra ja vastike",

@@ -118,8 +118,8 @@ export function AccountSplit({ account, meta, onSaved, onChange }: { account: Ac
 
   const rows = data?.agreements ?? [];
   const current = inForce(rows, meta.today);
-  const now: Way = current ? wayOf(current.kind) : splitOf(use);
-  const pressed: Way = open ?? now;
+  const now: Way | null = current ? wayOf(current.kind) : splitOf(use);
+  const pressed: Way | null = open ?? now;
   const names = Object.fromEntries((data?.users ?? []).map((u) => [u.owner, u.name]));
   const name = (owner: string) => names[owner] ?? (data?.removed.includes(owner) ? t("set.split.removed_member") : owner);
   const waiting = rows.filter((r) => r.pending);

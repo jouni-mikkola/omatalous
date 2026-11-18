@@ -70,8 +70,11 @@ export function usersFor(choice: string, account: Pick<Account, "use">, meta: Pi
 /** What a joint account is cut by, as the page's three buttons say it. */
 export type Split = "source" | "equal" | "percent";
 
-/** The pressed button: what the account has. `mode` (who paid, set by the app or by a member), else equal weights, else percents. */
-export const splitOf = (use: AccountUse): Split => (use.mode === "source" ? "source" : isEqual(use) ? "equal" : "percent");
+/**
+ * The pressed button: what the account has. `mode` (who paid, set by the app or by a member), else none while nobody has said
+ * the split (the weights then say who sees the account, never how it is cut), else equal weights, else percents.
+ */
+export const splitOf = (use: AccountUse): Split | null => (use.mode === "source" ? "source" : use.split === "unknown" ? null : isEqual(use) ? "equal" : "percent");
 
 /** "70" as 700, "70,5" as 705: tenths of a percent. null for anything else (a letter, a second decimal, over 100). */
 function parsePercent(text: string): number | null {

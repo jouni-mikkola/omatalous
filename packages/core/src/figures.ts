@@ -68,7 +68,7 @@ export const FIGURES = {
     unit: "cents",
     scope: "own",
     additive: true,
-    pages: ["Yhteenveto", "Raportit"],
+    pages: ["Yhteenveto", "Tapahtumat", "Raportit"],
   },
   saved: {
     name: "Säästöön siirretty",
