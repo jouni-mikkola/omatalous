@@ -73,7 +73,7 @@ export { cashflowReport } from "./cashflow.ts";
 export { type FiledWithoutAsking } from "../analysis/filed.ts";
 
 
-export type { LoanRow, LoansReport, MaybeTwice } from "./loans.ts";
+export { inCostOrder, type LoanRow, type LoansReport, type MaybeTwice } from "./loans.ts";
 
 export { pivotReport } from "./pivot.ts";
 
