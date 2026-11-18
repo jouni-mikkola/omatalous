@@ -157,13 +157,6 @@ const ANSWERS: Record<FigureKey, Answers> = {
       buffer: bufferReport(ctx, h.balances, h.inputs).expectedSpendCents,
     };
   },
-  fixed: (h) => {
-    const ctx = contextOf(h);
-    return {
-      dashboard: buildDashboard(ctx, running(h), h.balances, h.inputs).fixedMonthlyCents,
-      buffer: bufferReport(ctx, h.balances, h.inputs).fixedMonthlyCents,
-    };
-  },
   expected: (h) => {
     const ctx = contextOf(h);
     const month = monthOfRange(h);

@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
+import { fixedShareOn } from "../src/analysis/fixed-share.ts";
 import { addMonths } from "../src/dates.ts";
 import { lenderInstalments, loanProposals, notLoanMark } from "../src/loan-detect.ts";
 import { normalizeMerchant } from "../src/merchant.ts";
@@ -60,7 +61,7 @@ describe("lenders paid each month", () => {
 
   it("counts every lender in the fixed costs", () => {
     const ctx = contextOf(all);
-    expect(buildDashboard(ctx, { from: "2026-10-01", to: TODAY }).fixedMonthlyCents).toBe(MONTHLY);
+    expect(fixedShareOn(ctx, TODAY, NO_INPUTS).fixedMonthlyCents).toBe(MONTHLY);
   });
 
   it("tells the four beside the debt total until they are saved or marked", () => {

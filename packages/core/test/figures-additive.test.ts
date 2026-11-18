@@ -43,6 +43,9 @@ const ELSEWHERE: Partial<Record<FigureKey, string>> = {
   loanMonthly: "shared-additivity.test.ts",
 };
 
+/** More than one seed: a household drawn once can add up by luck. */
+const SEEDS = [1, 2, 3];
+
 const SPECS: Spec[] = ([2, 3, 4] as const).flatMap((members) => (["joint", "checking"] as const).map((loan): Spec => ({ members, joint: "said", loan, cards: "connected" })));
 
 describe("the figures flagged additive in the registry", () => {
@@ -52,11 +55,11 @@ describe("the figures flagged additive in the registry", () => {
     expect(additive.sort()).toEqual(covered.sort());
   });
 
-  it(
-    "add up from the members' views to the household's view, to the cent, where the split is said",
-    () => {
+  it.each(SEEDS)(
+    "add up from the members' views to the household's view, to the cent, where the split is said (seed %i)",
+    (seed) => {
       for (const spec of SPECS) {
-        const h = generateHousehold(spec, 1);
+        const h = generateHousehold(spec, seed);
         const [household, ...members] = viewsOf(h);
         expect(members.length, h.name).toBe(spec.members);
         for (const [key, read] of Object.entries(READERS) as [FigureKey, Reader][]) {
