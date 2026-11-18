@@ -4,7 +4,7 @@ import { createContext } from "../src/analysis/context.ts";
 import { nytAnswer } from "../src/analysis/nyt.ts";
 import { addDays, dateIn, daysBetween, monthOf, weekdayOf } from "../src/dates.ts";
 import { billCalendar } from "../src/reports/bill-calendar.ts";
-import { unknownBillsIn } from "../src/reports/unknown-sums.ts";
+import { unknownBillsIn } from "../src/unknown-sums.ts";
 import { upcomingReport } from "../src/reports/upcoming.ts";
 import { type Account, type BalanceInput, type ExpectedBill, type IsoDate, type Loan, NO_INPUTS, type Transaction, type UserInputs } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";

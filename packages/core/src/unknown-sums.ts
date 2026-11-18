@@ -1,6 +1,6 @@
 // Decision: which months a bill with no known sum or day leaves without a figure after the bills (a module of its own, so a page that only counts them does not load the calendar)
-import { monthOf } from "../dates.ts";
-import type { IsoDate } from "../types.ts";
+import { monthOf } from "./dates.ts";
+import type { IsoDate } from "./types.ts";
 
 /**
  * A bill, loan payment, saving or pay whose sum or day is not known, so it has no row. `days` are the days it falls on in the

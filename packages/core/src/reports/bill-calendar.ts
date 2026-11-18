@@ -14,7 +14,7 @@ import { loanBalanceOn, loanNextPayment, loansOf, typedBill } from "../loans.ts"
 import { parseSeriesId, projectDates, type RecurringSeries } from "../recurring.ts";
 import { AHEAD_DAYS, YEAR_MONTHS } from "../thresholds.ts";
 import { type BalanceInput, type IsoDate, isRevolving, NO_INPUTS, type UserInputs } from "../types.ts";
-import { type UnknownSum, unknownsIn } from "./unknown-sums.ts";
+import { type UnknownSum, unknownsIn } from "../unknown-sums.ts";
 
 /**
  * "known": a typed-in bill, a fixed-price series, a loan payment of its plan or a card's bill of its balance. "estimate":
