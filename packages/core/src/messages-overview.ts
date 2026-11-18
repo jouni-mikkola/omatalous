@@ -95,6 +95,12 @@ export const FI_OVERVIEW = {
   "home.coming_after": "Laskujen jälkeen",
   "home.coming_after_unknown": "Ei tiedossa",
   "home.coming_estimate": "{sum} (arviota {estimate})",
+  "home.buffer": "Puskuri {months} kk",
+  "home.buffer_label": "Puskuri",
+  "home.buffer_no_balance": "Ei saldoa",
+  "home.buffer_history": "Liian lyhyt historia",
+  "home.buffer_net": "Raha laskujen ja korttivelan jälkeen",
+  "home.buffer_spend": "Tavalliset menot kuukaudessa",
   // Shared components
   "ui.close": "Sulje",
   "ui.payee": "Saaja",

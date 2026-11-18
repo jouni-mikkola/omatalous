@@ -92,6 +92,12 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.coming_after": "After bills",
   "home.coming_after_unknown": "Not known",
   "home.coming_estimate": "{sum} (estimated {estimate})",
+  "home.buffer": "Buffer {months} mo",
+  "home.buffer_label": "Buffer",
+  "home.buffer_no_balance": "No balance",
+  "home.buffer_history": "History too short",
+  "home.buffer_net": "Money after bills and card debt",
+  "home.buffer_spend": "Usual spending a month",
   // Shared components
   "ui.close": "Close",
   "ui.payee": "Payee",

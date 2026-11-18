@@ -7,6 +7,9 @@ import { monthOf } from "../dates.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { type BalanceInput, NO_INPUTS, type UserInputs } from "../types.ts";
 
+/** Why a buffer cannot be told: no balance of a savings or checking account (a CSV import has none), or no expected month to divide by (too short a history). */
+export type BufferGap = "no-balance" | "history";
+
 interface BufferReport extends FixedShare {
   /** Spending (consumption and debt) in an expected month (`expectedSpending`), groceries included; null under three complete months. */
   expectedSpendCents: number | null;
@@ -20,6 +23,8 @@ interface BufferReport extends FixedShare {
   netCents: number | null;
   /** The net cash in months of expected spending; null without a balance or an expected level. */
   bufferMonths: number | null;
+  /** Why `bufferMonths` is null; null when it is a figure. */
+  bufferGap: BufferGap | null;
 }
 
 /**
@@ -41,5 +46,7 @@ export function bufferReport(ctx: AnalysisContext, balances: readonly BalanceInp
   const netCents = cashCents === null ? null : cashCents - cardDebtCents - dueBeforePaydayCents;
   const bufferMonths = netCents === null || !spendExpected || spendExpected <= 0 ? null : Math.max(0, netCents) / spendExpected;
 
-  return { ...fixed, expectedSpendCents: spendExpected, cashCents, cardDebtCents, dueBeforePaydayCents, netCents, bufferMonths };
+  const bufferGap = netCents === null ? "no-balance" : bufferMonths === null ? "history" : null;
+
+  return { ...fixed, expectedSpendCents: spendExpected, cashCents, cardDebtCents, dueBeforePaydayCents, netCents, bufferMonths, bufferGap };
 }

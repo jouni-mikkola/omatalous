@@ -1039,7 +1039,8 @@
    "direction": "up",
    "bufferMonths": 3.520980500476028,
    "bufferNetCents": 1198246,
-   "bufferSpendCents": 340316
+   "bufferSpendCents": 340316,
+   "bufferGap": null
   },
   "reliability": {
    "cardGap": null

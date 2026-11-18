@@ -1,4 +1,5 @@
 import { query } from "../api.ts";
+import { Buffer } from "../components/home/Buffer.tsx";
 import { Coming } from "../components/home/Coming.tsx";
 import { Now } from "../components/home/Now.tsx";
 import { Summary } from "../components/home/Summary.tsx";
@@ -74,7 +75,7 @@ export function Overview({
         <p className="home-detail">{t("home.no_payments_shown")}</p>
       )}
       <Coming scope={scope} />
-      <Holdings holdings={data.holdings} meta={meta} ahead={data.ahead} />
+      <Holdings holdings={data.holdings} meta={meta} ahead={data.ahead} buffer={<Buffer direction={data.home.direction} />} />
     </div>
   );
 }

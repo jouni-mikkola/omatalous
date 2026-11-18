@@ -173,6 +173,25 @@ describe("home.direction and home.reliability", () => {
     expect(direction.recentChangeCents!).toBeGreaterThan(0);
   });
 
+  it("gives the two sums of the buffer and no reason while it has a figure", () => {
+    const { direction } = homeOf([...pays(), ...rents(), ...shopping("2026-03-01", 4000)]);
+    expect(direction.bufferMonths).not.toBeNull();
+    expect(direction.bufferGap).toBeNull();
+    expect(direction.bufferNetCents! / direction.bufferSpendCents!).toBe(direction.bufferMonths);
+  });
+
+  it("says why the buffer has no figure: no balance, or too short a history", () => {
+    const full = [...pays(), ...rents(), ...shopping("2026-03-01", 4000)];
+    const noBalance = buildDashboard(createContext(full, [own], TODAY), RANGE, [], NO_INPUTS).home.direction;
+    expect(noBalance.bufferMonths).toBeNull();
+    expect([noBalance.bufferNetCents, noBalance.bufferSpendCents]).toEqual([null, null]);
+    expect(noBalance.bufferGap).toBe("no-balance");
+    const short = homeOf([...pays().slice(-2), ...shopping("2026-10-01", 4000)]).direction;
+    expect(short.bufferMonths).toBeNull();
+    expect([short.bufferNetCents, short.bufferSpendCents]).toEqual([null, null]);
+    expect(short.bufferGap).toBe("history");
+  });
+
   it("tells too few months as no mean", () => {
     const { direction } = homeOf([...pays().slice(-2), ...shopping("2026-10-01", 4000)]);
     expect(direction.usualCents).toBeNull();

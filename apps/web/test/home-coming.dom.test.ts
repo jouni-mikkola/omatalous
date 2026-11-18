@@ -22,17 +22,17 @@ const cells = (tr: Element) => [...tr.children].map((c) => flat(c.textContent)).
 
 const rows = (key: string) => [bill({ date: `${key}-12`, payee: "Vuokranantaja", cents: 80000, state: "known" })];
 
-/** Four months, so the block's cut at three shows; the second has no pay and the third a bill with no sum. */
+/** Four months, so the block's cut at three shows; the second has no pay. Every bill has its sum, so every month has its sum after the bills. */
 const answer = () =>
-  calendar(
-    [
-      month("2026-11", rows("2026-11"), { knownCents: 120000, estimateCents: 30000, billsCents: 150000, incomeCents: 300000, afterCents: 140000 }),
-      month("2026-12", rows("2026-12"), { knownCents: 80000, billsCents: 80000, incomeCents: 0, afterCents: -80000 }),
-      month("2027-01", rows("2027-01"), { knownCents: 90000, billsCents: 90000, incomeCents: 310000, afterCents: null }),
-      month("2027-02", rows("2027-02"), { knownCents: 70000, billsCents: 70000, incomeCents: 310000, afterCents: 240000 }),
-    ],
-    { unknownCount: 2 },
-  );
+  calendar([
+    month("2026-11", rows("2026-11"), { knownCents: 120000, estimateCents: 30000, billsCents: 150000, incomeCents: 300000, afterCents: 140000 }),
+    month("2026-12", rows("2026-12"), { knownCents: 80000, billsCents: 80000, incomeCents: 0, afterCents: -80000 }),
+    month("2027-01", rows("2027-01"), { knownCents: 90000, billsCents: 90000, incomeCents: 310000, afterCents: 220000 }),
+    month("2027-02", rows("2027-02"), { knownCents: 70000, billsCents: 70000, incomeCents: 310000, afterCents: 240000 }),
+  ]);
+
+/** The same months with two bills that have no sum: core then leaves the sum after the bills of every month unknown (`billCalendar` sets `afterCents` null while `unknownCount` is above 0). */
+const unknownAnswer = () => ({ ...answer(), months: answer().months.map((m) => ({ ...m, afterCents: null })), unknownCount: 2 });
 
 function laskutHeads(cal: ReturnType<typeof answer>): string[] {
   stubApi({ "GET /api/transactions": { items: [], total: 0 } });
@@ -50,8 +50,11 @@ describe("Tulevat kuukaudet", () => {
     expect([...container.querySelectorAll("tbody tr")].map((tr) => cells(tr)[0])).toEqual(["Marraskuu 2026", "Joulukuu 2026", "Tammikuu 2027"]);
   });
 
-  it("tells the sums the month heads of Laskut tell, from the same answer", () => {
-    const cal = answer();
+  it.each([
+    ["every sum known", answer],
+    ["bills with no sum", unknownAnswer],
+  ])("tells the sums the month heads of Laskut tell, from the same answer: %s", (_name, make) => {
+    const cal = make();
     const heads = laskutHeads(cal);
     const { container } = render(createElement(ComingMonths, { calendar: cal }));
     const trs = [...container.querySelectorAll("tbody tr")];
@@ -65,14 +68,16 @@ describe("Tulevat kuukaudet", () => {
       if (after === "Ei tiedossa") expect(head).toContain("Laskujen jälkeen: ei tiedossa");
       else expect(head).toContain(`Laskujen jälkeen ${after}`);
     });
-    expect(cells(trs[0]!)).toEqual(["Marraskuu 2026", "1 500,00 € (arviota 300,00 €)", "3 000,00 €", "1 400,00 €"]);
+    if (make === answer) expect(cells(trs[0]!)).toEqual(["Marraskuu 2026", "1 500,00 € (arviota 300,00 €)", "3 000,00 €", "1 400,00 €"]);
   });
 
   it("never turns a sum that is not known into 0, and says how many bills lack one", () => {
-    const { container } = render(createElement(ComingMonths, { calendar: answer() }));
-    const january = cells([...container.querySelectorAll("tbody tr")][2]!);
-    expect(january).toEqual(["Tammikuu 2027", "900,00 €", "3 100,00 €", "Ei tiedossa"]);
-    expect(january.join(" ")).not.toContain("0,00 € 0");
+    const { container } = render(createElement(ComingMonths, { calendar: unknownAnswer() }));
+    const trs = [...container.querySelectorAll("tbody tr")];
+    expect(cells(trs[2]!)).toEqual(["Tammikuu 2027", "900,00 €", "3 100,00 €", "Ei tiedossa"]);
+    // no month has a sum after the bills while a bill's sum is unknown
+    expect(trs.map((tr) => cells(tr)[3])).toEqual(["Ei tiedossa", "Ei tiedossa", "Ei tiedossa"]);
+    expect(cells(trs[2]!).join(" ")).not.toContain("0,00 € 0");
     expect(flat(container.textContent)).toContain("2 laskun summa tai päivä ei ole tiedossa");
   });
 
