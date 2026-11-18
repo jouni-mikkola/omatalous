@@ -55,6 +55,17 @@ for (const width of [390, 1440] as const) {
     expect(await monthFigure(page, "result"), "Tulos").toBe(whole(totals.leftCents));
     expect(cents(await page.locator("[data-tile=left] .fig").innerText()), "what is left before payday").toBe(whole(left.leftCents));
     if (left.days > 0) expect(sums(await page.locator("[data-tile=left] .home-fig-line").innerText())[0]).toBe(whole(left.perDayCents));
+    // the lowest balance of the next days under it: core's day and range, or core's reason. It is no link
+    const low = page.locator(".home-now .home-low");
+    await expect(low).toHaveCount(1);
+    const { lowPoint } = home;
+    if (lowPoint.known) {
+      const [lowest, highest] = sums(`${await low.innerText()}`.replace(/(\d)–/, "$1 €–"));
+      expect(lowest, "the low end of the lowest balance").toBe(whole(lowPoint.lowCents));
+      expect(highest, "the high end of the lowest balance").toBe(whole(lowPoint.highCents));
+      expect(plain(await low.innerText())).toContain(`Alin saldo ${lowPoint.days} pv:`);
+    } else expect(plain(await low.innerText())).not.toMatch(/\d/);
+    await expect(low.locator("a")).toHaveCount(0);
     // the month's figures are no list's sum, so they lead nowhere; the one link of Nyt is the figure's, to Laskut' table
     await expect(page.locator(".home-figs a, .home-figs button")).toHaveCount(0);
     await expect(page.locator("[data-tile=left]")).toHaveAttribute("href", "#/bills#laskut-taulukko");

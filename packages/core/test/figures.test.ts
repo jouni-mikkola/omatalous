@@ -15,6 +15,7 @@ import { expectedEverydayPerDay, expectedIncome, expectedSpending } from "../src
 import { completeMonthsBefore, earnedIncome } from "../src/analysis/usual.ts";
 import { addMonths, daysBetween, monthEnd, monthOf } from "../src/dates.ts";
 import { FIGURES } from "../src/figures.ts";
+import { lowPoint } from "../src/low-point.ts";
 import { MIN_COMPARE_MONTHS, USUAL_MONTHS } from "../src/thresholds.ts";
 import { median } from "../src/stats.ts";
 import type { Loan } from "../src/types.ts";
@@ -112,6 +113,17 @@ const ANSWERS: Record<FigureKey, Answers> = {
       parts: direct.known ? direct.freeCents - direct.everydayCents - direct.billedCents : null,
       // the range holds the figure
       range: direct.known && direct.lowCents <= direct.leftCents && direct.leftCents <= direct.highCents ? direct.leftCents : null,
+    };
+  },
+  lowPoint: (h) => {
+    const ctx = contextOf(h);
+    const dash = buildDashboard(ctx, running(h), h.balances, h.inputs).home.lowPoint;
+    const direct = lowPoint(ctx, aheadBasis(ctx, h.balances, h.inputs), h.balances, h.inputs);
+    return {
+      dashboard: dash?.known ? dash.cents : null,
+      lowPoint: direct.known ? direct.cents : null,
+      // the range holds the figure
+      range: direct.known && direct.lowCents <= direct.cents && direct.cents <= direct.highCents ? direct.cents : null,
     };
   },
   everyday: (h) => {

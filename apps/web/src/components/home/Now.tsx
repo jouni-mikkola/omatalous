@@ -4,6 +4,7 @@ import { hashOf } from "../../routes.ts";
 import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
+import { LowPoint } from "./LowPoint.tsx";
 
 type Data = DashboardData & { nyt: NonNullable<DashboardData["nyt"]> };
 
@@ -21,7 +22,8 @@ function leftUnknown(left: Extract<Data["nyt"]["left"], { known: false }>): stri
 /**
  * Nyt: what is left to the payday (`nyt.left`) with its sum a day. It is the one figure of the page that is a payday
  * period and not the month, and it leads to Laskut, whose list holds the bills it takes off. On the payday the sum a day
- * is the whole sum, so the line says only that the payday is today. Nothing is added up here.
+ * is the whole sum, so the line says only that the payday is today. Under it stands the lowest balance of the next days
+ * (`home.lowPoint`). Nothing is added up here.
  */
 export function Now({ data }: { data: Data }) {
   const { left } = data.nyt;
@@ -34,6 +36,7 @@ export function Now({ data }: { data: Data }) {
         <Figure text={left.known ? answerMoney(left.leftCents) : "–"} size="m" />{" "}
         <span className="home-fig-line">{line}</span>
       </a>
+      <LowPoint lowPoint={data.home.lowPoint} />
     </section>
   );
 }

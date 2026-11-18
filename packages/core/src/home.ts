@@ -8,6 +8,7 @@
  * direction of spending. Every figure is one of the registry (`figures.ts`); the page adds up and compares no money.
  */
 import { daysBetween, monthOf } from "./dates.ts";
+import { type LowPoint, lowPoint } from "./low-point.ts";
 import { type BufferGap, bufferReport } from "./reports/buffer.ts";
 import { DIRECTION_MONTHS, DIRECTION_RECENT_MONTHS, MIN_COMPARE_MONTHS } from "./thresholds.ts";
 import type { BalanceInput, IsoDate, UserInputs } from "./types.ts";
@@ -100,6 +101,8 @@ interface HomeReliability {
 export interface Home {
   /** null when the range does not include today. */
   runway: HomeRunway | null;
+  /** The lowest balance of the next days (`LOW_POINT_DAYS`), past the next payday, with the day and a range; the reason when it cannot be said. null when the range does not include today. */
+  lowPoint: LowPoint | null;
   /** null when the month has no expected figure; `paceGap` says why. */
   pace: HomePace | null;
   paceGap: PaceGap | null;
@@ -199,6 +202,7 @@ export function buildHome(ctx: AnalysisContext, { basis, pace, balances, inputs 
   const homePaced = homePace(pace);
   return {
     runway: basis ? homeRunway(ctx, basis) : null,
+    lowPoint: basis ? lowPoint(ctx, basis, balances, inputs) : null,
     pace: homePaced,
     paceGap: pace.expected ? null : pace.cardGap ? "cards" : "history",
     direction: homeDirection(ctx, balances, inputs),

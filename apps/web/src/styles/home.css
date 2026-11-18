@@ -51,6 +51,11 @@
 .home-left .fig-m { font-weight: var(--w-strong); }
 a.home-left:hover .home-fig-label { text-decoration: underline; }
 
+/* the lowest balance of the next days, one line under the sum left to the payday */
+.home-low { margin: var(--sp-8) 0 0; font-size: var(--fs-body); line-height: var(--lh-body); }
+.home-low-label { font-weight: var(--w-strong); }
+.home-low-status { color: var(--text-2); }
+
 /* a phone: Tulot and Menot side by side while two fit (at a large text size they stand one under the other), Tulos under them across the width at the size that fits at any text size */
 @media (max-width: 40rem) {
   .home-figs { grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); column-gap: var(--sp-16); row-gap: var(--sp-12); }
