@@ -12,8 +12,8 @@ describe("shared wording", () => {
   // nothing; a change to a list shows up here and has to be a decision. The third list, the forms that made a
   // MobilePay payee a company, went when the category rules took the register's shape of a name (isPersonShaped).
   it("company forms: each use keeps its own list", () => {
-    expect(forms("strip")).toEqual(words("OY OYJ AB ABP KY AY RY RF TMI OSK KOY AS LTD SR AOY"));
-    expect(forms("payee")).toEqual(words("OY OYJ AB ABP KY AY RY TMI OSK KOY LTD LIMITED INC GMBH LLC PLC BV"));
+    expect(forms("strip")).toEqual(words("OY OYJ AB ABP PUBL KY AY RY RF TMI OSK KOY AS LTD SR AOY"));
+    expect(forms("payee")).toEqual(words("OY OYJ AB ABP PUBL KY AY RY TMI OSK KOY LTD LIMITED INC GMBH LLC PLC BV"));
   });
 
   it("a payee is a business by a company form at either end, but not by SA, SE or AS", () => {

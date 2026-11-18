@@ -77,6 +77,17 @@ describe("a company form at the end", () => {
     for (const raw of ["Yritys", "Yritys Oy", "Yritys Oyj", "YRITYS OY AB"]) expect(name(raw)).toBe("Yritys");
   });
 
+  it("takes a Swedish listed company's form with its 'publ', in brackets or not", () => {
+    for (const raw of ["Yritys AB (publ)", "YRITYS AB PUBL", "Yritys AB publ"]) {
+      expect(name(raw)).toBe("Yritys");
+      expect(normalizeMerchant(raw, null)).toBe("Yritys");
+    }
+    // a payment service's own name with the form behind it is the service, never "Publ" or "Ab Publ"
+    for (const raw of ["KLARNA BANK AB (PUBL)", "Klarna Bank AB publ"]) expect(normalizeMerchant(raw, null)).toBe("Klarna");
+    // a shop behind the service is still the payee
+    expect(name("KLARNA BANK AB (PUBL) KAUPPA ILO OY")).toBe("Kauppa Ilo");
+  });
+
   it("stays at the start, where it is the name", () => {
     expect(name("As Oy Esimerkkikatu 3")).toBe("As Oy Esimerkkikatu");
     expect(name("Asunto Oy Esimerkkikatu 3")).toBe("Asunto Oy Esimerkkikatu");
