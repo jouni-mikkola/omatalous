@@ -124,7 +124,7 @@ export function LoanSource({ today, onDrafts }: { today: string; onDrafts: (draf
       </div>
       {reading && (
         <div className="loan-readline" role="status">
-          <span>{reading === "pdf" ? t("set.ln.reading_the_pdf") : reading.step === "load" ? t("set.ln.loading_the_picture_reader") : t("set.ln.reading_the_picture")}</span>
+          <span>{reading === "pdf" ? t("set.ln.reading_the_pdf") : reading.step === "load" ? t("set.ln.loading_the_picture_reader") : t("set.ln.reading_the_picture", { share: Math.round(reading.share * 100) })}</span>
           <Button variant="link" onClick={() => run.current?.abort()}>
             {t("set.ln.stop")}
           </Button>
