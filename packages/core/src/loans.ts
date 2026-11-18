@@ -402,6 +402,13 @@ const annuityShare = (rate: number, n: number): number => (rate === 0 ? 1 / n : 
 /** A rate moved by `shiftBp`, a fall at most to the margin: a rate already under its margin does not rise when the reference rate falls. */
 export const movedRate = (rateBp: number, marginBp: number | null, shiftBp: number): number => Math.max(Math.min(rateBp, marginBp ?? 0), rateBp + shiftBp);
 
+/** The loan with every review's rate of its rate path moved by `shiftBp`, a fall at most to the margin. A loan with no path is as it is. */
+const withShiftedPath = (loan: Loan, shiftBp: number): Loan => {
+  if (loan.ratePath === undefined || shiftBp === 0) return loan;
+  const margin = loan.marginBp === null ? null : loan.marginBp * 10;
+  return { ...loan, ratePath: loan.ratePath.map(([on, rate]) => [on, movedRate(rate, margin, shiftBp * 10)] as const) };
+};
+
 /**
  * The plan of a loan from `day` on at `rateBp`: what it owes on the day, how many payments it has left and those
  * payments, at the new rate and, for an annuity, the payment that ends it in the payments it has left (the annuity
@@ -422,9 +429,8 @@ export function planFrom(loan: Loan, plan: Instalments, day: IsoDate, rateBp: nu
       ends = p.balanceCents <= 0;
     }
   }
-  // a loan with a rate path moves every review's rate by the same shift, a fall at most to the margin
-  const margin = loan.marginBp === null ? null : loan.marginBp * 10;
-  const shifted: Loan = loan.ratePath === undefined || shiftBp === 0 ? loan : { ...loan, ratePath: loan.ratePath.map(([on, rate]) => [on, movedRate(rate, margin, shiftBp * 10)] as const) };
+  // a loan with a rate path moves every review's rate by the same shift
+  const shifted = withShiftedPath(loan, shiftBp);
   if (left > 0 && loan.repayment === "annuity" && loan.ratePath !== undefined && endOf(loan) !== null) {
     // an annuity with a last due date sets its payment again at every review: the payment in force, or the one the move asks
     payment = shiftBp === 0 ? current : annuityPayment(balance, rateMilliAt(shifted.ratePath, rateBp, day), plan.months, left, countsDays(shifted));
@@ -458,7 +464,7 @@ export function loanRateScenario(loan: Debt, day: IsoDate, shiftBp: number): Rat
   if (day < loan.balanceDate) return none("before_balance_date");
   const plan = planOf(loan);
   if ("missing" in plan) {
-    const interest = loanInterestNext12Months({ ...loan, rateBp }, day);
+    const interest = loanInterestNext12Months({ ...withShiftedPath(loan, shiftBp), rateBp }, day);
     return { ...moved, paymentCents: null, interestCents: interest.cents, unknown: interest.unknown };
   }
   const from = planFrom(loan, plan, day, rateBp, shiftBp);

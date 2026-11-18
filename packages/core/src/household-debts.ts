@@ -115,7 +115,8 @@ interface HouseholdDebts {
  *   account's when the loan has none.
  * - The bank's balance is dated on the plan's latest due date on or before the day (`loanLastDueDate`), and on the
  *   loan's own balance date when none has passed: the payments after it fall on the loan's due days, so the payoff
- *   date does not move with the day the debts are read on.
+ *   date does not move with the day the debts are read on. A card or credit line with no repayment kind and no due
+ *   date passed is dated the day the bank gave the balance, since its plan pays down the balance it is dated at.
  * - The link holds only for an account that is in `accounts`, is a card or a loan account today (its type can be
  *   changed after the link was made) and has a balance at or below zero. Otherwise both sides count as if no link
  *   was made: a loan account at a plus (the sync stores a bank's plus on a loan account as a minus, so this is a type changed by hand) is no debt, and the typed loan is.

@@ -228,6 +228,17 @@ describe("a move of the rate that has nothing to tell, and a loan whose balance 
     expect(run([line]).loans.loans[0]!.scenarios.map((s) => [s.paymentCents, s.interestCents])).toEqual([[null, 15149], [null, 20401]]);
   });
 
+  it("a credit line on a rate path moves every review's rate with the scenario, a fall at most to the margin", () => {
+    // 7 % now and 7,5 % from the review on 1.1.2027, both over the margin of 4,5 %
+    const line = loan({ id: "cl", kind: "credit_line", balanceCents: 300000, rateBp: 700, reference: "euribor_3", marginBp: 450, paymentCents: 10000, intervalMonths: 1, ratePath: [["2026-10-01", 7000], ["2027-01-01", 7500]] });
+    const at = (shiftBp: number) => loanRateScenario(line, today, shiftBp).interestCents!;
+    expect(at(0)).toBe(loanInterestNext12Months(line, today).cents);
+    expect(at(100)).toBeGreaterThan(at(0));
+    expect(at(-100)).toBeLessThan(at(0));
+    // a fall of 3 % takes both reviews to the margin, so a fall of 5 % falls no further
+    expect(at(-500)).toBe(at(-300));
+  });
+
   it("a balance dated after today is a payment that is not known, and no loan without a rate", () => {
     const later = mortgage({ balanceDate: "2026-11-01" });
     expect(debtPaymentsPerMonth([later], today)).toEqual({ monthlyCents: 0, counted: 0, unknown: 1, bullets: 0 });
