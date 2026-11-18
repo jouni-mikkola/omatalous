@@ -44,8 +44,8 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 /* a phone with the text at its usual size has room for the status under the sum: a row is then 2 lines beside the day and the payee; a larger text keeps the rows above */
 .bill-frame { container-type: inline-size; }
 @container (min-width: 20em) {
-  .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group, .rt-detail, .rt-subrow) { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; padding-block: var(--sp-4); }
-  .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group, .rt-detail, .rt-subrow) > th[scope="row"] { grid-column: 1; grid-row: 1 / span 2; }
+  .rt-wrap[data-block] .rt.bill-table > tbody > tr:has(> th[scope="row"]) { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; padding-block: var(--sp-4); }
+  .rt-wrap[data-block] .rt.bill-table > tbody > tr > th[scope="row"] { grid-column: 1; grid-row: 1 / span 2; }
   .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(2) { grid-column: 2; grid-row: 1 / span 2; }
   .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td[data-rt="main"] { grid-column: 3; grid-row: 1; }
   .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(5) { grid-column: 3; grid-row: 2; }
@@ -53,6 +53,12 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
   .rt-wrap[data-block] .rt.bill-table tr.rt-group { grid-template-columns: auto minmax(0, 1fr); align-items: center; }
   .rt-wrap[data-block] .rt.bill-table tr.rt-group > td:not([data-label]) { grid-column: 2; grid-row: 1; text-align: right; }
   .rt-wrap[data-block] .bill-sums { flex-direction: column; align-items: flex-end; }
+}
+/* twelve months, two of them open, make a long list: with a mouse a row and a month's head are as high as their line, so the page keeps within two screens */
+@media (pointer: fine) {
+  .rt-wrap:not([data-block]) .rt.bill-table > tbody > tr:has(> th[scope="row"]) > :is(th, td) { padding-block: var(--sp-4); }
+  .rt-wrap:not([data-block]) .rt.bill-table > tbody > tr.rt-group > * { padding-block: var(--sp-4); }
+  .rt-wrap:not([data-block]) .rt.bill-table .mk-plate { --mk-disc: var(--avatar-s); }
 }
 /* the one row for the monthly bills of a later month */
 .bill-fold { font-weight: var(--w-strong); }
