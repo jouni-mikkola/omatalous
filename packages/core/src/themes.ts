@@ -5,8 +5,9 @@
  * it, so the themes of a period add up to its Menot to the cent.
  *
  * A theme holds whole categories, each a line under the category's label. One theme also takes rows out of other
- * categories by their words: Auto has the car's insurance, the vehicle tax, the car's finance and a lease, and its
- * lines say what a car row was for (`carLineOf`). Money back counts where the payment it takes back counts.
+ * categories by their words: Auto has the car's insurance, the vehicle tax and a lease, and its lines say what a car
+ * row was for (`carLineOf`). The car's finance is debt service and counts in Velanhoito with the other loans. Money
+ * back counts where the payment it takes back counts.
  *
  * Not told yet, since no word list names them: home insurance and property tax, which are housing, and the premium of
  * a pet insurer. Such a row stays in the theme of its category.
@@ -18,9 +19,9 @@ import { DEFAULT_LANGUAGE, type Language } from "./locale.ts";
 import { messageFromWire } from "./messages.ts";
 import { mccKind } from "./industry.ts";
 import { fold } from "./merchant.ts";
-import { isCarFinanceText, isCarInsuranceText, isCarServiceText, isChargingText, isFuelText, isInspectionText, isLeaseText, isParkingText, isVehicleTaxText } from "./wording.ts";
+import { isCarInsuranceText, isCarServiceText, isChargingText, isFuelText, isInspectionText, isLeaseText, isParkingText, isVehicleTaxText } from "./wording.ts";
 
-type CarLine = "fuel" | "charging" | "parking" | "service" | "inspection" | "insurance" | "tax" | "finance" | "lease" | "other" | "purchase";
+type CarLine = "fuel" | "charging" | "parking" | "service" | "inspection" | "insurance" | "tax" | "lease" | "other" | "purchase";
 
 const textOf = (t: AnalysisTx) => fold(`${t.merchant} ${t.counterparty ?? ""} ${t.description ?? ""}`);
 
@@ -31,7 +32,6 @@ function carLineOf(t: AnalysisTx): CarLine | null {
   if (isLeaseText(text) || t.category === "leasing") return "lease";
   if (t.category === "insurance") return isCarInsuranceText(text) ? "insurance" : null;
   if (t.category === "taxes") return isVehicleTaxText(text) ? "tax" : null;
-  if (t.category === "loans") return isCarFinanceText(text) ? "finance" : null;
   if (t.category !== "car") return t.category === "vehicle_purchase" ? "purchase" : null;
   if (mcc === "parking" || isParkingText(text)) return "parking";
   if (mcc === "charging" || isChargingText(text)) return "charging";
@@ -74,7 +74,6 @@ const CAR_LINES: Readonly<Record<CarLine, string>> = {
   inspection: "Katsastus",
   insurance: "Liikenne- ja autovakuutus",
   tax: "Ajoneuvovero",
-  finance: "Rahoitus",
   lease: "Leasing",
   other: "Muut",
   purchase: "Auton osto",
@@ -161,8 +160,7 @@ function countedAs(ctx: AnalysisContext, t: AnalysisTx): AnalysisTx {
  * The theme Auto misleads a household that has no car and buys fuel now and then (a hire car, a moped, a station's
  * shop). So Auto exists when the household says it has a car, and before it has said, when the window holds
  * `AUTO_PURCHASES` purchases of fuel or charging. Without Auto a row stays in the theme of its category: the car's
- * own categories are lines of Liikkuminen, its insurance is on Vakuutukset, its tax on Verot ja maksut and its finance
- * on Velanhoito.
+ * own categories are lines of Liikkuminen, its insurance is on Vakuutukset and its tax on Verot ja maksut.
  */
 export function themeOf(ctx: AnalysisContext, row: AnalysisTx, cars: CarsKnown): Placement {
   const t = countedAs(ctx, row);

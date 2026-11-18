@@ -142,7 +142,6 @@ export const FI_REPORTS_1 = {
   "carline.inspection": "Katsastus",
   "carline.insurance": "Liikenne- ja autovakuutus",
   "carline.tax": "Ajoneuvovero",
-  "carline.finance": "Rahoitus",
   "carline.lease": "Leasing",
   "carline.other": "Muut",
   "carline.purchase": "Auton osto",

@@ -32,9 +32,9 @@ A figure has one definition, in `packages/core`, and the first page, the reports
 | *Säästöön siirretty* | The savings categories and the transfers into the household's own savings accounts, less what was taken out of them | `PeriodTotals.savedCents`, summed in `totalsOf` in `analysis/flows.ts` |
 | *Erääntyvät maksut* | What the counted accounts pay before the next payday or in 30 days: recurring bills, bills typed in and the bills of connected cards. An own transfer is no payment, so it is not in it | `dueCents` in `aheadBasis` in `analysis/ahead.ts` |
 | *Harvemmin kuin kuukausittain 12 kk* | The bills that come every second month or less often, found in the history or typed in, over the twelve calendar months from the one of today. A bill paid this month is in it, so the figure holds all month. It leaves out a bill that a card or an account the balance does not count pays, as the bills of the page do | `yearlyCents` in `billCalendar` in `reports/bill-calendar.ts` |
-| *Asuminen ja välttämättömät* | The bills still to pay in a month of Laskut that the household cannot do without: housing, utilities, insurance, telecom, taxes and fees, day care. One of four kinds that add up to the month's bills (*Cost kinds of the bills*, below) | `essentialCents` in `billCalendar` in `reports/bill-calendar.ts`, the kind in `costKindOf` in `cost-kinds.ts` |
-| *Velanhoito* | The loan payments and card bills still to pay in a month of Laskut, and any other debt service. Never optional | `debtCents` in `billCalendar` in `reports/bill-calendar.ts` |
-| *Sopimukset* | The bills still to pay in a month of Laskut that a fixed contract makes: car leasing and memberships | `contractCents` in `billCalendar` in `reports/bill-calendar.ts` |
+| *Asuminen ja välttämättömät* | The bills still to pay in a month of Laskut that the household cannot do without: housing, utilities, insurance, telecom, taxes and fees, and the regular bills of *Lapset* (day care and the like). One of four kinds that add up to the month's bills (*Cost kinds of the bills*, below) | `essentialCents` in `billCalendar` in `reports/bill-calendar.ts`, the kind in `costKindOf` in `cost-kinds.ts` |
+| *Lainojen ja korttien erät* | The loan payments and card bills still to pay in a month of Laskut, and any other debt service. Never optional | `debtCents` in `billCalendar` in `reports/bill-calendar.ts` |
+| *Leasing ja jäsenyydet* | The bills still to pay in a month of Laskut that a fixed contract makes: car leasing and memberships | `contractCents` in `billCalendar` in `reports/bill-calendar.ts` |
 | *Valinnaiset* | The bills still to pay in a month of Laskut that are none of the other three: subscriptions and every other bill, one with no category too | `optionalCents` in `billCalendar` in `reports/bill-calendar.ts` |
 | *Siirrot omille tileille* | Regular transfers from the counted accounts to accounts the balance does not count, in the window of *Erääntyvät maksut*. They leave the balance and are no payments | `transferCents` in `aheadBasis` in `analysis/ahead.ts` |
 | *Käytettävissä* | The balance of the counted accounts today less *Erääntyvät maksut*, *Siirrot omille tileille* and what the connected cards owe today that no bill holds. A card's whole debt is taken off, so the day its bill falls is not guessed. A card with no balance leaves the figure unsaid | `freeCents` in `aheadBasis` in `analysis/ahead.ts` |
@@ -768,17 +768,17 @@ what a credit card is charged, each with its sum, sent by `GET /api/ahead`.
 
 Every bill and loan payment of a month of Laskut is one of four kinds (`costKindOf` in `cost-kinds.ts`), by its category:
 
-- *Asuminen ja välttämättömät*: housing, utilities, insurance, telecom, taxes, fees, and the recurring bills of *Lapset*, which are day care.
-- *Velanhoito*: a loan payment whatever its category, and every category of debt service (the card bill, mortgage, consumer
+- *Asuminen ja välttämättömät*: housing, utilities, insurance, telecom, taxes, fees, and the regular bills of *Lapset* (day care and the like).
+- *Lainojen ja korttien erät*: a loan payment whatever its category, and every category of debt service (the card bill, mortgage, consumer
   and student loans, interest, collection). Debt service is never optional.
-- *Sopimukset*: car leasing and memberships.
+- *Leasing ja jäsenyydet*: car leasing and memberships.
 - *Valinnaiset*: everything else, a subscription among it, and a bill with no category.
 
 The four are summed over the bills still to pay that no card pays, the rows `billsCents` is made of, so the four add up
 to the month's bills to the cent (`packages/core/test/bill-calendar.test.ts`). A bill whose sum is not known has no row
 and is in no kind, as it is in no `billsCents`; the head of the month counts those. The head of an open month in Laskut
-shows the kinds that have money. Raportit > *Menot kategorioittain* gathers the same debt categories in one theme,
-*Velanhoito*.
+shows the kinds that have money. Raportit > *Menot kategorioittain* gathers the debt categories and the car's finance
+in one theme, *Velanhoito*.
 
 ## Themes
 
@@ -788,13 +788,14 @@ themes of a period add up to its spending. A line is a category under its own la
 *Ravintolat ja kahvilat*, *Ruoan kotiinkuljetus* and *Alko*.
 
 - **Rows pulled from other categories.** One theme takes rows out of their categories by their words. *Auto* has the
-  car's insurance, which is a row of *Vakuutukset*, the vehicle tax, a row of *Verot, maksut ja sakot*, the car's
-  finance, a row of *Kulutusluotot*, and a lease whatever its category. Its lines say what a car row was for: fuel,
-  charging, parking, service, inspection, insurance, tax, finance, a lease and the rest. Home insurance, property tax
-  and a pet insurer's premium are not told apart yet and stay in the theme of their category.
+  car's insurance, which is a row of *Vakuutukset*, the vehicle tax, a row of *Verot, maksut ja sakot*, and a lease
+  whatever its category. Its lines say what a car row was for: fuel, charging, parking, service, inspection,
+  insurance, tax, a lease and the rest. The car's finance, a row of *Kulutusluotot*, is debt service and counts in
+  *Velanhoito*. Home insurance, property tax and a pet insurer's premium are not told apart yet and stay in the theme
+  of their category.
 - **A household without a car has no *Auto*.** Nobody is asked how many cars there are, so the fuel stands in for the
   answer: *Auto* exists when the months looked at hold six purchases of fuel or charging. Without it the car's own
-  categories are lines of *Liikkuminen*, and the insurance, the tax and the finance stay where their category is.
+  categories are lines of *Liikkuminen*, and the insurance and the tax stay where their category is.
 - **Money back** counts in the theme and on the line of the payment it takes back, in the month it arrives.
 
 What goes where over a year is `themesReport` in `analysis/themes-report.ts`. The first page's answer carries it as

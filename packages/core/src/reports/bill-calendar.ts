@@ -207,7 +207,8 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
   // the next bill of a card whose balance is known, as the window of Nyt has it; the bills after it are the card's spending
   if (balances.some((b) => b.type === "credit_card")) {
     for (const r of aheadBasis(ctx, balances, inputs).ahead.upcoming) {
-      if (r.source === "card" && r.basis === "balance" && r.cents && r.date <= windowEnd) rows.push({ date: r.date, payee: r.name, category: r.category, cents: Math.abs(r.cents), state: "known", kind: "bill", seriesId: null });
+      // the row of the window says "transfer", a category no cost kind knows: the card's bill is debt service
+      if (r.source === "card" && r.basis === "balance" && r.cents && r.date <= windowEnd) rows.push({ date: r.date, payee: r.name, category: "card_bill", cents: Math.abs(r.cents), state: "known", kind: "bill", seriesId: null });
     }
   }
 

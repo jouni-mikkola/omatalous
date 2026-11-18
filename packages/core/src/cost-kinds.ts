@@ -5,10 +5,10 @@ import { getCategory } from "./categories.ts";
  * written in docs/MONEY_FLOWS.md as well). Laskut adds a month's bills up by kind, and the four sums are the month's
  * `billsCents` to the cent.
  *
- *  - essential ("Asuminen ja välttämättömät"): housing, utilities, insurance, telecom, taxes and fees, and day care
- *    (a recurring bill of the category Lapset)
- *  - debt ("Velanhoito"): loan payments and every category of debt service, a card's bill included; never optional
- *  - contract ("Sopimukset"): leasing and the other fixed contracts, memberships
+ *  - essential ("Asuminen ja välttämättömät"): housing, utilities, insurance, telecom, taxes and fees, and the regular bills of the
+ *    category Lapset (day care and the like)
+ *  - debt ("Lainojen ja korttien erät"): loan payments and every category of debt service, a card's bill included; never optional
+ *  - contract ("Leasing ja jäsenyydet"): leasing and memberships
  *  - optional ("Valinnaiset"): everything else, a subscription among it, and a bill with no category
  */
 export type CostKind = "essential" | "debt" | "contract" | "optional";

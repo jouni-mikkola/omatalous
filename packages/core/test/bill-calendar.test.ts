@@ -423,6 +423,28 @@ describe("the bill calendar", () => {
       expect(december.afterCents).toBeNull();
     });
 
+    it("counts the next bill of a card whose balance is known as debt, never as optional", () => {
+      const today = "2026-10-09";
+      const card: Account = { id: "card", name: "Luottokortti", iban: null, currency: "EUR", type: "credit_card" };
+      const billDays = MONTHS.map((m) => `${m}-20`).filter((d) => d <= today);
+      const purchases = MONTHS.map((m) => tx({ accountId: "card", bookingDate: `${m}-08`, amountCents: -30_000, merchant: "Esimerkki Kauppa", category: "shopping" }));
+      const payments = billDays.flatMap((d) => [
+        tx({ accountId: "own", bookingDate: d, amountCents: -30_000, merchant: "Oma siirto", category: "transfer", categorySource: "transfer", isTransfer: true }),
+        tx({ accountId: "card", bookingDate: d, amountCents: 30_000, merchant: "Oma siirto", category: "transfer", categorySource: "transfer", isTransfer: true }),
+      ]);
+      const balances: BalanceInput[] = [
+        { id: "own", name: "Käyttötili", type: "checking", balanceCents: 500_000, ownerName: null, balanceAt: `${today}T06:00:00Z` },
+        { id: "card", name: "Luottokortti", type: "credit_card", balanceCents: -41_200, ownerName: null, balanceAt: `${today}T06:00:00Z` },
+      ];
+      const rows = [...household(), ...purchases, ...payments].filter((t) => t.bookingDate <= today);
+      const cal = billCalendar(createContext(rows, [own, card], today), NO_INPUTS, balances);
+      const october = cal.months[0]!;
+      expect(october.rows.find((r) => r.payee === "Luottokortti")).toMatchObject({ date: "2026-10-20", cents: 41_200, category: "card_bill", state: "known" });
+      expect(october.debtCents).toBe(41_200);
+      expect(october.optionalCents).toBe(0);
+      expect(october.essentialCents + october.debtCents + october.contractCents + october.optionalCents).toBe(october.billsCents);
+    });
+
     it("gives no month a figure while the day of a loan's payment is not known", () => {
       const loan: Loan = {
         id: "loan-4", name: "Remonttilaina", lender: "ESIMERKKIPANKKI", kind: "mortgage", grantedCents: null, balanceCents: 1_000_000, balanceDate: "2026-10-01", rateBp: null,

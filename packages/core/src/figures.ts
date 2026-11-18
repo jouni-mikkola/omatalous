@@ -108,7 +108,7 @@ export const FIGURES = {
   },
   essentialBills: {
     name: "Asuminen ja välttämättömät",
-    definition: "The bills still to pay in a month of Laskut that the household cannot do without: housing, utilities, insurance, telecom, taxes and fees, and day care. One of the four kinds (`costKindOf`) that add up to the month's bills, to the cent.",
+    definition: "The bills still to pay in a month of Laskut that the household cannot do without: housing, utilities, insurance, telecom, taxes and fees, and the regular bills of Lapset (day care and the like). One of the four kinds (`costKindOf`) that add up to the month's bills, to the cent.",
     source: { file: "reports/bill-calendar.ts", fn: "billCalendar", field: "essentialCents" },
     unit: "cents",
     scope: "own",
@@ -116,7 +116,7 @@ export const FIGURES = {
     pages: ["Laskut"],
   },
   debtBills: {
-    name: "Velanhoito",
+    name: "Lainojen ja korttien erät",
     definition: "The loan payments and card bills still to pay in a month of Laskut, and any other debt service. It is never optional. One of the four kinds that add up to the month's bills.",
     source: { file: "reports/bill-calendar.ts", fn: "billCalendar", field: "debtCents" },
     unit: "cents",
@@ -125,7 +125,7 @@ export const FIGURES = {
     pages: ["Laskut"],
   },
   contractBills: {
-    name: "Sopimukset",
+    name: "Leasing ja jäsenyydet",
     definition: "The bills still to pay in a month of Laskut that a fixed contract makes: car leasing and memberships. One of the four kinds that add up to the month's bills.",
     source: { file: "reports/bill-calendar.ts", fn: "billCalendar", field: "contractCents" },
     unit: "cents",

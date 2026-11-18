@@ -9,7 +9,7 @@ import { aheadBasis, cashAhead } from "../src/analysis/ahead.ts";
 import { savingsRateOf } from "../src/analysis/bridge.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { fixedShareOn } from "../src/analysis/fixed-share.ts";
-import { spendTotals } from "../src/analysis/context.ts";
+import { createContext, spendTotals } from "../src/analysis/context.ts";
 import { toDayRange } from "../src/analysis/period.ts";
 import { paydayOf, runwayOf } from "../src/analysis/runway.ts";
 import { expectedEverydayPerDay, expectedIncome, expectedSpending } from "../src/analysis/expected.ts";
@@ -20,7 +20,7 @@ import { FIGURES } from "../src/figures.ts";
 import { lowPoint } from "../src/low-point.ts";
 import { MIN_COMPARE_MONTHS, USUAL_MONTHS } from "../src/thresholds.ts";
 import { median } from "../src/stats.ts";
-import type { Loan } from "../src/types.ts";
+import type { Account, ExpectedBill, Loan } from "../src/types.ts";
 import { buildHoldings } from "../src/holdings.ts";
 import { balanceReport } from "../src/reports/balances.ts";
 import { billCalendar } from "../src/reports/bill-calendar.ts";
@@ -297,6 +297,39 @@ const ANSWERS: Record<FigureKey, Answers> = {
 };
 
 const households = [demoHousehold(), ...[1, 2, 3].map((seed) => seededHousehold(seed, true))];
+
+describe("the kinds of a month's bills, by a table written out by hand", () => {
+  const own: Account = { id: "own", name: "Käyttötili", iban: "FI21 1234 5600 0007 85", currency: "EUR", type: "checking" };
+  const bill = (name: string, amountCents: number, category: string | null): ExpectedBill => ({ id: `b-${name}`, name, amountCents, dueDate: "2026-11-05", cadence: "once", category });
+  // each bill of November with the kind it has to be in, said here and not read from `costKindOf`
+  const BILLS: readonly { bill: ExpectedBill; kind: "essential" | "debt" | "contract" | "optional" }[] = [
+    { bill: bill("Esimerkki Vuokra", 90_017, "housing"), kind: "essential" },
+    { bill: bill("Esimerkki Päiväkoti", 25_000, "kids"), kind: "essential" },
+    { bill: bill("Esimerkki Asuntolaina", 91_240, "mortgage"), kind: "debt" },
+    { bill: bill("Esimerkki Kulutusluotto", 20_000, "loans"), kind: "debt" },
+    { bill: bill("Esimerkki Kortti", 12_000, "card_bill"), kind: "debt" },
+    { bill: bill("Esimerkki Leasing", 41_000, "leasing"), kind: "contract" },
+    { bill: bill("Esimerkki Suoratoisto", 1_299, "subscriptions"), kind: "optional" },
+    { bill: bill("Esimerkki Lasku", 700, null), kind: "optional" },
+  ];
+
+  it("puts housing and day care in essentials, loans and the card's bill in debt, leasing in contracts and a subscription in optional", () => {
+    const ctx = createContext([], [own], "2026-10-26");
+    const november = billCalendar(ctx, { marks: [], expectedBills: BILLS.map((b) => b.bill) }).months[1]!;
+    expect(november.rows.filter((r) => r.kind === "bill")).toHaveLength(BILLS.length);
+    expect([november.essentialCents, november.debtCents, november.contractCents, november.optionalCents]).toEqual([115_017, 123_240, 41_000, 1_999]);
+    expect(november.billsCents).toBe(BILLS.reduce((sum, b) => sum + b.bill.amountCents, 0));
+  });
+
+  it("puts each bill in its own kind when it stands alone", () => {
+    const ctx = createContext([], [own], "2026-10-26");
+    for (const { bill: one, kind } of BILLS) {
+      const m = billCalendar(ctx, { marks: [], expectedBills: [one] }).months[1]!;
+      const by = { essential: m.essentialCents, debt: m.debtCents, contract: m.contractCents, optional: m.optionalCents };
+      expect(by, one.name).toEqual({ essential: 0, debt: 0, contract: 0, optional: 0, [kind]: one.amountCents });
+    }
+  });
+});
 
 describe("the figure registry", () => {
   it("lists answers for every figure and no figure that is not registered", () => {

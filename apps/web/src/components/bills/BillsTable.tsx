@@ -83,7 +83,7 @@ function MonthSums({ month, unknownCount, open }: { month: CalMonth; unknownCoun
   return (
     <span className="bill-sums">
       <span>{month.estimateCents > 0 ? t("bills.sum_bills_estimate", { sum: money(month.billsCents), estimate: money(month.estimateCents) }) : t("bills.sum_bills", { sum: money(month.billsCents) })}</span>
-      {open && KINDS.map(([code, field]) => month[field] > 0 && <span key={field} className="bill-kind">{t(code, { sum: money(month[field]) })}</span>)}
+      {open && <span className="bill-kinds">{KINDS.map(([code, field]) => month[field] > 0 && <span key={field}>{t(code, { sum: money(month[field]) })}</span>)}</span>}
       {unknownCount > 0 && <span>{tn(unknownCount, "bills.unknown_one", "bills.unknown_many")}</span>}
       {month.incomeCents > 0 && <span>{t("bills.sum_income", { sum: money(month.incomeCents) })}</span>}
       <span>{month.afterCents === null ? t("bills.sum_after_unknown") : t("bills.sum_after", { sum: money(month.afterCents) })}</span>

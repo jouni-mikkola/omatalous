@@ -77,7 +77,7 @@ interface Place {
 /**
  * The group of a row in Kategoriat and in the category rows of Menot kuukausittain: the theme `themeOf` gives it, the
  * one placement the themes of Menot kuukausittain and the themes report read too, so a group and its theme are one sum
- * (ADR 0004). With a car, Auto holds the car's insurance, tax and finance, and those categories have a row in Auto
+ * (ADR 0004). With a car, Auto holds the car's insurance and tax, and those categories have a row in Auto
  * beside their row in their own group.
  */
 export function placeOf(ctx: AnalysisContext, t: AnalysisTx, cars: Cars): Place {
