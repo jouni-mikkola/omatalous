@@ -1,5 +1,5 @@
 /** Shapes of the server's JSON responses. Domain types come from @banking/core. */
-import type { Language, AccountType, AccountUse, ReconcileResult, Category, CategoryRule, DashboardAnswer, ReconcileVerdict, LoanProposal, RoundConsent, RoundView, Part, RecurringSeries, ReportsData, Transaction } from "@banking/core";
+import type { Fixings, Language, Loan, AccountType, AccountUse, ReconcileResult, Category, CategoryRule, DashboardAnswer, ReconcileVerdict, LoanProposal, RoundConsent, RoundView, Part, RecurringSeries, ReportsData, Transaction } from "@banking/core";
 
 export type { AccountType, Category, CategoryRule, ReportsData };
 /** What `GET /api/dashboard` sends, with the verdicts and the joint pools the server adds. */
@@ -233,6 +233,12 @@ export interface TransactionItem extends Transaction {
 }
 
 export type Recurring = Omit<RecurringSeries, "transactionIds">;
+
+/** What `GET /api/loans` sends: the saved loans and the published fixings their rate paths are counted from (`loansOf`). */
+export interface LoansAnswer {
+  loans: Loan[];
+  fixings: Fixings;
+}
 
 /** What `GET /api/loans/proposals` tells of a proposed loan: no row ids, account or payment reference. */
 export type LoanProposalRow = Pick<LoanProposal, "key" | "payee" | "paymentCents" | "months" | "firstDate" | "lastDate" | "kind">;
