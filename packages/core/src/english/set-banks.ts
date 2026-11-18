@@ -15,4 +15,9 @@ export const EN_SET_BANKS: Record<keyof typeof FI_SET_BANKS, string> = {
   "set.banks.pick_last_used": "Last used",
   "set.banks.pick_no_match": "The search finds no bank.",
   "set.banks.pick_other_banks": "We sort the transactions of banks other than Nordea by the bank's own codes. Check the categories of the first month.",
+  "set.banks.cards_before": "Before {date}",
+  "set.banks.cards_until": "Bills up to {date}",
+  "set.banks.cards_connect": "Connect",
+  "set.banks.cards_add_statement": "Add a statement",
+  "set.banks.cards_period": "Period",
 };

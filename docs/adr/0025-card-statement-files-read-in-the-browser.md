@@ -27,6 +27,9 @@ go to the install.
 - A card bill paid from another account is matched to the card's payment row by the transfer pairing that exists
   (ADR 0015), and the purchases are the spending. Nothing new decides that.
 - Only a card made here takes rows. A bank's account is filled by its own fetch.
+- A statement whose rows mostly sit on a connected card is refused with that card's name, as a bank's file is for a
+  connected account: the fetched rows and the statement's would count the same purchases twice. A statement that
+  reaches past the fetched rows leaves out the rows the connected card holds already and stores the rest.
 - Three layouts are read: a semicolon table, a tab table and the lines of a statement's text. Each is told by its own
   header. The layouts are described, not copied from a bank's file, and are held by made-up statements in
   `packages/core/test/card-file.test.ts`. A bank with the same layout works; a bank with another does not until a

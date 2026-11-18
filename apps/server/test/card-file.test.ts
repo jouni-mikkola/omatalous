@@ -71,6 +71,36 @@ describe("card statement rows", () => {
     expect((await admin.call("POST", "/api/card-file", { rows: [] })).status).toBe(400);
   });
 
+  it("refuse a statement whose rows the bank has already given for a connected card, so each purchase counts once", async () => {
+    const { admin, adminId, s, db } = await setupApp();
+    const repo = s.finance(adminId);
+    await repo.upsertAccount({ id: "eb-card", connectionId: null, provider: "enablebanking", externalId: "k", identity: "eb-card", name: "Esimerkki Gold", iban: null, currency: "EUR", type: "credit_card" });
+    const fetched = (id: string, bookingDate: string, amountCents: number, counterparty: string): RawTransaction => ({ externalId: id, bookingDate, valueDate: null, amountCents, currency: "EUR", status: "booked", counterparty, counterpartyIban: null, description: null, reference: null, mcc: null });
+    await ingestTransactions(repo, "eb-card", [fetched("f1", "2026-09-03", -2340, "PRISMA TIKKURILA"), fetched("f2", "2026-09-05", -4120, "SUSHIBAR HELSINKI"), fetched("f3", "2026-09-28", 6460, "Maksu kiitos")], "enablebanking");
+    await reprocess(repo, s.settings);
+    const refused = await admin.call("POST", "/api/card-file", body());
+    expect(refused.status).toBe(400);
+    expect(refused.body).toMatchObject({ messageCode: "card_file.on_card", params: { account: "Esimerkki Gold" } });
+    // a card of its own gets the same refusal
+    expect((await admin.call("POST", "/api/card-file", { ...body(), name: "Toinen" })).status).toBe(400);
+    expect((await db.first<{ n: number }>("SELECT count(*) AS n FROM transactions"))?.n).toBe(3);
+  });
+
+  it("store only the rows the connected card does not hold, so a statement that reaches past the fetched rows counts each purchase once", async () => {
+    const { admin, adminId, s, db } = await setupApp();
+    const repo = s.finance(adminId);
+    await repo.upsertAccount({ id: "eb-card", connectionId: null, provider: "enablebanking", externalId: "k", identity: "eb-card", name: "Esimerkki Gold", iban: null, currency: "EUR", type: "credit_card" });
+    const fetched: RawTransaction = { externalId: "f1", bookingDate: "2026-09-28", valueDate: null, amountCents: 6460, currency: "EUR", status: "booked", counterparty: "Maksu kiitos", counterpartyIban: null, description: null, reference: null, mcc: null };
+    await ingestTransactions(repo, "eb-card", [fetched], "enablebanking");
+    const saved = await admin.call("POST", "/api/card-file", body());
+    expect(saved.status).toBe(200);
+    expect(saved.body).toMatchObject({ fetched: 3, inserted: 2, skipped: 1 });
+    expect((await db.first<{ n: number }>("SELECT count(*) AS n FROM transactions"))?.n).toBe(3);
+    // the same statement again stores nothing more
+    expect((await admin.call("POST", "/api/card-file", body())).body).toMatchObject({ inserted: 0 });
+    expect((await db.first<{ n: number }>("SELECT count(*) AS n FROM transactions"))?.n).toBe(3);
+  });
+
   it("can be removed with their account", async () => {
     const { admin } = await setupApp();
     const r = await admin.call("POST", "/api/card-file", body());
