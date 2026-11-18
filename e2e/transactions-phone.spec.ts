@@ -381,6 +381,53 @@ test("390 px: a tap on a row opens it, a second tap closes it, and the chevron o
   await context.close();
 });
 
+test("390 px: the list opens on the running month, and the x of its chip is a 44 px target that opens the whole history", async ({ browser }) => {
+  const context = await signedIn(browser, 390, 844);
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/transactions");
+  const x = page.getByRole("button", { name: "Poista rajaus: Aikaväli" });
+  await expect(x).toBeVisible();
+  await expect(page.locator(".tx-period .tx-fchip-value")).not.toHaveText("Koko historia");
+  // the button is 44 px wide and, with its ::after, 44 px high: a thumb that lands anywhere on the chip's x takes it
+  const box = (await x.boundingBox())!;
+  const reach = await x.evaluate((el) => parseFloat(getComputedStyle(el, "::after").height));
+  expect(box.width, "the x's width").toBeGreaterThanOrEqual(43.5);
+  expect(Math.max(box.height, reach), "the x's reach").toBeGreaterThanOrEqual(43.5);
+  await x.tap();
+  await expect(page).toHaveURL(/#\/transactions\?period=all$/);
+  await expect(page.locator(".tx-period .tx-fchip-value")).toHaveText("Koko historia");
+  await expect(page.getByRole("button", { name: "Poista rajaus: Aikaväli" })).toHaveCount(0);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("390 px: far down a long list the Suodata button stands under the last row, covers no row and takes the reader back to the bar", async ({ browser }) => {
+  const context = await signedIn(browser, 390, 844);
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/transactions?period=all");
+  await expect(page.locator(DATA_ROW).first()).toBeVisible();
+  await expect(page.locator(".tx-shortcut")).toHaveCount(0);
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const shortcut = page.locator(".tx-shortcut");
+  await expect(shortcut).toBeVisible();
+  await expect(shortcut).toHaveText("Suodata");
+  const covered = await page.evaluate(() => {
+    const at = document.querySelector(".tx-shortcut")!.getBoundingClientRect();
+    return Array.from(document.querySelectorAll("table.tx-table tbody tr")).filter((row) => {
+      const r = row.getBoundingClientRect();
+      return r.height > 0 && Math.min(r.bottom, at.bottom) - Math.max(r.top, at.top) > 1 && Math.min(r.right, at.right) - Math.max(r.left, at.left) > 1;
+    }).length;
+  });
+  expect(covered, "rows under the button").toBe(0);
+  await shortcut.tap();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await expect(page.locator("#tx-bar .tx-filter-btn")).toBeFocused();
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
 test("1280 px: a search being typed takes one place in the history, however many pauses it has", async ({ browser }) => {
   const context = await signedIn(browser, 1280, 900);
   const page = await context.newPage();

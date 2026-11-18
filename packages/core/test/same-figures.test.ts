@@ -15,7 +15,9 @@ describe.each(households.map((h) => [h.name, h] as const))("%s", (_, h) => {
   const report = cashflowReport(ctx, range);
 
   it("the table in cents adds up: every row, the running month's too, is the total row to the cent, for every part", () => {
-    const sum = (key: "incomeCents" | "consumptionCents" | "debtCents" | "savedCents" | "leftCents") => report.rows.reduce((s, x) => s + x[key], 0);
+    // a month the data does not reach has no figure in its row and would pass by being left out: these households have none
+    expect(report.rows.every((x) => x.leftCents !== null)).toBe(true);
+    const sum = (key: "incomeCents" | "consumptionCents" | "debtCents" | "savedCents" | "leftCents") => report.rows.reduce((s, x) => s + x[key]!, 0);
     for (const key of ["incomeCents", "consumptionCents", "debtCents", "savedCents", "leftCents"] as const) expect(report.whole[key], key).toBe(sum(key));
   });
 

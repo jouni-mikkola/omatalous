@@ -49,30 +49,30 @@ describe("a regular payer's only payment of a pay period", () => {
   it("has no extra income in a month paid at the usual level, also with a holiday word in the text", () => {
     const rows = [...changed(9, { description: "PALKKA JA LOMARAHA" }), ...spend("2025-09-01", TODAY)];
     const { report } = read(rows, TODAY, TODAY);
-    for (const m of report.months) expect(m.byGroup.extra_pay, m.month).toBe(0);
-    expect(monthOf(report, "2026-06").byGroup.salary).toBe(LEVEL);
+    for (const m of report.months) expect(m.byGroup?.extra_pay, m.month).toBe(0);
+    expect(monthOf(report, "2026-06").byGroup?.salary).toBe(LEVEL);
   });
 
   it("counts a lower sum with a holiday word as regular pay, not as extra", () => {
     const rows = [...changed(9, { description: "PALKKA JA LOMARAHA", amountCents: 240_000 }), ...spend("2025-09-01", TODAY)];
     const june = monthOf(read(rows, TODAY, TODAY).report, "2026-06");
-    expect(june.byGroup.salary).toBe(240_000);
-    expect(june.byGroup.extra_pay).toBe(0);
+    expect(june.byGroup?.salary).toBe(240_000);
+    expect(june.byGroup?.extra_pay).toBe(0);
   });
 
   it("splits a payment of one and a half times the level: the level is regular pay, the half is extra", () => {
     const rows = [...changed(6, { amountCents: 450_000 }), ...spend("2025-09-01", TODAY)];
     const march = monthOf(read(rows, TODAY, TODAY).report, "2026-03");
-    expect(march.byGroup.salary).toBe(LEVEL);
-    expect(march.byGroup.extra_pay).toBe(150_000);
+    expect(march.byGroup?.salary).toBe(LEVEL);
+    expect(march.byGroup?.extra_pay).toBe(150_000);
     expect(march.totalCents).toBe(450_000);
   });
 
   it("keeps a holiday bonus as a second payment of the month extra", () => {
     const bonus = tx({ bookingDate: "2026-06-24", amountCents: 180_000, merchant: "ESIMERKKI OY", counterparty: "ESIMERKKI OY", description: "LOMARAHA", category: "salary", categorySource: "rule" });
     const june = monthOf(read([...steady(), bonus], TODAY, TODAY).report, "2026-06");
-    expect(june.byGroup.salary).toBe(LEVEL);
-    expect(june.byGroup.extra_pay).toBe(180_000);
+    expect(june.byGroup?.salary).toBe(LEVEL);
+    expect(june.byGroup?.extra_pay).toBe(180_000);
   });
 
   it("leaves a household with one steady payer as it was", () => {

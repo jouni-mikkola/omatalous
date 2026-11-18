@@ -269,7 +269,8 @@ const ANSWERS: Record<FigureKey, Answers> = {
     return {
       cashflow: r.whole.leftCents,
       // the table's rows added up, to the cent: the running month's row too
-      rows: r.rows.reduce((s, x) => s + x.leftCents, 0),
+      // a month the data does not reach has no row figure, so it would be left out of this sum: none of these households has one
+      rows: r.rows.some((x) => x.leftCents === null) ? null : r.rows.reduce((s, x) => s + x.leftCents!, 0),
       totals: r.totals.leftCents,
     };
   },

@@ -86,7 +86,8 @@ interface IncomeMonth {
   earnedCents: number | null;
   /** The month's usual earned income (`expectedIncome`, "Tavalliset tulot"), null under three complete months before it. */
   usualCents: number | null;
-  byGroup: Record<IncomeGroup, number>;
+  /** The month's income by group; null as `totalCents` is. */
+  byGroup: Record<IncomeGroup, number> | null;
 }
 
 interface IncomeStability {
@@ -272,7 +273,7 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
     totalCents: known[i] ? monthIncome(ctx, month) : null,
     earnedCents: known[i] ? earnedIncome(ctx, month) : null,
     usualCents: known[i] ? expectedIncome(ctx, month) : null,
-    byGroup: zeroGroups(),
+    byGroup: known[i] ? zeroGroups() : null,
   }));
   const byMonth = new Map(months.map((m) => [m.month, m]));
   // a month in progress has no counterpart yet: the comparison reads the complete months and the same ones a year before
@@ -291,7 +292,7 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
     if (!m) continue;
     if (m.complete && INCOME_TYPES[type].earned) earnedComplete += cents;
     // an unknown month has no cell (the chart draws none), but its rows are money that came in: types, payers and totals hold them
-    if (m.totalCents !== null) m.byGroup[INCOME_TYPES[type].group] += cents;
+    if (m.byGroup) m.byGroup[INCOME_TYPES[type].group] += cents;
     let row = typeRows.get(type);
     if (!row) typeRows.set(type, (row = { total: 0, complete: 0, months: months.map(() => 0), payers: new Map() }));
     row.total += cents;

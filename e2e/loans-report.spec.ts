@@ -190,6 +190,9 @@ test("Raportit has none of the paragraphs the figures replaced, and its balances
 test("Lainat fits a phone: the figures wrap and the page does not scroll sideways", async ({ browser }) => {
   const { page, seen, context } = await open(browser, 390);
   await expect(page.locator("#lainat .loan-list > li")).toHaveCount(2);
+  // the debt with a rate comes first and the one with none is last, with its missing rate said on it, as at a desktop's width
+  await expect(page.locator("#lainat .loan-list > li .loan-head")).toHaveText([/^Kodin laina/, /^Kaupan kortti/]);
+  await expect(page.locator("#lainat .loan-list > li").nth(1)).toContainText("Korko puuttuu.");
   await page.locator("#lainat").scrollIntoViewIfNeeded();
   expect(await overflow(page)).toBe(0);
   // no figure is cut: each one is as wide as its text

@@ -96,7 +96,7 @@ export function Shell() {
   const [reportQuestion, setReportQuestion] = useState<string | null>(null);
   // Raportit and Asetukset name their open tab or section, so two tabs of the browser tell apart
   const pageLabel = pageName && page === REVIEW.id ? reviewTitle(pageName, open) : pageTitle(pageName, page, reportQuestion, location.pathname.split("/")[2]);
-  // a page with no heading of its own shows the name the menu gives it; the accessible name adds the open tab or section, as the title of the browser tab does
+  // a page whose cards are named has its name as a hidden heading; any other shows the name the menu gives it as a title. The accessible name adds the open tab or section, as the title of the browser tab does
   const titleShown = pageName ?? "";
   const [scope, setScopeState] = useState<Scope | null>(() => readScope(user.id));
   const [wizardClosed, setWizardClosed] = useState(() => readWizardClosed(user.id));

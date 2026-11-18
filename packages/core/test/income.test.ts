@@ -298,7 +298,7 @@ describe("income report", () => {
     const cash = cashflowReport(ctx, { from, to: `${last}-${daysInMonth(last)}` });
     expect(r.months.map((m) => m.totalCents)).toEqual(cash.rows.map((x) => x.incomeCents));
     expect(r.months.reduce((s, m) => s + m.totalCents!, 0)).toBe(cash.totals.incomeCents);
-    for (const m of r.months) expect(Object.values(m.byGroup).reduce((s, v) => s + v, 0)).toBe(m.totalCents);
+    for (const m of r.months) expect(m.byGroup && Object.values(m.byGroup).reduce((s, v) => s + v, 0)).toBe(m.totalCents);
   });
 
   it("tells stability from regular income, the next twelve months and the pay days", () => {

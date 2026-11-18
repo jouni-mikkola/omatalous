@@ -7,22 +7,26 @@ import { overflow } from "./helpers.ts";
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const PAGES = ["overview", "transactions", "bills", "reports", "review"];
 
-// A row of tabs never wraps: it scrolls inside itself, the page does not, and the open tab is in sight.
-test("the tabs of Asetukset stay one row at 390 px with the open tab in sight", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 900 } });
-  const page = await context.newPage();
-  await page.goto("/#/settings/banks");
-  const row = page.locator("main .tabs").first();
-  await expect(row).toBeVisible();
-  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
-  const tops = await row.getByRole("link").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
-  expect(new Set(tops).size, "one line of tabs").toBe(1);
-  const open = (await row.locator("[aria-current]").boundingBox())!;
-  const view = (await row.boundingBox())!;
-  expect(open.x).toBeGreaterThanOrEqual(view.x - 1);
-  expect(open.x + open.width).toBeLessThanOrEqual(view.x + view.width + 1);
-  await context.close();
-});
+// A row of tabs never wraps: it scrolls inside itself, the page does not, and the open tab is in sight, the first and the last of the row alike.
+for (const tab of ["banks", "server"]) {
+  test(`the tabs of Asetukset stay one row at 390 px with the open tab in sight: ${tab}`, async ({ browser }) => {
+    const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 900 } });
+    const page = await context.newPage();
+    await page.goto(`/#/settings/${tab}`);
+    const row = page.locator("main .tabs").first();
+    await expect(row).toBeVisible();
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+    const tops = await row.getByRole("link").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
+    expect(new Set(tops).size, "one line of tabs").toBe(1);
+    // the tab is brought into sight as the row is drawn, so the row is read once it has settled
+    await expect.poll(async () => {
+      const open = (await row.locator("[aria-current]").boundingBox())!;
+      const view = (await row.boundingBox())!;
+      return open.x >= view.x - 1 && open.x + open.width <= view.x + view.width + 1;
+    }).toBe(true);
+    await context.close();
+  });
+}
 
 for (const width of [1280, 390]) {
   test(`no top page scrolls sideways at ${width} px`, async ({ baseURL }) => {

@@ -155,7 +155,7 @@ describe("reports", () => {
   it("income: the total is the earned and the not earned, and the months add up to it", () => {
     expect(r.income.totalCents).toBe(r.income.earnedCents + r.income.notEarnedCents);
     expect(r.income.totalCents).toBeGreaterThan(0);
-    expect(r.income.months.every((m) => m.totalCents === Object.values(m.byGroup).reduce((a, b) => a + b, 0))).toBe(true);
+    expect(r.income.months.every((m) => m.totalCents === (m.byGroup && Object.values(m.byGroup).reduce((a, b) => a + b, 0)))).toBe(true);
   });
 
   it("the tax year is the year of the range and its income the sum of its types", () => {
