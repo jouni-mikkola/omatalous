@@ -286,9 +286,12 @@ found gives the category. An unclear match is left alone.
 
 ## Loans
 
-- A loan is a short form the household types or fills by pasting text or choosing a PDF. The browser reads the text or PDF
-  (pdf.js, served from the app's own address) and sends nothing but the fields the household saves. The server takes no
-  file, and no picture is read.
+- A loan is a short form the household types or fills by pasting text or choosing a PDF or a picture. The browser reads
+  the text, PDF or picture (pdf.js and Tesseract, served from the app's own address) and sends nothing but the fields
+  the household saves. The server takes no file. Tesseract's worker, cores and language data are files under
+  `/assets/ocr-<hash>/`, and the worker starts from that address, so the policy needs no blob address and no
+  `unsafe-eval`; the `'wasm-unsafe-eval'` it already carries for pdf.js is enough for the WebAssembly cores. A picture
+  over 40 million pixels is refused from its header before it is decoded.
 - Loans belong to the user who saved them: the list of loans and every change read the typist's own rows. A member sees
   another member's loan only as *Who sees what* says, when it is paid from an account in the member's view. A loan's
   series key is not checked against the typist's accounts when it is saved, so a member who is named a user of an

@@ -151,9 +151,9 @@ flowchart LR
   counts as typed, still once. The loan form reads the household's accounts and loans from the context `LoanLinks`
   (`components/loans/LoanEditor.tsx`), and `#/settings?linkLoan=<loan id>&linkAccount=<account id>#lainat` opens a
   loan's form with that account chosen, once.
-  The new-loan form has one input box (`components/loans/LoanSource.tsx`) that reads a pasted text, a text file or a PDF
-  in the browser (`read-source.ts`: pdf.js, loaded on first use and served from the app's own `/assets`, ADR 0029) and
-  core's `loan-intake/` turns the lines into a draft with a mark on each field (`form.ts`); the server sees only what the
+  The new-loan form has one input box (`components/loans/LoanSource.tsx`) that reads a pasted text, a text file, a PDF or a picture
+  in the browser (`read-source.ts`: pdf.js and Tesseract, each loaded on first use and served from the app's own `/assets`, ADR 0029) and
+  core's `loan-intake/` turns the lines into a draft with a mark on each field, all of them *Tarkista* for a picture (`form.ts`); the server sees only what the
   household saves. A text of several loans, or of a loan that is saved already, opens a table (`LoanDraftTable.tsx`).
   `loan-detect.ts` proposes loans from payments, and `GET /api/loans/proposals` works them out for each request.
 - Bank logos: `connectors/enable-banking/logos.ts` fetches the logo of a bank on the household's list from Enable
