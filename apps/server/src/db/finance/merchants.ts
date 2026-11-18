@@ -52,10 +52,14 @@ const NO_BASIS: MerchantBasis = { months: [], series: new Map() };
  * Leaves out the payment of a card bill (core `isCardBill`: category card_bill, money out): it pays purchases made elsewhere
  * and names no merchant. A bill of a connected card is an own transfer and is out already.
  */
-const notCardBillSql = (told: ReturnType<typeof toldSql>): { sql: string; params: typeof told.category.params } => ({
-  sql: ` AND NOT (${told.category.sql} = 'card_bill' AND amount_cents < 0)`,
+const cardBillSql = (told: ReturnType<typeof toldSql>): { sql: string; params: typeof told.category.params } => ({
+  sql: `(${told.category.sql} = 'card_bill' AND amount_cents < 0)`,
   params: told.category.params,
 });
+const notCardBillSql = (told: ReturnType<typeof toldSql>): { sql: string; params: typeof told.category.params } => {
+  const bill = cardBillSql(told);
+  return { sql: ` AND NOT ${bill.sql}`, params: bill.params };
+};
 
 /** One merchant in the category settings. */
 interface MerchantSummary {
@@ -196,13 +200,15 @@ export class MerchantsRepo {
     const told = toldSql(own);
     // the rows of a loan account have no flows: they are no purchase of the merchant, though the list shows them
     const loans = notLoanSql(own);
+    // a card bill is rows of the merchant but no purchase of it: the months and `monthly` leave it out, as Kauppiaat does
+    const bill = cardBillSql(told);
     for (const side of this.list.filterSides({ merchant, own }, accountIds)) {
       // `moved` is the mark the view tells, `held` the one the sums use: they differ for a payment that arrived short
-      const rows = await this.ctx.db.all<{ cat: string; stored: string; m: string; moved: number; held: number; n: number; outc: number | null; first: string; last: string }>(
-        `SELECT ${told.category.sql} AS cat, category AS stored, substr(booking_date, 1, 7) AS m, ${told.moved.sql} != 0 AS moved, ${sums.moved.sql} != 0 AS held, COUNT(*) AS n,
+      const rows = await this.ctx.db.all<{ cat: string; bill: number; stored: string; m: string; moved: number; held: number; n: number; outc: number | null; first: string; last: string }>(
+        `SELECT ${told.category.sql} AS cat, ${bill.sql} AS bill, category AS stored, substr(booking_date, 1, 7) AS m, ${told.moved.sql} != 0 AS moved, ${sums.moved.sql} != 0 AS held, COUNT(*) AS n,
                 -SUM(CASE WHEN amount_cents < 0 THEN ${sums.amount.sql} END) AS outc, MIN(booking_date) AS first, MAX(booking_date) AS last
-         FROM transactions INDEXED BY idx_tx_user_merchant_date WHERE ${side.where.join(" AND ")}${loans.sql} GROUP BY cat, stored, m, moved, held`,
-        [...told.category.params, ...told.moved.params, ...sums.moved.params, ...sums.amount.params, ...side.params, ...loans.params],
+         FROM transactions INDEXED BY idx_tx_user_merchant_date WHERE ${side.where.join(" AND ")}${loans.sql} GROUP BY cat, bill, stored, m, moved, held`,
+        [...told.category.params, ...bill.params, ...told.moved.params, ...sums.moved.params, ...sums.amount.params, ...side.params, ...loans.params],
       );
       for (const r of rows) {
         const n = Number(r.n);
@@ -216,6 +222,7 @@ export class MerchantsRepo {
           transfers += n;
           continue;
         }
+        if (Number(r.bill)) continue;
         outByMonth[r.m] = (outByMonth[r.m] ?? 0) + Number(r.outc ?? 0);
         countByMonth[r.m] = (countByMonth[r.m] ?? 0) + n;
       }
