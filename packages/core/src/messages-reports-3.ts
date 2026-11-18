@@ -5,8 +5,6 @@
  * Generated entries are plain one-line rows so the coverage test can read them.
  */
 export const FI_REPORTS_3 = {
-  "rpt.bl_aria": "Tilien saldo päivittäin, alin päivä ja suuret ostot",
-  "rpt.bl_readout": "Tilien saldo päivittäin. Nuolinäppäimillä siirryt päivästä toiseen.",
   "rpt.db_debt": "Velka",
   "rpt.db_move_up": "jos korko nousee",
   "rpt.db_move_down": "jos korko laskee",
@@ -46,13 +44,7 @@ export const FI_REPORTS_3 = {
   "rpt.category": "Kategoria",
   "rpt.change": "Muutos",
   "rpt.yoy_chart": "Menot kategorioittain {previous} ja {year} samoina kuukausina",
-  "rpt.tm_day": "Päivä",
   "rpt.payee": "Saaja",
-  "rpt.fc_calc_caption": "Kiinteät menot kuussa ja vuodessa",
-  "rpt.fc_datum": "{month} kuussa, {year} vuodessa",
-  "rpt.fc_payment": "Maksu",
-  "rpt.fc_per_month": "Kuussa",
-  "rpt.fc_per_year": "Vuodessa",
   "rpt.fc_prices": "Hinnanmuutokset",
   "rpt.fc_prices_datum": "{amount} vuodessa",
   "rpt.fc_prices_caption": "Hinnanmuutokset ja niiden vuosivaikutus",
@@ -71,9 +63,6 @@ export const FI_REPORTS_3 = {
   "rpt.fc_ended_datum": "{amount} kuussa vapautunut",
   "rpt.fc_ended_caption": "Viime aikoina loppuneet maksut",
   "rpt.fc_last": "Viimeinen maksu",
-  "rpt.fc_income_base": "Tulot kuussa",
-  "rpt.fc_empty": "Toistuvia maksuja ei ole vielä löytynyt.",
-  "rpt.fc_paid": "{name}: maksut 12 kuukauden ajalta",
   "rpt.month": "Kuukausi",
   "rpt.fv_partial": "vajaa",
   "rpt.fv_fixed_share": "Kiinteiden osuus",

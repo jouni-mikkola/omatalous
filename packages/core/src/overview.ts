@@ -2,9 +2,11 @@
  * The figures of Yhteenveto that no other part of the dashboard gives: this month's income and its earned part,
  * the last twelve months of income and spending, and this month's categories against their usual month. Every other part reads a figure of `nyt`, `home`, `ahead` or `holdings` as it is.
  */
-import { addMonths, monthOf } from "./dates.ts";
+import { addMonths, monthEnd, monthIndex, monthOf } from "./dates.ts";
 import { earnedIncome, monthIncome } from "./analysis/usual.ts";
-import type { AnalysisContext } from "./analysis/context.ts";
+import { type AnalysisContext, inDays } from "./analysis/context.ts";
+import { coverOf, totalsOf } from "./analysis/flows.ts";
+import { toDayRange } from "./analysis/period.ts";
 import { DEFAULT_LANGUAGE, type Language } from "./locale.ts";
 import { knownMonths } from "./reports/shared.ts";
 import { spendingMonthsReport } from "./reports/spending-months.ts";
@@ -39,6 +41,15 @@ interface OverviewCategory {
   usualCents: number | null;
 }
 
+/** What the complete months of the chart took above their income and what paid it (`coverOf`, ADR 0014), added up over those months. */
+interface OverviewGap {
+  /** What the spending and the money moved to savings took above the income; above zero. */
+  gapCents: number;
+  creditCents: number;
+  savingsCents: number;
+  accountsCents: number;
+}
+
 export interface Overview {
   /**
    * The running month's income so far (`monthIncome`, the month's Tulot of the income report) and the earned part of it
@@ -52,6 +63,8 @@ export interface Overview {
   usualSpendCents: number | null;
   /** How many complete months `usualSpendCents` is the mean of, which the chart's key names. */
   usualMonths: number;
+  /** The gap the complete months of `months` left between their income and what they took; absent when they took no more than the income or none is complete. */
+  gap?: OverviewGap;
   /**
    * This month's largest `OVERVIEW_CATEGORIES` categories with spending above zero, largest first, and the rest as one
    * sum, as the categories of Raportit count them. `totalCents` is the running month's `spendCents`, Menot of Yhteenveto.
@@ -75,11 +88,16 @@ export function buildOverview(ctx: AnalysisContext, lang: Language = DEFAULT_LAN
     .sort((a, b) => b.values[at]! - a.values[at]! || a.category.localeCompare(b.category))
     .slice(0, OVERVIEW_CATEGORIES)
     .map((c): OverviewCategory => ({ category: c.category, label: c.label, cents: c.values[at]!, usualCents: c.typicalCents }));
+  const complete = spending.months.filter((_, i) => spending.complete[i]);
+  const completeIndexes = new Set(complete.map(monthIndex));
+  const completeFlows = complete.length === 0 ? [] : inDays(ctx, toDayRange({ from: `${complete[0]}-01`, to: monthEnd(complete.at(-1)!) })).filter((x) => completeIndexes.has(x.month)).map((x) => x.flows);
+  const cover = coverOf(totalsOf(completeFlows));
   return {
     income: { cents: monthIncome(ctx, month), earnedCents: earnedIncome(ctx, month) },
     months: spending.months.map((m, i) => ({ month: m, incomeCents: known[i] ? monthIncome(ctx, m) : null, spendCents: spent[i] ?? null, fromSavingsCents: spending.fromSavings[i] ?? null, complete: spending.complete[i]! })),
     usualSpendCents: spending.typicalFlowCents,
     usualMonths: spending.typicalMonths,
+    gap: cover.gapCents > 0 ? { gapCents: cover.gapCents, creditCents: cover.creditCents, savingsCents: cover.savingsCents, accountsCents: cover.accountsCents } : undefined,
     categories: {
       rows: top,
       otherCents: (spending.totals[at] ?? 0) - top.reduce((sum, c) => sum + c.cents, 0),

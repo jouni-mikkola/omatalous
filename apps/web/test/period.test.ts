@@ -39,7 +39,7 @@ describe("periods belong to one page", () => {
     expect(shellPeriodsOf("overview", TODAY)).toEqual([]);
     expect(periodsOf("overview", TODAY)).toHaveLength(2);
     expect(shellPeriodsOf("reports", TODAY)).toEqual(REPORT_PERIODS);
-    expect(shellPeriodsOf("reports", TODAY, "kiinteat")).toEqual([]);
+    expect(shellPeriodsOf("reports", TODAY, "yhteiset")).toEqual([]);
     expect(shellPeriodsOf("reports", TODAY, "menot")).toEqual(REPORT_PERIODS);
     expect(shellPeriodsOf("bills", TODAY)).toEqual([]);
   });

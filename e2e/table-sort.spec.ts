@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 import { join } from "node:path";
 import { unfold } from "./helpers.ts";
 
-// Raportit > Rahankäyttö, Kategoriat: a head sorts by the keyboard, `aria-sort` follows the press and a polite sentence says the order.
-// The table has no search and no chips since Rahankäyttö came (e1296aab9, #412), so the chip and search specs went with
+// Raportit > Menot kategorioittain, Kategoriat: a head sorts by the keyboard, `aria-sort` follows the press and a polite sentence says the order.
+// The table has no search and no chips since the report came (e1296aab9, #412), so the chip and search specs went with
 // them; Tapahtumat still has the search and its CSV (the last spec).
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 

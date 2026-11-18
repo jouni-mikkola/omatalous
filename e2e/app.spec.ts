@@ -188,13 +188,7 @@ test("a period belongs to one page: Yhteenveto has no period, Raportit five, and
   // an address a page does not offer a period for opens the page's own default
   await page.goto("/#/reports?period=nonsense");
   await expect(pressed).toHaveText("12 kk");
-  // a page whose figures do not depend on the period draws no switch
-  // (Velat is another, and is not listed on the demo, which has no saved loan)
-  for (const q of ["kiinteat"]) {
-    await page.goto(`/#/reports?q=${q}`);
-    await expect(page.getByRole("heading", { level: 2 }).first()).toBeVisible();
-    await expect(toolbar, q).toHaveCount(0);
-  }
+  // (Yhteiset menot has no switch either, and is not listed on the demo, which has no joint account)
   await page.goto("/#/reports?q=menot");
   await expect(toolbar).toHaveCount(1);
   expect(seen.problems).toEqual([]);
@@ -528,11 +522,10 @@ test("Toistuvat is Laskut: the old address opens the new page, and Yhteenveto li
   await expect(page.locator("#tulossa .bills-year")).toContainText("Seuraavat 12 kk");
   await expect(page.locator("#laskut-taulukko").getByRole("link", { name: "Kiinteät menot", exact: true })).toHaveCount(0);
   for (const gone of ["Seuraavaksi erääntyy", "Tilaukset", "Sopimukset ja laskut", "Harvoin tulevat laskut", "Tulevat laskut", "Hinnanmuutokset"]) await expect(page.getByRole("heading", { name: gone, exact: true })).toHaveCount(0);
+  // the old address of Raportit > Kiinteät menot opens Laskut
   await page.goto("/#/reports?q=kiinteat");
-  // the report holds the one fixed-costs table; the sections of fixed and variable costs and of price changes are gone (T60)
-  await expect(page.locator("#kiinteat-menot").getByRole("heading", { name: "Kiinteät menot" }).first()).toBeVisible();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/bills");
   await expect(page.getByRole("heading", { name: "Kiinteät ja muuttuvat" })).toHaveCount(0);
-  await expect(page.locator("#kiinteat-hinnat")).toHaveCount(0);
 
   // Nyt sends on to Laskut
   await page.goto("/#/overview");

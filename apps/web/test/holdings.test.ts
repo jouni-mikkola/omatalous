@@ -477,5 +477,17 @@ describe("Holdings", () => {
       expect(undated(markup)).toContain("Luottoa jäljellä 3 000,00 € Seuraava lasku 25.10. 450,00 €");
       expect(markup.match(/Seuraava lasku/g)).toHaveLength(1);
     });
+
+    it("leaves out the heading with a null title and the loans and the debts total when the page lists the loans itself", () => {
+      const h = answer({ accounts: [account("a", "Käyttötili", 100_000)], accountsCents: 100_000, cards: [card({ usedCents: 50_000, freeCents: 250_000, overCents: 0 })], cardsCents: 50_000, loans: [loan()], loansCents: 12_000_000, debtCents: 12_050_000, netCents: -11_950_000 });
+      const markup = renderToStaticMarkup(createElement(Holdings, { holdings: h, meta, title: null, loansListed: true }));
+      expect(headings(markup, "h2")).toEqual([]);
+      expect(markup).toContain('aria-label="Varat ja velat"');
+      expect(headings(markup, "h3")).toEqual(["Tilit", "Luottokortit"]);
+      expect(text(markup)).not.toMatch(/Lainaa jäljellä|Lainat yhteensä|Velat yhteensä/);
+      // the same answer on Yhteenveto keeps the loans and their total
+      expect(headings(html(h), "h3")).toEqual(["Tilit", "Lainat", "Luottokortit"]);
+      expect(text(html(h))).toContain("Velat yhteensä 120 500,00 €");
+    });
   });
 });

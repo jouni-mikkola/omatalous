@@ -42,6 +42,14 @@ describe("redirectRoute", () => {
     expect(redirectRoute(route("reports", "", "kuukaudet"))).toBeNull();
   });
 
+  it("Kiinteät menot of Raportit opens Laskut and Velat opens Varat ja velat", () => {
+    expect(landing("reports", "q=kiinteat")).toBe("#/bills");
+    expect(landing("reports", "q=kiinteat&period=6m&scope=household")).toBe("#/bills?scope=household");
+    expect(landing("reports", "q=velat&period=6m")).toBe("#/reports?q=saldot&period=6m");
+    expect(hashOf(redirectRoute(route("reports", "q=velat", "lainat"))!)).toBe("#/reports?q=saldot#lainat");
+    expect(redirectRoute(route("reports", "q=saldot"))).toBeNull();
+  });
+
   it("keeps the anchor of the address", () => {
     expect(hashOf(redirectRoute(route("overview", "period=6m", "kuukaudet"))!)).toBe("#/reports?period=6m#kuukaudet");
   });

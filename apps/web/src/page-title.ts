@@ -4,17 +4,15 @@ import { t } from "./text.ts";
 
 /** The names of the question pages of Raportit (the pages' own `title`s), here so the shell does not load the pages to name one. */
 const QUESTION_NAME = {
-  menot: "rpt.page_spending",
   tulot: "rpt.page_income",
-  kiinteat: "rpt.page_fixedcosts",
-  velat: "rpt.page_debts",
+  menot: "rpt.page_spending",
   saldot: "rpt.page_balances",
   yhteiset: "rpt.page_shared",
 } as const satisfies Record<QuestionId, MessageCode>;
 
 /**
  * The name of the open page for the tab title and the heading. Raportit and Asetukset name the tab or section that is
- * open ("Raportit: Rahankäyttö"), so a title tells two open tabs of the same page apart.
+ * open ("Raportit: Menot kategorioittain"), so a title tells two open tabs of the same page apart.
  */
 export function pageTitle(pageName: string | undefined, page: string, question: string | null, settingsTarget: string | undefined): string | undefined {
   if (!pageName) return pageName;

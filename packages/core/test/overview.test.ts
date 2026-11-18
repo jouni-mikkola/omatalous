@@ -70,6 +70,31 @@ describe("the tiles' figures", () => {
     });
   });
 
+  describe("the gap of the complete months", () => {
+    const pay = { merchant: "Acme Oy", counterparty: "Acme Oy", category: "salary", categorySource: "rule" as const };
+    const food = { merchant: "Kauppa", category: "groceries", categorySource: "rule" as const };
+    /** July, August and September of 2025 with a row every day: 10 000 on the odd days and 12 000 on the even ones, and the pay on the 1st. */
+    const overviewOf = (payCents: number) => {
+      const rows: ReturnType<typeof tx>[] = [];
+      for (const [month, days] of [["2025-07", 31], ["2025-08", 31], ["2025-09", 30]] as const) {
+        rows.push(tx({ ...pay, bookingDate: `${month}-01`, amountCents: payCents }));
+        for (let day = 1; day <= days; day++) rows.push(tx({ ...food, bookingDate: `${month}-${String(day).padStart(2, "0")}`, amountCents: day % 2 === 1 ? -10_000 : -12_000 }));
+      }
+      return buildOverview(createContext(rows, [{ id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" }], ON));
+    };
+
+    it("is the spending of the three months above their income, all of it from the accounts when nothing was borrowed or drawn from savings", () => {
+      const overview = overviewOf(300_000);
+      expect(overview.months.filter((m) => m.complete).map((m) => m.month)).toEqual(["2025-07", "2025-08", "2025-09"]);
+      // spending 340 000 + 340 000 + 330 000 = 1 010 000 against income 3 × 300 000 = 900 000
+      expect(overview.gap).toEqual({ gapCents: 110_000, creditCents: 0, savingsCents: 0, accountsCents: 110_000 });
+    });
+
+    it("is absent when the income covers the spending", () => {
+      expect(overviewOf(400_000).gap).toBeUndefined();
+    });
+  });
+
   it("the running month's bars are the Menot and Tulot tiles' figures, and the months are twelve at most, oldest first", () => {
     const problems: string[] = [];
     for (let seed = 1; seed <= 8; seed++) {

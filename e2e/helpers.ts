@@ -193,7 +193,7 @@ export async function openCategoryPicker(page: Page, merchant: string, now: stri
   await page.getByRole("menuitem", { name: `Kategoria: ${merchant}, nyt ${now}` }).click();
 }
 
-/** Rahankäyttö folds its sections under their names: opens the ones with these ids that the page has. */
+/** Menot kategorioittain folds its sections under their names: opens the ones with these ids that the page has. */
 export async function unfold(page: Page, ...ids: string[]): Promise<void> {
   // the categories are always there: once they show, the page has loaded and a section that is not there is not coming
   await expect(page.locator("details#kategoriat")).toBeVisible({ timeout: 20_000 });

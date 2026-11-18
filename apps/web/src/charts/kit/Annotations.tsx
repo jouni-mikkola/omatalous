@@ -2,7 +2,7 @@ import { crisp } from "../draw.ts";
 import { type PlacedMarker, referenceY } from "./annotate.ts";
 
 /** The height of one lane of event labels under the plot. */
-export const LANE_H = 14;
+const LANE_H = 14;
 
 /**
  * Event markers of a time axis (`placeMarkers`): a solid rule through the plot (dashed means an estimate) and the label in its lane under the

@@ -17,8 +17,6 @@ const ROUTES = [
   "/#/reports?q=tulot",
   "/#/reports?q=menot",
   "/#/reports?q=saldot",
-  "/#/reports?q=kiinteat",
-  "/#/reports?q=velat",
   "/#/review",
   "/#/settings/banks",
   "/#/settings/household",

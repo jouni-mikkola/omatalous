@@ -1,6 +1,6 @@
 /**
  * Raportit: one question page of `reports/pages/`, the first with something to show for a bare address. It stands in the frame
- * (`reports/Frame.tsx`) beside the three questions of `question-groups.ts`, each with the reports that refine it. The address names the question (`?q=menot`), the comparison (`compare=previous`) and the
+ * (`reports/Frame.tsx`) beside the list of the four reports. The address names the question (`?q=menot`), the comparison (`compare=previous`) and the
  * period (`period=12m`). An anchor in an old address (`#kuukaudet`) opens the page that holds that section.
  */
 import { t } from "../../text.ts";
@@ -13,7 +13,6 @@ import { useApi } from "../../hooks.ts";
 import type { Meta, ReportsData, Scope } from "../../types.ts";
 import { reportContext } from "./context.ts";
 import { Frame } from "./Frame.tsx";
-import { listedQuestions } from "./question-groups.ts";
 import { REPORT_PAGES, reportPage, reportsOfPage, visiblePageSections } from "./registry.ts";
 import type { ReportContext, ReportRange } from "./types.ts";
 import { FoldContext } from "../../components/Section.tsx";
@@ -86,7 +85,7 @@ export function More({ meta, range, scope, params, anchor, onQuestion }: Reports
 
   return (
     <div className={loading ? "loading" : undefined}>
-      <Frame current={page.id} title={page.title} questions={listedQuestions(questions)} params={open}>
+      <Frame current={page.id} title={page.title} pages={questions.map(reportPage)} params={open}>
         {sections.map((s) =>
           page.fold ? (
             <FoldContext.Provider key={s.id} value={{ open: !!s.open || s.id === anchor }}>

@@ -90,7 +90,7 @@ async function open(browser: Browser, width: number): Promise<{ page: Page; seen
   const context = await browser.newContext({ storageState: MEMBER, viewport: { width, height: 844 } });
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/reports?q=velat");
+  await page.goto("/#/reports?q=saldot");
   await expect(page.locator("#lainat").getByRole("heading", { name: "Lainat" })).toBeVisible();
   return { page, seen, context };
 }
@@ -171,22 +171,17 @@ test("the loan figures are plain text, with no button to open a calculation", as
   await context.close();
 });
 
-// The charts of Tulot and Kiinteät menot (cash flow, saving rate, income level, share of the fixed costs) went with the
-// extra report sections (6fbd30df7, T60); the balance chart under its question stays.
-test("Raportit draws the balance chart under its question, and none of the paragraphs the figures replaced", async ({ browser }) => {
+// The charts of Tulot (cash flow, saving rate, income level) went with the extra report sections (6fbd30df7, T60).
+test("Raportit has none of the paragraphs the figures replaced, and its balances stand under Varat ja velat", async ({ browser }) => {
   const { page, seen, context } = await open(browser, 1280);
   await page.goto("/#/reports?q=tulot");
   // the sentences that said what the fixed costs take of the income and what the cash covers, and the line under Tulolajit
   await expect(page.locator("#tulot").getByRole("heading", { name: "Tulolajit", exact: true })).toBeVisible();
   await expect(page.getByText(/vievät \d+ % tuloista|Se kattaa|Puskurin pituus|Lisää tilien saldot|Kuukaudessa keskimäärin/)).toHaveCount(0);
-  await page.goto("/#/reports?q=kiinteat");
-  await expect(page.locator("#kiinteat-menot").getByRole("heading", { name: "Kiinteät menot" }).first()).toBeVisible();
-  await page.goto("/#/reports?q=tulot");
-  await expect(page.locator("#tulot").getByRole("heading", { name: "Tulolajit", exact: true })).toBeVisible();
-  // Saldot: the balance by day under its question, with no legend
+  // Varat ja velat: the balances by month under their question, no chart of them and no legend
   await page.goto("/#/reports?q=saldot");
   await expect(page.locator("#saldot").getByRole("heading", { name: "Saldojen kehitys" })).toBeVisible();
-  await expect(page.locator("#saldot [role='img']").first()).toHaveAttribute("aria-label", "Tilien saldo päivittäin, alin päivä ja suuret ostot");
+  await expect(page.locator("#saldot [role='img']")).toHaveCount(0);
   await expect(page.locator("#saldot .legend")).toHaveCount(0);
   expect(seen.problems).toEqual([]);
   await context.close();

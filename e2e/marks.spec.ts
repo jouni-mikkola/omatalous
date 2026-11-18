@@ -1,7 +1,7 @@
 import { type Browser, type BrowserContext, expect, test } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { overflow, plain, watch } from "./helpers.ts";
+import { overflow, watch } from "./helpers.ts";
 
 // A mark belongs to one subscription: a merchant with two of them has a row and a mark for each. The demo household
 // has two from one merchant on its card, Apple at 12,99 and at 0,99 a month. The rows are the demo data of a household
@@ -54,13 +54,10 @@ test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi t
       const head = subs.getByRole("button", { name: /^Päättyneet/ });
       if ((await head.getAttribute("aria-expanded")) === "false") await head.click();
     };
-    // the month's fixed costs are the figure of Raportit > Kiinteät menot, read from that page in whole euros as it prints them
-    const report = await context.newPage();
+    // the month's fixed costs are the dashboard's figure, in whole euros
     const total = async () => {
-      await report.goto("/#/reports?q=kiinteat");
-      await report.reload();
-      const datum = await report.locator("#kiinteat-menot .card-datum").first().innerText();
-      return Number(plain(datum).split(" kuussa")[0]!.replace(/\D/g, ""));
+      const dashboard = (await (await context.request.get("/api/dashboard")).json()) as { fixedMonthlyCents: number };
+      return Math.round(dashboard.fixedMonthlyCents / 100);
     };
     await expect(drill("0,99")).toBeVisible();
     await expect(drill("12,99")).toBeVisible();
