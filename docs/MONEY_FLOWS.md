@@ -85,7 +85,9 @@ euros shown add up. The cash flow report's row of the month has the same Tulos
 
 `debtSplit` in `analysis/debt-split.ts` tells the debt service of a range (`PeriodTotals.debtCents`) in three sums that add
 up to it to the cent: interest and fees (*Korot ja luottokulut*), repayments (*Lyhennykset*) and what no evidence splits
-(*Velanhoito, erittelemättä*). Each debt row counts once, in one of them. The evidence, in order: the interest rows the
+(*Velanhoito, erittelemättä*). Each debt row counts once, in one of them. The evidence, in order: the payment parts a
+loan document stated (the payment of a part's due date, within `LOAN_ROW_DAYS`, when the parts add up to the row within
+the tolerance; the interest and the fee are the document's cents and the rest repays); the interest rows the
 connected loan account booked on the day of the payment (not when the payer's account has a row of interest of its own
 that day); the plan of a saved loan whose payment series holds the row,
 within `LOAN_ROW_DAYS` of a due date and the tolerance of the payment the plan expects (the known fee is a cost, the rest

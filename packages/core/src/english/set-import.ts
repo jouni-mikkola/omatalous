@@ -13,6 +13,7 @@ export const EN_SET_IMPORT: Record<keyof typeof FI_SET_IMPORT, string> = {
   "set.imp.account_use": "Account use",
   "set.imp.parts_of_transactions": "Parts of transactions",
   "set.imp.loans": "Loans",
+  "set.imp.loan_payment_parts": "Parts of loan payments",
   "set.imp.expected_bills": "Expected bills",
   "set.imp.monthly_spending_goal": "Monthly spending goal",
   "set.imp.category_spending_goals": "Category spending goals",

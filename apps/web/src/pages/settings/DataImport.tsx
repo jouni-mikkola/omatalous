@@ -34,6 +34,7 @@ const STORE_LABELS: Record<string, string> = labelTable({
   accountUse: () => t("set.imp.account_use"),
   parts: () => t("set.imp.parts_of_transactions"),
   loans: () => t("set.imp.loans"),
+  loanPaymentParts: () => t("set.imp.loan_payment_parts"),
   expectedBills: () => t("set.imp.expected_bills"),
   spendingGoals: () => t("set.imp.monthly_spending_goal"),
   categoryGoals: () => t("set.imp.category_spending_goals"),
