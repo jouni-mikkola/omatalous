@@ -72,8 +72,10 @@ describe("the question of a loan whose payments cannot be placed", () => {
 
   it("is set aside with a mark that only dismisses, and stays away for that loan alone", async () => {
     const t = await setupApp();
-    const id = await save(t.admin, BASE);
-    const other = await save(t.admin, { ...BASE, name: "Toinen laina" });
+    // the loans lack only their interval: a rate or a payment would keep asking (the next test)
+    const NO_INTERVAL = { ...BASE, repayment: "annuity", paymentCents: 90_000, rateBp: 350 };
+    const id = await save(t.admin, NO_INTERVAL);
+    const other = await save(t.admin, { ...NO_INTERVAL, name: "Toinen laina" });
     expect((await t.admin.call("PUT", "/api/marks", { subject: loanTermsSubject(id), mark: "in_use" })).status).toBe(400);
     expect((await t.admin.call("PUT", "/api/marks", { subject: loanTermsSubject(id), mark: "dismissed" })).status).toBe(200);
     expect((await queue(t.admin)).map((i) => i.loanId)).toEqual([other]);

@@ -67,13 +67,13 @@ describe("Holdings", () => {
     const rows = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }, { name: "Esimerkkikauppa", monthlyCents: 20_000, card: true }];
     const unsavedLoans = { count: 2, names: [], paymentCents: 30_000, rows };
 
-    it("is named Varat korttivelan jälkeen when only loans nobody saved are left out, and each of those debts is a row with its monthly sum and a missing balance, with no link", () => {
+    it("is named Varat korttivelan jälkeen when only loans nobody saved are left out, and each of those debts is a row with its monthly sum and a missing balance that links to the list of debts in Tarkistettavat", () => {
       const unsaved = html(answer({ ...base, netCents: 100_000, unsavedLoans }));
       expect(undated(unsaved)).toContain("Varat ja velat Varat korttivelan jälkeen 1 000 €");
       const debts = unsaved.slice(unsaved.indexOf('class="st-rows holding-foot"'));
       expect(text(debts)).toContain("Esimerkkirahoitus 100,00 €/kk · saldo puuttuu");
       expect(text(debts)).toContain("Esimerkkikauppa · Luottokortti 200,00 €/kk · saldo puuttuu");
-      expect(debts).not.toMatch(/<a[ >]/);
+      expect(links(debts)).toEqual(["#/review?item=loan-terms", "#/review?item=loan-terms"]);
       expect(links(unsaved)).not.toContain("#/settings/household#lainat");
     });
 
