@@ -139,7 +139,6 @@ export const EN_REPORTS_2: Record<keyof typeof FI_REPORTS_2, string> = {
   "rpt.fd_total": "Total",
   "rpt.fd_visits_month": "Visits a month",
   "rpt.fd_n_times": "{n} times",
-  "rpt.fd_avg_basket": "Average basket",
   "rpt.fd_datum": "Food {amount} a month",
   "rpt.fd_q_basket": "Visits or basket size",
   "rpt.fd_basket_caption": "Food shop visits and basket",

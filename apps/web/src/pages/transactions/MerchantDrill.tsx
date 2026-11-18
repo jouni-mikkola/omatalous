@@ -3,6 +3,7 @@
  * total. Decision: is this payee a habit worth a look, and is this row like its others. The months, their counts and
  * means are server fields (`/api/merchants/summary`); the web scales the bars and adds nothing up.
  */
+import { getCategory } from "@banking/core";
 import { query } from "../../api.ts";
 import { Figure } from "../../components/Figure.tsx";
 import { CADENCE_LABEL, date, money, monthLabel } from "../../format.ts";
@@ -33,7 +34,12 @@ export function phoneMonthLabels(count: number, peak: number): boolean[] {
   return Array.from({ length: count }, (_, i) => i === peak || ((count - 1 - i) % 3 === 0 && (peak < 0 || Math.abs(i - peak) > 1)));
 }
 
-export function MerchantDrill({ merchant, scope }: { merchant: string; scope: Scope }) {
+/** A mean over bills, transfers or a repeating payment is no basket: it is named the average of what was paid. */
+export function meanLabel(category: string, repeats: boolean): "tx.mean" | "tx.mean_plain" {
+  return getCategory(category).kind === "expense" && !repeats ? "tx.mean" : "tx.mean_plain";
+}
+
+export function MerchantDrill({ merchant, category, scope }: { merchant: string; category: string; scope: Scope }) {
   const { data, loading } = useApi<{ summary: Summary | null }>(`/api/merchants/summary${query({ merchant, scope })}`);
   const s = data?.summary;
   if (loading && !s) return <div className="tx-drill-body tx-drill-wait" aria-busy="true" />;
@@ -57,7 +63,7 @@ export function MerchantDrill({ merchant, scope }: { merchant: string; scope: Sc
           </dd>
         </div>
         <div>
-          <dt>{t("tx.mean")}</dt>
+          <dt>{t(meanLabel(category, !!s.recurring))}</dt>
           <dd>{s.year.meanCents === null ? "–" : <Figure text={money(s.year.meanCents, false)} size="s" />}</dd>
         </div>
         {s.recurring?.active && (

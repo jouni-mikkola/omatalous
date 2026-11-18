@@ -73,6 +73,7 @@ export const EN_TRANSACTIONS: Record<keyof typeof FI_TRANSACTIONS, string> = {
   "tx.drill_missing": "The merchant's monthly figures are missing.",
   "tx.12_months": "12 months",
   "tx.mean": "Average purchase",
+  "tx.mean_plain": "Average",
   "tx.next_comma": ", next {date}",
   "tx.drill_caption": "{merchant}: paid monthly, most {max}",
   "tx.drill_bar": "{month}: {amount}, {events}",
@@ -93,6 +94,7 @@ export const EN_TRANSACTIONS: Record<keyof typeof FI_TRANSACTIONS, string> = {
   "tx.difference": "Difference",
   "tx.saved": "Moved to savings",
   "tx.savings_drawn": "Taken out of savings",
+  "tx.result": "Result",
   "tx.updating": "The sums are updating",
   // Categories
   "category.housing": "Rent and maintenance charge",

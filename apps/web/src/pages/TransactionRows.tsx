@@ -253,7 +253,7 @@ function Detail({ t, categories, pending, onCategory, onStatement, explained, no
         )}
       </div>
       <ExtensionRowParts row={t} />
-      <MerchantDrill merchant={t.merchant} scope={scope} />
+      <MerchantDrill merchant={t.merchant} category={t.category} scope={scope} />
     </div>
   );
 }

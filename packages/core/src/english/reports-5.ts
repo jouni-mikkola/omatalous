@@ -142,6 +142,7 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.sm_last": "Against the average, {month}",
   "rpt.sm_months": "Spending by month",
   "rpt.sm_from_savings": "Paid from savings",
+  "rpt.sm_sum_with_savings": "Paid in total",
   "rpt.sm_statement_part": "Read from the card statement",
   "rpt.sm_running": "{month}, in progress",
   "rpt.sm_short": "{month}, partial",

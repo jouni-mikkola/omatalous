@@ -32,6 +32,27 @@ const totals = {
 
 const readout = () => document.querySelector(".tx-hist-readout")!.textContent;
 
+describe("the figures of the strip", () => {
+  const terms = () => [...document.querySelectorAll(".tx-totals-kv > div")].map((d) => [d.querySelector("dt")!.textContent, d.querySelector("dd")!.textContent]);
+  const strip = (extra: object) => render(createElement(TotalsStrip, { totals: { ...totals, ...extra }, income: false, today: "2026-10-13", onPick: () => {} }));
+
+  it("names what was taken out of savings and shows its amount with no sign, then Tulos", () => {
+    strip({ savedCents: -200_00, leftCents: 1030_00 });
+    expect(terms().map(([word]) => word)).toEqual(["Menot", "Tulot", "Erotus", "Otettu säästöistä", "Tulos"]);
+    expect(terms()[3]![1]).toMatch(/^200\s€$/);
+    expect(terms()[3]![1]).not.toMatch(/[-−+]/);
+    expect(terms()[4]![1]).toMatch(/^\+1\s030\s€$/);
+  });
+
+  it("shows the amount moved to savings with no sign, and leaves Tulos out when it is the Erotus", () => {
+    strip({ savedCents: 300_00, leftCents: 530_00 });
+    expect(terms()[3]).toEqual(["Säästöön siirretty", expect.stringMatching(/^300\s€$/)]);
+    cleanup();
+    strip({ savedCents: 0, leftCents: 830_00 });
+    expect(terms().map(([word]) => word)).toEqual(["Menot", "Tulot", "Erotus"]);
+  });
+});
+
 describe("the histogram's direction switch", () => {
   it("starts on money out and names its highest bar", () => {
     render(createElement(TotalsStrip, { totals, income: false, today: "2026-10-13", onPick: () => {} }));

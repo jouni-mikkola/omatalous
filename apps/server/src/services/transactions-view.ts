@@ -80,7 +80,7 @@ export async function transactionsView(s: Services, userId: string, q: Transacti
     const { incomeCents, expenseCents, savedCents } = totalsOf(flowsOfDay.get(date) ?? []);
     return { date, count: countOfDay.get(date) ?? 0, inCents: incomeCents, outCents: expenseCents, savedCents };
   });
-  const { incomeCents: inCents, expenseCents: outCents, savedCents } = totalsOf(counted.map((t) => t.flows));
+  const { incomeCents: inCents, expenseCents: outCents, savedCents, leftCents } = totalsOf(counted.map((t) => t.flows));
   const items = stored.map((t) => ({ ...t, ...own.told.get(t.id) }));
   // which company and industry an "industry" category came from, shown on hover; a shared row's category came from its
   // owner's lookups, so the owners' requests count too. The extensions' fields and the viewer's own rule a row's category
@@ -104,6 +104,7 @@ export async function transactionsView(s: Services, userId: string, q: Transacti
     // what the rows move onto savings accounts or into savings categories (negative: taken out); Tulos is netCents less this
     // (and plus the credit the rows draw, which no row of an ordinary month holds)
     savedCents: updating ? null : savedCents,
+    leftCents: updating ? null : leftCents,
     span,
     // the totals strip's histogram and each listed day's whole sums
     histogram: span && !updating ? moneyBins(days, histogramFrom(span), span.to) : null,

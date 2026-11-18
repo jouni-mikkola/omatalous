@@ -43,6 +43,7 @@ export const FI_OVERVIEW = {
   // Nyt: the sum left before payday, what it is a day, the month's pace and the two figures the sum is made of
   "home.tile_left": "Käytettävissä palkkapäivään",
   "home.tile_left_line": "{sum} päivässä, palkkapäivä {date}",
+  "home.tile_left_short": "puuttuu {sum} ennen palkkapäivää",
   "home.tile_left_today": "Palkkapäivä tänään",
   "home.tile_late": "Palkkasi on myöhässä",
   "home.tile_no_balance": "Käyttötilin saldo puuttuu",
@@ -95,6 +96,7 @@ export const FI_OVERVIEW = {
   "home.low_cards": "Kortin ostot eivät näy historiassa",
   "home.buffer": "Puskuri {months} kk",
   "home.buffer_label": "Puskuri",
+  "home.buffer_none": "Ei puskuria",
   "home.buffer_no_balance": "Ei saldoa",
   "home.buffer_history": "Liian lyhyt historia",
   "home.buffer_no_spending": "Ei menoja",

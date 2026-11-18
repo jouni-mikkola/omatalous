@@ -44,6 +44,8 @@ interface UseRow {
   key: string;
   userId: string | null;
   weight: number;
+  /** When the statement was made: an ISO instant. */
+  saidAt: string;
 }
 
 /** An account as the derivation of a use reads it: who linked it, which real account it is, and the bank's line of holders. */
@@ -181,8 +183,8 @@ export class HouseholdRepo {
   async useRows(keys: readonly string[]): Promise<UseRow[]> {
     if (!keys.length) return [];
     const marks = keys.map(() => "?").join(",");
-    return (await this.db.all<Row>(`SELECT account_key, user_id, weight FROM account_use WHERE account_key IN (${marks}) ORDER BY account_key, user_id IS NULL, user_id`, [...keys])).map(
-      (r) => ({ key: String(r.account_key), userId: str(r.user_id), weight: Number(r.weight) }),
+    return (await this.db.all<Row>(`SELECT account_key, user_id, weight, said_at FROM account_use WHERE account_key IN (${marks}) ORDER BY account_key, user_id IS NULL, user_id`, [...keys])).map(
+      (r) => ({ key: String(r.account_key), userId: str(r.user_id), weight: Number(r.weight), saidAt: String(r.said_at) }),
     );
   }
 

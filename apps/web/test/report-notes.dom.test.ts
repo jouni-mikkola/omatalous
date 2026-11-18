@@ -102,10 +102,11 @@ describe("Menot kategorioittain: the column of debt paid from savings", () => {
   });
 
   it("is present when one month is not 0", () => {
-    expect(monthHeaders([0, 0, 0, 0, 0, 46000])).toEqual(["Kuukausi", "Summa", "Säästöistä maksettu"]);
+    // the sum holds the debt paid from savings, so it is not named like the first page's Menot, which leave it out
+    expect(monthHeaders([0, 0, 0, 0, 0, 46000])).toEqual(["Kuukausi", "Maksettu yhteensä", "Säästöistä maksettu"]);
   });
 
   it("is present when months of both signs add up to 0", () => {
-    expect(monthHeaders([0, 0, 0, 0, 50000, -50000])).toEqual(["Kuukausi", "Summa", "Säästöistä maksettu"]);
+    expect(monthHeaders([0, 0, 0, 0, 50000, -50000])).toEqual(["Kuukausi", "Maksettu yhteensä", "Säästöistä maksettu"]);
   });
 });
