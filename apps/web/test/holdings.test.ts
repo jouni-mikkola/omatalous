@@ -17,9 +17,9 @@ const card = (over: Partial<Answer["cards"][number]> = {}): Answer["cards"][numb
   id: "k1", name: "Esimerkkikortti", bank: null, ownerName: null, mask: null, limitCents: 300_000, usedCents: 0, freeCents: 300_000, overCents: 0, balanceAt: "2026-10-12", ...over,
 });
 const loan = (over: Partial<Answer["loans"][number]> = {}): Answer["loans"][number] => ({
-  id: "l1", name: "Kodin laina", lender: "Esimerkkirahoitus Oy", kind: "mortgage", ownerName: null, leftCents: 12_000_000, monthlyPaymentCents: 100_000, source: "typed", maybeTwice: false, paidOff: false, ...over,
+  id: "l1", name: "Kodin laina", lender: "Esimerkkirahoitus Oy", kind: "mortgage", ownerName: null, leftCents: 12_000_000, monthlyPaymentCents: 100_000, endDate: "2041-03-15", interest12Cents: 400_000, source: "typed", maybeTwice: false, paidOff: false, ...over,
 });
-const answer = (over: Partial<Answer> = {}): Answer => ({ accounts: [], accountsCents: null, typeCents: { checking: null, savings: null, other: null }, accountsAddUp: false, accountShares: null, netCents: null, cards: [], cardsCents: null, loans: [], loansCents: null, debtCents: 0, ...over });
+const answer = (over: Partial<Answer> = {}): Answer => ({ accounts: [], accountsCents: null, typeCents: { checking: null, savings: null, other: null }, accountsAddUp: false, accountShares: null, netCents: null, cards: [], cardsCents: null, loans: [], loansCents: null, loansEndDate: null, debtCents: 0, ...over });
 const html = (h: Answer) => renderToStaticMarkup(createElement(Holdings, { holdings: h, meta }));
 // the euro sign and the spaces of a figure come from Intl: compare the digits
 const text = (markup: string) => markup.replace(/<\/span><span class="fig-(?:dec|unit)">/g, "").replace(/<[^>]+>/g, " ").replace(/[\s ]+/g, " ");
@@ -196,8 +196,15 @@ describe("Holdings", () => {
       const total = (over: Partial<Answer>) => text(html(answer({ loans: [loan(), loan({ id: "l2", leftCents: null })], debtCents: 0, ...over })));
       // the sum is core's, so a loan without a balance changes nothing here
       expect(total({ loansCents: 12_000_000 })).toContain("Lainaa jäljellä – Kuukausierä 1 000,00 € Lainat yhteensä 120 000,00 €");
-      expect(html(answer({ loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000 }))).toMatch(/Lainat yhteensä<\/dt><dd class="st-num"><span class="fig fig-m">(?:<span class="fig-(?:int|dec|unit)">[^<]*<\/span>)+<\/span><\/dd><\/div><\/dl><\/section>/);
+      expect(html(answer({ loans: [loan()], loansCents: 12_000_000, loansEndDate: "2041-03-15", debtCents: 12_000_000 }))).toMatch(/Lainat yhteensä<\/dt><dd class="st-num"><span class="fig fig-m">(?:<span class="fig-(?:int|dec|unit)">[^<]*<\/span>)+<\/span><\/dd><dd class="st-sub">[^<]*<\/dd><\/div><\/dl><\/section>/);
       expect(total({ loansCents: null })).not.toContain("yhteensä");
+    });
+
+    it("names the month of the last payment under the total, and says when core has no end for the loans", () => {
+      const owing = { loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000 };
+      expect(text(html(answer({ ...owing, loansEndDate: "2041-03-15" })))).toContain("Lainat yhteensä 120 000,00 € Viimeinen maksu 3/2041");
+      expect(text(html(answer({ ...owing, loansEndDate: "2029-11-30" })))).toContain("Viimeinen maksu 11/2029");
+      expect(text(html(answer(owing)))).toContain("Lainat yhteensä 120 000,00 € Viimeinen maksu ei tiedossa");
     });
 
     it("has no total row for a household that owes nothing", () => {

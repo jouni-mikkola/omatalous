@@ -9,7 +9,7 @@ import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { buildHousing } from "../src/housing.ts";
 import { buildHoldings, cardLimitCents } from "../src/holdings.ts";
-import { loanBalanceOn } from "../src/loans.ts";
+import { debtTotalOn, loanBalanceOn } from "../src/loans.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import { balanceReport } from "../src/reports/balances.ts";
 import { loansReport } from "../src/reports/loans.ts";
@@ -154,9 +154,58 @@ describe("holdings of the balance report", () => {
     const typed = loan({ id: "study", name: "Opintolaina", lender: "ESIMERKKIRAHOITUS OY", balanceCents: 1_000_000, balanceDate: "2026-06-01", repayment: "fixed_instalment", intervalMonths: 1, paymentCents: 50_000, rateBp: 0 });
     const { holdings } = household([], [typed]);
     expect(holdings.loans).toEqual([
-      { id: "study", name: "Opintolaina", lender: "ESIMERKKIRAHOITUS OY", kind: "consumer", ownerName: null, leftCents: loanBalanceOn(typed, today).cents, monthlyPaymentCents: 50_000, source: "typed", paidOff: false, maybeTwice: false },
+      { id: "study", name: "Opintolaina", lender: "ESIMERKKIRAHOITUS OY", kind: "consumer", ownerName: null, leftCents: loanBalanceOn(typed, today).cents, monthlyPaymentCents: 50_000, endDate: "2028-02-01", interest12Cents: 0, source: "typed", paidOff: false, maybeTwice: false },
     ]);
     expect(holdings.loans[0]!.leftCents).toBeLessThan(typed.balanceCents);
+    expect(holdings.loansEndDate).toBe("2028-02-01");
+  });
+
+  describe("the end and the interest of the loans", () => {
+    // 5 000,00 € at 6 %, 100,00 € a month, the rest due 5.1.2027: 25,00, 24,63 and 24,25 of interest in the three payments
+    const car = loan({ id: "car", name: "Autolaina", kind: "car", balanceCents: 500_000, balanceDate: "2026-10-12", rateBp: 600, repayment: "annuity", intervalMonths: 1, paymentCents: 10_000, endDate: "2027-01-05" });
+    // 10 000,00 € at 5 %, all due 30.6.2027: 261 of the 365 days of the year ahead are owed, 500,00 × 261 / 365 = 357,53
+    const bullet = loan({ id: "bullet", name: "Kertalaina", balanceCents: 1_000_000, balanceDate: "2026-10-12", rateBp: 500, repayment: "bullet", endDate: "2027-06-30" });
+    const day = "2026-10-12";
+
+    it("gives each loan its last payment and the interest of the year ahead, and the loans the latest end", () => {
+      const { holdings } = household([], [car, bullet], [], day);
+      expect(holdings.loans.map((l) => [l.id, l.leftCents, l.endDate, l.interest12Cents])).toEqual([
+        ["car", 500_000, "2027-01-05", 2_500 + 2_463 + 2_425],
+        ["bullet", 1_000_000, "2027-06-30", 35_753],
+      ]);
+      expect(holdings.loansEndDate).toBe("2027-06-30");
+    });
+
+    it("tells the same end and interest as Lainat, and the loans' balances add up to the debt total", () => {
+      const { ctx, holdings } = household([], [car, bullet], [], day);
+      const report = loansReport(ctx, [], inputsOf([car, bullet]));
+      expect(holdings.loans.map((l) => [l.id, l.endDate, l.interest12Cents])).toEqual(report.loans.map((l) => [l.id, l.payoff.date, l.interest.cents]));
+      expect(holdings.loansCents).toBe(1_500_000);
+      expect(holdings.loansCents).toBe(debtTotalOn([car, bullet], day).cents);
+      expect(holdings.debtCents).toBe(holdings.loansCents);
+    });
+
+    it("has no latest end while a loan that owes has none, and the loans' sum is still all of them", () => {
+      const open = { ...bullet, endDate: null };
+      const { holdings } = household([], [car, open], [], day);
+      expect(holdings.loans.map((l) => [l.id, l.endDate])).toEqual([["car", "2027-01-05"], ["bullet", null]]);
+      expect(holdings.loansEndDate).toBeNull();
+      expect(holdings.loansCents).toBe(1_500_000);
+    });
+
+    it("leaves a loan with nothing left out of the latest end, and has none for a household that owes nothing", () => {
+      const cleared = { ...bullet, balanceCents: 0 };
+      expect(household([], [car, cleared], [], day).holdings.loansEndDate).toBe("2027-01-05");
+      const none = household([], [cleared], [], day).holdings;
+      expect([none.loans[0]!.endDate, none.loansEndDate, none.loansCents]).toEqual([null, null, 0]);
+      expect(household([], [], [], day).holdings.loansEndDate).toBeNull();
+    });
+
+    it("has no end for a loan that only has a balance, however long it is held", () => {
+      const bare = loan({ id: "bare", balanceCents: 200_000, balanceDate: "2026-10-12" });
+      const { holdings } = household([], [bare], [], day);
+      expect([holdings.loans[0]!.endDate, holdings.loans[0]!.interest12Cents, holdings.loansEndDate]).toEqual([null, null, null]);
+    });
   });
 
   it("an account with no balance from the bank appears with balance null, not 0", () => {
