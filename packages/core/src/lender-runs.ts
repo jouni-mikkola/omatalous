@@ -121,20 +121,20 @@ function drawLedger(txs: readonly AnalysisTx[], draws: readonly AnalysisTx[], pa
   const own = draws.filter((d) => drawnBy(d.merchant, payee));
   const paid = txs.filter((t) => t.amountCents < 0 && !t.isTransfer && t.bookingDate <= today && drawnBy(t.merchant, payee));
   const events = [...own.map((t) => ({ t, drawn: true })), ...paid.map((t) => ({ t, drawn: false }))].sort((a, b) => a.t.day - b.t.day || Number(b.drawn) - Number(a.drawn));
-  let owed: DrawLedger["owed"] = null;
+  // `since` is null while nothing is owed
+  let cents = 0;
+  let since: IsoDate | null = null;
   let repaidOn: IsoDate | null = null;
   for (const { t, drawn } of events) {
-    if (drawn) owed = { cents: (owed?.cents ?? 0) + billCents(t), since: owed?.since ?? t.bookingDate };
-    else if (owed) {
-      const left: number = owed.cents + billCents(t);
-      if (left > 0) owed = { cents: left, since: owed.since };
-      else {
-        owed = null;
-        repaidOn = t.bookingDate;
-      }
-    }
+    if (!drawn && since === null) continue;
+    cents += billCents(t);
+    since ??= t.bookingDate;
+    if (cents > 0) continue;
+    cents = 0;
+    since = null;
+    repaidOn = t.bookingDate;
   }
-  return { owed, repaidOn };
+  return { owed: since === null ? null : { cents, since }, repaidOn };
 }
 
 /**
