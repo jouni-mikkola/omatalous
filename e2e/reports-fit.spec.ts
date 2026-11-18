@@ -4,7 +4,7 @@ import { join } from "node:path";
 // Every question of Raportit fits the window of a phone and of a desktop: the page does not scroll sideways and the
 // heading and the comparison switch stay inside the window.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
-// Velat is not here: the demo has no saved loan, so the list does not name it and its address opens another report
+// Yhteiset is not here: the demo has no account two members share, so the list does not name it and its address opens another report
 const QUESTIONS = ["tulot", "menot", "saldot"];
 
 for (const width of [390, 1440]) {
@@ -21,7 +21,8 @@ for (const width of [390, 1440]) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth), `scrollWidth of ${q}`).toBeLessThanOrEqual(width);
       const outside = await page.evaluate((w) => [...document.querySelectorAll<HTMLElement>(".q-title, .compare, .compare button")].filter((e) => e.getBoundingClientRect().right > w + 0.5).map((e) => e.className || e.tagName), width);
       expect(outside, `outside the window in ${q}`).toEqual([]);
-      await expect(page.getByRole("toolbar", { name: "Aikaväli" })).toHaveCount(1);
+      // Varat ja velat is the balances of today, which no period changes, so it draws no switch
+      await expect(page.getByRole("toolbar", { name: "Aikaväli" })).toHaveCount(q === "saldot" ? 0 : 1);
       await context.close();
     });
   }

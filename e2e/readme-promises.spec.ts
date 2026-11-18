@@ -34,7 +34,7 @@ test("what the README says about Lisää, English and statement files holds on t
     await page.locator(".user-menu .menu").getByRole("button", { name: "English" }).click();
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     await page.goto("/#/reports?q=tulot");
-    await expect(page.getByRole("heading", { name: "Income and spending", level: 2, exact: true })).toBeVisible();
+    await expect(page.locator("h2.q-title", { hasText: "Income and spending" })).toBeVisible();
   } finally {
     await context.close();
     await removeMember(browser, id);

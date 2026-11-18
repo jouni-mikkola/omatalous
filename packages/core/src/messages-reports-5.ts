@@ -130,7 +130,7 @@ export const FI_REPORTS_5 = {
   "rpt.page_income": "Tulot ja menot",
   "rpt.page_shared": "Yhteiset menot",
   "rpt.page_spending": "Menot kategorioittain",
-  "rpt.gap_lead": "Valmiiden kuukausien menot ja säästöön siirretty raha ylittivät tulot {sum}.",
+  "rpt.gap_lead": "Päättyneiden kuukausien menot ja säästöön siirretty raha ylittivät tulot {sum}.",
   "rpt.gap_cover": "Rahat tulivat {parts}.",
   "rpt.gap_credit": "luotosta {sum}",
   "rpt.gap_savings": "säästöistä {sum}",
