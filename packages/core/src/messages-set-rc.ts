@@ -38,4 +38,13 @@ export const FI_SET_RC = {
   "set.rc.ask_for_a_refund": "Pyydän hyvityksen",
   "set.rc.the_charge_is_right": "Veloitus on oikein",
   "set.rc.why": "Miksi ehdotamme tätä: {why}.",
+  "set.rc.lt_no_balance": "Ilman saldoa {count}",
+  "set.rc.lt_due_day": "eräpäivä {day}.",
+  "set.rc.lt_kind": "Laji",
+  "set.rc.lt_left_on": "Jäljellä {date} (€)",
+  "set.rc.lt_rate": "korko {rate}",
+  "set.rc.lt_ends": "viimeinen erä {date}",
+  "set.rc.lt_interest": "korkoa jäljellä {amount}",
+  "set.rc.lt_set_aside": "Ei muistuteta enää",
+  "set.rc.lt_fill_in": "Täytä kentät, joissa ei ole arvoa.",
 } as const;

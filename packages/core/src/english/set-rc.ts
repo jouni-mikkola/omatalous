@@ -36,4 +36,13 @@ export const EN_SET_RC: Record<keyof typeof FI_SET_RC, string> = {
   "set.rc.ask_for_a_refund": "I ask for a refund",
   "set.rc.the_charge_is_right": "The charge is right",
   "set.rc.why": "Why we suggest this: {why}.",
+  "set.rc.lt_no_balance": "Without a balance {count}",
+  "set.rc.lt_due_day": "due on day {day}",
+  "set.rc.lt_kind": "Type",
+  "set.rc.lt_left_on": "Left on {date} (€)",
+  "set.rc.lt_rate": "rate {rate}",
+  "set.rc.lt_ends": "last instalment {date}",
+  "set.rc.lt_interest": "interest left {amount}",
+  "set.rc.lt_set_aside": "No more reminders",
+  "set.rc.lt_fill_in": "Fill in the fields that have no value.",
 };
