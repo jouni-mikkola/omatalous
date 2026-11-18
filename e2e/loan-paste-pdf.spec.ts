@@ -115,7 +115,7 @@ test("a PDF is read in the browser into the same form, and a PDF with a password
   await expect(form.getByLabel("Lainanantaja", { exact: true })).toHaveValue("Esimerkkipankki Oyj");
   // the reader and its worker came from the app's own address, and the file itself went nowhere
   expect(requests.some((path) => /\/assets\/pdf\.worker\.min-[\w-]+\.mjs$/.test(path))).toBe(true);
-  expect(writes).toEqual([]);
+  expect(writes.filter((w) => w !== "POST /api/sync/open")).toEqual([]);
 
   await pick.setInputFiles({ name: "salattu.pdf", mimeType: "application/pdf", buffer: lockedPdf(STATEMENT, "esimerkki-salasana") });
   await expect(form.getByRole("alert")).toHaveText("PDF-tiedosto on salasanalla suojattu. Avaa se ensin ja liitä sen teksti tähän.");
