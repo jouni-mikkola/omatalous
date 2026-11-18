@@ -107,7 +107,7 @@ test("a PDF is read in the browser into the same form, and a PDF with a password
     if (r.method() !== "GET") writes.push(`${r.method()} ${new URL(r.url()).pathname}`);
   });
   const form = await openNewLoan(page);
-  const pick = form.getByLabel("Valitse PDF");
+  const pick = form.getByLabel("Valitse kuva tai PDF");
 
   await pick.setInputFiles({ name: "lainat.pdf", mimeType: "application/pdf", buffer: textPdf(STATEMENT) });
   await expect(form.getByLabel("Lainaa jäljellä (€)")).toHaveValue("120 000,00");
@@ -122,9 +122,9 @@ test("a PDF is read in the browser into the same form, and a PDF with a password
   await expect(form.getByRole("alert")).toHaveText("PDF-tiedosto on salasanalla suojattu. Avaa se ensin ja liitä sen teksti tähän.");
   await pick.setInputFiles({ name: "skannaus.pdf", mimeType: "application/pdf", buffer: scannedPdf() });
   await expect(form.getByRole("alert")).toHaveText("PDF-tiedostossa on pelkkä kuva. Kopioi sen teksti ja liitä se tähän.");
-  // a file that is neither a PDF nor text
+  // a file that is neither a picture, a PDF nor text
   await pick.setInputFiles({ name: "laina.zip", mimeType: "application/zip", buffer: Buffer.from("PK") });
-  await expect(form.getByRole("alert")).toHaveText("Tiedosto ei ole PDF eikä teksti. Liitä lainan tiedot tekstinä.");
+  await expect(form.getByRole("alert")).toHaveText("Tiedosto ei ole kuva, PDF eikä teksti. Liitä lainan tiedot tekstinä.");
   // the form is still there to type in
   await expect(form.getByLabel("Lainaa jäljellä (€)")).toBeVisible();
   expect(seen.problems).toEqual([]);
@@ -143,7 +143,7 @@ test("a text of several loans goes to a table, each loan is matched to a saved o
   const page = await context.newPage();
   const seen = watch(page);
   const form = await openNewLoan(page);
-  await form.getByLabel("Valitse PDF").setInputFiles({ name: "lainat.pdf", mimeType: "application/pdf", buffer: textPdf([...STATEMENT, "", ...SECOND]) });
+  await form.getByLabel("Valitse kuva tai PDF").setInputFiles({ name: "lainat.pdf", mimeType: "application/pdf", buffer: textPdf([...STATEMENT, "", ...SECOND]) });
 
   const table = page.getByRole("table", { name: "Luetut lainat" });
   await expect(table.getByRole("row")).toHaveCount(3);
