@@ -202,10 +202,10 @@ describe("home.direction and home.reliability", () => {
     expect(short.bufferGap).toBe("history");
   });
 
-  it("tells too few months as no mean", () => {
+  it("tells too few months as no usual month", () => {
     const { direction } = homeOf([...pays().slice(-2), ...shopping("2026-10-01", 4000)]);
     expect(direction.usualCents).toBeNull();
-    expect(direction.direction).toBeNull();
+    expect(direction.bufferGap).toBe("history");
   });
 
   it("has no missing card purchases in a household with no card", () => {
