@@ -289,30 +289,45 @@ export function debtSplit(ctx: AnalysisContext, range: DateRange, inputs: UserIn
   const rows = spendRows(ctx, toDayRange(range)).filter((t) => t.flows.debt !== 0);
   const split: DebtSplit = { interestCents: 0, principalCents: 0, unsplitCents: 0 };
   if (!rows.length) return split;
-  const candidates = rows.filter(splittable);
-  const fromDocument = documentParts(ctx, inputs);
-  const fromAccount = accountInterest(ctx, candidates, inputs);
-  const fromPlan = engineParts(ctx, inputs);
+  const parted = debtRowParts(ctx, rows, inputs);
   for (const t of rows) {
     const debt = t.flows.debt;
     if (t.category === "interest") {
       split.interestCents += debt;
       continue;
     }
-    const parts = fromDocument.get(t.id) ?? fromAccount.get(t.id) ?? fromPlan.get(t.id);
+    const parts = parted.get(t.id);
     if (parts === undefined) {
       split.unsplitCents += debt;
       continue;
     }
-    const part = rowPart(t);
-    const interest = partCents(parts.interestCents, part) + partCents(parts.feeCents, part);
-    // the evidence is the bank's whole row's, and the viewer's part of it must leave room too
-    if (parts.interestCents + parts.feeCents > Math.abs(billCents(t)) || interest > debt) {
-      split.unsplitCents += debt;
-      continue;
-    }
+    const interest = parts.interestCents + parts.feeCents;
     split.interestCents += interest;
     split.principalCents += debt - interest;
   }
   return split;
+}
+
+/**
+ * The interest and the fee of each row of `rows` that the evidence splits, in the viewer's part of the row (ADR 0016). A
+ * row with no entry is unsplit. A row of category `interest` has none: it is interest as a whole.
+ */
+export function debtRowParts(ctx: AnalysisContext, rows: readonly AnalysisTx[], inputs: UserInputs): Map<string, RowParts> {
+  const out = new Map<string, RowParts>();
+  const candidates = rows.filter(splittable);
+  if (!candidates.length) return out;
+  const fromDocument = documentParts(ctx, inputs);
+  const fromAccount = accountInterest(ctx, candidates, inputs);
+  const fromPlan = engineParts(ctx, inputs);
+  for (const t of candidates) {
+    const parts = fromDocument.get(t.id) ?? fromAccount.get(t.id) ?? fromPlan.get(t.id);
+    if (parts === undefined) continue;
+    const part = rowPart(t);
+    const interestCents = partCents(parts.interestCents, part);
+    const feeCents = partCents(parts.feeCents, part);
+    // the evidence is the bank's whole row's, and the viewer's part of it must leave room too
+    if (parts.interestCents + parts.feeCents > Math.abs(billCents(t)) || interestCents + feeCents > t.flows.debt) continue;
+    out.set(t.id, { interestCents, feeCents });
+  }
+  return out;
 }

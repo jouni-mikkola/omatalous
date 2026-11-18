@@ -17,8 +17,8 @@ export function taxYearCsv(r: TaxYearReport, say: Say, label: (category: string)
   lines.push([say("tax.income"), say("sheet.total"), null, euros(r.income.totalCents)]);
   part(say("tax.refunds"), r.refunds.rows);
   part(say("tax.interest"), r.interest.rows);
-  // the sum is blank, not 0, while an interest row reaches no saved loan
-  if (r.interest.rows.length) lines.push([say("tax.interest"), say("sheet.total"), null, euros(r.interest.cents)]);
+  // the sum is blank, not 0, while some of the interest is not known
+  if (r.interest.rows.length || r.interest.cents === null) lines.push([say("tax.interest"), say("sheet.total"), null, euros(r.interest.cents)]);
   for (const p of r.loanPayments) lines.push([say("tax.loans"), label(p.category), null, euros(p.cents)]);
   part(say("tax.household"), r.household.rows);
   if (r.household.rows.length) lines.push([say("tax.household"), say("tax.household_total"), null, euros(r.household.cents)]);

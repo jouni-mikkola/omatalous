@@ -58,7 +58,7 @@ A figure has one definition, in `packages/core`, and the first page, the reports
 | *Odotettu lasku* | A bill the household typed in, repeated by its cadence: once, quarterly, half yearly or yearly | `ExpectedBill`, `expectedDates` in `commitments.ts` |
 
 Monthly averages divide by complete months only, so a running month never pulls an average down. A category or pivot
-average without one complete month is empty. A year comparison needs three whole months in both years. Money saved to an
+average without one complete month is empty. A year comparison needs three whole months in both years. A period that ends mid-month is set against the same days a year earlier, in the month's line as in the year's figures. Money saved to an
 own account or fund that is not connected (`own_unconnected` in Tietojen laatu) counts as saved, and the data quality card
 names the sum and the largest payees, so a missing connection shows.
 
@@ -103,6 +103,13 @@ collection row are never split. An unknown part is never counted as 0. *Tulos* s
 Yhteenveto shows the sums, in the order Tulot, Kulutus, Korot ja luottokulut, Velanhoito, erittelemättä (when it is
 not 0), a subtotal of the income less these costs, Lyhennykset, the rows for saving and credit, Tulos. The cash flow
 report data carries them too, and no page shows them there yet.
+
+The interest of the tax-year sheet (`taxYearReport`, Raportit > Verovuoden rivit) is the interest of home and student loans
+alone: the interest rows that pay a saved home or student loan, and the interest part (the fee left out) of each row of
+the categories `mortgage` and `student_loan` that the same evidence splits (`debtRowParts`). A payment row that reaches
+a saved loan whose interest the bank booked as a row of its own in the same calendar month holds no interest. The sum
+is unknown, never 0, while an interest row reaches no saved loan or any other home or student loan payment of the year
+is not split. A year with none of these rows reads 0.
 
 ## Tulos and borrowed money
 
