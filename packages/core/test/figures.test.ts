@@ -22,7 +22,7 @@ import { lowPoint } from "../src/low-point.ts";
 import { MIN_COMPARE_MONTHS, USUAL_MONTHS } from "../src/thresholds.ts";
 import { median } from "../src/stats.ts";
 import type { Account, ExpectedBill, Loan } from "../src/types.ts";
-import { buildHoldings } from "../src/holdings.ts";
+import { buildHoldings, unsavedDebts } from "../src/holdings.ts";
 import { balanceReport } from "../src/reports/balances.ts";
 import { billCalendar } from "../src/reports/bill-calendar.ts";
 import { bufferReport } from "../src/reports/buffer.ts";
@@ -275,14 +275,18 @@ const ANSWERS: Record<FigureKey, Answers> = {
     return { report: row.cost?.rateMilli ?? null, debtCost: debtCost(typedLoan(h), h.today)?.rateMilli ?? null };
   },
   debtCost12: (h) => {
-    // a context with no rows: a loan the rows show and nobody saved leaves the total unknown, which the report test holds
-    const r = loansReport(createContext([], [], h.today), [], { ...h.inputs, loans: [typedLoan(h)] });
+    const ctx = contextOf(h);
+    const inputs = { ...h.inputs, loans: [typedLoan(h)] };
+    const r = loansReport(ctx, [], inputs);
     const rows = r.loans.map((l) => l.cost?.next12?.cents ?? null);
+    // the rule of the code: unknown while any loan or card the rows show is not saved, else the rows added up and unknown when any row is
+    const unsaved = unsavedDebts(ctx, inputs);
+    const unknown = unsaved.rows.length > 0 || unsaved.few > 0 || rows.some((c) => c === null);
     return {
       report: r.cost12.cents,
-      // the rows added up, and unknown when any row is: no answer passes by leaving a debt out
-      rows: rows.some((c) => c === null) ? null : rows.reduce<number>((sum, c) => sum + c!, 0),
-      debtCost: debtCost(typedLoan(h), h.today)?.next12?.cents ?? null,
+      rows: unknown ? null : rows.reduce<number>((sum, c) => sum + c!, 0),
+      // the typed loan alone, as it is the only row of this report
+      debtCost: unknown ? null : (debtCost(typedLoan(h), h.today)?.next12?.cents ?? null),
     };
   },
   rareBillsYear: (h) => {
