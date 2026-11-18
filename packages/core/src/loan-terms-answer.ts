@@ -76,7 +76,7 @@ interface LoanDrift {
   /** What the plan expected on the nearest due date. */
   expectedCents: number;
   /** The payment to type for the loan: the payment as the loan states it, which for an equal principal is the row less its interest. */
-  paymentCents: number;
+  newPaymentCents: number;
   /** For a loan on a reference rate, the due date the payment moved on, to propose as its review day. Null for the rest. */
   reviewDate: IsoDate | null;
 }
@@ -113,9 +113,9 @@ export function loanDrift(loan: Loan, rows: readonly DriftRow[], others: readonl
     const paidCents = -billCents(row);
     if (paymentFits(paidCents, near.cents)) return null;
     // an equal principal types the amortisation alone: the interest comes on top
-    const paymentCents = plan.withInterest ? paidCents : paidCents - (near.interestCents ?? 0);
-    if (paymentCents <= 0) return null;
-    return { rowId: row.id, date: row.bookingDate, paidCents, expectedCents: near.cents, paymentCents, reviewDate: hasReferenceRate(loan) ? near.date : null };
+    const newPaymentCents = plan.withInterest ? paidCents : paidCents - (near.interestCents ?? 0);
+    if (newPaymentCents <= 0) return null;
+    return { rowId: row.id, date: row.bookingDate, paidCents, expectedCents: near.cents, newPaymentCents, reviewDate: hasReferenceRate(loan) ? near.date : null };
   }
   return null;
 }

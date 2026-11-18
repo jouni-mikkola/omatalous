@@ -2,14 +2,15 @@
  * Tarkistettavat without React: the items GET /api/review sends, what each one asks in the page's words, and the sitting
  * (at most `SITTING` items, then "Kävit tämän erän kysymykset läpi"). The page draws what these return.
  */
-import { addMonths, fold, LOAN_KIND_ANSWERS, type LoanKind, type LoanTermsMissing, monthOf, type PayerRole, type UnresolvedReason } from "@banking/core";
+import { addMonths, fold, LOAN_KIND_ANSWERS, type LoanKind, monthOf, type PayerRole, type UnresolvedReason } from "@banking/core";
 import { KIND_LABEL } from "../components/loans/labels.ts";
 import { PAYER_ROLE_LABEL, WALLET_ROLE_LABEL } from "../components/questions.ts";
 import { date, dateTime, money } from "../format.ts";
 import type { SyncRun } from "../types.ts";
 import { t, tn } from "../text.ts";
+import type { LoanDriftItem, LoanTermsItem } from "./review-loan-items.ts";
 
-interface Base {
+export interface Base {
   id: string;
   /** The money at stake over a year, positive: the queue's order. */
   cents: number;
@@ -97,38 +98,6 @@ interface SubscriptionItem extends Base {
 /** Whether the household has a home loan: Lisää asuntolaina opens Asetukset > Lainat, Ei asuntolainaa is the mark `question:mortgage`. */
 interface MortgageItem extends Base {
   kind: "mortgage";
-}
-
-/**
- * A debt whose payments cannot be placed for want of one fact (`missing`): a saved loan (`loanId`), answered by its form,
- * or a connected card no saved loan is linked to (`accountId`), answered by the form of a loan linked to the card. Älä
- * muistuta tästä enää is the mark on `subject`.
- */
-interface LoanTermsItem extends Base {
-  kind: "loan_terms";
-  loanId: string | null;
-  accountId: string | null;
-  name: string;
-  owedCents: number;
-  balanceDate: string;
-  missing: LoanTermsMissing;
-  subject: string;
-}
-
-/**
- * A payment of a saved loan that its plan did not expect: the bank took `paidCents` where the plan said `expectedCents`.
- * The loan's form opens with `paymentCents` and, for a loan on a reference rate, `reviewDate` filled in; saving the loan
- * answers it.
- */
-interface LoanDriftItem extends Base {
-  kind: "loan_drift";
-  loanId: string;
-  name: string;
-  date: string;
-  paidCents: number;
-  expectedCents: number;
-  paymentCents: number;
-  reviewDate: string | null;
 }
 
 /** Money a merchant may owe back: a charge made twice, or one after Lopetettu. `askedOn` is the day the refund was asked, when it has not come; `subject` is the alert's mark. */
@@ -275,7 +244,6 @@ export function eyebrow(item: ReviewItem): string {
     case "payer":
       return t("set.ri.money_received");
     case "loan":
-      return t("set.ri.loan");
     case "loan_drift":
       return t("set.ri.loan");
     case "loan_terms":

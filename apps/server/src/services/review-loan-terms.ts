@@ -51,7 +51,7 @@ export interface LoanDriftItem {
   /** What the loan's plan expected on the nearest due date. */
   expectedCents: number;
   /** The payment to fill in the loan's form, and for a loan on a reference rate the day to fill in as its review day. */
-  paymentCents: number;
+  newPaymentCents: number;
   reviewDate: string | null;
   /** The payment's row, shown as the bank charged it. */
   rows?: { id: string; date: string; cents: number; name: string; text: string }[];
@@ -59,7 +59,7 @@ export interface LoanDriftItem {
 }
 
 /** The member's own saved loans of the view: a loan another member typed in, paid from a shared account, is not asked of the viewer. */
-const ownLoans = ({ inputs }: OwnView): Loan[] => inputs.loans.filter((loan) => loan.typedBy === undefined);
+const ownLoans = ({ inputs }: OwnView): Loan[] => (inputs.loans ?? []).filter((loan) => loan.typedBy === undefined);
 
 /**
  * Only the member's own loans and accounts are read: an account another member shared is left out of the debts before
@@ -112,13 +112,13 @@ export const loanDriftItems = async (s: Services, userId: string, view: OwnView,
   const loans = loansOf({ ...inputs, loans: ownLoans(view) }).filter((loan) => loan.seriesKey !== null && !asked.has(loan.id));
   if (!loans.length || !ctx.txs.length) return [];
   const savedAt = await s.finance(userId).loansSavedAt();
-  const others = inputs.loans.flatMap((loan) => loan.seriesKey ?? []);
+  const others = (inputs.loans ?? []).flatMap((loan) => loan.seriesKey ?? []);
   return loans.flatMap((loan) => {
     const at = savedAt.get(loan.id);
     const saved = at === undefined || Number.isNaN(new Date(at).getTime()) ? "" : todayIn(s.instance.current.timezone, new Date(at));
     const drift = loanDrift(loan, ctx.txs, others, saved);
     if (drift === null) return [];
-    const { rowId, date, paidCents, expectedCents, paymentCents, reviewDate } = drift;
-    return [{ kind: "loan_drift", id: `loan_drift:${loan.id}`, cents: 0, loanId: loan.id, name: loan.name, date, paidCents, expectedCents, paymentCents, reviewDate, rowIds: [rowId], whole: true }];
+    const { rowId, ...answer } = drift;
+    return [{ kind: "loan_drift", id: `loan_drift:${loan.id}`, cents: 0, loanId: loan.id, name: loan.name, ...answer, rowIds: [rowId], whole: true }];
   });
 };

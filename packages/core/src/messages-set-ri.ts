@@ -84,7 +84,7 @@ export const FI_SET_RI = {
   "set.ri.loan_terms_card_rate": "Mikä on kortin kokonaiskorko?",
   "set.ri.loan_terms_end_date": "Milloin lainan viimeinen eräpäivä on?",
   "set.ri.loan_terms_margin": "Mikä on lainan marginaali?",
-  "set.ri.loan_terms_review_date": "Minä päivänä lainan korko tarkistetaan?",
+  "set.ri.loan_terms_review_date": "Minä päivänä pankki tarkistaa lainan koron?",
   "set.ri.loan_drift_question": "Onko lainan maksuerä muuttunut?",
   "set.ri.loan_drift_unit": "veloitus",
   "set.ri.loan_drift_line": "Veloitus {date}, lainan maksuerä on {expected}",

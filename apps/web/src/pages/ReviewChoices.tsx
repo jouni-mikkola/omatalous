@@ -188,8 +188,8 @@ const ASKED_FOR: Record<LoanTermsMissing, LoanFieldKey[]> = {
 };
 
 /** The loan's form with the payment the bank took, and the day it moved on when the loan has a reference rate. */
-function withNewPayment(form: LoanForm, { paymentCents, reviewDate }: { paymentCents: number; reviewDate: string | null }): LoanForm {
-  return { ...form, values: { ...form.values, paymentCents: eurosText(paymentCents), ...(reviewDate === null ? {} : { rateReviewDate: reviewDate }) } };
+function withNewPayment(form: LoanForm, { newPaymentCents, reviewDate }: { newPaymentCents: number; reviewDate: string | null }): LoanForm {
+  return { ...form, values: { ...form.values, paymentCents: eurosText(newPaymentCents), ...(reviewDate === null ? {} : { rateReviewDate: reviewDate }) } };
 }
 
 /**

@@ -280,7 +280,7 @@ describe("the question of a payment the loan's plan did not expect", () => {
 
   it("names the payment the bank took, the one the plan expected and the payment to save, with the row", async () => {
     const { t, id } = await household([payment("2026-09-02", 90_000), payment("2026-10-02", 95_000)]);
-    expect(await drift(t.admin)).toEqual([expect.objectContaining({ id: `loan_drift:${id}`, cents: 0, loanId: id, name: "Asuntolaina", date: "2026-10-02", paidCents: 95_000, expectedCents: 90_000, paymentCents: 95_000, reviewDate: null, rowCount: 1 })]);
+    expect(await drift(t.admin)).toEqual([expect.objectContaining({ id: `loan_drift:${id}`, cents: 0, loanId: id, name: "Asuntolaina", date: "2026-10-02", paidCents: 95_000, expectedCents: 90_000, newPaymentCents: 95_000, reviewDate: null, rowCount: 1 })]);
     expect(await queue(t.admin)).toEqual([]);
   });
 
@@ -298,7 +298,7 @@ describe("the question of a payment the loan's plan did not expect", () => {
 
   it("proposes the due date as the review day of a loan on a reference rate", async () => {
     const { t } = await household([payment("2026-09-02", 90_000), payment("2026-10-02", 95_000)], { ...LOAN, reference: "euribor_12", marginBp: 80, rateReviewDate: "2026-09-01" });
-    expect(await drift(t.admin)).toEqual([expect.objectContaining({ paymentCents: 95_000, reviewDate: "2026-10-01" })]);
+    expect(await drift(t.admin)).toEqual([expect.objectContaining({ newPaymentCents: 95_000, reviewDate: "2026-10-01" })]);
   });
 
   it("leaves the loan's terms first: a loan that lacks a fact has no drift question", async () => {

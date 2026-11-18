@@ -174,7 +174,7 @@ describe("Tarkistettavat", () => {
     queryClient.clear();
     const loan = { id: "loan-7", name: "Asuntolaina", lender: null, kind: "mortgage", grantedCents: null, balanceCents: 15_000_000, balanceDate: "2026-10-01", rateBp: 350, reference: "euribor_12", marginBp: 80, rateReviewDate: "2027-01-05", repayment: "annuity", intervalMonths: 1, paymentCents: 90_000, endDate: "2046-01-05", limitCents: null, seriesKey: null };
     const seen = stubApi({ "GET /api/loans": { loans: [loan] }, "PUT /api/loans/loan-7": { loan } });
-    const item = { id: "loan_drift:loan-7", kind: "loan_drift", cents: 0, loanId: "loan-7", name: "Asuntolaina", date: "2026-11-05", paidCents: 95_000, expectedCents: 90_000, paymentCents: 95_000, reviewDate: "2026-11-05" } as unknown as ReviewItem;
+    const item = { id: "loan_drift:loan-7", kind: "loan_drift", cents: 0, loanId: "loan-7", name: "Asuntolaina", date: "2026-11-05", paidCents: 95_000, expectedCents: 90_000, newPaymentCents: 95_000, reviewDate: "2026-11-05" } as unknown as ReviewItem;
     const meta = { accounts: [], sharedAccounts: [], bank: { banks: [] }, today: "2026-11-18" } as unknown as Meta;
     render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => {} } }));
     expect(document.querySelector(".review-item")!.textContent).toContain("Onko lainan maksuerä muuttunut?");

@@ -56,11 +56,11 @@ describe("the facts that may be set aside", () => {
 describe("a payment the plan did not expect", () => {
   const key = seriesId({ direction: "out", accountId: "acc-1", merchant: "Esimerkkirahoitus", product: null });
   const plan = { repayment: "annuity", intervalMonths: 1, paymentCents: 90_000, rateBp: 350, seriesKey: key } as const;
-  const row = (bookingDate: string, cents: number, id = bookingDate) => ({ id, accountId: "acc-1", merchant: "Esimerkkirahoitus", amountCents: -cents, bookingDate, status: "booked" as const });
+  const row = (bookingDate: string, cents: number, id = bookingDate) => ({ id, accountId: "acc-1", merchant: "Esimerkkirahoitus", amountCents: -cents, bookingDate, status: "booked" as "booked" | "pending" });
   const drift = (over: Partial<Loan>, rows: ReturnType<typeof row>[], after = "") => loanDrift(loan({ ...plan, ...over }), rows, [key], after);
 
   it("is the newest row of the series that departs from the payment of its due date, with the payment to type", () => {
-    expect(drift({}, [row("2026-11-03", 95_000)])).toEqual({ rowId: "2026-11-03", date: "2026-11-03", paidCents: 95_000, expectedCents: 90_000, paymentCents: 95_000, reviewDate: null });
+    expect(drift({}, [row("2026-11-03", 95_000)])).toEqual({ rowId: "2026-11-03", date: "2026-11-03", paidCents: 95_000, expectedCents: 90_000, newPaymentCents: 95_000, reviewDate: null });
   });
   it("lets the bank's rounding pass: 1 euro or 1 per cent, whichever is larger", () => {
     // 1 % of 900 euros is 9 euros
@@ -74,7 +74,7 @@ describe("a payment the plan did not expect", () => {
   });
   it("ends when the newest row fits, and asks the newest one that departs when it does not", () => {
     expect(drift({}, [row("2026-11-03", 95_000), row("2026-12-01", 90_000)])).toBeNull();
-    expect(drift({}, [row("2026-11-03", 90_000), row("2026-12-01", 96_000)])).toMatchObject({ rowId: "2026-12-01", paymentCents: 96_000 });
+    expect(drift({}, [row("2026-11-03", 90_000), row("2026-12-01", 96_000)])).toMatchObject({ rowId: "2026-12-01", newPaymentCents: 96_000 });
   });
   it("goes when the loan is saved on or after the row, and counts no row before its balance date", () => {
     expect(drift({}, [row("2026-11-03", 95_000)], "2026-11-03")).toBeNull();
@@ -84,7 +84,7 @@ describe("a payment the plan did not expect", () => {
   it("leaves out a row no due date is near, as an extra repayment is, and a row of another payee or a pending row", () => {
     expect(drift({}, [row("2026-11-15", 300_000)])).toBeNull();
     expect(drift({}, [{ ...row("2026-11-03", 95_000), merchant: "Kahvila" }])).toBeNull();
-    expect(drift({}, [{ ...row("2026-11-03", 95_000), status: "pending" as const }])).toBeNull();
+    expect(drift({}, [{ ...row("2026-11-03", 95_000), status: "pending" }])).toBeNull();
   });
   it("asks nothing of a loan with no linked payments, a card, a credit line, a loan that owes nothing or one whose plan lacks a fact", () => {
     const rows = [row("2026-11-03", 95_000)];
@@ -96,10 +96,10 @@ describe("a payment the plan did not expect", () => {
   });
   it("types an equal principal's amortisation alone, the interest coming on top", () => {
     // 150 000 euros at 3,5 % for a month is 437,50 euros of interest
-    expect(drift({ repayment: "equal_principal" }, [row("2026-11-01", 138_750)])).toMatchObject({ expectedCents: 133_750, paymentCents: 95_000 });
+    expect(drift({ repayment: "equal_principal" }, [row("2026-11-01", 138_750)])).toMatchObject({ expectedCents: 133_750, newPaymentCents: 95_000 });
   });
   it("proposes the due date it moved on as the review day of a loan on a reference rate", () => {
-    expect(drift({ reference: "euribor_12", marginBp: 80 }, [row("2026-11-03", 95_000)])).toMatchObject({ paymentCents: 95_000, reviewDate: "2026-11-01" });
+    expect(drift({ reference: "euribor_12", marginBp: 80 }, [row("2026-11-03", 95_000)])).toMatchObject({ newPaymentCents: 95_000, reviewDate: "2026-11-01" });
   });
 });
 
