@@ -144,8 +144,8 @@ describe("a saved loan linked to a connected account is one debt", () => {
     // before the first due date the balance is dated where the loan's own is, and the next due date moves it on
     expect(householdDebts(owing, inputsOf([sept]), "2026-09-20").connected[0]!.balanceDate).toBe("2026-09-05");
     expect(householdDebts(owing, inputsOf([sept]), "2026-11-05").connected[0]!.balanceDate).toBe("2026-11-05");
-    // a loan with no plan has no due dates: its own balance date stays
-    expect(householdDebts([card], inputsOf([linkedCard]), today).connected[0]).toMatchObject({ balanceCents: 80_000, balanceDate: "2026-10-01" });
+    // a card has no due dates of its own: the bank's balance stands on the day the bank gave it
+    expect(householdDebts([card], inputsOf([linkedCard]), today).connected[0]).toMatchObject({ balanceCents: 80_000, balanceDate: today });
   });
 
   it("a plan with a last due date counts its due dates back from it, and goes on past it while the bank still tells a debt", () => {
@@ -183,13 +183,26 @@ describe("a saved loan linked to a connected account is one debt", () => {
     }
   });
 
+  it("a linked card with a payment and rate typed months ago owes what the bank says, not that less the payments since", () => {
+    // typed on 15.5. at 18 % with 50 € a month: the bank's 800 € of today has those payments in it already
+    const planned = loan({ id: "planned", name: "Kortti", kind: "card", balanceCents: 124_000, balanceDate: "2026-05-15", rateBp: 1800, paymentCents: 5_000, intervalMonths: 1, accountId: "card" });
+    const debts = householdDebts([card], inputsOf([planned]), today);
+    expect(debts.connected[0]).toMatchObject({ balanceCents: 80_000, balanceDate: today });
+    expect(loanBalanceOn(debts.connected[0]!, today)).toEqual({ cents: 80_000, unknown: null });
+    expect(debts.total.cents).toBe(80_000);
+    // a balance the bank gave on an earlier day starts the plan on that day
+    const given = householdDebts([{ ...card, balanceAt: "2026-08-01" }], inputsOf([planned]), today);
+    expect(given.connected[0]!.balanceDate).toBe("2026-08-01");
+    expect(given.total.cents).toBeLessThan(80_000);
+  });
+
   it("two saved loans that name one account: the first in saved order takes it and the other counts as typed", () => {
     // the ids run against the saved order, so the order decides and not the id
     const first = loan({ id: "z-first", name: "Kortti A", kind: "card", balanceCents: 50_000, rateBp: 1500, accountId: "card" });
     const second = loan({ id: "a-second", name: "Kortti B", kind: "card", balanceCents: 70_000, accountId: "card" });
     const debts = householdDebts([card], inputsOf([first, second]), today);
     expect(debts.saved).toEqual([second]);
-    expect(debts.connected).toEqual([{ ...first, balanceCents: 80_000 }]);
+    expect(debts.connected).toEqual([{ ...first, balanceCents: 80_000, balanceDate: today }]);
     expect(debts.total.cents).toBe(70_000 + 80_000);
     const turned = householdDebts([card], inputsOf([second, first]), today);
     expect(turned.saved).toEqual([first]);

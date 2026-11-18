@@ -483,6 +483,17 @@ describe("the questions about a payer", () => {
     expect(q.map(({ rowIds: _ids, ...rest }) => rest)).toEqual([{ kind: "payer", key: VILLE, merchant: "Ville Esimerkki", cents: eur(900), count: 3, lastDate: "2026-10-03", options: ["cost_share", "sales", "own_money", "gift", "pay"], steady: true, proposal: "cost_share", offMedianCents: [] }]);
   });
 
+  it("asks nothing about steady transfers between two tracked accounts that no pool of senders pays from", () => {
+    const savings: Account = { id: "acc-2", name: "Yhteistili", iban: VILLE_IBAN, currency: "EUR", type: "checking", holder: "Liisa Meikalainen" };
+    const legs = ["2026-08-03", "2026-09-03", "2026-10-03"].flatMap((date) => [
+      tx({ id: `out-${date}`, bookingDate: date, amountCents: -eur(300), merchant: "Yhteistili", counterparty: "Liisa Meikalainen", counterpartyIban: VILLE_IBAN }),
+      tx({ id: `in-${date}`, accountId: "acc-2", bookingDate: date, amountCents: eur(300), merchant: "Matti Meikalainen", counterparty: "Matti Meikalainen", counterpartyIban: checking.iban }),
+    ]);
+    expect(pooledIbans(legs)).toEqual(new Set());
+    expect(settled([anchor(), ...legs], [], "1", [checking, savings]).filter((t) => t.id.startsWith("in-")).map((t) => t.isTransfer)).toEqual([true, true, true]);
+    expect(payersOf(ask([anchor(), ...legs], [], [checking, savings]))).toEqual([]);
+  });
+
   it("lists the rows off the usual sum, and does not ask about a payer that is neither steady nor large", () => {
     expect(payersOf(ask([anchor(), ...villeRows(), fromVille(50, "2026-10-08")], []))[0]!.offMedianCents).toEqual([eur(50)]);
     expect(payersOf(ask([anchor(), fromVille(50, "2026-10-08"), fromVille(40, "2026-09-08")], []))).toEqual([]);

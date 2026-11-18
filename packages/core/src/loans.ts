@@ -29,8 +29,8 @@ import { partCents } from "./account-use.ts";
 import { addDays, addMonthsToDate, daysBetween } from "./dates.ts";
 import { centsOf, type Debt, figureOf, partly } from "./debt-part.ts";
 import { divRound, endOf, type Instalments, intervalOf, loanLastDueDate, loanPeriodInterest, MAX_LOAN_PAYMENTS, planOf } from "./loan-plan.ts";
-import { annuityPayment, countsDays, loanSchedule, type Payment, payments, rateMilliAt, ratePathOf } from "./loan-schedule.ts";
-import type { Account, IsoDate, Loan, LoanReference, UserInputs } from "./types.ts";
+import { annuityPayment, countsDays, loanBalanceByPlan, loanSchedule, type Payment, payments, rateMilliAt, ratePathOf } from "./loan-schedule.ts";
+import { type Account, type IsoDate, isRevolving, type Loan, type LoanReference, type UserInputs } from "./types.ts";
 
 /** The Finnish name of each reference rate: the one list every page reads. */
 export const LOAN_REFERENCE_LABEL: Record<LoanReference, string> = {
@@ -95,9 +95,14 @@ export function loansOf(inputs: UserInputs): readonly Loan[] {
   });
 }
 
+/** What a card or credit line with no repayment kind owes by its typed payment and rate, null where it has no such plan on the day. */
+const revolvingPlanBalance = (loan: Loan, day: IsoDate): number | null => (isRevolving(loan.kind) && loan.repayment === null ? loanBalanceByPlan(loan, day) : null);
+
 /**
  * What is owed on a day: the stated balance moved forward by the plan. A loan without a plan keeps its stated balance
- * until its last due date and names the missing field. Before the balance date nothing is known.
+ * until its last due date and names the missing field. A card or credit line with a typed payment and rate pays that
+ * payment each month (`loanBalanceByPlan`), so it owes less than it was stated at, unless the payment does not cover
+ * the interest: then the balance would grow and the stated one stays. Before the balance date nothing is known.
  */
 export function loanBalanceOn(loan: Debt, day: IsoDate): LoanFigure {
   const cut = partly(loan);
@@ -106,7 +111,9 @@ export function loanBalanceOn(loan: Debt, day: IsoDate): LoanFigure {
   const plan = planOf(loan);
   if ("missing" in plan) {
     const end = endOf(loan);
-    return end !== null && day >= end ? { cents: 0, unknown: null } : { cents: loan.balanceCents, unknown: plan.missing };
+    if (end !== null && day >= end) return { cents: 0, unknown: null };
+    const byPlan = revolvingPlanBalance(loan, day);
+    return byPlan === null ? { cents: loan.balanceCents, unknown: plan.missing } : { cents: byPlan, unknown: null };
   }
   let cents = loan.balanceCents;
   for (const p of payments(loan, plan)) {
@@ -135,6 +142,11 @@ export function loanInterestNext12Months(loan: Debt, day: IsoDate): LoanFigure {
   if ("missing" in plan) {
     const end = endOf(loan);
     if (end !== null && day >= end) return { cents: 0, unknown: null };
+    if (revolvingPlanBalance(loan, day) !== null) {
+      // the balance follows the plan, so the interest is the plan's: what the payments due in the year carry
+      const rows = loanSchedule(loan, day).rows.filter((r) => r.date <= to);
+      return { cents: rows.reduce((sum, r) => sum + (r.interestCents ?? 0), 0), unknown: null };
+    }
     const owedDays = daysBetween(day, end !== null && end < to ? end : to);
     return { cents: divRound(Math.max(0, loan.balanceCents) * loan.rateBp * owedDays, 10_000 * daysBetween(day, to)), unknown: plan.missing };
   }
@@ -302,6 +314,12 @@ export function loanNextPayment(loan: Debt, day: IsoDate): NextPayment {
   }
   const owed = loanBalanceOn(loan, day).cents ?? 0;
   if (owed <= 0) return none(null);
+  if (revolvingPlanBalance(loan, day) !== null) {
+    // the balance follows the plan, so the next payment is the plan's, with its split and its day
+    const next = loanSchedule(loan, day).rows[0];
+    if (next === undefined) return none(null);
+    return { cents: (next.interestCents ?? 0) + next.principalCents, interestCents: next.interestCents, amortisationCents: next.principalCents, intervalMonths: 1, date: next.date, unknown: null };
+  }
   if (loan.paymentCents === null || loan.paymentCents <= 0) return none(plan.missing);
   // the typed amortisation is known, the interest on top of it is not
   if (loan.repayment === "equal_principal") return { ...none(plan.missing), amortisationCents: Math.min(loan.paymentCents, owed) };
@@ -384,6 +402,13 @@ const annuityShare = (rate: number, n: number): number => (rate === 0 ? 1 / n : 
 /** A rate moved by `shiftBp`, a fall at most to the margin: a rate already under its margin does not rise when the reference rate falls. */
 export const movedRate = (rateBp: number, marginBp: number | null, shiftBp: number): number => Math.max(Math.min(rateBp, marginBp ?? 0), rateBp + shiftBp);
 
+/** The loan with every review's rate of its rate path moved by `shiftBp`, a fall at most to the margin. A loan with no path is as it is. */
+const withShiftedPath = (loan: Loan, shiftBp: number): Loan => {
+  if (loan.ratePath === undefined || shiftBp === 0) return loan;
+  const margin = loan.marginBp === null ? null : loan.marginBp * 10;
+  return { ...loan, ratePath: loan.ratePath.map(([on, rate]) => [on, movedRate(rate, margin, shiftBp * 10)] as const) };
+};
+
 /**
  * The plan of a loan from `day` on at `rateBp`: what it owes on the day, how many payments it has left and those
  * payments, at the new rate and, for an annuity, the payment that ends it in the payments it has left (the annuity
@@ -404,9 +429,8 @@ export function planFrom(loan: Loan, plan: Instalments, day: IsoDate, rateBp: nu
       ends = p.balanceCents <= 0;
     }
   }
-  // a loan with a rate path moves every review's rate by the same shift, a fall at most to the margin
-  const margin = loan.marginBp === null ? null : loan.marginBp * 10;
-  const shifted: Loan = loan.ratePath === undefined || shiftBp === 0 ? loan : { ...loan, ratePath: loan.ratePath.map(([on, rate]) => [on, movedRate(rate, margin, shiftBp * 10)] as const) };
+  // a loan with a rate path moves every review's rate by the same shift
+  const shifted = withShiftedPath(loan, shiftBp);
   if (left > 0 && loan.repayment === "annuity" && loan.ratePath !== undefined && endOf(loan) !== null) {
     // an annuity with a last due date sets its payment again at every review: the payment in force, or the one the move asks
     payment = shiftBp === 0 ? current : annuityPayment(balance, rateMilliAt(shifted.ratePath, rateBp, day), plan.months, left, countsDays(shifted));
@@ -440,7 +464,7 @@ export function loanRateScenario(loan: Debt, day: IsoDate, shiftBp: number): Rat
   if (day < loan.balanceDate) return none("before_balance_date");
   const plan = planOf(loan);
   if ("missing" in plan) {
-    const interest = loanInterestNext12Months({ ...loan, rateBp }, day);
+    const interest = loanInterestNext12Months({ ...withShiftedPath(loan, shiftBp), rateBp }, day);
     return { ...moved, paymentCents: null, interestCents: interest.cents, unknown: interest.unknown };
   }
   const from = planFrom(loan, plan, day, rateBp, shiftBp);

@@ -115,7 +115,8 @@ interface HouseholdDebts {
  *   account's when the loan has none.
  * - The bank's balance is dated on the plan's latest due date on or before the day (`loanLastDueDate`), and on the
  *   loan's own balance date when none has passed: the payments after it fall on the loan's due days, so the payoff
- *   date does not move with the day the debts are read on.
+ *   date does not move with the day the debts are read on. A card or credit line with no repayment kind and no due
+ *   date passed is dated the day the bank gave the balance, since its plan pays down the balance it is dated at.
  * - The link holds only for an account that is in `accounts`, is a card or a loan account today (its type can be
  *   changed after the link was made) and has a balance at or below zero. Otherwise both sides count as if no link
  *   was made: a loan account at a plus (the sync stores a bank's plus on a loan account as a minus, so this is a type changed by hand) is no debt, and the typed loan is.
@@ -153,7 +154,9 @@ export function householdDebts(accounts: readonly DebtAccount[], inputs: UserInp
       const terms = part ? atPart(holder, part) : holder;
       const pair = { ...terms, limitCents: terms.limitCents ?? told.limitCents };
       const stale = balanceDayOf(account.balanceAt, day) < holder.balanceDate;
-      connected.push(stale ? pair : { ...pair, balanceCents: told.balanceCents, balanceDate: loanLastDueDate(holder, day) ?? holder.balanceDate });
+      // a card's own plan pays down the balance it is dated at, so the bank's balance, which has the payments in it, is dated the day the bank gave it
+      const bankDate = isRevolving(holder.kind) && holder.repayment === null ? balanceDayOf(account.balanceAt, day) : holder.balanceDate;
+      connected.push(stale ? pair : { ...pair, balanceCents: told.balanceCents, balanceDate: loanLastDueDate(holder, day) ?? bankDate });
       // where the account tells nothing yet the pair counts as typed: whole terms, cut at each figure
       sources.push({ loanId: holder.id, accountId: account.id, linked: true, typed: part ? { ...holder, part } : holder });
       if (part) parts.set(holder.id, part);

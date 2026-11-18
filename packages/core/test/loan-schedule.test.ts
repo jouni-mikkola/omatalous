@@ -536,6 +536,13 @@ describe("what the plan leaves owed", () => {
     expect(loanBalanceByPlan(card, "2025-12-01")).toBeNull();
     expect(loanBalanceByPlan(loan({ kind: "credit_line", rateBp: 1800 }), "2026-06-15")).toBeNull();
   });
+
+  it("is no figure where the payment does not cover the interest: the balance would only grow", () => {
+    // 10 € a month against 15 € of interest on 1 000 € at 18 %
+    const slow = loan({ kind: "card", rateBp: 1800, paymentCents: 1000 });
+    expect(loanSchedule(slow, "2026-06-15").never).toBe(true);
+    expect(loanBalanceByPlan(slow, "2026-06-15")).toBeNull();
+  });
 });
 
 describe("the payment the plan asks for", () => {

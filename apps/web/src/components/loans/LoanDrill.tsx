@@ -3,7 +3,7 @@
  * does to its end and its interest. Every figure is core's (`loanSchedule`, `loanWhatIf`, `loanRateLine`) on the saved
  * loan and the published fixings; nothing is worked out here.
  */
-import { type Loan, loanBalanceByPlan, loanBalanceOn, loanPaymentAfter, loanRateLine, loanSchedule, loansOf, loanWhatIf, type LoanUnknown, NO_INPUTS } from "@banking/core";
+import { type Loan, loanBalanceOn, loanPaymentAfter, loanRateLine, loanSchedule, loansOf, loanWhatIf, type LoanUnknown, NO_INPUTS } from "@banking/core";
 import { useId, useMemo, useState } from "react";
 import { date, eurosText, money, parseEuros, percent, plainNumber } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
@@ -81,8 +81,7 @@ function Body({ id, today }: { id: string; today: string }) {
   if (loan === null) return answer.error === null ? null : <p className="loan-wi-status">{answer.error}</p>;
 
   const from = today < loan.balanceDate ? loan.balanceDate : today;
-  // what the plan leaves owed on the day: a card's typed payment has lowered it from the balance it was stated at
-  const owed = loanBalanceByPlan(loan, from) ?? loanBalanceOn(loan, from).cents;
+  const owed = loanBalanceOn(loan, from).cents;
   const schedule = loanSchedule(loan, from);
   const summary = schedule.summary;
   const current = loanPaymentAfter(loan, from);
