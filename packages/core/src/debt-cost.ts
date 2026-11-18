@@ -20,7 +20,7 @@ import { THRESHOLDS } from "./thresholds.ts";
 import { type IsoDate, isRevolving, type Loan } from "./types.ts";
 
 /** How dear a debt is by its yearly cost: nothing at all, under 7 %, under 15 %, and 15 % or more (`thresholds.ts`). */
-export type DebtClass = "free" | "cheap" | "dear" | "very_dear";
+type DebtClass = "free" | "cheap" | "dear" | "very_dear";
 
 /** A payment of the debt's linked series as the bank booked it: the whole sum that left the account, positive, fees in. */
 export interface SeriesPayment {
@@ -29,7 +29,7 @@ export interface SeriesPayment {
 }
 
 /** The field the cost needs: a field of the loan's plan, or the fee of a plan at 0 % that nothing tells. */
-export type DebtCostUnknown = LoanUnknown | "fee";
+type DebtCostUnknown = LoanUnknown | "fee";
 
 /** The interest and fees of the payments due in the 12 months after the day. */
 interface Cost12 {
@@ -47,6 +47,10 @@ export interface DebtCost {
   costClass: DebtClass | null;
   /** The viewer's part of what the payments of the next 12 months cost. Null when it is not known. */
   next12: Cost12 | null;
+  /** The viewer's part of the interest and fees of every payment left. Null when it is not known. */
+  leftCents: number | null;
+  /** The fee each payment of the whole loan's plan carries. Null where the rows price the debt or nothing tells the fee. */
+  feePerPaymentCents: number | null;
   /** The field that leaves the cost unknown. */
   unknown: DebtCostUnknown | null;
 }
@@ -120,7 +124,7 @@ function measuredFee(planned: number, rows: readonly SeriesPayment[]): number | 
   return Math.round(median(excess));
 }
 
-const unknownCost = (unknown: DebtCostUnknown): DebtCost => ({ rateMilli: null, costClass: null, next12: null, unknown });
+const unknownCost = (unknown: DebtCostUnknown): DebtCost => ({ rateMilli: null, costClass: null, next12: null, leftCents: null, feePerPaymentCents: null, unknown });
 
 /**
  * Source 1, the plan: the payments of `loanSchedule` after the day, each with its interest, repayment and fee. The fee is
@@ -144,8 +148,9 @@ function planCost(loan: Loan, day: IsoDate, owedCents: number, rows: readonly Se
   const to = addMonthsToDate(day, 12);
   const interestCents = loanInterestNext12Months(loan, day).cents;
   const feeCents = fee * schedule.rows.filter((r) => r.date <= to).length;
-  const costCents = flows.reduce((sum, f) => sum + f.cents, -owedCents);
-  return { rateMilli, costClass: classOf(rateMilli, costCents), next12: interestCents === null ? null : { cents: interestCents + feeCents, interestCents, feeCents }, unknown: null };
+  const leftCents = flows.reduce((sum, f) => sum + f.cents, -owedCents);
+  const next12 = interestCents === null ? null : { cents: interestCents + feeCents, interestCents, feeCents };
+  return { rateMilli, costClass: classOf(rateMilli, leftCents), next12, leftCents, feePerPaymentCents: fee, unknown: null };
 }
 
 /**
@@ -173,14 +178,17 @@ function rowsCost(loan: Loan, day: IsoDate, rows: readonly SeriesPayment[]): Deb
   let balance = loan.balanceCents;
   let start = from;
   let cents = 0;
+  let leftCents = 0;
   for (const date of dates) {
     const grown = Math.round(balance * (1 + rateMilli / 100_000) ** (monthsBetween(start, date) / 12));
     const repaid = date === last ? balance : Math.min(balance, paid - (grown - balance));
+    if (date > day) leftCents += paid - repaid;
     if (date > day && date <= to) cents += paid - repaid;
     balance -= repaid;
     start = date;
   }
-  return { rateMilli, costClass: classOf(rateMilli, paid * dates.length - loan.balanceCents), next12: { cents, interestCents: null, feeCents: null }, unknown: null };
+  const costClass = classOf(rateMilli, paid * dates.length - loan.balanceCents);
+  return { rateMilli, costClass, next12: { cents, interestCents: null, feeCents: null }, leftCents, feePerPaymentCents: null, unknown: null };
 }
 
 /**
@@ -202,10 +210,11 @@ export function debtCost(debt: Debt, day: IsoDate, rows: readonly SeriesPayment[
   if (owed.cents === null) return unknownCost(owed.unknown);
   if (owed.cents <= 0) return null;
   const cost = loan.rateBp === null ? rowsCost(loan, day, rows) : planCost(loan, day, owed.cents, rows);
-  if (!cut || cost.next12 === null) return cost;
-  const { interestCents, feeCents } = cost.next12;
+  if (!cut) return cost;
   const part = (cents: number | null) => centsOf(cents, cut.part);
+  if (cost.next12 === null) return { ...cost, leftCents: part(cost.leftCents) };
+  const { interestCents, feeCents } = cost.next12;
   // each part cut on its own and the whole their sum, so the parts the drill shows add up to it
   const next12 = interestCents === null || feeCents === null ? { cents: part(cost.next12.cents)!, interestCents, feeCents } : { cents: part(interestCents)! + part(feeCents)!, interestCents: part(interestCents), feeCents: part(feeCents) };
-  return { ...cost, next12 };
+  return { ...cost, next12, leftCents: part(cost.leftCents) };
 }

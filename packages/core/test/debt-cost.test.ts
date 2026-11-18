@@ -35,6 +35,8 @@ describe("debtCost", () => {
       rateMilli: 15_247,
       costClass: "very_dear",
       next12: { cents: 4_740, interestCents: 0, feeCents: 4_740 },
+      leftCents: 4_740,
+      feePerPaymentCents: 395,
       unknown: null,
     });
     // a longer plan with a smaller fee costs far less a year
@@ -47,11 +49,11 @@ describe("debtCost", () => {
   });
 
   it("calls a 0 % plan free only when a document or the rows show no fee", () => {
-    const free = { rateMilli: 0, costClass: "free", next12: { cents: 0, interestCents: 0, feeCents: 0 }, unknown: null };
+    const free = { rateMilli: 0, costClass: "free", next12: { cents: 0, interestCents: 0, feeCents: 0 }, leftCents: 0, feePerPaymentCents: 0, unknown: null };
     expect(debtCost(plan({ paymentParts: withFee(0) }), START)).toEqual(free);
     expect(debtCost(plan(), START, paid(5_000))).toEqual(free);
     // nothing tells the fee: the cost is unknown, never 0
-    expect(debtCost(plan(), START)).toEqual({ rateMilli: null, costClass: null, next12: null, unknown: "fee" });
+    expect(debtCost(plan(), START)).toEqual({ rateMilli: null, costClass: null, next12: null, leftCents: null, feePerPaymentCents: null, unknown: "fee" });
   });
 
   it("judges a promotional rate over the whole plan left: the sooner the step, the dearer", () => {
@@ -74,14 +76,14 @@ describe("debtCost", () => {
   });
 
   it("leaves a debt with no rate and no rows unknown, never 0", () => {
-    expect(debtCost(plan({ rateBp: null }), START)).toEqual({ rateMilli: null, costClass: null, next12: null, unknown: "rate" });
+    expect(debtCost(plan({ rateBp: null }), START)).toEqual({ rateMilli: null, costClass: null, next12: null, leftCents: null, feePerPaymentCents: null, unknown: "rate" });
     const card = plan({ kind: "card", rateBp: null, repayment: null, paymentCents: null, endDate: null });
     expect(debtCost(card, START)).toMatchObject({ rateMilli: null, costClass: null, next12: null });
   });
 
   it("prices a loan with no rate from the payments of its series, with no rate assumed", () => {
     const rowsOnly = plan({ rateBp: null, seriesKey: "series-1" });
-    expect(debtCost(rowsOnly, START, paid(5_395))).toMatchObject({ rateMilli: 15_247, costClass: "very_dear", next12: { cents: 4_740, interestCents: null, feeCents: null } });
+    expect(debtCost(rowsOnly, START, paid(5_395))).toMatchObject({ rateMilli: 15_247, costClass: "very_dear", next12: { cents: 4_740, interestCents: null, feeCents: null }, leftCents: 4_740, feePerPaymentCents: null });
   });
 
   it("gives an annuity the same cost from its plan and from its rows, on any day of an interval", () => {
@@ -96,7 +98,7 @@ describe("debtCost", () => {
 
   it("cuts the 12 months to the viewer's part and keeps the rate", () => {
     const half = debtCost({ ...plan({ paymentParts: withFee(395) }), part: { from: 1, to: 2, of: 2 } }, START);
-    expect(half).toMatchObject({ rateMilli: 15_247, next12: { cents: 2_370, interestCents: 0, feeCents: 2_370 } });
+    expect(half).toMatchObject({ rateMilli: 15_247, next12: { cents: 2_370, interestCents: 0, feeCents: 2_370 }, leftCents: 2_370 });
   });
 
   it("gives nothing for a debt paid off on the day", () => {

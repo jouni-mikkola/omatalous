@@ -164,7 +164,7 @@ interface Schedule {
 }
 
 /** The plan a schedule follows: the loan's own, a revolving loan's typed payment each month, or a bullet's interest and its last day. */
-function schedulePlan(loan: Loan): Instalments | LoanUnknown {
+export function schedulePlan(loan: Loan): Instalments | LoanUnknown {
   if (isRevolving(loan.kind) && loan.repayment === null) {
     const paymentCents = typedPayment(loan);
     if (paymentCents === null) return "payment";
@@ -180,7 +180,7 @@ function schedulePlan(loan: Loan): Instalments | LoanUnknown {
 }
 
 /** What a payment is of the plan: with its interest, or the amortisation alone. */
-const paymentOf = (plan: Instalments, p: Payment): number => (plan.withInterest ? p.interestCents! + p.amortisationCents : p.amortisationCents);
+export const paymentOf = (plan: Instalments, p: Payment): number => (plan.withInterest ? p.interestCents! + p.amortisationCents : p.amortisationCents);
 
 /**
  * Where the plan stands on `from`: what is owed, the last due date on or before it (each interval counts at the rate of
