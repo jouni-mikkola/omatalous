@@ -93,6 +93,8 @@ export interface AnalysisContext {
   fees: ReadonlyMap<string, number>;
   /** The loan payment accounts of the view (`loanPaymentAccounts`). */
   paymentAccounts: ReadonlySet<string>;
+  /** The loan accounts of the view: accounts typed loan that are no payment account. Their rows mirror payments counted on the paying account and have no flows; a sum read in SQL leaves them out. */
+  loanAccounts: ReadonlySet<string>;
   /** The year's flow of each account whose rows show a loan payment account's pattern, whether or not its balance is known (`flagLoanPayment`). */
   paymentFlow: ReadonlyMap<string, number>;
   /** Whether the rows of each bill that has some are read, by the bill's id; a bill not in the view has no entry. */
@@ -255,7 +257,7 @@ function* contextSteps(transactions: readonly Transaction[], accounts: readonly 
   const { entries: explained, states, lowered } = explainStatements(txs, accounts, statements);
 
   return {
-    today, todayDay: dayNumber(today), fees, paymentAccounts: paying.ids, paymentFlow: paying.flow, dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, netted, recurring, explained, lowered, statements: states, foreignRows, history,
+    today, todayDay: dayNumber(today), fees, paymentAccounts: paying.ids, loanAccounts: loanIds, paymentFlow: paying.flow, dataFrom: txs[0]?.bookingDate ?? null, accounts, txs, returns, netted, recurring, explained, lowered, statements: states, foreignRows, history,
     fixedIds: cut?.fixedIds ?? fixedIds, habitIds: cut?.habitIds ?? habitIds, ...(cut ? { standing: cut } : {}),
   };
 }
