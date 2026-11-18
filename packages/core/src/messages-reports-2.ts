@@ -142,7 +142,6 @@ export const FI_REPORTS_2 = {
   "rpt.fd_total": "Yhteensä",
   "rpt.fd_visits_month": "Käyntejä kuussa",
   "rpt.fd_n_times": "{n} kertaa",
-  "rpt.fd_avg_basket": "Ostoskerta keskimäärin",
   "rpt.fd_datum": "Ruoka {amount} kuussa",
   "rpt.fd_q_basket": "Käynnit vai ostoskerta",
   "rpt.fd_basket_caption": "Ruokakaupan käynnit ja ostoskerta",

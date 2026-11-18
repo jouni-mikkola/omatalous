@@ -75,6 +75,7 @@ export const FI_TRANSACTIONS = {
   "tx.drill_missing": "Emme löydä kauppiaan kuukausitietoja.",
   "tx.12_months": "12 kuukautta",
   "tx.mean": "Ostoskerta keskimäärin",
+  "tx.mean_plain": "Keskimäärin",
   "tx.next_comma": ", seuraava {date}",
   "tx.drill_caption": "{merchant}: maksettu kuukausittain, eniten {max}",
   "tx.drill_bar": "{month}: {amount}, {events}",
