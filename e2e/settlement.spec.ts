@@ -303,7 +303,8 @@ for (const width of [390, 1440]) {
         const member = await makeMember(browser, name);
         pair.push(member);
         const linked = await browser.newContext({ storageState: member.state });
-        await linkFakeBank(await linked.newPage());
+        // a joint account no other spec links: one that answered for the shared or the own one has closed its months
+        await linkFakeBank(await linked.newPage(), { alone: true });
         await waitForSync(linked);
         await linked.close();
       }

@@ -20,6 +20,10 @@ const { accounts, transactions, balances, dollarAccount } = household(today);
 const own = household(today, true);
 Object.assign(transactions, own.transactions);
 Object.assign(balances, own.balances);
+/** A third copy with a joint account not even `own` links: a link that asks for it (?alone=1) gets it. */
+const alone = household(today, "alone");
+Object.assign(transactions, alone.transactions);
+Object.assign(balances, alone.balances);
 /** The household of the first-evening check, with the category each of its rows is expected to get: a link that asks for it (?evening=1) gets it. */
 const evening = firstEvening(today);
 Object.assign(transactions, evening.transactions);
@@ -71,6 +75,7 @@ async function handle(req, res) {
     // a link that asks for it (?dollars=1) also gets the account with a row in dollars; the others never see it
     authorization.dollars = url.searchParams.get("dollars") === "1";
     authorization.own = url.searchParams.get("own") === "1";
+    authorization.alone = url.searchParams.get("alone") === "1";
     authorization.evening = url.searchParams.get("evening") === "1";
     authorization.second = url.searchParams.get("second") === "1";
     authorization.coverage = url.searchParams.get("coverage") === "1";
@@ -127,7 +132,7 @@ async function handle(req, res) {
     const authorization = authorizations.get(String(code).replace(/^code-/, ""));
     if (!authorization) return send(res, 422, { error: "WRONG_AUTHORIZATION_CODE" });
     const validUntil = validDays === null ? authorization.validUntil : new Date(Date.now() + validDays * 86_400_000).toISOString();
-    const brought = authorization.bank === "OP" ? (authorization.second ? second.accounts : [opAccount]) : authorization.coverage ? coverage.accounts : authorization.evening ? evening.accounts : authorization.own ? own.accounts : authorization.dollars ? [...accounts, dollarAccount] : accounts;
+    const brought = authorization.bank === "OP" ? (authorization.second ? second.accounts : [opAccount]) : authorization.coverage ? coverage.accounts : authorization.evening ? evening.accounts : authorization.alone ? alone.accounts : authorization.own ? own.accounts : authorization.dollars ? [...accounts, dollarAccount] : accounts;
     return send(res, 200, { session_id: `session-${++sessions}`, aspsp: { name: authorization.bank, country: "FI" }, access: { valid_until: validUntil }, accounts: brought });
   }
   if (req.method === "DELETE" && url.pathname.startsWith("/sessions/")) return send(res, 204);
@@ -135,7 +140,7 @@ async function handle(req, res) {
   const account = /^GET \/accounts\/([\w-]+)\/(details|balances|transactions)$/.exec(route);
   const uid = account?.[1] ?? "";
   if (!account || !Object.hasOwn(transactions, uid)) return send(res, 404, { error: "NOT_FOUND" });
-  if (account[2] === "details") return send(res, 200, [...accounts, ...own.accounts, ...evening.accounts, ...second.accounts, ...coverage.accounts, opAccount].find((a) => a.uid === uid));
+  if (account[2] === "details") return send(res, 200, [...accounts, ...own.accounts, ...alone.accounts, ...evening.accounts, ...second.accounts, ...coverage.accounts, opAccount].find((a) => a.uid === uid));
   if (account[2] === "balances") {
     balanceCalls++;
     const amount = { currency: "EUR", amount: (balances[uid] / 100).toFixed(2) };

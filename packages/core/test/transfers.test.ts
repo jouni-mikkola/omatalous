@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays } from "../src/dates.ts";
-import { detectTransfers } from "../src/transfers.ts";
+import { BILLING_MONTH_DAYS, detectTransfers, paysPurchasesBeforeRows } from "../src/transfers.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 import { detectTransfersReference } from "./transfers-reference.ts";
@@ -22,6 +22,19 @@ function rng(seed: number) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+
+describe("a bill near a card's first row", () => {
+  it("pays purchases in no row up to a billing month after the first row, and pairs with the card's rows after that", () => {
+    expect(BILLING_MONTH_DAYS).toBe(31);
+    expect(paysPurchasesBeforeRows(100, 69)).toBe(true);
+    expect(paysPurchasesBeforeRows(100, 131)).toBe(true);
+    expect(paysPurchasesBeforeRows(100, 132)).toBe(false);
+  });
+
+  it("splits the days after the first row where the pairing's own check, more than a billing month, does", () => {
+    for (let after = 0; after <= 40; after++) expect(paysPurchasesBeforeRows(100, 100 + after), `${after} days after`).toBe(!(after > BILLING_MONTH_DAYS));
+  });
+});
 
 describe("detectTransfers pairing window", () => {
   it("finds the same transfers as the all-pairs version on random rows, in any input order", () => {
