@@ -6,7 +6,7 @@
  * within a lifetime of today, and no plan can make the balance grow. So a balance on any day is a whole number of
  * cents between zero and the stated balance.
  */
-import { addMonthsToDate, DEBT_ACCOUNT_TYPES, isRevolving, LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, loanPeriodInterest, MAX_LOAN_INTERVAL_MONTHS, mortgageSeriesKeys } from "@banking/core";
+import { addMonthsToDate, DEBT_ACCOUNT_TYPES, isRevolving, LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, loanPeriodInterest, MAX_LOAN_INTERVAL_MONTHS, mortgageSeriesKeys, type PaymentParts } from "@banking/core";
 import { Hono } from "hono";
 import { NotFound, UserError } from "../platform/errors.ts";
 import { randomToken } from "../platform/ids.ts";
@@ -39,6 +39,9 @@ const FIELDS = [
   "accountId",
   "rateReviewDate",
 ] as const satisfies readonly (keyof LoanFields)[];
+/** The body of a save also holds the split of the last payment a document stated, which is not a field of the loan (`parseLastPayment`). */
+const BODY_FIELDS = [...FIELDS, "lastPayment"] as const;
+const LAST_PAYMENT_FIELDS = ["date", "principalCents", "interestCents", "feeCents"] as const;
 
 const MAX_NAME = 80;
 /**
@@ -122,6 +125,27 @@ async function parseAccountId(value: unknown, accounts: OwnAccounts): Promise<st
   return account.id;
 }
 
+/**
+ * The split of the last payment a loan document stated, from the body of a save: null when the body has none. The date
+ * is a payment that has been made, and the parts are whole cents that make a payment of at most the largest amount
+ * (the sum is exact in core). Whether they fit the loan's own payment is for the form to tell: a document may state a
+ * payment that differs from the usual one.
+ */
+function parseLastPayment(raw: unknown, today: string): PaymentParts | null {
+  const given = strictObject(raw, BODY_FIELDS).lastPayment;
+  if (absent(given)) return null;
+  const input = strictObject(given, LAST_PAYMENT_FIELDS);
+  const part: PaymentParts = {
+    dueDate: date(input.date, addMonthsToDate(today, -12 * YEARS_BACK), today, `Viimeisen erän päivä voi olla enintään ${YEARS_BACK} vuotta sitten, eikä se voi olla tulevaisuudessa.`),
+    principalCents: cents(input.principalCents, 0, "Viimeisen erän lyhennyksen"),
+    interestCents: cents(input.interestCents, 0, "Viimeisen erän koron"),
+    feeCents: cents(input.feeCents, 0, "Viimeisen erän kulujen"),
+  };
+  const total = part.principalCents + part.interestCents + part.feeCents;
+  if (total < 1 || total > MAX_CENTS) throw new UserError(`Viimeisen erän osat pitää olla yhteensä vähintään 0,01 € ja enintään ${MAX_EUROS}.`);
+  return part;
+}
+
 /** An account has one saved loan. The loan in the way is the user's own, so the answer names it. */
 const heldBy = (holder: Loan) => new UserError(`Tähän tiliin on jo liitetty laina ${holder.name}. Poista liitos siitä ensin.`);
 
@@ -130,7 +154,7 @@ const heldBy = (holder: Loan) => new UserError(`Tähän tiliin on jo liitetty la
  * `accounts` reads the user's own accounts, for the one a loan is linked to.
  */
 export async function parseLoan(raw: unknown, today: string, accounts: OwnAccounts): Promise<LoanFields> {
-  const input = strictObject(raw, FIELDS);
+  const input = strictObject(raw, BODY_FIELDS);
   const oldest = addMonthsToDate(today, -12 * YEARS_BACK);
   const latest = addMonthsToDate(today, 12 * YEARS_AHEAD);
   const loan: LoanFields = {
@@ -191,6 +215,11 @@ export function loanRoutes(s: Services) {
     const mortgages = mortgageSeriesKeys(loans);
     return mortgages.length ? JSON.stringify([mortgages, loans.flatMap((loan) => loan.seriesKey ?? []).sort()]) : "";
   };
+  /** The loan as it is answered: with the payment parts it holds, which a save keeps or adds to. */
+  const withParts = async (repo: ReturnType<Services["finance"]>, loan: Loan): Promise<Loan> => {
+    const stated = (await repo.listLoans()).find((l) => l.id === loan.id)?.paymentParts;
+    return stated ? { ...loan, paymentParts: stated } : loan;
+  };
   const afterSave = async (userId: string, before: string) => {
     if ((await mortgageSeries(userId)) !== before) await reprocess(s.finance(userId), s.settings);
   };
@@ -218,27 +247,33 @@ export function loanRoutes(s: Services) {
 
   app.post("/loans", async (c) => {
     const repo = s.finance(c.get("user").id);
-    const input = await parseLoan(await body(c), s.today(), repo);
+    const raw = await body(c);
+    const input = await parseLoan(raw, s.today(), repo);
+    const lastPayment = parseLastPayment(raw, s.today());
     if ((await repo.listLoans()).length >= MAX_LOANS) throw new UserError(`Lainoja voi olla enintään ${MAX_LOANS}. Poista ensin turhat.`);
     const loan: Loan = { id: randomToken(), ...input };
     const before = await mortgageSeries(repo.userId);
     const holder = await repo.addLoan(loan, s.now().toISOString());
     if (holder) throw heldBy(holder);
+    if (lastPayment) await repo.saveLoanPaymentParts(loan.id, lastPayment);
     await afterSave(repo.userId, before);
-    return c.json({ loan });
+    return c.json({ loan: await withParts(repo, loan) });
   });
 
-  // the body is the whole loan: a field it leaves out is saved as not given
+  // the body is the whole loan: a field it leaves out is saved as not given. Payment parts are kept: the body adds or replaces one payment's.
   app.put("/loans/:id", async (c) => {
     const repo = s.finance(c.get("user").id);
-    const loan: Loan = { id: c.req.param("id"), ...(await parseLoan(await body(c), s.today(), repo)) };
+    const raw = await body(c);
+    const loan: Loan = { id: c.req.param("id"), ...(await parseLoan(raw, s.today(), repo)) };
+    const lastPayment = parseLastPayment(raw, s.today());
     const before = await mortgageSeries(repo.userId);
     const saved = await repo.updateLoan(loan, s.now().toISOString());
     // another member's loan is not this user's row: the same 404 as an id that never existed
     if (saved === false) throw new NotFound("Lainaa ei löydy.");
     if (saved !== true) throw heldBy(saved);
+    if (lastPayment) await repo.saveLoanPaymentParts(loan.id, lastPayment);
     await afterSave(repo.userId, before);
-    return c.json({ loan });
+    return c.json({ loan: await withParts(repo, loan) });
   });
 
   app.delete("/loans/:id", async (c) => {

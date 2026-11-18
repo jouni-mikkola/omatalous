@@ -2,7 +2,7 @@
  * The loan form's state and rules, apart from the page so they can be tested: a read, new or saved loan as the texts
  * the inputs hold, which fields a kind of loan has, what is still to check, and the loan the server takes.
  */
-import { balanceDayOf, DEBT_ACCOUNT_TYPES, isRevolving, type Loan, type LoanDraft, type LoanDraftKey, type LoanDraftPaymentKind, type LoanKind, loanPeriodInterest } from "@banking/core";
+import { balanceDayOf, DEBT_ACCOUNT_TYPES, isRevolving, type Loan, type LoanDraft, type LoanDraftKey, type LoanDraftLastPayment, type LoanDraftPaymentKind, type LoanKind, loanPeriodInterest } from "@banking/core";
 import { ACCOUNT_TYPE_LABEL, eurosText, parseEuros, parseRate, rateText } from "../../format.ts";
 import { t } from "../../text.ts";
 import type { Account, LoanProposalRow } from "../../types.ts";
@@ -52,9 +52,11 @@ export interface LoanForm {
   paymentKind: LoanDraftPaymentKind | null;
   /** The card or loan account that is this same debt (`Loan.accountId`), or "" for none. */
   accountId: string;
+  /** The split of the last payment the document read states: sent with the save, which keeps it with the loan. Null: the read has none. */
+  lastPayment: LoanDraftLastPayment | null;
 }
 
-export type LoanBody = Omit<Loan, "id">;
+export type LoanBody = Omit<Loan, "id"> & { lastPayment?: LoanDraftLastPayment };
 export type FormErrors = Partial<Record<LoanFieldKey | "kind", string>>;
 
 const blank = (): Record<LoanFieldKey, string> => ({ lender: "", grantedCents: "", balanceCents: "", balanceDate: "", rateBp: "", reference: "", marginBp: "", rateReviewDate: "", repayment: "", intervalMonths: "", paymentCents: "", endDate: "", limitCents: "" });
@@ -69,7 +71,7 @@ function textOf(key: LoanFieldKey, value: string | number | null): string {
 
 /** An empty form: the household types the loan in. */
 export function emptyForm(today: string): LoanForm {
-  return { id: null, seriesKey: null, name: "", kind: "", values: { ...blank(), balanceDate: today }, source: null, confirmed: [], paymentKind: null, accountId: "" };
+  return { id: null, seriesKey: null, name: "", kind: "", values: { ...blank(), balanceDate: today }, source: null, confirmed: [], paymentKind: null, accountId: "", lastPayment: null };
 }
 
 /**
@@ -105,7 +107,7 @@ export function formOfDraft(draft: LoanDraft, today: string, base: LoanForm = em
   // the text gave the amortisation alone of a loan whose payment holds the interest: the household types the whole payment
   if (draft.paymentKind === "amortisation" && values.repayment !== "equal_principal") values.paymentCents = "";
   // a fresh read starts with nothing confirmed: what the household confirmed in an earlier read is not this read's
-  return { ...base, kind: base.kind || (draft.kind ?? ""), values, source: { marks, lines, warnings, payment }, confirmed: [], paymentKind: draft.paymentKind ?? null };
+  return { ...base, kind: base.kind || (draft.kind ?? ""), values, source: { marks, lines, warnings, payment }, confirmed: [], paymentKind: draft.paymentKind ?? null, lastPayment: draft.lastPayment?.value ?? null };
 }
 
 /**
@@ -120,7 +122,7 @@ export function formOfProposal(proposal: LoanProposalRow, today: string, account
   const free = freeAccounts(accounts, loans, null).filter((a) => a.type === "loan");
   const told = free.length === 1 && free[0]!.balanceCents !== null && free[0]!.balanceCents < 0 ? free[0]! : null;
   if (told) Object.assign(values, { balanceCents: eurosText(-told.balanceCents!), balanceDate: balanceDayOf(told.balanceAt, today) });
-  return { id: null, seriesKey: proposal.key, name: "", kind: proposal.kind, values, source: null, confirmed: [], paymentKind: null, accountId: told?.id ?? "" };
+  return { id: null, seriesKey: proposal.key, name: "", kind: proposal.kind, values, source: null, confirmed: [], paymentKind: null, accountId: told?.id ?? "", lastPayment: null };
 }
 
 /**
@@ -131,14 +133,14 @@ export function formOfCard(account: Account, today: string): LoanForm {
   const owed = Math.max(0, -(account.balanceCents ?? 0));
   const limit = account.creditLimitCents;
   const values = { ...blank(), balanceCents: eurosText(owed), balanceDate: balanceDayOf(account.balanceAt, today), limitCents: limit === null ? "" : eurosText(limit) };
-  return { id: null, seriesKey: null, name: account.name, kind: account.type === "credit_card" ? "card" : "credit_line", values, source: null, confirmed: [], paymentKind: null, accountId: account.id };
+  return { id: null, seriesKey: null, name: account.name, kind: account.type === "credit_card" ? "card" : "credit_line", values, source: null, confirmed: [], paymentKind: null, accountId: account.id, lastPayment: null };
 }
 
 /** A saved loan as a form, for editing. */
 export function formOfLoan(loan: Loan): LoanForm {
   const values = blank();
   for (const key of FIELD_KEYS) values[key] = textOf(key, loan[key] ?? null);
-  return { id: loan.id, seriesKey: loan.seriesKey, name: loan.name, kind: loan.kind, values, source: null, confirmed: [], paymentKind: null, accountId: loan.accountId ?? "" };
+  return { id: loan.id, seriesKey: loan.seriesKey, name: loan.name, kind: loan.kind, values, source: null, confirmed: [], paymentKind: null, accountId: loan.accountId ?? "", lastPayment: null };
 }
 
 /** The words of a lender's name, lower case, so "Esimerkki Pankki Oyj" and "esimerkki pankki oyj." are one lender. */
@@ -294,6 +296,8 @@ export function readForm(form: LoanForm): { body: LoanBody | null; errors: FormE
     seriesKey: form.seriesKey,
     // PUT replaces every field, so a body without the link removes the one that was there (the server reads it as null)
     ...(form.accountId ? { accountId: form.accountId } : {}),
+    // a split of nothing is no payment: the server refuses it, and the save must not fail for it
+    ...(form.lastPayment && form.lastPayment.principalCents + form.lastPayment.interestCents + form.lastPayment.feeCents > 0 ? { lastPayment: form.lastPayment } : {}),
   };
   return Object.keys(errors).length > 0 ? { body: null, errors } : { body: body as LoanBody, errors };
 }

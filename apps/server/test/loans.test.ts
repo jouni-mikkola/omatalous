@@ -427,3 +427,145 @@ describe("loans", () => {
     expect(await db.all("SELECT name FROM loans")).toEqual([{ name: "Opintolaina" }]);
   });
 });
+
+/** The test clock is 2026-10-09, so a payment may be dated from 1986-10-09 to today. */
+describe("the split of a payment a loan document stated", () => {
+  const september = { date: "2026-09-05", principalCents: 24_800, interestCents: 4_700, feeCents: 500 };
+  const august = { date: "2026-08-05", principalCents: 24_700, interestCents: 4_800, feeCents: 500 };
+  const partsOf = (db: Awaited<ReturnType<typeof setupApp>>["db"], loanId: string) =>
+    db.all("SELECT due_date, principal_cents, interest_cents, fee_cents FROM loan_payment_parts WHERE loan_id = ? ORDER BY due_date", [loanId]);
+  const asPart = ({ date, ...cents }: typeof september) => ({ dueDate: date, ...cents });
+
+  it("is kept with the loan from the save: in cents, listed with it, added to or replaced by a later save, and gone with the loan", async () => {
+    const { admin, db } = await setupApp();
+    const added = await admin.call("POST", "/api/loans", { ...mortgage, lastPayment: september });
+    expect(added.status).toBe(200);
+    const id: string = added.body.loan.id;
+    expect(added.body.loan).toEqual({ id, ...mortgage, paymentParts: [asPart(september)] });
+    expect(await partsOf(db, id)).toEqual([{ due_date: "2026-09-05", principal_cents: 24_800, interest_cents: 4_700, fee_cents: 500 }]);
+    expect((await admin.call("GET", "/api/loans")).body.loans).toEqual([added.body.loan]);
+
+    // a save with no payment keeps what is kept, one of another day adds to it (oldest first), the same day replaces it
+    expect((await admin.call("PUT", `/api/loans/${id}`, mortgage)).body.loan.paymentParts).toEqual([asPart(september)]);
+    expect((await admin.call("PUT", `/api/loans/${id}`, { ...mortgage, lastPayment: august })).body.loan.paymentParts).toEqual([asPart(august), asPart(september)]);
+    const corrected = { ...september, interestCents: 4_650, feeCents: 550 };
+    expect((await admin.call("PUT", `/api/loans/${id}`, { ...mortgage, lastPayment: corrected })).body.loan.paymentParts).toEqual([asPart(august), asPart(corrected)]);
+    expect((await admin.call("GET", "/api/loans")).body.loans[0].paymentParts).toEqual([asPart(august), asPart(corrected)]);
+
+    expect((await admin.call("DELETE", `/api/loans/${id}`)).status).toBe(200);
+    expect(await partsOf(db, id)).toEqual([]);
+  });
+
+  it("is no field of a loan that has none", async () => {
+    const { admin } = await setupApp();
+    const loan = (await admin.call("POST", "/api/loans", mortgage)).body.loan;
+    expect("paymentParts" in loan).toBe(false);
+    expect((await admin.call("GET", "/api/loans")).body.loans).toEqual([loan]);
+  });
+
+  it("keeps the newest 24 payments of a loan", async () => {
+    const { admin, s, adminId, db } = await setupApp();
+    const { id } = (await admin.call("POST", "/api/loans", mortgage)).body.loan;
+    // 25 monthly payments, 2024-01-05 to 2026-01-05
+    const dates = Array.from({ length: 25 }, (_, i) => `${2024 + Math.floor(i / 12)}-${String((i % 12) + 1).padStart(2, "0")}-05`);
+    for (const dueDate of dates) expect(await s.finance(adminId).saveLoanPaymentParts(id, { dueDate, principalCents: 100, interestCents: 20, feeCents: 0 })).toBe(true);
+    const kept = (await partsOf(db, id)).map((r) => (r as { due_date: string }).due_date);
+    expect(kept).toEqual(dates.slice(1));
+    expect(kept).toHaveLength(24);
+  });
+
+  it("takes the first and last value of each range, and refuses the next one with nothing saved", async () => {
+    const { admin, db } = await setupApp();
+    const accepted = [
+      { ...september, date: "1986-10-09" },
+      { ...september, date: "2026-10-09" },
+      { date: "2026-09-05", principalCents: 1, interestCents: 0, feeCents: 0 },
+      { date: "2026-09-05", principalCents: 0, interestCents: 0, feeCents: 1 },
+      { date: "2026-09-05", principalCents: MAX_CENTS - 2, interestCents: 1, feeCents: 1 },
+      { date: "2026-09-05", principalCents: 0, interestCents: MAX_CENTS, feeCents: 0 },
+    ];
+    for (const lastPayment of accepted) {
+      const r = await admin.call("POST", "/api/loans", { ...bare, lastPayment });
+      expect(r.status, JSON.stringify(lastPayment)).toBe(200);
+      expect(r.body.loan.paymentParts, JSON.stringify(lastPayment)).toEqual([asPart(lastPayment)]);
+    }
+    const before = await db.first("SELECT count(*) AS n FROM loans");
+    const refused: [string, unknown][] = [
+      ["a day before the oldest", { ...september, date: "1986-10-08" }],
+      ["a day after today", { ...september, date: "2026-10-10" }],
+      ["a day that is no date", { ...september, date: "2026-02-30" }],
+      ["no day", { principalCents: 1, interestCents: 0, feeCents: 0 }],
+      ["a negative part", { ...september, interestCents: -1 }],
+      ["a fraction of a cent", { ...september, principalCents: 24_800.5 }],
+      ["a part as text", { ...september, feeCents: "500" }],
+      ["a missing part", { date: "2026-09-05", principalCents: 24_800, interestCents: 4_700 }],
+      ["nothing paid", { date: "2026-09-05", principalCents: 0, interestCents: 0, feeCents: 0 }],
+      ["a part over the largest sum", { date: "2026-09-05", principalCents: 0, interestCents: MAX_CENTS + 1, feeCents: 0 }],
+      ["parts that add up to over the largest sum", { date: "2026-09-05", principalCents: MAX_CENTS, interestCents: 1, feeCents: 0 }],
+      ["a field it does not know", { ...september, note: "x" }],
+      ["a list", [september]],
+      ["a text", "2026-09-05"],
+    ];
+    for (const [what, lastPayment] of refused) {
+      const r = await admin.call("POST", "/api/loans", { ...bare, lastPayment });
+      expect(r.status, what).toBe(400);
+      expect(typeof r.body.error, what).toBe("string");
+    }
+    expect(await db.first("SELECT count(*) AS n FROM loans")).toEqual(before);
+    // a refused part on a change leaves the loan and its parts as they were
+    const loan = (await admin.call("POST", "/api/loans", { ...mortgage, lastPayment: september })).body.loan;
+    const refusedChange = await admin.call("PUT", `/api/loans/${loan.id}`, { ...bare, name: "Muutettu", lastPayment: { ...september, date: "2026-10-10" } });
+    expect(refusedChange.status).toBe(400);
+    expect(refusedChange.body.error).toMatch(/^Viimeisen erän päivä/);
+    expect((await admin.call("GET", "/api/loans")).body.loans.at(-1)).toEqual(loan);
+    expect(await partsOf(db, loan.id)).toHaveLength(1);
+  });
+
+  it("names the part in the message", async () => {
+    const { admin } = await setupApp();
+    const error = async (lastPayment: Record<string, unknown>) => (await admin.call("POST", "/api/loans", { ...bare, lastPayment: { ...september, ...lastPayment } })).body.error;
+    expect(await error({ interestCents: -1 })).toBe("Viimeisen erän koron pitää olla vähintään 0 € ja enintään 10 000 000 €.");
+    expect(await error({ principalCents: 1.5 })).toMatch(/^Viimeisen erän lyhennyksen/);
+    expect(await error({ feeCents: null })).toMatch(/^Viimeisen erän kulujen/);
+    expect(await error({ date: "2027-01-01" })).toMatch(/^Viimeisen erän päivä/);
+    expect(await error({ principalCents: 0, interestCents: 0, feeCents: 0 })).toBe("Viimeisen erän osat pitää olla yhteensä vähintään 0,01 € ja enintään 10 000 000 €.");
+  });
+
+  it("is written only under the user's own loan: another member's loan id answers 404 and takes no part", async () => {
+    const { admin, member, s, db } = await setupApp();
+    const eero = await member("eero");
+    const mine = (await admin.call("POST", "/api/loans", { ...mortgage, lastPayment: september })).body.loan;
+    const theirs = (await eero.call("POST", "/api/loans", { ...bare, name: "Eeron laina" })).body.loan;
+
+    // a change of her loan by him writes nothing, and his change of his own loan takes only his part
+    const stolen = await eero.call("PUT", `/api/loans/${mine.id}`, { ...bare, lastPayment: august });
+    expect(stolen.status).toBe(404);
+    expect(stolen.body).toEqual({ error: "Lainaa ei löydy." });
+    expect(await partsOf(db, mine.id)).toEqual([{ due_date: "2026-09-05", principal_cents: 24_800, interest_cents: 4_700, fee_cents: 500 }]);
+    expect((await eero.call("PUT", `/api/loans/${theirs.id}`, { ...bare, name: "Eeron laina", lastPayment: august })).body.loan.paymentParts).toEqual([asPart(august)]);
+    expect(await partsOf(db, theirs.id)).toEqual([{ due_date: "2026-08-05", principal_cents: 24_700, interest_cents: 4_800, fee_cents: 500 }]);
+
+    // the repo of one user refuses the other's loan id, and each list holds its own parts only
+    expect(await s.finance(eero.id).saveLoanPaymentParts(mine.id, asPart(august))).toBe(false);
+    expect(await s.finance(eero.id).saveLoanPaymentParts("no-such-loan", asPart(august))).toBe(false);
+    expect(await partsOf(db, mine.id)).toHaveLength(1);
+    expect((await s.finance(eero.id).listLoans()).map((l) => l.paymentParts)).toEqual([[asPart(august)]]);
+    expect((await admin.call("GET", "/api/loans")).body.loans).toEqual([mine]);
+    expect((await eero.call("GET", "/api/loans")).body.loans.map((l: Loan) => l.paymentParts)).toEqual([[asPart(august)]]);
+
+    // a part under another user's loan is no row of the database either
+    await expect(db.run("INSERT INTO loan_payment_parts (user_id, loan_id, due_date, principal_cents, interest_cents, fee_cents) VALUES (?, ?, '2026-07-05', 1, 1, 1)", [eero.id, mine.id])).rejects.toThrow();
+    expect(await partsOf(db, mine.id)).toHaveLength(1);
+  });
+
+  it("goes with the user: deleting the user deletes the parts of their loans", async () => {
+    const { admin, member, db } = await setupApp();
+    const eero = await member("eero");
+    const loan = (await eero.call("POST", "/api/loans", { ...bare, lastPayment: september })).body.loan;
+    const mine = (await admin.call("POST", "/api/loans", { ...bare, lastPayment: august })).body.loan;
+    expect(await partsOf(db, loan.id)).toHaveLength(1);
+    await admin.call("DELETE", `/api/users/${eero.id}`);
+    expect(await db.first("SELECT count(*) AS n FROM loan_payment_parts")).toEqual({ n: 1 });
+    expect(await partsOf(db, mine.id)).toHaveLength(1);
+  });
+});
