@@ -199,7 +199,7 @@ export function cancelledSubjects(inputs: UserInputs, today?: IsoDate): Readonly
 /**
  * A subscription or bill that is spending or debt service: what the forecast expects. With `savings` a monthly saving is one too.
  */
-function isBillSeries(s: Pick<RecurringSeries, "kind" | "category">, savings = false): boolean {
+export function isBillSeries(s: Pick<RecurringSeries, "kind" | "category">, savings = false): boolean {
   if (s.kind !== "subscription" && s.kind !== "bill") return false;
   const kind = getCategory(s.category).kind;
   return kind === "expense" || kind === "debt" || (savings && kind === "savings");

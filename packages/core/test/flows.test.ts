@@ -4,10 +4,12 @@
  * exactly one of consumption / debt / savings / income / borrowed, or be neutral.
  */
 import { describe, expect, it } from "vitest";
+import { createContext } from "../src/analysis/context.ts";
 import { type Flows, flowsOf, totalsOf } from "../src/analysis/flows.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
+import { billCalendar } from "../src/reports/bill-calendar.ts";
 import { detectTransfers } from "../src/transfers.ts";
-import type { Account, Transaction } from "../src/types.ts";
+import { type Account, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { row, run } from "./flow-helpers.ts";
 
 const checking: Account = { id: "chk", name: "Käyttötili", iban: "FI2112345600000785", currency: "EUR", type: "checking" };
@@ -716,6 +718,16 @@ describe("money that comes back is not income", () => {
       expect(final[1]!.category).toBe("salary");
       expect(final[3]!.category).toBe("benefits");
       expect(totals.incomeCents).toBe(264000);
+    });
+
+    it("a member's monthly settlement is a transfer and no income row of the bill calendar", () => {
+      const months = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09"];
+      const rows = months.flatMap((m) => [row("chk", `${m}-03`, 300, "TILISIIRTO", "LIISA VIRTANEN", { counterpartyIban: "FI7712345600000009" }), row("chk", `${m}-15`, 2500, `PALKKA ${m.slice(5)}/2026`, "ACME OY")]);
+      const changed = new Map(enrichTransactions(rows, [checking], [], new Map(), undefined, undefined, new Set(["FI7712345600000009"])).map((t) => [t.id, t]));
+      const final = rows.map((t) => changed.get(t.id) ?? t);
+      const income = billCalendar(createContext(final, [checking], "2026-09-20"), NO_INPUTS).months.flatMap((m) => m.rows).filter((r) => r.kind === "income");
+      expect(income.length).toBeGreaterThan(0);
+      expect(income.every((r) => r.category === "salary" && r.cents === 250000)).toBe(true);
     });
   });
 
