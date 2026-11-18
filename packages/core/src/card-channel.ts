@@ -7,7 +7,7 @@ import { type Holders, holdersOf, isUserName } from "./categorize-people.ts";
 import { dayNumber } from "./dates.ts";
 import { cardIssuerName, fold, UNKNOWN_MERCHANT } from "./merchant.ts";
 import { mayBeTransferLeg, pairsOf, transferAllocations } from "./pairing.ts";
-import { BILLING_MONTH_DAYS, billsByIssuer, namesCard, normalizeIban } from "./transfers.ts";
+import { billsByIssuer, namesCard, normalizeIban, paysPurchasesBeforeRows } from "./transfers.ts";
 import type { Account, Transaction } from "./types.ts";
 import { isCardIssuerText, isPersonShaped } from "./wording.ts";
 import { isLenderShapedName } from "./wording-lenders.ts";
@@ -147,7 +147,7 @@ export function settleTransfers(txs: readonly Transaction[], accounts: readonly 
       const day = dayNumber(t.bookingDate);
       const starts = paid.map((card) => began.get(card)!);
       const earlier = starts.filter((start) => start <= day);
-      if (day - (earlier.length ? Math.max(...earlier) : Math.min(...starts)) > BILLING_MONTH_DAYS) transfers.add(t.id);
+      if (!paysPurchasesBeforeRows(earlier.length ? Math.max(...earlier) : Math.min(...starts), day)) transfers.add(t.id);
       else cardBills.add(t.id);
     }
   }

@@ -111,9 +111,9 @@ export function fakeBank(): { url: string; consentHost: string; appId: string; p
  * Asetukset > Pankkiyhteydet as the signed-in user of `page` does it: the fake bank's application is saved as their own,
  * the bank is picked, the consent page answers, and the page comes back linked. Only the host of the consent page does not
  * exist here; every other request goes where it would in production. `dollars` adds the account in dollars, `own` links the
- * household under ids and a joint account no other link has (fake-bank/household.mjs). `coverage` links the household whose figures leave things out (fake-bank/coverage-household.mjs). `bank: "OP"` links the second bank, which brings one account, or with `second` the second household (fake-bank/second-household.mjs).
+ * household under ids and a joint account no other link has (fake-bank/household.mjs), `alone` the same under a third set of ids and a joint account not even `own` links. `coverage` links the household whose figures leave things out (fake-bank/coverage-household.mjs). `bank: "OP"` links the second bank, which brings one account, or with `second` the second household (fake-bank/second-household.mjs).
  */
-export async function linkFakeBank(page: Page, options: { dollars?: boolean; own?: boolean; evening?: boolean; second?: boolean; coverage?: boolean; bank?: "Nordea" | "OP" } = {}): Promise<void> {
+export async function linkFakeBank(page: Page, options: { dollars?: boolean; own?: boolean; alone?: boolean; evening?: boolean; second?: boolean; coverage?: boolean; bank?: "Nordea" | "OP" } = {}): Promise<void> {
   const bank = fakeBank();
   const context = page.context();
   const saved = await context.request.put("/api/bank/credentials", { data: { appId: bank.appId, privateKeyPem: bank.privateKeyPem }, headers: FETCH });
@@ -122,7 +122,7 @@ export async function linkFakeBank(page: Page, options: { dollars?: boolean; own
   // of a plain-http install; the browser would not follow a second answered hop, so that page's job is done here: it
   // sends the browser on to the app with the same query.
   await context.route(`https://${bank.consentHost}/**`, async (route) => {
-    const asked = new URLSearchParams([...(options.dollars ? [["dollars", "1"]] : []), ...(options.own ? [["own", "1"]] : []), ...(options.evening ? [["evening", "1"]] : []), ...(options.second ? [["second", "1"]] : []), ...(options.coverage ? [["coverage", "1"]] : [])]).toString();
+    const asked = new URLSearchParams([...(options.dollars ? [["dollars", "1"]] : []), ...(options.own ? [["own", "1"]] : []), ...(options.alone ? [["alone", "1"]] : []), ...(options.evening ? [["evening", "1"]] : []), ...(options.second ? [["second", "1"]] : []), ...(options.coverage ? [["coverage", "1"]] : [])]).toString();
     const answer = await route.fetch({ url: `${bank.url}${new URL(route.request().url()).pathname}${asked ? `?${asked}` : ""}`, maxRedirects: 0 });
     const back = new URL(answer.headers().location ?? "");
     await route.fulfill({ status: 302, headers: { location: `${process.env.E2E_BASE_URL}/api/connections/callback${back.search}` } });

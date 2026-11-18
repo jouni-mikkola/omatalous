@@ -256,7 +256,7 @@ card's own, or a statement's.
   is therefore not learned: only the payments that pair are transfers, and the others keep the category the rules above
   gave them. The channel belongs to the card with the most pairs.
 - **Before the card's first row and after.** A payment to a known channel that paired with nothing is a transfer when
-  the card's own rows began more than a billing month (`BILLING_MONTH_DAYS`) before it: the purchases it pays are on
+  the card's own rows began more than a billing month (31 days, `paysPurchasesBeforeRows`) before it: the purchases it pays are on
   the card account. A payment within that time of the card's first row, or before it, is a card bill (*Luottokortin
   lasku*, debt service), since the purchases it pays are in no row. A channel that several cards share pays
   the card whose rows began last before the payment, so a new card's first bill is a card bill whatever the old card's
@@ -274,7 +274,9 @@ card's own, or a statement's.
   a debt, savings or *Muut* category. A rule to a purchase category (*Koti*) and a category set by hand on a row stay.
 - **Data quality.** The card bills that are no transfer show in Tietojen laatu (*Korttilaskuja … ilman ostoja*) as a table by
   issuer: the bills of 12 months, and why the purchases are missing: no card of that issuer is connected, or the bank
-  gives the card's purchases only from a day on.
+  gives the card's purchases only from a day on. A bill dated before the card's first row, or up to 31 days after it
+  (`paysPurchasesBeforeRows`, the rule of the transfer pairing above), is of that second kind. A later bill that pairs
+  with none of the card's rows is *unmatched*. The sum is the same whichever way a bill is told.
 - **Missing card purchases.** *Kortin ostot puuttuvat* has one owner, `missingCards` in `analysis/card-bills.ts`: the
   bills of `missingCardPurchases` over a range, for every reason, and their sum. Its one title is `missingCardsTitle`.
   The data quality signal reads it over its range. The first page's reliability line, the questions and the known share
