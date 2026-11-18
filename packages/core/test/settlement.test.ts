@@ -43,10 +43,12 @@ interface Setup {
   opening?: number;
   closed?: ClosedMonth[];
   split?: "unknown";
+  /** By account key, the day a member last said its use or split. */
+  said?: Record<string, string>;
 }
 const run = (month: string, rows: readonly TraceRow[], o: Setup = {}): Settlement => {
   const t = trace(rows, o.opening ?? 0, Math.min(...rows.map((r) => r.day)));
-  return settlement(month, { key: POOL, trace: t, answers: o.answers ?? [], users: o.users ?? BOTH, ...(o.split ? { split: o.split } : {}) }, o.agreements ?? [equal()], new Set(o.members ?? [MATTI, MAIJA]), o.cards ?? [], o.incomes ?? new Map(), o.asOf ?? "2026-12-01", o.closed ?? []);
+  return settlement(month, { key: POOL, trace: t, answers: o.answers ?? [], users: o.users ?? BOTH, ...(o.split ? { split: o.split } : {}), ...(o.said ? { usesSaidOn: new Map(Object.entries(o.said)) } : {}) }, o.agreements ?? [equal()], new Set(o.members ?? [MATTI, MAIJA]), o.cards ?? [], o.incomes ?? new Map(), o.asOf ?? "2026-12-01", o.closed ?? []);
 };
 const sum = (xs: readonly number[]): number => xs.reduce((s, x) => s + x, 0);
 /** The identity of every month, and that what was paid and what was owed are both the net cost. */
@@ -533,7 +535,8 @@ describe("a closed month is frozen", () => {
     const shops = [deposit(MATTI, "2026-09-01", 100000), deposit(MAIJA, "2026-09-01", 100000), row("s1", "2026-09-10", -10000), row("s2", "2026-09-11", -10000)];
     const sep = run("2026-09", shops, { asOf: "2026-10-05" });
     expect(sep.status.open).toBe(false);
-    const gone: Setup = { members: [MATTI], users: [{ owner: MATTI, weight: 1 }], agreements: [agree("2026-01-01", "equal", { who: [MATTI, MAIJA] })], asOf: "2026-11-10", closed: [sep as ClosedMonth] };
+    // the use is said again without her
+    const gone: Setup = { members: [MATTI], users: [{ owner: MATTI, weight: 1 }], said: { [POOL]: "2026-11-01" }, agreements: [agree("2026-01-01", "equal", { who: [MATTI, MAIJA] })], asOf: "2026-11-10", closed: [sep as ClosedMonth] };
     const still = run("2026-09", shops, gone);
     expect(still.status).toEqual(sep.status);
     expect([of(still, MATTI).over, of(still, MAIJA).over]).toEqual([0, 0]);
@@ -620,7 +623,7 @@ describe("a closed month is final", () => {
     // a month with untold costs closes by time, 90 days after its end
     const sep = frozen("2026-09", rows, { agreements: [], split: "unknown", asOf: "2027-01-05" });
     expect(sep.lines).toEqual([]);
-    const oct = identity(run("2026-10", rows, { agreements: [equal()], split: "unknown", asOf: "2027-01-10", closed: [sep] }));
+    const oct = identity(run("2026-10", rows, { agreements: [{ ...equal(), setOn: "2027-01-08" }], split: "unknown", asOf: "2027-01-10", closed: [sep] }));
     expect(oct.lines.map((l) => [l.kind, l.key, l.cents])).toEqual([["late_change", "2026-09", 10000]]);
     expect(moves(oct)).toBe(true);
     expect([of(oct, MATTI).over, of(oct, MAIJA).over]).toEqual([0, 0]);

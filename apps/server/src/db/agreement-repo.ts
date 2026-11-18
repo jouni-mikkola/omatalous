@@ -75,9 +75,12 @@ export class AgreementRepo {
     return done.changes > 0;
   }
 
-  /** Replaces the value of a row that shows the income ratio and still waits for a partner, if it is still what the caller read: false when it has moved. */
-  async confirmAgreement(key: string, validFrom: string, was: string, value: string): Promise<boolean> {
-    const done = await this.db.run("UPDATE account_agreement SET value = ? WHERE account_key = ? AND valid_from = ? AND kind IN ('income', 'fixed') AND value = ?", [value, key, validFrom, was]);
+  /**
+   * Replaces the value of a row that shows the income ratio and still waits for a partner, if it is still what the caller
+   * read: false when it has moved. `at` becomes its time: the row put by its last partner comes into force then.
+   */
+  async confirmAgreement(key: string, validFrom: string, was: string, value: string, at: string): Promise<boolean> {
+    const done = await this.db.run("UPDATE account_agreement SET value = ?, set_at = ? WHERE account_key = ? AND valid_from = ? AND kind IN ('income', 'fixed') AND value = ?", [value, at, key, validFrom, was]);
     return done.changes > 0;
   }
 

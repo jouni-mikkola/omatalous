@@ -25,6 +25,8 @@ export interface SettlementPool {
   users: readonly TraceUser[];
   /** "unknown": the weights come from the holder names and nobody said the split (`AccountUse.split`), so a cost no agreement covers has no shares (ADR 0017). */
   split?: "unknown";
+  /** `YYYY-MM-DD` by account key (the pool's and its cards'): the local day a member last said the use or the split. A key nobody said, or the app split, has none. */
+  usesSaidOn?: ReadonlyMap<string, string>;
 }
 
 /** Cents on the paying side, signed: members' own and the unknown owners' (`g:`, `o`, `c`, `u:`). */

@@ -12,6 +12,8 @@ export interface AgreementRow {
   validFrom: string;
   kind: "equal" | "share" | "income" | "fixed";
   value: Readonly<Record<string, unknown>>;
+  /** `YYYY-MM-DD`, the local day the row came into force: set, or put by the last partner it waited for. A row set after a month closed is a word said of that month (ADR 0017). */
+  setOn?: string;
 }
 export interface Weight {
   owner: Owner;
