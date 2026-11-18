@@ -195,7 +195,8 @@ OLD_COMMIT=$(git -C "$DIR" rev-parse HEAD)
 # The remote here holds no release tag, so the install follows the source from its first update on: a baseline that
 # knows releases would ask GitHub for the newest one and stop, since that tag is not in this folder. An older
 # baseline does not read the line.
-printf 'SETUP_CODE=ci-setup-code-12345\nTALOUS_CHANNEL=source\n' >"$DIR/.env"
+# REFERENCE_RATES=false: the run reaches no outside host; a baseline that does not read it ignores it
+printf 'SETUP_CODE=ci-setup-code-12345\nTALOUS_CHANNEL=source\nREFERENCE_RATES=false\n' >"$DIR/.env"
 if ((${#MOVED[@]})); then
   printf '%s\n' "${MOVED[@]}" >>"$DIR/.env"
   export "${MOVED[@]}"

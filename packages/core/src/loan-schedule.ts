@@ -53,6 +53,12 @@ export function annuityPayment(balanceCents: number, rateMilli: number, months: 
   return Math.round(i === 0 ? balanceCents / left : (balanceCents * i) / (1 - (1 + i) ** -left));
 }
 
+/** The due date one interval before the first due date `date`: the interval's start, which a balance dated inside it does not move. */
+function dueDateBefore(loan: Loan, date: IsoDate, months: number, end: IsoDate | null): IsoDate {
+  if (end === null) return loan.balanceDate;
+  return addMonthsToDate(end, -((monthIndex(monthOf(end)) - monthIndex(monthOf(date))) / months + 1) * months);
+}
+
 /**
  * The plan's payments after the balance date, until nothing is owed. The last one pays what is left, so no payment is
  * larger than what is owed with its interest. `from` starts the plan later, on the loan's own due dates: what was owed
@@ -73,15 +79,19 @@ export function* payments(loan: Loan, plan: Instalments, from: { balanceCents: n
   let start = from.after;
   let set = plan.rateBp === null ? null : rateMilliAt(path, plan.rateBp, start);
   let index = -1;
+  // the due date before the interval that is counted: days run from it, also when the plan starts mid-interval
+  let grid: IsoDate | null = null;
   for (const date of dates) {
     index++;
+    const intervalStart: IsoDate = grid ?? dueDateBefore(loan, date, plan.months, end);
+    grid = date;
     if (date <= from.after) continue;
     if (balance <= 0) return;
     const rate = plan.rateBp === null ? null : rateMilliAt(path, plan.rateBp, start);
     if (reset && rate !== set) payment = annuityPayment(balance, rate!, plan.months, total - index, days);
     set = rate;
     // a loan that follows a reference rate counts the actual days of the interval, the others its months
-    const interest = rate === null ? null : days ? dayInterest(balance, rate, daysBetween(start, date)) : intervalInterest(balance, rate, plan.months);
+    const interest = rate === null ? null : days ? dayInterest(balance, rate, daysBetween(intervalStart, date)) : intervalInterest(balance, rate, plan.months);
     const planned = plan.withInterest ? payment - interest! : payment;
     const amortisation = date === end || planned > balance ? balance : planned;
     balance -= amortisation;

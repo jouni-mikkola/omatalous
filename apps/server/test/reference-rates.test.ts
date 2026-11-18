@@ -88,7 +88,7 @@ describe("fetchFixings", () => {
 });
 
 /** An instance with the fetch on, a clock the test moves and a fake report server. */
-async function setup(respond: (url: string) => Response | Promise<Response> = () => new Response(report(period("2026-11-16", level("2,000")), period("2026-11-17", level("2,050"))))) {
+async function setup(respond: (url: string) => Response | Promise<Response> = () => new Response(report(period("2026-11-16", level("2,000")), period("2026-11-17", level("2,050")), period("2026-11-18", level("2,100"))))) {
   const clock = { now: new Date("2026-11-18T17:00:00Z") }; // 19:00 in Helsinki
   const urls: string[] = [];
   const fetchMock = (async (url: string | URL | Request) => {
@@ -102,10 +102,10 @@ async function setup(respond: (url: string) => Response | Promise<Response> = ()
 describe("fetchReferenceRates", () => {
   it("asks the report of all the days on an empty table, and stores each rate once", async () => {
     const t = await setup();
-    expect(await fetchReferenceRates(t.s)).toEqual({ report: "history", added: 6 });
+    expect(await fetchReferenceRates(t.s)).toEqual({ report: "history", added: 9 });
     expect(t.urls).toHaveLength(1);
     expect(t.urls[0]).toContain("euribor_korot_xml_short_fi");
-    expect((await t.s.referenceRates.all()).euribor_6).toEqual([["2026-11-16", 2200], ["2026-11-17", 2200]]);
+    expect((await t.s.referenceRates.all()).euribor_6).toEqual([["2026-11-16", 2200], ["2026-11-17", 2200], ["2026-11-18", 2200]]);
   });
 
   it("fetches once a day: not before 18:00 in Helsinki, and not again after a fetch that stored", async () => {
@@ -121,22 +121,54 @@ describe("fetchReferenceRates", () => {
 
   it("asks the short report the next day, and a day already stored takes the new rate", async () => {
     let three = "2,000";
-    const t = await setup(() => new Response(report(period("2026-11-17", level(three)))));
+    const t = await setup(() => new Response(report(period("2026-11-18", level(three)))));
     await fetchReferenceRates(t.s);
     three = "2,100";
     t.clock.now = new Date("2026-11-19T17:00:00Z");
-    expect(await fetchReferenceRates(t.s)).toEqual({ report: "today", added: 0 });
+    expect(await fetchReferenceRates(t.s)).toMatchObject({ report: "today", added: 0 });
     expect(t.urls[1]).toContain("euribor_korot_today_xml_fi");
-    expect((await t.s.referenceRates.all()).euribor_3).toEqual([["2026-11-17", 2100]]);
+    expect((await t.s.referenceRates.all()).euribor_3).toEqual([["2026-11-18", 2100]]);
   });
 
-  it("asks the report of all the days again when the newest stored day is over ten days back", async () => {
+  it("asks the report of all the days whenever the newest stored day is older than the weekday before, so a short outage leaves no gap", async () => {
     const t = await setup();
-    await fetchReferenceRates(t.s);
-    t.clock.now = new Date("2026-11-27T17:00:00Z"); // 10 days after 2026-11-17
+    await fetchReferenceRates(t.s); // stores up to Wednesday 2026-11-18
+    t.clock.now = new Date("2026-11-19T17:00:00Z"); // Thursday: Wednesday is the weekday before
     expect(await fetchReferenceRates(t.s)).toMatchObject({ report: "today" });
-    t.clock.now = new Date("2026-11-28T17:00:00Z"); // 11 days
+    t.clock.now = new Date("2026-11-20T17:00:00Z"); // Friday: Thursday is missing
     expect(await fetchReferenceRates(t.s)).toMatchObject({ report: "history" });
+  });
+
+  it("takes the Friday before as the weekday before on a weekend and a Monday", async () => {
+    const t = await setup(() => new Response(report(period("2026-11-20", level("2,000")))));
+    t.clock.now = new Date("2026-11-20T17:00:00Z"); // Friday
+    expect(await fetchReferenceRates(t.s)).toMatchObject({ report: "history" });
+    for (const day of ["21", "22", "23"]) {
+      t.clock.now = new Date(`2026-11-${day}T17:00:00Z`);
+      await t.s.settings.set("reference_rates_done", "");
+      expect(await fetchReferenceRates(t.s), day).toMatchObject({ report: "today" });
+    }
+    t.clock.now = new Date("2026-11-24T17:00:00Z"); // Tuesday: Monday is missing
+    await t.s.settings.set("reference_rates_done", "");
+    expect(await fetchReferenceRates(t.s)).toMatchObject({ report: "history" });
+  });
+
+  it("does not close the day while the report lacks its fixing, and asks again at the next tick", async () => {
+    let answer = period("2026-11-17", level("2,000"));
+    const t = await setup(() => new Response(report(answer)));
+    expect(await fetchReferenceRates(t.s)).toEqual({ report: "history", added: 3, waiting: true });
+    expect(await fetchReferenceRates(t.s)).toMatchObject({ waiting: true });
+    expect(t.urls).toHaveLength(2);
+    answer = period("2026-11-18", level("2,000"));
+    expect(await fetchReferenceRates(t.s)).toEqual({ report: "today", added: 3 });
+    expect(await fetchReferenceRates(t.s)).toMatchObject({ skipped: "done" });
+  });
+
+  it("counts a weekend day as done with the fixing of the Friday", async () => {
+    const t = await setup(() => new Response(report(period("2026-11-20", level("2,000")))));
+    t.clock.now = new Date("2026-11-21T17:00:00Z"); // Saturday
+    expect(await fetchReferenceRates(t.s)).toEqual({ report: "history", added: 3 });
+    expect(await fetchReferenceRates(t.s)).toMatchObject({ skipped: "done" });
   });
 
   it("does nothing under REFERENCE_RATES=false", async () => {
@@ -148,7 +180,7 @@ describe("fetchReferenceRates", () => {
 
   it("keeps the stored fixings when a report has changed its shape, logs once a day, and tries again at the next tick", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    let answer: () => Response = () => new Response(report(period("2026-11-17", level("2,000"))));
+    let answer: () => Response = () => new Response(report(period("2026-11-18", level("2,000"))));
     const t = await setup(() => answer());
     await fetchReferenceRates(t.s);
     const stored = await t.s.referenceRates.all();
@@ -167,7 +199,7 @@ describe("fetchReferenceRates", () => {
     await fetchReferenceRates(t.s);
     expect(error).toHaveBeenCalledTimes(2);
 
-    answer = () => new Response(report(period("2026-11-19", level("2,100"))));
+    answer = () => new Response(report(period("2026-11-20", level("2,100"))));
     expect(await fetchReferenceRates(t.s)).toMatchObject({ added: 3 });
     expect(await fetchReferenceRates(t.s)).toMatchObject({ skipped: "done" });
   });

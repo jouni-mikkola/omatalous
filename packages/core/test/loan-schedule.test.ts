@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { dayNumber } from "../src/dates.ts";
 import { dayInterest, intervalInterest } from "../src/loan-plan.ts";
 import { annuityPayment, loanSchedule, loanWhatIf, ratePathOf } from "../src/loan-schedule.ts";
-import { debtTotalOn, loanBalanceOn, loanInterestNext12Months, loanNextPayment, loanPayoffDate, loansOf } from "../src/loans.ts";
+import { debtTotalOn, loanBalanceOn, loanInterestNext12Months, loanNextPayment, loanPayoffDate, loanRateScenario, loansOf } from "../src/loans.ts";
 import { type Fixings, type Loan, NO_INPUTS, type RatePath } from "../src/types.ts";
 
 /** A loan with nothing but a balance: each test adds the fields its schedule needs. */
@@ -292,6 +292,35 @@ describe("the days a euribor loan counts", () => {
   it("counts months for a loan that no euribor moves", () => {
     const fixed = { ...euribor3, reference: "fixed" as const };
     expect(loanSchedule(loansOf({ ...NO_INPUTS, loans: [fixed], fixings: { euribor_3: [["2026-01-30", 2500]] } })[0]!, "2026-01-31").rows[0]!.interestCents).toBe(4000);
+  });
+
+  describe("a balance dated inside an interval", () => {
+    const fixings: Fixings = { euribor_3: [["2026-08-31", 2500]] };
+    const midway = loan({ reference: "euribor_3", rateBp: 400, marginBp: 100, rateReviewDate: "2026-09-01", balanceDate: "2026-09-01", balanceCents: 1_200_000, repayment: "equal_principal", paymentCents: 300_000, endDate: "2026-12-15" });
+    const withPath = (l: Loan) => loansOf({ ...NO_INPUTS, loans: [l], fixings })[0]!;
+
+    it("counts the first interval from the due date before the balance date, not from the balance date", () => {
+      // the due dates are the 15th: the first interval runs 15 August to 15 September, 31 days, whatever the balance date
+      // 1 200 000 × 4 % × 31 / 360 = 4 133,33; 900 000 × 4 % × 30 / 360 = 3 000; 600 000 × 4 % × 31 / 360 = 2 066,67; 300 000 × 4 % × 30 / 360 = 1 000
+      const rows = loanSchedule(withPath(midway), "2026-09-01").rows;
+      expect(rows.map((r) => r.date)).toEqual(["2026-09-15", "2026-10-15", "2026-11-15", "2026-12-15"]);
+      expect(rows.map((r) => r.interestCents)).toEqual([4133, 3000, 2067, 1000]);
+    });
+
+    it("counts a loan with no last due date from its balance date", () => {
+      // the due dates are a month apart from the balance date: 1 September to 1 October is 30 days, 1 200 000 × 4 % × 30 / 360 = 4 000
+      const open = loan({ ...midway, endDate: null, repayment: "fixed_instalment", paymentCents: 200_000 });
+      expect(loanSchedule(withPath(open), "2026-09-01").rows[0]!.interestCents).toBe(4000);
+    });
+
+    it("gives a rate scenario of no move the interest of the next 12 months, from every day of the loan", () => {
+      const open = loan({ ...midway, endDate: null, repayment: "fixed_instalment", paymentCents: 200_000 });
+      for (const l of [withPath(midway), withPath(open)]) {
+        for (const day of ["2026-09-01", "2026-09-20", "2026-10-20", "2026-11-20", "2026-12-20"]) {
+          expect(loanRateScenario(l, day, 0).interestCents, `${l.endDate} ${day}`).toBe(loanInterestNext12Months(l, day).cents);
+        }
+      }
+    });
   });
 
   it("an annuity with a last due date still ends on it and clears the balance", () => {
