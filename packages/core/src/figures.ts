@@ -178,6 +178,15 @@ export const FIGURES = {
     additive: false,
     pages: ["Yhteenveto"],
   },
+  fixed: {
+    name: "Kiinteät menot",
+    definition: "The active subscriptions and bills a month: their spending and debt service. The card bill and a monthly saving are not in it.",
+    source: { file: "commitments.ts", fn: "fixedMonthlyCents", field: "fixedMonthlyCents" },
+    unit: "cents",
+    scope: "own",
+    additive: false,
+    pages: ["Laskut"],
+  },
   expected: {
     name: "Odotettu",
     definition: "What the month is expected to cost, to the same day of the month: the sum of the categories' expected figures, so every page that shows the month, a category or a bar adds up to it (ADR 0021). A category is the mean of the complete months before the month (up to six, at least three), a bill that comes every three months or less often is expected in its own month and a one-off purchase over 150 euros in a category that is rare is left out. Tavallisesti is gone from the pages.",
