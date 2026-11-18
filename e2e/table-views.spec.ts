@@ -150,10 +150,9 @@ test("Tapahtumat pages by 100: the next link reaches the last row, the page is i
     isTransfer: false,
     categorySource: "rule",
   }));
-  const sums = new Map<string, { date: string; count: number; inCents: number; outCents: number }>();
+  const sums = new Map<string, { date: string; inCents: number; outCents: number }>();
   for (const row of made) {
-    const sum = sums.get(row.bookingDate) ?? { date: row.bookingDate, count: 0, inCents: 0, outCents: 0 };
-    sum.count++;
+    const sum = sums.get(row.bookingDate) ?? { date: row.bookingDate, inCents: 0, outCents: 0 };
     if (row.amountCents > 0) sum.inCents += row.amountCents;
     else sum.outCents -= row.amountCents;
     sums.set(row.bookingDate, sum);
@@ -177,7 +176,7 @@ test("Tapahtumat pages by 100: the next link reaches the last row, the page is i
     for (const [i, day] of days.entries()) {
       const sum = sums.get(day)!;
       const head = heads.nth(i);
-      expect(digits(await head.locator(".rt-group-count").textContent()), `${day}: the rows of the day`).toBe(sum.count);
+      await expect(head.locator(".rt-group-count"), `${day}: no row count`).toHaveCount(0);
       expect(digits(await head.locator(".rt-sub:not(.rt-sub-in)").textContent()), `${day}: out`).toBe(sum.outCents);
       if (sum.inCents > 0) expect(digits(await head.locator(".rt-sub-in").textContent()), `${day}: in`).toBe(sum.inCents);
     }

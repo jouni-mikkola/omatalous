@@ -82,6 +82,17 @@ describe("a card beside a rated loan in Lainat", () => {
     expect(r.path).toBeNull();
   });
 
+  it("a card paid in full by its bills that was sent a reminder fee since the first of them stays unknown", () => {
+    const fee = tx({ accountId: "card", bookingDate: "2026-08-20", amountCents: -500, merchant: "Esimerkkipankki", description: "Muistutusmaksu", category: "fees" });
+    // the 9th of September pays the fee with the month's purchases, so every bill covers what the card owed
+    const paid = { "2026-09-09": 31 * 1000 + 500 };
+    const r = run([...days(1000), ...statements(1000, paid), fee], -11_000);
+    expect(r.interestKnown).toBe(false);
+    expect(r.path).toBeNull();
+    // the same card with no fee row is paid in full
+    expect(run([...days(1000), ...statements(1000)], -11_000).interestKnown).toBe(true);
+  });
+
   it("a card paid in full before but only partly on its last bill stays unknown: the interest that follows shows it", () => {
     // the 9th of October pays 5 euros of its 300, so the card owes the rest still, and it charges interest after the bill
     const r = run([...days(1000), ...statements(1000, { "2026-10-09": 500 }), ...interest(["2026-10-15"], 500)], -41_000);
