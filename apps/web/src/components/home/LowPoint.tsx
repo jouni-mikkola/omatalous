@@ -21,10 +21,10 @@ function reasonText(reason: Extract<Low, { known: false }>["reason"]): string {
 const FETCH_REASONS: readonly string[] = ["no-balance", "no-card-balance"];
 
 /** Where a reason is mended: a fetch of the balances, or the list of the cards whose purchases are missing. Other reasons have no page. */
-function linkOf(reason: Extract<Low, { known: false }>["reason"]): string | null {
+function linkOf(reason: Extract<Low, { known: false }>["reason"]): string | undefined {
   if (FETCH_REASONS.includes(reason)) return settingsHash("banks");
   if (reason === "cards") return settingsCardHash(SETTINGS_ANCHOR.missingCards);
-  return null;
+  return undefined;
 }
 
 /**
