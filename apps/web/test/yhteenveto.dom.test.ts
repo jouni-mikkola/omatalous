@@ -154,6 +154,12 @@ describe("Yhteenveto's month", () => {
       expect(linesOf(onDay("2026-04-29"))).toEqual(SAME);
     });
 
+    // January is a month like the others: the figures before it are December's (1.1.–15.1. against 1.12.–15.12.), not January's of the year before
+    it("in January all three figures read December to the same day, on the 15th and on the 31st", () => {
+      expect(linesOf(onDay("2026-01-15"))).toEqual(SAME);
+      expect(linesOf(onDay("2026-01-31"))).toEqual(SAME);
+    });
+
     it("on the 30th of April all three figures read all of March", () => {
       expect(linesOf(onDay("2026-04-30"))).toEqual(WHOLE);
     });

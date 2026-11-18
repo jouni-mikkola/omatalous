@@ -23,12 +23,13 @@ export function rangeLength(r: DateRange): number {
 /**
  * The period to compare against. Month-aligned ranges compare to the same
  * days of the previous month(s): 1.–9.10. against 1.–9.9., not 22.–30.9.
- * The year so far compares to the same dates a year earlier, since the
- * months right before it are other seasons. Other ranges compare to the
- * same number of days right before.
+ * The year so far (1.1. to a day after January) compares to the same dates a
+ * year earlier, since the months right before it are other seasons. A range
+ * inside January is a month like any other and compares with December. Other
+ * ranges compare to the same number of days right before.
  */
 export function previousRange(from: IsoDate, to: IsoDate): [IsoDate, IsoDate] {
-  if (from.endsWith("-01-01") && to.slice(0, 4) === from.slice(0, 4)) {
+  if (from.endsWith("-01-01") && to.slice(0, 4) === from.slice(0, 4) && monthOf(to) !== monthOf(from)) {
     const year = Number(from.slice(0, 4)) - 1;
     const month = `${year}-${to.slice(5, 7)}`;
     const day = Math.min(Number(to.slice(8, 10)), daysInMonth(month));
