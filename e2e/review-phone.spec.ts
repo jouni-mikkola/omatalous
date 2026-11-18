@@ -4,7 +4,7 @@ import { overflow, watch } from "./helpers.ts";
 
 // Tarkistettavat on a phone and a wide screen: a progress line with at least one item done, the card as wide as its page and its rows and text capped, the payees of an item's rows start at one x whatever the date
 // beside them, a payee of 24 characters is not cut, and the skip button is the one verb. Runs on the demo household that
-// e2e/run.mjs makes; the demo's car financing item carries a payee of exactly 24 characters.
+// e2e/run.mjs makes; the demo's car financing, a row of Täydennä lainat, is named by a payee of exactly 24 characters.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 for (const width of [390, 1440]) {
@@ -54,6 +54,18 @@ for (const width of [390, 1440]) {
           expect(r.right, `${r.text} leaves the screen`).toBeLessThanOrEqual(width);
           longest = Math.max(longest, r.text.length);
         }
+      }
+      // the debts of Täydennä lainat are headed by their payee's name, which wraps and is never cut either
+      const debts = await page.locator(".review-debt-name").evaluateAll((els) =>
+        els.map((h) => {
+          const box = h.getBoundingClientRect();
+          return { text: h.firstChild?.textContent ?? "", right: Math.round(box.right), clipped: h.scrollWidth > h.clientWidth };
+        }),
+      );
+      for (const d of debts) {
+        expect(d.clipped, `${d.text} is cut`).toBe(false);
+        expect(d.right, `${d.text} leaves the screen`).toBeLessThanOrEqual(width);
+        longest = Math.max(longest, d.text.length);
       }
       await skip.click();
     }

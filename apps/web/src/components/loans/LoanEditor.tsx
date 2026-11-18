@@ -5,7 +5,7 @@ import { t } from "../../text.ts";
 import type { Account } from "../../types.ts";
 import { checksLeft, defaultName, formOfDraft, type FormErrors, interestOverPayment, type LoanBody, type LoanForm, linkChoices, markOf, matchedLoan, rateNow, readForm, setKind, setValue, shownFields, toggleConfirmed } from "./form.ts";
 import { LoanSource } from "./LoanSource.tsx";
-import { FIELD_LABEL, INTERVALS, intervalLabel, KIND_LABEL, type LoanFieldKey, REFERENCE_LABEL, REPAYMENT_LABEL } from "./labels.ts";
+import { FIELD_LABEL, INTERVALS, intervalLabel, KIND_LABEL, type LoanFieldKey, referenceName, REPAYMENT_LABEL } from "./labels.ts";
 import { Button } from "../ui/Button.tsx";
 import { Notice } from "../ui/Notice.tsx";
 import "../../styles/loans.css";
@@ -122,7 +122,7 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
         ))}
       </select>
     );
-    if (key === "reference") return pick(LOAN_REFERENCES.map((id) => [id, REFERENCE_LABEL[id]] as const));
+    if (key === "reference") return pick(LOAN_REFERENCES.map((id) => [id, referenceName(id)] as const));
     if (key === "repayment") return pick(LOAN_REPAYMENTS.map((id) => [id, REPAYMENT_LABEL[id]] as const));
     if (key === "intervalMonths") {
       const current = Number(form.values.intervalMonths);

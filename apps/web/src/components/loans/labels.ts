@@ -1,5 +1,5 @@
 /** The Finnish names of a loan's fields and choices, shared by the list and the form of Asetukset > Lainat. */
-import { LOAN_REFERENCE_LABEL, MAX_LOAN_INTERVAL_MONTHS } from "@banking/core";
+import { MAX_LOAN_INTERVAL_MONTHS } from "@banking/core";
 import type { Loan, LoanKind } from "@banking/core";
 import { t } from "../../text.ts";
 
@@ -23,9 +23,6 @@ export const KIND_LABEL: Record<LoanKind, string> = labels({
 
 /** The name of a reference rate in the member's language. */
 export const referenceName = (reference: NonNullable<Loan["reference"]>): string => t(`rpt.ln_ref_${reference}`);
-
-/** The names the Säästövinkit rate question uses. */
-export const REFERENCE_LABEL: Record<NonNullable<Loan["reference"]>, string> = LOAN_REFERENCE_LABEL;
 
 export const REPAYMENT_LABEL: Record<NonNullable<Loan["repayment"]>, string> = labels({
   annuity: () => t("rpt.ln_rep_annuity"),
