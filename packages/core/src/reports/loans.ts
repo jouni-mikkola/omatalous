@@ -132,7 +132,7 @@ export interface LoansReport {
 }
 
 /** Korot ja kulut 12 kk of all the debts, and its parts where every debt splits them. */
-export interface Cost12Total {
+interface Cost12Total {
   cents: number | null;
   interestCents: number | null;
   feeCents: number | null;
