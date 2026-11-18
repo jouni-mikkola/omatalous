@@ -218,7 +218,11 @@ describe("the rate path of a reference rate", () => {
     const index = a.findIndex((r) => r.date === "2026-05-31");
     expect(a[index]!.rateMilli).toBe(3500);
     expect(b[index]!.rateMilli).toBe(3501);
-    expect(b[index]!.interestCents! - a[index]!.interestCents!).toBe(100);
+    // 0,001 % a year of the balance owed (a little under 117 000 €), a month's share, rounded half up on each side
+    const owed = a[index - 1]!.balanceCents;
+    expect(b[index]!.interestCents! - a[index]!.interestCents!).toBe(intervalInterest(owed, 3501, 1) - intervalInterest(owed, 3500, 1));
+    expect(b[index]!.interestCents! - a[index]!.interestCents!).toBeGreaterThanOrEqual(97);
+    expect(b[index]!.interestCents! - a[index]!.interestCents!).toBeLessThanOrEqual(98);
     expect(b[index - 1]!.interestCents).toBe(a[index - 1]!.interestCents);
   });
 
@@ -259,7 +263,7 @@ describe("the rate path of a reference rate", () => {
 describe("loansOf with fixings", () => {
   const moving = loan({ reference: "euribor_12", rateBp: 400, marginBp: 100, rateReviewDate: "2026-06-15", repayment: "fixed_instalment", paymentCents: 20_000 });
   const fixed = loan({ id: "loan-2", reference: "fixed", rateBp: 400, marginBp: 100, rateReviewDate: "2026-06-15" });
-  const fixings: Fixings = { euribor_12: [["2026-06-15", 3000]] };
+  const fixings: Fixings = { euribor_12: [["2026-06-15", 2500]] };
 
   it("returns the loans as they are without fixings", () => {
     const loans = [moving, fixed];
@@ -268,21 +272,24 @@ describe("loansOf with fixings", () => {
 
   it("gives a loan its rate path and leaves the others alone", () => {
     const [a, b] = loansOf({ ...NO_INPUTS, loans: [moving, fixed], fixings });
+    // the review a year before has no fixing yet: it keeps the typed rate
     expect(a!.ratePath).toEqual([
-      ["2026-06-15", 4000],
-      ["2027-06-15", 4000],
+      ["2025-06-15", 4000],
+      ["2026-06-15", 3500],
+      ["2027-06-15", 3500],
     ]);
     expect(b).toBe(fixed);
   });
 
   it("every figure reads the same path: the balance, the debt total and the interest agree", () => {
-    const inputs = { ...NO_INPUTS, loans: [moving], fixings: { euribor_12: [["2025-06-15", 1000], ["2026-06-15", 5000]] } satisfies Fixings };
+    const slow = { ...moving, paymentCents: 10_000 };
+    const inputs = { ...NO_INPUTS, loans: [slow], fixings: { euribor_12: [["2025-06-15", 1000], ["2026-06-15", 5000]] } satisfies Fixings };
     const [l] = loansOf(inputs);
-    const day = "2027-03-01";
+    const day = "2026-03-01";
     const balance = loanBalanceOn(l!, day).cents;
     expect(debtTotalOn(loansOf(inputs), day).cents).toBe(balance);
     const rows = loanSchedule(l!, START).rows;
-    const to = "2028-03-01";
+    const to = "2027-03-01";
     expect(loanInterestNext12Months(l!, day).cents).toBe(sumOf(rows.filter((r) => r.date > day && r.date <= to).map((r) => r.interestCents)));
     expect(balance).toBe(rows.filter((r) => r.date <= day).at(-1)!.balanceCents);
     expect(loanNextPayment(l!, day).date).toBe(rows.find((r) => r.date > day)!.date);
