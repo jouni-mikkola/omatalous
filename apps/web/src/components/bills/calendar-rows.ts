@@ -17,7 +17,7 @@ export const ENDED_GROUP = "ended";
  * are core's, `bills` the rows they add up), or what has ended.
  */
 export type CalRow =
-  | { key: string; kind: "row"; bill: CalBill; item: Item | null; typed: TypedBill | null }
+  | { key: string; kind: "row"; bill: CalBill; item: Item | null; typed: TypedBill | null; missed?: true }
   | { key: string; kind: "fold"; month: string; bills: CalBill[]; count: number; cents: number }
   | { key: string; kind: "ended"; item: Item };
 
@@ -44,9 +44,19 @@ const isMonthlyBill = (r: CalBill) => r.monthly === true && (r.kind === "bill" |
  */
 export function calendarGroups(calendar: Calendar, items: readonly Item[], typed: readonly TypedBill[], shown: (key: string) => boolean): CalGroup[] {
   const bySeries = new Map(items.flatMap((i) => (i.series && !i.ended ? [[i.series.id, i] as const] : [])));
+  // a bill that did not come is no row of the calendar (core forecasts only what is active and not late) but is still live
+  // until the payments say it ended: it stands first in the month of today, and its actions stay in reach
+  const inCalendar = new Set(calendar.months.flatMap((m) => m.rows.map((r) => r.seriesId)));
+  const late = items.filter((i) => i.series && !i.ended && !inCalendar.has(i.series.id) && (i.missed !== null || i.series.overdue));
   const months = calendar.months.map((m, at): CalGroup => {
     const rows: CalRow[] = [];
     if (shown(m.month)) {
+      if (at === 0) {
+        for (const item of late) {
+          const bill: CalBill = { date: item.missed ?? item.next ?? calendar.from, payee: item.name, category: item.category, cents: item.cents, state: "estimate", kind: "bill", seriesId: item.series!.id };
+          rows.push({ key: `missed:${item.key}`, kind: "row", bill, item, typed: null, missed: true });
+        }
+      }
       const fold = at >= OPEN_MONTHS && m.monthlyBillsCount > 0;
       m.rows.forEach((bill, n) => {
         if (fold && isMonthlyBill(bill)) {

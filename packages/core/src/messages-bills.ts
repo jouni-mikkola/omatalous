@@ -91,6 +91,7 @@ export const FI_BILLS = {
   "bills.status_known": "Tiedossa",
   "bills.status_estimate": "Arvio",
   "bills.status_paid": "Maksettu",
+  "bills.status_missed": "Ei tullut",
   "bills.sum_bills": "Laskut {sum}",
   "bills.sum_bills_estimate": "Laskut {sum} (arviota {estimate})",
   "bills.sum_income": "Tulot {sum}",

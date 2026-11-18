@@ -38,11 +38,18 @@ for (const { width, scale } of [{ width: 390, scale: 100 }, { width: 390, scale:
         range.selectNodeContents(cell);
         const first = range.getClientRects()[0];
         const block = row.closest(".rt-wrap")?.hasAttribute("data-block") ?? false;
-        return [{ name: row.querySelector(".sub-merchant")?.textContent ?? "", left: Math.round(first?.left ?? -1), block }];
+        let head = row.previousElementSibling;
+        while (head && !head.classList.contains("rt-group")) head = head.previousElementSibling;
+        return [{ name: row.querySelector(".sub-merchant")?.textContent ?? "", month: head?.textContent ?? "", left: Math.round(first?.left ?? -1), block }];
       }),
     );
     expect(found.length, "rows").toBeGreaterThan(5);
-    if (phone) expect(new Set(found.filter((r) => r.block).map((r) => r.left)), `x of the days: ${JSON.stringify(found)}`).toHaveProperty("size", 1);
+    if (phone) {
+      const inBlocks = found.filter((r) => r.block);
+      // the days of two months are one column
+      expect(new Set(inBlocks.map((r) => r.month)).size, "months with rows").toBeGreaterThan(1);
+      expect(new Set(inBlocks.map((r) => r.left)), `x of the days: ${JSON.stringify(found)}`).toHaveProperty("size", 1);
+    }
 
     const edge = await page.locator("#laskut-taulukko").locator("button, a[href], input, select, [tabindex='0']").evaluateAll((els) =>
       els.filter((el) => el.getBoundingClientRect().width > 0).map((el) => {

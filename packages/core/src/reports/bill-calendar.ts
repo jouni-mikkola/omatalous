@@ -195,7 +195,8 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       if (loan.endDate !== null && loan.endDate >= today && loan.endDate <= windowEnd && loan.endDate > loan.balanceDate) {
         const owed = loanBalanceOn(loan, addDays(loan.endDate, -1)).cents;
         if (owed === null) unknownCount++;
-        else if (owed > 0) rows.push(row(loan.endDate, owed));
+        // the lump sum is no monthly bill, whatever the cadence of the interest series that pays the loan
+        else if (owed > 0) rows.push(row(loan.endDate, owed, "known", false));
       }
       continue;
     }

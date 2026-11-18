@@ -441,6 +441,12 @@ test("the Laskut page at 1440 px is at most 1800 px tall and does not scroll sid
   await page.waitForLoadState("networkidle");
   expect(await page.evaluate(() => document.documentElement.scrollHeight), "page height at 1440 px").toBeLessThanOrEqual(1800);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+  // the openers of the rows stand one under the other with no box over a neighbour's
+  const drills = await page.locator("#laskut-taulukko .rt-drill").evaluateAll((els) =>
+    els.map((el) => el.getBoundingClientRect()).filter((b) => b.width > 0).map((b) => ({ top: b.top, bottom: b.bottom })).sort((a, b) => a.top - b.top),
+  );
+  expect(drills.length, "openers").toBeGreaterThan(5);
+  for (let i = 1; i < drills.length; i++) expect(drills[i]!.top, `opener ${i} starts below the one above it`).toBeGreaterThanOrEqual(drills[i - 1]!.bottom - 0.5);
   expect(seen.problems).toEqual([]);
   await context.close();
 });

@@ -180,7 +180,7 @@ export function BillsTable({
       key: "state",
       label: t("row.status"),
       kind: "text",
-      cell: (r) => (r.kind === "row" ? status(r.bill) : r.kind === "ended" ? t("bills.kind_ended") : ""),
+      cell: (r) => (r.kind === "row" ? (r.missed ? t("bills.status_missed") : status(r.bill)) : r.kind === "ended" ? t("bills.kind_ended") : ""),
     },
   ];
 

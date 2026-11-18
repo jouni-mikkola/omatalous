@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { BillsTable } from "../src/components/bills/BillsTable.tsx";
 import { billItems } from "../src/components/bills/items.ts";
 import type { Recurring } from "../src/types.ts";
-import { bill, calendar, month } from "./bill-calendar-fixture.ts";
+import { bill, calendar, lateBill, month } from "./bill-calendar-fixture.ts";
 import { stubApi } from "./dom-kit.ts";
 
 const TODAY = "2026-10-11";
@@ -50,6 +50,23 @@ describe("Laskut: a bill that did not come, opened", () => {
     render(createElement(BillsTable, { calendar: cal, items, controls, label: (id: string) => id, scope: "own", onRemoved: () => {} }));
     const row = screen.getByRole("row", { name: /Sähköyhtiö/ });
     fireEvent.click(within(row).getByRole("button", { name: /Tiedot: Sähköyhtiö/ }));
+    expect(screen.getByRole("button", { name: /Merkitse lopetetuksi/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Poista lasku/ })).toBeTruthy();
+  });
+});
+
+describe("Laskut: a bill that did not come, in the calendar core makes", () => {
+  it("is a row marked Ei tullut that offers both actions, though the calendar has no row of it", () => {
+    stubApi({ "GET /api/transactions": { items: [], total: 0 } });
+    const { today, series, power: late, calendar: cal } = lateBill();
+    expect(late.overdue).toBe(true);
+    expect(cal.months.flatMap((m) => m.rows).filter((r) => r.seriesId === late.id)).toEqual([]);
+    const items = billItems({ series, typed: [], cancelled: new Set(), marks: marksBySubject([]), today });
+    const controls = { markOf: () => null, busy: false, set: () => {}, clear: () => {} };
+    render(createElement(BillsTable, { calendar: cal, items, controls, label: (id: string) => id, scope: "own", onRemoved: () => {} }));
+    const row = screen.getByRole("row", { name: /Esimerkki Energia/ });
+    expect(within(row).getByText("Ei tullut")).toBeTruthy();
+    fireEvent.click(within(row).getByRole("button", { name: /Tiedot: Esimerkki Energia/ }));
     expect(screen.getByRole("button", { name: /Merkitse lopetetuksi/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: /Poista lasku/ })).toBeTruthy();
   });

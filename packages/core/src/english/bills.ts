@@ -89,6 +89,7 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "bills.status_known": "Known",
   "bills.status_estimate": "Estimate",
   "bills.status_paid": "Paid",
+  "bills.status_missed": "Did not come",
   "bills.sum_bills": "Bills {sum}",
   "bills.sum_bills_estimate": "Bills {sum} (estimated {estimate})",
   "bills.sum_income": "Income {sum}",

@@ -215,6 +215,25 @@ describe("the bill calendar", () => {
     expect(rowsOf(run([], { marks: [], expectedBills: [], loans: [{ ...bullet, endDate: "2027-10-31" }] }).cal)).toEqual([]);
   });
 
+  it("has the lump sum of a bullet loan that a monthly series pays as no monthly bill", () => {
+    const bullet: Loan = {
+      id: "loan-3", name: "Siltalaina", lender: "ESIMERKKIPANKKI", kind: "car", grantedCents: null, balanceCents: 4_000_000, balanceDate: "2026-09-15", rateBp: null,
+      reference: null, marginBp: null, repayment: "bullet", intervalMonths: null, paymentCents: 91_240, endDate: "2027-03-31", limitCents: null, seriesKey: null,
+    };
+    const interest = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"].map((m) =>
+      tx({ accountId: "own", bookingDate: `${m}-02`, amountCents: -91_240, merchant: "ESIMERKKIPANKKI", counterparty: "ESIMERKKIPANKKI", category: "mortgage" }),
+    );
+    const { cal } = run(interest, { marks: [], expectedBills: [], loans: [bullet] }, "2026-10-09");
+    const loanRows = rowsOf(cal).filter((r) => r.kind === "loan");
+    const lump = loanRows.find((r) => r.date === "2027-03-31")!;
+    expect(lump.cents).toBe(4_000_000);
+    // the series that pays the interest is the loan's: its own rows are monthly, the lump sum is not
+    expect(lump.seriesId).not.toBeNull();
+    expect(lump.monthly).toBeUndefined();
+    expect(loanRows.some((r) => r.monthly === true)).toBe(true);
+    expect(cal.months[5]!.monthlyBillsCount).toBe(0);
+  });
+
   it("has a regular saving as a row of its own kind, in no sum of the bills", () => {
     const saving = MONTHS.map((m) => tx({ accountId: "own", bookingDate: `${m}-20`, amountCents: -20_000, merchant: "Esimerkki Rahasto", category: "investments" }));
     const { cal } = run([...household(), ...saving]);

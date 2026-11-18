@@ -105,7 +105,7 @@ describe("Tulevat laskut", () => {
     // the sum is the answer's, of all seven: the page adds up nothing
     expect(totalIn(container)).toBe("Yhteensä (1 muu lasku) | 1 400 €");
     // one link to Laskut, on the action: the heading, the tile and the lines hold none
-    expect([...container.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toEqual(["#/bills#ennen-palkkapaivaa"]);
+    expect([...container.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toEqual(["#/bills#laskut-taulukko"]);
     expect(flat(container.querySelector(".home-block-note")?.textContent)).toBe("Palkkapäivään 25.11.");
   });
 
@@ -118,7 +118,7 @@ describe("Tulevat laskut", () => {
     expect(notes.length).toBe(1);
     expect(container.textContent).not.toContain("Ei laskuja");
     expect(flat(notes[0]!.textContent)).toBe("Tililtä Yhteinen tili ·· 0381 421,82 €");
-    expect([...container.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toEqual(["#/bills#ennen-palkkapaivaa"]);
+    expect([...container.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toEqual(["#/bills#laskut-taulukko"]);
   });
 
   it("two accounts that pay are both named", () => {

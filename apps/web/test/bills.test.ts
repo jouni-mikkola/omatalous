@@ -6,7 +6,7 @@ import { BillsTable, MarkAction } from "../src/components/bills/BillsTable.tsx";
 import { billItems } from "../src/components/bills/items.ts";
 import type { Calendar } from "../src/components/bills/calendar-rows.ts";
 import type { Recurring } from "../src/types.ts";
-import { bill, calendar, month } from "./bill-calendar-fixture.ts";
+import { bill, calendar, lateBill, month } from "./bill-calendar-fixture.ts";
 
 const label = (id: string) => ({ utilities: "Sähkö ja vesi", subscriptions: "Tilaukset" })[id] ?? id;
 /** The markup with the spaces of the money format made plain, so a test reads "417 €". */
@@ -68,6 +68,14 @@ describe("Laskut: the table and the mark on one subscription", () => {
     const withTwin = billItems({ series: [spotify, storage], typed: [twin], cancelled: new Set(), marks: marksBySubject([]), today: TODAY });
     expect(withTwin).toHaveLength(2);
     expect(withTwin.find((i) => i.name === "Spotify")!.twins).toEqual([twin]);
+  });
+
+  it("keeps a bill that did not come as a row marked Ei tullut in the month of today, once", () => {
+    const { today, series, power: late, calendar: cal } = lateBill();
+    const items = billItems({ series, typed: [], cancelled: new Set(), marks: marksBySubject([]), today });
+    const out = flat(renderToStaticMarkup(createElement(BillsTable, { calendar: cal, items, controls: controlsOf([]), label, scope: "own", onRemoved: () => {} })));
+    expect(late.overdue).toBe(true);
+    expect(out.split("Ei tullut").length - 1, "rows marked Ei tullut").toBe(1);
   });
 
   const applesOf = (rows: Recurring[]) => calendar([month("2026-10", rows.map((s) => bill({ date: "2026-10-20", payee: s.merchant, cents: s.typicalAmountCents, seriesId: s.id })))]);

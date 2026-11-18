@@ -57,7 +57,7 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 /* twelve months, two of them open, make a long list: with a mouse a row and a month's head are as high as their line, so the page keeps within two screens */
 @media (pointer: fine) {
   .rt-wrap:not([data-block]) .rt.bill-table > tbody > tr:has(> th[scope="row"]) > :is(th, td) { padding-block: calc(var(--sp-4) / 2); }
-  .rt-wrap:not([data-block]) .rt.bill-table .rt-drill { margin-block: calc(-1 * var(--sp-12)); }
+  .rt-wrap:not([data-block]) .rt.bill-table .rt-drill { block-size: var(--avatar); margin-block: 0; }
   .rt-wrap:not([data-block]) .rt.bill-table > tbody > tr.rt-group > * { padding-block: var(--sp-4); }
   .rt-wrap:not([data-block]) .rt.bill-table .mk-plate { --mk-disc: var(--avatar-s); }
 }
