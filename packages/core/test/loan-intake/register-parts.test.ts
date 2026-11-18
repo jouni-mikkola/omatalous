@@ -106,6 +106,38 @@ describe("loan intake: the register's rate, kind and last payment", () => {
     expect(draft!.rateReviewDate).toMatchObject({ value: "2028-12-31", confidence: "sure" });
   });
 
+  it("keeps the day of a fixed rate that ends on a day, with no period to name the Euribor after it", () => {
+    const [draft] = parseLoanText(text("Esimerkkipankki Oyj", "Luoton saldo: 90 000,00 €", "Kokonaiskorko: 4,10 %", "Koron tyyppi: Kiinteä", "Kiinteän koron jakson loppupäivä: 31.12.2028"));
+    expect(draft!.reference).toBeUndefined();
+    expect(draft!.rateReviewDate).toMatchObject({ value: "2028-12-31", confidence: "sure" });
+  });
+
+  it("leaves out a contract day that is no date, and marks one with a two-digit year to check", () => {
+    const dayOf = (value: string) => parseLoanText(text(...MORTGAGE.map((l) => (l.startsWith("Luottosopimus tehty") ? `Luottosopimus tehty: ${value}` : l))))[0]!;
+    for (const value of ["31.2.2021", "15.3.2021 tai 15.4.2021", "huhtikuu"]) expect(dayOf(value).contractDate, value).toBeUndefined();
+    expect(dayOf("15.3.21").contractDate).toMatchObject({ value: "2021-03-15", confidence: "check" });
+    expect(dayOf("31.2.2021").grantedCents).toMatchObject({ value: 15000000, confidence: "sure" });
+  });
+
+  it("leaves out the end day of a fixed rate that is no date, and the fixed rate stays fixed", () => {
+    const draft = (value: string) => parseLoanText(text("Esimerkkipankki Oyj", "Luoton saldo: 90 000,00 €", "Koron tyyppi: Kiinteä", "Koronmääräytymisjakso: 12 kk", `Kiinteän koron jakson loppupäivä: ${value}`))[0]!;
+    for (const value of ["31.2.2028", "31.12.2028 tai 31.12.2029"]) {
+      expect(draft(value).rateReviewDate, value).toBeUndefined();
+      expect(draft(value).reference, value).toMatchObject({ value: "fixed" });
+    }
+  });
+
+  it("reads no rate type from a value that names two or none, and so no fixed rate", () => {
+    const reference = (value: string) => parseLoanText(text("Esimerkkipankki Oyj", "Luoton saldo: 90 000,00 €", `Koron tyyppi: ${value}`))[0]!.reference;
+    for (const value of ["Kiinteä tai vaihtuva", "Muu", "12"]) expect(reference(value), value).toBeUndefined();
+    expect(reference("Kiinteä")).toMatchObject({ value: "fixed" });
+  });
+
+  it("reads a balloon loan's last due day beside its fixed instalment", () => {
+    const [draft] = parseLoanText(text("Esimerkkipankki Oyj", "Luoton saldo: 10 000,00 €", "Lyhennystapa: Balloon", "Viimeinen eräpäivä: 31.10.2046"));
+    expect(read(draft!)).toEqual({ lender: "Esimerkkipankki Oyj check", balanceCents: "1000000 sure", repayment: "fixed_instalment sure", endDate: "2046-10-31 sure" });
+  });
+
   it("reads the months of a period as 3, 6 or 12 and nothing else", () => {
     const refs = ["3 kk", "6 kk", "12 kk", "1 kk", "Euribor 6 kk"].map((period) => parseLoanText(text("Esimerkkipankki Oyj", "Luoton saldo: 90 000,00 €", `Koronmääräytymisjakso: ${period}`))[0]!.reference?.value);
     expect(refs).toEqual(["euribor_3", "euribor_6", "euribor_12", undefined, "euribor_6"]);
