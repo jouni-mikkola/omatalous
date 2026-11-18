@@ -18,6 +18,8 @@ import { cashflowReport } from "../src/reports/cashflow.ts";
 import { pivotReport } from "../src/reports/pivot.ts";
 import { expectedLevel } from "../src/analysis/expected.ts";
 import { LATE_CARD_TODAY, lateCardContext } from "./late-card-household.ts";
+import { paysHouseholdCreditWork } from "../src/household-credit.ts";
+import { industryCandidates, type RegisterAnswer } from "../src/industry.ts";
 
 // test helpers put every transaction on account "acc-1"
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
@@ -557,6 +559,67 @@ describe("loans: the Lainat report and net worth", () => {
     expect(named.balances.debt).toEqual({ day: today, cents: 12000000 + 80000, savedCents: 12000000 });
     expect(named.balances.accountsLessDebt.at(-1)).toBe(120000 - 12000000);
     expect(debtInterestNext12Months([home], today).cents).toBe(named.loans.interest.cents);
+  });
+});
+
+describe("the tax year lists household-credit work by the payee's industry", () => {
+  const owner: Account = { ...checking, iban: "FI2112345600000785" };
+  const answer = (code: string, codeSet: RegisterAnswer["codeSet"] = "TOL2008"): RegisterAnswer => ({ code, codeSet, companyName: null });
+  const cleaning = tx({ id: "cleaning", bookingDate: "2026-06-03", amountCents: -85000, category: "other", merchant: "Siivouspalvelu Aalto Oy", counterparty: "SIIVOUSPALVELU AALTO OY" });
+  const electrician = tx({ id: "electrician", bookingDate: "2026-05-12", amountCents: -32050, category: "home", merchant: "Sähköasennus Virta Oy", counterparty: "SÄHKÖASENNUS VIRTA OY" });
+  const itHelp = tx({ id: "it-help", bookingDate: "2026-08-02", amountCents: -4590, category: "subscriptions", merchant: "Atk-tuki Lahti Oy", counterparty: "ATK-TUKI LAHTI OY" });
+  const renovation = tx({ id: "renovation", bookingDate: "2026-03-05", amountCents: -20000, category: "home", merchant: "Remonttipalvelu Rinne" });
+  const cafe = tx({ id: "cafe", bookingDate: "2026-04-01", amountCents: -1250, category: "restaurants", merchant: "Kahvila Ilo Oy", counterparty: "KAHVILA ILO OY" });
+  const person = tx({ id: "person", bookingDate: "2026-07-01", amountCents: -5000, category: "other", merchant: "Matti Meikäläinen", counterparty: "MATTI MEIKÄLÄINEN", counterpartyIban: "FI4950009420028732", reference: "1234563" });
+  const unasked = tx({ id: "unasked", bookingDate: "2026-02-02", amountCents: -7700, category: "other", merchant: "Kotipalvelu Niemi Oy", counterparty: "KOTIPALVELU NIEMI OY" });
+  const lastYear = tx({ id: "last-year", bookingDate: "2025-12-20", amountCents: -85000, category: "other", merchant: "Siivouspalvelu Aalto Oy", counterparty: "SIIVOUSPALVELU AALTO OY" });
+  const answers = new Map<string, RegisterAnswer>([
+    ["Siivouspalvelu Aalto Oy", answer("81210")],
+    ["Sähköasennus Virta Oy", answer("4321", "TOL2025")],
+    ["Atk-tuki Lahti Oy", answer("95110")],
+    ["Kahvila Ilo Oy", answer("56101")],
+    // an answer on file for a person's name still lists nothing
+    ["Matti Meikäläinen", answer("81210")],
+  ]);
+  const sheet = (industries?: ReadonlyMap<string, RegisterAnswer>) => {
+    const ctx = createContext([cleaning, electrician, itHelp, renovation, cafe, person, unasked, lastYear], [owner], today);
+    if (industries) ctx.industries = industries;
+    return buildReports({ ctx, range: { from: "2026-01-01", to: "2026-12-31" }, balances: [] }, ["taxYear"]).taxYear.household;
+  };
+
+  it("lists the rows of a payee in a covered class whatever their category, once, with the sum of the rows", () => {
+    const h = sheet(answers);
+    // by date: the renovation by its text (home category, no answer), the electrician by both its text and its class, the cleaner and the IT help by class only
+    expect(h.rows.map((r) => [r.id, r.cents])).toEqual([["renovation", 20000], ["electrician", 32050], ["cleaning", 85000], ["it-help", 4590]]);
+    expect(h.cents).toBe(20000 + 32050 + 85000 + 4590);
+    expect(h.cents).toBe(141640);
+    expect(h.rows.reduce((s, r) => s + r.cents, 0)).toBe(h.cents);
+  });
+
+  it("lists no row of a payee with no answer or a class the credit does not cover, and counts none as 0", () => {
+    const h = sheet(answers);
+    expect(h.rows.map((r) => r.id)).not.toContain("unasked");
+    expect(h.rows.map((r) => r.id)).not.toContain("cafe");
+    // a build with no register answers at all keeps only the rows the text names
+    const none = sheet();
+    expect(none.rows.map((r) => [r.id, r.cents])).toEqual([["renovation", 20000], ["electrician", 32050]]);
+    expect(none.cents).toBe(52050);
+  });
+
+  it("never lists a person-shaped payee and never looks one up", () => {
+    expect(sheet(answers).rows.map((r) => r.id)).not.toContain("person");
+    expect(paysHouseholdCreditWork("Matti Meikäläinen", answer("81210"))).toBe(false);
+    // the lookup's own candidates: the company paid by invoice is one, the person paid by invoice is not
+    const invoiced = (t: Transaction): Transaction => ({ ...t, counterpartyIban: "FI4950009420028731", reference: "1234563" });
+    expect(industryCandidates([cleaning, person].map(invoiced), [owner])).toEqual(["Siivouspalvelu Aalto Oy"]);
+  });
+
+  it("covers cleaning, installation, garden, IT and home care and leaves out other classes", () => {
+    const covered = (code: string) => paysHouseholdCreditWork("Esimerkki Oy", answer(code));
+    for (const code of ["81210", "81220", "81290", "81300", "43210", "43221", "43341", "95110", "88101"]) expect(covered(code)).toBe(true);
+    for (const code of ["56101", "43110", "43910", "43991", "49420", "96021", "80100", "88910", "86230", "47190"]) expect(covered(code)).toBe(false);
+    expect(paysHouseholdCreditWork("Esimerkki Oy", undefined)).toBe(false);
+    expect(paysHouseholdCreditWork("Esimerkki Oy", { code: null, codeSet: null, companyName: "Esimerkki Oy" })).toBe(false);
   });
 });
 

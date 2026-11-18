@@ -3,6 +3,7 @@ import type { AnalysisContext } from "../analysis/context.ts";
 import { spendSelect } from "../analysis/counted.ts";
 import { type DateRange, toDayRange } from "../analysis/period.ts";
 import type { IncomeGroup, IncomeType } from "../analysis/income.ts";
+import { paysHouseholdCreditWork } from "../household-credit.ts";
 import { fold } from "../merchant.ts";
 import { isBuildingWorkText, isCleaningWorkText, isOtherTaxText, isResidualTaxText } from "../wording.ts";
 import type { AnalysisTx } from "../analysis/context.ts";
@@ -53,7 +54,11 @@ export interface TaxYearReport {
   interest: { cents: number; rows: TaxRow[] };
   /** What the loans were paid, interest and principal together, by loan category. */
   loanPayments: TaxLoanPayment[];
-  /** Rows of the home category whose text names work the household credit may cover. Empty when the category recognises none. */
+  /**
+   * Payments for work the household credit may cover: rows of the home category whose text names such work, and rows of
+   * any category whose payee's trade-register industry is a class the credit covers (`paysHouseholdCreditWork`). The
+   * rows are what the bank booked, in whole: the work share is on the invoice, so no deduction is computed.
+   */
   household: { cents: number; rows: TaxRow[] };
 }
 
@@ -97,7 +102,9 @@ export function taxYearReport(ctx: AnalysisContext, range: DateRange, income: Ta
   const pick = (category: string, also?: (t: AnalysisTx) => boolean): TaxRow[] => counted.filter((t) => t.category === category && (!also || also(t))).map((t) => rowOf(t, t.spend));
   const interestRows = pick("interest");
   const residualRows = pick("taxes", (t) => isResidualTaxText(textOf(t)) && !isOtherTaxText(textOf(t)));
-  const householdRows = pick("home", (t) => isCleaningWorkText(textOf(t)) || isBuildingWorkText(textOf(t)));
+  const householdRows = counted
+    .filter((t) => (t.category === "home" && (isCleaningWorkText(textOf(t)) || isBuildingWorkText(textOf(t)))) || paysHouseholdCreditWork(t.merchant, ctx.industries?.get(t.merchant)))
+    .map((t) => rowOf(t, t.spend));
   const refundRows = (income.types.find((t) => t.type === "tax_refund")?.payers ?? []).flatMap((p) => p.rows.map((r): TaxRow => ({ id: r.id, date: r.date, name: p.payer, cents: r.amountCents }))).sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
   return {
     year,

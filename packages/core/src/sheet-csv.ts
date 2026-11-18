@@ -19,6 +19,7 @@ export function taxYearCsv(r: TaxYearReport, say: Say, label: (category: string)
   part(say("tax.interest"), r.interest.rows);
   for (const p of r.loanPayments) lines.push([say("tax.loans"), label(p.category), null, euros(p.cents)]);
   part(say("tax.household"), r.household.rows);
+  if (r.household.rows.length) lines.push([say("tax.household"), say("tax.household_total"), null, euros(r.household.cents)]);
   part(say("tax.residual"), r.residual.rows);
   return csv(lines);
 }

@@ -18,6 +18,7 @@ export const EN_SHEETS: Record<keyof typeof FI_SHEETS, string> = {
   "tax.category": "Category",
   "tax.count": "Rows",
   "tax.household": "Rows that may be related to the household credit",
+  "tax.household_total": "Payments, not the amount of the deduction",
   "tax.refunds": "Tax refunds",
   "tax.residual": "Residual tax",
   "tax.csv_name": "tax-year",

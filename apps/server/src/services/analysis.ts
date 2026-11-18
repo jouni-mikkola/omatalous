@@ -387,6 +387,8 @@ async function loadScope(s: Services, userId: string, inView: InView, today: str
   const own = new Set(accounts.filter((a) => a.userId === userId).map((a) => a.id));
   const rowParts = await extensionRowParts(s, userId, txs.filter((t) => own.has(t.accountId)).map(uncut));
   if (rowParts) ctx.rowParts = rowParts;
+  // the register's answers for the viewer's own lookups and those of the members whose accounts are in view: the tax-year sheet lists rows by payee industry
+  ctx.industries = await s.finance(userId).industryCodes([...new Set(accounts.filter((a) => a.userId !== userId).map((a) => a.userId))]);
   // a payment that arrived short is a transfer and spending on Pankkikulut at once: the context decided it, so the lists say the same
   for (const t of ctx.fees.size ? ctx.txs : []) {
     if (ctx.fees.has(t.id)) told.set(t.id, { category: t.category, categorySource: t.categorySource, isTransfer: t.isTransfer });
