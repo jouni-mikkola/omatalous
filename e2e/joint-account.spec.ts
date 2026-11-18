@@ -51,8 +51,8 @@ async function open(browser: Browser, who: Member, path: string, options: { widt
 /** A notice under the header that says how joint accounts are counted: no page, in neither view, has one. */
 const jointNotice = (page: Page) => page.locator(".notice").filter({ hasText: /osuutesi|Yhteiset tilit/ });
 
-/** The holdings card of Saldot: the only card with a heading Varat ja velat on that page. */
-const holdingsOf = (page: Page) => page.locator(".card").filter({ has: page.getByRole("heading", { name: "Varat ja velat", exact: true }) });
+/** The holdings card of Varat ja velat: a region of that name, with no heading of its own under the page title. */
+const holdingsOf = (page: Page) => page.getByRole("region", { name: "Varat ja velat", exact: true });
 const accountRow = (page: Page, name: string) => holdingsOf(page).locator(".st-row.holding-account", { hasText: name });
 const jointRow = (page: Page) => accountRow(page, "Yhteistili");
 /** What the page shows for the joint account: the amount in its row, in cents. */

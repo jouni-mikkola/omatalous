@@ -86,7 +86,8 @@ function Balances({ ctx }: SectionProps) {
       )}
       <QuestionChart id="saldot-kaavio" question={t("rpt.bal_q_trend")} answer={answer} table={tableView} />
       <hr className="qc-rule" />
-      <Holdings holdings={r.holdings} meta={ctx.meta} />
+      {/* the page is named Varat ja velat, and Lainat (shown with a saved loan) lists the loans and their total */}
+      <Holdings holdings={r.holdings} meta={ctx.meta} title={null} loansListed={ctx.data.loans.saved > 0} />
       {r.missing.length > 0 && (
         <>
           <hr className="qc-rule" />

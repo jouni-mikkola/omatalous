@@ -21,8 +21,7 @@ for (const width of [390, 1440]) {
       expect(await page.evaluate(() => document.documentElement.scrollWidth), `scrollWidth of ${q}`).toBeLessThanOrEqual(width);
       const outside = await page.evaluate((w) => [...document.querySelectorAll<HTMLElement>(".q-title, .compare, .compare button")].filter((e) => e.getBoundingClientRect().right > w + 0.5).map((e) => e.className || e.tagName), width);
       expect(outside, `outside the window in ${q}`).toEqual([]);
-      // Varat ja velat is the balances of today, which no period changes, so it draws no switch
-      await expect(page.getByRole("toolbar", { name: "Aikaväli" })).toHaveCount(q === "saldot" ? 0 : 1);
+      await expect(page.getByRole("toolbar", { name: "Aikaväli" })).toHaveCount(1);
       await context.close();
     });
   }

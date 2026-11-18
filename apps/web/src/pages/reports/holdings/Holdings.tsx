@@ -1,7 +1,8 @@
 /**
  * Decision: what the household has and what it owes, before the month: each account with its balance, each credit card
  * with what is used of its limit and its next bill, each loan with what is left, and a total at the foot of each group.
- * Yhteenveto and Raportit > Varat ja velat show it under the heading Varat ja velat; the next bill of
+ * Yhteenveto shows it under the heading Varat ja velat, Raportit > Varat ja velat with no heading of its own and with
+ * the loans left to the report Lainat; the next bill of
  * a card shows where the page gives the coming bills (`ahead`), which only Yhteenveto loads. The accounts
  * stand in their types (checking, savings, other) when there are two types or more, a type of two accounts or more with its total. The
  * first group's heading says the day most balances are from; a row says its own day only when it differs, and names its bank only when
@@ -271,9 +272,14 @@ function Loans({ holdings }: { holdings: Answer }) {
   );
 }
 
-/** `ahead`: the window of the dashboard answer, whose bills give each card its next one; `title`: the block's heading; `buffer`: the line Yhteenveto adds at the foot. */
-export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), buffer }: { holdings: Answer; meta: Meta; ahead?: Ahead | null; title?: string; buffer?: ReactNode }) {
-  const { accounts, accountsCents, cards, loans, debtCents, unsavedLoans, netCents } = holdings;
+/**
+ * `ahead`: the window of the dashboard answer, whose bills give each card its next one; `title`: the block's heading, none
+ * (null) on a page whose own title says it; `buffer`: the line Yhteenveto adds at the foot; `loansListed`: the page lists the
+ * loans in the report Lainat, so the block leaves out the Lainat group and the debts total (Lainat gives the same sum).
+ */
+export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), buffer, loansListed = false }: { holdings: Answer; meta: Meta; ahead?: Ahead | null; title?: string | null; buffer?: ReactNode; loansListed?: boolean }) {
+  const { accounts, accountsCents, cards, debtCents, unsavedLoans, netCents } = holdings;
+  const loans = loansListed ? [] : holdings.loans;
   const groups = [accounts.length, cards.length, loans.length].filter((n) => n > 0).length;
   if (groups === 0) return null;
   // two groups stand side by side; of three, Tilit and Lainat do, with the cards under them across the block: a group
@@ -290,11 +296,9 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), b
   const unsaved = unsavedLoans ? t("holdings.unsaved", { count: unsavedLoans.count, amount: money(unsavedLoans.paymentCents) }) : null;
 
   return (
-    <section className="card holdings" aria-labelledby="holdings-h">
+    <section className="card holdings" aria-labelledby={title === null ? undefined : "holdings-h"} aria-label={title === null ? t("holdings.title") : undefined}>
       <div className="card-head tb">
-        <div className="card-name">
-          <h2 id="holdings-h">{title}</h2>
-        </div>
+        <div className="card-name">{title !== null && <h2 id="holdings-h">{title}</h2>}</div>
         {/* what the household has net, the accounts less the debts (core's netCents): a dash while the debt total is unknown */}
         {(netCents !== null || (accountsCents !== null && debtCents === null)) && (
           <div className="card-datum">
