@@ -41,6 +41,8 @@ const closedSep = (rows: readonly TraceRow[], o: Partial<Setup> = {}): ClosedMon
 };
 const late = (s: Settlement): SettlementLine[] => s.lines.filter((l) => l.kind === "late_change");
 const byOwner = (entries: readonly Entry[]) => Object.fromEntries(entries.map((e) => [e.owner, e.cents]));
+/** What a correction pays and what it owes: the two are always equal. */
+const sides = (l: SettlementLine): [number, number] => [l.paid.reduce((s, e) => s + e.cents, 0), l.owed.reduce((s, e) => s + e.cents, 0)];
 const answer = (key: string, owner: Owner, saidOn: string): SaidAnswer => ({ kind: "in", key, owner, saidOn });
 
 describe("a closed month and what was said after it", () => {
@@ -99,6 +101,25 @@ describe("a closed month and what was said after it", () => {
     expect(oct.lines).toEqual([]);
   });
 
+  describe("a month under a fixed agreement", () => {
+    // Maija pays the first 50,00 of the month and the rest is cut equally; both purchases are counted in the fixed amount
+    const FIXED: AgreementRow = { accountKey: POOL, validFrom: "2026-01-01", kind: "fixed", value: { cents: { [MAIJA]: 5000 }, rest: { kind: "equal" } } };
+    // a rule made the first purchase Matti's after the month closed
+    const ruled = [acme, row("shop1", "2026-09-02", -10000, { to: { owner: MATTI } }), beta, shop2];
+
+    it("reads the fixed line anew with a purchase in it: a purchase an answer reads is not owed a second time in the fixed amount", () => {
+      const sep = closedSep(rows, { agreements: [FIXED] });
+      const oct = run("2026-10", ruled, { agreements: [FIXED], answers: [answer(ACME, MAIJA, "2027-01-08")], asOf: "2027-01-10", closed: [sep] });
+      expect(late(oct).map((l) => [sides(l), byOwner(l.owed), l.byRow?.map((r) => r.key)])).toEqual([[[0, 0], { [MATTI]: 5000, [MAIJA]: -5000 }, [shop1.key, "2026-09"]]]);
+    });
+
+    it("reads every purchase in the fixed amount with the fixed line: a row booked later does not drop a purchase from what is owed", () => {
+      const sep = closedSep(rows, { agreements: [FIXED] });
+      const oct = run("2026-10", [...ruled, row("more", "2026-09-19", 2000, own(MATTI)), row("booked", "2026-09-20", -2000)], { agreements: [FIXED], asOf: "2027-01-10", closed: [sep] });
+      expect(late(oct).map(sides)).toEqual([[2000, 2000]]);
+    });
+  });
+
   describe("a correction stored before corrections recorded their rows", () => {
     // what an earlier version carried for September: Acme's purchase as Matti's
     const legacy: SettlementLine = { kind: "late_change", key: "2026-09", day: d("2027-01-06"), cents: 0, paid: [{ owner: ACME, cents: -10000 }, { owner: MATTI, cents: 10000 }], owed: [] };
@@ -125,6 +146,15 @@ describe("a closed month and what was said after it", () => {
       const nov = run("2026-11", rows, { answers, asOf: "2027-01-20", closed: [sep, oct] }) as ClosedMonth;
       expect(late(nov).map((l) => [byOwner(l.paid), l.undid && byOwner(l.undid.paid)])).toEqual([[{ [BETA]: -10000, [MAIJA]: 10000 }, { [ACME]: 10000, [MATTI]: -10000 }]]);
       expect(run("2026-12", rows, { answers, asOf: "2027-01-25", closed: [sep, oct, nov] }).lines).toEqual([]);
+    });
+
+    it("is taken off when the month has a row it never held, which the line may hold already: the row is counted once", () => {
+      const sep = closedSep(rows);
+      const booked = [row("more", "2026-09-19", 2000, own(MATTI)), row("booked", "2026-09-20", -2000)];
+      // the earlier version compared every row, so a row booked before its line is in it
+      const carried: SettlementLine = { kind: "late_change", key: "2026-09", day: d("2027-01-06"), cents: 2000, paid: [{ owner: MATTI, cents: 2000 }], owed: [{ owner: MATTI, cents: 1000 }, { owner: MAIJA, cents: 1000 }] };
+      const oct = { ...octWith(sep, []), lines: [carried] } as ClosedMonth;
+      expect(run("2026-11", [...rows, ...booked], { asOf: "2027-01-20", closed: [sep, oct] }).lines).toEqual([]);
     });
 
     it("counts the first answer twice when it is said again after the line (the residual of ADR 0017): only the latest day is stored", () => {
