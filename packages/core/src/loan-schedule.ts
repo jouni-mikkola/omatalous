@@ -53,6 +53,15 @@ export function annuityPayment(balanceCents: number, rateMilli: number, months: 
   return Math.round(i === 0 ? balanceCents / left : (balanceCents * i) / (1 - (1 + i) ** -left));
 }
 
+/** Does the payment of an annuity follow its rate? One with a last due date and a rate path sets it again whenever the rate changes, so it ends on that date. */
+export const resetsPayment = (loan: Loan, plan: Instalments): boolean => plan.withInterest && loan.repayment === "annuity" && endOf(loan) !== null && loan.ratePath !== undefined;
+
+/** The annuity payment that ends `balanceCents` on the loan's last due date, over its due dates after `after`, at the rate in force on `after`. */
+export function paymentToEnd(loan: Loan, plan: Instalments, balanceCents: number, after: IsoDate): number {
+  const left = [...dueDates(loan, plan.months)].filter((d) => d > after).length;
+  return annuityPayment(balanceCents, rateMilliAt(loan.ratePath, plan.rateBp!, after), plan.months, left, countsDays(loan));
+}
+
 /** The due date one interval before the first due date `date`: the interval's start, which a balance dated inside it does not move. */
 function dueDateBefore(loan: Loan, date: IsoDate, months: number, end: IsoDate | null): IsoDate {
   if (end === null) return loan.balanceDate;
@@ -70,7 +79,7 @@ export function* payments(loan: Loan, plan: Instalments, from: { balanceCents: n
   const end = endOf(loan);
   const path = loan.ratePath;
   const days = countsDays(loan);
-  const reset = !keepPayment && plan.withInterest && loan.repayment === "annuity" && end !== null && path !== undefined;
+  const reset = !keepPayment && resetsPayment(loan, plan);
   const listed = reset ? [...dueDates(loan, plan.months)] : null;
   const dates = listed ?? dueDates(loan, plan.months);
   const total = listed?.length ?? 0;
@@ -143,7 +152,7 @@ interface ScheduleChange {
   extra?: { cents: number; on: IsoDate };
 }
 
-interface ScheduleRow {
+export interface ScheduleRow {
   date: IsoDate;
   /** The rate of the interval, in thousandths of a percent. Null without a rate. */
   rateMilli: number | null;
@@ -172,7 +181,7 @@ interface Schedule {
 }
 
 /** The plan a schedule follows: the loan's own, a revolving loan's typed payment each month, or a bullet's interest and its last day. */
-function schedulePlan(loan: Loan): Instalments | LoanUnknown {
+export function schedulePlan(loan: Loan): Instalments | LoanUnknown {
   if (isRevolving(loan.kind) && loan.repayment === null) {
     const paymentCents = typedPayment(loan);
     if (paymentCents === null) return "payment";
@@ -188,7 +197,7 @@ function schedulePlan(loan: Loan): Instalments | LoanUnknown {
 }
 
 /** What a payment is of the plan: with its interest, or the amortisation alone. */
-const paymentOf = (plan: Instalments, p: Payment): number => (plan.withInterest ? p.interestCents! + p.amortisationCents : p.amortisationCents);
+export const paymentOf = (plan: Instalments, p: Payment): number => (plan.withInterest ? p.interestCents! + p.amortisationCents : p.amortisationCents);
 
 /**
  * Where the plan stands on `from`: what is owed, the last due date on or before it (each interval counts at the rate of
@@ -229,10 +238,7 @@ function paymentsAfter(loan: Loan, plan: Instalments, from: IsoDate, change: Sch
   const lastDate = base?.date ?? at.last;
   const owed = Math.max(0, (base?.balanceCents ?? at.balanceCents) - (extra?.cents ?? 0));
   let next = step;
-  if (options.lower && plan.rateBp !== null && owed > 0) {
-    const left = [...dueDates(target, plan.months)].filter((d) => d > lastDate).length;
-    next = { ...step, paymentCents: annuityPayment(owed, rateMilliAt(loan.ratePath, plan.rateBp, lastDate), plan.months, left, countsDays(loan)) };
-  }
+  if (options.lower && plan.rateBp !== null && owed > 0) next = { ...step, paymentCents: paymentToEnd(target, plan, owed, lastDate) };
   return [...head, ...payments(target, next, { balanceCents: owed, after: lastDate }, options.keepPayment)];
 }
 
