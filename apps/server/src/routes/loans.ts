@@ -220,17 +220,19 @@ export async function parseLoan(raw: unknown, today: string, accounts: OwnAccoun
       );
     }
     // After a step the interest is the step rate's on what is left of the balance then. The least that can be left is the
-    // balance less the payments due before the step (no interest in them). An annuity with a last due date sets its
-    // payment again at the step, so it needs no check.
+    // balance less the payments before the first interval at the step rate (no interest in them). An annuity with a last
+    // due date sets its payment again at the step, so it needs no check.
     const { rateStepDate, rateStepBp } = loan;
     if (rateStepDate && rateStepBp != null && !(loan.repayment === "annuity" && loan.endDate !== null)) {
-      // a payment due on the step day is the first at the new rate, so only the due dates before it are counted
+      // an interval counts at the rate in force on the day it starts (`payments` in loan-schedule.ts), so the first one at
+      // the step rate starts on the first due date on or after the step day: that payment and every one before it are paid
       let paid = 0;
       // the loan has no id yet; its due dates read the other fields only
-      for (const due of dueDates({ ...loan, id: "" }, loan.intervalMonths)) {
-        if (due >= rateStepDate) break;
-        paid++;
-      }
+      if (rateStepDate > loan.balanceDate)
+        for (const due of dueDates({ ...loan, id: "" }, loan.intervalMonths)) {
+          paid++;
+          if (due >= rateStepDate) break;
+        }
       const left = Math.max(0, loan.balanceCents - paid * instalment);
       if (left > 0 && instalment < loanPeriodInterest(left, rateStepBp, loan.intervalMonths)) {
         throw new UserError("Maksuerä on pienempi kuin koron muutoksen jälkeinen lyhennysvälin korko, joten laina ei lyhenisi muutoksen jälkeen. Tarkista luvut tai jätä maksuerä tyhjäksi, jos maksat vain korkoa.");

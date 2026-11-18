@@ -408,12 +408,13 @@ describe("loans", () => {
     expect((await admin.call("POST", "/api/loans", small)).status).toBe(200);
     expect((await admin.call("POST", "/api/loans", { ...small, paymentCents: 60_000, rateStepDate: "2027-03-01", rateStepBp: 1990 })).status).toBe(200);
 
-    // the borderline: 12 000 € paid 186 € a month. Four payments fall before 1.3.2027 and leave an interest of 186,66 € at the new
-    // rate, which the payment does not cover; the payment due on the step day is the first at the new rate, so it is not
-    // counted as paid before it. A step a day later has five payments before it, and their balance is covered.
+    // the borderline: 12 000 € paid 186 € a month. An interval counts at the rate of its first day, so a step on 1.2.2027
+    // starts the new rate after the payment of that day: four payments are paid and the 186,66 € of interest on what is
+    // left is not covered. A step a day later starts it after the payment of 1.3., five are paid and 183,58 € is covered.
     const edge = { ...promo, balanceCents: 1_200_000, paymentCents: 18_600 };
-    expect((await admin.call("POST", "/api/loans", { ...edge, rateStepDate: "2027-03-01", rateStepBp: 1990 })).status).toBe(400);
-    expect((await admin.call("POST", "/api/loans", { ...edge, rateStepDate: "2027-03-02", rateStepBp: 1990 })).status).toBe(200);
+    expect((await admin.call("POST", "/api/loans", { ...edge, rateStepDate: "2027-02-01", rateStepBp: 1990 })).status).toBe(400);
+    expect((await admin.call("POST", "/api/loans", { ...edge, rateStepDate: "2027-02-02", rateStepBp: 1990 })).status).toBe(200);
+    expect((await admin.call("POST", "/api/loans", { ...edge, rateStepDate: "2027-03-01", rateStepBp: 1990 })).status).toBe(200);
 
     // a loan on a euribor has none: its reviews set the rate, so a step sent with it is checked and dropped
     const euribor = await admin.call("POST", "/api/loans", { ...mortgage, rateStepDate: "2027-03-01", rateStepBp: 1990 });
