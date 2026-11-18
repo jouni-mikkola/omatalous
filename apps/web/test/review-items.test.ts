@@ -202,7 +202,13 @@ describe("a payment of a saved loan that its plan did not expect", () => {
   });
   it("shows what the bank took and what the plan expected", () => {
     const f = figureOf(drift);
-    expect([f.text.replace(/\s/g, " "), f.unit, f.line.replace(/\s/g, " ")]).toEqual(["950,00 €".replace(/\s/g, " "), "veloitus", "Veloitus 5.11., lainan maksuerä on 900,00 €".replace(/\s/g, " ")]);
+    expect([f.text.replace(/\s/g, " "), f.unit, f.line.replace(/\s/g, " ")]).toEqual(["950,00 €".replace(/\s/g, " "), "veloitus", "Veloitus 5.11., maksu korkoineen on 900,00 €".replace(/\s/g, " ")]);
+  });
+  it("names the whole due amount with its interest, not the payment the form holds, for an equal principal", () => {
+    const equalPrincipal = { ...drift, paidCents: 138_750, expectedCents: 133_750, newPaymentCents: 95_000 } as unknown as ReviewItem;
+    const f = figureOf(equalPrincipal);
+    expect(f.line.replace(/\s/g, " ")).toBe("Veloitus 5.11., maksu korkoineen on 1 337,50 €".replace(/\s/g, " "));
+    expect(f.line).not.toContain("maksuerä");
   });
 });
 

@@ -451,13 +451,13 @@ async function ownViewOf(s: Services, userId: string): Promise<OwnView> {
   return own;
 }
 
-// the unexplained money in from another member: a payer the front's source asked already is kept once (`reviewQueue`)
 /** A loan has one question at a time: its terms, and only when none is lacking, its drift. */
 const loanQuestions: Source = async (s, userId, own) => {
   const terms = await loanTermsItems(s, userId, own);
   return [...terms, ...(await loanDriftItems(s, userId, own, new Set(terms.flatMap((item) => item.loanId ?? []))))];
 };
 
+// the unexplained money in from another member: a payer the front's source asked already is kept once (`reviewQueue`)
 const SOURCES: readonly Source[] = [front, loans, splits, subscriptions, mortgage, loanQuestions, balances, cardBalances, consents, bills, rows, (_s, _userId, own) => own.memberMoney(), unresolvedItems, moneyBackItems];
 
 /** The whole queue, the most money first; the page caps a sitting. */

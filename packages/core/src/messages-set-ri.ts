@@ -87,7 +87,7 @@ export const FI_SET_RI = {
   "set.ri.loan_terms_review_date": "Minä päivänä pankki tarkistaa lainan koron?",
   "set.ri.loan_drift_question": "Onko lainan maksuerä muuttunut?",
   "set.ri.loan_drift_unit": "veloitus",
-  "set.ri.loan_drift_line": "Veloitus {date}, lainan maksuerä on {expected}",
+  "set.ri.loan_drift_line": "Veloitus {date}, maksu korkoineen on {expected}",
   "set.ri.loan_terms_owed": "velkaa",
   "set.ri.loan_terms_balance_date": "Saldo päivältä {date}",
   "set.ri.money_back_double": "Tuplaveloitus",

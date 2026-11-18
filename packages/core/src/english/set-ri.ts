@@ -85,7 +85,7 @@ export const EN_SET_RI: Record<keyof typeof FI_SET_RI, string> = {
   "set.ri.loan_terms_review_date": "On which day does the loan's rate get reviewed?",
   "set.ri.loan_drift_question": "Has the loan's payment changed?",
   "set.ri.loan_drift_unit": "charge",
-  "set.ri.loan_drift_line": "Charged on {date}, the loan's payment is {expected}",
+  "set.ri.loan_drift_line": "Charged on {date}, the payment with interest is {expected}",
   "set.ri.loan_terms_owed": "owed",
   "set.ri.loan_terms_balance_date": "Balance on {date}",
   "set.ri.money_back_double": "Double charge",
