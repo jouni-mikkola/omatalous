@@ -79,8 +79,7 @@ those in *Asetukset*, under *Lainat*, with the figures from your bank's page.
 
 ## After the install
 
-- Updates show up in *Asetukset*, under *Ylläpito*. Nothing updates before you press *Päivitä*. A release is offered
-  about two days after it comes out.
+- Updates show up in *Asetukset*, under *Ylläpito*. Nothing updates before you press *Päivitä*.
 - The app makes no backups of your data: you back up the data folder yourself.
 - Lost the address? Run `./scripts/install.sh` again in the `omatalous` folder. It keeps the settings and data and
   prints the address.

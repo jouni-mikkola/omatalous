@@ -1,4 +1,4 @@
-export type OpsAction = "update" | "rollback" | "restart" | "doctor" | "check-update" | "logs" | "prune" | "helper-renew" | "prerelease-on" | "prerelease-off";
+export type OpsAction = "update" | "rollback" | "restart" | "doctor" | "check-update" | "logs" | "prune" | "helper-renew";
 
 export interface OpsRequestView {
   id: string;
@@ -45,9 +45,7 @@ export interface OpsSnapshot {
   mode?: string;
   port?: number;
   address?: string;
-  /** Where the switch for new versions stands on the host. Absent until a helper that knows it has reported. */
-  prerelease?: "yes" | "no";
-  /** `source` and `private`: the install follows a branch, so there is no switch. The page shows the channel and cannot change it. */
+  /** `source` and `private`: the install follows a branch. The page shows the channel and cannot change it. */
   channel?: "source" | "release" | "private";
   doctor?: { at: string; items: DoctorItem[] };
   /** The system check ran under another version than the one running now. */
@@ -62,8 +60,6 @@ export interface HelperInfo {
   outdated: boolean;
   /** The helper knows logs, prune and helper-renew. */
   tools: boolean;
-  /** The helper knows prerelease-on and prerelease-off. */
-  knowsPrerelease: boolean;
   /** The helper waits for the app's wake and starts a request within seconds. */
   wakes: boolean;
   enableCommand: string;

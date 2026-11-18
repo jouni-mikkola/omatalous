@@ -307,21 +307,19 @@ drill_symlink() {
 }
 
 # ── 10 the release parser on GitHub's real answer ───────────────────────────
-# shellcheck source=tools/lib/newest-release.sh
-. "$SRC/tools/lib/newest-release.sh"
 # rel FUNCTION ARGS...: a function of this checkout's scripts/lib/release.sh, run in the checkout. The address asked is the
 # one that file holds (RELEASES_API). With the caller's auth=1 its curl also reads the token's config file.
 rel() { (cd "$SRC" && . scripts/lib/release.sh && { [[ -z ${auth:-} ]] || export CURL_HOME=$LOGS/curl-auth; } && "$@"); }
 # GitHub did not answer the question: no connection, a refusal for the address's rate, or its own error
 no_answer() { [[ $1 =~ ^(000|403|429|5[0-9][0-9])$ ]]; }
 release_rows() { grep -oE '"(tag_name|draft|prerelease)": *("[^"]*"|[a-z]+)' "$1" | tr '\n' ' ' | cut -c1-860 | fold -w 290; }
-# The tag a JSON parser takes from the answer on stdin, by the rules of release_pick: vX.Y.Z, no draft, in mode latest no
-# pre-release, and of those the highest.
+# The tag a JSON parser takes from the answer on stdin, by the rules of release_pick: vX.Y.Z, no draft, no pre-release, and
+# of those the highest.
 RELEASE_JS='
-  const m = process.argv[1]; let s = "";
+  let s = "";
   process.stdin.on("data", (d) => (s += d)).on("end", () => {
     const j = JSON.parse(s), n = (t) => t.slice(1).split(".").map(Number);
-    const tags = (Array.isArray(j) ? j : [j]).filter((r) => r && /^v\d+\.\d+\.\d+$/.test(r.tag_name) && r.draft !== true && !(m === "latest" && r.prerelease === true)).map((r) => r.tag_name);
+    const tags = (Array.isArray(j) ? j : [j]).filter((r) => r && /^v\d+\.\d+\.\d+$/.test(r.tag_name) && r.draft !== true && r.prerelease !== true).map((r) => r.tag_name);
     tags.sort((a, b) => { const x = n(a), y = n(b); return y[0] - x[0] || y[1] - x[1] || y[2] - x[2]; });
     console.log(tags[0] || "");
   });'
@@ -329,45 +327,32 @@ RELEASE_JS='
 # answer the product's own GET fetched is parsed twice, a refusal is asked again with the workflow's token when there is
 # one, and no answer at all is "skipped", never a failure of the parser.
 drill_release() {
-  local m f=$LOGS/release.json code rc got want all tag auth=""
+  local f=$LOGS/release.json code rc got want all auth=""
   trap 'rm -rf "$LOGS/curl-auth"' EXIT
   step "scripts/lib/release.sh on GitHub's real answer: its GET, its parser against a JSON parser on the same bytes, then the whole call (awk: $(awk -W version 2>&1 | head -n 1 || true))"
   (cd "$SRC" && . scripts/lib/release.sh && declare -F release_get release_pick release_from_api >/dev/null) || die "scripts/lib/release.sh lacks release_get, release_pick or release_from_api"
-  # the first release of a new root (release.sh --new-root) has no release before it to read. Only that run says so, and
-  # only an empty list from GitHub counts, as in the signature check of the proof: any other answer is compared as ever.
-  if [[ ${VERIFY_RELEASE_FIRST:-} == 1 ]]; then
-    code=$(rel release_get newest "$f")
-    [[ $code == 200 && $(tr -d '[:space:]' <"$f") == "[]" ]] && skip "the public repository has no release yet (the first release of a new root): nothing to compare"
+  code=$(rel release_get "$f")
+  if [[ $code =~ ^(403|429)$ && -s $LOGS/curl-auth/.curlrc ]]; then
+    echo "GitHub refused the request without a token (HTTP $code: $(head -c 160 "$f" | tr '\n' ' ')). Asking with the workflow's token from here on."
+    auth=1; code=$(rel release_get "$f")
   fi
-  for m in latest newest; do
-    code=$(rel release_get "$m" "$f")
-    if [[ $code =~ ^(403|429)$ && -z $auth && -s $LOGS/curl-auth/.curlrc ]]; then
-      echo "$m: GitHub refused the request without a token (HTTP $code: $(head -c 160 "$f" | tr '\n' ' ')). Asking with the workflow's token from here on."
-      auth=1; code=$(rel release_get "$m" "$f")
-    fi
-    no_answer "$code" && skip "GitHub gave no answer (HTTP $code for $m, with the token: ${auth:-no}): $(head -c 160 "$f" 2>/dev/null | tr '\n' ' ')"
-    if [[ $m == latest && $code == 404 ]]; then
-      # no latest release while the only releases are pre-releases: the newest-mode round below reads the same list, pre-releases included
-      code=$(rel release_get newest "$f")
-      no_answer "$code" && skip "GitHub gave no answer (HTTP $code for newest, after a 404 for latest): $(head -c 160 "$f" 2>/dev/null | tr '\n' ' ')"
-      tag=$(newest_release_tag <"$f") || tag=
-      if [[ $code == 200 && -n $tag ]]; then no_latest_note "the public repository" "$tag"; continue; fi
-      code=404
-    fi
-    [[ $code == 200 ]] || die "$m: GitHub answered HTTP $code" "the answer: $(head -c 500 "$f" 2>/dev/null | tr '\n' ' ')"
-    want=$(docker run --rm -i --network none --entrypoint node "$IMG" -e "$RELEASE_JS" "$m" <"$f" 2>&1) || die "$m: the answer could not be read as JSON" "$want" "the answer: $(head -c 300 "$f" | tr '\n' ' ')"
-    rc=0; got=$(rel release_pick "$m" "$f") || rc=$?
-    got=${got%%$'\t'*}
-    echo "$m: HTTP $code, $(wc -c <"$f") bytes; release_pick: rc=$rc tag='$got'; a JSON parser: '$want'"
-    [[ $want =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "$m: the answer holds no release that counts, so nothing was compared" "$(release_rows "$f")"
-    [[ $rc == 0 && $got == "$want" ]] || die "$m: release_pick says '$got' (rc $rc), a JSON parser says '$want' on the same answer" "$(release_rows "$f")"
-    rc=0; all=$(rel release_from_api "$m") || rc=$?
-    if [[ $rc != 0 ]]; then
-      code=$(rel release_get "$m" "$f")
-      no_answer "$code" && skip "GitHub gave no answer to release_from_api $m (rc $rc, a GET right after it: HTTP $code); release_pick agreed with a JSON parser"
-    fi
-    [[ $rc == 0 && $all == "$want" ]] || die "$m: release_from_api says '$all' (rc $rc), expected '$want'" "a GET right after it: HTTP $code"
-  done
+  no_answer "$code" && skip "GitHub gave no answer (HTTP $code, with the token: ${auth:-no}): $(head -c 160 "$f" 2>/dev/null | tr '\n' ' ')"
+  # the first release of a new root (release.sh --new-root) has no release before it to read. Only that run says so, and
+  # only a 404 from GitHub counts: any other answer is compared as ever.
+  [[ ${VERIFY_RELEASE_FIRST:-} == 1 && $code == 404 ]] && skip "the public repository has no release yet (the first release of a new root): nothing to compare"
+  [[ $code == 200 ]] || die "latest: GitHub answered HTTP $code" "the answer: $(head -c 500 "$f" 2>/dev/null | tr '\n' ' ')"
+  want=$(docker run --rm -i --network none --entrypoint node "$IMG" -e "$RELEASE_JS" <"$f" 2>&1) || die "the answer could not be read as JSON" "$want" "the answer: $(head -c 300 "$f" | tr '\n' ' ')"
+  rc=0; got=$(rel release_pick "$f") || rc=$?
+  got=${got%%$'\t'*}
+  echo "HTTP $code, $(wc -c <"$f") bytes; release_pick: rc=$rc tag='$got'; a JSON parser: '$want'"
+  [[ $want =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "the answer holds no release that counts, so nothing was compared" "$(release_rows "$f")"
+  [[ $rc == 0 && $got == "$want" ]] || die "release_pick says '$got' (rc $rc), a JSON parser says '$want' on the same answer" "$(release_rows "$f")"
+  rc=0; all=$(rel release_from_api) || rc=$?
+  if [[ $rc != 0 ]]; then
+    code=$(rel release_get "$f")
+    no_answer "$code" && skip "GitHub gave no answer to release_from_api (rc $rc, a GET right after it: HTTP $code); release_pick agreed with a JSON parser"
+  fi
+  [[ $rc == 0 && $all == "$want" ]] || die "release_from_api says '$all' (rc $rc), expected '$want'" "a GET right after it: HTTP $code"
 }
 
 # ── run ─────────────────────────────────────────────────────────────────────

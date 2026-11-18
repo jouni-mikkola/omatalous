@@ -18,7 +18,7 @@ const page = (last: OpsState["last"], requests: OpsRequestView[]) => {
   const data: OpsState = {
     version: "1.4.0",
     build: "abc1234",
-    helper: { status: "ok", reason: null, seenAt: AT, version: "2", outdated: false, tools: true, knowsPrerelease: true, wakes: true, enableCommand: "" },
+    helper: { status: "ok", reason: null, seenAt: AT, version: "2", outdated: false, tools: true, wakes: true, enableCommand: "" },
     state: { update_available: false, checked_at: AT },
     requests,
     last,

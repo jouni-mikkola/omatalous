@@ -275,10 +275,10 @@ The copies and the checks around them, each in one place. None of them is a back
 
 ## Maintenance from the browser
 
-<!-- language-allow: comma-density the list is the ten fixed actions, one item each -->
+<!-- language-allow: comma-density the list is the eight fixed actions, one item each -->
 *Asetukset > Palvelin ja ylläpito > Ylläpito* writes a request row. The code is in `services/ops.ts`, `db/ops-repo.ts` and migrations 0006 and 0007. A host
-helper (`scripts/ops-helper.sh`) polls it through `cli-ops.ts`, runs one of ten fixed actions (check-update, update,
-rollback, restart, doctor, logs, prune, helper-renew, prerelease-on, prerelease-off) and reports the result. Requests only name an allowlisted action, and the helper never
+helper (`scripts/ops-helper.sh`) polls it through `cli-ops.ts`, runs one of eight fixed actions (check-update, update,
+rollback, restart, doctor, logs, prune, helper-renew) and reports the result. Requests only name an allowlisted action, and the helper never
 runs text from the database. Requests and results are audited as `ops_*` events in `security_events`. See
 [ADVANCED.md](ADVANCED.md#the-maintenance-helper).
 
@@ -287,7 +287,7 @@ and the report. It sources the rest from `scripts/lib/` after `check_permissions
 before an update swaps the files on disk.
 
 - `ops-release.sh` asks GitHub for the latest release. `release.sh` (shared with `update.sh`) decides which release an
-  install follows, the latest or with `TALOUS_PRERELEASE=yes` the newest, and holds the signature check. The switch *Tarjoa uudet versiot heti* on the Ylläpito page has the helper write that key, in `ops-release.sh`.
+  install follows, which is the latest release, and holds the signature check.
 - `ops-selftest.sh` is `./scripts/ops-helper.sh --self-test`, and what an update does when the helper it brought fails
   it: the update is taken back at once when its record is under 60 minutes old.
 - `ops-watchdog.sh` looks at the app's container every minute. For one hour after an update, an app that has been

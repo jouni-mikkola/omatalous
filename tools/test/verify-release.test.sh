@@ -34,10 +34,10 @@ done
 case $CURL_MODE in
   down) exit 6 ;;
 esac
-# the GitHub API: the release list is $RELEASES, and there is no latest release. Modes: limited refuses twice with the
+# the GitHub API: the release list is $RELEASES and the latest release is $LATEST (the list when it is not set). Modes: limited refuses twice with the
 # rate-limit header and then answers, limited-always refuses every time that way, refused is a 403 without the header.
 if [[ $url == https://api.github.com/* ]]; then
-  [[ $url == *"/releases?per_page=1" ]] || exit 22
+  [[ $url == *"/releases?per_page=1" || $url == */releases/latest ]] || exit 22
   n=$(($(cat "$CURL_LOG.n" 2>/dev/null || echo 0) + 1)); echo "$n" >"$CURL_LOG.n"
   code=200
   case $CURL_MODE in
@@ -45,7 +45,8 @@ if [[ $url == https://api.github.com/* ]]; then
     limited-always | refused) code=403 ;;
   esac
   { printf 'HTTP/2 %s\r\n' "$code"; [[ $CURL_MODE == refused || $code == 200 ]] || printf 'x-ratelimit-remaining: 0\r\n'; } >"$head"
-  printf '%s' "$RELEASES" >"$out"; printf '%s' "$code"; exit 0
+  if [[ $url == */releases/latest ]]; then printf '%s' "${LATEST:-$RELEASES}" >"$out"; else printf '%s' "$RELEASES" >"$out"; fi
+  printf '%s' "$code"; exit 0
 fi
 case $CURL_MODE in
   private) [[ $url == *"/token?"* ]] && exit 22 ;;
@@ -149,23 +150,16 @@ out=$(first refused '[]' VERIFY_RELEASE_FIRST=); rc=$?
 check "a 403 without the rate-limit header fails at once" test $rc -ne 0
 [[ $(cat "$CURL_LOG.n") == 1 ]] && pass "asks once" || fail "asks once" "$(cat "$CURL_LOG.n")"
 
-# GitHub has no latest release while the only release is a pre-release: the newest one is checked
-out=$(first ok '[{"tag_name":"v0.1.0","prerelease":true}]' VERIFY_RELEASE_FIRST=); rc=$?
-[[ $out == *"only pre-releases): checking the newest, v0.1.0."* ]] && pass "falls back to the newest release" || fail "falls back to the newest release" "$out"
-grep -q 'releases?per_page=1' "$CURL_LOG" && pass "asks for the release list" || fail "asks for the release list"
-out=$(first ok '[]' VERIFY_RELEASE_FIRST=); rc=$?
-check "no release at all still fails" test $rc -ne 0 -a "${out#*only pre-releases}" = "$out"
+# the release to verify is the one GitHub names as the latest; the list of releases is not read for it, and a list that
+# holds only a pre-release gives no release
+out=$(first ok '[{"tag_name":"v0.1.0","prerelease":true}]' VERIFY_RELEASE_FIRST= LATEST='{"tag_name":"v0.1.0"}'); rc=$?
+grep -q 'releases/latest' "$CURL_LOG" && pass "asks for the latest release" || fail "asks for the latest release"
+grep -q 'releases?per_page=1' "$CURL_LOG" && fail "does not read the release list" || pass "does not read the release list"
+[[ $out == *"No release found"* ]] && fail "takes the tag GitHub names as the latest" "$out" || pass "takes the tag GitHub names as the latest"
+out=$(first ok '[{"tag_name":"v0.1.0","prerelease":true}]' VERIFY_RELEASE_FIRST= LATEST='{"message":"Not Found"}'); rc=$?
+check "no latest release fails, though the list holds a pre-release" test $rc -ne 0
 [[ $out == *"No release found"* ]] && pass "says no release was found" || fail "says no release was found" "$out"
-
-# the helper both this script and drill 10 of tools/ci/drills.sh take the fallback from
-# shellcheck source=tools/lib/newest-release.sh
-. "$HERE/../lib/newest-release.sh"
-tag=$(printf '%s' '[{"tag_name":"v0.2.0","prerelease":true},{"tag_name":"v0.1.0","prerelease":true}]' | newest_release_tag)
-[[ $tag == v0.2.0 ]] && pass "newest_release_tag takes the first release of the list, a pre-release too" || fail "newest_release_tag takes the first release of the list, a pre-release too" "$tag"
-tag=$(printf '%s' '[]' | newest_release_tag)
-[[ -z $tag ]] && pass "newest_release_tag finds nothing in an empty list" || fail "newest_release_tag finds nothing in an empty list" "$tag"
-note=$(no_latest_note the-repo v0.2.0)
-[[ $note == "the-repo has no latest release (only pre-releases): checking the newest, v0.2.0." ]] && pass "no_latest_note names the repository and the tag" || fail "no_latest_note names the repository and the tag" "$note"
+grep -q 'releases?per_page=1' "$CURL_LOG" && fail "still does not read the release list" || pass "still does not read the release list"
 
 echo
 echo "$PASS passed, $FAILED failed"

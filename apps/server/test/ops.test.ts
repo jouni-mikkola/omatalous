@@ -51,7 +51,7 @@ const ROUTES: [string, string, unknown?][] = [
 
 describe("ops: validation", () => {
   it("accepts every action by its name alone and nothing else", () => {
-    for (const action of ["update", "rollback", "restart", "doctor", "check-update", "logs", "prune", "helper-renew", "prerelease-on", "prerelease-off"]) expect(parseOpsRequest({ action }).action).toBe(action);
+    for (const action of ["update", "rollback", "restart", "doctor", "check-update", "logs", "prune", "helper-renew"]) expect(parseOpsRequest({ action }).action).toBe(action);
     // a retired action is no action, however it is asked for
     for (const bad of [{ action: "logs", params: { service: "banking" } }, { action: "prune", params: { all: true } }, { action: "helper-renew", params: { args: "--ops-policy" } }, { action: "Logs" }, { action: "helper_renew" }, { action: "access" }, { action: "access", params: { want: "lan" } }, { action: "port" }, { action: "rm -rf /" }, { action: "update; id" }, { action: 1 }, {}, { action: "update", extra: 1 }, { action: "update", params: { ref: "main" } }, { action: "update", params: [] }, { action: "update", password: 5 }]) {
       expect(() => parseOpsRequest(bad), JSON.stringify(bad)).toThrow();
@@ -80,10 +80,9 @@ describe("ops: validation", () => {
     }
     expect(helperHasTools("1")).toBe(false);
     expect(helperHasTools("2")).toBe(true);
-    // the choice of new versions came with version 4, and a retired action is known to no helper
-    for (const old of [null, "1", "2", "3", "garbage"]) expect(helperKnows(old, "prerelease-on"), String(old)).toBe(false);
-    expect(helperKnows("4", "prerelease-on")).toBe(true);
+    // a retired action is known to no helper
     expect(helperKnows("10", "access" as never)).toBe(false);
+    expect(helperKnows("10", "prerelease-on" as never)).toBe(false);
   });
 
   it("the read-only set is one list: the index that keeps one mutating request active names the same actions", async () => {
@@ -519,25 +518,25 @@ describe("ops: the helper's CLI", () => {
     expect(await cli(s, ["poll", "--helper", "2", "--done", ""])).toEqual({ request: { id: again, action: "prune", params: {}, secret: null } });
   });
 
-  it("a version 3 helper is never handed a version 4 action, a version 4 one gets the usual shape, and a queued access request ends", async () => {
+  it("a version 1 helper is never handed a version 2 action, a version 2 one gets the usual shape, and a queued access request ends", async () => {
     const { s, adminId } = await setupApp();
     const queued = async (id: string, action: string) => {
       expect(await s.ops.insert({ id, action, requestedBy: adminId, at: s.now().toISOString() })).toBe(true);
       return id;
     };
-    await helperOn(s, "4");
-    const id = await queued("op_00000000000000a1", "prerelease-on");
-    // the helper went back to version 3 with the checkout
-    expect(await cli(s, ["poll", "--helper", "3", "--done", ""])).toEqual({ request: null });
+    await helperOn(s, "2");
+    const id = await queued("op_00000000000000a1", "helper-renew");
+    // the helper went back to version 1 with the checkout
+    expect(await cli(s, ["poll", "--helper", "1", "--done", ""])).toEqual({ request: null });
     expect((await s.ops.get(id))!).toMatchObject({ status: "failed", summary: "Apuri ei tue tätä toimintoa." });
     await s.db.run("DELETE FROM ops_requests");
-    await helperOn(s, "4");
-    const again = await queued("op_00000000000000a2", "prerelease-on");
-    expect(await cli(s, ["poll", "--helper", "4", "--done", ""])).toEqual({ request: { id: again, action: "prerelease-on", params: {}, secret: null } });
+    await helperOn(s, "2");
+    const again = await queued("op_00000000000000a2", "helper-renew");
+    expect(await cli(s, ["poll", "--helper", "2", "--done", ""])).toEqual({ request: { id: again, action: "helper-renew", params: {}, secret: null } });
     // a request for the retired action, queued by an older version, is ended and never handed out
     await s.db.run("DELETE FROM ops_requests");
     const old = await queued("op_00000000000000a3", "access");
-    expect(await cli(s, ["poll", "--helper", "4", "--done", ""])).toEqual({ request: null });
+    expect(await cli(s, ["poll", "--helper", "2", "--done", ""])).toEqual({ request: null });
     expect((await s.ops.get(old))!).toMatchObject({ status: "failed" });
   });
 

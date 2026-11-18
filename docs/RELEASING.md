@@ -12,7 +12,7 @@ it. Every other check (the types, the build, the tests, the migrations against e
 maintainer's machine, on both trees (the release gate and proof below). Only when `verify`, both builds and both smoke tests
 have passed does `publish` give one index of the two the
 version tag, sign it with cosign through GitHub OIDC and verify the signature with the function installs run
-(`scripts/lib/release.sh`). `release` writes the GitHub release, as a pre-release (see Promotion below). A failed check, build
+(`scripts/lib/release.sh`). `release` writes the GitHub release, which is the latest one at once (see Holding and pulling below). A failed check, build
 or smoke test leaves no tag, no signature and no release. The return page
 workflow publishes `relay/` to GitHub Pages on the same tags and on every push to `main` that changes `relay/`. The
 release workflow has no approval step. It runs when a push to `main` brings a version that has no tag yet, when a tag
@@ -87,33 +87,19 @@ While any user still has a PBKDF2 hash, every sign-in spends one PBKDF2 and one 
 belongs to (`verifyUniform`), so the time of a check does not tell a known name from an unknown one. The extra derivation
 ends when the last old hash has been rewritten.
 
-## Promotion, holding and pulling
+## Holding and pulling
 
-Every release is created as a pre-release. GitHub's `/releases/latest`, which installs read, skips pre-releases, so an
-install is offered a release only after it is promoted: at its next check or when *Päivitä* is pressed, never by itself.
-An install with the switch *Tarjoa uudet versiot heti* on (*Asetukset > Palvelin ja ylläpito > Ylläpito*) follows pre-releases too and is offered one at once. Without the helper, `TALOUS_PRERELEASE=yes` in its `.env` does the same.
+A release is the latest one the moment it is published, and installs are offered it at their next check or when
+*Päivitä* is pressed, never by itself. There is no pre-release step and no promotion.
 
-`promote.yml` (Actions, Promote) runs every six hours and by hand, in the public repository only. It looks at the highest
-version of all releases, drafts included. When that is a pre-release that is 48 hours old, above the release now marked
-latest, and its image verifies with the check installs run, it promotes it. It promotes one release per run. A run with
-nothing to do ends green and says why. A release whose signature is refused is left alone, with a warning on the run.
-
-- Hold a release, so that nobody gets it: `gh release edit vX.Y.Z --draft -R jouni-mikkola/omatalous`. A draft is never
-  promoted, and it holds every older pre-release too: while the highest version is a draft, nothing below it is promoted.
-  A draft below the highest pre-release changes nothing. To free the older ones, pull the held release.
+- Hold a release, so that nobody gets it: `gh release edit vX.Y.Z --draft -R jouni-mikkola/omatalous`. GitHub lists a
+  draft to no unauthenticated caller, so installs do not see it.
 - Pull a release: `gh release delete vX.Y.Z --yes -R jouni-mikkola/omatalous`. The git tag stays, so the next release
   needs a new version.
-- Promote early: `gh release edit vX.Y.Z --prerelease=false --latest -R jouni-mikkola/omatalous`, the line the workflow
-  runs. `--latest` is needed because GitHub's own latest goes by creation date, not by version.
-- After a long quiet spell look at the Actions tab. GitHub switches a scheduled workflow off after 60 days without
-  activity in the repository. A release then stays a pre-release (nothing breaks, installs are just not offered it) until
-  Promote is enabled again (Actions, Promote, Enable workflow) or the line above is run by hand.
 
-GitHub lists a draft to no unauthenticated caller, so a held release is invisible to installs, and so is a pulled one.
-Installs older than 0.9.0 are the exception: their own `update.sh`, run by hand, takes the newest git tag, which a
-pre-release has from its first minute, and a hold or a pull does not remove a tag. Their hourly check and the *Päivitä*
-button read `/releases/latest` and are safe. So promote a good release by hand once its checks are green, and ship the
-fix at once when it is bad. An install that runs 0.9.0 or later follows the release GitHub marks as latest in every mode.
+A hold or a pull does not remove the tag. An install older than 0.9.0 that is updated by hand with `update.sh` takes
+the newest git tag, so ship the fix at once when a release is bad. Their hourly check and the *Päivitä* button read
+`/releases/latest` and are safe.
 
 ## When CI runs
 

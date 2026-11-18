@@ -180,7 +180,7 @@ t_helper_private() {
   check "helper: built private" test "$(built_with)" = PRIVATE_BUILD=true
   rm -f "$S/reports"/* "$CL/ops/journal"/*; cp -p "$CL/.env" "$W/env.before"
   poll prerelease-on; tick
-  check "helper: the switch for new versions is refused on the private channel" reported failed
+  check "helper: the retired switch for new versions is refused as an unknown action" reported failed
   check "helper: and .env is as it was" cmp -s "$CL/.env" "$W/env.before"
 }
 t_helper_refuses_other_history() {

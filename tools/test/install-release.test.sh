@@ -2,7 +2,8 @@
 # Tests for what the installer does with the release channel, on a fake host (tools/test/fake-host.sh):
 #   - --new-instance puts the new clone on the release this clone is at (the tag vX.Y.Z at HEAD), never the highest tag,
 #     and moves the branch only when the release commit is on origin/main (relay/install.sh follows the same rule)
-#   - a re-run or --reconfigure keeps TALOUS_CHANNEL, TALOUS_PRERELEASE and TALOUS_PRIVATE_BUILD in .env, and writes TALOUS_CHANNEL once
+#   - a re-run or --reconfigure keeps TALOUS_CHANNEL and TALOUS_PRIVATE_BUILD in .env, drops the TALOUS_PRERELEASE line an
+#     older version wrote (nothing reads it any more), and writes TALOUS_CHANNEL once
 # A full install runs against a docker stub that plays the release image (pull, digest, labels) and a cosign stub, so
 # the install goes the release way the signed image is fetched. Nothing touches the real host or the network.
 #
@@ -138,13 +139,13 @@ t_env_keys_kept() {
   run_install --yes --access local; why
   check "an answer flag rewrites .env and the install succeeds" installed
   check "TALOUS_CHANNEL is kept" env_has 'TALOUS_CHANNEL=source'
-  check "TALOUS_PRERELEASE is kept" env_has 'TALOUS_PRERELEASE=1'
+  check "TALOUS_PRERELEASE is dropped, nothing reads it" test "$(env_count TALOUS_PRERELEASE)" = 0
   check "TALOUS_PRIVATE_BUILD is kept" env_has 'TALOUS_PRIVATE_BUILD=yes'
   check "the old .env is backed up" bash -c "ls '$CL'/.env.bak.* >/dev/null 2>&1"
   printf 'INSTANCE_NAME=banking-app\nTALOUS_CHANNEL=release\nTALOUS_PRERELEASE=1\n' >"$CL/.env"
   run_install --reconfigure --yes --access local; why
   check "--reconfigure succeeds" installed
-  check "--reconfigure keeps both keys" bash -c "grep -qx 'TALOUS_CHANNEL=release' '$CL/.env' && grep -qx 'TALOUS_PRERELEASE=1' '$CL/.env'"
+  check "--reconfigure keeps TALOUS_CHANNEL and drops TALOUS_PRERELEASE" bash -c "grep -qx 'TALOUS_CHANNEL=release' '$CL/.env' && ! grep -q '^TALOUS_PRERELEASE=' '$CL/.env'"
   printf 'INSTANCE_NAME=banking-app\nTZ=Europe/Helsinki\n' >"$CL/.env"
   run_install --yes --access local
   check "an install without the two keys does not invent them" bash -c "! grep -q '^TALOUS_' '$CL/.env' && grep -qx 'TZ=Europe/Helsinki' '$CL/.env'"
@@ -161,7 +162,7 @@ printf '{"tag_name":"%s","draft":false,"prerelease":false,"body":""}' "$(cat "$S
 EOF
   chmod +x "$S/bin/curl"
 }
-# a folder cloned by hand from main while v0.9.1 is in its first two days: HEAD is at v0.9.1 and nothing was installed
+# a folder cloned by hand from main that sits on the tag v0.9.1: HEAD is at v0.9.1 and nothing was installed
 fresh_world() { rel_world; git -C "$CL" reset -q --hard v0.9.1; rm -f "$CL/.env"; write_curl; [[ -z ${1:-} ]] || echo "$1" >"$S/api"; }
 t_new_install_asks_which_release_is_out() {
   fresh_world v0.9.1; run_install --yes --access local; why
@@ -171,10 +172,10 @@ t_new_install_asks_which_release_is_out() {
   check "the registry tag of the pulled image goes once the image is tagged for the instance, and no other tag does" bash -c "awk '/^image tag .*:latest\$/ {t=1} t && \$0 == \"image rm $IMG:0.9.1\" {f=1} END {exit !f}' '$S/docker.log' && ! grep -E '^image rm .*:(latest|previous)\$' '$S/docker.log' >/dev/null"
   fresh_world v0.9.0; run_install --yes --access local; why
   check "the instance's tag is made from the image's id, not from the registry's tag or digest" bash -c "grep -qxF 'image tag sha256:$(printf '%064d' 9) clone:latest' '$S/docker.log' && ! grep -qE '^image tag ghcr.io' '$S/docker.log'"
-  check "GitHub names the release below, so the tag at HEAD is a pre-release: the release GitHub names is installed" bash -c "[[ $INSTALL_RC = 0 ]] && grep -qF 'Channel: release v0.9.0' '$W/install.out' && grep -qxF 'pull $IMG:0.9.0' '$S/docker.log'"
-  check "pre-release at HEAD: its image is not pulled and nothing is built from source" bash -c "! grep -q '0.9.1' '$S/docker.log' && ! grep -qx 'compose build banking' '$S/docker.log'"
-  check "pre-release at HEAD: the folder is on main at v0.9.0" bash -c "[[ \$(git -C '$CL' symbolic-ref --short HEAD) = main && \$(git -C '$CL' rev-parse HEAD) = \$(git -C '$CL' rev-parse 'v0.9.0^{commit}') ]]"
-  check "pre-release at HEAD: one line says so" test "$(grep -c 'which is not out yet' "$W/install.out")" = 1
+  check "GitHub names the release below, so the tag at HEAD is not out yet: the release GitHub names is installed" bash -c "[[ $INSTALL_RC = 0 ]] && grep -qF 'Channel: release v0.9.0' '$W/install.out' && grep -qxF 'pull $IMG:0.9.0' '$S/docker.log'"
+  check "tag at HEAD not out: its image is not pulled and nothing is built from source" bash -c "! grep -q '0.9.1' '$S/docker.log' && ! grep -qx 'compose build banking' '$S/docker.log'"
+  check "tag at HEAD not out: the folder is on main at v0.9.0" bash -c "[[ \$(git -C '$CL' symbolic-ref --short HEAD) = main && \$(git -C '$CL' rev-parse HEAD) = \$(git -C '$CL' rev-parse 'v0.9.0^{commit}') ]]"
+  check "tag at HEAD not out: one line says so" test "$(grep -c 'which is not out yet' "$W/install.out")" = 1
   fresh_world; run_install --yes --access local; why
   check "GitHub gives no answer: the install goes on with the tag at HEAD" bash -c "[[ $INSTALL_RC = 0 ]] && grep -qF 'Channel: release v0.9.1' '$W/install.out'"
   check "GitHub gives no answer: one line says the release could not be confirmed" test "$(grep -c 'could not be confirmed' "$W/install.out")" = 1
@@ -187,8 +188,8 @@ t_channel_written_once() {
   run_install --yes --access local; why
   check "the install of a release channel .env succeeds and goes the release way" bash -c "[[ $INSTALL_RC = 0 ]] && grep -qF 'Channel: release v0.9.0' '$W/install.out'"
   check "TALOUS_CHANNEL is in the new .env once" test "$(env_count TALOUS_CHANNEL)" = 1
-  check "TALOUS_PRERELEASE is in it once" test "$(env_count TALOUS_PRERELEASE)" = 1
-  check "the keys stand in the part kept from the previous .env" bash -c "awk '/^# Kept from the previous .env/ {k=1} k && /^TALOUS_CHANNEL=release\$/ {f=1} END {exit !f}' '$CL/.env'"
+  check "TALOUS_PRERELEASE is not in it" test "$(env_count TALOUS_PRERELEASE)" = 0
+  check "the key stands in the part kept from the previous .env" bash -c "awk '/^# Kept from the previous .env/ {k=1} k && /^TALOUS_CHANNEL=release\$/ {f=1} END {exit !f}' '$CL/.env'"
   run_install --yes; why
   check "a plain re-run leaves .env as it was (one line)" bash -c "[[ $INSTALL_RC = 0 ]] && [[ \$(grep -c '^TALOUS_CHANNEL=' '$CL/.env') = 1 ]]"
   rel_world

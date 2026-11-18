@@ -11,7 +11,7 @@ import type { OpsRequestView, OpsSnapshot } from "../src/components/ops/types.ts
 import { UpdatePanel } from "../src/components/ops/UpdatePanel.tsx";
 
 const panel = (state: OpsSnapshot) =>
-  renderToStaticMarkup(createElement(UpdatePanel, { version: "1.4.0", build: "abc1234", state, disabled: false, prerelease: null, onCheck: () => {}, onUpdate: () => {}, onRollback: () => {} }));
+  renderToStaticMarkup(createElement(UpdatePanel, { version: "1.4.0", build: "abc1234", state, disabled: false, onCheck: () => {}, onUpdate: () => {}, onRollback: () => {} }));
 
 const commits = [{ hash: "abc1234", subject: "Fix a figure" }];
 

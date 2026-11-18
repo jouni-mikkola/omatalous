@@ -13,8 +13,6 @@ export const EN_SET_OPS: Record<keyof typeof FI_SET_OPS, string> = {
   "ops.needs_helper": "Needs the maintenance helper.",
   "ops.changes": "Changes",
   "ops.update": "Update",
-  "ops.prerelease": "Offer new versions at once",
-  "ops.prerelease_help": "A new version is normally offered two days after its release. When this is on, it is offered at once. Installing starts only when you press Update.",
   "ops.update_title": "Update the app",
   "ops.rollback": "Restore the previous version",
   "ops.rollback_title": "Restore the previous version",

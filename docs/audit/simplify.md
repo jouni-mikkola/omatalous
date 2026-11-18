@@ -155,7 +155,7 @@ biome's cognitive complexity rule, threshold 25, with a scratch config
   linters: unread exports (`exports.ts`, `unread-exports.txt`) is what knip does; file size, shell rules and timeouts are
   biome, shellcheck or eslint rules. The Finnish text rules (`finnish.ts`, `glossary.ts`, `dialect.ts`) have no library
   replacement.
-- CI shell. `tools/ci/` is 23 scripts, 3 450 lines (local proof, drills, a build farm, release promotion), and
+- CI shell. `tools/ci/` is 23 scripts, 3 450 lines (local proof, drills, a build farm), and
   `.github/workflows/release.yml` is 410 lines. `tools/ci/farm-lib.sh` (115) has one caller.
 - Legacy addresses. `apps/web/src/routes.ts:157-198` rewrites old report tabs, `#/rules`, `#/categories` and old settings
   sections. Needed while bookmarks from before 0.6x exist.

@@ -3,7 +3,7 @@ import { S } from "./ops-strings.ts";
 import { LastResult } from "./LastResult.tsx";
 import type { OpsRequestView, OpsSnapshot } from "./types.ts";
 import { Button } from "../ui/Button.tsx";
-export function UpdatePanel({ version, build, state, last, disabled, needsHelper = false, prerelease, onCheck, onUpdate, onRollback }: {
+export function UpdatePanel({ version, build, state, last, disabled, needsHelper = false, onCheck, onUpdate, onRollback }: {
   version: string;
   build: string;
   state: OpsSnapshot;
@@ -12,8 +12,6 @@ export function UpdatePanel({ version, build, state, last, disabled, needsHelper
   disabled: boolean;
   /** The buttons are off because the helper is not in use: the button says so itself, as the notice is in another card. */
   needsHelper?: boolean;
-  /** The switch for new versions and where it stands. Null: no switch (an older helper, a source install). */
-  prerelease: { on: boolean; onChange: (on: boolean) => void } | null;
   onCheck: () => void;
   onUpdate: () => void;
   onRollback: () => void;
@@ -21,9 +19,6 @@ export function UpdatePanel({ version, build, state, last, disabled, needsHelper
   const behind = state.behind_commits ?? [];
   // commits waiting are an offer whatever update_available says: the page never calls an install up to date that is behind
   const offered = state.update_available === true || behind.length > 0;
-  // the switch is two actions, on and off: the newer one tells how the last turn ended
-  const turns = [last?.["prerelease-on"], last?.["prerelease-off"]].filter((r): r is OpsRequestView => r !== undefined);
-  const switched = turns.sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))[0];
   return (
     <div className="card">
       <div className="card-head">
@@ -84,19 +79,6 @@ export function UpdatePanel({ version, build, state, last, disabled, needsHelper
               {S.rollback}
             </Button>
           )}
-        </div>
-      )}
-      {prerelease && (
-        // a checkbox with its label and help: the input first, the words and the help beside it, and the whole row is the label
-        <div className="setup-form">
-          <label className="check">
-            <input type="checkbox" role="switch" aria-label={S.prerelease} checked={prerelease.on} disabled={disabled} onChange={(e) => prerelease.onChange(e.target.checked)} />
-            <span>
-              {S.prerelease}
-              <span className="field-help">{S.prereleaseHelp}</span>
-              {switched && <LastResult request={switched} />}
-            </span>
-          </label>
         </div>
       )}
     </div>
