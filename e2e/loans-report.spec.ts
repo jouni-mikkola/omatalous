@@ -118,9 +118,9 @@ test("Lainat tells each saved loan with its figures, says what it does not know 
   expect(tiles[2]).toBe("Maksut kuussa 1 000 €");
   // and no path of the debts is drawn while a debt that owes cannot be projected
   await expect(section.locator("#lainat-polku")).toHaveCount(0);
-  // a figure the card lacks is a dash in its row, and no sentence tells which loans a sum leaves out
+  // a figure the card lacks is a dash in its row, its missing rate is said there, and no sentence tells which loans a sum leaves out
   await expect(section.locator(".loans-notes")).toHaveCount(0);
-  await expect(section).not.toContainText(/puuttuu|ei tiedossa/);
+  await expect(section).not.toContainText(/ei tiedossa/);
   // the accounts less the debts are told only for a range that reaches today (apps/web/test/loans-section.test.ts
   // reads their texts), and nothing on the page calls a figure net worth
   await expect(page.locator("main")).not.toContainText("Nettovarallisuus");
@@ -150,7 +150,7 @@ test("Lainat tells each saved loan with its figures, says what it does not know 
   const card = rows.nth(1);
   expect((await card.locator(".loan-figures > div").allInnerTexts()).map(plain)).toEqual([
     `Velkaa 1 240,00 € jäljellä ${Number(today.slice(8))}.${Number(today.slice(5, 7))}.`, // a day of the running year has no year (format.ts `date`)
-    "Korko –",
+    "Korko – Korko puuttuu.",
     "Maksu –",
     "Korot seuraavan 12 kuukauden aikana (arvio) –",
     "Viimeinen maksupäivä –",
