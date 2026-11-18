@@ -138,7 +138,7 @@ async function drawn(picture: Blob): Promise<HTMLCanvasElement> {
   const ctx = canvas.getContext("2d")!;
   ctx.imageSmoothingQuality = "high";
   // a picture with see-through parts is read as dark text on white
-  ctx.fillStyle = "#fff";
+  ctx.fillStyle = "white";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
