@@ -129,7 +129,47 @@ describe("Yhteiset menot: the bars in the settlement block", () => {
     expect(text).not.toContain("Kerro, miten tili jakautuu");
     // the answer's blocks keep their names for readers of the page
     expect(screen.getByRole("group", { name: "Et ole kertonut jakoa" })).toBeTruthy();
-    expect(screen.getByRole("group", { name: "Ei tiedossa" })).toBeTruthy();
+    expect(screen.getByText("Maksaja ei tiedossa")).toBeTruthy();
+    expect(screen.queryByText("Ei tiedossa")).toBeNull();
+  });
+
+  it("has one row for the unknown payer, with the open sum and its sources under it", async () => {
+    stubApi({
+      "GET /api/settlement": pool({
+        members: [
+          { owner: "u1", paid: 30000, owed: 20000, over: 10000 },
+          { owner: "u2", paid: 10000, owed: 20000, over: -5000 },
+        ],
+        unknownPaidBy: [{ owner: "x", cents: 5000 }],
+      }),
+    });
+    const { container } = render(createElement(section.Component, { ctx: context }));
+    await screen.findByRole("group", { name: "Yhteiset menot: Yhteistili" });
+    expect(screen.getAllByText("Maksaja ei tiedossa")).toHaveLength(1);
+    const drill = container.querySelector("details")!;
+    expect(plain(drill.querySelector("summary")!.textContent)).toBe("Maksaja ei tiedossa 50,00 €");
+    expect(plain(drill.textContent)).toContain("Maksanut: Tuntematon maksaja 50,00 €");
+  });
+
+  it("folds the corrections to months over a year back and lists the newer ones", async () => {
+    const correction = (key: string, cents: number) => ({ kind: "late_change", key, day: 1, cents, paid: [], owed: [] });
+    stubApi({
+      "GET /api/settlement": pool({
+        members: [
+          { owner: "u1", paid: 30000, owed: 20000, over: 10000 },
+          { owner: "u2", paid: 10000, owed: 20000, over: -10000 },
+        ],
+        lines: [correction("2026-05", 1200), correction("2025-09", -3400), correction("2025-10", 560)],
+      }),
+    });
+    const { container } = render(createElement(section.Component, { ctx: context }));
+    await screen.findByRole("group", { name: "Yhteiset menot: Yhteistili" });
+    const folded = [...container.querySelectorAll("details")].find((d) => plain(d.querySelector("summary")!.textContent) === "Korjaukset yli 12 kk:n takaa")!;
+    expect(plain(folded.textContent)).toContain("syyskuu 2025");
+    expect(plain(folded.textContent)).not.toContain("toukokuu 2026");
+    expect(plain(folded.textContent)).not.toContain("lokakuu 2025");
+    const shown = [...container.querySelectorAll(".st-rows:not(details) .st-row")].map((r) => plain(r.textContent)).filter((r) => r.startsWith("Korjaus"));
+    expect(shown).toEqual(["Korjaus aiempaan kuukauteen: toukokuu 2026 +12,00 €", "Korjaus aiempaan kuukauteen: lokakuu 2025 +5,60 €"]);
   });
 
   it("draws no bars where nobody has told the split: the untold sum is all there is", async () => {

@@ -1,5 +1,5 @@
 /** Row types and SQL row → object mappers shared by the repositories. */
-import { DEFAULT_LANGUAGE, isLanguage, type Account, type AccountType, type CategorySource, type Language, type Transaction, type TransactionStatus } from "@banking/core";
+import { cardName, DEFAULT_LANGUAGE, isLanguage, type Account, type AccountType, type CategorySource, type Language, type Transaction, type TransactionStatus } from "@banking/core";
 import type { SqlValue } from "./types.ts";
 
 export type Row = Record<string, SqlValue>;
@@ -100,7 +100,8 @@ export function toAccount(r: Row): StoredAccount {
     provider: String(r.provider),
     externalId: str(r.external_id),
     identity: str(r.identity),
-    name: str(r.custom_name) ?? String(r.name),
+    // the name shown in settings and sync messages: the bank's without the card type it adds in brackets
+    name: str(r.custom_name) ?? cardName(String(r.name)),
     bankName: String(r.name),
     // selected with accountBank(); a query without it leaves the bank unknown
     bank: str(r.bank),

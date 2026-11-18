@@ -47,6 +47,8 @@ describe("Tulot ja menot", () => {
   it("draws twelve months, each a link to its rows, the running one to today", async () => {
     const container = await show({ overview: overview() });
     expect(screen.getByRole("region", { name: "Tulot ja menot" })).toBeTruthy();
+    // the page names itself with that heading: the card draws no second one
+    expect(screen.queryByRole("heading", { name: "Tulot ja menot" })).toBeNull();
     const links = [...container.querySelectorAll("svg a")];
     expect(links).toHaveLength(12);
     expect(links[0]!.getAttribute("href")).toBe("#/transactions?from=2025-12-01&to=2025-12-31");
