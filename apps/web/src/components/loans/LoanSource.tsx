@@ -14,10 +14,9 @@ const MAX_FILE_BYTES = 25 * 1024 * 1024;
 /**
  * The input box of a new loan: text pasted or typed, or a PDF dropped, pasted or chosen. Both are read in this browser
  * and nothing is sent anywhere. `onDrafts` gets what the text holds, one draft per loan, and the household checks it
- * in the form; a text that holds no loan figure is told here, and so is the sentence `onDrafts` returns when it cannot
- * take the drafts.
+ * in the form; a text that holds no loan figure is told here.
  */
-export function LoanSource({ today, onDrafts }: { today: string; onDrafts: (drafts: LoanDraft[]) => string | null }) {
+export function LoanSource({ today, onDrafts }: { today: string; onDrafts: (drafts: LoanDraft[]) => void }) {
   const uid = useId();
   const [text, setText] = useState("");
   const [over, setOver] = useState(false);
@@ -32,7 +31,7 @@ export function LoanSource({ today, onDrafts }: { today: string; onDrafts: (draf
     if (read.length > MAX_TEXT) return setProblem(t("set.ln.the_file_is_too_large"));
     const drafts = parseLoanText(read, { asOf: today });
     if (drafts.length === 0) return setProblem(t("set.ln.no_loan_details_were_found"));
-    setProblem(onDrafts(drafts));
+    onDrafts(drafts);
   };
 
   const readFile = async (file: File) => {

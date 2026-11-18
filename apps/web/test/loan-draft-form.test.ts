@@ -43,6 +43,14 @@ describe("a read draft as a form", () => {
     expect(checksLeft(form)).toEqual([]);
   });
 
+  it("starts a fresh read with nothing confirmed, also over a form whose lender the household typed", () => {
+    const typed = setValue(emptyForm(TODAY), "lender", "Esimerkkipankki Oyj");
+    expect(typed.confirmed).toContain("lender");
+    const form = formOfDraft(draft(), TODAY, typed);
+    expect(form.confirmed).toEqual([]);
+    expect(checksLeft(form)).toContain("lender");
+  });
+
   it("sends the read payment as the loan's payment", () => {
     const form = setKind(formOfDraft(draft(), TODAY), "mortgage");
     expect(readForm(form).body).toMatchObject({ paymentCents: 68_920, grantedCents: 15_000_000, balanceCents: 12_000_000, repayment: "annuity" });

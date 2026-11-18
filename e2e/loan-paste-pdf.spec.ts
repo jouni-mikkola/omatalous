@@ -71,11 +71,12 @@ test("pasted text fills the form, marks what it read, holds the save until the f
   await expect(form.getByLabel("Maksuerä (€)")).toHaveValue("689,20");
   await expect(form.getByLabel("Myönnetty määrä (€)")).toHaveValue("150 000,00");
   await expect(form.getByLabel("Lainanantaja", { exact: true })).toHaveValue("Esimerkkipankki Oyj");
-  // each value shows the line it came from; a field the text does not give is empty and says so
-  await expect(form.getByText("Tekstissä: Kuukausierä: 689,20 €")).toBeVisible();
+  // a field to check shows the line it came from; a value read with confidence carries no badge and no line; a field the text does not give is empty and says so
+  await expect(form.getByText("Tekstissä: Esimerkkipankki Oyj")).toBeVisible();
+  await expect(form.getByText("Tekstissä: Kuukausierä: 689,20 €")).toHaveCount(0);
   await expect(form.getByLabel("Marginaali (%)")).toHaveValue("");
   await expect(form.getByText("Ei löytynyt").first()).toBeVisible();
-  await expect(form.getByText("Varma").first()).toBeVisible();
+  await expect(form.getByText("Varma")).toHaveCount(0);
   await expect(form.getByText("Tarkista", { exact: true }).first()).toBeVisible();
 
   // the lender and the balance day are to check: nothing is sent before the household says they are right

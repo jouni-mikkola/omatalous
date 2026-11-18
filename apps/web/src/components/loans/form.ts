@@ -104,7 +104,8 @@ export function formOfDraft(draft: LoanDraft, today: string, base: LoanForm = em
   const payment = values[PAYMENT];
   // the text gave the amortisation alone of a loan whose payment holds the interest: the household types the whole payment
   if (draft.paymentKind === "amortisation" && values.repayment !== "equal_principal") values.paymentCents = "";
-  return { ...base, kind: base.kind || (draft.kind ?? ""), values, source: { marks, lines, warnings, payment }, paymentKind: draft.paymentKind ?? null };
+  // a fresh read starts with nothing confirmed: what the household confirmed in an earlier read is not this read's
+  return { ...base, kind: base.kind || (draft.kind ?? ""), values, source: { marks, lines, warnings, payment }, confirmed: [], paymentKind: draft.paymentKind ?? null };
 }
 
 /**

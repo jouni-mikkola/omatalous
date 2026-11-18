@@ -55,7 +55,7 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
   noSource?: boolean;
   /**
    * Where a read text of several loans, or of a loan the household has saved already, goes: a table that saves them all.
-   * Without it the form takes one loan and tells the household when the text holds more.
+   * Without it the form takes the first loan of the text.
    */
   onSeveral?: (drafts: LoanDraft[]) => void;
   /**
@@ -87,18 +87,13 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
   const change = (key: LoanFieldKey, text: string) => setForm((f) => setValue(f, key, text));
 
   // the text of a read: one new loan fills this form, several loans (or one already saved) go to the table
-  const take = (drafts: LoanDraft[]): string | null => {
+  const take = (drafts: LoanDraft[]) => {
     const next = formOfDraft(drafts[0]!, today, form);
-    if (onSeveral && (drafts.length > 1 || matchedLoan(next, links.loans) !== null)) {
-      onSeveral(drafts);
-      return null;
-    }
-    if (drafts.length > 1) return t("set.ln.several_loans_here");
+    if (onSeveral && (drafts.length > 1 || matchedLoan(next, links.loans) !== null)) return onSeveral(drafts);
     setForm(next);
     setErrors({});
     setProblem(null);
     setAll(true);
-    return null;
   };
 
   const submit = async (e: FormEvent) => {
@@ -194,9 +189,11 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
           const help = key === "paymentCents" ? paymentHelp(form) : key === "balanceCents" && linked ? LINKED_BALANCE_HELP() : key === "rateReviewDate" ? REVIEW_HELP() : null;
           const mark = markOf(form, key);
           const confirmed = form.confirmed.includes(key);
-          const line = form.source?.lines[key];
+          // a value read with confidence and a field the household confirmed carry nothing: only what still asks is marked
+          const badge = mark === "missing" || (mark === "check" && !confirmed) ? mark : null;
+          const line = mark === "check" ? form.source?.lines[key] : undefined;
           const why = form.source?.warnings[key]?.join(" ");
-          const described = [mark && idOf(`${key}-mark`), line && idOf(`${key}-line`), why && !confirmed && idOf(`${key}-warning`), help && idOf(`${key}-help`), errors[key] && idOf(`${key}-error`)].filter(Boolean).join(" ") || undefined;
+          const described = [badge && idOf(`${key}-mark`), line && idOf(`${key}-line`), why && !confirmed && idOf(`${key}-warning`), help && idOf(`${key}-help`), errors[key] && idOf(`${key}-error`)].filter(Boolean).join(" ") || undefined;
           return (
             <div key={key} className={`loan-field${mark === "check" && !confirmed ? " to-check" : ""}`}>
               <div className="loan-field-head">
@@ -204,9 +201,9 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
                   {FIELD_LABEL[key]}
                   {UNIT[key] ? ` (${UNIT[key]})` : ""}
                 </label>
-                {mark && (
-                  <span id={idOf(`${key}-mark`)} className={`badge ${mark === "sure" || (mark === "check" && confirmed) ? "good" : mark === "check" ? "warn" : ""}`}>
-                    {mark === "sure" ? t("set.ln.mark_sure") : mark === "missing" ? t("set.ln.mark_missing") : confirmed ? t("set.ln.mark_checked") : t("set.ln.mark_check")}
+                {badge && (
+                  <span id={idOf(`${key}-mark`)} className={`badge${badge === "check" ? " warn" : ""}`}>
+                    {badge === "missing" ? t("set.ln.mark_missing") : t("set.ln.mark_check")}
                   </span>
                 )}
               </div>

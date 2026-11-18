@@ -1,5 +1,5 @@
 import type { Loan, LoanDraft } from "@banking/core";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { loanCalls } from "../../api.ts";
 import { money, parseEuros } from "../../format.ts";
 import { t } from "../../text.ts";
@@ -67,6 +67,14 @@ export function LoanDraftTable({ drafts, loans, today, onSaved, onClose }: {
     });
   });
   const [checking, setChecking] = useState<Row | null>(null);
+  // the table takes the place of the box the household pasted into, which left the page with the focus in it
+  const here = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const caption = here.current?.querySelector("caption");
+    if (!caption) return;
+    caption.tabIndex = -1;
+    caption.focus();
+  }, []);
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const amountOf = (row: Row, key: LoanFieldKey) => amount(row.form.values[key]);
@@ -104,7 +112,7 @@ export function LoanDraftTable({ drafts, loans, today, onSaved, onClose }: {
   };
 
   return (
-    <div className="loan-form">
+    <div className="loan-form" ref={here}>
       <Table
         caption={t("set.ln.read_loans")}
         rows={rows}

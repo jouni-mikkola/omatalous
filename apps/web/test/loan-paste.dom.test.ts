@@ -50,10 +50,15 @@ describe("Asetukset > Talous: the box that reads a loan", () => {
     paste(ONE);
     expect((screen.getByLabelText("Myönnetty määrä (€)") as HTMLInputElement).value).toBe("150 000,00");
     expect((screen.getByLabelText("Maksuerä (€)") as HTMLInputElement).value).toBe("689,20");
-    expect(screen.getByText("Tekstissä: Kuukausierä: 689,20 €")).toBeTruthy();
-    // the lender's name is read from a line of its own: to check, and the household confirms it
+    // the lender's name is read from a line of its own: to check, with the line it came from, until the household confirms it
     expect(screen.getAllByText("Tarkista").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Varma").length).toBeGreaterThan(0);
+    expect(screen.getByText("Tekstissä: Esimerkkipankki Oyj")).toBeTruthy();
+    // a value read with confidence carries no badge and no line
+    expect(screen.queryByText("Varma")).toBeNull();
+    expect(screen.queryByText("Tekstissä: Kuukausierä: 689,20 €")).toBeNull();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Lainanantaja on oikein" }));
+    expect(screen.queryByText("Merkitty oikeaksi")).toBeNull();
+    expect(screen.getByText("Tekstissä: Esimerkkipankki Oyj")).toBeTruthy();
   });
 
   it("reads text typed in the box with Lue tiedot, and leaves a paste into typed text alone", () => {
@@ -113,12 +118,6 @@ describe("Asetukset > Talous: the box that reads a loan", () => {
     fireEvent.click(button("Lue tiedot"));
     expect(screen.getByRole("alert").textContent).toMatch(/Emme löytäneet tekstistä lainan tietoja/);
     expect(screen.getByLabelText("Lainaa jäljellä (€)")).toBeTruthy();
-  });
-
-  it("tells that the text has several loans when the form cannot take them", () => {
-    open();
-    paste(TWO);
-    expect(screen.getByRole("alert").textContent).toMatch(/useita lainoja/);
   });
 
   it("hands several loans to the table, and a loan saved already too", () => {

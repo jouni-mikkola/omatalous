@@ -59,6 +59,10 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
   const { open: adding, setOpen: setAdding, region } = useInPlaceForm();
   // the loans of a text the household read in the new loan's form, when they are several or one is saved already
   const [read, setRead] = useState<LoanDraft[] | null>(null);
+  // a form that closes (Peruuta, a save, Escape) takes the read with it, so the next one opens on an empty box
+  useEffect(() => {
+    if (!adding) setRead(null);
+  }, [adding]);
   const [removing, setRemoving] = useState<Loan | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "good" | "warning"; text: string } | null>(null);
@@ -187,10 +191,7 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
               loans={loans}
               today={meta.today}
               onSaved={(count) => done(count === 1 ? t("set.ln.saved_one") : t("set.ln.saved_many", { count }))}
-              onClose={() => {
-                setRead(null);
-                setAdding(false);
-              }}
+              onClose={() => setAdding(false)}
             />
           ) : (
             <LoanEditor
