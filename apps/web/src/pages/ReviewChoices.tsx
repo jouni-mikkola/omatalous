@@ -2,18 +2,17 @@
  * The choices of a Tarkistettavat item, one kind each: large buttons with the guess first and framed, a payee's
  * categories with the sheet of all of them, a plan's end, a loan's form. Each answer goes through its source's route.
  */
-import { LOAN_KIND_ANSWERS, type LoanKind, loanKindSubject, loanTermsDismissible, type LoanTermsMissing, monthOf, MORTGAGE_QUESTION, planSubject } from "@banking/core";
-import type { Loan } from "@banking/core";
+import { LOAN_KIND_ANSWERS, type Loan, type LoanKind, loanKindSubject, loanTermsDismissible, type LoanTermsMissing, monthOf, MORTGAGE_QUESTION, planSubject } from "@banking/core";
 import { useEffect, useRef, useState } from "react";
 import { api, loanCalls, payerCalls } from "../api.ts";
 import { LoanEditor, LoanLinks } from "../components/loans/LoanEditor.tsx";
-import { formOfCard, formOfLoan, formOfProposal, type LoanForm, shownFields } from "../components/loans/form.ts";
+import { formOfCard, formOfLoan, formOfProposal, isCredit, type LoanForm, shownFields } from "../components/loans/form.ts";
 import type { LoanFieldKey } from "../components/loans/labels.ts";
-import { editorHelp } from "../components/loans/proposal-words.ts";
 import { useApi } from "../hooks.ts";
-import { eurosText } from "../format.ts";
+import { eurosText, money, percent } from "../format.ts";
+import { KeyValue } from "../components/table/KeyValue.tsx";
 import { SETTINGS_ANCHOR, settingsCardHash, settingsHash } from "../routes.ts";
-import type { Category, Meta } from "../types.ts";
+import type { Category, LoansAnswer, Meta } from "../types.ts";
 import { answerCall, answerLabel, ownerOf, ownersOf } from "./settings/account-use.ts";
 import { type Choice, groupCategories, loanKindChoices, MAX_PLAN_PAYMENTS, offeredCategories, payerChoices, planEnd, type ReviewItem } from "./review-items.ts";
 import { Button } from "../components/ui/Button.tsx";
@@ -61,7 +60,7 @@ const mark = (subject: string, value: string) => () => api("/api/marks", { metho
 /** The same user mark on several subjects, written in one request. */
 const marksOn = (subjects: string[], value: string) => () => api("/api/marks", { method: "PUT", body: { subjects, mark: value } });
 
-export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void }) {
+export function Choices({ item, meta, busy, onAnswer, onHold }: { item: ReviewItem; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void; onHold: () => void }) {
   // the name is the text the button shows, the badge included, so a voice command that reads it finds the button
   const named = (c: { label: string; guess: boolean }) => (c.guess ? `${c.label} ${t("set.rc.suggestion")}` : c.label);
   switch (item.kind) {
@@ -73,7 +72,7 @@ export function Choices({ item, meta, busy, onAnswer }: { item: ReviewItem; meta
     case "payer":
       return <Buttons choices={payerChoices(item)} busy={busy} label={named} onPick={(role) => onAnswer(() => payerCalls.say(item.key, role))} />;
     case "loan":
-      return <LoanChoices item={item} meta={meta} busy={busy} onAnswer={onAnswer} />;
+      return <LoanChoices item={item} meta={meta} busy={busy} onAnswer={onAnswer} onHold={onHold} />;
     case "plan":
       return <PlanChoices item={item} busy={busy} onAnswer={onAnswer} />;
     case "split": {
@@ -202,7 +201,7 @@ function withNewPayment(form: LoanForm, { newPaymentCents, reviewDate }: { newPa
  */
 function LoanTermsChoices({ item, meta, busy, onAnswer }: { item: Extract<ReviewItem, { kind: "loan_terms" | "loan_drift" }>; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void }) {
   const [editing, setEditing] = useState(false);
-  const loans = useApi<{ loans: Loan[] }>(editing ? "/api/loans" : null);
+  const loans = useApi<LoansAnswer>(editing ? "/api/loans" : null);
   const loan = loans.data?.loans.find((l) => l.id === item.loanId);
   const accountId = item.kind === "loan_terms" ? item.accountId : null;
   const card = meta.accounts.find((a) => a.id === accountId);
@@ -222,7 +221,7 @@ function LoanTermsChoices({ item, meta, busy, onAnswer }: { item: Extract<Review
   if (gone) return null;
   if (editing && loans.data && initial) {
     return (
-      <LoanLinks.Provider value={{ accounts: meta.accounts, loans: loans.data.loans }}>
+      <LoanLinks.Provider value={{ accounts: meta.accounts, loans: loans.data.loans, fixings: loans.data.fixings }}>
         <div className="review-loan" ref={formBox}>
           <LoanEditor
             initial={initial}
@@ -404,11 +403,35 @@ function PlanChoices({ item, busy, onAnswer }: { item: Extract<ReviewItem, { kin
 /**
  * What a proposal still asks: the rate, the way of paying back and the amount granted (the limit of a card or credit
  * line), the balance only where no connected loan account told it, and the payment where the rows told none a month.
- * The rows gave the rest.
+ * The rows gave the rest. A loan's rate is asked with its reference rate and, on a euribor, its review day (filled from
+ * the cycle the payments step at, when they show one), as the rate in force is counted from that day's fixing; the
+ * margin then stands in for the rate (`LoanEditor`).
  */
 function proposalAsk(form: LoanForm, noMonthly: boolean): LoanFieldKey[] {
-  const own = shownFields(form).filter((key) => key === "grantedCents" || key === "limitCents" || key === "rateBp" || key === "repayment" || (key === "paymentCents" && noMonthly));
+  const own = shownFields(form).filter((key) => key === "grantedCents" || key === "limitCents" || key === "rateBp" || key === "repayment" || ((key === "reference" || key === "rateReviewDate") && !isCredit(form.kind)) || (key === "paymentCents" && noMonthly));
   return form.values.balanceCents === "" ? ["balanceCents", ...own] : own;
+}
+
+/**
+ * A loan just saved from a proposal, in the place of its form: the rate it counts at now (on a euribor the one counted
+ * from the fixing and the margin) and its balance, as the server saved them. Seuraava moves on.
+ */
+function LoanSaved({ loan, busy, onNext }: { loan: Loan; busy: boolean; onNext: () => void }) {
+  const box = useRef<HTMLDivElement>(null);
+  // the form that had the focus is gone: the focus goes to the one button left
+  useEffect(() => {
+    box.current?.querySelector<HTMLElement>("button")?.focus();
+  }, []);
+  return (
+    <div className="review-loan" ref={box}>
+      <KeyValue items={[...(loan.rateBp === null ? [] : [[t("set.rc.rate_now"), percent(loan.rateBp / 10_000, 2)] as const]), [t("set.loans.remaining"), money(loan.balanceCents)]]} />
+      <div className="review-choices">
+        <ChoiceButton busy={busy} onClick={onNext}>
+          <span>{t("set.rc.next")}</span>
+        </ChoiceButton>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -416,29 +439,31 @@ function proposalAsk(form: LoanForm, noMonthly: boolean): LoanFieldKey[] {
  * saved with the form Asetukset > Lainat opens, filled from the rows with the kind picked; one it cannot place stores
  * the kind as the household's answer.
  */
-function LoanChoices({ item, meta, busy, onAnswer }: { item: Extract<ReviewItem, { kind: "loan" }>; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void }) {
+function LoanChoices({ item, meta, busy, onAnswer, onHold }: { item: Extract<ReviewItem, { kind: "loan" }>; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void; onHold: () => void }) {
   const [kind, setKind] = useState<LoanKind | null>(null);
-  const loans = useApi<{ loans: Loan[] }>(kind ? "/api/loans" : null);
+  const [saved, setSaved] = useState<Loan | null>(null);
+  const loans = useApi<LoansAnswer>(kind ? "/api/loans" : null);
   // the name is the text the button shows, the badge included, so a voice command that reads it finds the button
   const named = (c: { label: string; guess: boolean }) => (c.guess ? `${c.label} ${t("set.rc.suggestion")}` : c.label);
+  if (saved) return <LoanSaved loan={saved} busy={busy} onNext={() => onAnswer(async () => undefined)} />;
   if (kind && loans.data) {
     const row = { key: item.key, payee: item.payee, paymentCents: item.paymentCents, months: item.months, firstDate: item.firstDate, lastDate: item.lastDate, kind };
-    const proposed = formOfProposal(row, meta.today, meta.accounts, loans.data.loans);
+    const proposed = formOfProposal(row, meta.today, meta.accounts, loans.data.loans, item.terms);
     // the latest of a lender's few payments is no monthly payment: the household types that
     const initial = item.noMonthly ? { ...proposed, values: { ...proposed.values, paymentCents: "" } } : proposed;
     return (
-      <LoanLinks.Provider value={{ accounts: meta.accounts, loans: loans.data.loans }}>
+      <LoanLinks.Provider value={{ accounts: meta.accounts, loans: loans.data.loans, fixings: loans.data.fixings }}>
         <div className="review-loan">
-          <p className="review-note">{editorHelp(initial)}</p>
           <LoanEditor
             initial={initial}
             today={meta.today}
             cancelLabel={t("set.rc.cancel")}
             ask={proposalAsk(initial, item.noMonthly === true)}
             onSave={async (body) => {
-              // the editor shows its own error; the page moves on only after the loan is saved
-              await loanCalls.add(body);
-              onAnswer(async () => undefined);
+              // the editor shows its own error; the saved loan's figures show in its place until Seuraava, the item held
+              // before the save, as the queue is read again once it lands
+              onHold();
+              setSaved((await loanCalls.add(body)).loan);
             }}
             onCancel={() => setKind(null)}
           />

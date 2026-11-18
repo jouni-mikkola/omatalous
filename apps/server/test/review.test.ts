@@ -48,6 +48,8 @@ describe("the review queue", () => {
     expect(items.map((i) => i.kind)).toEqual(["loan", "payee_out", "subscription", "payee_out", "mortgage"]);
     expect(items.map((i) => i.cents)).toEqual([...items.map((i) => i.cents)].sort((a, b) => b - a));
     expect(items[0]).toMatchObject({ kind: "loan", payee: "Esimerkkirahoitus", paymentCents: 25000, cents: 300000, placed: true, guess: "consumer" });
+    // the form starts from what the rows tell: the latest payment and its day, monthly; nine flat months tell no way of paying back
+    expect(items[0]!.terms).toEqual({ paymentCents: 25000, dueDate: "2026-09-05", intervalMonths: 1, repayment: null, reference: null, nextReview: null });
     expect(items[2]).toMatchObject({ kind: "subscription", merchant: "Max", monthlyCents: 1299, subject: "series:out:chk:Max#1299" });
     expect(Object.keys(res.body)).toEqual(["items"]);
     // a payee's quick picks are the household's own most used categories on its side, never Muut menot

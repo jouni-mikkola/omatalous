@@ -10,7 +10,7 @@ import { LoanEditor, LoanLinks } from "../../components/loans/LoanEditor.tsx";
 import { date, money, percent } from "../../format.ts";
 import { useApi, useHashRoute } from "../../hooks.ts";
 import { hashOf, SETTINGS_ANCHOR } from "../../routes.ts";
-import type { Meta } from "../../types.ts";
+import type { LoansAnswer, Meta } from "../../types.ts";
 import "../../styles/loans.css";
 import { Button } from "../../components/ui/Button.tsx";
 import { useInPlaceForm } from "../../components/ui/in-place-form.ts";
@@ -49,7 +49,7 @@ function EditDialog({ loan, account, today, onSaved, onCancel }: { loan: Loan; a
  * the one place that asks, so it is not listed here. A member sees and changes only their own loans.
  */
 export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void }) {
-  const list = useApi<{ loans: Loan[] }>("/api/loans");
+  const list = useApi<LoansAnswer>("/api/loans");
   // the page scrolls to a card below this one only after this one has its height
   const loaded = (list.data !== null || list.error !== null);
   useEffect(() => {
@@ -230,5 +230,5 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
       )}
     </div>
   );
-  return <LoanLinks.Provider value={{ accounts: meta.accounts, loans }}>{card}</LoanLinks.Provider>;
+  return <LoanLinks.Provider value={{ accounts: meta.accounts, loans, fixings: list.data?.fixings }}>{card}</LoanLinks.Provider>;
 }

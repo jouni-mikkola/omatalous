@@ -171,7 +171,7 @@ describe("loans", () => {
     const error = async (payload: Record<string, unknown>) => (await admin.call("POST", "/api/loans", payload)).body.error;
     expect(await error({ ...mortgage, balanceCents: -1 })).toBe("Lainaa jäljellä pitää olla vähintään 0 € ja enintään 10 000 000 €.");
     expect(await error({ ...mortgage, paymentCents: 0 })).toBe("Maksuerän pitää olla vähintään 0,01 € ja enintään 10 000 000 €.");
-    expect(await error({ ...mortgage, rateBp: 5001 })).toBe("Kokonaiskoron pitää olla 0–50 %, enintään kahden desimaalin tarkkuudella.");
+    expect(await error({ ...mortgage, rateBp: 5001 })).toBe("Koron pitää olla 0–50 %, enintään kahden desimaalin tarkkuudella.");
     expect(await error({ ...mortgage, balanceDate: "2026-10-10" })).toMatch(/^Saldon päivä/);
     expect(await error({ ...mortgage, endDate: "2076-10-10" })).toMatch(/^Viimeinen eräpäivä/);
     expect(await error({ ...mortgage, rateReviewDate: "2027-02-30" })).toBe("Koron tarkistuspäivä voi olla enintään 40 vuotta sitten ja 50 vuoden päässä.");
@@ -289,6 +289,26 @@ describe("loans", () => {
       { user_id: adminId, name: "Asuntolaina" },
       { user_id: eero.id, name: "Eeron laina" },
     ]);
+  });
+
+  it("saves a loan on a euribor sent with its margin alone at the fixing of its review day and the margin", async () => {
+    const { admin, s } = await setupApp();
+    await s.referenceRates.upsert([
+      { reference: "euribor_12", day: "2026-03-13", rateMilli: 2_310 },
+      { reference: "euribor_12", day: "2026-03-16", rateMilli: 2_400 },
+      { reference: "euribor_12", day: "2026-09-30", rateMilli: 2_500 },
+    ]);
+    const save = async (payload: Record<string, unknown>) => (await admin.call("POST", "/api/loans", payload)).body.loan.rateBp;
+    // the review day 14.3. holds the fixing of 13.3. until the balance date 1.10.: 2,310 % + 0,65 %
+    expect(await save({ ...mortgage, rateBp: null, rateReviewDate: "2027-03-14" })).toBe(296);
+    // with no review day the fixing in force is not known (it may be a cycle older than the balance date): no rate is guessed
+    expect(await save({ ...mortgage, rateBp: null })).toBeNull();
+    // a rate sent is kept, and a loan with no fixing stored, a fixed rate or no margin has none
+    expect(await save({ ...mortgage, rateReviewDate: "2027-03-14" })).toBe(340);
+    expect(await save({ ...mortgage })).toBe(340);
+    expect(await save({ ...mortgage, rateBp: null, reference: "euribor_6" })).toBeNull();
+    expect(await save({ ...mortgage, rateBp: null, reference: "fixed" })).toBeNull();
+    expect(await save({ ...mortgage, rateBp: null, marginBp: null })).toBeNull();
   });
 
   it("a fixed rate has no review day: a day sent with one is checked and dropped, and another rate keeps its day", async () => {

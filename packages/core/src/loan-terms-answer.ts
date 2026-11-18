@@ -10,7 +10,7 @@
 import { billCents } from "./account-use.ts";
 import { daysBetween } from "./dates.ts";
 import { paysSeries } from "./loan-detect.ts";
-import { planOf } from "./loan-plan.ts";
+import { endOf, intervalOf, planOf, typedPayment } from "./loan-plan.ts";
 import { payments } from "./loan-schedule.ts";
 import { hasReferenceRate } from "./loans.ts";
 import { type IsoDate, isRevolving, type Loan, type Transaction, type UserMark } from "./types.ts";
@@ -23,21 +23,29 @@ export type LoanTermsMissing = "repayment" | "interval" | "payment" | "rate" | "
  * line has no plan to ask for, and a loan with nothing owed needs none. A loan on a reference rate whose plan resolves is
  * asked its margin, then the day its rate is reviewed.
  */
-export function loanTermsMissing(loan: Loan): LoanTermsMissing | null {
-  if (isRevolving(loan.kind) || loan.balanceCents <= 0) return null;
-  const plan = planOf(loan);
-  if ("missing" in plan) {
-    const { missing } = plan;
-    return missing === "repayment" || missing === "interval" || missing === "payment" || missing === "rate" || missing === "end_date" ? missing : referenceFact(loan);
-  }
-  return referenceFact(loan);
-}
+export const loanTermsMissing = (loan: Loan): LoanTermsMissing | null => loanTermsGaps(loan)[0] ?? null;
 
-/** The fact a loan on a reference rate still lacks: the bank's margin, then the day it sets the rate again. */
-function referenceFact(loan: Loan): "margin" | "review_date" | null {
-  if (!hasReferenceRate(loan)) return null;
-  if (loan.marginBp === null) return "margin";
-  return loan.rateReviewDate == null ? "review_date" : null;
+/**
+ * Every fact a loan still owing lacks, in the order `loanTermsMissing` asks them, so one form can ask them all at once:
+ * the way of paying back, then for a bullet its last due date, for any other loan its interval, payment and rate (an
+ * equal principal loan is placed without a rate), and for a loan on a reference rate its margin and review day.
+ */
+export function loanTermsGaps(loan: Loan): LoanTermsMissing[] {
+  if (isRevolving(loan.kind) || loan.balanceCents <= 0) return [];
+  const gaps: LoanTermsMissing[] = [];
+  if (loan.repayment === null) gaps.push("repayment");
+  if (loan.repayment === "bullet") {
+    if (endOf(loan) === null) gaps.push("end_date");
+  } else {
+    if (intervalOf(loan) === null) gaps.push("interval");
+    if (typedPayment(loan) === null) gaps.push("payment");
+    if (loan.repayment !== "equal_principal" && loan.rateBp === null) gaps.push("rate");
+  }
+  if (hasReferenceRate(loan)) {
+    if (loan.marginBp === null) gaps.push("margin");
+    if (loan.rateReviewDate == null) gaps.push("review_date");
+  }
+  return gaps;
 }
 
 /** Whether the household may set the question aside. A loan's rate and payment decide every figure of it, so those two keep asking. */

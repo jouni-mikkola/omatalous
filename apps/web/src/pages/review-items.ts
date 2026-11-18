@@ -2,7 +2,7 @@
  * Tarkistettavat without React: the items GET /api/review sends, what each one asks in the page's words, and the sitting
  * (at most `SITTING` items, then "Kävit tämän erän kysymykset läpi"). The page draws what these return.
  */
-import { addMonths, fold, LOAN_KIND_ANSWERS, type LoanKind, monthOf, type PayerRole, type UnresolvedReason } from "@banking/core";
+import { addMonths, fold, type InferredLoanTerms, LOAN_KIND_ANSWERS, type LoanKind, monthOf, type PayerRole, type UnresolvedReason } from "@banking/core";
 import { KIND_LABEL } from "../components/loans/labels.ts";
 import { PAYER_ROLE_LABEL, WALLET_ROLE_LABEL } from "../components/questions.ts";
 import { date, dateTime, money } from "../format.ts";
@@ -64,6 +64,7 @@ export interface LoanItem extends Base {
   lastDate: string;
   guess: LoanKind;
   placed: boolean;
+  terms?: InferredLoanTerms | null;
 }
 
 /** An instalment plan whose end nobody has said: payments left, the last month, or "En tiedä". */

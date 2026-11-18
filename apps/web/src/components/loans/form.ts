@@ -2,7 +2,7 @@
  * The loan form's state and rules, apart from the page so they can be tested: a read, new or saved loan as the texts
  * the inputs hold, which fields a kind of loan has, what is still to check, and the loan the server takes.
  */
-import { balanceDayOf, DEBT_ACCOUNT_TYPES, isRevolving, type Loan, type LoanDraft, type LoanDraftKey, type LoanDraftLastPayment, type LoanDraftPaymentKind, type LoanKind, loanPeriodInterest } from "@banking/core";
+import { balanceDayOf, DEBT_ACCOUNT_TYPES, euriborRateBp, type Fixings, type InferredLoanTerms, isRevolving, type Loan, type LoanDraft, type LoanDraftKey, type LoanDraftLastPayment, type LoanDraftPaymentKind, type LoanKind, loanPeriodInterest } from "@banking/core";
 import { ACCOUNT_TYPE_LABEL, eurosText, parseEuros, parseRate, rateText } from "../../format.ts";
 import { t } from "../../text.ts";
 import type { Account, LoanProposalRow } from "../../types.ts";
@@ -112,13 +112,26 @@ export function formOfDraft(draft: LoanDraft, today: string, base: LoanForm = em
 
 /**
  * A proposed loan as a form: the payee as the lender, the kind the detector guessed (changeable), the usual payment, a
- * one-month interval and the proposal's series key, which links the saved loan to its payments. The bank rows show
- * neither the balance nor the rate, so those stay empty for the household to type, except where one connected loan
- * account is held by no saved loan: that account is the same debt, so it is chosen, and the balance is what the bank
- * tells on it (as an amount owed, on the day it told it). With none, several, or one that tells no debt: as without.
+ * one-month interval and the proposal's series key, which links the saved loan to its payments. `terms` is what the
+ * rows tell of the loan: the latest payment and its interval, the way of paying back and the euribor with its next
+ * review day where the payment steps show them, and the due day of the latest payment as the balance date, so the
+ * balance typed is the one after it and the plan keeps the bank's due day. The bank rows show neither the balance nor
+ * the rate, so those stay empty for the household to type, except where one connected loan account is held by no saved
+ * loan: that account is the same debt, so it is chosen, and the balance is what the bank tells on it (as an amount owed,
+ * on the day it told it). With none, several, or one that tells no debt: as without.
  */
-export function formOfProposal(proposal: LoanProposalRow, today: string, accounts: readonly Account[] = [], loans: readonly Loan[] = []): LoanForm {
-  const values = { ...blank(), balanceDate: today, lender: proposal.payee.slice(0, 80), paymentCents: eurosText(proposal.paymentCents), intervalMonths: "1" };
+export function formOfProposal(proposal: LoanProposalRow, today: string, accounts: readonly Account[] = [], loans: readonly Loan[] = [], terms: InferredLoanTerms | null = null): LoanForm {
+  // the latest payment where the rows tell it, else the proposal's usual one
+  const values = { ...blank(), balanceDate: today, lender: proposal.payee.slice(0, 80), paymentCents: eurosText((terms ?? proposal).paymentCents), intervalMonths: "1" };
+  if (terms) {
+    Object.assign(values, {
+      intervalMonths: terms.intervalMonths === null ? values.intervalMonths : String(terms.intervalMonths),
+      repayment: terms.repayment ?? "",
+      reference: terms.reference ?? "",
+      rateReviewDate: terms.nextReview ?? "",
+      balanceDate: terms.dueDate < today ? terms.dueDate : today,
+    });
+  }
   const free = freeAccounts(accounts, loans, null).filter((a) => a.type === "loan");
   const told = free.length === 1 && free[0]!.balanceCents !== null && free[0]!.balanceCents < 0 ? free[0]! : null;
   if (told) Object.assign(values, { balanceCents: eurosText(-told.balanceCents!), balanceDate: balanceDayOf(told.balanceAt, today) });
@@ -159,14 +172,36 @@ export function matchedLoan(form: LoanForm, loans: readonly Loan[]): Loan | null
 
 export const isCredit = (kind: LoanKind | "") => kind !== "" && isRevolving(kind);
 
+/** The form's euribor, margin and review day as core reads them, with `margin` in place of the typed one. */
+const euriborOf = (form: LoanForm, margin: number | null) => ({ reference: (form.values.reference || null) as Loan["reference"], marginBp: margin, rateReviewDate: form.values.rateReviewDate || null });
+
+/**
+ * A loan on a euribor with a review day whose fixing of the last review day before its balance date is stored: its rate
+ * is that fixing and the margin. A saved rate with no margin, or with no review day, stays in its field, so an edit does
+ * not lose it.
+ */
+const marginOnly = (form: LoanForm, fixings: Fixings | undefined): boolean =>
+  fixings !== undefined && form.values.balanceDate !== "" && (form.values.marginBp.trim() !== "" || form.values.rateBp.trim() === "") && euriborRateBp(euriborOf(form, 0), form.values.balanceDate, fixings) !== null;
+
+/**
+ * The rate the server saves a loan on a euribor at: the stored fixing of its last review day before the balance date
+ * and the typed margin. Null for another rate, with no margin or review day typed, and with no fixing that early.
+ */
+export function rateNow(form: LoanForm, fixings: Fixings | undefined): number | null {
+  const margin = parseRate(form.values.marginBp.trim());
+  return fixings === undefined || form.values.balanceDate === "" || margin === null ? null : euriborRateBp(euriborOf(form, margin), form.values.balanceDate, fixings);
+}
+
 /**
  * The fields the chosen kind has. A card or a credit line has a limit and no repayment plan (the server refuses one);
- * other loans have no limit. A loan paid back at once has no payment. A fixed rate has no review day. Before a kind is
- * chosen every field shows.
+ * other loans have no limit. A loan paid back at once has no payment. A fixed rate has no review day. A loan on a
+ * euribor whose fixing is stored is asked its margin alone, and its rate is counted (`rateNow`). Before a kind is
+ * chosen every field shows. A euribor with no review day keeps its rate field.
  */
-export function shownFields(form: LoanForm): LoanFieldKey[] {
+export function shownFields(form: LoanForm, fixings?: Fixings): LoanFieldKey[] {
   const hidden = new Set<LoanFieldKey>();
   if (form.values.reference === "fixed") hidden.add("rateReviewDate");
+  if (marginOnly(form, fixings)) hidden.add("rateBp");
   if (isCredit(form.kind)) for (const key of ["grantedCents", "repayment", "intervalMonths", "paymentCents", "endDate"] as const) hidden.add(key);
   else if (form.kind !== "") hidden.add("limitCents");
   if (form.values.repayment === "bullet") hidden.add("paymentCents");
@@ -253,9 +288,9 @@ export function defaultName(kind: LoanKind, lender: string): string {
  * a zero where the server takes none. The server checks the ranges and answers in Finnish, so only what cannot be read
  * at all is an error here.
  */
-export function readForm(form: LoanForm): { body: LoanBody | null; errors: FormErrors } {
+export function readForm(form: LoanForm, fixings?: Fixings): { body: LoanBody | null; errors: FormErrors } {
   const errors: FormErrors = {};
-  const shown = new Set(shownFields(form));
+  const shown = new Set(shownFields(form, fixings));
   const text = (key: LoanFieldKey) => (shown.has(key) ? form.values[key].trim() : "");
   const cents = (key: (typeof MONEY_KEYS)[number]): number | null => {
     if (text(key) === "") return null;
@@ -307,11 +342,11 @@ export function readForm(form: LoanForm): { body: LoanBody | null; errors: FormE
  * balance would grow), with core's `loanPeriodInterest` as here, so the form tells before saving and offers the way
  * out: an empty payment keeps the balance as it is.
  */
-export function interestOverPayment(form: LoanForm): number | null {
+export function interestOverPayment(form: LoanForm, fixings?: Fixings): number | null {
   const v = form.values;
   if (isCredit(form.kind) || (v.repayment !== "annuity" && v.repayment !== "fixed_instalment") || v.intervalMonths === "") return null;
   const balance = parseEuros(v.balanceCents.trim());
-  const rate = parseRate(v.rateBp.trim());
+  const rate = marginOnly(form, fixings) ? rateNow(form, fixings) : parseRate(v.rateBp.trim());
   const payment = parseEuros(v.paymentCents.trim());
   if (balance === null || balance < 0 || rate === null || payment === null || payment <= 0) return null;
   const interest = loanPeriodInterest(balance, rate, Number(v.intervalMonths));

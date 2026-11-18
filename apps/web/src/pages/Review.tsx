@@ -37,9 +37,12 @@ export function Review({ meta, queue }: { meta: Meta; queue: Queue }) {
   const heading = useRef<HTMLHeadingElement>(null);
   // counts the moves to the next item; the focus follows in a layout effect, in the same commit as the new card
   const [moved, setMoved] = useState(0);
+  // an item that shows what its answer saved stays until Seuraava, though the queue read again after the save lacks it
+  const [held, setHeld] = useState<ReviewItem | null>(null);
   // the header's mark and the page's heading say the number the queue below does, an answer included
   // a failed fetch is an item of the queue, first in it: made here from the last run the server tells
-  const items = queue.data ? withFetch(queue.data.items, meta.lastSync) : null;
+  const read = queue.data ? withFetch(queue.data.items, meta.lastSync) : null;
+  const items = read && held && !read.some((i) => i.id === held.id) ? [held, ...read] : read;
   const left = items ? openItems(items, sitting).length : undefined;
   // the shell's count adds the failed fetch itself, so what is published is the server's kind of count
   const asked = left === undefined ? undefined : left - (items?.some((i) => i.kind === "fetch") ? 1 : 0);
@@ -64,6 +67,7 @@ export function Review({ meta, queue }: { meta: Meta; queue: Queue }) {
   const view = sittingView(items, sitting);
   const next = (change: (s: Sitting) => Sitting) => {
     setProblem(null);
+    setHeld(null);
     setSitting(change);
     // the next item takes the place of the last: the reader's place moves to its question
     setMoved((n) => n + 1);
@@ -99,6 +103,7 @@ export function Review({ meta, queue }: { meta: Meta; queue: Queue }) {
             waiting={busy === view.item.id}
             problem={problem}
             onAnswer={(send) => void answer(view.item, send)}
+            onHold={() => setHeld(view.item)}
             onSkip={() => skip(view.item)}
           />
         </>
@@ -130,10 +135,12 @@ interface CardProps {
   waiting: boolean;
   problem: string | null;
   onAnswer: (send: () => Promise<unknown>) => void;
+  /** Keeps the item shown while it shows what its answer saved. */
+  onHold: () => void;
   onSkip: () => void;
 }
 
-function ItemCard({ item, position, of, meta, heading, busy, waiting, problem, onAnswer, onSkip }: CardProps) {
+function ItemCard({ item, position, of, meta, heading, busy, waiting, problem, onAnswer, onHold, onSkip }: CardProps) {
   const figure = figureOf(item);
   const name = nameOf(item);
   const [all, setAll] = useState(false);
@@ -193,7 +200,7 @@ function ItemCard({ item, position, of, meta, heading, busy, waiting, problem, o
         <span className="review-place">{t("set.rv.place", { position, of })} </span>
         {questionOf(item)}
       </h2>
-      <Choices item={item} meta={meta} busy={busy} onAnswer={onAnswer} />
+      <Choices item={item} meta={meta} busy={busy} onAnswer={onAnswer} onHold={onHold} />
       {item.kind === "payer" && <p className="review-note">{t("set.rv.the_answer_also_covers_earlier")}</p>}
       {problem && (
         <Notice tone="error" className="review-error" as="p">
