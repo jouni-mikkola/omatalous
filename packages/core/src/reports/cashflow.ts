@@ -7,19 +7,20 @@ import { coverOf, type PeriodTotals, totalsOf } from "../analysis/flows.ts";
 import { type DateRange, toDayRange } from "../analysis/period.ts";
 import { isCompleteMonth } from "../analysis/usual.ts";
 import { monthEnd, monthOf, monthRange } from "../dates.ts";
-import { monthLabels, rangeMonthIndexes } from "./shared.ts";
+import { knownMonths, monthLabels, rangeMonthIndexes } from "./shared.ts";
 
+/** The money of a row is null in a month the data does not reach (`knownMonths`): no figure of that month, and its rows are still in the totals of the range. */
 interface CashflowRow {
   month: string;
-  incomeCents: number;
-  consumptionCents: number;
-  debtCents: number;
-  savedCents: number;
+  incomeCents: number | null;
+  consumptionCents: number | null;
+  debtCents: number | null;
+  savedCents: number | null;
   /** Credit drawn in the month, net of what was paid back and never below zero (`coverOf`). */
-  borrowedCents: number;
-  netCents: number;
+  borrowedCents: number | null;
+  netCents: number | null;
   /** Tulos of the month, `PeriodTotals.leftCents` as `totalsOf` gives it: this report holds no sum of its own. */
-  leftCents: number;
+  leftCents: number | null;
   /** The month's `savingsRateOf`; null for a month that is partial or that the range cuts, which the table shows as "–". */
   savingsRate: number | null;
   /** The month has ended and the history covers it from the 1st. A row that is not complete reads "vajaa". */
@@ -47,21 +48,23 @@ export function cashflowReport(ctx: AnalysisContext, range: DateRange, maxMonths
   // a month's days within the range: the select of the month's income
   const daysOf = (month: string) => toDayRange({ from: range.from > `${month}-01` ? range.from : `${month}-01`, to: range.to < monthEnd(month) ? range.to : monthEnd(month) });
   const txs = all.filter((x) => x.month >= months[0]!);
-  const rows = monthLabels(months).map((month, i) => {
+  const labels = monthLabels(months);
+  const known = knownMonths(ctx, labels);
+  const rows = labels.map((month, i): CashflowRow => {
     const inMonth = txs.filter((x) => x.month === months[i]);
-    const t = totalsOf(inMonth.map((x) => x.flows));
+    const t = known[i] ? totalsOf(inMonth.map((x) => x.flows)) : null;
     // the rate is a whole month's: a month the range cuts holds only part of it
     const wholeMonth = range.from <= `${month}-01` && range.to >= monthEnd(month);
     return {
       month,
-      incomeCents: sumOf(incomeSelect(ctx, daysOf(month)).counted, incomeCentsOf),
-      consumptionCents: t.consumptionCents,
-      debtCents: t.debtCents,
-      savedCents: t.savedCents,
-      borrowedCents: coverOf(t).creditDrawnCents,
-      netCents: t.netCents,
-      leftCents: t.leftCents,
-      savingsRate: wholeMonth ? savingsRateOf(ctx, [month]).rate : null,
+      incomeCents: t ? sumOf(incomeSelect(ctx, daysOf(month)).counted, incomeCentsOf) : null,
+      consumptionCents: t?.consumptionCents ?? null,
+      debtCents: t?.debtCents ?? null,
+      savedCents: t?.savedCents ?? null,
+      borrowedCents: t ? coverOf(t).creditDrawnCents : null,
+      netCents: t?.netCents ?? null,
+      leftCents: t?.leftCents ?? null,
+      savingsRate: t && wholeMonth ? savingsRateOf(ctx, [month]).rate : null,
       complete: isCompleteMonth(ctx, month),
     };
   });

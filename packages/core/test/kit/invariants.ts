@@ -18,6 +18,7 @@ import { createContext } from "../../src/analysis/context.ts";
 import { leftOf } from "../../src/analysis/flows.ts";
 import { monthKnown } from "../../src/analysis/coverage.ts";
 import { buildDashboard } from "../../src/analysis/dashboard.ts";
+import { INCOME_GROUPS } from "../../src/analysis/income.ts";
 import { dataQualityReport } from "../../src/analysis/data-quality.ts";
 import { poolOf } from "../../src/analysis/pool.ts";
 import { buildQuestions } from "../../src/analysis/questions.ts";
@@ -297,8 +298,9 @@ export function standingSum(name: string, pool: SourcePool, cut: typeof standing
  * range starts long before any generated household, so its first months are unknown. `reports` is a parameter so a test
  * can hand the check reports made wrong on purpose.
  */
-export function unknownMonth(h: GeneratedHousehold, v: HouseholdView, reports: typeof buildReports = buildReports): Violation[] {
-  const r = reports({ ctx: v.ctx, range: { from: "2020-01-01", to: h.today }, balances: v.balances }, ["spendingMonths", "income", "balances"]);
+export function unknownMonth(h: GeneratedHousehold, v: HouseholdView, reports: typeof buildReports = buildReports, cashflow: typeof cashflowReport = cashflowReport): Violation[] {
+  const range = { from: "2020-01-01", to: h.today };
+  const r = reports({ ctx: v.ctx, range, balances: v.balances }, ["spendingMonths", "income", "balances"]);
   const out: Violation[] = [];
   const check = (report: string, series: string, months: readonly string[], values: readonly (number | null)[]) =>
     months.forEach((month, i) => {
@@ -314,6 +316,17 @@ export function unknownMonth(h: GeneratedHousehold, v: HouseholdView, reports: t
   check("income", "usual", months, r.income.months.map((m) => m.usualCents));
   for (const t of r.income.types) check("income", t.type, months, t.months);
   for (const k of r.income.kinds) check("income", k.id, months, k.months);
+  // a month's income by group is no figure either; the groups are held to the month's total in the other direction by the income tests
+  for (const g of INCOME_GROUPS) check("income", `group ${g.id}`, months, r.income.months.map((m) => m.byGroup?.[g.id] ?? null));
+  const flow = cashflow(v.ctx, range, Infinity).rows;
+  const rows = flow.map((x) => x.month);
+  check("cashflow", "income", rows, flow.map((x) => x.incomeCents));
+  check("cashflow", "consumption", rows, flow.map((x) => x.consumptionCents));
+  check("cashflow", "debt", rows, flow.map((x) => x.debtCents));
+  check("cashflow", "saved", rows, flow.map((x) => x.savedCents));
+  check("cashflow", "borrowed", rows, flow.map((x) => x.borrowedCents));
+  check("cashflow", "net", rows, flow.map((x) => x.netCents));
+  check("cashflow", "left", rows, flow.map((x) => x.leftCents));
   const b = r.balances;
   check("balances", "total", b.months, b.total);
   check("balances", "change", b.months, b.monthChange);
@@ -357,8 +370,8 @@ export function monthResult(h: GeneratedHousehold, v: HouseholdView, dashboard: 
   if (!row) say(`the cash flow report has no row for ${month}`);
   else {
     if (row.leftCents !== totals.leftCents) say(`the cash flow report's Tulos ${row.leftCents} is not the page's ${totals.leftCents}`);
-    const difference = row.incomeCents - row.consumptionCents - row.debtCents;
-    if (difference !== row.netCents) say(`the cash flow report's row has income ${row.incomeCents} less spending ${row.consumptionCents + row.debtCents}, its difference is ${row.netCents}`);
+    const difference = row.incomeCents === null || row.consumptionCents === null || row.debtCents === null ? null : row.incomeCents - row.consumptionCents - row.debtCents;
+    if (difference !== row.netCents) say(`the cash flow report's row has income ${row.incomeCents} less consumption ${row.consumptionCents} and debt service ${row.debtCents}, its difference is ${row.netCents}`);
   }
   return out;
 }

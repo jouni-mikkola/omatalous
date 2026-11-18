@@ -27,8 +27,8 @@ export const monthLabels = (indexes: readonly number[]) => indexes.map(fromMonth
  * Which of `months` (`YYYY-MM`) the household's data reaches into (`monthKnown`). A month before the accounts the
  * household lives on were connected is unknown: its cell is null (`whereKnown`), never 0, and it is in no average. The
  * sums of a range, type, payer or category still add every row, so the money of an unknown month is not lost. The
- * monthly series of the spending, income, balance, category and month-by-category reports start here, so a new series
- * inherits the rule; the cash flow report (`cashflow.ts`) does not yet.
+ * monthly series of the spending, income, balance, category, month-by-category and cash flow reports start here, so a new
+ * series inherits the rule.
  */
 export const knownMonths = (ctx: AnalysisContext, months: readonly string[]): boolean[] => months.map((m) => monthKnown(ctx, m));
 
