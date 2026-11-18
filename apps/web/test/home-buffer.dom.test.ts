@@ -10,7 +10,7 @@ import type { DashboardData } from "../src/types.ts";
 
 type Direction = DashboardData["home"]["direction"];
 
-const direction = (over: Partial<Direction>): Direction => ({ usualCents: 300_000, months: 6, recentChangeCents: 0, direction: "flat", bufferMonths: null, bufferNetCents: null, bufferSpendCents: null, bufferGap: null, ...over });
+const direction = (over: Partial<Direction>): Direction => ({ usualCents: 300_000, months: 6, bufferMonths: null, bufferNetCents: null, bufferSpendCents: null, bufferGap: null, ...over });
 
 const flat = (s: string | null | undefined) => (s ?? "").replace(/[  ]/g, " ").replace(/\s+/g, " ").trim();
 

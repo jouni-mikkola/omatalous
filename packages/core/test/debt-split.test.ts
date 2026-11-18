@@ -9,7 +9,6 @@ import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { debtSplit } from "../src/analysis/debt-split.ts";
 import { toDayRange } from "../src/analysis/period.ts";
 import { totalsOf } from "../src/analysis/flows.ts";
-import { cashflowReport } from "../src/reports/cashflow.ts";
 import { type Account, type Loan, NO_INPUTS, type Transaction, type UserInputs } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
@@ -60,14 +59,6 @@ describe("the debt service told in its kinds", () => {
     const b = buildDashboard(ctx, range, [], inputs(annuity()));
     expect(b.totals).toEqual(a.totals);
     expect(sum(b.split)).toBe(b.totals.debtCents);
-    expect(cashflowReport(ctx, range, [], 24, inputs(annuity())).totals).toEqual(cashflowReport(ctx, range).totals);
-  });
-
-  it("tells the cash report's split over the rows its totals are over", () => {
-    const ctx = createContext(dues(30_000), [checking], today);
-    const report = cashflowReport(ctx, range, [], 24, inputs(annuity()));
-    expect(sum(report.split)).toBe(report.totals.debtCents);
-    expect(report.split.interestCents).toBe(5_000 + 4_875 + 4_749);
   });
 
   it("takes the fee a document stated as a cost, and the rest of the payment repays", () => {

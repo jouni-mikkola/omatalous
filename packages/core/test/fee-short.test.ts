@@ -9,8 +9,7 @@ import { createContext } from "../src/analysis/context.ts";
 import { totalsOf } from "../src/analysis/flows.ts";
 import { addDays } from "../src/dates.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
-import { cashflowReport } from "../src/reports/cashflow.ts";
-import type { Account, BalanceInput, Transaction } from "../src/types.ts";
+import type { Account, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
 const [A_IBAN, B_IBAN, SAVINGS_IBAN] = ["FI0000000000000001", "FI0000000000000002", "FI0000000000000005"];
@@ -57,17 +56,6 @@ describe("the fee of a payment that arrived short", () => {
     const missing = viewOf([sent(B_IBAN, 8150)], [A, B]);
     expect(missing.row("out").category).not.toBe("fees");
     expect(missing.row("out").spend).not.toBe(150);
-  });
-
-  it("is in the Kulutus line of the money bridge, and the lines still add up to the change", () => {
-    const before = [tx({ id: "p-a", accountId: "a", bookingDate: "2025-03-20", amountCents: -1000, merchant: "Kauppa" }), tx({ id: "p-b", accountId: "b", bookingDate: "2025-03-20", amountCents: -1000, merchant: "Kauppa" })];
-    const { ctx } = viewOf([...before, sent(B_IBAN, 8150), arrived("b", 8000)], [A, B]);
-    const balances: BalanceInput[] = ["a", "b"].map((id) => ({ id, name: id, type: "checking", balanceCents: 100_000, ownerName: null, balanceAt: "2025-04-20" }));
-    const bridge = cashflowReport(ctx, { from: "2025-04-01", to: "2025-04-20" }, balances).moneyBridge!;
-    expect(bridge.changeCents).toBe(-150);
-    expect(bridge.lines.find((l) => l.key === "consumption")).toMatchObject({ cents: -150, rowIds: ["out"] });
-    expect(bridge.lines.find((l) => l.key === "transfersOut")).toMatchObject({ cents: 0 });
-    expect(bridge.lines.reduce((sum, l) => sum + l.cents, 0)).toBe(bridge.changeCents);
   });
 
   it("is named in the bank fees alert by the sending account, never by the household member the payment names", () => {

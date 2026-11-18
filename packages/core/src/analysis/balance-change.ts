@@ -8,7 +8,7 @@ import type { BalanceWalk } from "./balance-walk.ts";
 
 /**
  * The change of the accounts' total over a range, from the end of the day `from` to the end of the day `to`: the rows
- * of the days after `from` up to `to` are what moved it, so a bridge of those rows (`cashflowReport`) adds up to `cents`.
+ * of the days after `from` up to `to` are what moved it, so the booked rows of those days add up to `cents`.
  */
 export interface BalanceChange {
   /** The day whose closing balance the change is counted from. The rows of the days after it are in the change. */

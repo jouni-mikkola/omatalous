@@ -669,7 +669,7 @@ describe("a report over more than 24 months", () => {
     for (const r of all.rows) expect(r.values.reduce((s, v) => s! + v!, 0)).toBe(r.totalCents);
     expect(all.monthTotals.reduce((s, v) => s! + v!, 0)).toBe(all.totalCents);
     expect(cashflowReport(ctx, range).rows).toHaveLength(24);
-    const flow = cashflowReport(ctx, range, [], Infinity).rows;
+    const flow = cashflowReport(ctx, range, Infinity).rows;
     expect(flow).toHaveLength(41);
     expect(flow[0]).toMatchObject({ month: "2023-05", consumptionCents: 7700 });
   });
