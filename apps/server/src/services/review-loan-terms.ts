@@ -1,39 +1,103 @@
 /**
- * Tarkistettavat's questions about the member's own loans and cards, from the view the queue read once (`OwnView`):
- * - `loan_terms`, a saved loan that still owes and whose plan lacks one fact (core `loanTermsMissing`, from `planOf`): the
- *   loan's form answers it (PUT /api/loans/:id) and the item goes when the plan resolves;
- * - `loan_terms` for a connected card that owes while its rate is unknown: the bank tells the balance and nothing of
- *   its terms. The form of a new loan linked to the card answers it, or the form of the linked loan that saved no rate
- *   (`missing` is the rate). A card the rows show paid in full each month costs no interest (`debtsOf`), and a saved
- *   rate of 0 is a rate, so neither is asked;
+ * Tarkistettavat's questions about the member's own debts, from the view the queue read once (`OwnView`):
+ * - `loan_terms_list`, Täydennä lainat: one item that lists every debt whose balance, rate or payment is not known, each
+ *   once and the largest year of payments first (core `loanTermsList`). A debt is
+ *   - a saved loan still owing whose plan lacks a fact (core `openLoanGaps`): its own form answers it (PUT /api/loans/:id);
+ *   - a connected card that owes while its rate is unknown: the bank tells the balance and nothing of its terms. A new
+ *     loan linked to the card answers it, or the linked loan that saved no rate. A card the rows show paid in full each
+ *     month costs no interest (`debtsOf`), and a saved rate of 0 is a rate, so neither is listed;
+ *   - a loan the rows show and nobody saved (core `loanProposals`), saved with its series key (POST /api/loans), or
+ *     marked "Ei ole laina"; an instalment plan of two or more payments, answered by its end (`planSubject`);
+ *   - a card the household pays the bills of and has not connected (core `unconnectedCards`), saved as a loan of kind
+ *     card with the series key, or told as a card loan saved already (`savedCards`).
+ *   The figures at the top are the queue's own: what the household owes as the debt pages count it (`debtsOf`), null
+ *   while a loan's balance is dated after the day, and how many debts of the list have no balance.
  * - `loan_drift`, a payment of a saved loan's series that the loan's plan did not expect (core `loanDrift`): the loan's
  *   form opens with the payment the bank took, and the item goes when the loan is saved after that row or a later payment
- *   fits. A loan has one question at a time, its terms before its drift.
+ *   fits. A loan listed in Täydennä lainat has no drift asked.
  * What a linked loan owes is what its account says, as the debt pages count it (`householdDebts`). "Älä muistuta tästä
- * enää" is the mark `dismissed` on `subject`, and it holds for every fact but the rate and the payment, which keep
- * asking (`loanTermsDismissible`). A debt stakes no money of the queue's order, so `cents` is 0 as the home loan
- * question's is.
+ * enää" is the mark `dismissed` on a saved loan's `subject`, and it holds for every fact but the rate and the payment,
+ * which keep asking (`loanTermsDismissible`).
  */
-import { balanceDayOf, debtsOf, isRevolving, type Loan, loanDrift, loansOf, loanTermsDismissed, loanTermsDismissible, loanTermsMissing, type LoanTermsMissing, loanTermsSubject } from "@banking/core";
+import {
+  balanceDayOf,
+  billCents,
+  debtsOf,
+  hasMonthly,
+  inferLoanTerms,
+  type InferredLoanTerms,
+  isRevolving,
+  lenderInstalments,
+  type Loan,
+  type LoanKind,
+  loanDrift,
+  loansOf,
+  loanTermsDismissed,
+  type ListedDebt,
+  loanTermsList,
+  loanTermsListCents,
+  type LoanTermsMissing,
+  loanTermsSubject,
+  openLoanGaps,
+  paymentOf,
+  savedLoanYearCents,
+  unconnectedCards,
+  unlinkedCardLoans,
+} from "@banking/core";
 import { todayIn } from "../platform/config.ts";
 import type { Services } from "./context.ts";
+import { memoOn } from "./context-memo.ts";
+import { proposalsOf } from "./request-inputs.ts";
 import type { OwnView } from "./review-own.ts";
 
-export interface LoanTermsItem {
-  kind: "loan_terms";
+/** Where a debt of the list comes from, which says how its row is saved. */
+export type LoanTermsSource = "loan" | "card" | "proposal" | "plan" | "card_bill";
+
+/** One debt of Täydennä lainat, with what is known of it to fill its row. */
+export interface LoanTermsDebt {
   id: string;
-  cents: number;
-  /** The saved loan asked about, null for a connected card that has none. */
-  loanId: string | null;
-  /** The connected card whose terms are asked for, null for a saved loan. A card with a saved loan names both. */
-  accountId: string | null;
+  source: LoanTermsSource;
+  /** The saved loan's name, the card account's name, or the payee of the rows. */
   name: string;
-  /** What the debt owes, and the day that balance is of. */
-  owedCents: number;
-  balanceDate: string;
-  missing: LoanTermsMissing;
-  subject: string;
-  /** The queue's own fields of every item: a debt has no rows. */
+  /** The saved loan, null for none. A connected card with a saved loan names both. */
+  loanId: string | null;
+  /** The connected card, null for none. */
+  accountId: string | null;
+  /** The series key a loan saved from the rows is linked by, null for a saved loan or a connected card. */
+  key: string | null;
+  /** The saved kind, or the kind the rows suggest. */
+  kind: LoanKind;
+  /** Whether the kind is known: one the rows only suggest is asked. */
+  placed: boolean;
+  /** The member's part of a month of payments, null when no monthly payment is known. */
+  monthlyCents: number | null;
+  /** The latest payment as the bank took it, filled in as the payment; null when the rows tell no monthly one. */
+  latestCents: number | null;
+  /** The day of the latest payment the rows show, null for a saved loan or a connected card. */
+  lastDate: string | null;
+  /** What the debt owes and the day that balance is of, null while it is not known. */
+  owedCents: number | null;
+  balanceDate: string | null;
+  /** The facts a saved loan lacks (core `openLoanGaps`), the rate for a connected card, none for a debt of the rows. */
+  gaps: LoanTermsMissing[];
+  /** The mark "Älä muistuta tästä enää" goes on, for a saved loan; null for the others. */
+  subject: string | null;
+  /** What the rows tell of a loan's terms, null where they tell nothing. */
+  terms: InferredLoanTerms | null;
+  /** The card loans saved with no link to their bills, for a card that is not connected: it may be one of them. */
+  savedCards: { id: string; name: string }[];
+}
+
+export interface LoanTermsListItem {
+  kind: "loan_terms_list";
+  id: "loan-terms";
+  cents: number;
+  debts: LoanTermsDebt[];
+  /** What the household owes in all, null while a loan's balance is dated after the day (`totalKnown`). */
+  debtsCents: number | null;
+  /** How many debts of the list have no balance. */
+  noBalance: number;
+  /** The queue's own fields of every item: the list has no rows of its own. */
   rows?: { id: string; date: string; cents: number; name: string; text: string }[];
   rowCount?: number;
 }
@@ -61,25 +125,57 @@ export interface LoanDriftItem {
 /** The member's own saved loans of the view: a loan another member typed in, paid from a shared account, is not asked of the viewer. */
 const ownLoans = ({ inputs }: OwnView): Loan[] => (inputs.loans ?? []).filter((loan) => loan.typedBy === undefined);
 
-/**
- * Only the member's own loans and accounts are read: an account another member shared is left out of the debts before
- * they are worked out, so another member's loan or card is never asked.
- */
-export const loanTermsItems = async (_s: Services, _userId: string, view: OwnView): Promise<LoanTermsItem[]> => {
+type Listed = LoanTermsDebt & ListedDebt;
+
+const debt = (fields: Omit<Listed, "loanId" | "accountId" | "key" | "monthlyCents" | "latestCents" | "lastDate" | "owedCents" | "balanceDate" | "gaps" | "subject" | "terms" | "savedCards"> & Partial<Listed>): Listed => ({
+  loanId: null,
+  accountId: null,
+  key: null,
+  monthlyCents: null,
+  latestCents: null,
+  lastDate: null,
+  owedCents: null,
+  balanceDate: null,
+  gaps: [],
+  subject: null,
+  terms: null,
+  savedCards: [],
+  ...fields,
+});
+
+/** The saved loans that lack a fact and the connected cards whose rate is unknown. */
+function savedDebts(view: OwnView): Listed[] {
   const { ctx, balances, inputs } = view;
   const saved = ownLoans(view);
   const own = balances.filter((b) => b.ownerName === null);
   const debts = debtsOf(ctx, own, { ...inputs, loans: saved });
-  const items = saved.flatMap((loan): LoanTermsItem[] => {
+  const loans = saved.flatMap((loan): Listed[] => {
     // a loan linked to its account owes what the account says, unless the typed balance is the newer word of the two
     const at = debts.sources.findIndex((src) => src.linked && src.loanId === loan.id);
     const account = at < 0 ? undefined : own.find((b) => b.id === debts.sources[at]!.accountId);
     const told = account !== undefined && balanceDayOf(account.balanceAt, debts.day) >= loan.balanceDate;
     const owedCents = told ? debts.connected[at]!.balanceCents : loan.balanceCents;
-    const balanceDate = told ? balanceDayOf(account.balanceAt, debts.day) : loan.balanceDate;
-    const missing = loanTermsMissing({ ...loan, balanceCents: owedCents });
-    if (missing === null || (loanTermsDismissible(missing) && loanTermsDismissed(inputs.marks, loan.id))) return [];
-    return [{ kind: "loan_terms", id: `loan_terms:${loan.id}`, cents: 0, loanId: loan.id, accountId: null, name: loan.name, owedCents, balanceDate, missing, subject: loanTermsSubject(loan.id) }];
+    const gaps = openLoanGaps(loan, owedCents, loanTermsDismissed(inputs.marks, loan.id));
+    if (!gaps.length) return [];
+    const yearCents = savedLoanYearCents(loan);
+    return [
+      debt({
+        id: `loan:${loan.id}`,
+        seriesId: null,
+        yearCents,
+        source: "loan",
+        name: loan.name,
+        loanId: loan.id,
+        kind: loan.kind,
+        placed: true,
+        // a payment of every few months is told as its month's share, as a year of it is a twelfth of that a month
+        monthlyCents: yearCents === null ? null : Math.round(yearCents / 12),
+        owedCents,
+        balanceDate: told ? balanceDayOf(account.balanceAt, debts.day) : loan.balanceDate,
+        gaps,
+        subject: loanTermsSubject(loan.id),
+      }),
+    ];
   });
   // a card with no saved loan paid in full is told as interest 0 (`settledCardLoan`): the debts without the saved loans show which linked card is too
   let bare: ReturnType<typeof debtsOf> | undefined;
@@ -88,18 +184,56 @@ export const loanTermsItems = async (_s: Services, _userId: string, view: OwnVie
     const at = bare.sources.findIndex((src) => src.accountId === accountId);
     return at >= 0 && bare.connected[at]!.rateBp === 0;
   };
-  const cards = debts.sources.flatMap((src, at): LoanTermsItem[] => {
-    const debt = debts.connected[at]!;
+  const cards = debts.sources.flatMap((src, at): Listed[] => {
+    const owed = debts.connected[at]!;
     const account = own.find((b) => b.id === src.accountId);
     // a card owing nothing has no rate to ask, a linked pair included; a credit line drawn on another kind of account is no card. A card's rate keeps asking: no mark sets it aside.
-    if (!account || account.type !== "credit_card" || !isRevolving(debt.kind) || debt.balanceCents <= 0 || debt.rateBp !== null || (src.linked && paidInFull(account.id))) return [];
+    if (!account || account.type !== "credit_card" || !isRevolving(owed.kind) || owed.balanceCents <= 0 || owed.rateBp !== null || (src.linked && paidInFull(account.id))) return [];
     const loan = src.linked ? saved.find((l) => l.id === src.loanId) : undefined;
     // a typed balance newer than the account's is the newer word of the two, as for a saved loan
     const accountDay = balanceDayOf(account.balanceAt, debts.day);
     const balanceDate = loan !== undefined && accountDay < loan.balanceDate ? loan.balanceDate : accountDay;
-    return [{ kind: "loan_terms", id: `loan_terms:${debt.id}`, cents: 0, loanId: loan?.id ?? null, accountId: account.id, name: account.name, owedCents: debt.balanceCents, balanceDate, missing: "rate", subject: loanTermsSubject(debt.id) }];
+    return [debt({ id: `card:${account.id}`, seriesId: null, yearCents: null, source: "card", name: account.name, loanId: loan?.id ?? null, accountId: account.id, kind: loan?.kind ?? "card", placed: true, owedCents: owed.balanceCents, balanceDate, gaps: ["rate"] })];
   });
-  return [...items, ...cards];
+  return [...loans, ...cards];
+}
+
+/** The loans and instalment plans the rows show and nobody saved, with what their rows tell of the terms. */
+function proposedDebts({ ctx, inputs, stamp }: OwnView): Listed[] {
+  const series = memoOn(ctx, "review:loan-series", null, () => new Map([...ctx.recurring, ...lenderInstalments(ctx)].map((r) => [r.id, r.transactionIds])));
+  const byId = memoOn(ctx, "review:rows-by-id", null, () => new Map(ctx.txs.map((t) => [t.id, t])));
+  return proposalsOf(ctx, { inputs, stamp }).flatMap((p): Listed[] => {
+    // a plan is asked its end once; a loan until it is saved or marked "Ei ole laina"
+    if (p.plan && p.planAnswer !== null) return [];
+    const monthly = hasMonthly(p) ? paymentOf(p) : null;
+    const common = { seriesId: p.seriesId, yearCents: monthly === null ? null : 12 * monthly.part, name: p.payee, key: p.key, monthlyCents: monthly?.part ?? null, latestCents: monthly?.whole ?? null, lastDate: p.lastDate };
+    if (p.plan) return [debt({ ...common, id: `plan:${p.key}`, source: "plan", kind: "instalment", placed: true })];
+    // a lender's few payments are no series: the proposal holds its rows, at the bank's whole charge as the payment is
+    const rowIds = series.get(p.seriesId) ?? [...(p.rowIds ?? [])];
+    const terms = inferLoanTerms(rowIds.flatMap((id) => byId.get(id) ?? []).map((t) => ({ date: t.bookingDate, cents: Math.abs(billCents(t)) })));
+    return [debt({ ...common, id: `proposal:${p.key}`, source: "proposal", kind: p.kind, placed: p.placed, terms })];
+  });
+}
+
+/** The cards the household pays the bills of and has not connected. */
+function unconnectedDebts({ ctx, inputs }: OwnView): Listed[] {
+  const savedCards = unlinkedCardLoans(inputs).map((loan) => ({ id: loan.id, name: loan.name }));
+  return unconnectedCards(ctx, inputs).map((c) =>
+    debt({ id: `card_bill:${c.key}`, seriesId: c.seriesId, yearCents: 12 * paymentOf(c).part, source: "card_bill", name: c.payee, key: c.key, kind: "card", placed: true, monthlyCents: paymentOf(c).part, latestCents: paymentOf(c).whole, lastDate: c.lastDate, savedCards }),
+  );
+}
+
+/**
+ * Täydennä lainat, or nothing when no debt lacks a fact. Only the member's own loans and accounts are read: an account
+ * another member shared is left out of the debts before they are worked out, so another member's loan or card is never
+ * listed. The list weighs the year of payments it holds, so it is asked before the questions of smaller sums.
+ */
+export const loanTermsListItems = async (_s: Services, _userId: string, view: OwnView): Promise<LoanTermsListItem[]> => {
+  const listed = loanTermsList([...savedDebts(view), ...proposedDebts(view), ...unconnectedDebts(view)]);
+  if (!listed.length) return [];
+  const all = debtsOf(view.ctx, view.balances, view.inputs);
+  const debts = listed.map(({ seriesId: _series, yearCents: _year, ...row }): LoanTermsDebt => row);
+  return [{ kind: "loan_terms_list", id: "loan-terms", cents: loanTermsListCents(listed) ?? 0, debts, debtsCents: all.totalKnown ? all.total.cents : null, noBalance: debts.filter((d) => d.owedCents === null).length }];
 };
 
 /**

@@ -1,7 +1,7 @@
 /**
- * Tarkistettavat's question of a card the household pays the bills of and has not connected (services/review-card-bills.ts):
- * one item for the card, high in the queue by its year of bills, gone once the debt is saved as a loan of kind card, linked to
- * the bills or not, or the household says Ei ole laina. Made-up issuer and sums; the test clock is 9.10.2026.
+ * A card the household pays the bills of and has not connected, as a row of Täydennä lainat (services/review-loan-terms.ts):
+ * one row for the card with a month of its bills, gone once the debt is saved as a loan of kind card, linked to the bills or
+ * not, or the household says Ei ole laina. Made-up issuer and sums; the test clock is 9.10.2026.
  */
 import { notLoanMark, type RawTransaction } from "@banking/core";
 import { describe, expect, it } from "vitest";
@@ -10,6 +10,10 @@ import { ingestTransactions } from "../src/services/ingest.ts";
 import { setupApp } from "./helpers.ts";
 
 type Item = { id: string; kind: string; cents: number; [field: string]: unknown };
+type Debt = { id: string; source: string; key: string | null; [field: string]: unknown };
+
+/** The rows of Täydennä lainat a user is asked, none when the item is not in the queue. */
+const listed = (items: Item[]): Debt[] => (items.find((i) => i.kind === "loan_terms_list")?.debts as Debt[] | undefined) ?? [];
 
 const MONTHS = [3, 4, 5, 6, 7, 8, 9].map((m) => `2026-${String(m).padStart(2, "0")}`);
 const raw = (bookingDate: string, cents: number, counterparty: string): RawTransaction => ({
@@ -27,18 +31,19 @@ async function household(payees = ["ESIMERKKIPANKKI KORTTI"]) {
   }
   await t.db.run("UPDATE transactions SET category = 'card_bill', category_source = 'user'");
   await reprocess(repo, t.s.settings);
-  const cards = async () => ((await t.admin.call("GET", "/api/review")).body.items as Item[]).filter((i) => i.kind === "card_bill");
+  const cards = async () => listed((await t.admin.call("GET", "/api/review")).body.items as Item[]).filter((d) => d.source === "card_bill");
   return { ...t, cards };
 }
 
 describe("the question of a card that is not connected", () => {
-  it("asks once, with the card's year of bills as its money and its bills as the rows", async () => {
+  it("lists the card once, with a month of its bills and no balance, and asks the list first", async () => {
     const t = await household();
     const [card, ...more] = await t.cards();
     expect(more).toEqual([]);
-    expect(card).toMatchObject({ payee: "Esimerkkipankki Kortti", id: `card_bill:${card!.key}` });
-    expect(card!.cents as number).toBeGreaterThan(12 * 40_000);
-    expect(card!.rowCount).toBe(MONTHS.length);
+    expect(card).toMatchObject({ name: "Esimerkkipankki Kortti", id: `card_bill:${card!.key}`, kind: "card", owedCents: null });
+    expect(card!.monthlyCents as number).toBeGreaterThan(40_000);
+    const items = (await t.admin.call("GET", "/api/review")).body.items as Item[];
+    expect(items[0]).toMatchObject({ kind: "loan_terms_list", id: "loan-terms", noBalance: 1 });
   });
 
   it("goes with a card saved as a loan linked to its bills, and with Ei ole laina", async () => {
@@ -84,6 +89,6 @@ describe("the question of a card that is not connected", () => {
   it("is not asked of another member, who has no such rows", async () => {
     const t = await household();
     const maija = await t.member("maija", "Maija");
-    expect(((await maija.call("GET", "/api/review")).body.items as Item[]).filter((i) => i.kind === "card_bill")).toEqual([]);
+    expect(listed((await maija.call("GET", "/api/review")).body.items as Item[])).toEqual([]);
   });
 });

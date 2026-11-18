@@ -29,6 +29,9 @@ type Item = { id: string; kind: string; cents: number; [field: string]: unknown 
 type Caller = { call: (method: string, path: string, body?: unknown) => Promise<{ status: number; body: any }> };
 const queue = async (c: Caller) => (await c.call("GET", "/api/review")).body.items as Item[];
 const ids = async (c: Caller) => (await queue(c)).map((i) => i.id);
+/** The debts Täydennä lainat lists, none when it is not in the queue. */
+const listed = (items: Item[]) => (items.find((i) => i.kind === "loan_terms_list")?.debts ?? []) as Item[];
+const debtIds = async (c: Caller) => listed(await queue(c)).map((d) => d.id);
 
 async function household() {
   const t = await setupApp();
@@ -45,11 +48,14 @@ describe("the review queue", () => {
     const res = await t.admin.call("GET", "/api/review");
     expect(res.status).toBe(200);
     const items = res.body.items as Item[];
-    expect(items.map((i) => i.kind)).toEqual(["loan", "payee_out", "subscription", "payee_out", "mortgage"]);
+    expect(items.map((i) => i.kind)).toEqual(["loan_terms_list", "payee_out", "subscription", "payee_out", "mortgage"]);
     expect(items.map((i) => i.cents)).toEqual([...items.map((i) => i.cents)].sort((a, b) => b - a));
-    expect(items[0]).toMatchObject({ kind: "loan", payee: "Esimerkkirahoitus", paymentCents: 25000, cents: 300000, placed: true, guess: "consumer" });
+    expect(items[0]).toMatchObject({ kind: "loan_terms_list", id: "loan-terms", cents: 300000, noBalance: 1 });
+    const [loan, ...more] = listed(items);
+    expect(more).toEqual([]);
+    expect(loan).toMatchObject({ source: "proposal", name: "Esimerkkirahoitus", latestCents: 25000, monthlyCents: 25000, owedCents: null, placed: true, kind: "consumer" });
     // the form starts from what the rows tell: the latest payment and its day, monthly; nine flat months tell no way of paying back
-    expect(items[0]!.terms).toEqual({ paymentCents: 25000, dueDate: "2026-09-05", intervalMonths: 1, repayment: null, reference: null, nextReview: null });
+    expect(loan!.terms).toEqual({ paymentCents: 25000, dueDate: "2026-09-05", intervalMonths: 1, repayment: null, reference: null, nextReview: null });
     expect(items[2]).toMatchObject({ kind: "subscription", merchant: "Max", monthlyCents: 1299, subject: "series:out:chk:Max#1299" });
     expect(Object.keys(res.body)).toEqual(["items"]);
     // a payee's quick picks are the household's own most used categories on its side, never Muut menot
@@ -80,9 +86,6 @@ describe("the review queue", () => {
     expect(shop.rowCount).toBe(shop.count);
     expect(new Set(shop.rows.map((r) => [r.name, r.cents, r.text].join("|")))).toEqual(new Set(["Kummakauppa Xyz|-8450|KORTTIOSTO"]));
     expect(shop.rows.map((r) => r.date)).toEqual([...shop.rows.map((r) => r.date)].sort().reverse());
-    const [loan] = items.filter((i) => i.kind === "loan") as (Item & { rows: Row[]; rowCount: number })[];
-    expect(loan!.rowCount).toBe(MONTHS.length);
-    expect(new Set(loan!.rows.map((r) => r.cents))).toEqual(new Set([-25000]));
 
     // a second, smaller series of the same payee is no row of the first
     const u = await setupApp();
@@ -130,14 +133,13 @@ describe("the review queue", () => {
     expect(await ids(t.admin)).not.toContain("payee_out:Happy Dog Trimmi West");
   });
 
-  it("a loan's rows are the bank's whole charges, as its monthly figure is, also on an account the viewer counts at a part", async () => {
+  it("a loan's payment to fill in is the bank's whole charge, also on an account the viewer counts at a part", async () => {
     const t = await household();
     const eero = await t.member("eero");
     // the account is used 60:40: the own view counts each row at 60 %, the proposal the bank's whole payment
     expect((await t.admin.call("PUT", "/api/accounts/chk/use", { users: [{ userId: t.adminId, weight: 60 }, { userId: eero.id, weight: 40 }] })).status).toBe(200);
-    const [loan] = (await queue(t.admin)).filter((i) => i.kind === "loan") as (Item & { paymentCents: number; rows: { cents: number }[] })[];
-    expect(loan!.paymentCents).toBe(25000);
-    expect(new Set(loan!.rows.map((r) => r.cents))).toEqual(new Set([-25000]));
+    const [loan] = listed(await queue(t.admin));
+    expect(loan).toMatchObject({ source: "proposal", latestCents: 25000, monthlyCents: 15000 });
   });
 
   it("asks whether there is a home loan while Asuminen has charges and no loan; Ei asuntolainaa and a saved mortgage take it away", async () => {
@@ -175,17 +177,17 @@ describe("the review queue", () => {
 
   it("a loan goes with Ei ole laina, and with a loan saved for its series", async () => {
     const t = await household();
-    const [loan] = (await queue(t.admin)).filter((i) => i.kind === "loan");
+    const [loan] = listed(await queue(t.admin));
     expect((await t.admin.call("PUT", "/api/marks", notLoanMark({ key: loan!.key as string }))).status).toBe(200);
-    expect(await ids(t.admin)).not.toContain(loan!.id);
+    expect(await debtIds(t.admin)).not.toContain(loan!.id);
     // the proposals of Asetukset > Lainat read the same: nothing left there either
     expect((await t.admin.call("GET", "/api/loans/proposals")).body.proposals).toEqual([]);
 
     const u = await household();
-    const [other] = (await queue(u.admin)).filter((i) => i.kind === "loan");
+    const [other] = listed(await queue(u.admin));
     const saved = await u.admin.call("POST", "/api/loans", { name: "Kulutusluotto", kind: "consumer", balanceCents: 900_000, balanceDate: "2026-10-01", paymentCents: 25000, intervalMonths: 1, seriesKey: other!.key });
     expect(saved.status).toBe(200);
-    expect(await ids(u.admin)).not.toContain(other!.id);
+    expect(await debtIds(u.admin)).not.toContain(other!.id);
   });
 
   it("an instalment plan is asked its end, and payments left or En tiedä is the mark the old card stored", async () => {
@@ -196,16 +198,17 @@ describe("the review queue", () => {
     await ingestTransactions(repo, "chk", plan, "csv");
     await reprocess(repo, t.s.settings);
     const items = await queue(t.admin);
-    const [asked] = items.filter((i) => i.kind === "plan");
-    expect(asked).toMatchObject({ payee: expect.stringMatching(/Klarna/i), paymentCents: 4990, cents: 12 * 4990, lastDate: "2026-09-12" });
+    expect(items[0]).toMatchObject({ kind: "loan_terms_list", cents: 12 * 4990 });
+    const [asked, ...more] = listed(items);
     // a plan is asked as a plan, never as a loan of its own
-    expect(items.filter((i) => i.kind === "loan")).toEqual([]);
+    expect(more).toEqual([]);
+    expect(asked).toMatchObject({ source: "plan", name: expect.stringMatching(/Klarna/i), latestCents: 4990, kind: "instalment", lastDate: "2026-09-12" });
     expect((await t.admin.call("PUT", "/api/marks", { subject: planSubject("2027-03", asked!.key as string), mark: "in_use" })).status).toBe(200);
-    expect(await ids(t.admin)).not.toContain(asked!.id);
+    expect(await debtIds(t.admin)).not.toContain(asked!.id);
     expect((await t.admin.call("PUT", "/api/marks", { subject: planSubject("2027-03", asked!.key as string), mark: null })).status).toBe(200);
-    expect(await ids(t.admin)).toContain(asked!.id);
+    expect(await debtIds(t.admin)).toContain(asked!.id);
     expect((await t.admin.call("PUT", "/api/marks", { subject: planSubject(null, asked!.key as string), mark: "in_use" })).status).toBe(200);
-    expect(await ids(t.admin)).not.toContain(asked!.id);
+    expect(await debtIds(t.admin)).not.toContain(asked!.id);
   });
 
   it("a subscription's Käytössä is the mark Laskut reads, and the item goes", async () => {
