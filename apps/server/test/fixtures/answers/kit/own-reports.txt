@@ -704,83 +704,83 @@
      {
       "payee": "Sato",
       "category": "housing",
-      "state": "paid",
       "kind": "bill",
       "seriesId": "out:chk:Sato",
+      "state": "paid",
       "date": "2026-10-02",
       "cents": 105000
      },
      {
       "payee": "Nordea Bank Abp",
       "category": "mortgage",
-      "state": "paid",
       "kind": "bill",
       "seriesId": "out:chk:Nordea Bank Abp",
+      "state": "paid",
       "date": "2026-10-05",
       "cents": 61240
      },
      {
       "payee": "If Vahinkovakuutus Oy",
       "category": "insurance",
-      "state": "paid",
       "kind": "bill",
       "seriesId": "out:chk:If Vahinkovakuutus Oy",
+      "state": "paid",
       "date": "2026-10-05",
       "cents": 14230
      },
      {
       "payee": "Helsingin Kaupunki",
       "category": "kids",
-      "state": "paid",
       "kind": "bill",
       "seriesId": "out:chk:Helsingin Kaupunki",
+      "state": "paid",
       "date": "2026-10-08",
       "cents": 27990
      },
      {
       "payee": "Helen",
       "category": "utilities",
-      "state": "paid",
       "kind": "bill",
       "seriesId": "out:chk:Helen",
+      "state": "paid",
       "date": "2026-10-12",
       "cents": 5077
      },
      {
       "payee": "Spotify",
       "category": "subscriptions",
-      "state": "paid",
       "kind": "bill",
       "seriesId": "out:card:Spotify",
+      "state": "paid",
       "date": "2026-10-12",
       "cents": 1199
      },
      {
       "payee": "Netflix",
       "category": "subscriptions",
-      "state": "paid",
       "kind": "bill",
       "seriesId": "out:card:Netflix",
+      "state": "paid",
       "date": "2026-10-14",
       "cents": 1599
      },
      {
-      "date": "2026-10-18",
       "payee": "Sanoma Media Finland",
       "category": "subscriptions",
-      "cents": 3290,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sanoma Media Finland"
+      "seriesId": "out:chk:Sanoma Media Finland",
+      "date": "2026-10-18",
+      "cents": 3290,
+      "state": "known"
      },
      {
-      "date": "2026-10-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 1990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Elisa"
+      "seriesId": "out:chk:Elisa",
+      "date": "2026-10-20",
+      "cents": 1990,
+      "state": "known"
      },
      {
       "payee": "Acme",
@@ -794,82 +794,83 @@
     ],
     "knownCents": 5280,
     "estimateCents": 0,
+    "savingCents": 0,
     "incomeCents": 352000
    },
    {
     "month": "2026-11",
     "rows": [
      {
-      "date": "2026-11-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sato"
+      "seriesId": "out:chk:Sato",
+      "date": "2026-11-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2026-11-05",
       "payee": "Nordea Bank Abp",
       "category": "mortgage",
-      "cents": 61240,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Nordea Bank Abp"
+      "seriesId": "out:chk:Nordea Bank Abp",
+      "date": "2026-11-05",
+      "cents": 61240,
+      "state": "known"
      },
      {
-      "date": "2026-11-08",
       "payee": "Helsingin Kaupunki",
       "category": "kids",
-      "cents": 27990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Helsingin Kaupunki"
+      "seriesId": "out:chk:Helsingin Kaupunki",
+      "date": "2026-11-08",
+      "cents": 27990,
+      "state": "known"
      },
      {
-      "date": "2026-11-12",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 11790,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:chk:Helen"
+      "seriesId": "out:chk:Helen",
+      "date": "2026-11-12",
+      "cents": 11790,
+      "state": "estimate"
      },
      {
-      "date": "2026-11-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Spotify"
+      "seriesId": "out:card:Spotify",
+      "date": "2026-11-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2026-11-14",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1599,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Netflix"
+      "seriesId": "out:card:Netflix",
+      "date": "2026-11-14",
+      "cents": 1599,
+      "state": "known"
      },
      {
-      "date": "2026-11-18",
       "payee": "Sanoma Media Finland",
       "category": "subscriptions",
-      "cents": 3290,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sanoma Media Finland"
+      "seriesId": "out:chk:Sanoma Media Finland",
+      "date": "2026-11-18",
+      "cents": 3290,
+      "state": "known"
      },
      {
-      "date": "2026-11-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 1990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Elisa"
+      "seriesId": "out:chk:Elisa",
+      "date": "2026-11-20",
+      "cents": 1990,
+      "state": "known"
      },
      {
       "payee": "Acme",
@@ -883,82 +884,83 @@
     ],
     "knownCents": 202308,
     "estimateCents": 11790,
+    "savingCents": 0,
     "incomeCents": 352000
    },
    {
     "month": "2026-12",
     "rows": [
      {
-      "date": "2026-12-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sato"
+      "seriesId": "out:chk:Sato",
+      "date": "2026-12-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2026-12-05",
       "payee": "Nordea Bank Abp",
       "category": "mortgage",
-      "cents": 61240,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Nordea Bank Abp"
+      "seriesId": "out:chk:Nordea Bank Abp",
+      "date": "2026-12-05",
+      "cents": 61240,
+      "state": "known"
      },
      {
-      "date": "2026-12-08",
       "payee": "Helsingin Kaupunki",
       "category": "kids",
-      "cents": 27990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Helsingin Kaupunki"
+      "seriesId": "out:chk:Helsingin Kaupunki",
+      "date": "2026-12-08",
+      "cents": 27990,
+      "state": "known"
      },
      {
-      "date": "2026-12-12",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 10637,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:chk:Helen"
+      "seriesId": "out:chk:Helen",
+      "date": "2026-12-12",
+      "cents": 10637,
+      "state": "estimate"
      },
      {
-      "date": "2026-12-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Spotify"
+      "seriesId": "out:card:Spotify",
+      "date": "2026-12-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2026-12-14",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1599,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Netflix"
+      "seriesId": "out:card:Netflix",
+      "date": "2026-12-14",
+      "cents": 1599,
+      "state": "known"
      },
      {
-      "date": "2026-12-18",
       "payee": "Sanoma Media Finland",
       "category": "subscriptions",
-      "cents": 3290,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sanoma Media Finland"
+      "seriesId": "out:chk:Sanoma Media Finland",
+      "date": "2026-12-18",
+      "cents": 3290,
+      "state": "known"
      },
      {
-      "date": "2026-12-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 1990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Elisa"
+      "seriesId": "out:chk:Elisa",
+      "date": "2026-12-20",
+      "cents": 1990,
+      "state": "known"
      },
      {
       "payee": "Acme",
@@ -972,91 +974,92 @@
     ],
     "knownCents": 202308,
     "estimateCents": 10637,
+    "savingCents": 0,
     "incomeCents": 352000
    },
    {
     "month": "2027-01",
     "rows": [
      {
-      "date": "2027-01-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sato"
+      "seriesId": "out:chk:Sato",
+      "date": "2027-01-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2027-01-05",
       "payee": "Nordea Bank Abp",
       "category": "mortgage",
-      "cents": 61240,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Nordea Bank Abp"
+      "seriesId": "out:chk:Nordea Bank Abp",
+      "date": "2027-01-05",
+      "cents": 61240,
+      "state": "known"
      },
      {
-      "date": "2027-01-05",
       "payee": "If Vahinkovakuutus Oy",
       "category": "insurance",
-      "cents": 14230,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:If Vahinkovakuutus Oy"
+      "seriesId": "out:chk:If Vahinkovakuutus Oy",
+      "date": "2027-01-05",
+      "cents": 14230,
+      "state": "known"
      },
      {
-      "date": "2027-01-08",
       "payee": "Helsingin Kaupunki",
       "category": "kids",
-      "cents": 27990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Helsingin Kaupunki"
+      "seriesId": "out:chk:Helsingin Kaupunki",
+      "date": "2027-01-08",
+      "cents": 27990,
+      "state": "known"
      },
      {
-      "date": "2027-01-12",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 10929,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:chk:Helen"
+      "seriesId": "out:chk:Helen",
+      "date": "2027-01-12",
+      "cents": 10929,
+      "state": "estimate"
      },
      {
-      "date": "2027-01-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Spotify"
+      "seriesId": "out:card:Spotify",
+      "date": "2027-01-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2027-01-14",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1599,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Netflix"
+      "seriesId": "out:card:Netflix",
+      "date": "2027-01-14",
+      "cents": 1599,
+      "state": "known"
      },
      {
-      "date": "2027-01-18",
       "payee": "Sanoma Media Finland",
       "category": "subscriptions",
-      "cents": 3290,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sanoma Media Finland"
+      "seriesId": "out:chk:Sanoma Media Finland",
+      "date": "2027-01-18",
+      "cents": 3290,
+      "state": "known"
      },
      {
-      "date": "2027-01-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 1990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Elisa"
+      "seriesId": "out:chk:Elisa",
+      "date": "2027-01-20",
+      "cents": 1990,
+      "state": "known"
      },
      {
       "payee": "Acme",
@@ -1070,82 +1073,83 @@
     ],
     "knownCents": 216538,
     "estimateCents": 10929,
+    "savingCents": 0,
     "incomeCents": 352000
    },
    {
     "month": "2027-02",
     "rows": [
      {
-      "date": "2027-02-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sato"
+      "seriesId": "out:chk:Sato",
+      "date": "2027-02-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2027-02-05",
       "payee": "Nordea Bank Abp",
       "category": "mortgage",
-      "cents": 61240,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Nordea Bank Abp"
+      "seriesId": "out:chk:Nordea Bank Abp",
+      "date": "2027-02-05",
+      "cents": 61240,
+      "state": "known"
      },
      {
-      "date": "2027-02-08",
       "payee": "Helsingin Kaupunki",
       "category": "kids",
-      "cents": 27990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Helsingin Kaupunki"
+      "seriesId": "out:chk:Helsingin Kaupunki",
+      "date": "2027-02-08",
+      "cents": 27990,
+      "state": "known"
      },
      {
-      "date": "2027-02-12",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 10994,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:chk:Helen"
+      "seriesId": "out:chk:Helen",
+      "date": "2027-02-12",
+      "cents": 10994,
+      "state": "estimate"
      },
      {
-      "date": "2027-02-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Spotify"
+      "seriesId": "out:card:Spotify",
+      "date": "2027-02-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2027-02-14",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1599,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Netflix"
+      "seriesId": "out:card:Netflix",
+      "date": "2027-02-14",
+      "cents": 1599,
+      "state": "known"
      },
      {
-      "date": "2027-02-18",
       "payee": "Sanoma Media Finland",
       "category": "subscriptions",
-      "cents": 3290,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sanoma Media Finland"
+      "seriesId": "out:chk:Sanoma Media Finland",
+      "date": "2027-02-18",
+      "cents": 3290,
+      "state": "known"
      },
      {
-      "date": "2027-02-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 1990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Elisa"
+      "seriesId": "out:chk:Elisa",
+      "date": "2027-02-20",
+      "cents": 1990,
+      "state": "known"
      },
      {
       "payee": "Acme",
@@ -1159,82 +1163,83 @@
     ],
     "knownCents": 202308,
     "estimateCents": 10994,
+    "savingCents": 0,
     "incomeCents": 352000
    },
    {
     "month": "2027-03",
     "rows": [
      {
-      "date": "2027-03-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sato"
+      "seriesId": "out:chk:Sato",
+      "date": "2027-03-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2027-03-05",
       "payee": "Nordea Bank Abp",
       "category": "mortgage",
-      "cents": 61240,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Nordea Bank Abp"
+      "seriesId": "out:chk:Nordea Bank Abp",
+      "date": "2027-03-05",
+      "cents": 61240,
+      "state": "known"
      },
      {
-      "date": "2027-03-08",
       "payee": "Helsingin Kaupunki",
       "category": "kids",
-      "cents": 27990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Helsingin Kaupunki"
+      "seriesId": "out:chk:Helsingin Kaupunki",
+      "date": "2027-03-08",
+      "cents": 27990,
+      "state": "known"
      },
      {
-      "date": "2027-03-12",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 12666,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:chk:Helen"
+      "seriesId": "out:chk:Helen",
+      "date": "2027-03-12",
+      "cents": 12666,
+      "state": "estimate"
      },
      {
-      "date": "2027-03-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Spotify"
+      "seriesId": "out:card:Spotify",
+      "date": "2027-03-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2027-03-14",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1599,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Netflix"
+      "seriesId": "out:card:Netflix",
+      "date": "2027-03-14",
+      "cents": 1599,
+      "state": "known"
      },
      {
-      "date": "2027-03-18",
       "payee": "Sanoma Media Finland",
       "category": "subscriptions",
-      "cents": 3290,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sanoma Media Finland"
+      "seriesId": "out:chk:Sanoma Media Finland",
+      "date": "2027-03-18",
+      "cents": 3290,
+      "state": "known"
      },
      {
-      "date": "2027-03-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 1990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Elisa"
+      "seriesId": "out:chk:Elisa",
+      "date": "2027-03-20",
+      "cents": 1990,
+      "state": "known"
      },
      {
       "payee": "Acme",
@@ -1248,180 +1253,182 @@
     ],
     "knownCents": 202308,
     "estimateCents": 12666,
+    "savingCents": 0,
     "incomeCents": 352000
    },
    {
     "month": "2027-04",
     "rows": [
      {
-      "date": "2027-04-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sato"
+      "seriesId": "out:chk:Sato",
+      "date": "2027-04-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2027-04-05",
       "payee": "Nordea Bank Abp",
       "category": "mortgage",
-      "cents": 61240,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Nordea Bank Abp"
+      "seriesId": "out:chk:Nordea Bank Abp",
+      "date": "2027-04-05",
+      "cents": 61240,
+      "state": "known"
      },
      {
-      "date": "2027-04-05",
       "payee": "If Vahinkovakuutus Oy",
       "category": "insurance",
-      "cents": 14230,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:If Vahinkovakuutus Oy"
+      "seriesId": "out:chk:If Vahinkovakuutus Oy",
+      "date": "2027-04-05",
+      "cents": 14230,
+      "state": "known"
      },
      {
-      "date": "2027-04-08",
       "payee": "Helsingin Kaupunki",
       "category": "kids",
-      "cents": 27990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Helsingin Kaupunki"
+      "seriesId": "out:chk:Helsingin Kaupunki",
+      "date": "2027-04-08",
+      "cents": 27990,
+      "state": "known"
      },
      {
-      "date": "2027-04-12",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 5147,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:chk:Helen"
+      "seriesId": "out:chk:Helen",
+      "date": "2027-04-12",
+      "cents": 5147,
+      "state": "estimate"
      },
      {
-      "date": "2027-04-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Spotify"
+      "seriesId": "out:card:Spotify",
+      "date": "2027-04-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2027-04-14",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1599,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Netflix"
+      "seriesId": "out:card:Netflix",
+      "date": "2027-04-14",
+      "cents": 1599,
+      "state": "known"
      },
      {
-      "date": "2027-04-18",
       "payee": "Sanoma Media Finland",
       "category": "subscriptions",
-      "cents": 3290,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sanoma Media Finland"
+      "seriesId": "out:chk:Sanoma Media Finland",
+      "date": "2027-04-18",
+      "cents": 3290,
+      "state": "known"
      },
      {
-      "date": "2027-04-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 1990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Elisa"
+      "seriesId": "out:chk:Elisa",
+      "date": "2027-04-20",
+      "cents": 1990,
+      "state": "known"
      },
      {
       "payee": "Acme",
       "category": "salary",
       "kind": "income",
       "seriesId": "in:chk:Acme#352000",
-      "date": "2027-04-25",
+      "date": "2027-04-23",
       "cents": 352000,
       "state": "estimate"
      }
     ],
     "knownCents": 216538,
     "estimateCents": 5147,
+    "savingCents": 0,
     "incomeCents": 352000
    },
    {
     "month": "2027-05",
     "rows": [
      {
-      "date": "2027-05-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sato"
+      "seriesId": "out:chk:Sato",
+      "date": "2027-05-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2027-05-05",
       "payee": "Nordea Bank Abp",
       "category": "mortgage",
-      "cents": 61240,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Nordea Bank Abp"
+      "seriesId": "out:chk:Nordea Bank Abp",
+      "date": "2027-05-05",
+      "cents": 61240,
+      "state": "known"
      },
      {
-      "date": "2027-05-08",
       "payee": "Helsingin Kaupunki",
       "category": "kids",
-      "cents": 27990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Helsingin Kaupunki"
+      "seriesId": "out:chk:Helsingin Kaupunki",
+      "date": "2027-05-08",
+      "cents": 27990,
+      "state": "known"
      },
      {
-      "date": "2027-05-12",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 4289,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:chk:Helen"
+      "seriesId": "out:chk:Helen",
+      "date": "2027-05-12",
+      "cents": 4289,
+      "state": "estimate"
      },
      {
-      "date": "2027-05-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Spotify"
+      "seriesId": "out:card:Spotify",
+      "date": "2027-05-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2027-05-14",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1599,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Netflix"
+      "seriesId": "out:card:Netflix",
+      "date": "2027-05-14",
+      "cents": 1599,
+      "state": "known"
      },
      {
-      "date": "2027-05-18",
       "payee": "Sanoma Media Finland",
       "category": "subscriptions",
-      "cents": 3290,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sanoma Media Finland"
+      "seriesId": "out:chk:Sanoma Media Finland",
+      "date": "2027-05-18",
+      "cents": 3290,
+      "state": "known"
      },
      {
-      "date": "2027-05-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 1990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Elisa"
+      "seriesId": "out:chk:Elisa",
+      "date": "2027-05-20",
+      "cents": 1990,
+      "state": "known"
      },
      {
       "payee": "Acme",
@@ -1435,269 +1442,272 @@
     ],
     "knownCents": 202308,
     "estimateCents": 4289,
+    "savingCents": 0,
     "incomeCents": 352000
    },
    {
     "month": "2027-06",
     "rows": [
      {
-      "date": "2027-06-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sato"
+      "seriesId": "out:chk:Sato",
+      "date": "2027-06-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2027-06-05",
       "payee": "Nordea Bank Abp",
       "category": "mortgage",
-      "cents": 61240,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Nordea Bank Abp"
+      "seriesId": "out:chk:Nordea Bank Abp",
+      "date": "2027-06-05",
+      "cents": 61240,
+      "state": "known"
      },
      {
-      "date": "2027-06-08",
       "payee": "Helsingin Kaupunki",
       "category": "kids",
-      "cents": 27990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Helsingin Kaupunki"
+      "seriesId": "out:chk:Helsingin Kaupunki",
+      "date": "2027-06-08",
+      "cents": 27990,
+      "state": "known"
      },
      {
-      "date": "2027-06-12",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 4487,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:chk:Helen"
+      "seriesId": "out:chk:Helen",
+      "date": "2027-06-12",
+      "cents": 4487,
+      "state": "estimate"
      },
      {
-      "date": "2027-06-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Spotify"
+      "seriesId": "out:card:Spotify",
+      "date": "2027-06-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2027-06-14",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1599,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Netflix"
+      "seriesId": "out:card:Netflix",
+      "date": "2027-06-14",
+      "cents": 1599,
+      "state": "known"
      },
      {
-      "date": "2027-06-18",
       "payee": "Sanoma Media Finland",
       "category": "subscriptions",
-      "cents": 3290,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sanoma Media Finland"
+      "seriesId": "out:chk:Sanoma Media Finland",
+      "date": "2027-06-18",
+      "cents": 3290,
+      "state": "known"
      },
      {
-      "date": "2027-06-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 1990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Elisa"
+      "seriesId": "out:chk:Elisa",
+      "date": "2027-06-20",
+      "cents": 1990,
+      "state": "known"
      },
      {
       "payee": "Acme",
       "category": "salary",
       "kind": "income",
       "seriesId": "in:chk:Acme#352000",
-      "date": "2027-06-25",
+      "date": "2027-06-24",
       "cents": 352000,
       "state": "estimate"
      }
     ],
     "knownCents": 202308,
     "estimateCents": 4487,
+    "savingCents": 0,
     "incomeCents": 352000
    },
    {
     "month": "2027-07",
     "rows": [
      {
-      "date": "2027-07-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sato"
+      "seriesId": "out:chk:Sato",
+      "date": "2027-07-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2027-07-05",
       "payee": "Nordea Bank Abp",
       "category": "mortgage",
-      "cents": 61240,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Nordea Bank Abp"
+      "seriesId": "out:chk:Nordea Bank Abp",
+      "date": "2027-07-05",
+      "cents": 61240,
+      "state": "known"
      },
      {
-      "date": "2027-07-05",
       "payee": "If Vahinkovakuutus Oy",
       "category": "insurance",
-      "cents": 14230,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:If Vahinkovakuutus Oy"
+      "seriesId": "out:chk:If Vahinkovakuutus Oy",
+      "date": "2027-07-05",
+      "cents": 14230,
+      "state": "known"
      },
      {
-      "date": "2027-07-08",
       "payee": "Helsingin Kaupunki",
       "category": "kids",
-      "cents": 27990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Helsingin Kaupunki"
+      "seriesId": "out:chk:Helsingin Kaupunki",
+      "date": "2027-07-08",
+      "cents": 27990,
+      "state": "known"
      },
      {
-      "date": "2027-07-12",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 4861,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:chk:Helen"
+      "seriesId": "out:chk:Helen",
+      "date": "2027-07-12",
+      "cents": 4861,
+      "state": "estimate"
      },
      {
-      "date": "2027-07-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Spotify"
+      "seriesId": "out:card:Spotify",
+      "date": "2027-07-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2027-07-14",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1599,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Netflix"
+      "seriesId": "out:card:Netflix",
+      "date": "2027-07-14",
+      "cents": 1599,
+      "state": "known"
      },
      {
-      "date": "2027-07-18",
       "payee": "Sanoma Media Finland",
       "category": "subscriptions",
-      "cents": 3290,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sanoma Media Finland"
+      "seriesId": "out:chk:Sanoma Media Finland",
+      "date": "2027-07-18",
+      "cents": 3290,
+      "state": "known"
      },
      {
-      "date": "2027-07-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 1990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Elisa"
+      "seriesId": "out:chk:Elisa",
+      "date": "2027-07-20",
+      "cents": 1990,
+      "state": "known"
      },
      {
       "payee": "Acme",
       "category": "salary",
       "kind": "income",
       "seriesId": "in:chk:Acme#352000",
-      "date": "2027-07-25",
+      "date": "2027-07-23",
       "cents": 352000,
       "state": "estimate"
      }
     ],
     "knownCents": 216538,
     "estimateCents": 4861,
+    "savingCents": 0,
     "incomeCents": 352000
    },
    {
     "month": "2027-08",
     "rows": [
      {
-      "date": "2027-08-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sato"
+      "seriesId": "out:chk:Sato",
+      "date": "2027-08-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2027-08-05",
       "payee": "Nordea Bank Abp",
       "category": "mortgage",
-      "cents": 61240,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Nordea Bank Abp"
+      "seriesId": "out:chk:Nordea Bank Abp",
+      "date": "2027-08-05",
+      "cents": 61240,
+      "state": "known"
      },
      {
-      "date": "2027-08-08",
       "payee": "Helsingin Kaupunki",
       "category": "kids",
-      "cents": 27990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Helsingin Kaupunki"
+      "seriesId": "out:chk:Helsingin Kaupunki",
+      "date": "2027-08-08",
+      "cents": 27990,
+      "state": "known"
      },
      {
-      "date": "2027-08-12",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 4042,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:chk:Helen"
+      "seriesId": "out:chk:Helen",
+      "date": "2027-08-12",
+      "cents": 4042,
+      "state": "estimate"
      },
      {
-      "date": "2027-08-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Spotify"
+      "seriesId": "out:card:Spotify",
+      "date": "2027-08-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2027-08-14",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1599,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Netflix"
+      "seriesId": "out:card:Netflix",
+      "date": "2027-08-14",
+      "cents": 1599,
+      "state": "known"
      },
      {
-      "date": "2027-08-18",
       "payee": "Sanoma Media Finland",
       "category": "subscriptions",
-      "cents": 3290,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sanoma Media Finland"
+      "seriesId": "out:chk:Sanoma Media Finland",
+      "date": "2027-08-18",
+      "cents": 3290,
+      "state": "known"
      },
      {
-      "date": "2027-08-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 1990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Elisa"
+      "seriesId": "out:chk:Elisa",
+      "date": "2027-08-20",
+      "cents": 1990,
+      "state": "known"
      },
      {
       "payee": "Acme",
@@ -1711,95 +1721,97 @@
     ],
     "knownCents": 202308,
     "estimateCents": 4042,
+    "savingCents": 0,
     "incomeCents": 352000
    },
    {
     "month": "2027-09",
     "rows": [
      {
-      "date": "2027-09-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sato"
+      "seriesId": "out:chk:Sato",
+      "date": "2027-09-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2027-09-05",
       "payee": "Nordea Bank Abp",
       "category": "mortgage",
-      "cents": 61240,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Nordea Bank Abp"
+      "seriesId": "out:chk:Nordea Bank Abp",
+      "date": "2027-09-05",
+      "cents": 61240,
+      "state": "known"
      },
      {
-      "date": "2027-09-08",
       "payee": "Helsingin Kaupunki",
       "category": "kids",
-      "cents": 27990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Helsingin Kaupunki"
+      "seriesId": "out:chk:Helsingin Kaupunki",
+      "date": "2027-09-08",
+      "cents": 27990,
+      "state": "known"
      },
      {
-      "date": "2027-09-12",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 4078,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:chk:Helen"
+      "seriesId": "out:chk:Helen",
+      "date": "2027-09-12",
+      "cents": 4078,
+      "state": "estimate"
      },
      {
-      "date": "2027-09-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Spotify"
+      "seriesId": "out:card:Spotify",
+      "date": "2027-09-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2027-09-14",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1599,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:card:Netflix"
+      "seriesId": "out:card:Netflix",
+      "date": "2027-09-14",
+      "cents": 1599,
+      "state": "known"
      },
      {
-      "date": "2027-09-18",
       "payee": "Sanoma Media Finland",
       "category": "subscriptions",
-      "cents": 3290,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Sanoma Media Finland"
+      "seriesId": "out:chk:Sanoma Media Finland",
+      "date": "2027-09-18",
+      "cents": 3290,
+      "state": "known"
      },
      {
-      "date": "2027-09-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 1990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:chk:Elisa"
+      "seriesId": "out:chk:Elisa",
+      "date": "2027-09-20",
+      "cents": 1990,
+      "state": "known"
      },
      {
       "payee": "Acme",
       "category": "salary",
       "kind": "income",
       "seriesId": "in:chk:Acme#352000",
-      "date": "2027-09-25",
+      "date": "2027-09-24",
       "cents": 352000,
       "state": "estimate"
      }
     ],
     "knownCents": 202308,
     "estimateCents": 4078,
+    "savingCents": 0,
     "incomeCents": 352000
    }
   ],

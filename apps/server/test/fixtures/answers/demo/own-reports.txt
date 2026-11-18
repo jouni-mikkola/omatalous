@@ -734,137 +734,137 @@
      {
       "payee": "HSL",
       "category": "transport",
-      "state": "paid",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "state": "paid",
       "date": "2026-10-01",
       "cents": 6470
      },
      {
       "payee": "Elixia",
       "category": "fitness",
-      "state": "paid",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "state": "paid",
       "date": "2026-10-01",
       "cents": 5900
      },
      {
       "payee": "Sato",
       "category": "housing",
-      "state": "paid",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "state": "paid",
       "date": "2026-10-02",
       "cents": 105000
      },
      {
       "payee": "Apple",
       "category": "subscriptions",
-      "state": "paid",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "state": "paid",
       "date": "2026-10-03",
       "cents": 99
      },
      {
       "payee": "Nordea Rahoitus Suomi Oy",
       "category": "loans",
-      "state": "paid",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "state": "paid",
       "date": "2026-10-05",
       "cents": 28900
      },
      {
       "payee": "If Vahinkovakuutus Oy",
       "category": "insurance",
-      "state": "paid",
       "kind": "bill",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:If Vahinkovakuutus Oy",
+      "state": "paid",
       "date": "2026-10-05",
       "cents": 14230
      },
      {
       "payee": "OpenAI",
       "category": "subscriptions",
-      "state": "paid",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "state": "paid",
       "date": "2026-10-05",
       "cents": 2300
      },
      {
       "payee": "Nordnet Bank Ab",
       "category": "investments",
-      "state": "paid",
-      "kind": "bill",
+      "kind": "saving",
       "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "state": "paid",
       "date": "2026-10-06",
       "cents": 15000
      },
      {
       "payee": "Netflix",
       "category": "subscriptions",
-      "state": "paid",
       "kind": "bill",
       "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "state": "paid",
       "date": "2026-10-07",
       "cents": 1799
      },
      {
-      "date": "2026-10-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "date": "2026-10-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2026-10-14",
       "payee": "Adobe",
       "category": "subscriptions",
-      "cents": 7499,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "date": "2026-10-14",
+      "cents": 7499,
+      "state": "known"
      },
      {
-      "date": "2026-10-15",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 4621,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "date": "2026-10-15",
+      "cents": 4621,
+      "state": "estimate"
      },
      {
-      "date": "2026-10-18",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 1299,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "date": "2026-10-18",
+      "cents": 1299,
+      "state": "known"
      },
      {
-      "date": "2026-10-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 2990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "date": "2026-10-20",
+      "cents": 2990,
+      "state": "known"
      },
      {
-      "date": "2026-10-20",
       "payee": "Max",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "date": "2026-10-20",
+      "cents": 1199,
+      "state": "known"
      },
      {
       "payee": "Acme",
@@ -878,136 +878,137 @@
     ],
     "knownCents": 14186,
     "estimateCents": 4621,
+    "savingCents": 0,
     "incomeCents": 395000
    },
    {
     "month": "2026-11",
     "rows": [
      {
-      "date": "2026-11-01",
       "payee": "HSL",
       "category": "transport",
-      "cents": 6470,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "date": "2026-11-01",
+      "cents": 6470,
+      "state": "known"
      },
      {
-      "date": "2026-11-01",
       "payee": "Elixia",
       "category": "fitness",
-      "cents": 5900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "date": "2026-11-01",
+      "cents": 5900,
+      "state": "known"
      },
      {
-      "date": "2026-11-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "date": "2026-11-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2026-11-03",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 99,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "date": "2026-11-03",
+      "cents": 99,
+      "state": "known"
      },
      {
-      "date": "2026-11-05",
       "payee": "Nordea Rahoitus Suomi Oy",
       "category": "loans",
-      "cents": 28900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "date": "2026-11-05",
+      "cents": 28900,
+      "state": "known"
      },
      {
-      "date": "2026-11-05",
       "payee": "OpenAI",
       "category": "subscriptions",
-      "cents": 2300,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "date": "2026-11-05",
+      "cents": 2300,
+      "state": "known"
      },
      {
-      "date": "2026-11-06",
       "payee": "Nordnet Bank Ab",
       "category": "investments",
+      "kind": "saving",
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "date": "2026-11-06",
       "cents": 15000,
-      "state": "known",
-      "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab"
+      "state": "known"
      },
      {
-      "date": "2026-11-07",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1799,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "date": "2026-11-07",
+      "cents": 1799,
+      "state": "known"
      },
      {
-      "date": "2026-11-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "date": "2026-11-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2026-11-14",
       "payee": "Adobe",
       "category": "subscriptions",
-      "cents": 7499,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "date": "2026-11-14",
+      "cents": 7499,
+      "state": "known"
      },
      {
-      "date": "2026-11-15",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 7158,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "date": "2026-11-15",
+      "cents": 7158,
+      "state": "estimate"
      },
      {
-      "date": "2026-11-18",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 1299,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "date": "2026-11-18",
+      "cents": 1299,
+      "state": "known"
      },
      {
-      "date": "2026-11-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 2990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "date": "2026-11-20",
+      "cents": 2990,
+      "state": "known"
      },
      {
-      "date": "2026-11-20",
       "payee": "Max",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "date": "2026-11-20",
+      "cents": 1199,
+      "state": "known"
      },
      {
       "payee": "Acme",
@@ -1019,138 +1020,139 @@
       "state": "known"
      }
     ],
-    "knownCents": 179654,
+    "knownCents": 164654,
     "estimateCents": 7158,
+    "savingCents": 15000,
     "incomeCents": 395000
    },
    {
     "month": "2026-12",
     "rows": [
      {
-      "date": "2026-12-01",
       "payee": "HSL",
       "category": "transport",
-      "cents": 6470,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "date": "2026-12-01",
+      "cents": 6470,
+      "state": "known"
      },
      {
-      "date": "2026-12-01",
       "payee": "Elixia",
       "category": "fitness",
-      "cents": 5900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "date": "2026-12-01",
+      "cents": 5900,
+      "state": "known"
      },
      {
-      "date": "2026-12-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "date": "2026-12-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2026-12-03",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 99,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "date": "2026-12-03",
+      "cents": 99,
+      "state": "known"
      },
      {
-      "date": "2026-12-05",
       "payee": "Nordea Rahoitus Suomi Oy",
       "category": "loans",
-      "cents": 28900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "date": "2026-12-05",
+      "cents": 28900,
+      "state": "known"
      },
      {
-      "date": "2026-12-05",
       "payee": "OpenAI",
       "category": "subscriptions",
-      "cents": 2300,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "date": "2026-12-05",
+      "cents": 2300,
+      "state": "known"
      },
      {
-      "date": "2026-12-06",
       "payee": "Nordnet Bank Ab",
       "category": "investments",
+      "kind": "saving",
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "date": "2026-12-06",
       "cents": 15000,
-      "state": "known",
-      "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab"
+      "state": "known"
      },
      {
-      "date": "2026-12-07",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1799,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "date": "2026-12-07",
+      "cents": 1799,
+      "state": "known"
      },
      {
-      "date": "2026-12-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "date": "2026-12-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2026-12-14",
       "payee": "Adobe",
       "category": "subscriptions",
-      "cents": 7499,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "date": "2026-12-14",
+      "cents": 7499,
+      "state": "known"
      },
      {
-      "date": "2026-12-15",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 7743,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "date": "2026-12-15",
+      "cents": 7743,
+      "state": "estimate"
      },
      {
-      "date": "2026-12-18",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 1299,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "date": "2026-12-18",
+      "cents": 1299,
+      "state": "known"
      },
      {
-      "date": "2026-12-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 2990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "date": "2026-12-20",
+      "cents": 2990,
+      "state": "known"
      },
      {
-      "date": "2026-12-20",
       "payee": "Max",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "date": "2026-12-20",
+      "cents": 1199,
+      "state": "known"
      },
      {
       "payee": "Acme",
@@ -1162,147 +1164,148 @@
       "state": "known"
      }
     ],
-    "knownCents": 179654,
+    "knownCents": 164654,
     "estimateCents": 7743,
+    "savingCents": 15000,
     "incomeCents": 395000
    },
    {
     "month": "2027-01",
     "rows": [
      {
-      "date": "2027-01-01",
       "payee": "HSL",
       "category": "transport",
-      "cents": 6470,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "date": "2027-01-01",
+      "cents": 6470,
+      "state": "known"
      },
      {
-      "date": "2027-01-01",
       "payee": "Elixia",
       "category": "fitness",
-      "cents": 5900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "date": "2027-01-01",
+      "cents": 5900,
+      "state": "known"
      },
      {
-      "date": "2027-01-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "date": "2027-01-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2027-01-03",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 99,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "date": "2027-01-03",
+      "cents": 99,
+      "state": "known"
      },
      {
-      "date": "2027-01-05",
       "payee": "Nordea Rahoitus Suomi Oy",
       "category": "loans",
-      "cents": 28900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "date": "2027-01-05",
+      "cents": 28900,
+      "state": "known"
      },
      {
-      "date": "2027-01-05",
       "payee": "If Vahinkovakuutus Oy",
       "category": "insurance",
-      "cents": 14230,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:If Vahinkovakuutus Oy"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:If Vahinkovakuutus Oy",
+      "date": "2027-01-05",
+      "cents": 14230,
+      "state": "known"
      },
      {
-      "date": "2027-01-05",
       "payee": "OpenAI",
       "category": "subscriptions",
-      "cents": 2300,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "date": "2027-01-05",
+      "cents": 2300,
+      "state": "known"
      },
      {
-      "date": "2027-01-06",
       "payee": "Nordnet Bank Ab",
       "category": "investments",
+      "kind": "saving",
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "date": "2027-01-06",
       "cents": 15000,
-      "state": "known",
-      "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab"
+      "state": "known"
      },
      {
-      "date": "2027-01-07",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1799,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "date": "2027-01-07",
+      "cents": 1799,
+      "state": "known"
      },
      {
-      "date": "2027-01-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "date": "2027-01-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2027-01-14",
       "payee": "Adobe",
       "category": "subscriptions",
-      "cents": 7499,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "date": "2027-01-14",
+      "cents": 7499,
+      "state": "known"
      },
      {
-      "date": "2027-01-15",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 7535,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "date": "2027-01-15",
+      "cents": 7535,
+      "state": "estimate"
      },
      {
-      "date": "2027-01-18",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 1299,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "date": "2027-01-18",
+      "cents": 1299,
+      "state": "known"
      },
      {
-      "date": "2027-01-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 2990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "date": "2027-01-20",
+      "cents": 2990,
+      "state": "known"
      },
      {
-      "date": "2027-01-20",
       "payee": "Max",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "date": "2027-01-20",
+      "cents": 1199,
+      "state": "known"
      },
      {
       "payee": "Acme",
@@ -1314,138 +1317,139 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 193884,
+    "knownCents": 178884,
     "estimateCents": 7535,
+    "savingCents": 15000,
     "incomeCents": 395000
    },
    {
     "month": "2027-02",
     "rows": [
      {
-      "date": "2027-02-01",
       "payee": "HSL",
       "category": "transport",
-      "cents": 6470,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "date": "2027-02-01",
+      "cents": 6470,
+      "state": "known"
      },
      {
-      "date": "2027-02-01",
       "payee": "Elixia",
       "category": "fitness",
-      "cents": 5900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "date": "2027-02-01",
+      "cents": 5900,
+      "state": "known"
      },
      {
-      "date": "2027-02-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "date": "2027-02-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2027-02-03",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 99,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "date": "2027-02-03",
+      "cents": 99,
+      "state": "known"
      },
      {
-      "date": "2027-02-05",
       "payee": "Nordea Rahoitus Suomi Oy",
       "category": "loans",
-      "cents": 28900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "date": "2027-02-05",
+      "cents": 28900,
+      "state": "known"
      },
      {
-      "date": "2027-02-05",
       "payee": "OpenAI",
       "category": "subscriptions",
-      "cents": 2300,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "date": "2027-02-05",
+      "cents": 2300,
+      "state": "known"
      },
      {
-      "date": "2027-02-06",
       "payee": "Nordnet Bank Ab",
       "category": "investments",
+      "kind": "saving",
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "date": "2027-02-06",
       "cents": 15000,
-      "state": "known",
-      "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab"
+      "state": "known"
      },
      {
-      "date": "2027-02-07",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1799,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "date": "2027-02-07",
+      "cents": 1799,
+      "state": "known"
      },
      {
-      "date": "2027-02-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "date": "2027-02-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2027-02-14",
       "payee": "Adobe",
       "category": "subscriptions",
-      "cents": 7499,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "date": "2027-02-14",
+      "cents": 7499,
+      "state": "known"
      },
      {
-      "date": "2027-02-15",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 7237,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "date": "2027-02-15",
+      "cents": 7237,
+      "state": "estimate"
      },
      {
-      "date": "2027-02-18",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 1299,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "date": "2027-02-18",
+      "cents": 1299,
+      "state": "known"
      },
      {
-      "date": "2027-02-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 2990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "date": "2027-02-20",
+      "cents": 2990,
+      "state": "known"
      },
      {
-      "date": "2027-02-20",
       "payee": "Max",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "date": "2027-02-20",
+      "cents": 1199,
+      "state": "known"
      },
      {
       "payee": "Acme",
@@ -1457,138 +1461,139 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 179654,
+    "knownCents": 164654,
     "estimateCents": 7237,
+    "savingCents": 15000,
     "incomeCents": 395000
    },
    {
     "month": "2027-03",
     "rows": [
      {
-      "date": "2027-03-01",
       "payee": "HSL",
       "category": "transport",
-      "cents": 6470,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "date": "2027-03-01",
+      "cents": 6470,
+      "state": "known"
      },
      {
-      "date": "2027-03-01",
       "payee": "Elixia",
       "category": "fitness",
-      "cents": 5900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "date": "2027-03-01",
+      "cents": 5900,
+      "state": "known"
      },
      {
-      "date": "2027-03-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "date": "2027-03-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2027-03-03",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 99,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "date": "2027-03-03",
+      "cents": 99,
+      "state": "known"
      },
      {
-      "date": "2027-03-05",
       "payee": "Nordea Rahoitus Suomi Oy",
       "category": "loans",
-      "cents": 28900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "date": "2027-03-05",
+      "cents": 28900,
+      "state": "known"
      },
      {
-      "date": "2027-03-05",
       "payee": "OpenAI",
       "category": "subscriptions",
-      "cents": 2300,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "date": "2027-03-05",
+      "cents": 2300,
+      "state": "known"
      },
      {
-      "date": "2027-03-06",
       "payee": "Nordnet Bank Ab",
       "category": "investments",
+      "kind": "saving",
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "date": "2027-03-06",
       "cents": 15000,
-      "state": "known",
-      "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab"
+      "state": "known"
      },
      {
-      "date": "2027-03-07",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1799,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "date": "2027-03-07",
+      "cents": 1799,
+      "state": "known"
      },
      {
-      "date": "2027-03-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "date": "2027-03-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2027-03-14",
       "payee": "Adobe",
       "category": "subscriptions",
-      "cents": 7499,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "date": "2027-03-14",
+      "cents": 7499,
+      "state": "known"
      },
      {
-      "date": "2027-03-15",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 7207,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "date": "2027-03-15",
+      "cents": 7207,
+      "state": "estimate"
      },
      {
-      "date": "2027-03-18",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 1299,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "date": "2027-03-18",
+      "cents": 1299,
+      "state": "known"
      },
      {
-      "date": "2027-03-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 2990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "date": "2027-03-20",
+      "cents": 2990,
+      "state": "known"
      },
      {
-      "date": "2027-03-20",
       "payee": "Max",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "date": "2027-03-20",
+      "cents": 1199,
+      "state": "known"
      },
      {
       "payee": "Acme",
@@ -1600,290 +1605,292 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 179654,
+    "knownCents": 164654,
     "estimateCents": 7207,
+    "savingCents": 15000,
     "incomeCents": 395000
    },
    {
     "month": "2027-04",
     "rows": [
      {
-      "date": "2027-04-01",
       "payee": "HSL",
       "category": "transport",
-      "cents": 6470,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "date": "2027-04-01",
+      "cents": 6470,
+      "state": "known"
      },
      {
-      "date": "2027-04-01",
       "payee": "Elixia",
       "category": "fitness",
-      "cents": 5900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "date": "2027-04-01",
+      "cents": 5900,
+      "state": "known"
      },
      {
-      "date": "2027-04-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "date": "2027-04-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2027-04-03",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 99,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "date": "2027-04-03",
+      "cents": 99,
+      "state": "known"
      },
      {
-      "date": "2027-04-05",
       "payee": "Nordea Rahoitus Suomi Oy",
       "category": "loans",
-      "cents": 28900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "date": "2027-04-05",
+      "cents": 28900,
+      "state": "known"
      },
      {
-      "date": "2027-04-05",
       "payee": "If Vahinkovakuutus Oy",
       "category": "insurance",
-      "cents": 14230,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:If Vahinkovakuutus Oy"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:If Vahinkovakuutus Oy",
+      "date": "2027-04-05",
+      "cents": 14230,
+      "state": "known"
      },
      {
-      "date": "2027-04-05",
       "payee": "OpenAI",
       "category": "subscriptions",
-      "cents": 2300,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "date": "2027-04-05",
+      "cents": 2300,
+      "state": "known"
      },
      {
-      "date": "2027-04-06",
       "payee": "Nordnet Bank Ab",
       "category": "investments",
+      "kind": "saving",
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "date": "2027-04-06",
       "cents": 15000,
-      "state": "known",
-      "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab"
+      "state": "known"
      },
      {
-      "date": "2027-04-07",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1799,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "date": "2027-04-07",
+      "cents": 1799,
+      "state": "known"
      },
      {
-      "date": "2027-04-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "date": "2027-04-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2027-04-14",
       "payee": "Adobe",
       "category": "subscriptions",
-      "cents": 7499,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "date": "2027-04-14",
+      "cents": 7499,
+      "state": "known"
      },
      {
-      "date": "2027-04-15",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 3980,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "date": "2027-04-15",
+      "cents": 3980,
+      "state": "estimate"
      },
      {
-      "date": "2027-04-18",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 1299,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "date": "2027-04-18",
+      "cents": 1299,
+      "state": "known"
      },
      {
-      "date": "2027-04-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 2990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "date": "2027-04-20",
+      "cents": 2990,
+      "state": "known"
      },
      {
-      "date": "2027-04-20",
       "payee": "Max",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "date": "2027-04-20",
+      "cents": 1199,
+      "state": "known"
      },
      {
       "payee": "Acme",
       "category": "salary",
       "kind": "income",
       "seriesId": "in:demo-f48a367fb4660d6ca0aa621d:Acme",
-      "date": "2027-04-25",
+      "date": "2027-04-23",
       "cents": 395000,
       "state": "estimate"
      }
     ],
-    "knownCents": 193884,
+    "knownCents": 178884,
     "estimateCents": 3980,
+    "savingCents": 15000,
     "incomeCents": 395000
    },
    {
     "month": "2027-05",
     "rows": [
      {
-      "date": "2027-05-01",
       "payee": "HSL",
       "category": "transport",
-      "cents": 6470,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "date": "2027-05-01",
+      "cents": 6470,
+      "state": "known"
      },
      {
-      "date": "2027-05-01",
       "payee": "Elixia",
       "category": "fitness",
-      "cents": 5900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "date": "2027-05-01",
+      "cents": 5900,
+      "state": "known"
      },
      {
-      "date": "2027-05-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "date": "2027-05-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2027-05-03",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 99,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "date": "2027-05-03",
+      "cents": 99,
+      "state": "known"
      },
      {
-      "date": "2027-05-05",
       "payee": "Nordea Rahoitus Suomi Oy",
       "category": "loans",
-      "cents": 28900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "date": "2027-05-05",
+      "cents": 28900,
+      "state": "known"
      },
      {
-      "date": "2027-05-05",
       "payee": "OpenAI",
       "category": "subscriptions",
-      "cents": 2300,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "date": "2027-05-05",
+      "cents": 2300,
+      "state": "known"
      },
      {
-      "date": "2027-05-06",
       "payee": "Nordnet Bank Ab",
       "category": "investments",
+      "kind": "saving",
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "date": "2027-05-06",
       "cents": 15000,
-      "state": "known",
-      "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab"
+      "state": "known"
      },
      {
-      "date": "2027-05-07",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1799,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "date": "2027-05-07",
+      "cents": 1799,
+      "state": "known"
      },
      {
-      "date": "2027-05-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "date": "2027-05-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2027-05-14",
       "payee": "Adobe",
       "category": "subscriptions",
-      "cents": 7499,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "date": "2027-05-14",
+      "cents": 7499,
+      "state": "known"
      },
      {
-      "date": "2027-05-15",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 4722,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "date": "2027-05-15",
+      "cents": 4722,
+      "state": "estimate"
      },
      {
-      "date": "2027-05-18",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 1299,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "date": "2027-05-18",
+      "cents": 1299,
+      "state": "known"
      },
      {
-      "date": "2027-05-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 2990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "date": "2027-05-20",
+      "cents": 2990,
+      "state": "known"
      },
      {
-      "date": "2027-05-20",
       "payee": "Max",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "date": "2027-05-20",
+      "cents": 1199,
+      "state": "known"
      },
      {
       "payee": "Acme",
@@ -1895,433 +1902,436 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 179654,
+    "knownCents": 164654,
     "estimateCents": 4722,
+    "savingCents": 15000,
     "incomeCents": 395000
    },
    {
     "month": "2027-06",
     "rows": [
      {
-      "date": "2027-06-01",
       "payee": "HSL",
       "category": "transport",
-      "cents": 6470,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "date": "2027-06-01",
+      "cents": 6470,
+      "state": "known"
      },
      {
-      "date": "2027-06-01",
       "payee": "Elixia",
       "category": "fitness",
-      "cents": 5900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "date": "2027-06-01",
+      "cents": 5900,
+      "state": "known"
      },
      {
-      "date": "2027-06-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "date": "2027-06-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2027-06-03",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 99,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "date": "2027-06-03",
+      "cents": 99,
+      "state": "known"
      },
      {
-      "date": "2027-06-05",
       "payee": "Nordea Rahoitus Suomi Oy",
       "category": "loans",
-      "cents": 28900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "date": "2027-06-05",
+      "cents": 28900,
+      "state": "known"
      },
      {
-      "date": "2027-06-05",
       "payee": "OpenAI",
       "category": "subscriptions",
-      "cents": 2300,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "date": "2027-06-05",
+      "cents": 2300,
+      "state": "known"
      },
      {
-      "date": "2027-06-06",
       "payee": "Nordnet Bank Ab",
       "category": "investments",
+      "kind": "saving",
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "date": "2027-06-06",
       "cents": 15000,
-      "state": "known",
-      "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab"
+      "state": "known"
      },
      {
-      "date": "2027-06-07",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1799,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "date": "2027-06-07",
+      "cents": 1799,
+      "state": "known"
      },
      {
-      "date": "2027-06-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "date": "2027-06-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2027-06-14",
       "payee": "Adobe",
       "category": "subscriptions",
-      "cents": 7499,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "date": "2027-06-14",
+      "cents": 7499,
+      "state": "known"
      },
      {
-      "date": "2027-06-15",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 3465,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "date": "2027-06-15",
+      "cents": 3465,
+      "state": "estimate"
      },
      {
-      "date": "2027-06-18",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 1299,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "date": "2027-06-18",
+      "cents": 1299,
+      "state": "known"
      },
      {
-      "date": "2027-06-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 2990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "date": "2027-06-20",
+      "cents": 2990,
+      "state": "known"
      },
      {
-      "date": "2027-06-20",
       "payee": "Max",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "date": "2027-06-20",
+      "cents": 1199,
+      "state": "known"
      },
      {
       "payee": "Acme",
       "category": "salary",
       "kind": "income",
       "seriesId": "in:demo-f48a367fb4660d6ca0aa621d:Acme",
-      "date": "2027-06-25",
+      "date": "2027-06-24",
       "cents": 395000,
       "state": "estimate"
      }
     ],
-    "knownCents": 179654,
+    "knownCents": 164654,
     "estimateCents": 3465,
+    "savingCents": 15000,
     "incomeCents": 395000
    },
    {
     "month": "2027-07",
     "rows": [
      {
-      "date": "2027-07-01",
       "payee": "HSL",
       "category": "transport",
-      "cents": 6470,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "date": "2027-07-01",
+      "cents": 6470,
+      "state": "known"
      },
      {
-      "date": "2027-07-01",
       "payee": "Elixia",
       "category": "fitness",
-      "cents": 5900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "date": "2027-07-01",
+      "cents": 5900,
+      "state": "known"
      },
      {
-      "date": "2027-07-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "date": "2027-07-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2027-07-03",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 99,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "date": "2027-07-03",
+      "cents": 99,
+      "state": "known"
      },
      {
-      "date": "2027-07-05",
       "payee": "Nordea Rahoitus Suomi Oy",
       "category": "loans",
-      "cents": 28900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "date": "2027-07-05",
+      "cents": 28900,
+      "state": "known"
      },
      {
-      "date": "2027-07-05",
       "payee": "If Vahinkovakuutus Oy",
       "category": "insurance",
-      "cents": 14230,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:If Vahinkovakuutus Oy"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:If Vahinkovakuutus Oy",
+      "date": "2027-07-05",
+      "cents": 14230,
+      "state": "known"
      },
      {
-      "date": "2027-07-05",
       "payee": "OpenAI",
       "category": "subscriptions",
-      "cents": 2300,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "date": "2027-07-05",
+      "cents": 2300,
+      "state": "known"
      },
      {
-      "date": "2027-07-06",
       "payee": "Nordnet Bank Ab",
       "category": "investments",
+      "kind": "saving",
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "date": "2027-07-06",
       "cents": 15000,
-      "state": "known",
-      "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab"
+      "state": "known"
      },
      {
-      "date": "2027-07-07",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1799,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "date": "2027-07-07",
+      "cents": 1799,
+      "state": "known"
      },
      {
-      "date": "2027-07-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "date": "2027-07-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2027-07-14",
       "payee": "Adobe",
       "category": "subscriptions",
-      "cents": 7499,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "date": "2027-07-14",
+      "cents": 7499,
+      "state": "known"
      },
      {
-      "date": "2027-07-15",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 4621,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "date": "2027-07-15",
+      "cents": 4621,
+      "state": "estimate"
      },
      {
-      "date": "2027-07-18",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 1299,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "date": "2027-07-18",
+      "cents": 1299,
+      "state": "known"
      },
      {
-      "date": "2027-07-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 2990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "date": "2027-07-20",
+      "cents": 2990,
+      "state": "known"
      },
      {
-      "date": "2027-07-20",
       "payee": "Max",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "date": "2027-07-20",
+      "cents": 1199,
+      "state": "known"
      },
      {
       "payee": "Acme",
       "category": "salary",
       "kind": "income",
       "seriesId": "in:demo-f48a367fb4660d6ca0aa621d:Acme",
-      "date": "2027-07-25",
+      "date": "2027-07-23",
       "cents": 395000,
       "state": "estimate"
      }
     ],
-    "knownCents": 193884,
+    "knownCents": 178884,
     "estimateCents": 4621,
+    "savingCents": 15000,
     "incomeCents": 395000
    },
    {
     "month": "2027-08",
     "rows": [
      {
-      "date": "2027-08-01",
       "payee": "HSL",
       "category": "transport",
-      "cents": 6470,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "date": "2027-08-01",
+      "cents": 6470,
+      "state": "known"
      },
      {
-      "date": "2027-08-01",
       "payee": "Elixia",
       "category": "fitness",
-      "cents": 5900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "date": "2027-08-01",
+      "cents": 5900,
+      "state": "known"
      },
      {
-      "date": "2027-08-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "date": "2027-08-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2027-08-03",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 99,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "date": "2027-08-03",
+      "cents": 99,
+      "state": "known"
      },
      {
-      "date": "2027-08-05",
       "payee": "Nordea Rahoitus Suomi Oy",
       "category": "loans",
-      "cents": 28900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "date": "2027-08-05",
+      "cents": 28900,
+      "state": "known"
      },
      {
-      "date": "2027-08-05",
       "payee": "OpenAI",
       "category": "subscriptions",
-      "cents": 2300,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "date": "2027-08-05",
+      "cents": 2300,
+      "state": "known"
      },
      {
-      "date": "2027-08-06",
       "payee": "Nordnet Bank Ab",
       "category": "investments",
+      "kind": "saving",
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "date": "2027-08-06",
       "cents": 15000,
-      "state": "known",
-      "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab"
+      "state": "known"
      },
      {
-      "date": "2027-08-07",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1799,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "date": "2027-08-07",
+      "cents": 1799,
+      "state": "known"
      },
      {
-      "date": "2027-08-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "date": "2027-08-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2027-08-14",
       "payee": "Adobe",
       "category": "subscriptions",
-      "cents": 7499,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "date": "2027-08-14",
+      "cents": 7499,
+      "state": "known"
      },
      {
-      "date": "2027-08-15",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 5224,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "date": "2027-08-15",
+      "cents": 5224,
+      "state": "estimate"
      },
      {
-      "date": "2027-08-18",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 1299,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "date": "2027-08-18",
+      "cents": 1299,
+      "state": "known"
      },
      {
-      "date": "2027-08-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 2990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "date": "2027-08-20",
+      "cents": 2990,
+      "state": "known"
      },
      {
-      "date": "2027-08-20",
       "payee": "Max",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "date": "2027-08-20",
+      "cents": 1199,
+      "state": "known"
      },
      {
       "payee": "Acme",
@@ -2333,151 +2343,153 @@
       "state": "estimate"
      }
     ],
-    "knownCents": 179654,
+    "knownCents": 164654,
     "estimateCents": 5224,
+    "savingCents": 15000,
     "incomeCents": 395000
    },
    {
     "month": "2027-09",
     "rows": [
      {
-      "date": "2027-09-01",
       "payee": "HSL",
       "category": "transport",
-      "cents": 6470,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:HSL",
+      "date": "2027-09-01",
+      "cents": 6470,
+      "state": "known"
      },
      {
-      "date": "2027-09-01",
       "payee": "Elixia",
       "category": "fitness",
-      "cents": 5900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Elixia",
+      "date": "2027-09-01",
+      "cents": 5900,
+      "state": "known"
      },
      {
-      "date": "2027-09-02",
       "payee": "Sato",
       "category": "housing",
-      "cents": 105000,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Sato",
+      "date": "2027-09-02",
+      "cents": 105000,
+      "state": "known"
      },
      {
-      "date": "2027-09-03",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 99,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#99",
+      "date": "2027-09-03",
+      "cents": 99,
+      "state": "known"
      },
      {
-      "date": "2027-09-05",
       "payee": "Nordea Rahoitus Suomi Oy",
       "category": "loans",
-      "cents": 28900,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy",
+      "date": "2027-09-05",
+      "cents": 28900,
+      "state": "known"
      },
      {
-      "date": "2027-09-05",
       "payee": "OpenAI",
       "category": "subscriptions",
-      "cents": 2300,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:OpenAI",
+      "date": "2027-09-05",
+      "cents": 2300,
+      "state": "known"
      },
      {
-      "date": "2027-09-06",
       "payee": "Nordnet Bank Ab",
       "category": "investments",
+      "kind": "saving",
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab",
+      "date": "2027-09-06",
       "cents": 15000,
-      "state": "known",
-      "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Nordnet Bank Ab"
+      "state": "known"
      },
      {
-      "date": "2027-09-07",
       "payee": "Netflix",
       "category": "subscriptions",
-      "cents": 1799,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Netflix",
+      "date": "2027-09-07",
+      "cents": 1799,
+      "state": "known"
      },
      {
-      "date": "2027-09-12",
       "payee": "Spotify",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Spotify",
+      "date": "2027-09-12",
+      "cents": 1199,
+      "state": "known"
      },
      {
-      "date": "2027-09-14",
       "payee": "Adobe",
       "category": "subscriptions",
-      "cents": 7499,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Adobe",
+      "date": "2027-09-14",
+      "cents": 7499,
+      "state": "known"
      },
      {
-      "date": "2027-09-15",
       "payee": "Helen",
       "category": "utilities",
-      "cents": 4489,
-      "state": "estimate",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Helen",
+      "date": "2027-09-15",
+      "cents": 4489,
+      "state": "estimate"
      },
      {
-      "date": "2027-09-18",
       "payee": "Apple",
       "category": "subscriptions",
-      "cents": 1299,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Apple#1299",
+      "date": "2027-09-18",
+      "cents": 1299,
+      "state": "known"
      },
      {
-      "date": "2027-09-20",
       "payee": "Elisa",
       "category": "telecom",
-      "cents": 2990,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa"
+      "seriesId": "out:demo-f48a367fb4660d6ca0aa621d:Elisa",
+      "date": "2027-09-20",
+      "cents": 2990,
+      "state": "known"
      },
      {
-      "date": "2027-09-20",
       "payee": "Max",
       "category": "subscriptions",
-      "cents": 1199,
-      "state": "known",
       "kind": "bill",
-      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max"
+      "seriesId": "out:demo-5fdaaadecf9ef83ca8f355d3:Max",
+      "date": "2027-09-20",
+      "cents": 1199,
+      "state": "known"
      },
      {
       "payee": "Acme",
       "category": "salary",
       "kind": "income",
       "seriesId": "in:demo-f48a367fb4660d6ca0aa621d:Acme",
-      "date": "2027-09-25",
+      "date": "2027-09-24",
       "cents": 395000,
       "state": "estimate"
      }
     ],
-    "knownCents": 179654,
+    "knownCents": 164654,
     "estimateCents": 4489,
+    "savingCents": 15000,
     "incomeCents": 395000
    }
   ],
