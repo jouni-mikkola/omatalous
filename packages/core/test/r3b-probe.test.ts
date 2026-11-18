@@ -179,7 +179,7 @@ describe("savings to an account that is not connected", () => {
 
 describe("the theme of cash, money to people and the card bill", () => {
   it("is Raha-asiat, and its line of category other is Muut menot", () => {
-    const theme = THEMES.find((t) => t.lines.some((l) => l.id === "other"))!;
+    const theme = THEMES.find((t) => t.id === "other")!;
     expect(theme.heading).toBe("Raha-asiat");
     expect(theme.lines.find((l) => l.id === "other")?.heading).toBe("Muut menot");
     expect(theme.lines.map((l) => l.id)).toEqual(["cash", "p2p", "other", "hold"]);
