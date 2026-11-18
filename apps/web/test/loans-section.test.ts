@@ -236,23 +236,29 @@ describe("Raportit: Lainat", () => {
   it("a loan with a figure not told has a dash and no link: Tarkistettavat asks for what is missing", () => {
     const untold = { rateBp: null, reference: null, interest: { cents: null, unknown: "rate" } } as const;
     const mine = html(loans, context(report([row(untold)])));
-    expect(mine).toContain(figure("Korko", "–").replace("<dd>", '<dd class="unknown">'));
+    expect(mine).toContain('<dt>Korko</dt><dd class="unknown">–<small>Korko puuttuu.</small></dd>');
     expect(mine).not.toContain("Täydennä");
+  });
+
+  it("lists the debts by rate, highest first, and the debt with no rate last", () => {
+    const out = html(loans, context(report([card(), row({ id: "low", name: "Matala", rateBp: 325 }), row({ id: "high", name: "Korkea", rateBp: 900 })])));
+    const names = [...out.matchAll(/<strong>([^<]*)<\/strong>/g)].map((m) => m[1]);
+    expect(names.filter((n) => ["Korkea", "Matala", "Esimerkkikortti Gold"].includes(n!))).toEqual(["Korkea", "Matala", "Esimerkkikortti Gold"]);
   });
 
   it("a connected card has its used credit and, when the account has a limit, the limit; none of a loan's terms and no link", () => {
     const limited = html(loans, withAccounts(report([card()]), [{ id: "c1", creditLimitCents: 500_000 }]));
-    expect(figuresOf(limited)).toEqual(["Käytetty luotto 1 240,00 €", "Luottoraja 5 000,00 €"]);
+    expect(figuresOf(limited)).toEqual(["Käytetty luotto 1 240,00 €", "Luottoraja 5 000,00 €", "Korko –"]);
     // the list of the loans, not the totals above it
     const list = limited.slice(limited.indexOf('<ul class="loan-list">'));
-    for (const word of ["Korko", "Maksu", "Korot seuraavan 12 kuukauden aikana (arvio)", "Viimeinen maksupäivä", "Yhdistetty tili", "jäljellä", "Täydennä", "ei tiedossa"]) expect(list, word).not.toContain(word);
+    for (const word of ["Maksu", "Korot seuraavan 12 kuukauden aikana (arvio)", "Viimeinen maksupäivä", "Yhdistetty tili", "jäljellä", "Täydennä", "ei tiedossa"]) expect(list, word).not.toContain(word);
     expect(list).toContain("<strong>Esimerkkikortti Gold</strong></div>");
     // no limit told, or one of nothing: the used credit alone
-    expect(figuresOf(html(loans, withAccounts(report([card()]), [{ id: "c1", creditLimitCents: null }])))).toEqual(["Käytetty luotto 1 240,00 €"]);
-    expect(figuresOf(html(loans, withAccounts(report([card()]), [{ id: "c1", creditLimitCents: 0 }])))).toEqual(["Käytetty luotto 1 240,00 €"]);
+    expect(figuresOf(html(loans, withAccounts(report([card()]), [{ id: "c1", creditLimitCents: null }])))).toEqual(["Käytetty luotto 1 240,00 €", "Korko –"]);
+    expect(figuresOf(html(loans, withAccounts(report([card()]), [{ id: "c1", creditLimitCents: 0 }])))).toEqual(["Käytetty luotto 1 240,00 €", "Korko –"]);
     // the limit is the account's: a card the viewer has a part of shows the part used and its share, no limit beside it
     const half = html(loans, withAccounts(report([card({ part: { from: 0, to: 2, of: 5 } })]), [{ id: "c1", creditLimitCents: 500_000 }]));
-    expect(figuresOf(half)).toEqual(["Käytetty luotto 1 240,00 €", "Osuutesi 40 %"]);
+    expect(figuresOf(half)).toEqual(["Käytetty luotto 1 240,00 €", "Korko –", "Osuutesi 40 %"]);
     // a saved loan of the kind card is a loan with the terms of one
     expect(figuresOf(html(loans, withAccounts(report([row({ kind: "card", name: "Kaupan kortti" })]), [{ id: "c1", creditLimitCents: 500_000 }]))).map((f) => f.split(" ")[0])).toEqual(["Velkaa", "Korko", "Maksu", "Korko", "Lyhennys", "Korot", "Viimeinen"]);
   });

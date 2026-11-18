@@ -21,6 +21,7 @@ export const FI_SHEETS = {
   "tax.category": "Kategoria",
   "tax.count": "Rivejä",
   "tax.household": "Rivit, jotka voivat liittyä kotitalousvähennykseen",
+  "tax.household_total": "Maksut, ei vähennyksen määrä",
   "tax.refunds": "Veronpalautukset",
   "tax.residual": "Jäännösverot",
   "tax.csv_name": "verovuosi",

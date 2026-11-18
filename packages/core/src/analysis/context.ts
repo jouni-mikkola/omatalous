@@ -1,7 +1,7 @@
 import type { RowParts } from "./row-parts.ts";
 import { type CategoryKind, getCategory } from "../categories.ts";
 import { dayNumber, monthIndex, weekdayOf } from "../dates.ts";
-import { isMobilePay } from "../industry.ts";
+import { isMobilePay, type RegisterAnswer } from "../industry.ts";
 import type { ForeignDay } from "../foreign-rows.ts";
 import { fold } from "../merchant.ts";
 import { withContracts } from "../contract.ts";
@@ -114,6 +114,8 @@ export interface AnalysisContext {
   standing?: AnalysisContext;
   /** What a build's extension tells of single rows a level under their category, by row id (`row-parts.ts`); the shared build has none. */
   rowParts?: ReadonlyMap<string, RowParts>;
+  /** The trade register's answers for the merchants the view's lookups asked about, by merchant name (`FinanceRepo.industryCodes`). Absent when the build has none. */
+  industries?: ReadonlyMap<string, RegisterAnswer>;
 }
 
 /** A row of a loan payment account as the household's books read it: money in is a transfer with its leg, the bank's instalment out is a loan payment. A row the user decided stays. */
