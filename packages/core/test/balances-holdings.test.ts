@@ -81,7 +81,7 @@ describe("holdings of the balance report", () => {
   it("a card with a limit and a debt gives used and free that add up to the limit", () => {
     const { holdings } = household([input("card", "Esimerkkikortti", "credit_card", -120_000, { creditLimitCents: 500_000, cardMask: "•••• 1234", bank: "ESIMERKKIPANKKI" })]);
     expect(holdings.cards).toEqual([
-      { id: "card", name: "Esimerkkikortti", bank: "ESIMERKKIPANKKI", ownerName: null, mask: "•••• 1234", limitCents: 500_000, usedCents: 120_000, freeCents: 380_000, overCents: 0, balanceAt: null },
+      { id: "card", name: "Esimerkkikortti", bank: "ESIMERKKIPANKKI", ownerName: null, mask: "•••• 1234", limitCents: 500_000, usedCents: 120_000, freeCents: 380_000, overCents: 0, balanceAt: null, costClass: null, costRank: null },
     ]);
     const [c] = holdings.cards;
     expect(c!.usedCents! + c!.freeCents!).toBe(c!.limitCents);
@@ -155,10 +155,25 @@ describe("holdings of the balance report", () => {
     const typed = loan({ id: "study", name: "Opintolaina", lender: "ESIMERKKIRAHOITUS OY", balanceCents: 1_000_000, balanceDate: "2026-06-01", repayment: "fixed_instalment", intervalMonths: 1, paymentCents: 50_000, rateBp: 0 });
     const { holdings } = household([], [typed]);
     expect(holdings.loans).toEqual([
-      { id: "study", name: "Opintolaina", lender: "ESIMERKKIRAHOITUS OY", kind: "consumer", ownerName: null, leftCents: loanBalanceOn(typed, today).cents, monthlyPaymentCents: 50_000, endDate: "2028-02-01", source: "typed", paidOff: false, maybeTwice: false },
+      { id: "study", name: "Opintolaina", lender: "ESIMERKKIRAHOITUS OY", kind: "consumer", ownerName: null, leftCents: loanBalanceOn(typed, today).cents, monthlyPaymentCents: 50_000, endDate: "2028-02-01", source: "typed", paidOff: false, maybeTwice: false, costClass: null, costRank: null },
     ]);
     expect(holdings.loans[0]!.leftCents).toBeLessThan(typed.balanceCents);
     expect(holdings.loansEndDate).toBe("2028-02-01");
+  });
+
+  it("stands the loans by their yearly cost, the dearest first and a loan whose cost is not known last, each with its class and rank", () => {
+    // 10 000,00 € over 60 months at 5, 10 and 20 %, the payment the plan itself gives
+    const plan = (id: string, rateBp: number, paymentCents: number) => loan({ id, balanceCents: 1_000_000, rateBp, repayment: "annuity", intervalMonths: 1, paymentCents, endDate: "2031-10-01" });
+    const unknown = loan({ id: "unknown", balanceCents: 400_000 });
+    const { holdings } = household([], [unknown, plan("cheap", 500, 18_871), plan("dear", 1000, 21_247), plan("very", 2000, 26_494)]);
+    expect(holdings.loans.map((l) => [l.id, l.costClass, l.costRank])).toEqual([["very", "very_dear", 1], ["dear", "dear", 2], ["cheap", "cheap", 3], ["unknown", null, null]]);
+  });
+
+  it("gives a loan with nothing left and a card with no cost behind it no class and no rank", () => {
+    const done = loan({ id: "done", balanceCents: 0, rateBp: 1000, repayment: "annuity", intervalMonths: 1, paymentCents: 21_247, endDate: "2031-10-01" });
+    const { holdings } = household([input("card", "Esimerkkikortti", "credit_card", -50_000, { creditLimitCents: 300_000 })], [done]);
+    expect(holdings.loans.map((l) => [l.id, l.costClass, l.costRank])).toEqual([["done", null, null]]);
+    expect(holdings.cards.map((c) => [c.costClass, c.costRank])).toEqual([[null, null]]);
   });
 
   describe("the end and the interest of the loans", () => {

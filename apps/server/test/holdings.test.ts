@@ -63,7 +63,7 @@ describe("holdings in the answers", () => {
     // an account one member linked and nobody said more about is that member's: the row names who uses it
     const use = { source: "owner", users: [{ userId: adminId, label: "Aino", weight: 1 }] };
     expect(h.cards).toEqual([
-      { id: "a-card", name: "a-card", bank: "ESIMERKKIPANKKI", ownerName: null, mask: "•••• 1234", limitCents: 500_000, usedCents: 120_000, freeCents: 380_000, overCents: 0, balanceAt: "2026-10-09", use },
+      { id: "a-card", name: "a-card", bank: "ESIMERKKIPANKKI", ownerName: null, mask: "•••• 1234", limitCents: 500_000, usedCents: 120_000, freeCents: 380_000, overCents: 0, balanceAt: "2026-10-09", costClass: null, costRank: null, use },
     ]);
     expect(h.accounts).toMatchObject([{ id: "a-chk", type: "checking", bank: "ESIMERKKIPANKKI", balanceCents: 251_700 }]);
     expect(h.loans).toMatchObject([{ name: "Ainon laina", source: "typed", leftCents: 400_000, ownerName: null }]);
@@ -88,7 +88,7 @@ describe("holdings in the answers", () => {
     const { holdings: h, text } = await holdings(admin, "household");
     expect(h.cards.map((c: { id: string }) => c.id)).toEqual(["a-card", "e-card"]);
     expect(h.cards[1]).toEqual({
-      id: "e-card", name: "e-card (Eero)", bank: null, ownerName: "Eero", mask: "•••• 5678", limitCents: 300_000, usedCents: 50_000, freeCents: 250_000, overCents: 0, balanceAt: "2026-10-09",
+      id: "e-card", name: "e-card (Eero)", bank: null, ownerName: "Eero", mask: "•••• 5678", limitCents: 300_000, usedCents: 50_000, freeCents: 250_000, overCents: 0, balanceAt: "2026-10-09", costClass: null, costRank: null,
       use: { source: "owner", users: [{ userId: eero.id, label: "Eero", weight: 1 }] },
     });
     expect(h.accounts.map((a: { id: string; name: string; bank: string | null; ownerName: string | null; balanceCents: number }) => [a.id, a.name, a.bank, a.ownerName, a.balanceCents])).toEqual([

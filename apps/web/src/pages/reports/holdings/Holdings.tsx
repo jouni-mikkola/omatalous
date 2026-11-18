@@ -1,6 +1,8 @@
 /**
  * Decision: what the household has and what it owes, before the month: each account with its balance, each credit card
  * with what is used of its limit and its next bill, each loan with what is left, and a total at the foot of each group.
+ * The loans and the cards stand in the order core gives, the dearest by yearly cost first; a debt that is dear (Kallis,
+ * Erittäin kallis) says so in a word among the lines under its name, and no other class and no unknown cost says anything.
  * Yhteenveto shows it under the heading Varat ja velat, Raportit > Varat ja velat with no heading of its own and with
  * the loans left to the report Lainat; the next bill of
  * a card shows where the page gives the coming bills (`ahead`), which only Yhteenveto loads. The accounts
@@ -28,7 +30,7 @@ import { CardFace } from "./CardFace.tsx";
 import { CreditArc } from "./CreditArc.tsx";
 import { FigureRow } from "./FigureRow.tsx";
 import { netLabelOf } from "../../../components/net-label.ts";
-import { cardMasks, cardsOwe, maskedNames, reconcileTitle } from "./holding-rows.ts";
+import { cardMasks, cardsOwe, dearWord, maskedNames, reconcileTitle } from "./holding-rows.ts";
 import "../../../styles/statement.css";
 import "../../../styles/holdings.css";
 import { css } from "../../../css.ts";
@@ -220,7 +222,7 @@ function Cards({ holdings, meta, ahead, common, stamp }: { holdings: Answer; met
               name={cardName(c.name)}
               href={href}
               mask={masks.get(c.id)}
-              lines={[partText(c.part, "debt"), sinceLine(c.balanceAt, meta.today, common)]}
+              lines={[dearWord(c.costClass), partText(c.part, "debt"), sinceLine(c.balanceAt, meta.today, common)]}
               face={<CardFace card={{ name: cardName(c.name), mask: c.mask }} bank={cardBankOf(c.name, c.bank, meta.bank?.banks ?? [])} href={href} />}
               arc={<CreditArc usedCents={used} limitCents={limit} />}
             >
@@ -254,7 +256,7 @@ function Loans({ holdings, known }: { holdings: Answer; known: boolean }) {
             key={l.id}
             name={l.name}
             href={`#/reports#${LOANS_REPORT_ANCHOR}`}
-            lines={[l.lender, l.paidOff ? t("holdings.paid_off") : null, l.part && partText(l.part, "debt"), l.typedBy && typedByText(l.typedBy)]}
+            lines={[l.lender, dearWord(l.costClass), l.paidOff ? t("holdings.paid_off") : null, l.part && partText(l.part, "debt"), l.typedBy && typedByText(l.typedBy)]}
             note={l.maybeTwice && <p className="st-note">{t("holdings.twice_see", { twice: t("holdings.twice") })}</p>}
           >
             {!l.paidOff && (

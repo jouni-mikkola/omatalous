@@ -12,14 +12,16 @@
  * It stands beside `household-debts.ts`, below analysis and reports, because the dashboard (analysis) and the balance
  * report (reports) both call it and neither folder may import the other.
  */
-import { isUntold } from "./account-use.ts";
+import { billCents, isUntold } from "./account-use.ts";
 import { balanceWalk } from "./analysis/balance-walk.ts";
 import { debtsOf } from "./analysis/card-settled.ts";
 import type { AnalysisContext } from "./analysis/context.ts";
+import { splittable } from "./analysis/debt-split.ts";
+import { debtCost, type DebtClass, type DebtCost, type SeriesPayment } from "./debt-cost.ts";
 import type { Debt } from "./debt-part.ts";
 import { belowWhole, cardDebtOf, householdDebts, maybeTwice, paidFrom, type UnsavedLoans, unsavedLoans } from "./household-debts.ts";
-import { type LoanProposal, loanProposals } from "./loan-detect.ts";
-import { creditUse, debtPaymentsPerMonth, loanBalanceOn, loanPayoffDate } from "./loans.ts";
+import { type LoanProposal, loanProposals, paysSeries } from "./loan-detect.ts";
+import { creditUse, debtPaymentsPerMonth, loanBalanceOn, loanPayoffDate, loansOf } from "./loans.ts";
 import { hasMonthly } from "./shared.ts";
 import { normalizeIban } from "./transfers.ts";
 import { unconnectedCards } from "./unconnected-cards.ts";
@@ -63,9 +65,20 @@ function percentsOf(parts: readonly (number | null)[], total: number): (number |
 }
 
 /**
- * Every list is in the order of the accounts the request holds, the loans in the order of `householdDebts`. A name is
- * the series' name: with the owner's name in brackets when the account is shared with the viewer. A cent figure that
- * is not known is null, never 0.
+ * How dear a debt is. `costClass` is the class of its yearly cost with fees in (`debtCost`), null where that cost is
+ * not known or nothing is owed: an unknown cost is no class, never a guess. `costRank` is 1 for the dearest debt of its
+ * list, counted over the debts whose cost is known, and null for the rest.
+ */
+interface Dearness {
+  costClass: DebtClass | null;
+  costRank: number | null;
+}
+
+/**
+ * Every list is in the order of the accounts the request holds, except the cards and the loans: they stand by what they
+ * cost, the dearest first and those whose cost is not known last, each otherwise in its own order (the loans in the
+ * order of `householdDebts`). A name is the series' name: with the owner's name in brackets when the account is shared
+ * with the viewer. A cent figure that is not known is null, never 0.
  */
 export interface Holdings {
   /** Checking, savings and other accounts that hold money (Saldot's total holds all three). A joint account both partners linked is here once. */
@@ -94,7 +107,7 @@ export interface Holdings {
   typeCents: Record<Holdings["accounts"][number]["type"], number | null>;
   /** Each account's whole percent of `accountsCents` (null where the balance is unknown), adding up to 100; null when no balance is below zero is not so, or the total is not above zero. The track on each row. */
   accountShares: (number | null)[] | null;
-  cards: (Used & {
+  cards: (Used & Dearness & {
     id: string;
     name: string;
     bank: string | null;
@@ -118,7 +131,7 @@ export interface Holdings {
    * loan account. `use` and `part` are those of the account that tells the debt, and for a typed loan those of the
    * account its payments leave (`paidFrom`).
    */
-  loans: (Used & {
+  loans: (Used & Dearness & {
     /** The saved loan's id, or `account:<account id>` for a connected account. */
     id: string;
     name: string;
@@ -197,6 +210,20 @@ const accountMask = (iban: string | null | undefined): string | null => {
 /** A card has a limit when the bank gave one above zero. The one place that decides it: the cards here and Asetukset > Tilit both ask. */
 export const cardLimitCents = (cents: number | null | undefined): number | null => (cents != null && cents > 0 ? cents : null);
 
+/** The payments of a debt's linked series as the bank booked them, the whole sum that left the account: the rows that measure a fee a plan does not state and price a debt with no rate. */
+function paymentsOf(ctx: AnalysisContext, debt: Debt, keys: readonly string[]): SeriesPayment[] {
+  const key = debt.seriesKey;
+  if (key === null) return [];
+  return ctx.txs.filter((t) => splittable(t) && paysSeries(key, { accountId: t.accountId, merchant: t.merchant, amountCents: billCents(t) }, keys)).map((t) => ({ date: t.bookingDate, cents: -billCents(t) }));
+}
+
+/** The rows in the order of what their debts cost, the dearest first and those whose cost is not known last in their own order: each row gets its class and its rank. */
+function rankedByCost<R extends object>(items: readonly { row: R; cost: DebtCost | null }[]): (R & Dearness)[] {
+  const known = items.filter((i) => i.cost?.rateMilli != null).sort((a, b) => b.cost!.rateMilli! - a.cost!.rateMilli!);
+  const rest = items.filter((i) => i.cost?.rateMilli == null);
+  return [...known, ...rest].map((item, at) => ({ ...item.row, costClass: item.cost?.costClass ?? null, costRank: item.cost?.rateMilli == null ? null : at + 1 }));
+}
+
 /** A loan with nothing left is paid off when its account has had no row for this many days. */
 const PAID_QUIET_DAYS = 90;
 
@@ -204,6 +231,8 @@ const PAID_QUIET_DAYS = 90;
 export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs, proposals: readonly LoanProposal[] = loanProposals(ctx, inputs)): Holdings {
   const day: IsoDate = ctx.today;
   const debts = debtsOf(ctx, balances, inputs);
+  const keys = loansOf(inputs).flatMap((loan) => loan.seriesKey ?? []);
+  const costOf = (debt: Debt): DebtCost | null => debtCost(debt, day, paymentsOf(ctx, debt, keys));
 
   const numberOf = new Map(ctx.accounts.map((a) => [a.id, a.iban]));
   const accounts = balances.flatMap((b): Holdings["accounts"] =>
@@ -212,33 +241,33 @@ export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceIn
       : [],
   );
 
-  const cards = balances.flatMap((b): Holdings["cards"] => {
+  const cards = balances.flatMap((b) => {
     if (b.type !== "credit_card") return [];
     const debt = cardDebtOf(debts, b);
     const use = debt ? creditUse(debt, day) : null;
-    return [
-      {
-        id: b.id,
-        name: b.name,
-        bank: b.bank ?? null,
-        ownerName: b.ownerName,
-        mask: b.cardMask ?? null,
-        limitCents: cardLimitCents(debt?.limitCents ?? b.creditLimitCents),
-        usedCents: use?.usedCents ?? null,
-        freeCents: use?.availableCents ?? null,
-        overCents: use?.overCents ?? null,
-        balanceAt: b.balanceAt,
-        ...usedOf(b),
-      },
-    ];
+    const row = {
+      id: b.id,
+      name: b.name,
+      bank: b.bank ?? null,
+      ownerName: b.ownerName,
+      mask: b.cardMask ?? null,
+      limitCents: cardLimitCents(debt?.limitCents ?? b.creditLimitCents),
+      usedCents: use?.usedCents ?? null,
+      freeCents: use?.availableCents ?? null,
+      overCents: use?.overCents ?? null,
+      balanceAt: b.balanceAt,
+      ...usedOf(b),
+    };
+    return [{ row, cost: debt ? costOf(debt) : null }];
   });
+  const rankedCards: Holdings["cards"] = rankedByCost(cards);
 
   const accountOfLoan = new Map(debts.sources.map((s) => [s.loanId, s.accountId]));
   const quiet = (loanId: string) => {
     const accountId = accountOfLoan.get(loanId);
     return accountId === undefined || !ctx.txs.some((t) => t.accountId === accountId && t.day > ctx.todayDay - PAID_QUIET_DAYS);
   };
-  const loans = heldLoans(balances, debts).map(({ row }) => ({ ...row, paidOff: row.leftCents === 0 && quiet(row.id) }));
+  const loans: Holdings["loans"] = rankedByCost(heldLoans(balances, debts).map(({ row, debt }) => ({ row: { ...row, paidOff: row.leftCents === 0 && quiet(row.id) }, cost: costOf(debt) })));
   const { total, rows, few } = unsavedDebts(ctx, inputs, proposals);
   const unsaved = { ...(total ? { unsavedLoans: { ...total, rows } } : {}), ...(few ? { unsavedFewPayments: few } : {}) };
   const balancesOf = accounts.map((a) => a.balanceCents);
@@ -250,8 +279,8 @@ export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceIn
     typeCents: { checking: sumOfType("checking"), savings: sumOfType("savings"), other: sumOfType("other") },
     netCents: accountsCents === null || !debts.totalKnown ? null : accountsCents - debts.total.cents,
     accountShares: accountsCents !== null ? percentsOf(balancesOf, accountsCents) : null,
-    cards,
-    cardsCents: sumKnown(cards.map((c) => c.usedCents)),
+    cards: rankedCards,
+    cardsCents: sumKnown(rankedCards.map((c) => c.usedCents)),
     loans,
     loansCents: sumKnown(loans.map((l) => l.leftCents)),
     loansEndDate: lastEnd(loans),
@@ -273,7 +302,7 @@ function lastEnd(loans: readonly Holdings["loans"][number][]): IsoDate | null {
  * connected card's. Asuminen reads its home loans here (`housing.ts`), so the two blocks hold the same loans at the
  * same part.
  */
-export function heldLoans(balances: readonly BalanceInput[], debts: ReturnType<typeof householdDebts>): { row: Holdings["loans"][number]; debt: Debt }[] {
+export function heldLoans(balances: readonly BalanceInput[], debts: ReturnType<typeof householdDebts>): { row: Omit<Holdings["loans"][number], keyof Dearness>; debt: Debt }[] {
   const { day } = debts;
   const twice = maybeTwice(balances, debts);
   const twiceLoans = new Set(twice.flatMap((t) => t.loans.map((l) => l.id)));
@@ -281,7 +310,7 @@ export function heldLoans(balances: readonly BalanceInput[], debts: ReturnType<t
   const accountOf = new Map(balances.map((b) => [b.id, b]));
   const held = (loan: Debt, source: "account" | "typed", account: BalanceInput | undefined, flagged: boolean) => {
     const monthly = debtPaymentsPerMonth([loan], day);
-    const row: Holdings["loans"][number] = {
+    const row: Omit<Holdings["loans"][number], keyof Dearness> = {
       id: loan.id,
       name: loan.name,
       lender: loan.lender,

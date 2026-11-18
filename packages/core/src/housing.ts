@@ -98,7 +98,7 @@ interface HousingCharge {
 }
 
 export interface Housing {
-  /** The saved home loans in the order of `Holdings.loans`, then the payments with no saved loan, the largest first. */
+  /** The saved home loans in the order of `householdDebts`, then the payments with no saved loan, the largest first. */
   loans: HousingLoan[];
   /** The largest first. */
   charges: HousingCharge[];

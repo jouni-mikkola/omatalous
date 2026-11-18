@@ -193,6 +193,8 @@ export const FI_BILLS = {
   "holdings.free": "Luottoa jäljellä",
   "holdings.loans": "Lainat",
   "holdings.paid_off": "Maksettu",
+  "holdings.class_dear": "Kallis",
+  "holdings.class_very_dear": "Erittäin kallis",
   "holdings.twice": "Sama velka voi olla summassa kahdesti",
   "holdings.twice_see": "{twice}: katso Lainat.",
   "holdings.left": "Lainaa jäljellä",

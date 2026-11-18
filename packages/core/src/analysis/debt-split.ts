@@ -125,7 +125,7 @@ function accountInterest(ctx: AnalysisContext, rows: readonly AnalysisTx[], inpu
 const toleranceOf = (expectedCents: number): number => Math.max(LOAN_ROW_TOLERANCE_CENTS, Math.round(expectedCents * LOAN_ROW_TOLERANCE_SHARE));
 
 /** The debt rows that are wholly debt and are not a transfer, a card bill, a collection or interest: the rows a payment's parts can split. */
-const splittable = (t: AnalysisTx): boolean => t.flows.debt > 0 && t.flows.debt + t.amountCents === 0 && !t.isTransfer && !UNSPLIT_CATEGORIES.has(t.category) && t.category !== "interest";
+export const splittable = (t: AnalysisTx): boolean => t.flows.debt > 0 && t.flows.debt + t.amountCents === 0 && !t.isTransfer && !UNSPLIT_CATEGORIES.has(t.category) && t.category !== "interest";
 
 /**
  * Evidence 1: the payment parts a loan document stated, on the row of each part's due date. A due date takes its
