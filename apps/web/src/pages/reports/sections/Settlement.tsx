@@ -9,20 +9,21 @@ import { useApi } from "../../../hooks.ts";
 import type { Meta } from "../../../types.ts";
 import { isJoint } from "../../settings/account-use.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
-import { addMonths, isSharedCredit, monthRange, NETTED_SOURCE, settlementSums } from "@banking/core";
+import { isSharedCredit, monthRange, NETTED_SOURCE, settlementSums } from "@banking/core";
 import { hasNothing, holderNameOf } from "./settlement-text.ts";
 import { Notice } from "../../../components/ui/Notice.tsx";
 import { Empty } from "../../../components/ui/Empty.tsx";
 import { t } from "../../../text.ts";
 interface Answer {
   month: string;
-  pools: { accountId: string; name: string; names: Record<string, string>; removed: string[]; labels: Record<string, string>; settlement: Settlement }[];
+  pools: { accountId: string; name: string; firstMonth: string | null; names: Record<string, string>; removed: string[]; labels: Record<string, string>; settlement: Settlement }[];
 }
 
-/** The running month and the eleven before it, newest first: the page has its own month menu and takes nothing from the period. */
-function settlementMonths(today: string): string[] {
+/** The running month back to the oldest first month of the pools, newest first: the page has its own month menu and takes nothing from the period. */
+function settlementMonths(today: string, pools: Answer["pools"]): string[] {
   const running = today.slice(0, 7);
-  return monthRange(addMonths(running, -11), running).reverse();
+  const first = pools.reduce<string>((oldest, p) => (p.firstMonth !== null && p.firstMonth < oldest ? p.firstMonth : oldest), running);
+  return monthRange(first, running).reverse();
 }
 
 /** What an unknown source is called on the page: the words of the payer's own rows where the answer has them. */
@@ -149,8 +150,10 @@ function Month({ month, meta }: { month: string; meta: Meta }) {
 
 function Settlements({ ctx }: SectionProps) {
   // the month that is running is in the list and opens first: a correction to a closed month lands there
-  const months = settlementMonths(ctx.meta.today);
-  const [month, setMonth] = useState(months[0]!);
+  const running = ctx.meta.today.slice(0, 7);
+  const { data: now } = useApi<Answer>(`/api/settlement?month=${running}`);
+  const months = settlementMonths(ctx.meta.today, now?.pools ?? []);
+  const [month, setMonth] = useState(running);
   return (
     <Section
       id={section.id}

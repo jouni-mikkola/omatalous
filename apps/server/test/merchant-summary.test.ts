@@ -96,6 +96,17 @@ describe("GET /api/merchants/summary", () => {
     expect([strip.outCents, strip.inCents]).toEqual([4500, 0]);
   });
 
+  it("keeps the payment of a card bill out of the months, as the list of merchants does", async () => {
+    const { admin, s } = await setupApp();
+    await seedCsv(s, admin, { content: [HEADER, `2026/09/18;-120,00;${CHECKING};;;KORTTILASKU;;EUR`, `2026/09/05;-44,15;${CHECKING};;;LIDL TIKKURILA;;EUR`].join("\n"), accountName: "Käyttötili" });
+    const rows = (await admin.call("GET", "/api/transactions?limit=50")).body.items as { category: string; merchant: string }[];
+    const bill = rows.find((t) => t.category === "card_bill")!;
+    const billed = (await summary(admin, bill.merchant)).body.summary;
+    expect(billed.count).toBe(1);
+    expect(billed.year.outCents).toBe(0);
+    expect(billed.months.reduce((n: number, m: { outCents: number; count: number }) => n + m.outCents + m.count, 0)).toBe(0);
+  });
+
   it("names the cadence and the next date of a recurring payment", async () => {
     const { admin, s: services } = await setupApp();
     await seedCsv(services, admin, { content, accountName: "Käyttötili" });

@@ -144,8 +144,7 @@ async function namesOf(s: Services): Promise<Record<string, string>> {
 
 /**
  * The words for the owners a pool names and no others, so a member learns no name of a user or member who is no user of the
- * pool; and the members among them who are gone from the household: their `m:` stays on old rows (nothing of the past is
- * rewritten) and is flagged, with no name.
+ * pool; and the members among them who are gone: their `m:` stays on old rows (nothing of the past is rewritten), flagged, with no name.
  */
 function wordsFor(owners: Iterable<Owner>, all: Record<string, string>): { names: Record<string, string>; removed: Owner[] } {
   const names: Record<string, string> = {};
@@ -160,6 +159,7 @@ function wordsFor(owners: Iterable<Owner>, all: Record<string, string>): { names
 interface PoolSettlement {
   accountId: string;
   name: string;
+  firstMonth: string | null; // `YYYY-MM` of the pool's first booked row: the oldest month the page offers
   /** The words for the owners the settlement names who use the pool, or did: users and members. */
   names: Record<string, string>;
   /** The members who have no login and are gone: named by old rows, with no name now. */
@@ -315,7 +315,7 @@ async function poolSettlements(s: Services, userId: string, month: string, quick
     // only the payers this month's lines name: the other months' are not this month's to show
     const named = namedIn(done.lines);
     const owners = [...pool.users.filter((u) => u.weight > 0).map((u) => u.owner), ...done.members.map((m) => m.owner), ...named, ...done.unknownPaidBy.map((e) => e.owner), ...done.unknownOwedBy.map((e) => e.owner)];
-    out.push({ pool, settled: { accountId: pool.ids[0]!, name: pool.name, ...wordsFor(owners, all), labels: Object.fromEntries([...t.labels].filter(([owner]) => named.has(owner))), settlement: done } });
+    out.push({ pool, settled: { accountId: pool.ids[0]!, name: pool.name, firstMonth, ...wordsFor(owners, all), labels: Object.fromEntries([...t.labels].filter(([owner]) => named.has(owner))), settlement: done } });
   }
   return out;
 }
