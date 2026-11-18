@@ -7,8 +7,7 @@
  */
 import { type ClosedMonth, getCategory, normalizeIban, PAYER_ROLES } from "@banking/core";
 import { type OwnAccount, ImportRepo, type IdTable } from "../db/import-repo.ts";
-import { bankSignature, searchText } from "../db/finance-repo.ts";
-import { trimPartsStatement } from "../db/finance/loan-parts.ts";
+import { bankSignature, searchText, trimPartsStatement } from "../db/finance-repo.ts";
 import { randomToken } from "../platform/ids.ts";
 import { UserError } from "../platform/errors.ts";
 import { yieldToLoop } from "../platform/yield.ts";
