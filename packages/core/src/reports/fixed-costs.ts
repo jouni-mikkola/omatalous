@@ -55,7 +55,7 @@ interface FixedCostsReport {
 /**
  * The fixed costs of a month as the series run today: each contract, subscription and loan instalment with its cost a
  * month and a year, and the payments of the last twelve months behind it. Always about today, whatever period the page
- * shows. The series and the total are those of `fixedShareOn` and of the dashboard's `fixedMonthlyCents`: a lender's
+ * shows. The series and the total are those of `fixedShareOn`: a lender's
  * monthly payments on no steady day (`lenderInstalments`) count, so the rows say where each euro of the total comes from.
  */
 export function fixedCostsReport(ctx: AnalysisContext, inputs: UserInputs = NO_INPUTS, lang: Language = DEFAULT_LANGUAGE): FixedCostsReport {

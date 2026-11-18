@@ -1,6 +1,6 @@
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { addDays, addMonths, monthEnd, monthIndex, monthOf, monthRange } from "../dates.ts";
-import { cancelledSubjects, fixedMonthlyCents } from "../commitments.ts";
+import { cancelledSubjects } from "../commitments.ts";
 import { flagLoanPayment } from "../loan-payment.ts";
 import { buildHoldings, type Holdings } from "../holdings.ts";
 import { type LoanProposal, loanProposals } from "../loan-detect.ts";
@@ -60,7 +60,6 @@ export interface DashboardData {
   previousMonthTotals: { month: string; totals: PeriodTotals } | null;
   /** The split of income the overview shows: the period's complete months, or the latest complete month while it has none. */
   bridge: Bridge;
-  fixedMonthlyCents: number;
   categories: DashboardCategory[];
   /**
    * What goes where: the themes of the last twelve complete months before today, whatever the range. null under three
@@ -191,9 +190,6 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
     previousTotals,
     previousMonthTotals: previousMonthOf(ctx, monthOf(running ? ctx.today : range.to)),
     bridge: buildBridge(ctx, range, running, totals, settled),
-    // the fixed costs as they were at the end of the period, a lender paid each month on no steady day among them; a
-    // subscription the household marked as cancelled has left them
-    fixedMonthlyCents: fixedMonthlyCents(fixedSeriesAt(ctx, range.to), cancelledSubjects(inputs, range.to < ctx.today ? range.to : ctx.today)),
     categories,
     themes: themesReport(ctx),
     pace,

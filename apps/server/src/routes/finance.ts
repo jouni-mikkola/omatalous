@@ -153,7 +153,7 @@ export function financeRoutes(s: Services) {
     // (the view asked for is the one read above, so its proposals take what was read; the own view is read again only when it is another)
     const inView = proposalsOf(all, read);
     const own = scope === "own" ? inView : await proposalsFor(s, userId, "own", reads);
-    const dashboard = dashboardOf(ctx, parseRange(c, s.today()), balances, inputs, own, c.get("user").language, inView);
+    const dashboard = dashboardOf(ctx, parseRange(c, s.today()), { ...read, balances }, own, c.get("user").language, inView);
     // the same answer as Asetukset > Tilit, in three words; an account that is not reconciled (a loan) has none to give
     const word: Record<string, ReconcileVerdict> = { proved: "ok", differs: "diff" };
     const verdict = (id: string): ReconcileVerdict => word[reconciled.get(id)?.status ?? "unknown"] ?? "unknown";

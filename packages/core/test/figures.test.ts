@@ -8,6 +8,7 @@ import { contextOf, demoHousehold, type Household, seededHousehold } from "../..
 import { aheadBasis, cashAhead } from "../src/analysis/ahead.ts";
 import { savingsRateOf } from "../src/analysis/bridge.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
+import { fixedShareOn } from "../src/analysis/fixed-share.ts";
 import { spendTotals } from "../src/analysis/context.ts";
 import { toDayRange } from "../src/analysis/period.ts";
 import { paydayOf, runwayOf } from "../src/analysis/runway.ts";
@@ -24,6 +25,7 @@ import { balanceReport } from "../src/reports/balances.ts";
 import { billCalendar } from "../src/reports/bill-calendar.ts";
 import { bufferReport } from "../src/reports/buffer.ts";
 import { cashflowReport } from "../src/reports/cashflow.ts";
+import { fixedCostsReport } from "../src/reports/fixed-costs.ts";
 import { incomeReport, regularIncomeMonths } from "../src/reports/income.ts";
 import { upcomingReport } from "../src/reports/upcoming.ts";
 
@@ -148,6 +150,14 @@ const ANSWERS: Record<FigureKey, Answers> = {
       pace: dash.pace.expected?.diffCents ?? null,
     };
   },
+  fixed: (h) => {
+    const ctx = contextOf(h);
+    return {
+      share: fixedShareOn(ctx, h.today, h.inputs).fixedMonthlyCents,
+      report: fixedCostsReport(ctx, h.inputs).monthlyCents,
+      buffer: bufferReport(ctx, h.balances, h.inputs).fixedMonthlyCents,
+    };
+  },
   usualSpend: (h) => {
     const ctx = contextOf(h);
     const month = monthOf(h.today);
@@ -155,13 +165,6 @@ const ANSWERS: Record<FigureKey, Answers> = {
       home: buildDashboard(ctx, running(h), h.balances, h.inputs).home.direction.usualCents,
       usual: expectedSpending(ctx, month),
       buffer: bufferReport(ctx, h.balances, h.inputs).expectedSpendCents,
-    };
-  },
-  fixed: (h) => {
-    const ctx = contextOf(h);
-    return {
-      dashboard: buildDashboard(ctx, running(h), h.balances, h.inputs).fixedMonthlyCents,
-      buffer: bufferReport(ctx, h.balances, h.inputs).fixedMonthlyCents,
     };
   },
   expected: (h) => {

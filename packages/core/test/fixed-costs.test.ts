@@ -5,7 +5,6 @@
  */
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
-import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { seriesMarkSubject } from "../src/analysis/subscription-alerts.ts";
 import { fixedShareOn } from "../src/analysis/fixed-share.ts";
 import { addMonths, addMonthsToDate } from "../src/dates.ts";
@@ -62,7 +61,6 @@ describe("Raportit: Kiinteät menot", () => {
     expect(plain.yearlyCents).toBe(sum * 12);
     for (const r of plain.rows) expect(r.yearlyCents).toBe(r.monthlyCents * 12);
     expect(plain.monthlyCents).toBe(fixedShareOn(ctx, today, NO_INPUTS).fixedMonthlyCents);
-    expect(plain.monthlyCents).toBe(buildDashboard(ctx, { from: "2026-10-01", to: today }).fixedMonthlyCents);
   });
 
   it("the share is of the usual income, under the label of every page", () => {

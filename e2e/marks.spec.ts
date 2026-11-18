@@ -54,10 +54,10 @@ test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi t
       const head = subs.getByRole("button", { name: /^Päättyneet/ });
       if ((await head.getAttribute("aria-expanded")) === "false") await head.click();
     };
-    // the month's fixed costs are the dashboard's figure, in whole euros
+    // the month's fixed costs are the fixed costs report's figure, in whole euros
     const total = async () => {
-      const dashboard = (await (await context.request.get("/api/dashboard")).json()) as { fixedMonthlyCents: number };
-      return Math.round(dashboard.fixedMonthlyCents / 100);
+      const { fixedCosts } = (await (await context.request.get("/api/reports?reports=fixedCosts")).json()) as { fixedCosts: { monthlyCents: number } };
+      return Math.round(fixedCosts.monthlyCents / 100);
     };
     await expect(drill("0,99")).toBeVisible();
     await expect(drill("12,99")).toBeVisible();

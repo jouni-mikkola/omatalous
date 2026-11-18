@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { spendingChange } from "../src/analysis/change.ts";
+import { fixedShareOn } from "../src/analysis/fixed-share.ts";
 import { flowsOf } from "../src/analysis/flows.ts";
 import { previousRange } from "../src/analysis/period.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import { addMonths } from "../src/dates.ts";
-import type { Account, Transaction } from "../src/types.ts";
+import { type Account, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
 const checking: Account = { id: "chk", name: "Käyttötili", iban: "FI21 1234 5600 0007 85", currency: "EUR", type: "checking" };
@@ -216,7 +217,7 @@ describe("dashboard, next level", () => {
     expect(d.pace.previous).toMatchObject({ month: "2025-12", day: 15, toToday: 9000 });
   });
 
-  it("a past period shows the fixed costs of its own end", () => {
+  it("a past day has the fixed costs of its own day", () => {
     const txs = [
       ...base(),
       // a gym from October 2025 to May 2026, then cancelled
@@ -225,8 +226,8 @@ describe("dashboard, next level", () => {
       ...monthly("2025-09", 14, 14, (i) => (i < 11 ? -4499 : -5799), { merchant: "Apple", category: "subscriptions" }),
     ];
     const ctx = createContext(txs, [checking], today);
-    const may = buildDashboard(ctx, { from: "2026-05-01", to: "2026-05-31" });
-    const now = buildDashboard(ctx, { from: "2026-10-01", to: today });
+    const may = fixedShareOn(ctx, "2026-05-31", NO_INPUTS);
+    const now = fixedShareOn(ctx, today, NO_INPUTS);
     expect(may.fixedMonthlyCents - now.fixedMonthlyCents).toBe(3990 - 1300);
   });
 

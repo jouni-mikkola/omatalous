@@ -3,11 +3,12 @@
  * without the bills marked wrong share one key rule and one eviction rule, and a write or another user's context
  * never reaches an old answer.
  */
-import { type AnalysisContext, type DateRange, seriesMarkSubject, type UserMark } from "@banking/core";
+import { type AnalysisContext, type BalanceInput, type DateRange, seriesMarkSubject, type UserMark } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { contextOf, demoHousehold } from "../../../tools/findings/households.ts";
 import { memoOn } from "../src/services/context-memo.ts";
 import { dashboardOf } from "../src/services/dashboard-memo.ts";
+import { stampOf } from "../src/services/request-inputs.ts";
 import { withoutWrongBills } from "../src/services/wrong-bills.ts";
 import { seedCsv } from "./csv-seed.ts";
 import { setupApp } from "./helpers.ts";
@@ -18,6 +19,7 @@ const csvOf = (shop: string) => [HEADER, ...[1, 2, 3].map((i) => `2026/09/0${i};
 
 const h = demoHousehold();
 const month: DateRange = { from: "2025-03-01", to: "2025-03-28" };
+const readOf = (balances: BalanceInput[]) => ({ balances, inputs: h.inputs, stamp: stampOf(balances, h.inputs) });
 
 describe("the one memo store", () => {
   it("keeps an answer per name and arguments, and builds again for other arguments", () => {
@@ -56,10 +58,11 @@ describe("the one memo store", () => {
     expect(without).not.toBe(ctx);
     expect(without.recurring.length).toBeLessThan(ctx.recurring.length);
     expect(withoutWrongBills(ctx, marks)).toBe(without);
-    const dashboard = dashboardOf(ctx, month, h.balances, h.inputs, []);
-    expect(dashboardOf(ctx, month, h.balances, h.inputs, [])).toBe(dashboard);
+    const read = readOf([...h.balances]);
+    const dashboard = dashboardOf(ctx, month, read, []);
+    expect(dashboardOf(ctx, month, read, [])).toBe(dashboard);
     // the same name and arguments the callers use come from the store the helpers fill
-    expect(memoOn(ctx, "dashboard", [month, h.balances, h.inputs, [], "fi", []], () => null)).toBe(dashboard);
+    expect(memoOn(ctx, "dashboard", [month, read.stamp, read.balances.map(() => null), [], "fi", []], () => null)).toBe(dashboard);
     expect(memoOn(ctx, "without-wrong-bills", [marks[0]!.subject.replace("not-recurring:", "series:")], () => null)).toBe(without);
   });
 
@@ -70,7 +73,7 @@ describe("the one memo store", () => {
     await seedCsv(s, eero, { content: csvOf("TOINEN"), accountName: "Tili" });
     const keep = (ctx: AnalysisContext) => ({
       named: memoOn(ctx, "named", [1], () => ({})),
-      dashboard: dashboardOf(ctx, month, [], h.inputs, []),
+      dashboard: dashboardOf(ctx, month, readOf([]), []),
       cut: memoOn(ctx, "without-wrong-bills", ["series:x"], () => ({})),
     });
     const mine = (await s.analysis.get(s, adminId, "own")).ctx;

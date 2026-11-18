@@ -9,6 +9,7 @@ import { cashAhead } from "../src/analysis/ahead.ts";
 import { buildQuestions } from "../src/analysis/questions.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
+import { fixedShareOn } from "../src/analysis/fixed-share.ts";
 import { addMonths } from "../src/dates.ts";
 import { loanProposals, notLoanMark } from "../src/loan-detect.ts";
 import { parsePlanSubject, planSubject } from "../src/plan-answer.ts";
@@ -48,8 +49,9 @@ describe("an instalment service paid the same sum in three months running", () =
   });
 
   it("counts in the fixed costs and in no debt total", () => {
-    const board = buildDashboard(contextOf(steady()), range);
-    expect(board.fixedMonthlyCents).toBe(4990);
+    const ctx = contextOf(steady());
+    const board = buildDashboard(ctx, range);
+    expect(fixedShareOn(ctx, range.to, NO_INPUTS).fixedMonthlyCents).toBe(4990);
     expect(board.holdings.unsavedLoans).toBeUndefined();
     expect(board.holdings.debtCents).toBe(0);
   });
@@ -99,7 +101,7 @@ describe("what is no plan", () => {
 
   it("a plan that ended in the spring is no fixed cost and nobody is asked", () => {
     const ctx = contextOf(klarna(() => 49.9, [9, 8, 7, 6]));
-    expect(buildDashboard(ctx, range).fixedMonthlyCents).toBe(0);
+    expect(fixedShareOn(ctx, range.to, NO_INPUTS).fixedMonthlyCents).toBe(0);
     expect(buildQuestions(ctx, range, NO_INPUTS).items.filter((q) => q.kind === "plan")).toEqual([]);
   });
 });
@@ -108,7 +110,7 @@ describe("a plan whose answered last month has passed", () => {
   const ctx = contextOf(steady());
   const key = loanProposals(ctx, NO_INPUTS)[0]!.key;
   const told = (endMonth: string | null): UserInputs => ({ ...NO_INPUTS, marks: [{ subject: planSubject(endMonth, key), mark: "in_use", markedAt: "2026-10-01T10:00:00Z" }] });
-  const expected = (inputs: UserInputs) => buildDashboard(ctx, range, [], inputs).fixedMonthlyCents;
+  const expected = (inputs: UserInputs) => fixedShareOn(ctx, range.to, inputs).fixedMonthlyCents;
 
   it("is a fixed cost to the end of its last month, and none the month after", () => {
     expect(expected(told("2026-10"))).toBe(4990);
