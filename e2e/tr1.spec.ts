@@ -20,6 +20,7 @@ const payer: Item = { kind: "payer", id: "payer:name:ESIMERKKI VILLE", cents: 60
 const split: Item = { kind: "split", id: "split:acc-1:in:g:text:KAVERI", cents: 45_000, accountId: "acc-1", accountName: "Yhteistili", question: "in", key: "g:text:KAVERI", label: "Esimerkki Kaveri" };
 const sub: Item = { kind: "subscription", id: "subscription:out:chk:Esimerkkistream", cents: 15_588, seriesId: "out:chk:Esimerkkistream", subject: "series:out:chk:Esimerkkistream#1299", merchant: "Esimerkkistream", monthlyCents: 1299, lastDate: "2026-10-08" };
 const plan: Item = { kind: "plan", id: "plan:out:chk:Esimerkkiosamaksu#4990", cents: 59_880, key: "out:chk:Esimerkkiosamaksu#4990", payee: "Esimerkkiosamaksu", paymentCents: 4990, lastDate: "2026-09-12" };
+const cardBill: Item = { kind: "card_bill", id: "card_bill:out:chk:Esimerkkikortti", cents: 552_000, key: "out:chk:Esimerkkikortti", payee: "Esimerkkikortti", savedCards: [], paymentCents: 46_000, months: 7, firstDate: "2026-03-12", lastDate: "2026-09-12" };
 const gift: Item = { kind: "payee_in", id: "payee_in:Esimerkki Täti", cents: 10_000, merchant: "Esimerkki Täti", count: 1, lastDate: "2026-06-12", picks: ["salary"] };
 
 interface Stub {
@@ -178,6 +179,24 @@ test("each kind is asked in its own words and answered through its own route, th
   await expect(page.getByText("1 kysymys jäi seuraavaan kertaan.")).toBeVisible();
   await expect(headerCount(page)).toHaveText("1 avoinna");
   expect(await overflow(page)).toBeLessThanOrEqual(1);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("on a phone the card whose bills are paid and which is not connected offers two large answers, and entering the debt opens the loan form", async ({ browser }) => {
+  const { context, page, seen } = await open(browser, 390, [cardBill]);
+  await page.route(/\/api\/loans$/, (route) => (route.request().method() === "GET" ? route.fulfill({ json: { loans: [] } }) : route.fallback()));
+  await expect(card(page).locator(".review-kind")).toHaveText("Luottokortti");
+  await expect(card(page).locator(".review-name")).toHaveText("Esimerkkikortti");
+  await expect(question(page)).toContainText("Maksat kortin laskuja, mutta korttia ei ole yhdistetty");
+  const connect = card(page).getByRole("link", { name: "Yhdistä kortti" });
+  const enter = card(page).getByRole("button", { name: "Kirjaa kortin velka" });
+  for (const answer of [connect, enter]) expect((await answer.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  expect(await overflow(page)).toBeLessThanOrEqual(0);
+  if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-card-bill-390.png"), fullPage: true });
+  await enter.click();
+  await expect(card(page).getByLabel(/Lainaa jäljellä/)).toBeVisible();
+  expect(await overflow(page)).toBeLessThanOrEqual(0);
   expect(seen.problems).toEqual([]);
   await context.close();
 });

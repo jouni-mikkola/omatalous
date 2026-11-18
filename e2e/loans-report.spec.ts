@@ -110,9 +110,10 @@ test("Lainat tells each saved loan with its figures, says what it does not know 
   const { page, seen, context } = await open(browser, 1280);
   const section = page.locator("#lainat");
 
-  // the totals: both loans are owed
+  // the totals: both loans are owed, and the loan nobody saved is a row of its own that the total leaves out
   const tiles = await texts(page, "#lainat .kv > div");
-  expect(tiles[0]).toBe("Velkaa yhteensä 121 240 €");
+  expect(tiles[0]).toBe("Velat yhteensä, tiedossa 121 240 €");
+  await expect(section.getByText("saldo puuttuu")).toHaveCount(1);
   // the card owes and has no rate, so the household's interest has no figure: the mortgage's own is in its row
   expect(tiles[1]).toBe("Korot seuraavan 12 kuukauden aikana (arvio) –");
   expect(tiles[2]).toBe("Maksut kuussa 1 000 €");
@@ -127,7 +128,7 @@ test("Lainat tells each saved loan with its figures, says what it does not know 
 
   // the mortgage: every figure, and the payment split into its interest and amortisation, each with a label
   const rows = section.locator(".loan-list > li");
-  await expect(rows).toHaveCount(2);
+  await expect(rows).toHaveCount(3);
   const home = rows.nth(0);
   await expect(home.locator(".loan-head")).toHaveText(/Kodin laina\s*Asuntolaina · Esimerkkipankki/);
   const figures = (await home.locator(".loan-figures > div").allInnerTexts()).map(plain);
@@ -157,6 +158,11 @@ test("Lainat tells each saved loan with its figures, says what it does not know 
   ]);
   await expect(card.locator(".loan-scenario")).toHaveCount(0);
   await expect(card.getByRole("link")).toHaveCount(0);
+
+  // the loan nobody saved comes last: its payment, and no balance to count
+  const unsaved = plain(await rows.nth(2).locator(".loan-figures").innerText());
+  expect(unsaved).toContain("saldo puuttuu");
+  expect(unsaved).toMatch(/Maksu [\d ,]+ €\/kk/);
 
   expect(await overflow(page)).toBe(0);
   await shot(page, 1280);
@@ -189,9 +195,10 @@ test("Raportit has none of the paragraphs the figures replaced, and its balances
 
 test("Lainat fits a phone: the figures wrap and the page does not scroll sideways", async ({ browser }) => {
   const { page, seen, context } = await open(browser, 390);
-  await expect(page.locator("#lainat .loan-list > li")).toHaveCount(2);
-  // the debt with a rate comes first and the one with none is last, with its missing rate said on it, as at a desktop's width
-  await expect(page.locator("#lainat .loan-list > li .loan-head")).toHaveText([/^Kodin laina/, /^Kaupan kortti/]);
+  await expect(page.locator("#lainat .loan-list > li")).toHaveCount(3);
+  // the debt with a rate comes first and the one with none follows, with its missing rate said on it, as at a desktop's width; the loan nobody saved is last
+  await expect(page.locator("#lainat .loan-list > li .loan-head")).toHaveText([/^Kodin laina/, /^Kaupan kortti/, /./]);
+  await expect(page.locator("#lainat .loan-list > li").nth(2)).toContainText("saldo puuttuu");
   await expect(page.locator("#lainat .loan-list > li").nth(1)).toContainText("Korko puuttuu.");
   await page.locator("#lainat").scrollIntoViewIfNeeded();
   expect(await overflow(page)).toBe(0);

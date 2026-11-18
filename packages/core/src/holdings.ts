@@ -22,6 +22,7 @@ import { type LoanProposal, loanProposals } from "./loan-detect.ts";
 import { creditUse, debtPaymentsPerMonth, loanBalanceOn, loanPayoffDate } from "./loans.ts";
 import { hasMonthly } from "./shared.ts";
 import { normalizeIban } from "./transfers.ts";
+import { unconnectedCards } from "./unconnected-cards.ts";
 import type { AccountUse, BalanceInput, IsoDate, Loan, Part, UserInputs } from "./types.ts";
 
 /**
@@ -148,10 +149,37 @@ export interface Holdings {
   debtCents: number | null;
   /** `accountsCents` less `debtCents`: what the household has net, the head figure of Varat ja velat. Null when `accountsCents` is, and when `debtCents` is: the accounts less a part of the debt is no net. */
   netCents: number | null;
-  /** The loans the rows show and nobody saved, which `debtCents` cannot hold: told beside it ("Lainoja, joiden saldo puuttuu: N (X €/kk)"). Left out with none. */
-  unsavedLoans?: UnsavedLoans;
+  /**
+   * The loans the rows show and nobody saved, and the cards whose bills the rows show and nobody connected or saved
+   * (`unconnectedCards`): `debtCents` cannot hold them, so each is told beside it with its monthly payment and no
+   * balance. Left out with none.
+   */
+  unsavedLoans?: UnsavedLoans & { rows: UnsavedRow[] };
   /** The credits of a lender's few payments nobody saved (`fewPayments`): debts `debtCents` cannot hold either, counted in the name of `netCents` and in no sum, as the rows tell no monthly payment of them. Left out with none. */
   unsavedFewPayments?: number;
+}
+
+/** One debt of `Holdings.unsavedLoans`: who is paid, what it costs a month in this view (the viewer's part of a joint account's payment) and whether it is a card. Null is a payment with no monthly figure (never read as 0). */
+export interface UnsavedRow {
+  name: string;
+  monthlyCents: number | null;
+  card: boolean;
+}
+
+/**
+ * The debts with no balance: the loans and the instalment plans the rows show and nobody saved
+ * and the cards nobody connected or saved. `total` is what `unsavedLoans` counts, `rows` what Yhteenveto, Saldot and Lainat list.
+ */
+export function unsavedDebts(ctx: AnalysisContext, inputs: UserInputs, proposals: readonly LoanProposal[] = loanProposals(ctx, inputs)): { total: UnsavedLoans | null; rows: UnsavedRow[]; few: number } {
+  // a lender's few payments tell no monthly figure to sum, so they are counted apart (`unsavedFewPayments`)
+  const lenders = proposals.filter(hasMonthly);
+  const few = proposals.filter((p) => !hasMonthly(p)).length;
+  const cards = unconnectedCards(ctx, inputs);
+  return {
+    few,
+    total: unsavedLoans([...lenders, ...cards]),
+    rows: [...lenders.map((p): UnsavedRow => ({ name: p.payee, monthlyCents: p.monthlyCents, card: false })), ...cards.map((c): UnsavedRow => ({ name: c.payee, monthlyCents: c.monthlyCents, card: true }))],
+  };
 }
 
 /** The known figures added once, in the order given; null when none is known, so that an unknown sum is not read as 0. */
@@ -211,10 +239,8 @@ export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceIn
     return accountId === undefined || !ctx.txs.some((t) => t.accountId === accountId && t.day > ctx.todayDay - PAID_QUIET_DAYS);
   };
   const loans = heldLoans(balances, debts).map(({ row }) => ({ ...row, paidOff: row.leftCents === 0 && quiet(row.id) }));
-  // a plan is a debt with its monthly payment; a lender's few payments tell no monthly figure to sum, so they wait here
-  const unsavedOf = unsavedLoans(proposals.filter(hasMonthly));
-  const few = proposals.filter((p) => !hasMonthly(p)).length;
-  const unsaved = { ...(unsavedOf ? { unsavedLoans: unsavedOf } : {}), ...(few ? { unsavedFewPayments: few } : {}) };
+  const { total, rows, few } = unsavedDebts(ctx, inputs, proposals);
+  const unsaved = { ...(total ? { unsavedLoans: { ...total, rows } } : {}), ...(few ? { unsavedFewPayments: few } : {}) };
   const balancesOf = accounts.map((a) => a.balanceCents);
   const accountsCents = sumKnown(balancesOf);
   const sumOfType = (type: Holdings["accounts"][number]["type"]) => sumKnown(accounts.filter((a) => a.type === type).map((a) => a.balanceCents));
