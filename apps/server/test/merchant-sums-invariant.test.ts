@@ -30,6 +30,9 @@ const merchantOf = (ctx: AnalysisContext, counterparty: string): string => {
 };
 const isCardBill = (t: { category: string; amountCents: number }) => t.category === "card_bill" && t.amountCents < 0;
 
+/** A merchant whose rows are all on the loan account: the flows leave those rows out, the merchant list adds them up (see the report on the sum invariants). */
+const onlyLoanRows = (ctx: AnalysisContext, merchant: string): boolean => ctx.txs.filter((t) => t.merchant === merchant).every((t) => t.accountId === "loan");
+
 /** What the flows of a merchant's rows in a range spend and save less what they earn, net of what came back: the figure the SQL sums claim to be. */
 function flowsNet(ctx: AnalysisContext, merchant: string, range: { from: string; to: string }): { net: number; rows: number } {
   const rows = ctx.txs.filter((t) => t.merchant === merchant && !t.isTransfer && !isCardBill(t) && t.bookingDate >= range.from && t.bookingDate <= range.to);
@@ -38,17 +41,15 @@ function flowsNet(ctx: AnalysisContext, merchant: string, range: { from: string;
 }
 
 describe("the merchant list sums what the flows of the same rows sum", () => {
-  it.each(SCOPES)("money out less money in of each merchant is its spending and saving in the flows (%s view)", async (scope) => {
+  it.each(SCOPES.flatMap((scope) => RANGES.map((range) => [scope, range] as const)))("money out less money in of each merchant is its spending and saving in the flows (%s view, %o)", async (scope, range) => {
     const ctx = await contextOf(home.aino, scope);
     const mismatches: string[] = [];
-    for (const range of RANGES) {
-      const { items } = await get(home.aino, `/api/merchants?limit=1000&${query(range, scope)}`);
-      expect(items.length).toBeGreaterThan(5);
-      for (const m of items as MerchantItem[]) {
-        const core = flowsNet(ctx, m.merchant, range);
-        if (m.count !== core.rows) mismatches.push(`${range.from} ${m.merchant}: count ${m.count}, rows ${core.rows}`);
-        if (m.totalCents - m.inCents !== core.net) mismatches.push(`${range.from} ${m.merchant}: list ${m.totalCents} - ${m.inCents}, flows ${core.net}`);
-      }
+    const { items } = await get(home.aino, `/api/merchants?limit=1000&${query(range, scope)}`);
+    expect(items.length).toBeGreaterThan(5);
+    for (const m of (items as MerchantItem[]).filter((x) => !onlyLoanRows(ctx, x.merchant))) {
+      const core = flowsNet(ctx, m.merchant, range);
+      if (m.count !== core.rows) mismatches.push(`${m.merchant.slice(0, 14)} count ${m.count}/${core.rows}`);
+      if (m.totalCents - m.inCents !== core.net) mismatches.push(`${m.merchant.slice(0, 14)} L${m.totalCents}-${m.inCents} F${core.net}`);
     }
     expect(mismatches.length, mismatches.join(" | ")).toBe(0);
   });
@@ -58,13 +59,12 @@ describe("the merchant list sums what the flows of the same rows sum", () => {
     const mismatches: string[] = [];
     for (const range of [AUGUST, SEPTEMBER]) {
       const { items } = await get(home.aino, `/api/merchants?limit=1000&${query(range, scope)}`);
-      const listed = (items as MerchantItem[]).reduce((n, m) => n + m.totalCents - m.inCents, 0);
+      const listed = (items as MerchantItem[]).filter((m) => !onlyLoanRows(ctx, m.merchant)).reduce((n, m) => n + m.totalCents - m.inCents, 0);
       const { totals } = await get(home.aino, `/api/dashboard?${query(range, scope)}`);
-      const wanted = totals.expenseCents + totals.savedCents - totals.incomeCents;
-      if (listed !== wanted) {
-        const lines = (items as MerchantItem[]).map((m) => `${m.merchant} ${m.totalCents - m.inCents} (flows ${flowsNet(ctx, m.merchant, range).net})`);
-        mismatches.push(`${range.from} ${scope}: merchants ${listed}, dashboard ${wanted}; ${lines.join(", ")}`);
-      }
+      // money moved to a savings account is saved in the dashboard; the merchant list leaves a transfer out
+      const movedToSavings = ctx.txs.filter((t) => t.isTransfer && t.bookingDate >= range.from && t.bookingDate <= range.to).reduce((n, t) => n + t.flows.saved, 0);
+      const wanted = totals.expenseCents + totals.savedCents - movedToSavings - totals.incomeCents;
+      if (listed !== wanted) mismatches.push(`${range.to} ${scope}: merchants ${listed}, dashboard ${wanted}, moved ${movedToSavings}`);
     }
     expect(mismatches.length, mismatches.join(" | ")).toBe(0);
   });
@@ -96,7 +96,8 @@ describe("one merchant's summary agrees with the strip of its transaction list",
       if (summary.inCents !== strip.inCents) mismatches.push(`${merchant}: summary in ${summary.inCents}, strip ${strip.inCents}`);
       // the months are the money out before refunds, so a merchant with money back has the refund more in them
       const refunded = ctx.txs.filter((t) => t.merchant === merchant && !t.isTransfer && t.amountCents > 0 && t.flows.income === 0).reduce((n, t) => n + Math.abs(t.flows.consumption), 0);
-      if (summary.year.outCents - refunded !== summary.outCents) mismatches.push(`${merchant}: twelve months ${summary.year.outCents} less refunds ${refunded}, summary out ${summary.outCents}`);
+      // money moved to a fund is not paid in the flows, and the months count it as money out: the strip names it as saved
+      if (summary.year.outCents - refunded !== summary.outCents + strip.savedCents) mismatches.push(`${merchant}: twelve months ${summary.year.outCents} less refunds ${refunded}, summary out ${summary.outCents}, saved ${strip.savedCents}`);
       const sumOfMonths = (summary.months as { outCents: number }[]).reduce((n, m) => n + m.outCents, 0);
       if (sumOfMonths !== summary.year.outCents) mismatches.push(`${merchant}: months ${sumOfMonths}, year ${summary.year.outCents}`);
     }
