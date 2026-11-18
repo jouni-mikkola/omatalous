@@ -2,14 +2,14 @@
 import { comingPays } from "../analysis/coming.ts";
 import { type AnalysisContext, standingById } from "../analysis/context.ts";
 import { expectedBillRows } from "../analysis/forecast.ts";
+import { rareOccurrences, rareSeries, rareYear } from "../analysis/rare-bills.ts";
 import { cancelledSubjects, isBillSeries, isCancelled } from "../commitments.ts";
 import { addDays, addMonths, monthEnd, monthOf } from "../dates.ts";
 import { fitsPayment, takenSeries } from "../loan-detect.ts";
 import { loanNextPayment, loansOf, typedBill } from "../loans.ts";
 import { projectDates, type RecurringSeries } from "../recurring.ts";
-import { AHEAD_DAYS } from "../thresholds.ts";
+import { AHEAD_DAYS, YEAR_MONTHS } from "../thresholds.ts";
 import { type IsoDate, isRevolving, NO_INPUTS, type UserInputs } from "../types.ts";
-import { rareOccurrences, rareSeries, rareYear, YEAR_MONTHS } from "./upcoming.ts";
 
 /**
  * "known": a typed-in bill, a fixed-price series or a loan payment of its plan. "estimate": a series whose charges vary,

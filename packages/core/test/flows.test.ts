@@ -720,18 +720,12 @@ describe("money that comes back is not income", () => {
       expect(totals.incomeCents).toBe(264000);
     });
 
-    it("a person's money back each month settles what was sent and is no income row of the bill calendar", () => {
+    it("a member's monthly settlement is a transfer and no income row of the bill calendar", () => {
       const months = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09"];
-      const rows = months.flatMap((m) => [
-        row("chk", `${m}-01`, -50, "MOBILEPAY", "ELISA VIRTANEN"),
-        row("chk", `${m}-03`, 50, "MOBILEPAY", "ELISA VIRTANEN"),
-        row("chk", `${m}-15`, 2500, `PALKKA ${m.slice(5)}/2026`, "ACME OY"),
-      ]);
-      const { final, totals } = run(rows, [checking]);
-      // what the settlements leave is the pay alone
-      expect(totals.incomeCents).toBe(5 * 250000);
-      const calendar = billCalendar(createContext(final, [checking], "2026-09-20"), NO_INPUTS);
-      const income = calendar.months.flatMap((m) => m.rows).filter((r) => r.kind === "income");
+      const rows = months.flatMap((m) => [row("chk", `${m}-03`, 300, "TILISIIRTO", "LIISA VIRTANEN", { counterpartyIban: "FI7712345600000009" }), row("chk", `${m}-15`, 2500, `PALKKA ${m.slice(5)}/2026`, "ACME OY")]);
+      const changed = new Map(enrichTransactions(rows, [checking], [], new Map(), undefined, undefined, new Set(["FI7712345600000009"])).map((t) => [t.id, t]));
+      const final = rows.map((t) => changed.get(t.id) ?? t);
+      const income = billCalendar(createContext(final, [checking], "2026-09-20"), NO_INPUTS).months.flatMap((m) => m.rows).filter((r) => r.kind === "income");
       expect(income.length).toBeGreaterThan(0);
       expect(income.every((r) => r.category === "salary" && r.cents === 250000)).toBe(true);
     });
