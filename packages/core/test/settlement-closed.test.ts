@@ -102,7 +102,7 @@ describe("a closed month and what was said after it", () => {
   });
 
   describe("a month under a fixed agreement", () => {
-    // Maija pays the first 50,00 of the month and the rest is cut equally; both purchases are counted in the fixed amount
+    // Maija owes the first 50,00 of the month and Matti, the one not listed, the rest; both purchases are in the fixed amount
     const FIXED: AgreementRow = { accountKey: POOL, validFrom: "2026-01-01", kind: "fixed", value: { cents: { [MAIJA]: 5000 }, rest: { kind: "equal" } } };
     // a rule made the first purchase Matti's after the month closed
     const ruled = [acme, row("shop1", "2026-09-02", -10000, { to: { owner: MATTI } }), beta, shop2];
@@ -110,7 +110,8 @@ describe("a closed month and what was said after it", () => {
     it("reads the fixed line anew with a purchase in it: a purchase an answer reads is not owed a second time in the fixed amount", () => {
       const sep = closedSep(rows, { agreements: [FIXED] });
       const oct = run("2026-10", ruled, { agreements: [FIXED], answers: [answer(ACME, MAIJA, "2027-01-08")], asOf: "2027-01-10", closed: [sep] });
-      expect(late(oct).map((l) => [sides(l), byOwner(l.owed), l.byRow?.map((r) => r.key)])).toEqual([[[0, 0], { [MATTI]: 5000, [MAIJA]: -5000 }, [shop1.key, "2026-09"]]]);
+      // Matti owed the purchase in the rest of the fixed amount and owes it now on its own row: once, so nobody owes more
+      expect(late(oct).map((l) => [sides(l), byOwner(l.owed), l.byRow?.map((r) => r.key)])).toEqual([[[0, 0], {}, [shop1.key, "2026-09"]]]);
     });
 
     it("reads every purchase in the fixed amount with the fixed line: a row booked later does not drop a purchase from what is owed", () => {
