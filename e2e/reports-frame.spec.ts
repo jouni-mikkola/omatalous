@@ -22,7 +22,7 @@ test("a report in the list opens its page and keeps the period; a phone shows th
   }
   await expect(list.getByRole("link", { name: "Tulot ja menot" })).toHaveAttribute("aria-current", "true");
   await list.getByRole("link", { name: "Varat ja velat" }).click();
-  await expect(page.getByRole("heading", { name: "Varat ja velat", level: 2 })).toBeVisible();
+  await expect(page.locator("h2.q-title", { hasText: "Varat ja velat" })).toBeVisible();
   await expect(list.getByRole("link", { name: "Varat ja velat" })).toHaveAttribute("aria-current", "true");
   expect(new URL(page.url()).hash).toMatch(/q=saldot/);
   expect(new URL(page.url()).hash).toContain("period=6m");
