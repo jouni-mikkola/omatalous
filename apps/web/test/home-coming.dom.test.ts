@@ -63,8 +63,7 @@ describe("Tulevat kuukaudet", () => {
       expect(head).toContain(`Laskut ${bills}`);
       if (income !== "–") expect(head).toContain(`Tulot ${income}`);
       if (after === "Ei tiedossa") expect(head).toContain("Laskujen jälkeen: ei tiedossa");
-      else if (after !== "–") expect(head).toContain(`Laskujen jälkeen ${after}`);
-      else expect(head).not.toContain("Laskujen jälkeen");
+      else expect(head).toContain(`Laskujen jälkeen ${after}`);
     });
     expect(cells(trs[0]!)).toEqual(["Marraskuu 2026", "1 500,00 € (arviota 300,00 €)", "3 000,00 €", "1 400,00 €"]);
   });
@@ -77,9 +76,11 @@ describe("Tulevat kuukaudet", () => {
     expect(flat(container.textContent)).toContain("2 laskun summa tai päivä ei ole tiedossa");
   });
 
-  it("leaves the pays and what is left out of a month that has no pay, as Laskut does", () => {
+  it("leaves the pays out of a month that has none and tells what is left below 0, as Laskut does", () => {
     const { container } = render(createElement(ComingMonths, { calendar: answer() }));
-    expect(cells([...container.querySelectorAll("tbody tr")][1]!)).toEqual(["Joulukuu 2026", "800,00 €", "–", "–"]);
+    const [month, bills, income, after] = cells([...container.querySelectorAll("tbody tr")][1]!);
+    expect([month, bills, income]).toEqual(["Joulukuu 2026", "800,00 €", "–"]);
+    expect(after).toMatch(/^[−-]800,00 €$/);
   });
 
   it("says nothing of unknown bills when core counts none", () => {

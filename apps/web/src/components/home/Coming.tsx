@@ -18,8 +18,8 @@ const capital = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slic
 /** The bills of a month, with the estimated part when there is one: the figure Laskut's month head gives. */
 const billsText = (m: Month) => (m.estimateCents > 0 ? t("home.coming_estimate", { sum: money(m.billsCents), estimate: money(m.estimateCents) }) : money(m.billsCents));
 
-/** What is left of the pays after the bills: a month with no pay has none, and a bill with no known sum leaves it unknown, never 0. */
-const afterText = (m: Month) => (m.incomeCents <= 0 ? "–" : m.afterCents === null ? t("home.coming_after_unknown") : money(m.afterCents));
+/** What is left of the pays after the bills, as Laskut's month head tells it: below 0 in a month with no pay, and a status while a bill's sum is not known, never 0. */
+const afterText = (m: Month) => (m.afterCents === null ? t("home.coming_after_unknown") : money(m.afterCents));
 
 /**
  * Tulevat kuukaudet: this month and the two after it, each with the bills (and the estimated part of them), the pays
