@@ -108,7 +108,8 @@ export async function transactionsView(s: Services, userId: string, q: Transacti
     span,
     // the totals strip's histogram and each listed day's whole sums
     histogram: span && !updating ? moneyBins(days, histogramFrom(span), span.to) : null,
-    daySums: updating ? [] : days.filter((d) => onPage.has(d.date)),
+    // the row count of a day only feeds the histogram's bins; the day's sums are the answer
+    daySums: updating ? [] : days.filter((d) => onPage.has(d.date)).map(({ count: _count, ...sums }) => sums),
     items: items.map((t) => {
       const part = own.parts.get(t.accountId);
       const share = own.shares?.get(t.id);

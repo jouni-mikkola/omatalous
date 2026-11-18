@@ -3,7 +3,7 @@ import type { AnalysisContext } from "../analysis/context.ts";
 import { accountsCoverage, LEFT_OUT_SHARE } from "../analysis/coverage.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { MIN_COMPARE_MONTHS } from "../thresholds.ts";
-import { monthEnd } from "../dates.ts";
+import { dateIn, monthEnd } from "../dates.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { messageIn } from "../messages.ts";
 
@@ -11,7 +11,7 @@ export interface YearOverYearReport {
   year: number;
   /** Spending per calendar month (index 0 = January); null for months not reached yet. */
   current: (number | null)[];
-  /** null for months before the data starts, so missing data is not drawn as zero. */
+  /** null for months before the data starts, so missing data is not drawn as zero. The month the period ends in holds last year's days up to the same day as `current`. */
   previous: (number | null)[];
   /** First month (1–12) both years have data for from the same accounts; the year-to-date figures start here. */
   comparableFromMonth: number | null;
@@ -62,7 +62,12 @@ export function yearOverYearReport(ctx: AnalysisContext, range: DateRange): Year
   let leftOutAccounts = false;
   for (let m = 1; m <= lastMonth; m++) {
     const mm = String(m).padStart(2, "0");
-    const c = coverage.compare({ from: `${year - 1}-${mm}-01`, to: monthEnd(`${year - 1}-${mm}`) }, { from: `${year}-${mm}-01`, to: monthEnd(`${year}-${mm}`) });
+    // the month the period ends in is compared up to that day on both sides, as the sums below are
+    const running = m === lastMonth;
+    const c = coverage.compare(
+      { from: `${year - 1}-${mm}-01`, to: running ? dateIn(`${year - 1}-${mm}`, Number(cutoff.slice(3))) : monthEnd(`${year - 1}-${mm}`) },
+      { from: `${year}-${mm}-01`, to: running ? range.to : monthEnd(`${year}-${mm}`) },
+    );
     // a month whose spending sits mostly on accounts the other year lacks says nothing of the change: it is not compared, and the months that are keep their say
     if (!c || c.leftOutCents > LEFT_OUT_SHARE * c.laterCents) continue;
     sharedIn.set(m, c.shared);
@@ -98,7 +103,8 @@ export function yearOverYearReport(ctx: AnalysisContext, range: DateRange): Year
         if (t.spend) (byCategory.get(t.category ?? "") ?? byCategory.set(t.category ?? "", [0, 0]).get(t.category ?? "")!)[0] += t.spend;
       }
     } else {
-      if (previous[m - 1] !== null) previous[m - 1]! += t.spend;
+      // the month the period ends in holds last year's days up to the same day, so the two lines meet on equal days
+      if (previous[m - 1] !== null && (m !== lastMonth || t.bookingDate.slice(5) <= cutoff)) previous[m - 1]! += t.spend;
       if (inYtd) {
         prevYtd += t.spend;
         prevIncomeYtd += t.flows.income;

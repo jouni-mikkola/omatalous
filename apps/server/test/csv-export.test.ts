@@ -73,7 +73,7 @@ describe("report CSV without a complete month", () => {
     const pivot = rows((await admin.call("GET", "/api/export/report.csv?report=pivot&from=2026-10-01&to=2026-10-09")).body);
     for (const row of pivot.slice(1, -1)) expect(row.at(-1)).toBe("");
 
-    // a total is the sum of the month cells shown beside it, the sum row as well (an empty cell adds nothing)
+    // the demo's months are all known, so a total is the sum of the month cells beside it, the sum row as well
     const year = rows((await admin.call("GET", "/api/export/report.csv?report=pivot&from=2025-01-01&to=2026-10-09")).body);
     const n = year[0]!.filter((h) => /^\d{4}-\d{2}$/.test(h)).length;
     const num = (c: string) => (c === "" ? 0 : Math.round(Number(c.replace(",", ".")) * 100));
@@ -277,5 +277,29 @@ describe("the report files hold every month of the range", () => {
     const rows = table((await admin.call("GET", "/api/export/report.csv?report=cashflow&from=2024-10-01&to=2026-09-30")).body);
     expect(rows).toHaveLength(25);
     expect(rows[1]![0]).toBe("2024-10");
+  });
+});
+
+describe("the month table's totals are the screen's", () => {
+  it("holds the rows of a month the data does not reach in the total, as Kategoriat does", async () => {
+    const { s, admin } = await setupApp();
+    const month = (m: number) => `2026/${String(m).padStart(2, "0")}/10`;
+    // the main account begins in March; a small card has one purchase in January, before the household's data begins
+    const main = [3, 4, 5, 6, 7, 8, 9].map((m) => `${month(m)};-100,00;Ruokakauppa;Ostos`);
+    const card = [1, 3, 4, 5, 6, 7, 8, 9].map((m) => `${month(m)};-5,00;Kioski;Ostos`);
+    const head = "Kirjauspäivä;Määrä;Nimi;Otsikko";
+    await seedCsv(s, admin, { content: [head, ...main].join("\n"), accountName: "Käyttötili", accountType: "checking" });
+    await seedCsv(s, admin, { content: [head, ...card].join("\n"), accountName: "Kortti", accountType: "checking" });
+    const range = "from=2026-01-01&to=2026-09-30";
+    const screen = (await admin.call("GET", `/api/reports?${range}&reports=spendingMonths`)).body.spendingMonths;
+    expect(screen.totalCents).toBe(74_000);
+    const num = (c: string) => Math.round(Number(c.replace(",", ".")) * 100);
+    const rows = (await admin.call("GET", `/api/export/report.csv?report=pivot&${range}`)).body.replace(/^﻿/, "").split(/\r?\n/).filter(Boolean).map((line: string) => line.split(";"));
+    const n = rows[0]!.filter((h: string) => /^\d{4}-\d{2}$/.test(h)).length;
+    const sumRow = rows.at(-1)!;
+    expect(num(sumRow[2 + n]!)).toBe(screen.totalCents);
+    // the rows add up to the sum row
+    const body = rows.slice(1, -1);
+    expect(body.reduce((sum: number, r: string[]) => sum + num(r[2 + n]!), 0)).toBe(screen.totalCents);
   });
 });
