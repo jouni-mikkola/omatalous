@@ -1,10 +1,10 @@
 // Decision: how much to set aside each month for rare bills
-import { type BillSource, rareOccurrences, rareYear } from "../analysis/rare-bills.ts";
+import { type BillSource, rareOccurrences, rareYearCounted } from "../analysis/rare-bills.ts";
 import type { AnalysisContext } from "../analysis/context.ts";
 import { expectedDates } from "../commitments.ts";
 import { addDays } from "../dates.ts";
 import type { Cadence } from "../recurring.ts";
-import { type ExpectedCadence, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
+import { type BalanceInput, type ExpectedCadence, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
 
 const HORIZON_DAYS = 92;
 /** Days after today in which the next due date of a typed-in bill is looked for (a yearly bill is at most a year away). */
@@ -61,7 +61,7 @@ export interface UpcomingReport {
  * does not change when a bill is paid or goes overdue and stays the same all month. A one-off bill is not a
  * yearly cost: it adds to the year, and its amount is spread over the months from this one to the month it is due.
  */
-export function upcomingReport(ctx: AnalysisContext, inputs: UserInputs = NO_INPUTS): UpcomingReport {
+export function upcomingReport(ctx: AnalysisContext, inputs: UserInputs = NO_INPUTS, balances: readonly BalanceInput[] = []): UpcomingReport {
   const from = ctx.today;
   const to = addDays(from, HORIZON_DAYS);
   const { occurrences, isDuplicate } = rareOccurrences(ctx, inputs);
@@ -69,10 +69,10 @@ export function upcomingReport(ctx: AnalysisContext, inputs: UserInputs = NO_INP
   const items: UpcomingBill[] = occurrences
     .filter((o) => o.ahead && o.date <= to)
     .sort((a, b) => a.date.localeCompare(b.date) || b.amountCents - a.amountCents || a.merchant.localeCompare(b.merchant))
-    .map(({ inYear: _inYear, ahead: _ahead, paid: _paid, ...bill }) => bill);
+    .map(({ inYear: _inYear, ahead: _ahead, paid: _paid, seriesId: _seriesId, ...bill }) => bill);
   const totalCents = items.reduce((s, i) => s + i.amountCents, 0);
 
-  const { yearlyCents, reserveMonthlyCents } = rareYear(occurrences, from);
+  const { yearlyCents, reserveMonthlyCents } = rareYearCounted(occurrences, from, balances);
 
   const manual = inputs.expectedBills
     .map((b): ManualBill => ({

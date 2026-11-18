@@ -4,7 +4,7 @@ import { comingPays, payDates } from "../analysis/coming.ts";
 import { type AnalysisContext, standingById } from "../analysis/context.ts";
 import { expectedBillRows } from "../analysis/forecast.ts";
 import { poolOf } from "../analysis/pool.ts";
-import { rareOccurrences, rareSeries, rareYear } from "../analysis/rare-bills.ts";
+import { rareOccurrences, rareSeries, rareYearCounted } from "../analysis/rare-bills.ts";
 import { getCategory } from "../categories.ts";
 import { cancelledSubjects, isBillSeries, isCancelled } from "../commitments.ts";
 import { addDays, addMonths, monthEnd, monthOf } from "../dates.ts";
@@ -59,7 +59,10 @@ interface BillMonth {
   incomeCents: number;
   /** The month's bills still to pay, known and estimated: `knownCents` and `estimateCents` together. */
   billsCents: number;
-  /** The pays less the bills and the regular saving still to come. Null while a bill's sum is not known (`unknownCount`): that is not a figure of 0. */
+  /**
+   * The pays less the bills and the regular saving still to come. Null while a bill's sum is not known (`unknownCount`) and while no pay
+   * is found at all, since an income that is not known is no income of 0. A month with no pay, in a household with pays, is below 0.
+   */
   afterCents: number | null;
   /** The rows of `monthly` that are bills or loan payments still to pay, not on a card: how many, and what they add up to. */
   monthlyBillsCount: number;
@@ -74,7 +77,10 @@ interface BillCalendar {
   months: BillMonth[];
   /** The bills still to pay of the twelve months, the months' `billsCents` together. */
   billsCents: number;
-  /** The rare bills of the same twelve months, whichever account pays them, and what to set aside each month for them, as `upcoming` has them. */
+  /**
+   * The rare bills of the same twelve months and what to set aside each month for them. As `billsCents` does, it leaves out a bill that
+   * a card or an account the balance does not count pays (the card's own bill is a row of the months), and it keeps a bill paid this month.
+   */
   yearlyCents: number;
   reserveMonthlyCents: number;
   /** The bills and loans whose sum or date is not known, so they have no row. */
@@ -119,7 +125,8 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
   const nytTo = !found.next ? addDays(today, AHEAD_DAYS) : found.next.day > today ? addDays(found.next.day, -1) : today;
   // the accounts the balance counts; with none in view nothing is left out, as in `aheadBasis`
   const counted = poolOf(balances).ids;
-  const offOf = (s: RecurringSeries): Pick<BillRow, "onCard"> => (counted.size && !counted.has(parseSeriesId(s.id)?.accountId ?? "") ? { onCard: true } : {});
+  const paidElsewhere = (seriesId: string): boolean => counted.size > 0 && !counted.has(parseSeriesId(seriesId)?.accountId ?? "");
+  const offOf = (s: RecurringSeries): Pick<BillRow, "onCard"> => (paidElsewhere(s.id) ? { onCard: true } : {});
 
   // the series that pays a loan is the loan's row: the one its key names, or the one whose charges fit its typed payment
   const loans = loansOf(inputs).filter((loan) => !isRevolving(loan.kind));
@@ -267,11 +274,11 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       savingCents,
       incomeCents,
       billsCents: knownCents + estimateCents,
-      afterCents: unknownCount > 0 ? null : incomeCents - knownCents - estimateCents - savingCents,
+      afterCents: unknownCount > 0 || found.pays.length === 0 ? null : incomeCents - knownCents - estimateCents - savingCents,
       monthlyBillsCount: count((r) => r.monthly === true && toPay(r) && !r.onCard),
       monthlyBillsCents: sum((r) => r.monthly === true && toPay(r) && !r.onCard),
     };
   });
   const billsCents = months.reduce((total, m) => total + m.billsCents, 0);
-  return { from: today, to: windowEnd, months, billsCents, ...rareYear(occurrences, today), unknownCount };
+  return { from: today, to: windowEnd, months, billsCents, ...rareYearCounted(occurrences, today, balances), unknownCount };
 }
