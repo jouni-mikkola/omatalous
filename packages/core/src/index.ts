@@ -97,7 +97,7 @@ export { buildQuestions, QUESTION_PAYEE } from "./analysis/questions.ts";
 export { type HouseholdMember, memberMoney, memberOfRow } from "./analysis/member-money.ts";
 export * from "./analysis/change.ts";
 export * from "./reports/index.ts";
-export { unknownsIn } from "./reports/bill-calendar.ts";
+export { unknownBillsIn } from "./unknown-sums.ts";
 export { taxYearCsv } from "./sheet-csv.ts";
 export * from "./card-holder.ts";
 export * from "./money-trace.ts";

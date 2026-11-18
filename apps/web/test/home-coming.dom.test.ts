@@ -110,6 +110,34 @@ describe("Tulevat kuukaudet", () => {
     expect(after).toMatch(/^[−-]800,00 €$/);
   });
 
+  type Unknown = ReportsData["billCalendar"]["unknowns"][number];
+  const noteOf = (unknowns: Unknown[]) => {
+    const { container } = render(createElement(ComingMonths, { calendar: { ...answer(), unknownCount: unknowns.length, unknowns } }));
+    return flat(container.querySelector(".home-detail")?.textContent) || null;
+  };
+  const unknown = (over: Partial<Unknown>): Unknown => ({ days: [], open: false, kind: "bill", onCard: false, ...over });
+
+  it("counts no unknown bill of a month after the three shown", () => {
+    expect(noteOf([unknown({ days: ["2027-09-05"] })])).toBeNull();
+  });
+
+  it("counts an unknown bill of the second month", () => {
+    expect(noteOf([unknown({ days: ["2026-12-05"] })])).toBe("1 laskun summa tai päivä ei ole tiedossa");
+  });
+
+  it("counts a bill that goes on over the shown months once", () => {
+    expect(noteOf([unknown({ days: ["2026-11-20"], open: true, kind: "loan" })])).toBe("1 laskun summa tai päivä ei ole tiedossa");
+  });
+
+  it("does not call an unknown pay or saving a bill", () => {
+    expect(noteOf([unknown({ kind: "income", open: true }), unknown({ kind: "saving", days: ["2026-11-20"] })])).toBeNull();
+    expect(noteOf([unknown({ kind: "income" }), unknown({ days: ["2026-12-05"] })])).toBe("1 laskun summa tai päivä ei ole tiedossa");
+  });
+
+  it("leaves out a bill that a card pays", () => {
+    expect(noteOf([unknown({ days: ["2026-11-20"], onCard: true })])).toBeNull();
+  });
+
   it("says nothing of unknown bills when core counts none", () => {
     const { container } = render(createElement(ComingMonths, { calendar: { ...answer(), unknownCount: 0 } }));
     expect(flat(container.textContent)).not.toContain("ei ole tiedossa");
@@ -127,6 +155,11 @@ describe("Laskut: the unknown bills a month head counts", () => {
     }
     expect(heads[3]).toContain("1 laskun summa tai päivä ei ole tiedossa");
     expect(heads[3]).toContain("Laskujen jälkeen: ei tiedossa");
+  });
+
+  it("counts no unknown pay as a bill in a month head", () => {
+    const cal = { ...answer(), unknownCount: 1, unknowns: [{ days: [], open: true, kind: "income" as const, onCard: false }] };
+    for (const head of laskutHeads(cal)) expect(head).not.toContain("laskun summa tai päivä ei ole tiedossa");
   });
 
   it("counts a bill with no day in every month", () => {

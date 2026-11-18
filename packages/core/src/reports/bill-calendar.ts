@@ -14,6 +14,7 @@ import { loanBalanceOn, loanNextPayment, loansOf, typedBill } from "../loans.ts"
 import { parseSeriesId, projectDates, type RecurringSeries } from "../recurring.ts";
 import { AHEAD_DAYS, YEAR_MONTHS } from "../thresholds.ts";
 import { type BalanceInput, type IsoDate, isRevolving, NO_INPUTS, type UserInputs } from "../types.ts";
+import { type UnknownSum, unknownsIn } from "../unknown-sums.ts";
 
 /**
  * "known": a typed-in bill, a fixed-price series, a loan payment of its plan or a card's bill of its balance. "estimate":
@@ -42,19 +43,6 @@ interface BillRow {
    * sum of the month (a card's bill holds it, as Nyt takes it).
    */
   onCard?: true;
-}
-
-/**
- * A bill, loan payment, saving or pay whose sum or day is not known, so it has no row. `days` are the days it falls on in the
- * window, none when no day is known; `open` says it goes on after them (a loan's payments after the first one with no sum,
- * the pays beyond the ones found), so every later month holds it too.
- */
-interface UnknownSum {
-  days: IsoDate[];
-  open: boolean;
-  kind: BillRow["kind"];
-  /** Paid by a card or an account the balance does not count: no sum of the month holds it, as no row of it does. */
-  onCard: boolean;
 }
 
 interface BillMonth {
@@ -102,12 +90,6 @@ interface BillCalendar {
   unknownCount: number;
   unknowns: UnknownSum[];
 }
-
-/** Whether a sum that is not known is part of the month's sums: one with no day is part of every month, a dated one of the months it falls in and, when it goes on, of the later ones. */
-const holdsMonth = (u: UnknownSum, month: string): boolean => !u.onCard && (u.days.length === 0 || (u.open ? month >= monthOf(u.days[0]!) : u.days.some((d) => monthOf(d) === month)));
-
-/** How many of the sums that are not known are part of the month's sums: the ones that leave its `afterCents` null, as the month head of Laskut counts them. */
-export const unknownsIn = (calendar: Pick<BillCalendar, "unknowns">, month: string): number => calendar.unknowns.filter((u) => holdsMonth(u, month)).length;
 
 /**
  * Whether a bill, loan payment or saving whose sum is not known may fall on or before `last`: one with no day may, as may a dated one.
@@ -303,7 +285,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       savingCents,
       incomeCents,
       billsCents: knownCents + estimateCents,
-      afterCents: found.pays.length === 0 || unknownsIn({ unknowns }, month) > 0 ? null : incomeCents - knownCents - estimateCents - savingCents,
+      afterCents: found.pays.length === 0 || unknownsIn(unknowns, month) > 0 ? null : incomeCents - knownCents - estimateCents - savingCents,
       monthlyBillsCount: count((r) => r.monthly === true && toPay(r) && !r.onCard),
       monthlyBillsCents: sum((r) => r.monthly === true && toPay(r) && !r.onCard),
     };
