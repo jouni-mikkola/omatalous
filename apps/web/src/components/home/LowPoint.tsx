@@ -1,5 +1,6 @@
 // Decision: do the accounts dip below what the household can live with before the money after the next payday arrives
 import { answerMoney, dayMonth, language } from "../../format.ts";
+import { settingsHash } from "../../routes.ts";
 import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 
@@ -15,6 +16,9 @@ function reasonText(reason: Extract<Low, { known: false }>["reason"]): string {
   if (reason === "bills") return t("home.low_bills");
   return t("home.tile_no_payday");
 }
+
+/** The reasons that a fetch of the balances mends: Asetukset > Pankit ja tilit tells when each account was last fetched. */
+const FETCH_REASONS: readonly string[] = ["no-balance", "no-card-balance"];
 
 /**
  * A range of sums as the page says one: the euro sign stands once, after the range, in Finnish ("120–480 €"). A range that
@@ -37,7 +41,9 @@ export function LowPoint({ lowPoint }: { lowPoint: DashboardData["home"]["lowPoi
       <p className="home-low" data-low="none">
         <span className="home-low-label">{t("home.low_label", { days: String(lowPoint.days) })}</span>
         {" "}
-        <span className="home-low-status">{reasonText(lowPoint.reason)}</span>
+        <span className="home-low-status">
+          {FETCH_REASONS.includes(lowPoint.reason) ? <a href={settingsHash("banks")}>{reasonText(lowPoint.reason)}</a> : reasonText(lowPoint.reason)}
+        </span>
       </p>
     );
   }

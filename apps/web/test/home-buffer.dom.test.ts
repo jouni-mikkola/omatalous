@@ -31,11 +31,11 @@ describe("Buffer", () => {
     ]);
   });
 
-  it("shows a negative buffer and its two sums as they are", () => {
+  it("says there is no buffer when the money does not cover what is owed, and keeps its two sums", () => {
     const net = -150_000;
     const spend = 300_000;
     const { container } = render(createElement(Buffer, { direction: direction({ bufferMonths: net / spend, bufferNetCents: net, bufferSpendCents: spend }) }));
-    const summary = screen.getByText("Puskuri −0,5 kk");
+    const summary = screen.getByText("Ei puskuria");
     fireEvent.click(summary);
     const terms = [...container.querySelectorAll(".st-row")].map((row) => [...row.children].map((c) => flat(c.textContent)));
     expect(terms).toEqual([

@@ -27,7 +27,8 @@ function leftUnknown(left: Extract<Data["nyt"]["left"], { known: false }>): stri
  */
 export function Now({ data }: { data: Data }) {
   const { left } = data.nyt;
-  const line = !left.known ? leftUnknown(left) : left.days === 0 ? t("home.tile_left_today") : t("home.tile_left_line", { sum: answerMoney(left.perDayCents), date: dayMonth(left.payday.date) });
+  // a sum a day below zero says nothing the sum does not: the line tells what is missing
+  const line = !left.known ? leftUnknown(left) : left.leftCents < 0 ? t("home.tile_left_short", { sum: answerMoney(-left.leftCents) }) : left.days === 0 ? t("home.tile_left_today") : t("home.tile_left_line", { sum: answerMoney(left.perDayCents), date: dayMonth(left.payday.date) });
   return (
     <section className="card home-now" aria-label={t("home.tile_left")}>
       <a className={`home-left${left.known && left.leftCents < 0 ? " home-short" : ""}`} data-tile="left" href={billsHref}>

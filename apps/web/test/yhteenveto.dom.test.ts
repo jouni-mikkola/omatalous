@@ -359,6 +359,8 @@ describe("Yhteenveto's sum left to the payday", () => {
     const el = left({ ...data(), nyt: nytOf(true, 600000) });
     expect(el.classList.contains("home-short")).toBe(true);
     expect(flat(el.querySelector(".fig")?.textContent)).toBe("−1 000 €");
+    // no sum a day below zero: the line tells what is missing
+    expect(flat(el.querySelector(".home-fig-line")?.textContent)).toBe("puuttuu 1 000 € ennen palkkapäivää");
   });
 
   // the notice of the payday's bills stood under the answer; it is no line of the page any more
