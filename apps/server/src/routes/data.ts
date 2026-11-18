@@ -11,6 +11,7 @@ import { parseLoan } from "./loans.ts";
 import { parseScope, requestInputs, rowsInView } from "../services/analysis.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { removeDemoData } from "../services/accounts.ts";
+import { withoutWrongBills } from "../services/wrong-bills.ts";
 import { categoriesIn } from "../services/category-names.ts";
 import { csvWords, reportWords } from "../platform/csv-words.ts";
 import { yieldToLoop } from "../platform/yield.ts";
@@ -111,8 +112,10 @@ export function dataRoutes(s: Services) {
     if (kind !== "pivot" && kind !== "categories" && kind !== "cashflow") throw UserError.of("check.report");
     const user = c.get("user");
     const range = parseRange(c, s.today());
-    const { ctx, accounts } = await s.analysis.get(s, user.id, parseScope(c.req.query("scope")));
+    const { ctx: all, accounts } = await s.analysis.get(s, user.id, parseScope(c.req.query("scope")));
     const { balances, inputs } = await requestInputs(s, user.id, accounts);
+    // the files read what the pages read: the context without the bills the member marked as wrong
+    const ctx = withoutWrongBills(all, inputs.marks);
     // the headings, the sum row and the file names are in the member's language (`platform/csv-words.ts`); the reports name the categories and the groups in it
     const lang = user.language;
     const words = reportWords(lang);

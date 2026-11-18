@@ -89,6 +89,12 @@ export class LoansRepo {
     return (await this.ctx.db.all<Row>("SELECT * FROM loans WHERE user_id = ? ORDER BY created_at, rowid", [this.ctx.userId])).map(toLoan);
   }
 
+  /** When each of the user's loans was last saved (an ISO time), by loan id. */
+  async savedAt(): Promise<Map<string, string>> {
+    const rows = await this.ctx.db.all<Row>("SELECT id, updated_at FROM loans WHERE user_id = ?", [this.ctx.userId]);
+    return new Map(rows.map((r) => [String(r.id), String(r.updated_at)]));
+  }
+
   /**
    * The user's other loan that names the loan's account: the one in the way of a save. Only a write past this repo
    * makes two of them, and then it is the one saved first, the order of `listLoans`: the one the debt totals give the

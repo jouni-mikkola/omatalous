@@ -70,6 +70,9 @@ export const THRESHOLDS = {
   moneyBackDays: threshold(120, "days", "The time a card payer has to dispute a charge, about four months: an older double charge or charge after a cancellation is no longer asked about."),
   refundWaitDays: threshold(30, "days", "A judgement: a merchant pays a refund back within a month, so a refund asked for and not seen after 30 days is asked about once more."),
   minRareBillCents: threshold(1000, "cents", "A judgement: a small yearly charge (a 2 € storage plan) is not worth a line among the rare bills."),
+  loanRowDays: threshold(7, "days", "A judgement: a bank books a loan payment within a week of its due date (a weekend, a holiday), and a loan's due dates are a month or more apart, so a row is at most one due date's."),
+  loanRowToleranceCents: threshold(100, "cents", "A judgement: the bank rounds an annuity and counts its interest on its own day count, so a payment differs from the plan's by cents; 1 € is room for that and none for a different payment."),
+  loanRowToleranceShare: threshold(0.01, "share", "A judgement: a payment within 1 % of the plan's is the plan's payment, as the bank counted it. The larger of this and 1 € is the room, so a large loan's rounding is not read as another payment."),
 } as const;
 
 export const USUAL_MONTHS = THRESHOLDS.usualMonths.value;
@@ -126,3 +129,6 @@ export const MONEY_BACK_DAYS = THRESHOLDS.moneyBackDays.value;
 export const REFUND_WAIT_DAYS = THRESHOLDS.refundWaitDays.value;
 export const YEAR_MONTHS = THRESHOLDS.yearMonths.value;
 export const MIN_RARE_BILL_CENTS = THRESHOLDS.minRareBillCents.value;
+export const LOAN_ROW_DAYS = THRESHOLDS.loanRowDays.value;
+export const LOAN_ROW_TOLERANCE_CENTS = THRESHOLDS.loanRowToleranceCents.value;
+export const LOAN_ROW_TOLERANCE_SHARE = THRESHOLDS.loanRowToleranceShare.value;

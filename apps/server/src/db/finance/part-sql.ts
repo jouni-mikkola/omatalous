@@ -15,10 +15,12 @@ import type { SqlValue } from "../types.ts";
  */
 export type ViewPart = Part & { viewer?: string };
 
-/** What the own view changes in the rows a list or a sum reads. The household view changes nothing: both are empty. */
+/** What the view changes in the rows a list or a sum reads. The household view changes nothing but the loan accounts: the rest is empty. */
 export interface OwnRows {
   /** The viewer's own accounts somebody else uses alone: none of their rows is read. */
   left: readonly string[];
+  /** The loan accounts of the view (`ctx.loanAccounts`), in both views: their rows have no flows, so the sums over merchants leave them out. A list still shows them. */
+  loans?: readonly string[];
   /** The viewer's part of each account counted at less than the whole, and of each account cut by who paid it, by account id. */
   parts: ReadonlyMap<string, ViewPart>;
   /** The viewer's own cents of the rows of an account cut by who paid it, by row id: what a list shows beside the bank's amount. */
@@ -104,6 +106,12 @@ export function listSumsSql(own: OwnRows | undefined): { amount: Sql; moved: Sql
 export function notLeftSql(own: OwnRows | undefined): Sql {
   const left = own?.left ?? [];
   return left.length ? { sql: ` AND account_id NOT IN (${left.map(() => "?").join(",")})`, params: [...left] } : { sql: "", params: [] };
+}
+
+/** The condition that keeps the rows of the loan accounts out of a sum by merchant, as the flows count nothing of them; empty when there is none. */
+export function notLoanSql(own: OwnRows | undefined): Sql {
+  const loans = own?.loans ?? [];
+  return loans.length ? { sql: ` AND account_id NOT IN (${loans.map(() => "?").join(",")})`, params: [...loans] } : { sql: "", params: [] };
 }
 
 /**

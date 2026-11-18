@@ -12,7 +12,7 @@ import { industryMap } from "./enrich.ts";
 import { settledTrace } from "./money-trace.ts";
 import { reconcileOf } from "./reconcile.ts";
 import { proposalsOf } from "./request-inputs.ts";
-import { type LoanTermsItem, loanTermsItems } from "./review-loan-terms.ts";
+import { type LoanDriftItem, loanDriftItems, type LoanTermsItem, loanTermsItems } from "./review-loan-terms.ts";
 import { memberMoneyItems, membersOf } from "./review-members.ts";
 import { type MoneyBackItem, moneyBackItems } from "./review-money-back.ts";
 import type { OwnView } from "./review-own.ts";
@@ -210,7 +210,7 @@ interface ExtensionItem extends Base {
   choices: { id: string; label: string; answer: { method: "PUT" | "POST"; path: `/api/${string}`; body: unknown } }[];
 }
 
-type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | MortgageItem | LoanTermsItem | MoneyBackItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | ExtensionItem;
+type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | MortgageItem | LoanTermsItem | LoanDriftItem | MoneyBackItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | ExtensionItem;
 
 export interface Review {
   items: ReviewItem[];
@@ -451,8 +451,14 @@ async function ownViewOf(s: Services, userId: string): Promise<OwnView> {
   return own;
 }
 
+/** A loan has one question at a time: its terms, and only when none is lacking, its drift. */
+const loanQuestions: Source = async (s, userId, own) => {
+  const terms = await loanTermsItems(s, userId, own);
+  return [...terms, ...(await loanDriftItems(s, userId, own, new Set(terms.flatMap((item) => item.loanId ?? []))))];
+};
+
 // the unexplained money in from another member: a payer the front's source asked already is kept once (`reviewQueue`)
-const SOURCES: readonly Source[] = [front, loans, splits, subscriptions, mortgage, loanTermsItems, balances, cardBalances, consents, bills, rows, (_s, _userId, own) => own.memberMoney(), unresolvedItems, moneyBackItems];
+const SOURCES: readonly Source[] = [front, loans, splits, subscriptions, mortgage, loanQuestions, balances, cardBalances, consents, bills, rows, (_s, _userId, own) => own.memberMoney(), unresolvedItems, moneyBackItems];
 
 /** The whole queue, the most money first; the page caps a sitting. */
 export async function reviewQueue(s: Services, userId: string): Promise<Review> {

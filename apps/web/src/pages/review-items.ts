@@ -2,14 +2,15 @@
  * Tarkistettavat without React: the items GET /api/review sends, what each one asks in the page's words, and the sitting
  * (at most `SITTING` items, then "Kävit tämän erän kysymykset läpi"). The page draws what these return.
  */
-import { addMonths, fold, LOAN_KIND_ANSWERS, type LoanKind, type LoanTermsMissing, monthOf, type PayerRole, type UnresolvedReason } from "@banking/core";
+import { addMonths, fold, LOAN_KIND_ANSWERS, type LoanKind, monthOf, type PayerRole, type UnresolvedReason } from "@banking/core";
 import { KIND_LABEL } from "../components/loans/labels.ts";
 import { PAYER_ROLE_LABEL, WALLET_ROLE_LABEL } from "../components/questions.ts";
 import { date, dateTime, money } from "../format.ts";
 import type { SyncRun } from "../types.ts";
 import { t, tn } from "../text.ts";
+import type { LoanDriftItem, LoanTermsItem } from "./review-loan-items.ts";
 
-interface Base {
+export interface Base {
   id: string;
   /** The money at stake over a year, positive: the queue's order. */
   cents: number;
@@ -99,22 +100,6 @@ interface MortgageItem extends Base {
   kind: "mortgage";
 }
 
-/**
- * A debt whose payments cannot be placed for want of one fact (`missing`): a saved loan (`loanId`), answered by its form,
- * or a connected card no saved loan is linked to (`accountId`), answered by the form of a loan linked to the card. Älä
- * muistuta tästä enää is the mark on `subject`.
- */
-interface LoanTermsItem extends Base {
-  kind: "loan_terms";
-  loanId: string | null;
-  accountId: string | null;
-  name: string;
-  owedCents: number;
-  balanceDate: string;
-  missing: LoanTermsMissing;
-  subject: string;
-}
-
 /** Money a merchant may owe back: a charge made twice, or one after Lopetettu. `askedOn` is the day the refund was asked, when it has not come; `subject` is the alert's mark. */
 interface MoneyBackItem extends Base {
   kind: "money_back";
@@ -194,7 +179,7 @@ interface FetchItem extends Base {
   message: string | null;
 }
 
-export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | MortgageItem | LoanTermsItem | MoneyBackItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | FetchItem;
+export type ReviewItem = PayeeItem | PayerItem | LoanItem | PlanItem | SplitItem | SubscriptionItem | MortgageItem | LoanTermsItem | LoanDriftItem | MoneyBackItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | FetchItem;
 
 /**
  * A failed fetch is a queue item (design, section 4): the last run that failed stays first in the queue until a later
@@ -228,7 +213,7 @@ export type SittingView =
  * The kinds this page has a card for. An item of a kind that is not here (the server's `extension`, which no source
  * sends today, the `input` an older server asked a tip's number with, or a newer server's) is left out, since the words below have nothing to say of it.
  */
-const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan: true, plan: true, split: true, subscription: true, mortgage: true, loan_terms: true, money_back: true, balance: true, card_balance: true, consent: true, bill: true, row: true, unresolved: true, fetch: true };
+const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan: true, plan: true, split: true, subscription: true, mortgage: true, loan_terms: true, loan_drift: true, money_back: true, balance: true, card_balance: true, consent: true, bill: true, row: true, unresolved: true, fetch: true };
 const hasCard = (item: { kind: string }): boolean => Object.hasOwn(KINDS, item.kind);
 
 /** The items still open: the queue without what this sitting has answered. The one number its heading and the header's mark show. */
@@ -259,6 +244,7 @@ export function eyebrow(item: ReviewItem): string {
     case "payer":
       return t("set.ri.money_received");
     case "loan":
+    case "loan_drift":
       return t("set.ri.loan");
     case "loan_terms":
       return t(item.accountId === null ? "set.ri.loan" : "set.ri.credit_card");
@@ -302,6 +288,7 @@ export function nameOf(item: ReviewItem): string {
     case "loan":
     case "plan":
       return item.payee;
+    case "loan_drift":
     case "loan_terms":
       return item.name;
     case "split":
@@ -359,7 +346,13 @@ export function questionOf(item: ReviewItem): string {
           return t(item.accountId === null ? "set.ri.loan_terms_rate" : "set.ri.loan_terms_card_rate");
         case "end_date":
           return t("set.ri.loan_terms_end_date");
+        case "margin":
+          return t("set.ri.loan_terms_margin");
+        case "review_date":
+          return t("set.ri.loan_terms_review_date");
       }
+    case "loan_drift":
+      return t("set.ri.loan_drift_question");
     case "mortgage":
       return t("set.ri.do_you_have_a_home");
     case "balance":
@@ -405,6 +398,8 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
             : t("set.ri.amount_a_year_last_date", { amount: money(item.cents), date: date(item.lastDate) });
       return { text: money(item.monthlyCents), unit: t("set.ri.a_month"), line };
     }
+    case "loan_drift":
+      return { text: money(item.paidCents), unit: t("set.ri.loan_drift_unit"), line: t("set.ri.loan_drift_line", { date: date(item.date), expected: money(item.expectedCents) }) };
     case "loan_terms":
       return { text: money(item.owedCents), unit: t("set.ri.loan_terms_owed"), line: t("set.ri.loan_terms_balance_date", { date: date(item.balanceDate) }) };
     case "money_back": {
