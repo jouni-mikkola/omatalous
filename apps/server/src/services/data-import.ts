@@ -247,6 +247,8 @@ async function buildPlan(s: Services, ses: Session, committed: boolean, checks: 
 
   // the other stores, each row by its key: another user's skipped, the user's own added unless the table has the key
   const billsHere = new Set<string>();
+  // the id each loan of the file has here: its own, or a fresh one when another row has it
+  const loanIds = new Map<string, string>();
   const NOT_STORES = new Set(["users", "accounts", "transactions", "accountShares"]);
   for (const store of importStores()) {
     const rows = rowsOf(store.key);
@@ -258,6 +260,9 @@ async function buildPlan(s: Services, ses: Session, committed: boolean, checks: 
     const unresolvedTx = new Set<string>();
     if (store.tx) for (const r of rows) if (!txMap.has(String(r[store.tx])) && !otherTx.has(String(r[store.tx])) && !foreignTx.has(String(r[store.tx]))) unresolvedTx.add(String(r[store.tx]));
     const localTx = unresolvedTx.size ? new Set([...(await repo.present("transactions", ["user_id", "id"], [...unresolvedTx].map((t) => [me.id, t])))].map((k) => (JSON.parse(k) as string[])[1]!)) : new Set<string>();
+    const ownLoans = store.loan
+      ? new Set([...(await repo.present("loans", ["user_id", "id"], [...new Set(rows.map((r) => String(r[store.loan!])))].filter((l) => !loanIds.has(l)).map((l) => [me.id, l])))].map((k) => (JSON.parse(k) as string[])[1]!))
+      : new Set<string>();
     const staged: { row: Row; i: number; key: string }[] = [];
     for (const [i, row] of rows.entries()) {
       const mapped: Row = { ...row };
@@ -302,6 +307,12 @@ async function buildPlan(s: Services, ses: Session, committed: boolean, checks: 
         else if (otherTx.has(t)) theirs = "";
         else dangling(s, ses, store, i, store.tx);
       }
+      if (theirs === null && store.loan) {
+        const l = String(row[store.loan]);
+        const m = loanIds.get(l) ?? (ownLoans.has(l) ? l : undefined);
+        if (m === undefined) dangling(s, ses, store, i, store.loan);
+        mapped[store.loan] = m;
+      }
       if (theirs !== null) {
         skip(store.key, "other_user", theirs || undefined);
         continue;
@@ -340,6 +351,7 @@ async function buildPlan(s: Services, ses: Session, committed: boolean, checks: 
     for (const x of staged) {
       if (store.key === "statementRows" && !billsHere.has(String(x.row.bill_tx_id)) && !billsPresent.has(JSON.stringify([me.id, x.row.bill_tx_id]))) dangling(s, ses, store, x.i, "bill_tx_id");
       if (store.key === "statementBills") billsHere.add(String(x.row.bill_tx_id));
+      if (store.key === "loans" && present.has(x.key)) loanIds.set(String(x.row.id), String(x.row.id));
       const isPart = store.key === "parts";
       // the parts of a transaction that was here already are the ones the processing derived: kept as they are
       if (present.has(x.key) || seen.has(x.key) || (isPart && !newTx.has(String(x.row.tx_id)))) {
@@ -351,7 +363,9 @@ async function buildPlan(s: Services, ses: Session, committed: boolean, checks: 
     }
     const taken = store.idColumn ? await repo.taken(store.table as IdTable, fresh.map((x) => String(x.row[store.idColumn!]))) : new Map<string, string | null>();
     for (const { row, i } of fresh) {
+      const fileId = store.key === "loans" ? String(row.id) : "";
       if (store.idColumn && taken.has(String(row[store.idColumn]))) row[store.idColumn] = randomToken();
+      if (store.key === "loans") loanIds.set(fileId, String(row.id));
       if (store.key === "loans") {
         const fields = Object.fromEntries(LOAN_COLUMNS.map((c) => [camel(c), row[c]]));
         try {

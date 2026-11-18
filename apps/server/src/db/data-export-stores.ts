@@ -153,6 +153,7 @@ const STORES: readonly ExportStore[] = [
   },
   // a loan another member typed is in the viewer's figures as a copy, not as the row the member stored
   { key: "loans", table: "loans", rows: mine, order: "created_at, id" },
+  { key: "loanPaymentParts", table: "loan_payment_parts", rows: mine, order: "loan_id, due_date" },
   { key: "expectedBills", table: "expected_bills", rows: mine, order: "created_at, id" },
   { key: "spendingGoals", table: "spending_goal", rows: mine, order: "user_id" },
   { key: "categoryGoals", table: "category_goal", rows: mine, order: "user_id, category" },

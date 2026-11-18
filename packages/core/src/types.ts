@@ -269,7 +269,7 @@ export type RatePath = readonly (readonly [IsoDate, number])[];
 export type Fixings = Readonly<Partial<Record<Exclude<LoanReference, "fixed">, RatePath>>>;
 
 /** What a document stated of one payment: its split into repayment, interest and fees, in cents, none below zero. */
-interface PaymentParts {
+export interface PaymentParts {
   dueDate: IsoDate;
   principalCents: number;
   interestCents: number;

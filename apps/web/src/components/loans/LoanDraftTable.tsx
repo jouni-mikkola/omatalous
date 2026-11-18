@@ -24,8 +24,8 @@ const rowOf = (draft: LoanDraft, today: string, saved: Loan | null): Row => ({ d
 /** The loan to send, or null while a field is to check, cannot be read or holds a payment below the interest. */
 const bodyOf = (row: Row): LoanBody | null => (checksLeft(row.form).length === 0 && interestOverPayment(row.form) === null ? readForm(row.form).body : null);
 
-/** The form of a loan the household confirmed in its dialog: the same loan with no mark left. */
-const confirmedForm = (row: Row, body: LoanBody): LoanForm => ({ ...formOfLoan({ ...body, id: "" }), id: row.form.id });
+/** The form of a loan the household confirmed in its dialog: the same loan with no mark left, and the split of the last payment the read stated. */
+const confirmedForm = (row: Row, body: LoanBody): LoanForm => ({ ...formOfLoan({ ...body, id: "" }), id: row.form.id, lastPayment: row.form.lastPayment });
 
 /** What a row still asks of the household, in one line. */
 const leftOf = (row: Row): string => {

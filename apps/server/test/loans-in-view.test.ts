@@ -118,6 +118,25 @@ describe("a typed loan paid from a joint account", () => {
     expect((await viewOf(s, liisa.id)).loans).toEqual([]);
   });
 
+  it("carries the payment parts a document stated with the loan: to the other user of the account, and to nobody else", async () => {
+    const { s, aino, eero, liisa } = await household();
+    const lastPayment = { date: "2026-09-05", principalCents: 59_501, interestCents: 24_500, feeCents: 0 };
+    const loan = await save(aino, { ...mortgage, seriesKey: keyOn("aino-joint"), lastPayment });
+    const stated = [{ dueDate: "2026-09-05", principalCents: 59_501, interestCents: 24_500, feeCents: 0 }];
+    expect(loan.paymentParts).toEqual(stated);
+    expect((await viewOf(s, aino.id)).loans).toEqual([loan]);
+    // Eero's view holds the loan by his own copy of the account, and its parts as they were stated
+    const his = (await viewOf(s, eero.id)).loans;
+    expect(his).toEqual([typedBy("Aino", loan, keyOn("eero-joint"))]);
+    expect(his[0]!.paymentParts).toEqual(stated);
+    // Liisa uses no account with her: she has no loan and so no part of it
+    expect((await viewOf(s, liisa.id)).loans).toEqual([]);
+    // Eero saving the same terms himself writes under his own loan and leaves Aino's parts as they were
+    const other = await save(eero, { ...mortgage, seriesKey: keyOn("eero-joint"), lastPayment: { ...lastPayment, interestCents: 24_000, principalCents: 60_001 } });
+    expect(other.paymentParts).toEqual([{ dueDate: "2026-09-05", principalCents: 60_001, interestCents: 24_000, feeCents: 0 }]);
+    expect((await s.finance(aino.id).listLoans()).map((l) => l.paymentParts)).toEqual([stated]);
+  });
+
   it("follows a use the household said, and reaches a third user once that user sees the account", async () => {
     const { s, aino, eero, liisa } = await household();
     const loan = await save(aino, { ...mortgage, seriesKey: keyOn("aino-joint") });

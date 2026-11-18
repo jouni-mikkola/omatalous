@@ -1,8 +1,9 @@
 /** Loans the user typed in and confirmed. Own rows only, though a view holds another member's loan paid from an account it counts, built from those rows by `loansInView`: sharing an account shares no row. */
-import { LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, notLoanKey, notLoanMark, renamedMarkSubject } from "@banking/core";
+import { LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, notLoanKey, notLoanMark, type PaymentParts, renamedMarkSubject } from "@banking/core";
 import { num, type Row, str } from "../rows.ts";
 import type { SqlValue, Statement } from "../types.ts";
 import type { FinanceContext } from "./context.ts";
+import { LoanPartsRepo, PARTS_COLUMN, statedParts } from "./loan-parts.ts";
 
 /** The columns a loan's own fields go to, in the order of `values`. */
 const COLUMNS = [
@@ -82,11 +83,24 @@ const toLoan = (r: Row): Loan => ({
 });
 
 export class LoansRepo {
-  constructor(private readonly ctx: FinanceContext) {}
+  private readonly parts: LoanPartsRepo;
 
-  /** The user's loans in the order they were added. */
+  constructor(private readonly ctx: FinanceContext) {
+    this.parts = new LoanPartsRepo(ctx);
+  }
+
+  /** The user's loans in the order they were added, each with the payment parts a document stated (none: no field). */
   async listLoans(): Promise<Loan[]> {
-    return (await this.ctx.db.all<Row>("SELECT * FROM loans WHERE user_id = ? ORDER BY created_at, rowid", [this.ctx.userId])).map(toLoan);
+    const rows = await this.ctx.db.all<Row>(`SELECT loans.*, ${PARTS_COLUMN} FROM loans WHERE user_id = ? ORDER BY created_at, rowid`, [this.ctx.userId]);
+    return rows.map((r) => {
+      const stated = statedParts(r);
+      return stated ? { ...toLoan(r), paymentParts: stated } : toLoan(r);
+    });
+  }
+
+  /** Saves the split of one payment of the user's loan: false when the user has no such loan. */
+  savePaymentParts(loanId: string, part: PaymentParts): Promise<boolean> {
+    return this.parts.savePart(loanId, part);
   }
 
   /** When each of the user's loans was last saved (an ISO time), by loan id. */

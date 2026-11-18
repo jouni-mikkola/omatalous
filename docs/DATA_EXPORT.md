@@ -261,6 +261,19 @@ Table `loans`, one object per row.
 | `account_id` | string or null |  |
 | `rate_review_date` | string or null |  |
 
+### loanPaymentParts
+
+Table `loan_payment_parts`, one object per row: the split of a payment that a loan document stated.
+
+| Field | Type | Note |
+| --- | --- | --- |
+| `user_id` | string | the owner of the loan |
+| `loan_id` | string | the id of a loan in `loans` |
+| `due_date` | string | the due date of the payment, YYYY-MM-DD |
+| `principal_cents` | integer | the repayment |
+| `interest_cents` | integer |  |
+| `fee_cents` | integer | other credit costs |
+
 ### expectedBills
 
 Table `expected_bills`, one object per row.
@@ -528,8 +541,8 @@ with no gap and no repeat. Keys of the file that are not arrays (`exportedAt`, `
 - The chunks of one session add up to 64 MiB of JSON text and 2000 chunks. The cost at the cap (a file of 58.5 MiB with
   125 000 transactions): the dry run takes about 0.6 s and the commit about 6 s, the event loop stalls up to 0.9 s at
   the commit (the batch and one processing), and the staged rows take about 80 MiB of heap.
-- An array holds at most: transactions 500 000, parts 1 500 000, accounts and users 1000, loans 500, expectedBills 100,
-  householdMembers 200, rules 2000, account balances 500 000 (one per account, day and type, with no end),
+- An array holds at most: transactions 500 000, parts 1 500 000, accounts and users 1000, loans 500, loanPaymentParts 12 000,
+  expectedBills 100, householdMembers 200, rules 2000, account balances 500 000 (one per account, day and type, with no end),
   50 000 for the others (the exact figures are `max` in `data-import-stores.ts`). The 64 MiB above binds first for balances with every
   column: a row is 140 to 170 bytes, so such a file holds about 400 000 to 480 000 of them; 500 000 rows (the dry run
   takes about 1.1 s, the commit about 2.4 s) fit only as short rows.
@@ -578,7 +591,8 @@ Nothing is updated or deleted: a row with a key the table has is kept as it is a
   rows. A new row keeps its id unless the table has it, gets no `raw`, and an unknown category becomes `other`. The parts
   of a transaction that was here already are kept as they are.
 - The other stores by the key in the "Stores" tables: `rules` by (`field`, `pattern`), `householdMembers` by `name`,
-  `loans` and `expectedBills` by id, `statementRows` by (bill, `row_key`), the rest by their primary key. An id the table has
+  `loans` and `expectedBills` by id, `loanPaymentParts` by (loan, `due_date`: a part follows its loan to the id the loan
+  gets here, and one that names no loan of the file or of the user is refused), `statementRows` by (bill, `row_key`), the rest by their primary key. An id the table has
   for another user's row is not used: the new row gets a fresh one.
 
 ### The dry run's answer

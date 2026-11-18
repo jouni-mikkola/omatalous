@@ -8,7 +8,7 @@
  * class only builds them and hands each call to its module, so callers keep one object and one set of methods. A
  * new method goes into its module first, then here. Docs sit on the module's method.
  */
-import type { CategoryRule, ExpectedBill, Loan, MarkKind, PayerRole, Transaction } from "@banking/core";
+import type { CategoryRule, ExpectedBill, Loan, MarkKind, PayerRole, PaymentParts, Transaction } from "@banking/core";
 import { type AccountPatch, AccountsRepo, type NewAccount } from "./finance/accounts.ts";
 import { BalanceRecordRepo } from "./finance/balance-record.ts";
 import { ForeignRowRepo } from "./finance/foreign-rows.ts";
@@ -200,6 +200,7 @@ export class FinanceRepo {
   // ── loans (finance/loans.ts) ─────────────────────────────
   listLoans() { return this.loans.listLoans(); }
   loansSavedAt() { return this.loans.savedAt(); }
+  saveLoanPaymentParts(loanId: string, part: PaymentParts) { return this.loans.savePaymentParts(loanId, part); }
   addLoan(loan: Loan, at: string) { return this.loans.addLoan(loan, at); }
   updateLoan(loan: Loan, at: string) { return this.loans.updateLoan(loan, at); }
   deleteLoan(id: string) { return this.loans.deleteLoan(id); }

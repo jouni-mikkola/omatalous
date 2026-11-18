@@ -56,6 +56,25 @@ describe("a read draft as a form", () => {
     expect(readForm(form).body).toMatchObject({ paymentCents: 68_920, grantedCents: 15_000_000, balanceCents: 12_000_000, repayment: "annuity" });
   });
 
+  it("sends the split of the last payment the text states with the save, and none when it states none or nothing", () => {
+    const last = { date: "2026-09-05", principalCents: 59_501, interestCents: 24_500, feeCents: 0 };
+    const read = { ...draft(), lastPayment: { value: last, line: "Viimeisin maksu", confidence: "sure" as const } };
+    const form = setKind(formOfDraft(read, TODAY), "mortgage");
+    expect(form.lastPayment).toEqual(last);
+    expect(readForm(form).body?.lastPayment).toEqual(last);
+    // a read that has none, a saved loan's form and a split of nothing send no lastPayment
+    expect(readForm(setKind(formOfDraft(draft(), TODAY), "mortgage")).body).not.toHaveProperty("lastPayment");
+    expect(formOfLoan(saved()).lastPayment).toBeNull();
+    expect(readForm({ ...form, lastPayment: { ...last, principalCents: 0, interestCents: 0 } }).body).not.toHaveProperty("lastPayment");
+    // a split read to check (a fee not read, or parts that do not fit the payment) is not sent
+    const unsure = { ...draft(), lastPayment: { value: last, line: "Viimeisin maksu", confidence: "check" as const } };
+    const unsureForm = setKind(formOfDraft(unsure, TODAY), "mortgage");
+    expect(unsureForm.lastPayment).toBeNull();
+    expect(readForm(unsureForm).body).not.toHaveProperty("lastPayment");
+    // a new read over a form that held one starts clean
+    expect(formOfDraft(draft(), TODAY, form).lastPayment).toBeNull();
+  });
+
   it("reads into a saved loan's form: its name, series and account stay, a field the text lacks keeps its value, a field it has wins", () => {
     const base = formOfLoan(saved({ seriesKey: "series:x", accountId: "a1", marginBp: 65, name: "Oma nimi" }));
     const form = formOfDraft(draft("Luoton saldo: 120 000,00 €"), TODAY, base);

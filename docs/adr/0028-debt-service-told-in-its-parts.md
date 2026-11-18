@@ -4,8 +4,8 @@
 
 *Velanhoito* was one sum in *Tulojen käyttö*. A household that pays a mortgage instalment could not see how much of it
 was the price of the loan (interest) and how much made it smaller (repayment). The bank's payment row holds both, and the
-parts are known only from other evidence: the interest the connected loan account booked, or the plan of a loan the
-household saved.
+parts are known only from other evidence: the payment parts a loan document stated, the interest the connected loan
+account booked, or the plan of a loan the household saved.
 
 ## Decision
 
@@ -15,14 +15,19 @@ counts once, in one of them. The split is computed per request and stored nowher
 
 The evidence for a row, in order:
 
-1. The interest rows of the connected loan account on the day of the payment. The rest of the payment is repayment. When
+1. The payment parts a loan document stated (`Loan.paymentParts`, table `loan_payment_parts`). A part's due date takes
+   its nearest row of the loan's series within `LOAN_ROW_DAYS`, the earlier on a tie, and the parts count only when
+   they add up to the bank's whole row within the same tolerance as the plan's. The interest and the fee are the
+   document's cents, and the rest of the row repays. Parts that do not fit the row are no evidence, and the next one is
+   tried.
+2. The interest rows of the connected loan account on the day of the payment. The rest of the payment is repayment. When
    the payer's own account has a row of the category `interest` for that loan on the same day, the loan account's
    booking is that interest already and is not counted again.
-2. The plan of a saved loan with a complete plan, whose payment series holds the row, when the row is within
+3. The plan of a saved loan with a complete plan, whose payment series holds the row, when the row is within
    `LOAN_ROW_DAYS` of a due date and within `LOAN_ROW_TOLERANCE_CENTS` or `LOAN_ROW_TOLERANCE_SHARE` of the payment the
    plan expects, and the row is wholly debt. The interest of the interval is the schedule's, the fee of the newest
    payment part a document stated is a cost, and the rest repays.
-3. Otherwise the row is not split. A row of the category `interest` is interest as a whole. A card bill and a collection
+4. Otherwise the row is not split. A row of the category `interest` is interest as a whole. A card bill and a collection
    row are never split.
 
 A due date takes its nearest payment, the earlier on a tie. A row whose evidence leaves less than nothing to repay, and a

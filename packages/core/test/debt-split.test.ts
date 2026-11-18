@@ -163,6 +163,80 @@ describe("the debt service told in its kinds", () => {
       const w = split(booked("2026-09-05", 100_000, 0).slice(0, 2), NO_INPUTS, [checking, loanAccount]);
       expect(w.split).toEqual({ interestCents: 0, principalCents: 0, unsplitCents: 100_000 });
     });
+
+    it("gives way to the parts a document stated for that payment: 47,00 of interest and 5,00 of fee, not the 40,00 booked", () => {
+      const rows = booked("2026-09-05", 30_000, 4_000);
+      const stated = [{ dueDate: "2026-09-05", principalCents: 24_800, interestCents: 4_700, feeCents: 500 }];
+      const w = split(rows, inputs(annuity({ seriesKey: "out:acc-1:Esimerkkipankki", accountId: "acc-2", paymentParts: stated })), [checking, loanAccount]);
+      expect(w.split).toEqual({ interestCents: 4_700 + 500, principalCents: 24_800, unsplitCents: 0 });
+      expect(sum(w.split)).toBe(w.debt);
+    });
+  });
+});
+
+/** A loan with no known rate has no plan, so what the parts do not split stays unsplit. */
+describe("the payment parts a loan document stated", () => {
+  const stated = { dueDate: "2026-09-05", principalCents: 25_000, interestCents: 4_500, feeCents: 500 };
+  const noPlan = (...parts: (typeof stated)[]) => inputs(annuity({ rateBp: null, paymentParts: parts }));
+
+  it("are the evidence before the plan: the stated cents on their due date, the plan's on the others", () => {
+    const loan = annuity({ paymentParts: [{ dueDate: "2026-09-05", principalCents: 24_900, interestCents: 5_100, feeCents: 0 }] });
+    const w = split(dues(30_000), inputs(loan));
+    // the plan says 50,00 for September; the document says 51,00. October and November stay the plan's 48,75 and 47,49
+    expect(w.split).toEqual({ interestCents: 5_100 + 4_875 + 4_749, principalCents: 24_900 + 25_125 + 25_251, unsplitCents: 0 });
+    expect(sum(w.split)).toBe(w.debt);
+  });
+
+  it("take the interest and the fee as stated, and the rest of the row repays", () => {
+    const w = split(dues(30_000), noPlan({ dueDate: "2026-09-05", principalCents: 24_800, interestCents: 4_700, feeCents: 500 }));
+    expect(w.split).toEqual({ interestCents: 4_700 + 500, principalCents: 24_800, unsplitCents: 60_000 });
+    expect(sum(w.split)).toBe(w.debt);
+  });
+
+  it("count when they add up to the row within the room of the plan's check: 3,00 of 300,00, and not a cent more", () => {
+    const inside = split([instalment("2026-09-05", 30_300)], noPlan(stated));
+    expect(inside.split).toEqual({ interestCents: 5_000, principalCents: 25_300, unsplitCents: 0 });
+    const outside = split([instalment("2026-09-05", 30_301)], noPlan(stated));
+    expect(outside.split).toEqual({ interestCents: 0, principalCents: 0, unsplitCents: 30_301 });
+    expect(sum(outside.split)).toBe(outside.debt);
+  });
+
+  it("leave a row unsplit when they add up to another payment", () => {
+    const w = split([instalment("2026-09-05", 30_000)], noPlan({ ...stated, principalCents: 26_000 }));
+    expect(w.split).toEqual({ interestCents: 0, principalCents: 0, unsplitCents: 30_000 });
+  });
+
+  it("leave a row unsplit when the stated interest and fee are more than the row", () => {
+    const w = split([instalment("2026-09-05", 30_000)], noPlan({ dueDate: "2026-09-05", principalCents: 0, interestCents: 30_050, feeCents: 0 }));
+    expect(w.split).toEqual({ interestCents: 0, principalCents: 0, unsplitCents: 30_000 });
+  });
+
+  it("reach a row seven days from the due date and no further", () => {
+    expect(split([instalment("2026-09-12", 30_000)], noPlan(stated)).split).toEqual({ interestCents: 5_000, principalCents: 25_000, unsplitCents: 0 });
+    expect(split([instalment("2026-09-13", 30_000)], noPlan(stated)).split).toEqual({ interestCents: 0, principalCents: 0, unsplitCents: 30_000 });
+  });
+
+  it("go to the nearest row of a due date, the earlier on a tie, and the other row stays unsplit", () => {
+    const near = split([instalment("2026-09-05", 30_000), instalment("2026-09-08", 30_000)], noPlan(stated));
+    expect(near.split).toEqual({ interestCents: 5_000, principalCents: 25_000, unsplitCents: 30_000 });
+    // two days either side: the row of the 3rd (30 000) takes the part, the row of the 7th (30 100) stays whole
+    const tie = split([instalment("2026-09-07", 30_100), instalment("2026-09-03", 30_000)], noPlan(stated));
+    expect(tie.split).toEqual({ interestCents: 5_000, principalCents: 25_000, unsplitCents: 30_100 });
+    expect(sum(tie.split)).toBe(tie.debt);
+  });
+
+  it("split no row of another loan's payments", () => {
+    const other = annuity({ rateBp: null, seriesKey: "out:acc-1:Toinen Rahoitus Oy", paymentParts: [stated] });
+    const w = split([instalment("2026-09-05", 30_000)], inputs(other));
+    expect(w.split).toEqual({ interestCents: 0, principalCents: 0, unsplitCents: 30_000 });
+  });
+
+  it("keep the three sums equal to the debt service over every month of the range", () => {
+    const rows = [...dues(30_000), instalment("2026-11-20", 12_345)];
+    const w = split(rows, inputs(annuity({ paymentParts: [{ dueDate: "2026-10-05", principalCents: 24_500, interestCents: 5_500, feeCents: 0 }] })));
+    expect(w.debt).toBe(90_000 + 12_345);
+    expect(sum(w.split)).toBe(w.debt);
+    expect(w.split.unsplitCents).toBe(12_345);
   });
 });
 

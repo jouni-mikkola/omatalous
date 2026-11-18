@@ -4,7 +4,10 @@
  * what no evidence splits. Every debt-flow row of the range lands in exactly one way, so the three sums add up to
  * `debtCents` to the cent, and the split changes no cash figure: Tulos stays cash (ADR 0014).
  *
- * The evidence, in order (a payment part a document stated is the first and comes with the loan intake):
+ * The evidence, in order:
+ *  1. The payment parts a loan document stated (`Loan.paymentParts`): the payment on a part's due date, within
+ *     `LOAN_ROW_DAYS`, when the parts add up to the row within the tolerance of the plan's payment. The interest and the
+ *     fee are the document's, to the cent, and the rest of the row repays.
  *  2. The connected loan account's own rows (zero in flows) that the bank booked as interest on the day of the row give
  *     its interest; the rest of the row is repayment.
  *  3. A saved loan with a complete plan whose payment series holds the row, the row within `LOAN_ROW_DAYS` of a due
@@ -100,6 +103,44 @@ function accountInterest(ctx: AnalysisContext, rows: readonly AnalysisTx[], inpu
 
 /** The room a payment may differ from the plan's by. */
 const toleranceOf = (expectedCents: number): number => Math.max(LOAN_ROW_TOLERANCE_CENTS, Math.round(expectedCents * LOAN_ROW_TOLERANCE_SHARE));
+
+/** The debt rows that are wholly debt and are not a transfer, a card bill, a collection or interest: the rows a payment's parts can split. */
+const splittable = (t: AnalysisTx): boolean => t.flows.debt > 0 && t.flows.debt + t.amountCents === 0 && !t.isTransfer && !UNSPLIT_CATEGORIES.has(t.category) && t.category !== "interest";
+
+/**
+ * Evidence 1: the payment parts a loan document stated, on the row of each part's due date. A due date takes its
+ * nearest row of the loan's series within `LOAN_ROW_DAYS`, the earlier on a tie, and a row takes one part. The parts
+ * count only when they add up to the bank's whole row within the tolerance and leave nothing less than zero to repay;
+ * the interest and the fee are the document's cents, and the row's remainder repays.
+ */
+function documentParts(ctx: AnalysisContext, inputs: UserInputs): Map<string, RowParts> {
+  const out = new Map<string, RowParts>();
+  const loans = loansOf(inputs).filter((l) => l.seriesKey !== null);
+  const stated = loans.filter((l) => l.paymentParts?.length);
+  if (!stated.length) return out;
+  const keys = loans.map((l) => l.seriesKey!);
+  const claimed = new Set<string>();
+  const debtRows = ctx.txs.filter(splittable);
+  for (const loan of stated) {
+    const rows = debtRows.filter((t) => !claimed.has(t.id) && paysSeries(loan.seriesKey!, { accountId: t.accountId, merchant: t.merchant, amountCents: billCents(t) }, keys));
+    for (const t of rows) claimed.add(t.id);
+    for (const part of loan.paymentParts!) {
+      const due = dayNumber(part.dueDate);
+      let nearest: AnalysisTx | undefined;
+      for (const t of rows) {
+        const apart = Math.abs(t.day - due);
+        if (apart > LOAN_ROW_DAYS) continue;
+        if (nearest === undefined || apart < Math.abs(nearest.day - due) || (apart === Math.abs(nearest.day - due) && t.day < nearest.day)) nearest = t;
+      }
+      if (nearest === undefined || out.has(nearest.id)) continue;
+      const whole = -billCents(nearest);
+      const sum = part.principalCents + part.interestCents + part.feeCents;
+      if (Math.abs(whole - sum) > toleranceOf(sum) || whole - part.interestCents - part.feeCents < 0) continue;
+      out.set(nearest.id, { interestCents: part.interestCents, feeCents: part.feeCents });
+    }
+  }
+  return out;
+}
 
 /** The fee of the newest payment a document stated, in every payment. */
 const feeOf = (loan: Loan): number => [...(loan.paymentParts ?? [])].sort((a, b) => b.dueDate.localeCompare(a.dueDate))[0]?.feeCents ?? 0;
@@ -211,7 +252,7 @@ function engineParts(ctx: AnalysisContext, inputs: UserInputs): Map<string, RowP
   if (!loans.length) return out;
   const keys = loans.flatMap((l) => l.seriesKey ?? []);
   const claimed = new Set<string>();
-  const debtRows = ctx.txs.filter((t) => t.flows.debt > 0 && t.flows.debt + t.amountCents === 0 && !t.isTransfer && !UNSPLIT_CATEGORIES.has(t.category) && t.category !== "interest");
+  const debtRows = ctx.txs.filter(splittable);
   for (const loan of loans) {
     const rows = debtRows.filter((t) => !claimed.has(t.id) && paysSeries(loan.seriesKey!, { accountId: t.accountId, merchant: t.merchant, amountCents: billCents(t) }, keys));
     for (const t of rows) claimed.add(t.id);
@@ -229,7 +270,8 @@ export function debtSplit(ctx: AnalysisContext, range: DateRange, inputs: UserIn
   const rows = counted.filter((t) => t.flows.debt !== 0);
   const split: DebtSplit = { interestCents: 0, principalCents: 0, unsplitCents: 0 };
   if (!rows.length) return split;
-  const candidates = rows.filter((t) => t.flows.debt > 0 && t.flows.debt + t.amountCents === 0 && !t.isTransfer && !UNSPLIT_CATEGORIES.has(t.category) && t.category !== "interest");
+  const candidates = rows.filter(splittable);
+  const fromDocument = documentParts(ctx, inputs);
   const fromAccount = accountInterest(ctx, candidates, inputs);
   const fromPlan = engineParts(ctx, inputs);
   for (const t of rows) {
@@ -238,7 +280,7 @@ export function debtSplit(ctx: AnalysisContext, range: DateRange, inputs: UserIn
       split.interestCents += debt;
       continue;
     }
-    const parts = fromAccount.get(t.id) ?? fromPlan.get(t.id);
+    const parts = fromDocument.get(t.id) ?? fromAccount.get(t.id) ?? fromPlan.get(t.id);
     if (parts === undefined) {
       split.unsplitCents += debt;
       continue;
