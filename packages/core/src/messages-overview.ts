@@ -99,6 +99,7 @@ export const FI_OVERVIEW = {
   "home.buffer_label": "Puskuri",
   "home.buffer_no_balance": "Ei saldoa",
   "home.buffer_history": "Liian lyhyt historia",
+  "home.buffer_no_spending": "Ei menoja",
   "home.buffer_net": "Raha laskujen ja korttivelan jälkeen",
   "home.buffer_spend": "Tavalliset menot kuukaudessa",
   // Shared components

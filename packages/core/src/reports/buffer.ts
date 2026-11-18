@@ -7,8 +7,8 @@ import { monthOf } from "../dates.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { type BalanceInput, NO_INPUTS, type UserInputs } from "../types.ts";
 
-/** Why a buffer cannot be told: no balance of a savings or checking account (a CSV import has none), or no expected month to divide by (too short a history). */
-export type BufferGap = "no-balance" | "history";
+/** Why a buffer cannot be told: no balance of a savings or checking account (a CSV import has none), no expected month to divide by (too short a history), or an expected month that costs nothing. */
+export type BufferGap = "no-balance" | "history" | "no-spending";
 
 interface BufferReport extends FixedShare {
   /** Spending (consumption and debt) in an expected month (`expectedSpending`), groceries included; null under three complete months. */
@@ -21,7 +21,7 @@ interface BufferReport extends FixedShare {
   dueBeforePaydayCents: number;
   /** `cashCents` less the card debt and the bills due before the payday; null with `cashCents`. */
   netCents: number | null;
-  /** The net cash in months of expected spending; null without a balance or an expected level. */
+  /** The net cash in months of expected spending, negative when the card debt and the bills exceed the cash; null without a balance, an expected level or any spending in it. */
   bufferMonths: number | null;
   /** Why `bufferMonths` is null; null when it is a figure. */
   bufferGap: BufferGap | null;
@@ -44,9 +44,9 @@ export function bufferReport(ctx: AnalysisContext, balances: readonly BalanceInp
   const { totals } = cashAhead(ctx, balances, inputs);
   const dueBeforePaydayCents = totals.dueCents - totals.cardCents;
   const netCents = cashCents === null ? null : cashCents - cardDebtCents - dueBeforePaydayCents;
-  const bufferMonths = netCents === null || !spendExpected || spendExpected <= 0 ? null : Math.max(0, netCents) / spendExpected;
+  const bufferMonths = netCents === null || spendExpected === null || spendExpected <= 0 ? null : netCents / spendExpected;
 
-  const bufferGap = netCents === null ? "no-balance" : bufferMonths === null ? "history" : null;
+  const bufferGap = netCents === null ? "no-balance" : spendExpected === null ? "history" : spendExpected <= 0 ? "no-spending" : null;
 
   return { ...fixed, expectedSpendCents: spendExpected, cashCents, cardDebtCents, dueBeforePaydayCents, netCents, bufferMonths, bufferGap };
 }
