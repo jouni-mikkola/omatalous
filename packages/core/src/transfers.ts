@@ -142,6 +142,13 @@ interface IssuerEvidence {
 export const BILLING_MONTH_DAYS = 31;
 
 /**
+ * Whether a bill on `billDay` pays purchases that are in no row of a card whose rows began on `firstRowDay` (day numbers):
+ * a bill before the first row, or within a billing month after it. The one rule of the transfer pairing (card-channel.ts,
+ * the issuer fallback below) and of the missing card purchases (analysis/card-bills.ts).
+ */
+export const paysPurchasesBeforeRows = (firstRowDay: number, billDay: number): boolean => billDay - firstRowDay <= BILLING_MONTH_DAYS;
+
+/**
  * The issuer fallback: card bills that paired with nothing (`settled` holds what did) and whose text names a connected
  * card. The text is weak evidence, since a finance company shares its bank's name, so anything known about this card
  * or this payee goes first. A bill from before the card's first row, or within a billing month after it, pays purchases
@@ -158,7 +165,7 @@ export function billsByIssuer(txs: readonly TransferInput[], accounts: readonly 
     const day = dayNumber(tx.bookingDate);
     if (day < (began.get(tx.accountId) ?? Number.POSITIVE_INFINITY)) began.set(tx.accountId, day);
   }
-  const holds = (cardId: string, day: number) => !began.has(cardId) || day - began.get(cardId)! > BILLING_MONTH_DAYS;
+  const holds = (cardId: string, day: number) => !began.has(cardId) || !paysPurchasesBeforeRows(began.get(cardId)!, day);
   const bills: string[] = [];
   for (const tx of txs) {
     if (tx.category !== "card_bill" || tx.categorySource === "user" || known.exclude?.has(tx.id) || settled.has(tx.id) || cardIds.has(tx.accountId) || tx.amountCents >= 0) continue;

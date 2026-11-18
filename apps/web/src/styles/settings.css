@@ -132,6 +132,9 @@
 .bank-app-id { flex: 1 1 16.25rem; max-width: 24rem; }
 .bank-return-input { flex: 1; min-width: 13.75rem; }
 
+/* a missing card's action: a 44 px target on a phone's screen, also where the pointer is not coarse */
+@media (max-width: 600px) { .missing-card-action { min-height: var(--tap-min); } }
+
 /* the one destructive action of a page: last, folded, and set apart by a red rule */
 .danger-zone { margin-top: var(--sp-32); border-top-color: var(--bad); }
 .danger-zone h2 { color: var(--bad); }
