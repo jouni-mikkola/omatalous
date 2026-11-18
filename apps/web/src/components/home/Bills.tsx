@@ -24,7 +24,7 @@ const billsHref = (anchor: string) => hashOf({ page: "bills", params: new URLSea
 
 /**
  * The rows and the sum of the block, as Laskut has them: before a known payday the payments of `ahead.rows` before it
- * and `nyt.left.billsCents` (BeforePayday, which the Käytettävissä tile takes off), else the first group of
+ * and `nyt.left.billsCents` (which the Käytettävissä tile takes off), else the first group of
  * `upcomingGroups` with its own sum: the bills to the payday when there is one but no balance to start from, the 30
  * days when there is none. Null with no window at all.
  */

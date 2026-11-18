@@ -416,7 +416,7 @@ test("sign out and back in", async ({ page }) => {
   expect(seen.problems.filter((p) => !/HTTP 401: POST .*\/api\/auth\/login/.test(p) && !/Failed to load resource.*401/.test(p))).toEqual([]);
 });
 
-test("the Laskut page fits a phone: the timeline and the table are inside the screen at 390 px, in at most 3000 px", async ({ browser }) => {
+test("the Laskut page fits a phone: the table of the months is inside the screen at 390 px, in at most 3000 px", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   const seen = watch(page);
@@ -474,7 +474,7 @@ test("an expected bill is added at the head of Tulossa, shows in its one table, 
 
   await expect(page.getByRole("dialog", { name: "Lisää lasku" })).toHaveCount(0);
   await expect(coming.getByText("Lasku E2E-ajoneuvovero lisätty.")).toBeVisible();
-  await expect(table.locator("tbody tr").filter({ has: page.locator("button.rt-drill") }).filter({ hasText: "E2E-ajoneuvovero" })).toContainText("Lisätty käsin");
+  await expect(table.locator("tbody tr").filter({ has: page.locator("button.rt-drill") }).filter({ hasText: "E2E-ajoneuvovero" })).toContainText("Tiedossa");
   const remove = (p: Page) => p.locator("#laskut-taulukko").getByRole("button", { name: "Poista lasku E2E-ajoneuvovero" });
   const open = (p: Page) => p.locator("#laskut-taulukko").getByRole("button", { name: "Tiedot: E2E-ajoneuvovero" });
   await open(page).click();
@@ -512,12 +512,13 @@ test("Toistuvat is Laskut: the old address opens the new page, and Yhteenveto li
   await page.goBack();
   expect(page.url()).toMatch(/#\/transactions$/);
 
-  // what the page holds: the 30 days with their sums and the one table with the fixed costs, and no old tile or list
+  // what the page holds: the year's figure and the one table of the months, and no old tile or list
   await page.goto("/#/bills");
   for (const heading of ["Tulevat maksut", "Laskut, sopimukset ja tilaukset"]) await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
-  // the head holds no fixed-costs sum, only the one link to its report
+  // the head holds the figure of the next twelve months and no link to a report
   await expect(page.locator("#laskut-taulukko .card-datum")).toHaveCount(0);
-  await expect(page.locator("#laskut-taulukko").getByRole("link", { name: "Kiinteät menot", exact: true })).toHaveAttribute("href", "#/reports?q=kiinteat");
+  await expect(page.locator("#tulossa .bills-year")).toContainText("Seuraavat 12 kk");
+  await expect(page.locator("#laskut-taulukko").getByRole("link", { name: "Kiinteät menot", exact: true })).toHaveCount(0);
   for (const gone of ["Seuraavaksi erääntyy", "Tilaukset", "Sopimukset ja laskut", "Harvoin tulevat laskut", "Tulevat laskut", "Hinnanmuutokset"]) await expect(page.getByRole("heading", { name: gone, exact: true })).toHaveCount(0);
   await page.goto("/#/reports?q=kiinteat");
   // the report holds the one fixed-costs table; the sections of fixed and variable costs and of price changes are gone (T60)
