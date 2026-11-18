@@ -66,6 +66,11 @@ describe("a read draft as a form", () => {
     expect(readForm(setKind(formOfDraft(draft(), TODAY), "mortgage")).body).not.toHaveProperty("lastPayment");
     expect(formOfLoan(saved()).lastPayment).toBeNull();
     expect(readForm({ ...form, lastPayment: { ...last, principalCents: 0, interestCents: 0 } }).body).not.toHaveProperty("lastPayment");
+    // a split read to check (a fee not read, or parts that do not fit the payment) is not sent
+    const unsure = { ...draft(), lastPayment: { value: last, line: "Viimeisin maksu", confidence: "check" as const } };
+    const unsureForm = setKind(formOfDraft(unsure, TODAY), "mortgage");
+    expect(unsureForm.lastPayment).toBeNull();
+    expect(readForm(unsureForm).body).not.toHaveProperty("lastPayment");
     // a new read over a form that held one starts clean
     expect(formOfDraft(draft(), TODAY, form).lastPayment).toBeNull();
   });

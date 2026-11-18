@@ -64,6 +64,7 @@ async function keep(db: Db, userId: string, tag: string, other?: string) {
   await run("INSERT INTO foreign_rows (account_key, raw_key, booking_date, amount_minor, scale, currency, text, seen_at) VALUES (?, 'r1', '2026-09-30', -500, 2, 'SEK', 'ESIMERKKI AB', ?)", `${tag}-ident`, AT);
   await run("INSERT INTO tx_part (tx_id, owner, kind, grp, cents, passed) VALUES (?, ?, 'spend', 'groceries', 1250, 0)", tx1, `u:${userId}`);
   await run("INSERT INTO loans (id, user_id, name, kind, balance_cents, balance_date, rate_bp, created_at, updated_at) VALUES (?, ?, ?, 'consumer', 100000, '2026-09-01', 500, ?, ?)", `${tag}-loan`, userId, `${tag} laina`, AT, AT);
+  await run("INSERT INTO loan_payment_parts (user_id, loan_id, due_date, principal_cents, interest_cents, fee_cents) VALUES (?, ?, '2026-08-05', 24500, 5500, 0)", userId, `${tag}-loan`);
   await run("INSERT INTO statement_bill (bill_tx_id, user_id, account_key, period_from, period_to, statement_cents, saved_at) VALUES (?, ?, ?, '2026-08-01', '2026-08-31', 5000, ?)", tx1, userId, `${tag}-ident`, AT);
   await run("INSERT INTO statement_rows (id, bill_tx_id, account_key, user_id, day, cents, text, row_key, imported_at) VALUES (?, ?, ?, ?, '2026-08-05', -500, 'ESIMERKKI KAUPPA', 'k1', ?)", `${tag}-srow`, tx1, `${tag}-ident`, userId, AT);
   await run("INSERT INTO account_history (account_id, asked_from, first_row_day, source, recorded_at) VALUES (?, '2026-01-01', '2026-02-01', 'csv', ?)", acc, AT);
@@ -205,6 +206,23 @@ describe("a file read back", () => {
     expect(await b.db.first("SELECT COUNT(*) AS n FROM transactions WHERE user_id = ?", [b.adminId])).toEqual({ n: 3 });
     expect(await b.db.first("SELECT COUNT(*) AS n FROM transactions WHERE user_id = ? AND account_id = ?", [b.adminId, String(mine[0]!.id)])).toEqual({ n: 3 });
     expect(await b.db.first("SELECT merchant FROM transactions WHERE id = 'aino-tx1'")).toEqual({ merchant: "X" });
+  });
+
+  it("the payment parts of a loan follow it to the fresh id it gets when another user's loan has its id, and stay one row when read again", async () => {
+    const { a, b, kb } = await pair();
+    const file = await exportOf(a.admin);
+    expect(file.loanPaymentParts).toEqual([{ user_id: a.adminId, loan_id: "aino-loan", due_date: "2026-08-05", principal_cents: 24_500, interest_cents: 5_500, fee_cents: 0 }]);
+    await b.db.run("INSERT INTO loans (id, user_id, name, kind, balance_cents, balance_date, created_at, updated_at) VALUES ('aino-loan', ?, 'Kaisan laina', 'consumer', 1, '2026-09-01', ?, ?)", [kb.id, AT, AT]);
+    await importFile(b.admin, file);
+    const loan = await b.db.first<{ id: string }>("SELECT id FROM loans WHERE user_id = ?", [b.adminId]);
+    expect(loan!.id).not.toBe("aino-loan");
+    expect(await b.db.all("SELECT user_id, loan_id, due_date, principal_cents, interest_cents, fee_cents FROM loan_payment_parts")).toEqual([
+      { user_id: b.adminId, loan_id: loan!.id, due_date: "2026-08-05", principal_cents: 24_500, interest_cents: 5_500, fee_cents: 0 },
+    ]);
+    // read again: the loan is the user's own now, under its new id in the file the instance writes
+    const again = await importFile(b.admin, await exportOf(b.admin));
+    expect(again.done.total.add).toBe(0);
+    expect(await b.db.first("SELECT COUNT(*) AS n FROM loan_payment_parts")).toEqual({ n: 1 });
   });
 });
 
@@ -379,6 +397,10 @@ describe("a hostile file is refused and changes nothing", () => {
     await refusedWith(b, b.admin, { ...file, transactions: [{ ...file.transactions[0], account_id: "kaisa-acc" }] }, /account_id/);
     await refusedWith(b, b.admin, { ...file, answers: [{ ...file.answers[0], account_key: "kaisa-ident" }] }, /account_key/);
     await refusedWith(b, b.admin, { ...file, loans: [{ ...file.loans[0], user_id: "nobody" }] }, /user_id/);
+    // a part of a loan that is no loan of the file, or one that is kaisa's here
+    await refusedWith(b, b.admin, { ...file, loanPaymentParts: [{ ...file.loanPaymentParts[0], loan_id: "nobody-loan" }] }, /loanPaymentParts rivi 1 viittaa riviin \(loan_id\)/);
+    await refusedWith(b, b.admin, { ...file, loans: [], loanPaymentParts: [{ ...file.loanPaymentParts[0], loan_id: "kaisa-loan" }] }, /loanPaymentParts rivi 1 viittaa riviin \(loan_id\)/);
+    await refusedWith(b, b.admin, { ...file, loanPaymentParts: [{ ...file.loanPaymentParts[0], interest_cents: -1 }] }, /loanPaymentParts/);
     await refusedWith(b, b.admin, { ...file, statementRows: [{ ...file.statementRows[0], bill_tx_id: "aino-tx2" }] }, /bill_tx_id/);
     // a row that says it is aino's but names kaisa's username as its owner
     await refusedWith(b, b.admin, { ...file, accounts: [{ ...file.accounts[0], owner_username: "kaisa" }] }, /owner_username/);

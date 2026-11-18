@@ -141,7 +141,7 @@ function parseLastPayment(given: unknown, today: string): PaymentParts | null {
     feeCents: cents(input.feeCents, 0, "Viimeisen erän luottokulujen"),
   };
   const total = part.principalCents + part.interestCents + part.feeCents;
-  if (total < 1 || total > MAX_CENTS) throw new UserError(`Viimeisen erän osat pitää olla yhteensä vähintään 0,01 € ja enintään ${MAX_EUROS}.`);
+  if (total < 1 || total > MAX_CENTS) throw new UserError(`Viimeisen erän osien pitää olla yhteensä vähintään 0,01 € ja enintään ${MAX_EUROS}.`);
   return part;
 }
 

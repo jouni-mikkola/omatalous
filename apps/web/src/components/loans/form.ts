@@ -52,7 +52,7 @@ export interface LoanForm {
   paymentKind: LoanDraftPaymentKind | null;
   /** The card or loan account that is this same debt (`Loan.accountId`), or "" for none. */
   accountId: string;
-  /** The split of the last payment the document read states: sent with the save, which keeps it with the loan. Null: the read has none. */
+  /** The split of the last payment the document read states with confidence: sent with the save, which keeps it with the loan. Null: the read has none, or has it to check. */
   lastPayment: LoanDraftLastPayment | null;
 }
 
@@ -107,7 +107,7 @@ export function formOfDraft(draft: LoanDraft, today: string, base: LoanForm = em
   // the text gave the amortisation alone of a loan whose payment holds the interest: the household types the whole payment
   if (draft.paymentKind === "amortisation" && values.repayment !== "equal_principal") values.paymentCents = "";
   // a fresh read starts with nothing confirmed: what the household confirmed in an earlier read is not this read's
-  return { ...base, kind: base.kind || (draft.kind ?? ""), values, source: { marks, lines, warnings, payment }, confirmed: [], paymentKind: draft.paymentKind ?? null, lastPayment: draft.lastPayment?.value ?? null };
+  return { ...base, kind: base.kind || (draft.kind ?? ""), values, source: { marks, lines, warnings, payment }, confirmed: [], paymentKind: draft.paymentKind ?? null, lastPayment: draft.lastPayment?.confidence === "sure" ? draft.lastPayment.value : null };
 }
 
 /**

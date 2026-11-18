@@ -153,6 +153,7 @@ const STORES: readonly ExportStore[] = [
   },
   // a loan another member typed is in the viewer's figures as a copy, not as the row the member stored
   { key: "loans", table: "loans", rows: mine, order: "created_at, id" },
+  { key: "loanPaymentParts", table: "loan_payment_parts", rows: mine, order: "loan_id, due_date" },
   { key: "expectedBills", table: "expected_bills", rows: mine, order: "created_at, id" },
   { key: "spendingGoals", table: "spending_goal", rows: mine, order: "user_id" },
   { key: "categoryGoals", table: "category_goal", rows: mine, order: "user_id, category" },
@@ -198,7 +199,6 @@ const LEFT_OUT: Readonly<Record<string, string>> = {
   merchant_industry_users: "which of the household looked up which merchant, with the register answers above",
   tx_part_state: "built again from the transactions and answers",
   reference_rates: "published euribor fixings of the whole install, fetched again every day",
-  loan_payment_parts: "the split of a payment a loan document stated, read again when the document is pasted again",
 };
 
 /** The columns a store writes: the allowed ones, else every column of the table but the omitted ones. */

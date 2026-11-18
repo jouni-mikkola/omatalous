@@ -528,7 +528,7 @@ describe("the split of a payment a loan document stated", () => {
     expect(await error({ principalCents: 1.5 })).toMatch(/^Viimeisen erän lyhennyksen/);
     expect(await error({ feeCents: null })).toMatch(/^Viimeisen erän luottokulujen/);
     expect(await error({ date: "2027-01-01" })).toMatch(/^Viimeisen erän päivä/);
-    expect(await error({ principalCents: 0, interestCents: 0, feeCents: 0 })).toBe("Viimeisen erän osat pitää olla yhteensä vähintään 0,01 € ja enintään 10 000 000 €.");
+    expect(await error({ principalCents: 0, interestCents: 0, feeCents: 0 })).toBe("Viimeisen erän osien pitää olla yhteensä vähintään 0,01 € ja enintään 10 000 000 €.");
   });
 
   it("is written only under the user's own loan: another member's loan id answers 404 and takes no part", async () => {

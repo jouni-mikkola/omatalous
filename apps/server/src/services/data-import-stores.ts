@@ -91,6 +91,8 @@ export interface ImportStore {
   account?: { column: string; nullable?: boolean };
   /** The column holding a transaction's id. */
   tx?: string;
+  /** The column holding a loan's id: the loan of the file (with the id it got here) or one the user has. */
+  loan?: string;
   /** A column holding a person as `u:<user id>` (or `u:` for a holder who is no user): the user's own, whoever the file says. */
   owner?: readonly string[];
   /** Household-wide rows (those with no user, where the store has a user column that may be null): written only for an admin. */
@@ -155,6 +157,15 @@ const IMPORT_STORES: readonly ImportStore[] = [
     user: "user_id",
     account: { column: "account_id", nullable: true },
     idColumn: "id",
+  },
+  {
+    key: "loanPaymentParts",
+    table: "loan_payment_parts",
+    cols: { user_id: id, loan_id: id, due_date: day, principal_cents: whole(0, 1e13), interest_cents: whole(0, 1e13), fee_cents: whole(0, 1e13) },
+    max: 12_000,
+    pk: ["loan_id", "due_date"],
+    user: "user_id",
+    loan: "loan_id",
   },
   {
     key: "expectedBills",

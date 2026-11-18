@@ -56,6 +56,8 @@ describe("refusals in English", () => {
     expect(refusalIn("Tiedosto on liian suuri tuotavaksi. Mitään ei tuotu.", "en")).toBe("The file is too large to import. Nothing was imported.");
     expect(refusalIn("Pyynnön enimmäiskoko (kt): anna kokonaisluku 16–4096.", "en")).toBe("Largest request (kB): give a whole number 16–4096.");
     expect(refusalIn("Jokin outo virhe.", "en")).toBe("Jokin outo virhe.");
+    expect(refusalIn("Viimeisen erän päivä voi olla enintään 40 vuotta sitten, eikä se voi olla tulevaisuudessa.", "en")).toBe("The date of the last payment can be at most 40 years ago and cannot be in the future.");
+    expect(refusalIn("Viimeisen erän koron pitää olla vähintään 0 € ja enintään 10 000 000 €.", "en")).toBe("The interest of the last payment must be at least 0 € and at most 10 000 000 €.");
   });
 });
 

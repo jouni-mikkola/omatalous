@@ -222,6 +222,24 @@ describe("the table of the loans a text holds", () => {
     expect(seen.find((s) => s.method === "PUT")!.body).toMatchObject({ name: "Kodin laina", grantedCents: 15_000_000, balanceCents: 12_000_000 });
   });
 
+  it("sends the split of the last payment of a row confirmed in its dialog when it was read with confidence, and none when it was read to check", async () => {
+    const last = { date: "2026-09-05", principalCents: 59_501, interestCents: 24_500, feeCents: 0 };
+    for (const [confidence, expected] of [["sure", last], ["check", undefined]] as const) {
+      const seen = stubApi({ "PUT /api/loans/l1": { loan: { id: "l1" } } });
+      const [first] = await draftsOf();
+      render(h(LoanDraftTable, { drafts: [{ ...first!, lastPayment: { value: last, line: "Viimeisin maksu", confidence } }], loans: [saved()], today: TODAY, onSaved: () => {}, onClose: () => {} }));
+      fireEvent.click(screen.getByRole("button", { name: "Tarkista laina Esimerkkipankki Oyj" }));
+      const dialog = await screen.findByRole("dialog", { hidden: true });
+      within(dialog).getAllByRole("checkbox", { hidden: true }).forEach((c) => !(c as HTMLInputElement).checked && fireEvent.click(c));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Valmis", hidden: true }));
+      await waitFor(() => expect(document.querySelector("dialog")).toBeNull());
+      fireEvent.click(screen.getByRole("button", { name: "Tallenna laina" }));
+      await waitFor(() => expect(seen.length).toBe(1));
+      expect((seen[0]!.body as { lastPayment?: unknown }).lastPayment).toEqual(expected);
+      cleanup();
+    }
+  });
+
   it("keeps the rows that were not saved, and shows the server's reason", async () => {
     stubApi({ "PUT /api/loans/l1": failing(400, { error: "Saldo puuttuu." }) });
     render(h(LoanDraftTable, { drafts: (await draftsOf()).slice(0, 1), loans: [saved()], today: TODAY, onSaved: () => {}, onClose: () => {} }));
