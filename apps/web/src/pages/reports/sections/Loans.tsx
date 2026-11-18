@@ -2,6 +2,7 @@
 import { belowWhole, cardLimitCents, type LoanRow, type LoansReport, type MaybeTwice, type RateScenario } from "@banking/core";
 import { Fragment } from "react";
 import { LOAN_LINK_PARAM } from "../../../components/loans/form.ts";
+import { LoanDrill } from "../../../components/loans/LoanDrill.tsx";
 import { intervalLabel, KIND_LABEL, referenceName } from "../../../components/loans/labels.ts";
 import { Figure } from "../../../components/Figure.tsx";
 import { DebtPath, DebtPathTable } from "../../../charts/forms/DebtPath.tsx";
@@ -89,7 +90,7 @@ function scenario(s: RateScenario): string | null {
 const unlessName = (word: string, name: string) => (word.trim().toLowerCase() === name.trim().toLowerCase() ? null : word);
 
 /** `limitCents`: the limit of a connected card, when it has one to tell. */
-function Loan({ l, limitCents }: { l: LoanRow; limitCents: number | null }) {
+function Loan({ l, limitCents, today }: { l: LoanRow; limitCents: number | null; today: string }) {
   // a connected card is a card: what is used and the limit, none of a loan's terms
   const card = l.accountType === "credit_card";
   const kind = l.accountType
@@ -122,6 +123,8 @@ function Loan({ l, limitCents }: { l: LoanRow; limitCents: number | null }) {
         ))}
       </dl>
       {moves.length > 0 && <p className="loan-scenario">{moves.join(" ")}</p>}
+      {/* a saved loan the viewer typed in, whole: the drill reads the viewer's own loans and works out the whole debt */}
+      {!l.id.startsWith("account:") && !l.typedBy && !belowWhole(l.part) && <LoanDrill id={l.id} today={today} />}
     </li>
   );
 }
@@ -282,7 +285,7 @@ function Loans({ ctx }: SectionProps) {
       {path && path.tops[0]! > 0 && <hr className="qc-rule" />}
       <ul className="loan-list">
         {r.loans.map((l) => (
-          <Loan key={l.id} l={l} limitCents={limitOf(l)} />
+          <Loan key={l.id} l={l} limitCents={limitOf(l)} today={ctx.meta.today} />
         ))}
       </ul>
     </ReportPanel>

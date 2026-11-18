@@ -64,5 +64,14 @@ dialog.loan-dialog .loan-form .form-row { justify-content: flex-start; margin: 0
 .loan-figures .loan-parts dd { margin: 0; }
 .loan-scenario { margin: 8px 0 0; color: var(--text-2); font-size: var(--fs-body); line-height: var(--lh-body); }
 
+/* the drill of a loan: its figures, rate, the two inputs and the one line they answer */
+.loan-drill { margin-top: var(--sp-8); }
+.loan-drill > summary { display: flex; align-items: center; min-height: var(--tap-min); cursor: pointer; color: var(--text-2); font-size: var(--fs-body); line-height: var(--lh-body); }
+.loan-wi { display: flex; flex-direction: column; gap: var(--sp-16); padding-top: var(--sp-8); }
+.loan-wi .loan-figures.loan-wi-rate { grid-template-columns: minmax(0, 1fr); }
+.loan-wi .loan-fields { max-width: 32rem; }
+.loan-wi-status, .loan-wi-result { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); }
+.loan-wi-result { font-weight: 600; }
+
 @media (max-width: 700px) { .loan-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 }
