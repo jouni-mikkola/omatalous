@@ -1,5 +1,5 @@
 // Decision: how the month stands: what came in, what went out, what is left of it, and where the income went
-import { bridgeView, MIN_COMPARE_MONTHS, previousRange, type BridgeView } from "@banking/core";
+import { bridgeView, MIN_COMPARE_MONTHS, monthEnd, previousRange, type BridgeView } from "@banking/core";
 import { css } from "../../css.ts";
 import { answerMoney, completeMonths, dateRange, monthLong, percent } from "../../format.ts";
 import { t } from "../../text.ts";
@@ -14,10 +14,12 @@ type Tone = "income" | "spending" | "kept" | "debt" | "neutral";
  * The words of the month before's figure, one rule for Tulot, Menot and Tulos: "to the same day", or "all of last month"
  * when the window it is read in is the whole month, which is when it ends on another day of the month than today's (the
  * month before is shorter, as 31.10. against September, or today is the month's last day, as 30.4. against all of March).
- * The window is the one the server read (`previousRange`).
+ * The window is the one the server read (`previousRange`). A month that is over is read whole against the whole month before,
+ * also when both end on the same day (August against July).
  */
 function previousWords(data: Data, today: string): "home.fig_previous" | "home.tile_spent_previous_whole" {
   const end = data.running ? today : data.range.to;
+  if (!data.running && end === monthEnd(end.slice(0, 7))) return "home.tile_spent_previous_whole";
   const [, previousTo] = previousRange(data.range.from, end);
   return previousTo.slice(8) === end.slice(8) ? "home.fig_previous" : "home.tile_spent_previous_whole";
 }
