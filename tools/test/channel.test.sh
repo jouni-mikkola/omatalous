@@ -186,8 +186,9 @@ t_update_tags_by_image_id() {
 # ── an install on a pre-release of an earlier version ───────────────────────
 # 0.2.0 is the latest release, 0.3.0 a pre-release that was installed before releases were published at once and 0.4.0 is
 # a pre-release on main. The checkout is at v0.3.0, above the release GitHub names: it stays, says so and builds nothing.
-# The folder sits at the release tag of VERSION, as after an update made while that was the newest release.
-sit_at() { git -C "$CL" fetch -q --tags origin 2>/dev/null; git -C "$CL" checkout -q "v$1"; echo "$1" >"$S/cver"; }
+# The folder sits at the release tag of VERSION, as after an update made while that was the newest release: its branch is
+# moved to the tag, so the branch keeps its upstream.
+sit_at() { git -C "$CL" fetch -q --tags origin 2>/dev/null; git -C "$CL" reset -q --hard "v$1"; echo "$1" >"$S/cver"; }
 t_stays_on_prerelease() {
   local setting
   for setting in "" TALOUS_CHANNEL=release; do
@@ -242,6 +243,7 @@ t_old_key_value_is_ignored() {
   for v in yes no maybe Yes 1 '"yes"' 'yes ' ' no' ''; do
     world; release 0.2.0; prerelease 0.3.0; setenv "TALOUS_PRERELEASE=$v"
     check "old key '$v': the check offers the latest release, from /releases/latest alone" test "$(offered)" = 0.2.0 -a "$(curls)" = "curl $API/latest"
+    recheck # offered() runs in a subshell, so its status is read from a tick of this shell
     check "old key '$v': the helper runs" test "$TICK_RC" = 0
     OUT=$(cd "$CL" && env OPS_TEST=1 OPS_STUB_DIR="$S" HOME="$W/home" PATH="$S/bin:/usr/local/bin:/usr/bin:/bin" ./scripts/ops-helper.sh --self-test 2>&1)
     check "old key '$v': the self-test passes" test "$OUT" = "self-test ok"
