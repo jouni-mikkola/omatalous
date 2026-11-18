@@ -301,12 +301,23 @@ export function loanPaymentAfter(loan: Loan, from: IsoDate): number | null {
   return cents !== undefined && cents > 0 ? cents : null;
 }
 
+/**
+ * What is owed on a day by the plan the schedule counts: the balance after its last payment on or before the day. A card or
+ * credit line pays its typed payment each month here, so it is lower than the balance stated on the balance date. Null
+ * where the loan has no plan or the day is before the balance date.
+ */
+export function loanBalanceByPlan(loan: Loan, from: IsoDate): number | null {
+  const plan = schedulePlan(loan);
+  if (typeof plan === "string" || from < loan.balanceDate) return null;
+  return startAt(loan, plan, from).balanceCents;
+}
+
 /** The rate of a loan on a day and what it is made of. */
 interface RateLine {
   /** In force on the day, in thousandths of a percent. */
   rateMilli: number;
   reference: LoanReference | null;
-  /** The reference rate in it, in thousandths of a percent: the rate less the margin. Null without a reference rate or a margin, and where the margin is more than the rate. */
+  /** The published fixing in it, in thousandths of a percent: the rate less the margin, where the rate in force is a published fixing and the margin. Null for the typed rate, which names no fixing, and without a reference rate or a margin. */
   fixingMilli: number | null;
   marginBp: number | null;
   /** The next day the bank sets the rate again, counted from the typed review day. Null where none follows before the last due date. */
@@ -332,6 +343,8 @@ export function loanRateLine(loan: Loan, day: IsoDate): RateLine | null {
   if (loan.rateBp === null) return null;
   const rateMilli = rateMilliAt(loan.ratePath, loan.rateBp, day);
   const followed = loan.reference !== null && loan.reference !== "fixed";
-  const fixing = followed && loan.marginBp !== null ? rateMilli - loan.marginBp * 10 : null;
+  // the first point of the path is the typed rate, which no fixing is known for; the later ones are a fixing and the margin
+  const published = (loan.ratePath ?? []).filter(([from]) => from <= day).length > 1;
+  const fixing = followed && published && loan.marginBp !== null ? rateMilli - loan.marginBp * 10 : null;
   return { rateMilli, reference: loan.reference, fixingMilli: fixing !== null && fixing >= 0 ? fixing : null, marginBp: loan.marginBp, reviewDate: reviewDayAfter(loan, day) };
 }

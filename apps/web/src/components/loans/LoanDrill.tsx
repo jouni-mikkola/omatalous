@@ -3,7 +3,7 @@
  * does to its end and its interest. Every figure is core's (`loanSchedule`, `loanWhatIf`, `loanRateLine`) on the saved
  * loan and the published fixings; nothing is worked out here.
  */
-import { type Loan, loanBalanceOn, loanPaymentAfter, loanRateLine, loanSchedule, loansOf, loanWhatIf, type LoanUnknown, NO_INPUTS } from "@banking/core";
+import { type Loan, loanBalanceByPlan, loanBalanceOn, loanPaymentAfter, loanRateLine, loanSchedule, loansOf, loanWhatIf, type LoanUnknown, NO_INPUTS } from "@banking/core";
 import { useId, useMemo, useState } from "react";
 import { date, eurosText, money, parseEuros, percent, plainNumber } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
@@ -56,7 +56,7 @@ function Rate({ loan, day }: { loan: Loan; day: string }) {
   if (line !== null) {
     const rate = percent(line.rateMilli / 100_000, 3);
     const reference = line.reference !== null && line.reference !== "fixed" ? t("rpt.ln_wi_euribor", { months: line.reference.replace("euribor_", "") }) : null;
-    const made = reference === null ? rate : line.fixingMilli !== null && line.marginBp !== null ? t("rpt.ln_wi_rate_made", { rate, reference, fixing: percent(line.fixingMilli / 100_000, 3), margin: percent(line.marginBp / 10_000, 3) }) : t("rpt.ln_wi_rate_ref", { rate, reference });
+    const made = reference === null ? rate : line.fixingMilli !== null && line.marginBp !== null ? t("rpt.ln_wi_rate_made", { rate, reference, fixing: percent(line.fixingMilli / 100_000, 3), margin: percent(line.marginBp / 10_000, 3) }) : line.marginBp !== null ? t("rpt.ln_wi_rate_margin", { rate, margin: percent(line.marginBp / 10_000, 3) }) : t("rpt.ln_wi_rate_ref", { rate, reference });
     text = line.reviewDate === null ? made : t("rpt.ln_wi_review", { line: made, date: date(line.reviewDate) });
   }
   return (
@@ -81,13 +81,14 @@ function Body({ id, today }: { id: string; today: string }) {
   if (loan === null) return answer.error === null ? null : <p className="loan-wi-status">{answer.error}</p>;
 
   const from = today < loan.balanceDate ? loan.balanceDate : today;
-  const balance = loanBalanceOn(loan, from);
+  // what the plan leaves owed on the day: a card's typed payment has lowered it from the balance it was stated at
+  const owed = loanBalanceByPlan(loan, from) ?? loanBalanceOn(loan, from).cents;
   const schedule = loanSchedule(loan, from);
   const summary = schedule.summary;
   const current = loanPaymentAfter(loan, from);
   const months = loan.intervalMonths ?? 1;
   const paymentCents = current === null ? null : clamped(paymentInput, current * MAX_PAYMENT_TIMES);
-  const extraCents = clamped(extraInput, balance.cents ?? 0);
+  const extraCents = clamped(extraInput, owed ?? 0);
   const change = paymentCents === null && !extraCents ? null : { ...(paymentCents === null ? {} : { paymentCents }), ...(extraCents ? { extra: { cents: extraCents, on: from } } : {}) };
   const shown = schedule.unknown === null && (summary !== null || schedule.never);
 
@@ -102,7 +103,7 @@ function Body({ id, today }: { id: string; today: string }) {
         ...(what.lower === null ? [] : [t("rpt.ln_wi_lower", { payment: paymentText(what.lower.cents, months) })]),
       ];
       result = parts.join(" · ");
-    } else if (extraCents !== null && balance.cents !== null && extraCents >= balance.cents && summary !== null && summary.interestLeftCents !== null) {
+    } else if (extraCents !== null && owed !== null && extraCents >= owed && summary !== null && summary.interestLeftCents !== null) {
       // the whole balance paid at once: it ends this month and the interest to come is what it saves
       result = [t("rpt.ln_wi_ends", { month: monthYear(from) }), t("rpt.ln_wi_saves", { amount: money(summary.interestLeftCents, false) })].join(" · ");
     } else {
@@ -113,7 +114,7 @@ function Body({ id, today }: { id: string; today: string }) {
   }
 
   const figures: [label: string, value: string | null][] = [
-    [t("rpt.ln_wi_left"), balance.cents === null ? null : money(balance.cents)],
+    [t("rpt.ln_wi_left"), owed === null ? null : money(owed)],
     [t("rpt.ln_wi_payments_left"), summary === null ? null : plainNumber(summary.paymentsLeft)],
     [t("rpt.ln_wi_interest_left"), summary === null || summary.interestLeftCents === null ? null : money(summary.interestLeftCents)],
     [t("rpt.ln_wi_last"), summary !== null ? date(summary.endDate) : schedule.never ? t("rpt.ln_wi_never") : null],
@@ -135,7 +136,7 @@ function Body({ id, today }: { id: string; today: string }) {
           {current !== null && (
             <div className="loan-field">
               <label className="field-label" htmlFor={`${inputId}-payment`}>
-                {t(months === 1 ? "rpt.ln_wi_payment" : "rpt.ln_wi_payment_n")}
+                {t(loan.repayment === "equal_principal" ? (months === 1 ? "rpt.ln_wi_principal" : "rpt.ln_wi_principal_n") : months === 1 ? "rpt.ln_wi_payment" : "rpt.ln_wi_payment_n")}
               </label>
               <input
                 id={`${inputId}-payment`}
@@ -157,11 +158,9 @@ function Body({ id, today }: { id: string; today: string }) {
           </div>
         </div>
       )}
-      {result !== null && (
-        <p className="loan-wi-result" role="status">
-          {result}
-        </p>
-      )}
+      <p className="loan-wi-result" role="status">
+        {result}
+      </p>
     </div>
   );
 }

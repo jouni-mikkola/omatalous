@@ -201,4 +201,7 @@ export const FI_REPORTS_5 = {
   "rpt.ln_wi_missing_interval": "Maksuväli puuttuu.",
   "rpt.ln_wi_missing_end_date": "Viimeinen maksupäivä puuttuu.",
   "rpt.ln_wi_missing_other": "Lainan tiedoissa on aukko.",
+  "rpt.ln_wi_rate_margin": "{rate} (marginaali {margin})",
+  "rpt.ln_wi_principal": "Kuukausilyhennys",
+  "rpt.ln_wi_principal_n": "Lyhennys",
 } as const;

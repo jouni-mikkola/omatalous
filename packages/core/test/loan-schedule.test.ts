@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { dayNumber } from "../src/dates.ts";
 import { dayInterest, intervalInterest } from "../src/loan-plan.ts";
-import { annuityPayment, loanPaymentAfter, loanRateLine, loanSchedule, loanWhatIf, ratePathOf } from "../src/loan-schedule.ts";
+import { annuityPayment, loanBalanceByPlan, loanPaymentAfter, loanRateLine, loanSchedule, loanWhatIf, ratePathOf } from "../src/loan-schedule.ts";
 import { debtTotalOn, loanBalanceOn, loanInterestNext12Months, loanNextPayment, loanPayoffDate, loanRateScenario, loansOf } from "../src/loans.ts";
 import { type Fixings, type Loan, NO_INPUTS, type RatePath } from "../src/types.ts";
 
@@ -526,6 +526,18 @@ describe("what a change does", () => {
   });
 });
 
+describe("what the plan leaves owed", () => {
+  it("is the balance after the last payment on or before the day: a card's typed payment has lowered it", () => {
+    // 1 000 € at 18 %, 50 € a month: 819,67 € after the fifth payment on 15 June (1 000 - 250 + 15,00 + 14,48 + 13,94 + 13,40 + 12,85)
+    const card = loan({ kind: "card", rateBp: 1800, paymentCents: 5000 });
+    expect(loanBalanceByPlan(card, "2026-06-15")).toBe(81_967);
+    expect(loanBalanceByPlan(card, "2026-06-14")).toBe(85_682);
+    expect(loanBalanceByPlan(card, START)).toBe(100_000);
+    expect(loanBalanceByPlan(card, "2025-12-01")).toBeNull();
+    expect(loanBalanceByPlan(loan({ kind: "credit_line", rateBp: 1800 }), "2026-06-15")).toBeNull();
+  });
+});
+
 describe("the payment the plan asks for", () => {
   it("is the instalment of a plan, the amortisation of an equal principal loan, and nothing for a bullet or a loan without a plan", () => {
     expect(loanPaymentAfter(loan({ rateBp: 1200, repayment: "annuity", paymentCents: 8885 }), START)).toBe(8885);
@@ -545,8 +557,10 @@ describe("the rate a loan has on a day", () => {
   const fixings: Fixings = { euribor_12: [["2026-03-05", 3328], ["2027-03-05", 2500]] };
   const [euribor] = loansOf({ ...NO_INPUTS, loans: [base], fixings });
 
-  it("splits the typed rate into the fixing and the margin and names the next review", () => {
-    expect(loanRateLine(euribor!, "2026-06-10")).toEqual({ rateMilli: 4000, reference: "euribor_12", fixingMilli: 3350, marginBp: 65, reviewDate: "2027-03-05" });
+  it("names no fixing for the typed rate, only its margin, and the next review", () => {
+    expect(loanRateLine(euribor!, "2026-06-10")).toEqual({ rateMilli: 4000, reference: "euribor_12", fixingMilli: null, marginBp: 65, reviewDate: "2027-03-05" });
+    // no fixings published at all: the same
+    expect(loanRateLine(loan({ reference: "euribor_12", rateBp: 400, marginBp: 65, rateReviewDate: "2026-03-05" }), "2026-06-10")?.fixingMilli).toBeNull();
   });
 
   it("takes the rate of the review that has come, with its fixing", () => {
