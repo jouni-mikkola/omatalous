@@ -94,6 +94,7 @@ export async function startServer() {
     APP_BASE_URL: `http://127.0.0.1:${port}`,
     // nothing in a test may reach a real register or bank
     INDUSTRY_LOOKUP: "false",
+    REFERENCE_RATES: "false",
     STATIC_DIR: join(dir, "app", "public"),
     MIGRATIONS_DIR: join(root, "apps/server/migrations"),
     EB_API_URL: bank.base,

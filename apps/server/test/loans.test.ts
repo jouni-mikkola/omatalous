@@ -29,7 +29,7 @@ const MAX_CENTS = 1_000_000_000;
 describe("loans", () => {
   it("adds, lists, replaces and deletes a loan, and keeps it in the database", async () => {
     const { admin, db, adminId } = await setupApp();
-    expect((await admin.call("GET", "/api/loans")).body).toEqual({ loans: [] });
+    expect((await admin.call("GET", "/api/loans")).body).toEqual({ loans: [], fixings: {} });
 
     const added = await admin.call("POST", "/api/loans", mortgage);
     expect(added.status).toBe(200);

@@ -42,6 +42,8 @@ export interface Config {
   sessionCookie: string;
   /** Behind Caddy or another proxy: trust X-Forwarded-For / -Proto. */
   trustProxy: boolean;
+  /** Fetch the published euribor fixings once a day (services/reference-rates.ts). `REFERENCE_RATES=false` turns it off. */
+  referenceRates: boolean;
   /** One-time code for creating the first admin in the browser. */
   setupCode: string | null;
   /** The environment layer of the limits (platform/limits.ts); the database layer is services/limits.ts. */
@@ -173,6 +175,7 @@ export function loadConfig(env: Env, files: { privateKeyPem?: string; appSecret?
     sessionDays: sessionDays(env.SESSION_DAYS),
     sessionCookie: cookieName(env.INSTANCE_NAME),
     trustProxy: env.TRUST_PROXY === "true" || env.TRUST_PROXY === "1",
+    referenceRates: env.REFERENCE_RATES !== "false",
     setupCode: validSetupCode(env.SETUP_CODE),
     limits,
     enableBanking: env.EB_APP_ID && pem ? { appId: env.EB_APP_ID, privateKeyPem: pem } : null,

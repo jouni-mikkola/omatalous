@@ -18,6 +18,11 @@
   "leftCents": -276614,
   "savingsRate": null
  },
+ "split": {
+  "interestCents": 0,
+  "principalCents": 0,
+  "unsplitCents": 61240
+ },
  "previousTotals": {
   "incomeCents": 0,
   "consumptionCents": 192981,

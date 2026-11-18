@@ -88,6 +88,7 @@ names that host only, `*.host` the host and its subdomains. The run allows the m
 | `*.enablebanking.com` | server | Bank logos, fetched once per bank (https only, no redirect). |
 | `jouni-mikkola.github.io` | browser | The return page after a bank login from an http address. Static, no scripts of others. |
 | `avoindata.prh.fi` | server | Trade register lookup of business names. Can be turned off. |
+| `reports.suomenpankki.fi` | server | The published euribor fixings, once a day. Can be turned off. |
 | `*.aktia.fi` | browser | Sign-in page of the bank, during the bank login. |
 | `*.alandsbanken.fi` | browser | Sign-in page of the bank, during the bank login. |
 | `*.banknorwegian.fi` | browser | Sign-in page of the bank, during the bank login. |
@@ -292,6 +293,13 @@ found gives the category. An unclear match is left alone.
   another member's loan only as *Who sees what* says, when it is paid from an account in the member's view. A loan's
   series key is not checked against the typist's accounts when it is saved, so a member who is named a user of an
   account can put a loan of their own into the views of that account's other users. Nothing of the others goes back.
+- A loan that follows a euribor rate counts from the published fixings (the Bank of Finland's report pages, the rates of
+  3, 6 and 12 months). The request is a fixed https address with no key, follows no redirect, reads at most 2 MB and
+  carries nothing of the household. The fixings are public market data of the whole install and are stored once, in
+  `reference_rates`, not per member. The report is read by its known shape only: a report with another shape, or a
+  rate that is no number or outside −5 to 20 %, is refused whole, and the loans keep the fixings stored before, or their
+  typed rate. The app's repository, image, tests and pictures hold no real fixing. `REFERENCE_RATES=false` in `.env`
+  turns the fetch off.
 
 ## Container
 
@@ -432,6 +440,10 @@ elsewhere keep them until you delete those. Free pages in the database file are 
 
 - Enable Banking and Nordea hold the consent and their own logs, for up to 180 days.
 - The Finnish trade register (PRH) sees the names of businesses you pay and your IP address, unless the lookup is off.
+- The Bank of Finland (reports.suomenpankki.fi) sees your IP address once a day after 18:00 Finnish time, and asks for
+  the report of all the fixings since 2021 instead of the report of the last day on the first fetch and after a gap. After a
+  failure, or while the day's fixing is not published yet, the app asks again at each hourly check. The request names the
+  public report and carries no data of the household. Turn it off with `REFERENCE_RATES=false`.
 - Statistics Finland sees your IP address once a day, if you turn on the price index under Asetukset > Palvelin ja ylläpito > Palvelin. The
   request names the public series (table 11xs) and carries no data of the household.
 - GitHub sees your IP address when the helper checks for a release once an hour (an install that follows its source

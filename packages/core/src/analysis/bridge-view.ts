@@ -4,11 +4,13 @@
  * the strip over it have, each part's share of its bar, the rows of the table and the shares of the income printed
  * beside them, rounded together so they add up. The web gives each key its label and colour and adds up nothing.
  */
+import type { DebtSplit } from "./debt-split.ts";
 import { coverOf, type GapCover, type PeriodTotals } from "./flows.ts";
 
 type BridgeTotals = Pick<PeriodTotals, "incomeCents" | "consumptionCents" | "debtCents" | "savedCents" | "borrowedCents" | "leftCents">;
 
-type BridgeKey = "income" | "consumption" | "debt" | "saved" | "repaid" | "left" | "credit" | "savings" | "accounts" | "credit-left" | "savings-left";
+/** `interest`, `debt` and `principal` are the parts of the debt service when it is told apart; `debt` is then what no evidence splits. `subtotal` is the income less the spending and the interest, before the repayments. */
+type BridgeKey = "income" | "consumption" | "interest" | "debt" | "subtotal" | "principal" | "saved" | "repaid" | "left" | "credit" | "savings" | "accounts" | "credit-left" | "savings-left";
 
 /** A part of a bar: its sum and the share of the bar it fills (0 for a part with no length). */
 interface BridgePiece {
@@ -42,6 +44,8 @@ interface BridgeRow extends IncomeShare {
 export interface BridgeView {
   totals: BridgeTotals;
   cover: GapCover;
+  /** The debt service is told in interest and repayments (`DebtSplit`): the rows `interest` and `principal` stand where `debt` stood. False when it is told whole. */
+  debtSplit: boolean;
   /** The bar is drawn: there is income and no part is below zero (ADR 0014); otherwise the table alone tells it. */
   draws: boolean;
   /** Where the money went, in the bar's fixed order. */
@@ -89,13 +93,27 @@ function pieces(parts: { key: BridgeKey; cents: number }[]): BridgePiece[] {
   return parts.map((p) => ({ ...p, share: whole > 0 && p.cents > 0 ? p.cents / whole : 0 }));
 }
 
-export function bridgeView(totals: BridgeTotals): BridgeView {
+/**
+ * The bridge of a period. `split` is the debt service in its kinds (`debtSplit`): with interest or repayments in it the
+ * debt is told as Korot ja luottokulut, what no evidence splits and Lyhennykset, and the sum of the first two and the
+ * spending is taken off the income before the repayments. Without it, or when it tells no interest and no repayment,
+ * the debt is one part, as it always was.
+ */
+export function bridgeView(totals: BridgeTotals, split?: DebtSplit): BridgeView {
   const c = coverOf(totals);
-  const draws = totals.incomeCents > 0 && totals.consumptionCents >= 0 && totals.debtCents >= 0;
+  const told = split !== undefined && (split.interestCents !== 0 || split.principalCents !== 0);
+  const debtParts: { key: BridgeKey; cents: number }[] = told
+    ? [
+        { key: "interest", cents: split.interestCents },
+        { key: "debt", cents: split.unsplitCents },
+        { key: "principal", cents: split.principalCents },
+      ]
+    : [{ key: "debt", cents: totals.debtCents }];
+  const draws = totals.incomeCents > 0 && totals.consumptionCents >= 0 && debtParts.every((p) => p.cents >= 0);
   // money taken out of savings is no part of where the money went: it is one of the sources
   const went = pieces([
     { key: "consumption", cents: totals.consumptionCents },
-    { key: "debt", cents: totals.debtCents },
+    ...debtParts,
     { key: "saved", cents: Math.max(0, totals.savedCents) },
     ...(c.creditRepaidCents > 0 ? [{ key: "repaid" as const, cents: c.creditRepaidCents }] : []),
     { key: "left", cents: Math.max(0, totals.leftCents) },
@@ -125,7 +143,7 @@ export function bridgeView(totals: BridgeTotals): BridgeView {
     { key: "credit-drawn", cents: c.creditDrawnCents, side: "in", ofIncome: false },
     { key: "savings-drawn", cents: c.savingsDrawnCents, side: "in", ofIncome: false },
     ...went.filter((p) => p.key !== "left").map((p): Raw => ({ key: p.key, cents: p.cents, side: "out", ofIncome: draws && p.key !== "repaid" })),
-  ] satisfies Raw[]).filter((r) => r.cents > 0 || r.key === "income" || r.key === "consumption" || r.key === "debt" || (r.key === "saved" && totals.savedCents >= 0));
+  ] satisfies Raw[]).filter((r) => r.cents > 0 || r.key === "income" || r.key === "consumption" || (r.key === "debt" && !told) || (r.key === "saved" && totals.savedCents >= 0));
   rawRows.push({ key: "left", cents: totals.leftCents, side: "stayed", ofIncome: leftOfIncome });
 
   // the parts told as shares are rounded together, so the table and the legend both add up to the 100 % they are
@@ -139,6 +157,20 @@ export function bridgeView(totals: BridgeTotals): BridgeView {
   });
 
   const cover = sources.filter((p) => (p.key === "credit" || p.key === "savings" || p.key === "accounts") && prints(p.cents));
+  // what is left of the money in after the costs, before the repayments: the money in is the income and what was drawn and stayed
+  const stayed = c.gapCents === 0 ? c.creditLeftCents + c.savingsLeftCents : 0;
+  const subtotal: BridgeFigure = { key: "subtotal", cents: totals.incomeCents + stayed - totals.consumptionCents - (split?.interestCents ?? 0) - (split?.unsplitCents ?? 0), ...shareOf("subtotal", 0, false) };
+  const spent = went
+    .filter((p) => p.key !== "left" && (p.key !== "saved" || totals.savedCents >= 0) && !(told && (p.key === "interest" || p.key === "debt" || p.key === "principal") && p.cents === 0))
+    .map((p) => ({ key: p.key, cents: p.cents, ...shareOf(p.key, p.cents, p.key !== "repaid") }));
+  // the subtotal stands after the last cost and before the repayments
+  if (told) {
+    let at = 0;
+    spent.forEach((f, i) => {
+      if (f.key === "consumption" || f.key === "interest" || f.key === "debt") at = i + 1;
+    });
+    spent.splice(at, 0, subtotal);
+  }
   const figures: BridgeFigure[] = [
     { key: "income" as const, cents: totals.incomeCents, ...shareOf("income", totals.incomeCents, false) },
     // what was drawn and stayed is money in beside the income: without its row the parts and Tulos add up to more than the
@@ -147,9 +179,9 @@ export function bridgeView(totals: BridgeTotals): BridgeView {
     ...sources
       .filter((p) => c.gapCents === 0 && (p.key === "credit-left" || p.key === "savings-left") && prints(p.cents))
       .map((p) => ({ key: p.key, cents: p.cents, ...shareOf(p.key, p.cents, false) })),
-    ...went.filter((p) => p.key !== "left" && (p.key !== "saved" || totals.savedCents >= 0)).map((p) => ({ key: p.key, cents: p.cents, ...shareOf(p.key, p.cents, p.key !== "repaid") })),
+    ...spent,
     ...cover.map((p) => ({ key: p.key, cents: p.cents, ...shareOf(p.key, p.cents, false) })),
     ...(totals.leftCents >= 0 ? went.filter((p) => p.key === "left").map((p) => ({ key: p.key, cents: p.cents, ...shareOf(p.key, p.cents, leftOfIncome) })) : []),
   ];
-  return { totals, cover: c, draws, parts: went, sources, figures, rows: rawRows.map((r) => ({ ...r, ...shareOf(r.key, r.cents, r.ofIncome) })) };
+  return { totals, cover: c, debtSplit: told, draws, parts: went, sources, figures, rows: rawRows.map((r) => ({ ...r, ...shareOf(r.key, r.cents, r.ofIncome) })) };
 }

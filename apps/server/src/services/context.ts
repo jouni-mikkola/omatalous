@@ -9,6 +9,7 @@ import { FinanceRepo } from "../db/finance-repo.ts";
 import { AgreementRepo } from "../db/agreement-repo.ts";
 import { HouseholdRepo } from "../db/household-repo.ts";
 import { IndustryRepo } from "../db/industry-repo.ts";
+import { ReferenceRatesRepo } from "../db/reference-rates-repo.ts";
 import { OpsRepo } from "../db/ops-repo.ts";
 import { SecurityRepo } from "../db/security-repo.ts";
 import { ServiceTokenRepo } from "../db/service-token-repo.ts";
@@ -66,6 +67,8 @@ export interface Services {
   readonly settings: SettingsRepo;
   /** Trade register answers per merchant name (services/industry.ts). */
   readonly industry: IndustryRepo;
+  /** The published euribor fixings, the same for every member. */
+  readonly referenceRates: ReferenceRatesRepo;
   /** Address, time zone and sync times set in the browser (env = defaults). */
   readonly instance: InstanceStore;
   readonly analysis: AnalysisCache;
@@ -148,6 +151,7 @@ export function createServices(deps: AppDeps): Services {
     agreements: new AgreementRepo(deps.db),
     settings,
     industry: new IndustryRepo(deps.db),
+    referenceRates: new ReferenceRatesRepo(deps.db),
     instance,
     analysis: new AnalysisCache(),
     // the limits and windows come from the schema (platform/limits.ts) and are set by applyLimits below. Each login

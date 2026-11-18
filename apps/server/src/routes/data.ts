@@ -2,7 +2,7 @@
 import { buildReports, cashflowReport, pivotReport } from "@banking/core";
 import { Hono } from "hono";
 import { recordEvent } from "../services/security.ts";
-import { DEMO_MONTHS, loadDemoData, loadExtensionDemos } from "../demo.ts";
+import { DEMO_MONTHS, loadDemoData, loadDemoFixings, loadExtensionDemos } from "../demo.ts";
 import { exportEverything } from "../services/data-export.ts";
 import { addChunk, cancelImport, commitImport, dryRun, type ImportChecks, startImport } from "../services/data-import.ts";
 import { UserError } from "../platform/errors.ts";
@@ -11,6 +11,7 @@ import { parseLoan } from "./loans.ts";
 import { parseScope, requestInputs, rowsInView } from "../services/analysis.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { removeDemoData } from "../services/accounts.ts";
+import { withoutWrongBills } from "../services/wrong-bills.ts";
 import { categoriesIn } from "../services/category-names.ts";
 import { csvWords, reportWords } from "../platform/csv-words.ts";
 import { yieldToLoop } from "../platform/yield.ts";
@@ -111,8 +112,10 @@ export function dataRoutes(s: Services) {
     if (kind !== "pivot" && kind !== "categories" && kind !== "cashflow") throw UserError.of("check.report");
     const user = c.get("user");
     const range = parseRange(c, s.today());
-    const { ctx, accounts } = await s.analysis.get(s, user.id, parseScope(c.req.query("scope")));
+    const { ctx: all, accounts } = await s.analysis.get(s, user.id, parseScope(c.req.query("scope")));
     const { balances, inputs } = await requestInputs(s, user.id, accounts);
+    // the files read what the pages read: the context without the bills the member marked as wrong
+    const ctx = withoutWrongBills(all, inputs.marks);
     // the headings, the sum row and the file names are in the member's language (`platform/csv-words.ts`); the reports name the categories and the groups in it
     const lang = user.language;
     const words = reportWords(lang);
@@ -153,6 +156,8 @@ export function dataRoutes(s: Services) {
     const months = DEMO_MONTHS.find((m) => String(m) === c.req.query("months")) ?? DEMO_MONTHS[0];
     const loaded = await loadDemoData(s.finance(userId), s.settings, s.today(), months);
     await loadExtensionDemos(s, userId, s.today());
+    // made-up fixings only where nothing fetches the real ones
+    if (!s.config.referenceRates) await loadDemoFixings(s.referenceRates, s.today());
     return c.json(loaded);
   });
 

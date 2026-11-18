@@ -6,20 +6,11 @@
  * every answer with the old one.
  */
 import { type AnalysisContext, type BalanceInput, buildDashboard, type DashboardData, type DateRange, type Language, type LoanProposal, type UserInputs } from "@banking/core";
+import { memoOn } from "./context-memo.ts";
 
 /** A member browsing months holds a few periods; more would only keep memory for views nobody returns to. */
 const PER_CONTEXT = 6;
 
-const answers = new WeakMap<AnalysisContext, Map<string, DashboardData>>();
-
 export function dashboardOf(ctx: AnalysisContext, range: DateRange, balances: readonly BalanceInput[], inputs: UserInputs, proposals: readonly LoanProposal[], lang: Language = "fi", scopeProposals: readonly LoanProposal[] = proposals): DashboardData {
-  const key = JSON.stringify([range, balances, inputs, proposals, lang, scopeProposals]);
-  let held = answers.get(ctx);
-  if (!held) answers.set(ctx, (held = new Map()));
-  const hit = held.get(key);
-  if (hit) return hit;
-  const built = buildDashboard(ctx, range, balances, inputs, proposals, lang, scopeProposals);
-  if (held.size >= PER_CONTEXT) held.delete(held.keys().next().value!);
-  held.set(key, built);
-  return built;
+  return memoOn(ctx, "dashboard", [range, balances, inputs, proposals, lang, scopeProposals], () => buildDashboard(ctx, range, balances, inputs, proposals, lang, scopeProposals), PER_CONTEXT);
 }

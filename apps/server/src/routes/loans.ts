@@ -195,7 +195,15 @@ export function loanRoutes(s: Services) {
     if ((await mortgageSeries(userId)) !== before) await reprocess(s.finance(userId), s.settings);
   };
 
-  app.get("/loans", async (c) => c.json({ loans: await s.finance(c.get("user").id).listLoans() }));
+  /**
+   * The saved loans and the published fixings they count from, so the web works loans out with the same `loansOf` as the
+   * server. The fixings start at the oldest balance date, with the one before it that holds until the first.
+   */
+  app.get("/loans", async (c) => {
+    const loans = await s.finance(c.get("user").id).listLoans();
+    const since = loans.reduce((oldest, loan) => (loan.balanceDate < oldest ? loan.balanceDate : oldest), s.today());
+    return c.json({ loans, fixings: await s.referenceRates.since(since) });
+  });
 
   /**
    * The loans the bank rows show and the household has not answered (`loanProposals`). Worked out for each request
