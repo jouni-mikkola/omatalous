@@ -39,7 +39,7 @@ interface PlannedDebt {
   baseEndDate: IsoDate;
 }
 
-interface PayoffPlan {
+export interface PayoffPlan {
   /** The due date that pays the last debt with the extra money. */
   debtFreeDate: IsoDate;
   /** The same with each debt's own payments. */
@@ -259,9 +259,17 @@ interface ConsolidationOffer {
   feeCents: number;
 }
 
+/** The dear debts a new loan could take over: what they owe and what they cost from here on. */
+export interface ConsolidationBasis {
+  debtIds: string[];
+  /** What the debts owe on the day. */
+  owedCents: number;
+  /** The interest and fees of every payment the debts have left. */
+  nowCents: number;
+}
+
 /** What the dear debts cost from here on, and what the same sum costs as one loan at the offer's terms. */
 interface Consolidation {
-  debtIds: string[];
   /** The interest and fees of every payment the debts have left. */
   nowCents: number;
   /** The interest and fees of the new loan's payments. */
@@ -269,16 +277,16 @@ interface Consolidation {
 }
 
 /**
- * The dear debts moved into one loan: shown when two debts or more are `dear` or worse, or one is `very_dear`. Null
- * otherwise, and when a dear debt's cost or balance is not known: a part would read as the whole.
+ * The dear debts that moving into one loan would replace: shown when two debts or more are `dear` or worse, or one is
+ * `very_dear`. Null otherwise, and when a dear debt's cost or balance is not known: a part would read as the whole.
+ * It holds no offer, so the report works it out once and `consolidationCost` prices an offer from it.
  */
-export function consolidation(debts: readonly Debt[], day: IsoDate, offer: ConsolidationOffer, rowsOf: (debt: Debt) => readonly SeriesPayment[] = () => []): Consolidation | null {
+export function consolidationBasis(debts: readonly Debt[], day: IsoDate, rowsOf: (debt: Debt) => readonly SeriesPayment[] = () => []): ConsolidationBasis | null {
   const dear = debts.flatMap((debt) => {
     const cost = debtCost(debt, day, rowsOf(debt));
     return cost?.costClass === "dear" || cost?.costClass === "very_dear" ? [{ debt, cost }] : [];
   });
   if (dear.length < 2 && !dear.some((d) => d.cost.costClass === "very_dear")) return null;
-  if (!Number.isInteger(offer.months) || offer.months < 1) return null;
   let nowCents = 0;
   let owedCents = 0;
   for (const { debt, cost } of dear) {
@@ -287,6 +295,13 @@ export function consolidation(debts: readonly Debt[], day: IsoDate, offer: Conso
     nowCents += cost.leftCents;
     owedCents += owed;
   }
+  return { debtIds: dear.map((d) => d.debt.id), owedCents, nowCents };
+}
+
+/** What the basis's debts cost from here on against one loan of what they owe at the typed terms. Null for terms that make no loan. */
+export function consolidationCost(basis: ConsolidationBasis, day: IsoDate, offer: ConsolidationOffer): Consolidation | null {
+  if (!Number.isInteger(offer.months) || offer.months < 1) return null;
+  const { owedCents } = basis;
   const loan: Loan = {
     id: "consolidation",
     name: "",
@@ -307,5 +322,5 @@ export function consolidation(debts: readonly Debt[], day: IsoDate, offer: Conso
   };
   const interest = loanSchedule(loan, day).summary?.interestLeftCents;
   if (interest === undefined || interest === null) return null;
-  return { debtIds: dear.map((d) => d.debt.id), nowCents, newCents: interest + offer.feeCents * offer.months };
+  return { nowCents: basis.nowCents, newCents: interest + offer.feeCents * offer.months };
 }

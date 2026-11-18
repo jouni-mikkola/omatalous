@@ -1,9 +1,7 @@
 // Decision: build up savings or not, and whether the cash left after card debt and the bills before payday carries the household
 import type { AnalysisContext } from "../analysis/context.ts";
-import { cashAhead } from "../analysis/ahead.ts";
+import { bufferCash } from "../analysis/buffer-cash.ts";
 import { type FixedShare, fixedShareOn } from "../analysis/fixed-share.ts";
-import { expectedSpending } from "../analysis/expected.ts";
-import { monthOf } from "../dates.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { type BalanceInput, NO_INPUTS, type UserInputs } from "../types.ts";
 
@@ -36,14 +34,7 @@ interface BufferReport extends FixedShare {
  */
 export function bufferReport(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs = NO_INPUTS, lang: Language = DEFAULT_LANGUAGE): BufferReport {
   const fixed = fixedShareOn(ctx, ctx.today, inputs, lang);
-  const spendExpected = expectedSpending(ctx, monthOf(ctx.today));
-
-  const counted = balances.filter((a) => (a.type === "savings" || a.type === "checking") && a.balanceCents !== null);
-  const cashCents = counted.length ? counted.reduce((s, a) => s + a.balanceCents!, 0) : null;
-  const cardDebtCents = balances.filter((a) => a.type === "credit_card" && a.balanceCents !== null && a.balanceCents < 0).reduce((s, a) => s - a.balanceCents!, 0);
-  const { totals } = cashAhead(ctx, balances, inputs);
-  const dueBeforePaydayCents = totals.dueCents - totals.cardCents;
-  const netCents = cashCents === null ? null : cashCents - cardDebtCents - dueBeforePaydayCents;
+  const { cashCents, cardDebtCents, dueBeforePaydayCents, netCents, spendExpected } = bufferCash(ctx, balances, inputs);
   const bufferMonths = netCents === null || spendExpected === null || spendExpected <= 0 ? null : netCents / spendExpected;
 
   const bufferGap = netCents === null ? "no-balance" : spendExpected === null ? "history" : spendExpected <= 0 ? "no-spending" : null;

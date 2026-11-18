@@ -8,9 +8,12 @@
  * in a figure twice because no link says they are one (`maybeTwice` and `overdraftTwice` of `household-debts.ts`).
  */
 import { billCents } from "../account-use.ts";
+import { bufferCash } from "../analysis/buffer-cash.ts";
 import { debtsOf } from "../analysis/card-settled.ts";
 import type { AnalysisContext } from "../analysis/context.ts";
 import { type DebtCost, debtCost, type SeriesPayment } from "../debt-cost.ts";
+import type { Debt } from "../debt-part.ts";
+import { type ConsolidationBasis, consolidationBasis, payoffPlan, type PayoffPlan } from "../debt-plan.ts";
 import { paysSeries } from "../loan-detect.ts";
 import { type DebtPath, debtPath } from "../loan-path.ts";
 import { typedRateBpOn } from "../loan-schedule.ts";
@@ -117,6 +120,14 @@ export interface LoansReport {
   withoutRate: number;
   /** Korot ja kulut 12 kk: the sum of the rows' `cost.next12`, null while any debt that owes has none. */
   cost12: Cost12Total;
+  /**
+   * The way out of debt on the debts' own payments, the payment of each ended debt rolled into the dearest next, with
+   * the Puskuri buffer filled first (`payoffPlan` at no extra money). Null while `cost12` is, so never a debt-free
+   * date of a part of the debts.
+   */
+  plan: PayoffPlan | null;
+  /** The dear debts a new loan could take over (`consolidationBasis`), with what they cost from here. Null when none qualify and while `cost12` is null. */
+  consolidation: ConsolidationBasis | null;
   /** The payments of a month (`debtPaymentsPerMonth`). */
   payments: DebtPayments;
   /**
@@ -196,6 +207,7 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
   const accountOf = new Map(balances.map((b) => [b.id, b]));
   const sourceOf = new Map(debts.sources.map((s) => [s.loanId, s]));
   const unsaved = unsavedDebts(ctx, inputs);
+  const rowsOf = (debt: Debt) => paymentsOf(ctx, debts.loans, debt, day);
   const loans = debts.loans.map((loan): LoanRow => {
     const balance = loanBalanceOn(loan, day);
     const moves = hasReferenceRate(loan) && loan.rateBp !== null && (balance.cents ?? 0) > 0;
@@ -218,11 +230,18 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
       repayment: loan.repayment,
       payment: loanNextPayment(loan, day),
       interest: loanInterestNext12Months(loan, day),
-      cost: debtCost(loan, day, paymentsOf(ctx, debts.loans, loan, day)),
+      cost: debtCost(loan, day, rowsOf(loan)),
       payoff: loanPayoffDate(loan),
       scenarios: moves ? RATE_SHIFTS_BP.map((shift) => loanRateScenario(loan, day, shift)).filter((s) => s.movedBp !== 0 && (s.paymentCents !== null || s.interestCents !== null)) : [],
     };
   });
+  const cost12 = cost12Of(
+    loans.map((l) => l.cost),
+    unsaved.rows.length > 0 || unsaved.few > 0,
+  );
+  // a buffer nothing tells is no step before the debts: the plan keeps its dates for the debts alone
+  const cash = bufferCash(ctx, balances, inputs);
+  const buffer = { netCents: cash.netCents ?? 0, spendCents: cash.netCents === null ? 0 : (cash.spendExpected ?? 0) };
   return {
     day,
     saved: loansOf(inputs).length,
@@ -233,10 +252,9 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
     interest: debts.interest,
     interestKnown: debts.interestKnown,
     withoutRate: loansWithoutRate(debts.interest),
-    cost12: cost12Of(
-      loans.map((l) => l.cost),
-      unsaved.rows.length > 0 || unsaved.few > 0,
-    ),
+    cost12,
+    plan: cost12.cents === null ? null : payoffPlan(debts.loans, day, 0, buffer, rowsOf),
+    consolidation: cost12.cents === null ? null : consolidationBasis(debts.loans, day, rowsOf),
     payments: debtPaymentsPerMonth(debts.loans, day),
     path: debtPath(debts.loans, day, RATE_SHIFTS_BP),
     maybeTwice: maybeTwice(balances, debts),

@@ -605,6 +605,34 @@ describe("loans: the Lainat report and net worth", () => {
     expect(without.cost12.cents).toBeGreaterThan(0);
   });
 
+  it("the plan and the consolidation basis are told only while every debt's cost is known, as Korot ja kulut 12 kk is", () => {
+    const at = (loans: Loan[], rows: Transaction[] = []) =>
+      buildReports({ ctx: createContext(enrichTransactions(rows, [checking], []), [checking], today), range: { from: "2026-08-01", to: today }, balances: [given(checking, 200000)], inputs: { marks: [], expectedBills: [], loans } }).loans;
+    const known = at([home, car]);
+    expect(known.cost12.cents).not.toBeNull();
+    // the plan holds each debt that owes once, and the debts end no later than on their own payments
+    expect(known.plan!.debts.map((d) => d.id).sort()).toEqual(["car", "home"]);
+    expect(known.plan!.debts.every((d) => d.endDate <= d.baseEndDate)).toBe(true);
+    expect(known.plan!.debtFreeDate).toBe(known.plan!.debts.map((d) => d.endDate).sort().at(-1));
+    // a debt with no terms leaves the whole plan out: never the date of a part of the debts
+    const some = run([home, car, typedCard]).loans;
+    expect(some.cost12.cents).toBeNull();
+    expect(some.plan).toBeNull();
+    expect(some.consolidation).toBeNull();
+    // so does a payment to a lender nobody saved a loan of
+    const lender = Array.from({ length: 10 }, (_, i) => {
+      const description = "LAINANLYHENNYS 1234567";
+      return tx({ accountId: "acc-1", bookingDate: `${addMonths("2026-10", i - 9)}-05`, amountCents: -30_000, counterparty: "NORDEA BANK ABP", description, merchant: normalizeMerchant("NORDEA BANK ABP", description) });
+    });
+    expect(at([home, car], lender).plan).toBeNull();
+    // a debt that is very dear is a basis for a consolidation, and it holds what the debts owe and cost
+    const dear = loan({ id: "dear", kind: "consumer", balanceCents: 500_000, rateBp: 2500, repayment: "fixed_instalment", intervalMonths: 1, paymentCents: 30_000, endDate: null });
+    const withDear = at([home, dear]);
+    expect(withDear.consolidation).toMatchObject({ debtIds: ["dear"], owedCents: 500_000 });
+    expect(withDear.consolidation!.nowCents).toBe(withDear.loans.find((l) => l.id === "dear")!.cost!.leftCents);
+    expect(known.consolidation).toBeNull();
+  });
+
   it("a row shows and ranks by the rate in force on the day: after a step the step's rate", () => {
     const promo = loan({ id: "promo", kind: "instalment", balanceCents: 120_000, rateBp: 0, repayment: "fixed_instalment", intervalMonths: 1, paymentCents: 20_000, endDate: "2027-04-01" });
     const at = (loans: Loan[]) => buildReports({ ctx: createContext(monthlyOn("2026-08", 3, 3, () => -50000, { accountId: "acc-1" }), [checking], today), range: { from: "2026-08-01", to: today }, balances: [given(checking, 200000)], inputs: { marks: [], expectedBills: [], loans } }).loans.loans[0]!;
