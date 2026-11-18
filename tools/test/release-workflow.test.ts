@@ -733,7 +733,7 @@ function proofScopeFaults(text: string): string[] {
   // main, a hand start and a diff that cannot be read keep the proof on
   if (!text.includes("\n          proof=true\n          if [[ $EVENT == pull_request ]]; then\n")) out.push("scope does not start from the proof and narrow it on a pull request only");
   if (!text.includes("&& [[ -n $files ]]")) out.push("scope leaves the proof out when the diff is empty or fails");
-  for (const path of ["Dockerfile", "docker-compose", "pnpm-lock", "|(release|scripts|deploy|contracts|tools/ci|apps/server/migrations|apps/server/src/entry|apps/server/src/db)/", "workflows/full"]) {
+  for (const path of ["Dockerfile", "docker-compose", "pnpm-lock", "^(release|scripts|deploy|contracts|tools/ci|apps/server/migrations|apps/server/src/entry|apps/server/src/db)/", "workflows/full"]) {
     if (!text.includes(path)) out.push(`scope does not name ${path}`);
   }
   return out;
