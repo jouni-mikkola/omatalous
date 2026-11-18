@@ -42,7 +42,7 @@ export type LoanLabelField =
   | "marker";
 
 /** The interest and the principal of the last payment: "Korko" and "Lyhennys" under the label of the last payment. */
-export type LoanPartField = "lastPrincipal" | "lastInterest";
+type LoanPartField = "lastPrincipal" | "lastInterest";
 /** What `read` reads. */
 export type LoanReadField = LoanLabelField | LoanPartField;
 

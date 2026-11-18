@@ -23,7 +23,7 @@ import { type DraftFields, crossCheck, lower } from "./checks.ts";
 import { type Line, MARKS, brokenLabel, foldLine, isIcon, labelsOf, lenderCaption, toLine, wordCount } from "./labels.ts";
 import type { DraftConfidence, LoanDraft, LoanDraftField, LoanDraftKey, LoanDraftWarning, LoanTextOptions } from "./types.ts";
 import { type Got, read, readLender } from "./read.ts";
-import { type RegisterFields, settleRegister } from "./register.ts";
+import { type RegisterFields, isRegisterKey, settleRegister } from "./register.ts";
 import { isValueOnly } from "./values.ts";
 
 // ── lines ──
@@ -255,7 +255,7 @@ class Drafts {
     const wins = !again && before !== undefined && got.value !== undefined && ((hit.certain && this.cur.unsure.has(key)) || weak);
     // two labels of one field with two values: one value stays, and the user looks
     const doubt = () => {
-      if (key === "amortisationCents") this.cur.fields[key]!.confidence = "check";
+      if (key === "amortisationCents" || isRegisterKey(key)) this.cur.fields[key]!.confidence = "check";
       else lower(this.cur.fields, this.cur.warnings, "two_values", [key]);
     };
     if (again) this.split(key);
@@ -416,7 +416,7 @@ function readLines(raw: readonly string[]): Drafts {
     stacked = false;
     for (let j = 0; j < labels.length; j++) {
       const printed = labels[j]!;
-      const part = inLastPayment || printed.field === "lastDate" ? lastPaymentField(printed) : null;
+      const part: LoanReadField | null = inLastPayment || printed.field === "lastDate" ? lastPaymentField(printed) : null;
       inLastPayment = part !== null;
       const hit: ReadHit = part && part !== printed.field ? { ...printed, field: part, certain: true } : printed;
       const next = labels[j + 1];

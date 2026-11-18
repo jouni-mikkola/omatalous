@@ -23,6 +23,9 @@ export interface RegisterFields {
 
 const REGISTER_KEYS = ["rateKind", "referenceTerm", "fixedUntil", "lastDate", "lastPrincipal", "lastInterest", "lastFee"] as const;
 
+/** Whether a field of an open draft is one of these: it leaves the draft in `settleRegister`, so no warning may name it. */
+export const isRegisterKey = (key: string): key is keyof RegisterFields => (REGISTER_KEYS as readonly string[]).includes(key);
+
 /** The lines of the parts side by side, and `sure` only when every part is. */
 const together = (parts: readonly LoanDraftField<unknown>[]) => ({
   line: parts.map((p) => p.line).join(" / "),

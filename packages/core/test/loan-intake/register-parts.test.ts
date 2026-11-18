@@ -165,7 +165,7 @@ describe("loan intake: the register's rate, kind and last payment", () => {
 
   it("marks every field to check for a text read from a picture", () => {
     const [draft] = parseLoanText(text(...MORTGAGE, ...LAST), { source: "ocr" });
-    const fields = Object.values(draft!).filter((value): value is { confidence: string } => typeof value === "object" && !Array.isArray(value));
+    const fields = (Object.values(draft!) as unknown[]).filter((value): value is { confidence: string } => typeof value === "object" && !Array.isArray(value));
     expect(fields.length).toBeGreaterThan(10);
     expect(fields.map((f) => f.confidence)).toEqual(fields.map(() => "check"));
   });
