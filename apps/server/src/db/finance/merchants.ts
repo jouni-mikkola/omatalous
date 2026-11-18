@@ -124,9 +124,9 @@ export class MerchantsRepo {
   }
 
   /** What a payer's median reads: every row of money in, as far as its payer, sum and day (core `steadyPayers`). */
-  async incomingPayerRows(): Promise<Pick<Transaction, "counterparty" | "counterpartyIban" | "amountCents" | "bookingDate">[]> {
-    const rows = await this.ctx.db.all<Row>("SELECT counterparty, counterparty_iban, amount_cents, booking_date FROM transactions WHERE user_id = ? AND amount_cents > 0", [this.ctx.userId]);
-    return rows.map((r) => ({ counterparty: r.counterparty === null ? null : String(r.counterparty), counterpartyIban: r.counterparty_iban === null ? null : String(r.counterparty_iban), amountCents: Number(r.amount_cents), bookingDate: String(r.booking_date) }));
+  async incomingPayerRows(): Promise<Pick<Transaction, "counterparty" | "counterpartyIban" | "description" | "amountCents" | "bookingDate">[]> {
+    const rows = await this.ctx.db.all<Row>("SELECT counterparty, counterparty_iban, description, amount_cents, booking_date FROM transactions WHERE user_id = ? AND amount_cents > 0", [this.ctx.userId]);
+    return rows.map((r) => ({ counterparty: r.counterparty === null ? null : String(r.counterparty), description: r.description === null ? null : String(r.description), counterpartyIban: r.counterparty_iban === null ? null : String(r.counterparty_iban), amountCents: Number(r.amount_cents), bookingDate: String(r.booking_date) }));
   }
 
   /** The distinct merchant names of the user's rows. */

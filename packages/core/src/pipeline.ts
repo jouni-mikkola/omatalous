@@ -278,7 +278,7 @@ export interface IslandInput {
    * Every row of the history that is money in, as far as a payer is told from it (payer, sum, day): a payer's median reads
    * rows outside the island. Needed when `payers` has a role; without it the full run answers.
    */
-  payerRows?: readonly Pick<Transaction, "counterparty" | "counterpartyIban" | "amountCents" | "bookingDate">[];
+  payerRows?: readonly Pick<Transaction, "counterparty" | "counterpartyIban" | "description" | "amountCents" | "bookingDate">[];
 }
 
 export type IslandResult = { ok: true; changed: Transaction[] } | { ok: false; reason: string };
