@@ -35,7 +35,7 @@ export function merchantRoutes(s: Services) {
     if (habit && habit !== "1") throw new UserError("Virheellinen rajaus.");
     const scope = parseScope(c.req.query("scope"));
     // the set and the series figures are the detection's, not a second definition: the analysis is cached per user and data version
-    const [{ ctx }, { own }] = await Promise.all([s.analysis.get(s, user.id, scope), rowsInView(s, user.id, scope)]);
+    const { ctx, own } = await rowsInView(s, user.id, scope);
     const only = habit ? new Set(ctx.recurring.filter((r) => r.kind === "habit" && r.active).map((r) => r.merchant)) : undefined;
     return c.json(
       await s.finance(user.id).merchantSummaries({
@@ -61,11 +61,10 @@ export function merchantRoutes(s: Services) {
     const merchant = parseMerchantName(c.req.query("merchant"));
     const scope = parseScope(c.req.query("scope"));
     // the same rows as the transaction list of the view, and sums of parts as above it
-    const { shared, own } = await rowsInView(s, user.id, scope);
+    const { shared, own, ctx } = await rowsInView(s, user.id, scope);
     const history = await s.finance(user.id).merchantHistory(merchant, shared.map((a) => a.id), own);
     if (!history) return c.json({ summary: null });
-    // the analysis is cached per user and data version: the series and the complete months come from it
-    const { ctx } = await s.analysis.get(s, user.id, scope);
+    // the analysis is cached per user and data version: the series and the complete months come from it (`ctx` above)
     const series = ctx.recurring.filter((r) => r.merchant === merchant).sort((a, b) => Number(b.active) - Number(a.active) || (a.lastDate < b.lastDate ? 1 : -1))[0];
     const basis = merchantBasis(ctx);
     const { outByMonth, countByMonth, ...totals } = history;

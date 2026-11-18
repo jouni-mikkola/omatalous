@@ -9,7 +9,6 @@ export const FI_OVERVIEW = {
   "home.col_due": "Eräpäivä",
   "home.col_payee": "Saaja",
   "home.col_sum": "Summa",
-  "home.payments_before_payday": "Maksut ennen palkkapäivää",
   "home.hide_payments": "Piilota maksut",
   "home.show_payments": "Näytä maksut",
   "home.category_over": "{label}: {spent}, {over} yli tavoitteen.",

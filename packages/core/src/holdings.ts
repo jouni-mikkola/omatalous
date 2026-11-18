@@ -19,7 +19,7 @@ import type { AnalysisContext } from "./analysis/context.ts";
 import type { Debt } from "./debt-part.ts";
 import { belowWhole, cardDebtOf, householdDebts, maybeTwice, paidFrom, type UnsavedLoans, unsavedLoans } from "./household-debts.ts";
 import { type LoanProposal, loanProposals } from "./loan-detect.ts";
-import { creditUse, debtPaymentsPerMonth, loanBalanceOn } from "./loans.ts";
+import { creditUse, debtPaymentsPerMonth, loanBalanceOn, loanInterestNext12Months, loanPayoffDate } from "./loans.ts";
 import { normalizeIban } from "./transfers.ts";
 import type { AccountUse, BalanceInput, IsoDate, Loan, Part, UserInputs } from "./types.ts";
 
@@ -132,6 +132,10 @@ export interface Holdings {
     leftCents: number | null;
     /** The next payment spread over a month (`debtPaymentsPerMonth`), null where the loan has none or does not tell it. */
     monthlyPaymentCents: number | null;
+    /** The due date of the last payment (`loanPayoffDate`, the day the Lainat report gives as paid). Null when nothing is owed, the plan has no end or the payments never clear the loan: the row says so, it is never a guess. */
+    endDate: IsoDate | null;
+    /** The interest of the 12 months after the day, the viewer's part of it (`loanInterestNext12Months`, the figure of Lainat). Null where the rate is not known. */
+    interest12Cents: number | null;
     /** An account tells it (the bank's, or the account a saved loan is linked to), or the household typed it with no account. */
     source: "account" | "typed";
     /** The debt may be in the totals twice: no link says that a saved loan and a connected account are one (`maybeTwice`). */
@@ -141,6 +145,8 @@ export interface Holdings {
   })[];
   /** The known `leftCents` of `loans` added once; a loan without a balance is not in it, as it is not in `debtCents`. Null when no loan has one. */
   loansCents: number | null;
+  /** The latest `endDate` of the loans that owe: the month the last loan payment falls due. Null when a loan that owes has no end date, so an unknown end is never read as the end of the others. */
+  loansEndDate: IsoDate | null;
   /** What the household owes in all, the one debt total of `householdDebts`: the cards' `usedCents` and the loans' `leftCents` add up to it, to the cent. 0 without debt. Null when a loan's balance is not known on the day, as Lainat tells it: the total of a part is no total. */
   debtCents: number | null;
   /** `accountsCents` less `debtCents`: what the household has net, the head figure of Varat ja velat. Null when `accountsCents` is, and when `debtCents` is: the accounts less a part of the debt is no net. */
@@ -222,9 +228,18 @@ export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceIn
     cardsCents: sumKnown(cards.map((c) => c.usedCents)),
     loans,
     loansCents: sumKnown(loans.map((l) => l.leftCents)),
+    loansEndDate: lastEnd(loans),
     debtCents: debts.totalKnown ? debts.total.cents : null,
     ...unsaved,
   };
+}
+
+/** The latest end of the loans that owe; null when none owes or one of them has no end. */
+function lastEnd(loans: readonly Holdings["loans"][number][]): IsoDate | null {
+  const owing = loans.filter((l) => l.leftCents !== null && l.leftCents > 0);
+  const ends = owing.map((l) => l.endDate);
+  if (ends.length === 0 || ends.some((end) => end === null)) return null;
+  return ends.reduce((last, end) => (end! > last! ? end : last))!;
 }
 
 /**
@@ -250,6 +265,8 @@ export function heldLoans(balances: readonly BalanceInput[], debts: ReturnType<t
       ...(loan.typedBy ? { typedBy: loan.typedBy } : {}),
       leftCents: loanBalanceOn(loan, day).cents,
       monthlyPaymentCents: monthly.counted ? monthly.monthlyCents : null,
+      endDate: loanPayoffDate(loan).date,
+      interest12Cents: loanInterestNext12Months(loan, day).cents,
       source,
       maybeTwice: flagged,
       paidOff: false,

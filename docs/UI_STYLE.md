@@ -20,6 +20,7 @@ with it. A new word for a thing already named here is not added: the term below 
 | The section of accounts and debts | *Varat ja velat* | *Varallisuus* |
 | Income less spending of a month | *Tulos*; in the reports *Käteen jäi* | *Yli jäi*, *Jäännös*, *jäämä* |
 | Income and spending as short labels (a table, a row of figures) | *Tulot*, *Menot*, *Erotus* | *Maksettu*, *Saatu*, *Ero* |
+| The pays of a month on Laskut less its bills and its regular saving | *Laskujen jälkeen* | *Erotus* (that is income less spending) |
 | The sums of the filtered rows on Tapahtumat, own transfers left out | *Menot*, *Tulot*, *Erotus*, and *Säästöön siirretty* or *Otettu säästöistä* for what the rows move to or from savings, named as on Yhteenveto | *Rahaa ulos*, *Rahaa sisään* |
 | Taking a bank connection into use | *yhdistä* (a bank, an account), *Yhdistä uudelleen* | *linkitä*, *liitä* (*liitä osoite* stays: that is pasting text) |
 | How long a bank connection is valid | *suostumus* (*Uusi suostumus*), the connection *vanhenee* | *lupa*, *consent*, *yhteyden päättyminen* |
@@ -38,6 +39,7 @@ with it. A new word for a thing already named here is not added: the term below 
 | The parts a report figure is made of | *Mistä luku koostuu* | *Luvun osat* |
 | The difference to the usual in a report table | *Yli tai alle*, the total *Yhteensä* | *Erotus* in the reports of Saldot and Velat |
 | A loan payment in the Velat report | *maksu*, *kuukausimaksu* | *erä*, *maksuerä*, *tasaerä* |
+| A loan's payments in its drill in Lainat | *Kuukausierä* (*Erä* when the interval is not a month; *Kuukausilyhennys* and *Lyhennys* for an equal principal loan, whose input is the principal), *Eriä jäljellä*, *Viimeinen erä*, *Kertalyhennys* for a one-off repayment | *maksuerä*, *tasaerä*, *ylimääräinen lyhennys* |
 | A month that is over | *päättynyt kuukausi* | *valmis kuukausi* |
 | The group a transaction belongs to | *kategoria* (*Kaikki kategoriat*, *Menot kategorioittain*); the verb *luokitella* stays | *ryhmä*, *luokka* and its forms (*luokittain*, *menoluokka*) |
 | How sure an estimate is | *Arvio on epävarma*, *suuntaa antava*, *luotettava* | *Varmuus keskitaso*, *Peruste*, *Vaikutus* |

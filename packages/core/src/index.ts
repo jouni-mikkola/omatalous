@@ -50,6 +50,7 @@ export * from "./recurring.ts";
 
 export * from "./commitments.ts";
 export * from "./loans.ts";
+export { loanBalanceByPlan, loanPaymentAfter, loanRateLine, loanSchedule, loanWhatIf } from "./loan-schedule.ts";
 export * from "./household-debts.ts";
 export { debtsOf } from "./analysis/card-settled.ts";
 export { cardLimitCents } from "./holdings.ts";

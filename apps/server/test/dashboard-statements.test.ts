@@ -40,10 +40,11 @@ async function household() {
 
 /**
  * The most statements a warm request may make for this household. The dashboard made 39 (own view) and 56 (household)
- * before it read the view and the inputs once, and makes 28 and 42 now; /meta makes 36. The room above that is for a
- * query added to a page, not for one that reads the view again.
+ * before it read the view and the inputs once, then 29 and 44 (/meta 37); it makes 29 and 38 now, and /meta 33, since a
+ * request reads the accounts in view and their uses once. A query added to a page raises it by that; a read of the
+ * view again must not.
  */
-const MOST = { meta: 40, own: 32, household: 46 };
+const MOST = { meta: 33, own: 29, household: 38 };
 
 describe("the dashboard and /meta read the view once", () => {
   it("the opening month is the one a fresh computation gives, on the first request and the next", async () => {
