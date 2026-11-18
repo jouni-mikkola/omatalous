@@ -97,10 +97,10 @@ export function settle(t: Trace, answers: readonly Answer[], users: readonly Tra
 const askedGroups = (t: Trace, said: ReadonlySet<string>) => t.groups.filter((g) => g.cents >= ASK_LIMIT && !said.has(g.key) && !isSharedCredit(g.key) && !t.unasked?.has(g.key));
 
 /**
- * The cents of the opening a part of a row takes: an outgoing row's opening part is spent, an incoming row's is a refund
- * coming back, so it takes the opening's money away from what was spent.
+ * The cents of the opening a part of a row takes: an outgoing row's opening part is spent, and a refund's opening part
+ * comes back, so it takes the opening's money away from what was spent. Other money in returns nothing that was spent.
  */
-const openingTakenBy = (row: RowParts, part: SourcePart): number => (row.cents < 0 ? part.cents : -part.cents);
+const openingTakenBy = (row: RowParts, part: SourcePart): number => (row.cents < 0 ? part.cents : row.refundOf !== undefined ? -part.cents : 0);
 
 /**
  * Whether the opening is asked: unanswered, and the booked payments spent at least `ASK_LIMIT` of it, net of the refunds
