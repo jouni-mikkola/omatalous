@@ -245,7 +245,8 @@ const ANSWERS: Record<FigureKey, Answers> = {
     const ctx = contextOf(h);
     // the typed bills of the demo household have none of the rare ones, so a typed yearly bill is added to be read as well
     const inputs = { ...h.inputs, expectedBills: [...h.inputs.expectedBills, { id: "typed-insurance", name: "Esimerkkivakuutus", amountCents: 24_000, dueDate: addMonths(monthOf(h.today), 2) + "-10", cadence: "yearly" as const, category: "insurance", reference: null, payeeIban: null }] };
-    return { calendar: billCalendar(ctx, inputs).yearlyCents, upcoming: upcomingReport(ctx, inputs).yearlyCents };
+    // with the household's balances, so a bill that an account outside them pays is left out of both or of neither
+    return { calendar: billCalendar(ctx, inputs, h.balances).yearlyCents, upcoming: upcomingReport(ctx, inputs, h.balances).yearlyCents };
   },
   periodLeft: (h) => {
     const ctx = contextOf(h);

@@ -343,6 +343,21 @@ describe("the bill calendar", () => {
       const all = billCalendar(ctx, NO_INPUTS);
       expect(all.yearlyCents).toBe(92_000);
       expect(all.reserveMonthlyCents).toBe(7_667);
+      // the report of rare bills reads the same year, with the balances and without them
+      expect(upcomingReport(ctx, NO_INPUTS, balances)).toMatchObject({ yearlyCents: counted.yearlyCents, reserveMonthlyCents: counted.reserveMonthlyCents });
+      expect(upcomingReport(ctx, NO_INPUTS)).toMatchObject({ yearlyCents: all.yearlyCents, reserveMonthlyCents: all.reserveMonthlyCents });
+    });
+
+    it("gives no figure for what is left while no pay is found, and exact sums once one is", () => {
+      const bills = [...rents(), ...music()];
+      const none = run(bills).cal;
+      expect(none.unknownCount).toBe(0);
+      expect(none.months.map((m) => m.incomeCents)).toEqual(Array.from({ length: 12 }, () => 0));
+      expect(none.months.map((m) => m.afterCents)).toEqual(Array.from({ length: 12 }, () => null));
+      expect(none.months[1]!.billsCents).toBe(RENT + MUSIC);
+      const paid = run([...bills, ...pays()]).cal;
+      expect(paid.months[1]!.afterCents).toBe(PAY - RENT - MUSIC);
+      expect(paid.months.every((m) => m.afterCents === m.incomeCents - m.billsCents - m.savingCents)).toBe(true);
     });
 
     it("counts the monthly bills of a month and adds them up, to the cent", () => {

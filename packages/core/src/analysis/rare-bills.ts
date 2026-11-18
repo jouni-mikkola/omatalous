@@ -7,10 +7,11 @@ import { getCategory } from "../categories.ts";
 import { expectedDates } from "../commitments.ts";
 import { addMonths, monthEnd, monthIndex, monthOf } from "../dates.ts";
 import { fold } from "../merchant.ts";
-import { type Cadence, projectDates, type RecurringSeries } from "../recurring.ts";
+import { type Cadence, parseSeriesId, projectDates, type RecurringSeries } from "../recurring.ts";
 import { MIN_RARE_BILL_CENTS, YEAR_MONTHS } from "../thresholds.ts";
-import type { ExpectedCadence, IsoDate, UserInputs } from "../types.ts";
+import type { BalanceInput, ExpectedCadence, IsoDate, UserInputs } from "../types.ts";
 import type { AnalysisContext } from "./context.ts";
+import { poolOf } from "./pool.ts";
 
 /** Bills that come every second month or less often: the ones a household forgets. */
 const RARE: ReadonlySet<Cadence> = new Set(["bimonthly", "quarterly", "semiannual", "yearly"]);
@@ -93,7 +94,7 @@ export function rareOccurrences(ctx: AnalysisContext, inputs: UserInputs): { occ
  * What the rare bills of the year come to, and what to set aside each month for them. Repeating bills: a twelfth of the
  * year each month. A one-off: its amount over the months until its due month.
  */
-export function rareYear(occurrences: readonly Occurrence[], today: IsoDate): { yearlyCents: number; reserveMonthlyCents: number } {
+function rareYear(occurrences: readonly Occurrence[], today: IsoDate): { yearlyCents: number; reserveMonthlyCents: number } {
   const firstMonth = monthOf(today);
   let monthly = 0;
   let yearlyCents = 0;
@@ -103,4 +104,14 @@ export function rareYear(occurrences: readonly Occurrence[], today: IsoDate): { 
     monthly += o.cadence === "once" ? o.amountCents / (monthIndex(monthOf(o.date)) - monthIndex(firstMonth) + 1) : o.amountCents / YEAR_MONTHS;
   }
   return { yearlyCents, reserveMonthlyCents: Math.round(monthly) };
+}
+
+/**
+ * The year of the rare bills the household's accounts pay: `rareYear` without the bills of a card or an account the balance does not
+ * count (`poolOf`, as `aheadBasis` has it), which the months of the bill calendar leave out too. With no balances in view nothing is
+ * left out. Laskut and the report of rare bills read this one figure.
+ */
+export function rareYearCounted(occurrences: readonly Occurrence[], today: IsoDate, balances: readonly BalanceInput[]): { yearlyCents: number; reserveMonthlyCents: number } {
+  const counted = poolOf(balances).ids;
+  return rareYear(occurrences.filter((o) => o.seriesId === null || counted.size === 0 || counted.has(parseSeriesId(o.seriesId)?.accountId ?? "")), today);
 }

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
+import { addDays, dateIn, weekdayOf } from "../src/dates.ts";
 import { loanTermsMissing } from "../src/loan-terms-answer.ts";
 import { billCalendar } from "../src/reports/bill-calendar.ts";
-import { type Account, type Fixings, type Loan, type UserInputs } from "../src/types.ts";
+import { type Account, type Fixings, type Loan, type Transaction, type UserInputs } from "../src/types.ts";
+import { tx } from "./helpers.ts";
 
 // A loan on a 12-month euribor in the bill calendar: its payments from the day the bank sets the rate again count at the
 // newest published fixing and the margin, and are an estimate. Made-up loan; every sum below is worked out by hand in
@@ -16,9 +18,18 @@ const LOAN: Loan = {
 };
 const fixing = (milli: number): Fixings => ({ euribor_12: [["2026-10-01", milli]] });
 
+const PAY = 300_000;
+/** A pay of 3 000 € on the 15th (the Friday before on a weekend) from March, so what is left after the bills is a figure. */
+const pays = (): Transaction[] =>
+  ["2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"].map((m) => {
+    const date = dateIn(m, 15);
+    const weekday = weekdayOf(date);
+    return tx({ accountId: "own", bookingDate: weekday >= 5 ? addDays(date, 4 - weekday) : date, amountCents: PAY, merchant: "Esimerkki Oy", category: "salary" });
+  });
+
 const loanRows = (loan: Loan, fixings?: Fixings) => {
   const inputs: UserInputs = { marks: [], expectedBills: [], loans: [loan], ...(fixings ? { fixings } : {}) };
-  const cal = billCalendar(createContext([], [own], TODAY), inputs);
+  const cal = billCalendar(createContext(pays(), [own], TODAY), inputs);
   return { cal, rows: cal.months.flatMap((m) => m.rows).filter((r) => r.kind === "loan") };
 };
 
@@ -43,8 +54,8 @@ describe("a loan's payments after its review day in the bill calendar", () => {
     ]);
     const month = (m: string) => cal.months.find((x) => x.month === m)!;
     // the sums keep adding up: the known part and the estimate part of a month are its bills
-    expect(month("2027-02")).toMatchObject({ knownCents: 121_500, estimateCents: 0, billsCents: 121_500, afterCents: -121_500 });
-    expect(month("2027-03")).toMatchObject({ knownCents: 0, estimateCents: 124_687, billsCents: 124_687, afterCents: -124_687 });
+    expect(month("2027-02")).toMatchObject({ knownCents: 121_500, estimateCents: 0, billsCents: 121_500, incomeCents: PAY, afterCents: PAY - 121_500 });
+    expect(month("2027-03")).toMatchObject({ knownCents: 0, estimateCents: 124_687, billsCents: 124_687, incomeCents: PAY, afterCents: PAY - 124_687 });
     expect(cal.months.every((m) => m.billsCents === m.knownCents + m.estimateCents && m.afterCents === m.incomeCents - m.billsCents - m.savingCents)).toBe(true);
     // 4 payments at 121 500 and 7 at 124 687
     expect(cal.billsCents).toBe(4 * 121_500 + 7 * 124_687);

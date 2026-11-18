@@ -4,7 +4,7 @@ import { comingPays, payDates } from "../analysis/coming.ts";
 import { type AnalysisContext, standingById } from "../analysis/context.ts";
 import { expectedBillRows } from "../analysis/forecast.ts";
 import { poolOf } from "../analysis/pool.ts";
-import { rareOccurrences, rareSeries, rareYear } from "../analysis/rare-bills.ts";
+import { rareOccurrences, rareSeries, rareYearCounted } from "../analysis/rare-bills.ts";
 import { getCategory } from "../categories.ts";
 import { cancelledSubjects, isBillSeries, isCancelled } from "../commitments.ts";
 import { addDays, addMonths, monthEnd, monthOf } from "../dates.ts";
@@ -59,7 +59,10 @@ interface BillMonth {
   incomeCents: number;
   /** The month's bills still to pay, known and estimated: `knownCents` and `estimateCents` together. */
   billsCents: number;
-  /** The pays less the bills and the regular saving still to come. Null while a bill's sum is not known (`unknownCount`): that is not a figure of 0. */
+  /**
+   * The pays less the bills and the regular saving still to come. Null while a bill's sum is not known (`unknownCount`) and while no pay
+   * is found at all, since an income that is not known is no income of 0. A month with no pay, in a household with pays, is below 0.
+   */
   afterCents: number | null;
   /** The rows of `monthly` that are bills or loan payments still to pay, not on a card: how many, and what they add up to. */
   monthlyBillsCount: number;
@@ -271,11 +274,11 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       savingCents,
       incomeCents,
       billsCents: knownCents + estimateCents,
-      afterCents: unknownCount > 0 ? null : incomeCents - knownCents - estimateCents - savingCents,
+      afterCents: unknownCount > 0 || found.pays.length === 0 ? null : incomeCents - knownCents - estimateCents - savingCents,
       monthlyBillsCount: count((r) => r.monthly === true && toPay(r) && !r.onCard),
       monthlyBillsCents: sum((r) => r.monthly === true && toPay(r) && !r.onCard),
     };
   });
   const billsCents = months.reduce((total, m) => total + m.billsCents, 0);
-  return { from: today, to: windowEnd, months, billsCents, ...rareYear(occurrences.filter((o) => o.seriesId === null || !paidElsewhere(o.seriesId)), today), unknownCount };
+  return { from: today, to: windowEnd, months, billsCents, ...rareYearCounted(occurrences, today, balances), unknownCount };
 }
