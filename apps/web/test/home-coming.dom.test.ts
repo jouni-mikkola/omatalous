@@ -31,8 +31,21 @@ const answer = () =>
     month("2027-02", rows("2027-02"), { knownCents: 70000, billsCents: 70000, incomeCents: 310000, afterCents: 240000 }),
   ]);
 
-/** The same months with two bills that have no sum: core then leaves the sum after the bills of every month unknown (`billCalendar` sets `afterCents` null while `unknownCount` is above 0). */
-const unknownAnswer = () => ({ ...answer(), months: answer().months.map((m) => ({ ...m, afterCents: null })), unknownCount: 2 });
+/** The same months with two bills that have no sum and no day: core then leaves the sum after the bills of every month unknown (`billCalendar` sets `afterCents` null in every month a bill with no day may fall in). */
+const unknownAnswer = () => ({
+  ...answer(),
+  months: answer().months.map((m) => ({ ...m, afterCents: null })),
+  unknownCount: 2,
+  unknowns: [1, 2].map(() => ({ days: [], open: false, kind: "bill" as const, onCard: false })),
+});
+
+/** The same months with one bill that has no sum, due in the fourth: only that month has no sum after the bills, as core gives it. */
+const farUnknownAnswer = () => ({
+  ...answer(),
+  months: answer().months.map((m) => (m.month === "2027-02" ? { ...m, afterCents: null } : m)),
+  unknownCount: 1,
+  unknowns: [{ days: ["2027-02-05"], open: false, kind: "bill" as const, onCard: false }],
+});
 
 function laskutHeads(cal: ReturnType<typeof answer>): string[] {
   stubApi({ "GET /api/transactions": { items: [], total: 0 } });
@@ -79,6 +92,15 @@ describe("Tulevat kuukaudet", () => {
     expect(trs.map((tr) => cells(tr)[3])).toEqual(["Ei tiedossa", "Ei tiedossa", "Ei tiedossa"]);
     expect(cells(trs[2]!).join(" ")).not.toContain("0,00 € 0");
     expect(flat(container.textContent)).toContain("2 laskun summa tai päivä ei ole tiedossa");
+  });
+
+  it("shows the sum after the bills of the months shown while a bill of a later month has no sum", () => {
+    const { container } = render(createElement(ComingMonths, { calendar: farUnknownAnswer() }));
+    const trs = [...container.querySelectorAll("tbody tr")];
+    expect(trs).toHaveLength(3);
+    expect(cells(trs[0]!)[3]).toBe("1 400,00 €");
+    expect(cells(trs[1]!)[3]).toMatch(/^[−-]800,00 €$/);
+    expect(cells(trs[2]!)[3]).toBe("2 200,00 €");
   });
 
   it("leaves the pays out of a month that has none and tells what is left below 0, as Laskut does", () => {

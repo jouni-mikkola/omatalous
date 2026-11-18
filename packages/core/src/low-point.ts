@@ -19,15 +19,16 @@
  * The lowest day is the one of the expected everyday spending. The range is the lowest balance when the base months
  * with the most everyday spending repeat to when the ones with the least do, so `lowCents <= cents <= highCents`.
  * Without a payday, a balance or a history to expect everyday spending from, it gives the reason `runwayOf` gives, and
- * while a bill's sum or day is not known (`unknownCount` of the calendar, as Tulevat kuukaudet's "ei tiedossa") it says
- * so: a figure with a bill missing would pass for a safe one.
+ * while a bill's sum is not known and it falls on or before the last day looked at, or its day is not known (`unknowns` of
+ * the calendar), it says so: a figure with a bill missing would pass for a safe one. An unknown bill beyond the last day, one
+ * a card pays and a pay that is not known leave the figure as it is: none of them can make the lowest balance lower.
  */
 import type { AheadBasis } from "./analysis/ahead.ts";
 import type { AnalysisContext } from "./analysis/context.ts";
 import { expectedEveryday } from "./analysis/expected.ts";
 import { type Runway, runwayOf } from "./analysis/runway.ts";
 import { addDays, monthOf } from "./dates.ts";
-import { billCalendar } from "./reports/bill-calendar.ts";
+import { billCalendar, unknownPaymentBy } from "./reports/bill-calendar.ts";
 import { LOW_POINT_DAYS } from "./thresholds.ts";
 import type { BalanceInput, IsoDate, UserInputs } from "./types.ts";
 
@@ -68,9 +69,9 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
   if (!runway.known) return { known: false, reason: runway.reason, days };
   if (!direct || !ahead.balance) return { known: false, reason: "no-balance", days };
   const calendar = billCalendar(ctx, inputs, balances);
-  if (calendar.unknownCount > 0) return { known: false, reason: "bills", days };
   const { from } = ahead;
   const last = addDays(from, days - 1);
+  if (unknownPaymentBy(calendar, last)) return { known: false, reason: "bills", days };
   // a card's bill beyond the payday window holds the debt that is taken off whole from today: it is no row of the walk
   const heldByDebt = new Set(ahead.upcoming.flatMap((r) => (r.source === "card" && r.basis === "balance" && r.cents && r.date > ahead.to ? [`${r.date}|${r.name}|${Math.abs(r.cents)}`] : [])));
   const rows = calendar.months
