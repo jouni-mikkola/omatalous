@@ -75,8 +75,8 @@ export function planRuns(rows: readonly AnalysisTx[]): AnalysisTx[][] {
 export const creditDraws = (txs: readonly AnalysisTx[], today: IsoDate): AnalysisTx[] =>
   txs.filter((t) => t.category === "credit_draw" && billCents(t) >= MIN_LOAN_PAYMENT_CENTS && !t.isTransfer && t.bookingDate <= today);
 
-/** The words of a name that are no word of a loan ("Esimerkki Rahoitus Joustoluotot" is "ESIMERKKI RAHOITUS"). */
-const nameWords = (name: string): string[] => fold(name).split(/\s+/).filter((w) => w && !hasLoanText(w));
+/** The words of a name that are no word of a loan or its type ("Esimerkki Rahoitus Joustoluotot" is "ESIMERKKI RAHOITUS"). */
+const nameWords = (name: string): string[] => fold(name).split(/\s+/).filter((w) => w && !hasLoanText(w) && loanKindOfType(w) === null);
 
 /**
  * Whether a draw's payer is the payee of a loan's payments. A lender names its credit by the product ("Esimerkki

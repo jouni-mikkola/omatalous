@@ -48,11 +48,11 @@ describe("an instalment service paid the same sum in three months running", () =
     expect(loanProposals(contextOf(klarna((m) => 49.9 + (m % 2) * 0.03, [3, 2, 1, 0])), NO_INPUTS)).toHaveLength(1);
   });
 
-  it("counts in the fixed costs and in no debt total", () => {
+  it("counts in the fixed costs and in no debt total, and stands beside it as an unsaved loan", () => {
     const ctx = contextOf(steady());
     const board = buildDashboard(ctx, range);
     expect(fixedShareOn(ctx, range.to, NO_INPUTS).fixedMonthlyCents).toBe(4990);
-    expect(board.holdings.unsavedLoans).toBeUndefined();
+    expect(board.holdings.unsavedLoans).toMatchObject({ count: 1, paymentCents: 4990 });
     expect(board.holdings.debtCents).toBe(0);
   });
 
@@ -85,6 +85,29 @@ describe("an instalment service paid the same sum in three months running", () =
     const ctx = contextOf(steady());
     const marked: UserInputs = { ...NO_INPUTS, marks: [{ ...notLoanMark(loanProposals(ctx, NO_INPUTS)[0]!), markedAt: "2026-10-18T10:00:00Z" }] };
     expect(loanProposals(ctx, marked)).toEqual([]);
+  });
+});
+
+describe("two plans of one instalment service", () => {
+  /** Payments on no steady day (the 3rd one month, the 16th the next), so no monthly series holds them. */
+  const uneven = (euros: number, months: readonly number[], odd: number) =>
+    klarna(() => euros, months).map((t, i) => ({ ...t, bookingDate: t.bookingDate.replace(/-12$/, (i + odd) % 2 ? "-03" : "-16") }));
+  const both = () => [...uneven(49.9, [3, 2, 1, 0], 0), ...uneven(29.9, [4, 3, 2, 1, 0], 1)];
+
+  it("are proposed each with its own sum and months", () => {
+    const found = loanProposals(contextOf(both()), NO_INPUTS);
+    expect(found.map((p) => [p.paymentCents, p.months, p.plan])).toEqual([
+      [4990, 4, true],
+      [2990, 5, true],
+    ]);
+  });
+
+  it("count in the fixed costs both", () => {
+    expect(fixedShareOn(contextOf(both()), range.to, NO_INPUTS).fixedMonthlyCents).toBe(4990 + 2990);
+  });
+
+  it("leave a second sum of two months no plan", () => {
+    expect(loanProposals(contextOf([...uneven(49.9, [3, 2, 1, 0], 0), ...uneven(29.9, [1, 0], 1)]), NO_INPUTS).map((p) => p.paymentCents)).toEqual([4990]);
   });
 });
 
