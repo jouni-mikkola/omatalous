@@ -8,9 +8,13 @@ name: full
 #   e2e     the browser tests (`pnpm e2e`) on the built app, one retry for a flake
 #   proof   tools/ci/local-proof.sh: the image, its smoke test, the container checks, the signature of the newest
 #           release, an upgrade rehearsal from the public releases in tools/ci/upgrade-baselines.txt, and the drills
+#   scope   decides whether proof runs: always on main and by hand; on a pull request only when it changes what the
+#           proof exercises (the image and its inputs, the scripts, the migrations, the entry points, the database layer,
+#           the proof's own tools and this file)
 #
 # A push to main, a pull request and a hand start it, like ci.yml. The repository is public, so its minutes are free.
-# full-ok is the one check that says whether all the jobs passed.
+# full-ok is the one check that says whether all the jobs passed. A proof that scope left out counts as passed, and
+# only then: a failed scope, or a proof that was cancelled or failed, fails full-ok.
 on:
   push:
     branches: [main]
@@ -35,6 +39,37 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
+  scope:
+    if: ${{ github.repository == 'jouni-mikkola/omatalous' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      proof: ${{ steps.scope.outputs.proof }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Does this change reach the proof
+        id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          proof=true
+          if [[ $EVENT == pull_request ]]; then
+            # any failure of the diff leaves proof on
+            if files=$(git diff --name-only "origin/$BASE_REF...HEAD") && [[ -n $files ]]; then
+              if grep -Eq '^(Dockerfile|\.dockerignore|docker-compose[^/]*\.yml|package\.json|pnpm-lock\.yaml|pnpm-workspace\.yaml|\.npmrc|\.github/workflows/full\.yml|(apps|packages)/[^/]+/package\.json)$|^(release|scripts|deploy|contracts|tools/ci|apps/server/migrations|apps/server/src/entry|apps/server/src/db)/' <<<"$files"; then
+                proof=true
+              else
+                proof=false
+              fi
+            fi
+          fi
+          echo "proof: $proof"
+          echo "proof=$proof" >>"$GITHUB_OUTPUT"
+
   check:
     if: ${{ github.repository == 'jouni-mikkola/omatalous' }}
     runs-on: ubuntu-24.04
@@ -77,6 +112,16 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build
         run: pnpm build
+      - name: Playwright version
+        id: playwright
+        run: |
+          version=$(pnpm exec playwright --version | awk '{print $2}')
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+      - name: Browser download cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
       - name: Browser
         run: pnpm exec playwright install --with-deps chromium
       - name: pnpm e2e
@@ -98,7 +143,8 @@ jobs:
           if-no-files-found: ignore
 
   proof:
-    if: ${{ github.repository == 'jouni-mikkola/omatalous' }}
+    needs: scope
+    if: ${{ github.repository == 'jouni-mikkola/omatalous' && needs.scope.outputs.proof == 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
@@ -121,13 +167,20 @@ jobs:
 
   full-ok:
     if: ${{ always() && github.repository == 'jouni-mikkola/omatalous' }}
-    needs: [check, e2e, proof]
+    needs: [scope, check, e2e, proof]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Every job passed
         env:
-          RESULTS: ${{ needs.check.result }} ${{ needs.e2e.result }} ${{ needs.proof.result }}
+          RESULTS: ${{ needs.scope.result }} ${{ needs.check.result }} ${{ needs.e2e.result }}
+          PROOF_NEEDED: ${{ needs.scope.outputs.proof }}
+          PROOF_RESULT: ${{ needs.proof.result }}
         run: |
-          echo "jobs: $RESULTS"
+          echo "jobs: $RESULTS, proof needed: $PROOF_NEEDED, proof: $PROOF_RESULT"
           for r in $RESULTS; do [[ $r == success ]] || exit 1; done
+          # a proof left out is fine only when scope said it was not needed
+          case $PROOF_NEEDED:$PROOF_RESULT in
+            true:success | false:skipped) ;;
+            *) exit 1 ;;
+          esac
