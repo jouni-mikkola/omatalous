@@ -44,6 +44,20 @@ describe("an instalment service paid the same sum in three months running", () =
     expect([p!.paymentCents, p!.plan, p!.planAnswer, p!.placed, p!.kind]).toEqual([4990, true, null, true, "instalment"]);
   });
 
+  it("stays spending as paid: the month's spending is the payment once, plan or no plan", () => {
+    const plan = buildDashboard(contextOf(klarna(() => 49.9, [2, 1, 0])), range);
+    const once = buildDashboard(contextOf(klarna(() => 49.9, [0])), range);
+    expect(plan.totals).toMatchObject({ consumptionCents: 4990, debtCents: 0 });
+    expect(plan.totals).toEqual(once.totals);
+    expect(loanProposals(contextOf(klarna(() => 49.9, [2, 1, 0])), NO_INPUTS).map((p) => [p.kind, p.plan, p.paymentCents])).toEqual([["instalment", true, 4990]]);
+  });
+
+  it("is no debt when the purchase is paid off in one invoice", () => {
+    const ctx = contextOf(klarna(() => 49.9, [0]));
+    expect(loanProposals(ctx, NO_INPUTS)).toEqual([]);
+    expect(buildDashboard(ctx, range).holdings.unsavedLoans).toBeUndefined();
+  });
+
   it("allows a few cents of difference between the payments", () => {
     expect(loanProposals(contextOf(klarna((m) => 49.9 + (m % 2) * 0.03, [3, 2, 1, 0])), NO_INPUTS)).toHaveLength(1);
   });
