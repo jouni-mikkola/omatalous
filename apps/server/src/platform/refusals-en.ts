@@ -119,6 +119,7 @@ const LINES: readonly (readonly [string, string])[] = [
   ["Osoite on vajaa. Liitä koko osoite.", "The address is incomplete. Paste the whole address."],
   // loans, bills, goals
   ["Tuntematon laji.", "Unknown kind."],
+  ["Viimeisen erän osat pitää olla yhteensä vähintään 0,01 € ja enintään {1}.", "The parts of the last payment must add up to at least 0.01 € and at most {1}."],
   ["Tuntematon viitekorko.", "Unknown reference rate."],
   ["Tuntematon lyhennystapa.", "Unknown repayment type."],
   ["Anna lainalle nimi, 1–{1} merkkiä.", "Give the loan a name of 1–{1} characters."],

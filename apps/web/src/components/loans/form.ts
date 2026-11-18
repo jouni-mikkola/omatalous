@@ -297,7 +297,7 @@ export function readForm(form: LoanForm): { body: LoanBody | null; errors: FormE
     // PUT replaces every field, so a body without the link removes the one that was there (the server reads it as null)
     ...(form.accountId ? { accountId: form.accountId } : {}),
     // a split of nothing is no payment: the server refuses it, and the save must not fail for it
-    ...(form.lastPayment && form.lastPayment.principalCents + form.lastPayment.interestCents + form.lastPayment.feeCents > 0 ? { lastPayment: form.lastPayment } : {}),
+    ...(form.lastPayment && (form.lastPayment.principalCents > 0 || form.lastPayment.interestCents > 0 || form.lastPayment.feeCents > 0) ? { lastPayment: form.lastPayment } : {}),
   };
   return Object.keys(errors).length > 0 ? { body: null, errors } : { body: body as LoanBody, errors };
 }

@@ -526,7 +526,7 @@ describe("the split of a payment a loan document stated", () => {
     const error = async (lastPayment: Record<string, unknown>) => (await admin.call("POST", "/api/loans", { ...bare, lastPayment: { ...september, ...lastPayment } })).body.error;
     expect(await error({ interestCents: -1 })).toBe("Viimeisen erän koron pitää olla vähintään 0 € ja enintään 10 000 000 €.");
     expect(await error({ principalCents: 1.5 })).toMatch(/^Viimeisen erän lyhennyksen/);
-    expect(await error({ feeCents: null })).toMatch(/^Viimeisen erän kulujen/);
+    expect(await error({ feeCents: null })).toMatch(/^Viimeisen erän luottokulujen/);
     expect(await error({ date: "2027-01-01" })).toMatch(/^Viimeisen erän päivä/);
     expect(await error({ principalCents: 0, interestCents: 0, feeCents: 0 })).toBe("Viimeisen erän osat pitää olla yhteensä vähintään 0,01 € ja enintään 10 000 000 €.");
   });
