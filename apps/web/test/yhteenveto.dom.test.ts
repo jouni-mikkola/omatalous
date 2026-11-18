@@ -137,6 +137,9 @@ describe("Yhteenveto's month", () => {
     expect(figuresIn(summaryIn(end))[1]!.lines).toEqual(["Koko viime kuussa 3 000 €"]);
     const same = { ...d, nyt: { ...d.nyt, pace: { ...d.nyt.pace, day: 30 } } };
     expect(figuresIn(summaryIn(same))[1]!.lines).toEqual(["Viime kuussa samaan päivään 3 000 €"]);
+    // after a longer month (30.4. against all of March) the month before is read past today's day: the whole month again
+    const longer = { ...d, nyt: { ...d.nyt, pace: { ...d.nyt.pace, day: 29 } } };
+    expect(figuresIn(summaryIn(longer))[1]!.lines).toEqual(["Koko viime kuussa 3 000 €"]);
   });
 
   it("without a comparison the figures say what they wait for or nothing", () => {

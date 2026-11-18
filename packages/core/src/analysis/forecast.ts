@@ -35,7 +35,11 @@ export interface MonthPace {
     month: string;
     /** Cumulative spending by day of that month, all its days, summed as `current` is. */
     curve: number[];
-    /** The day of that month that `toToday` runs to: today's day of the month, or its last day when it is shorter. 0 before the 1st. */
+    /**
+     * The day of that month that `toToday` runs to: today's day of the month, or its last day when it is shorter. On the
+     * last day of its month (or after it) the month before is read whole, whatever its length (30.4. reads all of March,
+     * as Tulot and Tulos do). 0 before the 1st.
+     */
     day: number;
     /**
      * Its cumulative spending on its days 1 to `day`. With `matched` (the running month against the month before, see
@@ -103,9 +107,7 @@ function comparesWith(ctx: AnalysisContext, before: string, month: string): bool
 
 /**
  * The month before's spending by its day `day` (`atDay`), moved to the matched basis: its dropped payments taken off, its
- * later added ones put on. A dropped payment booked after `day` is no part of `atDay`, so it is not taken off: today the
- * last day of a month shorter than the one before (30.4. against 31.3.) leaves Tulos the whole month before and this
- * line its first 30 days.
+ * later added ones put on. A dropped payment booked after `day` is no part of `atDay`, so it is not taken off.
  */
 function matchedToToday(ctx: AnalysisContext, before: string, day: number, atDay: number, matched: MatchedPrevious | null): number {
   if (!matched) return atDay;
@@ -130,8 +132,9 @@ export function monthPace(ctx: AnalysisContext, month: string, today: IsoDate, m
   const lastDay = monthOf(today) === month ? Number(today.slice(8, 10)) : today < `${month}-01` ? 0 : days;
   const before = addMonths(month, -1);
   const curve = comparesWith(ctx, before, month) ? spendingCurve(ctx, before) : null;
-  // a month shorter than today's day of the month is read to its last day
-  const day = Math.min(lastDay, curve?.length ?? 0);
+  // the month's last day reads the month before whole, as the calendar window of Tulot and Tulos does; a month shorter than today's day of the month is read to its last day
+  const daysBefore = curve?.length ?? 0;
+  const day = lastDay === days ? daysBefore : Math.min(lastDay, daysBefore);
   return {
     month,
     daysInMonth: days,

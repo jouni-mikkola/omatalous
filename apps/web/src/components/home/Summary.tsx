@@ -23,8 +23,8 @@ function spentLine(data: Data): string | null {
     return t("home.tile_spent_within", { sum: answerMoney(usual.expectedCents) });
   }
   const previous = data.pace.previous;
-  // a shorter month before is read to its last day: its sum is the whole month's, and the line says so
-  if (previous) return t(previous.day < data.nyt.pace.day ? "home.tile_spent_previous_whole" : "home.fig_previous", { sum: answerMoney(previous.toToday) });
+  // a month before read to another day than today's (its last day, or the whole of it on the month's last day) is the whole month's sum, and the line says so
+  if (previous) return t(previous.day !== data.nyt.pace.day ? "home.tile_spent_previous_whole" : "home.fig_previous", { sum: answerMoney(previous.toToday) });
   if (data.home.paceGap === "history") return t("home.tile_gap_history", { months: completeMonths(MIN_COMPARE_MONTHS) });
   return null;
 }

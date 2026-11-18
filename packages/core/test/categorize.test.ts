@@ -280,6 +280,18 @@ describe("categorize", () => {
     expect(categorize(tx("Zalando", 5995), rules).category).toBe("shopping");
   });
 
+  it("a word ending in -liitto is a membership unless the card's merchant code names another trade", () => {
+    // no code, or a code of associations: a union or federation
+    expect(categorize(tx("Esimerkkiliitto", -2500), rules).category).toBe("memberships");
+    expect(categorize(tx("Esimerkkiliitto", -2500, { mcc: "8699" }), rules).category).toBe("memberships");
+    // a restaurant, a shop and a gym named Liitto keep their trade
+    expect(categorize(tx("Liitto", -2500, { mcc: "5812" }), rules)).toEqual({ category: "restaurants", source: "mcc" });
+    expect(categorize(tx("Liitto", -2500, { mcc: "5411" }), rules)).toEqual({ category: "groceries", source: "mcc" });
+    expect(categorize(tx("Liitto", -2500, { mcc: "7997" }), rules)).toEqual({ category: "fitness", source: "mcc" });
+    // a named union stays one whatever the code
+    expect(categorize(tx("Esimerkki Ammattiliitto", -2500, { mcc: "5812" }), rules).category).toBe("memberships");
+  });
+
   it("falls back to MCC, then to income/other", () => {
     expect(categorize(tx("Jokin Pikkukauppa", -500, { mcc: "5411" }), rules)).toEqual({ category: "groceries", source: "mcc" });
     expect(categorize(tx("Matti Meikäläinen", -500), rules)).toEqual({ category: "other", source: "default" });
