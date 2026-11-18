@@ -202,8 +202,18 @@ const MERCHANT_RULES: readonly BuiltinRule[] = [
     category: "memberships",
     direction: "out",
     re: w(
-      String.raw`JASENMAKSU[A-Z]*|AY-JASENMAKSU|AMMATTILIITTO[A-Z]*|(?!LASTENSUOJELULIITTO|LUONNONSUOJELULIITTO|LUONTOLIITTO|ELAINSUOJELULIITTO)[A-Z]*LIITTO(?: RY)?|TYOTTOMYYSKASSA|ERILLISKASSA|YTK|IAET-KASSA|TEHY|JHL|OAJ|AKAVA|TALENTIA|JYTY|TEKNIIKAN AKATEEMISET|AUTOLIITTO|MARTAT|PARTIOLIPPUKUNTA|PARTIOLAISET|SUOMEN PARTIOLAISET|LIPPUKUNTA`,
+      String.raw`JASENMAKSU[A-Z]*|AY-JASENMAKSU|AMMATTILIITTO[A-Z]*|TYOTTOMYYSKASSA|ERILLISKASSA|YTK|IAET-KASSA|TEHY|JHL|OAJ|AKAVA|TALENTIA|JYTY|TEKNIIKAN AKATEEMISET|AUTOLIITTO|MARTAT|PARTIOLIPPUKUNTA|PARTIOLAISET|SUOMEN PARTIOLAISET|LIPPUKUNTA`,
     ),
+  },
+  // a word ending in -liitto is a union or federation only when no merchant code says the payee sells something else: a restaurant called Liitto has a restaurant's code
+  {
+    category: "memberships",
+    direction: "out",
+    re: w(String.raw`(?!LASTENSUOJELULIITTO|LUONNONSUOJELULIITTO|LUONTOLIITTO|ELAINSUOJELULIITTO)[A-Z]*LIITTO(?: RY)?`),
+    when: (_text, input) => {
+      const byCode = categoryForMcc(input.mcc);
+      return byCode === null || byCode === "memberships" || byCode === "p2p";
+    },
   },
   {
     category: "pets",
