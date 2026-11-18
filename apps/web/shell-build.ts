@@ -9,7 +9,10 @@ import { join, relative, sep } from "node:path";
 /** The PDF reader of Asetukset > Lainat: its lazy chunk and its worker (over a megabyte), needed only while a loan PDF is read. */
 const PDF_READER = /^\/assets\/pdf(?:\.worker\.min)?-[\w-]+\.m?js$/;
 
-/** The address of every file of the built app that the worker keeps, sorted. The PDF reader, the worker itself and the old `.woff` fonts (a browser with a worker reads `.woff2`) stay out, and so do the `.br` and `.gz` copies the server sends in place of a file. */
+/** The picture reader of Asetukset > Lainat: its worker, WebAssembly cores and language data (about 11 MB under `assets/ocr-<hash>/`, `ocrFiles` in vite.config.ts), needed only while a loan picture is read. */
+const PICTURE_READER = /^\/assets\/ocr-[0-9a-f]{8}\//;
+
+/** The address of every file of the built app that the worker keeps, sorted. The PDF reader, the picture reader, the worker itself and the old `.woff` fonts (a browser with a worker reads `.woff2`) stay out, and so do the `.br` and `.gz` copies the server sends in place of a file. */
 export function shellFiles(outDir: string): string[] {
   const found: string[] = [];
   const walk = (dir: string) => {
@@ -20,7 +23,7 @@ export function shellFiles(outDir: string): string[] {
     }
   };
   walk(outDir);
-  return found.filter((f) => f !== "/sw.js" && !PDF_READER.test(f) && !f.endsWith(".woff") && !f.endsWith(".br") && !f.endsWith(".gz")).sort();
+  return found.filter((f) => f !== "/sw.js" && !PDF_READER.test(f) && !PICTURE_READER.test(f) && !f.endsWith(".woff") && !f.endsWith(".br") && !f.endsWith(".gz")).sort();
 }
 
 /** The worker's source with `__SHELL__` replaced: `{ name: "shell-<hash of the files' names and bytes>", files }`. A changed file is a changed worker, which a browser installs and the old one's cache goes. */

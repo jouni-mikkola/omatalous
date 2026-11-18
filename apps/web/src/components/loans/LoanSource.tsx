@@ -3,8 +3,8 @@ import { type ChangeEvent, type ClipboardEvent, type DragEvent, useEffect, useId
 import { t } from "../../text.ts";
 import { Button } from "../ui/Button.tsx";
 import { Notice } from "../ui/Notice.tsx";
-import { isPdf, isText, whatWasPasted } from "./paste.ts";
-import { ReadAborted, ReadError, readPdf } from "./read-source.ts";
+import { isPdf, isPicture, isText, whatWasPasted } from "./paste.ts";
+import { type PictureProgress, ReadAborted, ReadError, readPdf, readPicture } from "./read-source.ts";
 
 /** More text than this is no loan's: a bank's whole export, say. */
 const MAX_TEXT = 200_000;
@@ -12,25 +12,27 @@ const MAX_TEXT = 200_000;
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
 /**
- * The input box of a new loan: text pasted or typed, or a PDF dropped, pasted or chosen. Both are read in this browser
- * and nothing is sent anywhere. `onDrafts` gets what the text holds, one draft per loan, and the household checks it
- * in the form; a text that holds no loan figure is told here.
+ * The input box of a new loan: text pasted or typed, or a PDF or a picture dropped, pasted or chosen. All are read in
+ * this browser and nothing is sent anywhere. `onDrafts` gets what the text holds, one draft per loan, and the household
+ * checks it in the form; the fields a picture gave are all marked Tarkista. A text that holds no loan figure is told here.
  */
 export function LoanSource({ today, onDrafts }: { today: string; onDrafts: (drafts: LoanDraft[]) => void }) {
   const uid = useId();
   const [text, setText] = useState("");
   const [over, setOver] = useState(false);
-  const [reading, setReading] = useState(false);
+  /** What is being read: a PDF, or a picture with the step it is at. */
+  const [reading, setReading] = useState<"pdf" | PictureProgress | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const run = useRef<AbortController | null>(null);
   const picker = useRef<HTMLInputElement>(null);
   // a read that is still going when the form closes is ended with it
   useEffect(() => () => run.current?.abort(), []);
 
-  const finish = (read: string) => {
+  const finish = (read: string, fromPicture = false) => {
     if (read.length > MAX_TEXT) return setProblem(t("set.ln.the_file_is_too_large"));
-    const drafts = parseLoanText(read, { asOf: today });
-    if (drafts.length === 0) return setProblem(t("set.ln.no_loan_details_were_found"));
+    // the letters of a picture are guessed, so every field read from one is to be checked
+    const drafts = parseLoanText(read, fromPicture ? { asOf: today, source: "ocr" } : { asOf: today });
+    if (drafts.length === 0) return setProblem(t(fromPicture ? "set.ln.no_loan_details_in_the_picture" : "set.ln.no_loan_details_were_found"));
     onDrafts(drafts);
   };
 
@@ -39,7 +41,7 @@ export function LoanSource({ today, onDrafts }: { today: string; onDrafts: (draf
     const mine = new AbortController();
     run.current = mine;
     setProblem(null);
-    setReading(false);
+    setReading(null);
     if (file.size > MAX_FILE_BYTES) return setProblem(t("set.ln.the_file_is_too_large"));
     if (isText(file)) {
       try {
@@ -52,19 +54,22 @@ export function LoanSource({ today, onDrafts }: { today: string; onDrafts: (draf
       }
       return;
     }
-    if (!isPdf(file)) return setProblem(t("set.ln.the_file_is_not_a_pdf"));
-    setReading(true);
+    const picture = isPicture(file);
+    if (!picture && !isPdf(file)) return setProblem(t("set.ln.the_file_is_not_readable"));
+    setReading(picture ? { step: "load", share: 0 } : "pdf");
     try {
-      const read = await readPdf(await file.arrayBuffer(), mine.signal);
-      if (read.trim() === "") setProblem(t("set.ln.the_pdf_has_only_an"));
-      else finish(read);
+      const read = picture
+        ? await readPicture(file, (p) => run.current === mine && setReading(p), mine.signal)
+        : await readPdf(await file.arrayBuffer(), mine.signal);
+      if (read.trim() === "" && !picture) setProblem(t("set.ln.the_pdf_has_only_an"));
+      else finish(read, picture);
     } catch (err) {
       if (err instanceof ReadAborted) return;
       setProblem(err instanceof ReadError ? err.message : t("set.ln.the_file_could_not_be"));
     } finally {
       if (run.current === mine) {
         run.current = null;
-        setReading(false);
+        setReading(null);
       }
     }
   };
@@ -111,15 +116,15 @@ export function LoanSource({ today, onDrafts }: { today: string; onDrafts: (draf
       </label>
       <textarea id={`${uid}-text`} rows={4} value={text} onChange={(e) => setText(e.target.value)} />
       <div className="form-row">
-        <Button onClick={() => finish(text)} disabled={text.trim() === "" || reading}>
+        <Button onClick={() => finish(text)} disabled={text.trim() === "" || reading !== null}>
           {t("set.ln.read_the_loan_details")}
         </Button>
-        <Button onClick={() => picker.current?.click()}>{t("set.ln.choose_a_pdf")}</Button>
-        <input ref={picker} type="file" accept=".pdf,application/pdf,.txt,text/plain" tabIndex={-1} aria-label={t("set.ln.choose_a_pdf")} onChange={onChoose} />
+        <Button onClick={() => picker.current?.click()}>{t("set.ln.choose_a_picture_or_pdf")}</Button>
+        <input ref={picker} type="file" accept="image/*,.pdf,application/pdf,.txt,text/plain" tabIndex={-1} aria-label={t("set.ln.choose_a_picture_or_pdf")} onChange={onChoose} />
       </div>
       {reading && (
         <div className="loan-readline" role="status">
-          <span>{t("set.ln.reading_the_pdf")}</span>
+          <span>{reading === "pdf" ? t("set.ln.reading_the_pdf") : reading.step === "load" ? t("set.ln.loading_the_picture_reader") : t("set.ln.reading_the_picture")}</span>
           <Button variant="link" onClick={() => run.current?.abort()}>
             {t("set.ln.stop")}
           </Button>

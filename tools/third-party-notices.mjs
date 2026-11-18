@@ -12,6 +12,34 @@ const LICENCE_FILE = /^(licen[cs]e|copying|notice)(\.|$|-)/i;
 
 const readJson = (file) => JSON.parse(readFileSync(file, "utf8"));
 
+const TESSDATA = (language) =>
+  `The ${language} language data of the picture reader (assets/ocr-*/): the tessdata_best model of the Tesseract OCR project, https://github.com/tesseract-ocr/tessdata_best, under the Apache License 2.0 (the text is under tesseract.js-core above). The npm package that carries it says MIT.`;
+
+/** Notices a package's own files lack, added after its licence texts: what the app serves from it, and what is compiled into it. */
+const EXTRA_NOTICES = {
+  "@tesseract.js-data/eng": TESSDATA("English"),
+  "@tesseract.js-data/fin": TESSDATA("Finnish"),
+  "tesseract.js-core": `Leptonica, compiled into the WebAssembly cores of tesseract.js-core, is under the BSD 2-clause licence:
+
+Copyright (C) 2001-2020 Leptonica.  All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
+following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following
+   disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following
+   disclaimer in the documentation and/or other materials provided with the distribution.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \`\`AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES,
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL ANY CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.`,
+};
+
 /** The directory of dependency `name` as seen from package directory `from`: the nearest node_modules up the tree. */
 function resolveDep(from, name) {
   for (let dir = from; ; dir = dirname(dir)) {
@@ -72,6 +100,7 @@ export function render(packages) {
     if (p.homepage) out.push(p.homepage);
     if (p.texts.length === 0) out.push("", "The package ships no licence file; its package.json names the licence above.");
     for (const t of p.texts) out.push("", t);
+    if (EXTRA_NOTICES[p.name]) out.push("", EXTRA_NOTICES[p.name]);
   }
   return out.join("\n") + "\n";
 }

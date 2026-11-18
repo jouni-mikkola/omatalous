@@ -1,7 +1,7 @@
 /**
  * The input box of a new loan: text pasted or typed fills the form, every field read with doubt is marked and blocks
- * the save until the household confirms it, several loans go to a table that saves them all, and a PDF goes through
- * the reader (replaced here: its own tests are in loan-read.isolated.test.ts).
+ * the save until the household confirms it, several loans go to a table that saves them all, and a PDF or a picture
+ * goes through the reader (replaced here: its own tests are in loan-read.isolated.test.ts).
  */
 import type { Loan } from "@banking/core";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -13,10 +13,11 @@ import { LoanEditor, LoanLinks } from "../src/components/loans/LoanEditor.tsx";
 import { ReadAborted, ReadError } from "../src/components/loans/read-source.ts";
 import { failing, stubApi } from "./dom-kit.ts";
 
-const reader = vi.hoisted(() => ({ pdf: vi.fn() }));
+const reader = vi.hoisted(() => ({ pdf: vi.fn(), picture: vi.fn() }));
 vi.mock("../src/components/loans/read-source.ts", async (original) => ({
   ...(await original<typeof import("../src/components/loans/read-source.ts")>()),
   readPdf: reader.pdf,
+  readPicture: reader.picture,
 }));
 
 const TODAY = "2026-10-12";
@@ -28,7 +29,7 @@ const saved = (over: Partial<Loan> = {}): Loan =>
 
 const box = () => screen.getByLabelText("Lainan tiedot") as HTMLTextAreaElement;
 const button = (name: string) => screen.getByRole("button", { name });
-const pick = (file: File) => fireEvent.change(screen.getByLabelText("Valitse PDF"), { target: { files: [file] } });
+const pick = (file: File) => fireEvent.change(screen.getByLabelText("Valitse kuva tai PDF"), { target: { files: [file] } });
 const paste = (text: string) => fireEvent.paste(box(), { clipboardData: { files: [], getData: () => text } });
 const confirmAll = () => screen.getAllByRole("checkbox").forEach((c) => !(c as HTMLInputElement).checked && fireEvent.click(c));
 
@@ -41,6 +42,7 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   reader.pdf.mockReset();
+  reader.picture.mockReset();
 });
 
 describe("Asetukset > Talous: the box that reads a loan", () => {
@@ -133,12 +135,12 @@ describe("Asetukset > Talous: the box that reads a loan", () => {
     expect(again).toHaveBeenCalledTimes(1);
   });
 
-  it("reads a text file and refuses a file that is neither a PDF nor text", async () => {
+  it("reads a text file and refuses a file that is neither a picture, a PDF nor text", async () => {
     open();
     pick(new File([ONE], "laina.txt", { type: "text/plain" }));
     await waitFor(() => expect((screen.getByLabelText("Myönnetty määrä (€)") as HTMLInputElement).value).toBe("150 000,00"));
     pick(new File(["x"], "laina.zip", { type: "application/zip" }));
-    expect((await screen.findByRole("alert")).textContent).toMatch(/ei ole PDF eikä teksti/);
+    expect((await screen.findByRole("alert")).textContent).toMatch(/ei ole kuva, PDF eikä teksti/);
   });
 
   it("refuses a file over 25 megabytes without reading it", async () => {
@@ -171,6 +173,43 @@ describe("Asetukset > Talous: the box that reads a loan", () => {
     open();
     pick(new File(["%PDF"], "laina.pdf", { type: "application/pdf" }));
     expect((await screen.findByRole("alert")).textContent).toMatch(/salasanalla suojattu/);
+  });
+
+  it("reads a picture through the reader, shows the steps, and marks every field it read as Tarkista", async () => {
+    let loaded!: () => void;
+    reader.picture.mockImplementation(
+      (_picture: Blob, onProgress: (p: { step: string; share: number }) => void) =>
+        new Promise((resolve) => {
+          onProgress({ step: "load", share: 0.3 });
+          loaded = () => {
+            onProgress({ step: "read", share: 0.5 });
+            resolve(ONE);
+          };
+        }),
+    );
+    open();
+    pick(new File(["x"], "kuvakaappaus.png", { type: "image/png" }));
+    expect((await screen.findByRole("status")).textContent).toMatch(/Valmistelemme kuvan lukijaa/);
+    loaded();
+    await waitFor(() => expect((screen.getByLabelText("Maksuerä (€)") as HTMLInputElement).value).toBe("689,20"));
+    // read from a picture, a figure that a text gives with confidence is to check too
+    const payment = screen.getByLabelText("Maksuerä (€)").closest(".loan-field") as HTMLElement;
+    expect(payment.classList.contains("to-check")).toBe(true);
+    expect(reader.picture.mock.calls[0]![0]).toBeInstanceOf(File);
+  });
+
+  it("reads a pasted picture, and says so when it holds no loan", async () => {
+    reader.picture.mockResolvedValue("Tervehdys vain");
+    open();
+    fireEvent.paste(box(), { clipboardData: { files: [new File(["x"], "image.png", { type: "image/png" })], getData: () => "" } });
+    expect((await screen.findByRole("alert")).textContent).toMatch(/Emme löytäneet kuvasta lainan tietoja/);
+  });
+
+  it("tells why a picture could not be read", async () => {
+    reader.picture.mockRejectedValue(new ReadError("Emme voineet lukea kuvaa. Yritä uudelleen tai liitä lainan tiedot tekstinä."));
+    open();
+    pick(new File(["x"], "kuva.png", { type: "image/png" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(/Emme voineet lukea kuvaa/);
   });
 
   it("tells that a PDF with no text holds only a picture", async () => {

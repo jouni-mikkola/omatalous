@@ -221,7 +221,7 @@ Each proof is a test or a screenshot at 390 and 1440 px attached to the PR. `pnp
 - done when: `UnopenedViews.tsx` and `services/view-opens.ts` are gone, and migration 0031 drops the table; `pnpm where view_opens` finds only the two migrations.
 - locks: settings, view-opens
 - after: D6
-### D8 Delete the loan picture reader (reversed in part by ADR 0029: pasted text and PDF are read again, pictures are not)
+### D8 Delete the loan picture reader (reversed by ADR 0029: pasted text, PDF and pictures are read again)
 - why: a loan is a few fields; OCR and PDF reading add two large dependencies for one form.
 - done when: core `loan-intake/`, `LoanIntake.tsx`, tesseract.js and pdfjs-dist are gone; a loan is added by form in an e2e spec.
 - locks: loans, deps
