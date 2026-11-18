@@ -125,21 +125,20 @@ export class TransactionListRepo {
     const sides = this.filterSides(f, accountIds);
     // No sum is added up here: `ids` names every matching row, and the service adds up their flows as the front page
     // does (`totalsOf`), so a refund, a loan account's row, a move to savings and a fee count as there. The days say only
-    // how many rows each has, so a day the page limit cuts still says it.
-    let total = 0;
+    // how many rows each has, so a day the page limit cuts still says it. One read of each side gives all three, so the
+    // filter, a text search above all, runs over the rows once.
     const ids: string[] = [];
     const byDay = new Map<string, DayCount>();
     for (const side of sides) {
-      const days = await this.ctx.db.all<{ d: string; c: number }>(`SELECT booking_date AS d, COUNT(*) AS c FROM transactions WHERE ${side.where.join(" AND ")} GROUP BY booking_date`, side.params);
-      for (const r of days) {
+      const matching = await this.ctx.db.all<{ id: string; d: string }>(`SELECT id, booking_date AS d FROM transactions WHERE ${side.where.join(" AND ")}`, side.params);
+      for (const r of matching) {
+        ids.push(r.id);
         const day = byDay.get(r.d) ?? { date: r.d, count: 0 };
-        day.count += Number(r.c);
+        day.count += 1;
         byDay.set(r.d, day);
       }
-      const matching = await this.ctx.db.all<{ id: string }>(`SELECT id FROM transactions WHERE ${side.where.join(" AND ")}`, side.params);
-      total += matching.length;
-      for (const r of matching) ids.push(r.id);
     }
+    const total = ids.length;
     const items = await this.pageRows(sides, Math.min(Math.max(f.limit ?? 100, 1), MAX_LIST_ROWS), Math.max(f.offset ?? 0, 0));
     const days = [...byDay.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
     return { total, ids, days, items };

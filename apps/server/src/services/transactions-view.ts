@@ -5,11 +5,12 @@
  * and the transfer mark the view counts it by, so the list, its sums and the front page say the same of it. A payment
  * that arrived short carries its fee as its part.
  */
-import { type AnalysisTx, type Flows, loweredRows, moneyBins, partCents, totalsOf } from "@banking/core";
+import { type AnalysisContext, type AnalysisTx, type Flows, loweredRows, moneyBins, partCents, totalsOf } from "@banking/core";
 import { extensionRowFields } from "../extensions.ts";
 import { parseDateRange } from "../platform/validate.ts";
 import { parseScope, rowsInView } from "./analysis.ts";
 import type { Services } from "./context.ts";
+import { memoOn } from "./context-memo.ts";
 import { ownRulesOfRows, publicTx } from "./rules.ts";
 
 // the strip's histogram bins at most the last hundred years of a span (1 201 month bins, about 70 kB): no household's bank
@@ -19,6 +20,9 @@ const histogramFrom = (span: { from: string; to: string }): string => {
   const first = `${String(Number(span.to.slice(0, 4)) - HISTOGRAM_YEARS).padStart(4, "0")}-${span.to.slice(5, 7)}-01`;
   return span.from > first ? span.from : first;
 };
+
+// the rows of the context by id, built once for the context and shared with the review queue, which keeps the same map under this name
+const rowsOf = (ctx: AnalysisContext) => memoOn(ctx, "review:rows-by-id", null, () => new Map(ctx.txs.map((t) => [t.id, t])));
 
 /** The query of the list, as the route reads it: strings by name, and `limit` and `offset` already read as numbers. */
 export interface TransactionsQuery {
@@ -56,7 +60,7 @@ export async function transactionsView(s: Services, userId: string, q: Transacti
   // them up: a refund lowers Menot, a loan account's row and a move between own accounts are neutral, what lands on savings
   // is saved, a short payment's fee is spent, and a card bill whose statement is read stands at what its rows leave of it
   // beside those rows on their own days (`spendRows`; the rows stand beside it only when no filter narrows the list)
-  const rowsById = new Map(ctx.txs.map((t) => [t.id, t]));
+  const rowsById = rowsOf(ctx);
   const listed: AnalysisTx[] = [];
   // a row the view cuts to nothing has no row in the context and counts nothing; any other row missing belongs to a newer read
   // than the context the sums come from, and no figure is told then
