@@ -55,6 +55,7 @@ export { debtsOf } from "./analysis/card-settled.ts";
 export { cardLimitCents } from "./holdings.ts";
 export { buildHousing, MORTGAGE_QUESTION } from "./housing.ts";
 export * from "./loan-detect.ts";
+export * from "./loan-intake/index.ts";
 export { mortgageSeriesKeys } from "./declared-loans.ts";
 export * from "./plan-answer.ts";
 export * from "./bill-answer.ts";
