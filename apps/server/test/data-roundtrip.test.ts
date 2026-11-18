@@ -225,6 +225,22 @@ describe("a file read back", () => {
     expect(await b.db.first("SELECT COUNT(*) AS n FROM loan_payment_parts")).toEqual({ n: 1 });
   });
 
+  it("the step in a loan's typed rate is written, read back as it was, and a file from before it has none", async () => {
+    const { a, b } = await pair();
+    await a.db.run("UPDATE loans SET rate_step_date = '2027-03-01', rate_step_bp = 1990 WHERE id = 'aino-loan'");
+    const file = await exportOf(a.admin);
+    expect(file.loans[0]).toMatchObject({ rate_step_date: "2027-03-01", rate_step_bp: 1990 });
+    await importFile(b.admin, file);
+    expect(await b.db.all("SELECT rate_step_date, rate_step_bp FROM loans WHERE user_id = ?", [b.adminId])).toEqual([{ rate_step_date: "2027-03-01", rate_step_bp: 1990 }]);
+    expect((await importFile(b.admin, await exportOf(b.admin))).done.total.add).toBe(0);
+
+    // a file written before the step has neither key: the loan comes in with none
+    const old = { ...file, loans: file.loans.map((l: Record<string, unknown>) => Object.fromEntries(Object.entries(l).filter(([k]) => !k.startsWith("rate_step_")))) };
+    const { b: c } = await pair();
+    await importFile(c.admin, old);
+    expect(await c.db.all("SELECT rate_step_date, rate_step_bp FROM loans WHERE user_id = ?", [c.adminId])).toEqual([{ rate_step_date: null, rate_step_bp: null }]);
+  });
+
   it("keeps the newest 24 payments of a loan, as a save of the loan does, also on top of the ones it has", async () => {
     const { a, b } = await pair();
     const file = await exportOf(a.admin);
@@ -326,6 +342,9 @@ describe("a hostile file is refused and changes nothing", () => {
     expect(notList.body.error).toMatch(/väärän muotoinen/);
     await refusedWith(b, b.admin, { ...file, loans: [{ ...file.loans[0], balance_cents: -5 }] }, /loans rivi 1/);
     await refusedWith(b, b.admin, { ...file, loans: [{ ...file.loans[0], kind: "payday" }] }, /loans rivi 1/);
+    // the step in the typed rate is a real day and a rate that is not below nought
+    await refusedWith(b, b.admin, { ...file, loans: [{ ...file.loans[0], rate_step_bp: -1 }] }, /loans rivi 1/);
+    await refusedWith(b, b.admin, { ...file, loans: [{ ...file.loans[0], rate_step_date: "2027-02-30" }] }, /loans rivi 1/);
     await refusedWith(b, b.admin, { ...file, transactions: ["text"] }, /rivi 1/);
     // a member's answer belongs to a person, a household's to nobody: the two must not be mixed
     const role = { scope: "member", user_id: null, counterparty_key: "ESIMERKKI", role: "sales", answered_by: null, answered_at: AT };

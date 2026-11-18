@@ -359,6 +359,55 @@ describe("loans", () => {
     expect((await admin.call("POST", "/api/loans", { ...bare, rateReviewDate: null })).body.loan).not.toHaveProperty("rateReviewDate");
   });
 
+  it("keeps a step in the typed rate: the day and the rate together, a passed day too, and null clears both", async () => {
+    const { admin, db } = await setupApp();
+    const promo = { name: "Maksuaikaluotto", kind: "instalment", balanceCents: 120_000, balanceDate: "2026-10-01", rateBp: 0, repayment: "fixed_instalment", intervalMonths: 1, paymentCents: 5000 };
+    const stored = async (id: string) => db.first("SELECT rate_step_date, rate_step_bp FROM loans WHERE id = ?", [id]);
+    const added = await admin.call("POST", "/api/loans", { ...promo, rateStepDate: "2027-03-01", rateStepBp: 1990 });
+    expect(added.status).toBe(200);
+    const id: string = added.body.loan.id;
+    expect(added.body.loan).toMatchObject({ id, rateBp: 0, rateStepDate: "2027-03-01", rateStepBp: 1990 });
+    expect(await stored(id)).toEqual({ rate_step_date: "2027-03-01", rate_step_bp: 1990 });
+    expect((await admin.call("GET", "/api/loans")).body.loans).toEqual([added.body.loan]);
+
+    // a step that has passed is kept: the rate has changed since
+    expect((await admin.call("PUT", `/api/loans/${id}`, { ...promo, rateStepDate: "2026-03-01", rateStepBp: 1990 })).status).toBe(200);
+    expect(await stored(id)).toEqual({ rate_step_date: "2026-03-01", rate_step_bp: 1990 });
+
+    // a refused step changes nothing: one half, a day that is none, a rate out of range, a step without a rate to change
+    const refused = [
+      { rateStepDate: "2027-03-01" },
+      { rateStepBp: 1990 },
+      { rateStepDate: "2027-03-01", rateStepBp: null },
+      { rateStepDate: "2027-02-30", rateStepBp: 1990 },
+      { rateStepDate: "2027-03-01", rateStepBp: 5001 },
+      { rateStepDate: "2027-03-01", rateStepBp: -1 },
+      { rateStepDate: "2027-03-01", rateStepBp: 19.9 },
+      { rateStepDate: "2027-03-01", rateStepBp: 1990, rateBp: null },
+    ];
+    for (const step of refused) {
+      const r = await admin.call("PUT", `/api/loans/${id}`, { ...promo, ...step });
+      expect(r.status, JSON.stringify(step)).toBe(400);
+    }
+    expect(await stored(id)).toEqual({ rate_step_date: "2026-03-01", rate_step_bp: 1990 });
+
+    // null clears both, and so does a body that leaves them out: the body of a PUT is the whole loan
+    for (const cleared of [{ ...promo, rateStepDate: null, rateStepBp: null }, promo]) {
+      expect((await admin.call("PUT", `/api/loans/${id}`, { ...promo, rateStepDate: "2027-03-01", rateStepBp: 1990 })).status).toBe(200);
+      const r = await admin.call("PUT", `/api/loans/${id}`, cleared);
+      expect(r.status).toBe(200);
+      expect(r.body.loan).not.toHaveProperty("rateStepDate");
+      expect(r.body.loan).not.toHaveProperty("rateStepBp");
+      expect(await stored(id)).toEqual({ rate_step_date: null, rate_step_bp: null });
+    }
+
+    // a loan on a euribor has none: its reviews set the rate, so a step sent with it is checked and dropped
+    const euribor = await admin.call("POST", "/api/loans", { ...mortgage, rateStepDate: "2027-03-01", rateStepBp: 1990 });
+    expect(euribor.status).toBe(200);
+    expect(euribor.body.loan).toEqual({ id: euribor.body.loan.id, ...mortgage });
+    expect((await admin.call("POST", "/api/loans", { ...mortgage, rateStepDate: "2027-02-30", rateStepBp: 1990 })).status).toBe(400);
+  });
+
   it("a member cannot set the review day on another member's loan, and each loan keeps its own day", async () => {
     const { admin, member, db } = await setupApp();
     const eero = await member("eero");

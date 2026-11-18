@@ -935,6 +935,11 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
 - A loan can carry the day its rate is reviewed (*Koron tarkistuspäivä* in the loan's form, `Loan.rateReviewDate`). The
   form shows it unless the reference rate is fixed, never requires it and keeps a day that has passed. With a margin it
   gives the loan's rate path (`ratePathOf`), which the schedule and the bill calendar read.
+- A loan with a typed or fixed rate can carry one step in it: a day and the rate from that day on (*Koron muutospäivä* and
+  *Korko muutoksen jälkeen*, `Loan.rateStepDate` and `rateStepBp`), for a rate that is 0 % until a day and 19,9 % after
+  it. Both are given or neither, a day that has passed is kept, and a loan on a euribor has none, since its reviews set
+  the rate. The step is the loan's rate path (`ratePathOf`): each interval counts at the rate in force when it starts,
+  and an annuity with a last due date sets its payment again at the step. With no typed rate the rate stays unknown.
 - A saved loan can be tied to the connected card or loan account that is the same debt, in the loan's form (*Sama velka
   pankin tilillä*, offered when the household has such an account that no other loan holds). A linked pair counts once:
   in the debt total of Lainat, in the accounts less the debts of Saldot and in the Säästövinkit loan area. The balance

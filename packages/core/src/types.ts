@@ -327,6 +327,13 @@ export interface Loan {
    */
   rateReviewDate?: IsoDate | null;
   /**
+   * A step in the typed rate: from `rateStepDate` on the loan pays `rateStepBp` a year, in place of `rateBp` (a
+   * promotional rate that ends). Both are set, or both are left out or null. The step is the whole rate, so a loan on a
+   * euribor has none (`ratePathOf`).
+   */
+  rateStepDate?: IsoDate | null;
+  rateStepBp?: number | null;
+  /**
    * The payments whose split a document stated. The newest one's fee is the fee of every payment to come
    * (`loan-schedule.ts`). Left out means none.
    */

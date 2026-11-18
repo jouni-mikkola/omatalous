@@ -82,15 +82,16 @@ export interface CreditUse {
 }
 
 /**
- * The loans in the inputs, each with the rate path its reference rate gives from the inputs' fixings. Inputs built
- * without the field have none, and without fixings the loans are returned as they are. Every reader of loans goes through here.
+ * The loans in the inputs, each with the rate path its reference rate gives from the inputs' fixings, or the step it
+ * has in its typed rate. Inputs built without the field have none, and without fixings or a step the loans are returned
+ * as they are. Every reader of loans goes through here.
  */
 export function loansOf(inputs: UserInputs): readonly Loan[] {
   const loans = inputs.loans ?? [];
   const { fixings } = inputs;
-  if (fixings === undefined) return loans;
+  if (fixings === undefined && !loans.some((loan) => loan.rateStepDate)) return loans;
   return loans.map((loan) => {
-    const rates = ratePathOf(loan, fixings);
+    const rates = ratePathOf(loan, fixings ?? {});
     return rates === null ? loan : { ...loan, ratePath: rates.path, rateFlatFrom: rates.flatFrom };
   });
 }

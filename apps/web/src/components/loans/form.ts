@@ -9,18 +9,23 @@ import type { Account, LoanProposalRow } from "../../types.ts";
 import { KIND_LABEL, type LoanFieldKey } from "./labels.ts";
 
 /** The fields of a loan the form shows, in the order it shows them. Name and kind stand above them. */
-const FIELD_KEYS = ["lender", "balanceCents", "balanceDate", "grantedCents", "limitCents", "rateBp", "reference", "marginBp", "rateReviewDate", "repayment", "intervalMonths", "paymentCents", "endDate"] as const satisfies readonly LoanFieldKey[];
+const FIELD_KEYS = ["lender", "balanceCents", "balanceDate", "grantedCents", "limitCents", "rateBp", "reference", "marginBp", "rateReviewDate", "rateStepDate", "rateStepBp", "repayment", "intervalMonths", "paymentCents", "endDate"] as const satisfies readonly LoanFieldKey[];
+
+/** The step in the typed rate is typed in and never read from a text: a document gives the rate it states, not its change. */
+const STEP_KEYS = ["rateStepDate", "rateStepBp"] as const;
+type ReadKey = Exclude<LoanFieldKey, (typeof STEP_KEYS)[number]>;
+const READ_KEYS = FIELD_KEYS.filter((key): key is ReadKey => !(STEP_KEYS as readonly string[]).includes(key));
 
 /** The form's own text of the loan's payment, read by key like every other field of the form. */
 const PAYMENT: LoanFieldKey = "paymentCents";
 const MONEY_KEYS = ["balanceCents", "grantedCents", "limitCents", "paymentCents"] as const;
-const RATE_KEYS = ["rateBp", "marginBp"] as const;
+const RATE_KEYS = ["rateBp", "marginBp", "rateStepBp"] as const;
 
 /** Read as printed, read with doubt, or not in the text. */
 type FieldMark = "sure" | "check" | "missing";
 
 /** The draft field each form field is read from: the loan's payment is the draft's `instalmentCents`. */
-const DRAFT_KEY: Record<LoanFieldKey, Exclude<LoanDraftKey, "contractDate" | "lastPayment">> = {
+const DRAFT_KEY: Record<ReadKey, Exclude<LoanDraftKey, "contractDate" | "lastPayment">> = {
   lender: "lender", balanceCents: "balanceCents", balanceDate: "balanceDate", grantedCents: "grantedCents", limitCents: "limitCents", rateBp: "rateBp", reference: "reference", marginBp: "marginBp",
   rateReviewDate: "rateReviewDate", repayment: "repayment", intervalMonths: "intervalMonths", paymentCents: "instalmentCents", endDate: "endDate",
 };
@@ -59,7 +64,7 @@ export interface LoanForm {
 export type LoanBody = Omit<Loan, "id"> & { lastPayment?: LoanDraftLastPayment };
 export type FormErrors = Partial<Record<LoanFieldKey | "kind", string>>;
 
-const blank = (): Record<LoanFieldKey, string> => ({ lender: "", grantedCents: "", balanceCents: "", balanceDate: "", rateBp: "", reference: "", marginBp: "", rateReviewDate: "", repayment: "", intervalMonths: "", paymentCents: "", endDate: "", limitCents: "" });
+const blank = (): Record<LoanFieldKey, string> => ({ lender: "", grantedCents: "", balanceCents: "", balanceDate: "", rateBp: "", reference: "", marginBp: "", rateReviewDate: "", rateStepDate: "", rateStepBp: "", repayment: "", intervalMonths: "", paymentCents: "", endDate: "", limitCents: "" });
 
 function textOf(key: LoanFieldKey, value: string | number | null): string {
   if (value === null) return "";
@@ -85,7 +90,7 @@ export function formOfDraft(draft: LoanDraft, today: string, base: LoanForm = em
   const values = { ...base.values };
   const marks: FormSource["marks"] = {};
   const lines: FormSource["lines"] = {};
-  for (const key of FIELD_KEYS) {
+  for (const key of READ_KEYS) {
     const field = draft[DRAFT_KEY[key]];
     if (!field) {
       if (values[key] === "") marks[key] = "missing";
@@ -97,7 +102,7 @@ export function formOfDraft(draft: LoanDraft, today: string, base: LoanForm = em
   }
   const warnings: FormSource["warnings"] = {};
   for (const warning of draft.warnings) {
-    for (const key of FIELD_KEYS) if (warning.fields.includes(DRAFT_KEY[key])) (warnings[key] ??= []).push(warning.text);
+    for (const key of READ_KEYS) if (warning.fields.includes(DRAFT_KEY[key])) (warnings[key] ??= []).push(warning.text);
   }
   if (draft.balanceCents && !draft.balanceDate) {
     values.balanceDate = today;
@@ -201,6 +206,8 @@ export function rateNow(form: LoanForm, fixings: Fixings | undefined): number | 
 export function shownFields(form: LoanForm, fixings?: Fixings): LoanFieldKey[] {
   const hidden = new Set<LoanFieldKey>();
   if (form.values.reference === "fixed") hidden.add("rateReviewDate");
+  // a loan on a euribor takes its rate from the reviews: a step in the typed rate is for a fixed or an unnamed one
+  if (form.values.reference !== "" && form.values.reference !== "fixed") for (const key of STEP_KEYS) hidden.add(key);
   if (marginOnly(form, fixings)) hidden.add("rateBp");
   if (isCredit(form.kind)) for (const key of ["grantedCents", "repayment", "intervalMonths", "paymentCents", "endDate"] as const) hidden.add(key);
   else if (form.kind !== "") hidden.add("limitCents");
@@ -323,6 +330,9 @@ export function readForm(form: LoanForm, fixings?: Fixings): { body: LoanBody | 
     marginBp: rate("marginBp"),
     // a fixed rate has no review day: the field is not shown then, so whatever was typed in it is not sent
     rateReviewDate: text("rateReviewDate") || null,
+    // the day and the rate come together: the server refuses one without the other
+    rateStepDate: text("rateStepDate") || null,
+    rateStepBp: rate("rateStepBp"),
     repayment: text("repayment") || null,
     intervalMonths: months === "" ? null : Number(months),
     paymentCents: positive(cents("paymentCents")),

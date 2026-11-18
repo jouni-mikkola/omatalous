@@ -84,6 +84,8 @@ describe("the form of a proposal", () => {
       reference: null,
       marginBp: null,
       rateReviewDate: null,
+      rateStepDate: null,
+      rateStepBp: null,
       repayment: null,
       intervalMonths: 1,
       paymentCents: 25_000,
