@@ -4,7 +4,7 @@
  * Every answer, change and restore reprocesses that member, so the past months move with it. Rows of the household scope
  * are read by core but never written here.
  */
-import { isPersonName, PAYER_ROLES, type PayerRole, payerKeyOf, payerRoleOf } from "@banking/core";
+import { isPersonName, PAYER_ROLES, type PayerRole, payerKeyOf, payerKeysOf, payerRoleOf } from "@banking/core";
 import { UserError } from "../platform/errors.ts";
 import type { Services } from "./context.ts";
 import { reprocess } from "./enrich.ts";
@@ -35,7 +35,9 @@ export async function answerPayer(s: Services, userId: string, answer: PayerAnsw
   } else {
     // a payer the member's own rows have: a key from nowhere is stored under nothing
     const { ctx } = await s.analysis.get(s, userId, "own");
-    if (!ctx.txs.some((t) => t.amountCents > 0 && payerKeyOf(t) === answer.key)) throw new UserError("Maksajaa ei löydy.");
+    // the key a question carries is the merged one (`payerKeysOf`): one person's rows, and a pooled account's rows by name
+    const keyOf = payerKeysOf(ctx.txs.filter((t) => t.amountCents > 0));
+    if (!ctx.txs.some((t) => t.amountCents > 0 && (keyOf(t) === answer.key || payerKeyOf(t) === answer.key))) throw new UserError("Maksajaa ei löydy.");
     await repo.setPayerRole(answer.key, answer.role, s.now().toISOString());
   }
   await reprocess(repo, s.settings);

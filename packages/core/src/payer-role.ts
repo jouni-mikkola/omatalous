@@ -8,6 +8,7 @@
  */
 import { getCategory } from "./categories.ts";
 import { dayNumber } from "./dates.ts";
+import { fold } from "./merchant.ts";
 import { isSharedPurchase, isUnnamedMobilePay, nearestPurchase } from "./mobilepay.ts";
 import { nameOf, type Name, samePerson } from "./person-names.ts";
 import { steadyBy, STEADY_BAND } from "./returns.ts";
@@ -31,9 +32,41 @@ export const WALLET_PAYER_KEY = "name:MOBILEPAY";
 /** The name a row's payer is known by: the counterparty, else for MobilePay money that names no one, the wallet's. */
 const payerNameOf = (t: PayerRow): string => (t.counterparty?.trim() ? t.counterparty : isUnnamedMobilePay(t) ? WALLET_PAYER : "");
 
-/** The payer of a row: `iban:<IBAN>`, else `name:<distinct folded words of the counterparty, sorted>`; null when it has neither. */
-export function payerKeyOf(t: PayerRow): string | null {
+/** How many unrelated names make an account a pool: two may be a couple or a joint account, three are different payers. */
+const POOLED_NAMES = 3;
+const NO_ACCOUNTS: ReadonlySet<string> = new Set();
+
+/**
+ * The accounts that many unrelated senders pay from, as a wallet operator's or a payment processor's account does: the
+ * account number tells no person from another there, so a payer is known by its name. `rows` are the rows to read the
+ * names from, any direction. Wallet money that names no sender is never keyed by its account (`ibanOf`), so it is no
+ * name to count.
+ */
+export function pooledIbans(rows: readonly PayerRow[]): ReadonlySet<string> {
+  const seen = new Map<string, Name[]>();
+  for (const t of rows) {
+    const iban = normalizeIban(t.counterpartyIban);
+    const name = nameOf(t.counterparty ?? "");
+    if (!iban || !name.size || isUnnamedMobilePay(t)) continue;
+    const names = seen.get(iban) ?? [];
+    if (!names.some((other) => sameName(other, name))) seen.set(iban, [...names, name]);
+  }
+  return new Set([...seen].filter(([, names]) => names.length >= POOLED_NAMES).map(([iban]) => iban));
+}
+
+/** The account number that tells a row's payer: none for wallet money that names no sender (the account is the wallet operator's) or an account in `pooled`. */
+const ibanOf = (t: PayerRow, pooled: ReadonlySet<string>): string | null => {
   const iban = normalizeIban(t.counterpartyIban);
+  return iban && !pooled.has(iban) && !isUnnamedMobilePay(t) ? iban : null;
+};
+
+/**
+ * The payer of a row: `iban:<IBAN>`, else `name:<distinct folded words of the counterparty, sorted>`; null when it has
+ * neither. Money from a pooled account (`pooledIbans`) or from the wallet with no sender named is known by its name, never
+ * by the account of the many senders: the first by the sender's, the second by the wallet's (`WALLET_PAYER_KEY`).
+ */
+export function payerKeyOf(t: PayerRow, pooled: ReadonlySet<string> = NO_ACCOUNTS): string | null {
+  const iban = ibanOf(t, pooled);
   if (iban) return `iban:${iban}`;
   const words = [...nameOf(payerNameOf(t))].sort();
   return words.length ? `name:${words.join(" ")}` : null;
@@ -44,10 +77,11 @@ export function payerKeyOf(t: PayerRow): string | null {
  * to pay ("MobilePay", "Siirto", the stand-in key of unnamed wallet money) is the key of every such row at once, so it
  * tells no one person from another, whatever message the row carries.
  */
-export function identifiedPayerKeyOf(t: PayerRow): string | null {
-  const key = payerKeyOf(t);
+export function identifiedPayerKeyOf(t: PayerRow, pooled: ReadonlySet<string> = NO_ACCOUNTS): string | null {
+  const key = payerKeyOf(t, pooled);
   if (!key || key.startsWith("iban:")) return key;
-  return isPaymentMethodName(key.slice("name:".length)) ? null : key;
+  // the key's words are sorted, so the name as the bank wrote it is read too
+  return isPaymentMethodName(key.slice("name:".length)) || isPaymentMethodName(fold(payerNameOf(t)).trim()) ? null : key;
 }
 
 const nameOfKey = (key: string): Name => new Set(key.slice("name:".length).split(" "));
@@ -72,11 +106,12 @@ export function sameName(a: Name, b: Name): boolean {
  * than one answer given to two people.
  */
 export function payerKeysOf(rows: readonly PayerRow[]): (t: PayerRow) => string | null {
+  const pooled = pooledIbans(rows);
   const counts = new Map<string, number>();
   // the distinct names an account number key is written with, by key
   const written = new Map<string, Map<string, Name>>();
   for (const t of rows) {
-    const key = payerKeyOf(t);
+    const key = payerKeyOf(t, pooled);
     if (!key) continue;
     counts.set(key, (counts.get(key) ?? 0) + 1);
     const name = nameOf(payerNameOf(t));
@@ -120,7 +155,7 @@ export function payerKeysOf(rows: readonly PayerRow[]): (t: PayerRow) => string 
   const kept = new Map<Group, string>();
   for (const group of new Set(groupOf.values())) kept.set(group, group.keys.reduce((best, key) => (counts.get(key)! > counts.get(best)! ? key : best)));
   return (t) => {
-    const key = payerKeyOf(t);
+    const key = payerKeyOf(t, pooled);
     // a row with no name keeps its account number: an answer by name could never reach it
     const group = key === null || !nameOf(payerNameOf(t)).size ? undefined : groupOf.get(key);
     return group ? kept.get(group)! : key;
@@ -131,7 +166,7 @@ const CONFLICT = "conflict";
 
 /** One scope's answer for a row: an IBAN answer first, then the name answers; two names that disagree leave none. */
 function roleIn(rows: readonly PayerRoleRow[], t: PayerRow): PayerRole | typeof CONFLICT | null {
-  const iban = normalizeIban(t.counterpartyIban);
+  const iban = ibanOf(t, NO_ACCOUNTS);
   if (iban) {
     const hit = rows.find((r) => r.counterpartyKey === `iban:${iban}`);
     if (hit) return hit.role;
@@ -201,15 +236,15 @@ export function categoryUnderRole(role: PayerRole, category: string): string {
 /** A sum more than the steady band from the payer's median: a payback or a gift among the shares, so no role guesses it. */
 export const isOffMedian = (cents: number, typical: number): boolean => Math.abs(cents - typical) > Math.abs(typical) * STEADY_BAND;
 
-/** A person's name: no company form in it. A row with no name says nothing and passes. */
-export const isPersonName = (counterparty: string | null): boolean => !hasForm(nameOf(counterparty ?? ""));
+/** A person's name: no company form in it, and not the name of a way to pay ("E-LASKU", "MOB.PAY"). A row with no name says nothing and passes. */
+export const isPersonName = (counterparty: string | null): boolean => !hasForm(nameOf(counterparty ?? "")) && !isPaymentMethodName(fold(counterparty ?? "").trim());
 
 /** A refund stays a refund under every role: a refund word's category, or money in on a spending category (not the person's own `p2p`). */
 const isRefund = (t: Pick<Transaction, "category">): boolean => t.category === "reimbursements" || (t.category !== "p2p" && ["expense", "debt"].includes(getCategory(t.category).kind));
 
 /** The payers whose money in is steady (see `steadyBy`), each with its median: the rows of the whole history, whatever their category. */
-export const steadyPayers = (rows: readonly Pick<Transaction, "counterparty" | "counterpartyIban" | "amountCents" | "bookingDate">[]): Map<string, number> =>
-  steadyBy(rows.filter((t) => t.amountCents > 0), payerKeyOf);
+export const steadyPayers = (rows: readonly Pick<Transaction, "counterparty" | "counterpartyIban" | "amountCents" | "bookingDate">[], pooled: ReadonlySet<string> = NO_ACCOUNTS): Map<string, number> =>
+  steadyBy(rows.filter((t) => t.amountCents > 0), (t) => payerKeyOf(t, pooled));
 
 /** What pairing decided before the roles: a transfer leg, a return, a card bill. */
 const DECIDED = new Set(["transfer", "match"]);

@@ -41,10 +41,12 @@ export const isBusinessPaymentText = (folded: string) => BUSINESS_PAYMENT.test(f
 /**
  * The names of ways to pay, as a regex alternation. A bank prints one where a payee's name would stand, and the
  * cleaning makes it the merchant ("Siirto", "Viitemaksu"). Such a name is nobody's, so it is never looked up.
+ * A hyphen, a full stop or a space inside a name is one separator: a payer key writes "E-LASKU" as "E LASKU" and
+ * "MOB.PAY" as "MOB PAY", and they are still the names of ways to pay. The card terminal's MobilePay prefix is one too.
  */
-const PAYMENT_METHOD_WORDS = `SIIRTO|PIKASIIRTO|TILISIIRTO|OMA SIIRTO|MAKSU|VIITEMAKSU|VERKKOMAKSU|SUORAMAKSU|KORTTIMAKSU|KORTTIOSTO|KORTKOP|OVERFORING|VERKKOPANKKI|MOBIILIPANKKI|LASKU|E-LASKU|${MOBILEPAY_WORDS}`;
-const PAYMENT_METHOD_NAME = new RegExp(`^(?:${PAYMENT_METHOD_WORDS})(?:[ -]+(?:${PAYMENT_METHOD_WORDS}))*$`);
-/** A folded name made only of the names of ways to pay: "SIIRTO", "MAKSU SIIRTO". */
+const PAYMENT_METHOD_WORDS = `SIIRTO|PIKASIIRTO|TILISIIRTO|OMA SIIRTO|MAKSU|VIITEMAKSU|VERKKOMAKSU|SUORAMAKSU|KORTTIMAKSU|KORTTIOSTO|KORTKOP|OVERFORING|VERKKOPANKKI|MOBIILIPANKKI|LASKU|E-LASKU|${MOBILEPAY_WORDS}`.replace(/[ -]/g, "[ .-]?") + `|${MOBILEPAY_SHOP_PREFIX}`;
+const PAYMENT_METHOD_NAME = new RegExp(`^(?:${PAYMENT_METHOD_WORDS})(?:[ .-]+(?:${PAYMENT_METHOD_WORDS}))*$`);
+/** A folded name made only of the names of ways to pay: "SIIRTO", "MAKSU SIIRTO", "E LASKU". */
 export const isPaymentMethodName = (folded: string) => PAYMENT_METHOD_NAME.test(folded.trim());
 
 export { SWEDISH_BANK_FEE_WORDS, SWEDISH_SALARY_FIELD } from "./wording-swedish.ts";

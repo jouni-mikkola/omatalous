@@ -4,7 +4,7 @@ import { buildQuestions } from "../src/analysis/questions.ts";
 import { expectedIncome } from "../src/analysis/expected.ts";
 import { earnedIncome } from "../src/analysis/usual.ts";
 import { enrichIsland, enrichTransactions } from "../src/pipeline.ts";
-import { applyPayerRoles, PAYER_ROLES, payerKeyOf, payerKeysOf, payerRoleOf } from "../src/payer-role.ts";
+import { applyPayerRoles, isPersonName, PAYER_ROLES, payerKeyOf, payerKeysOf, payerRoleOf, pooledIbans, WALLET_PAYER_KEY } from "../src/payer-role.ts";
 import { type Account, type CategoryRule, NO_INPUTS, type PayerRole, type PayerRoleRow, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
@@ -39,6 +39,30 @@ describe("the payer of a row", () => {
     expect(payerKeyOf({ counterpartyIban: "fi21 1234 5600 0007 85", counterparty: "Ville Esimerkki" })).toBe(VILLE);
     expect(payerKeyOf({ counterpartyIban: null, counterparty: "Esimerkki, Ville Ville" })).toBe("name:ESIMERKKI VILLE");
     expect(payerKeyOf({ counterpartyIban: null, counterparty: "Ville Esimerkki" })).toBe(payerKeyOf({ counterpartyIban: null, counterparty: "ESIMERKKI VILLE" }));
+  });
+
+  it.each(["E-LASKU", "MOB.PAY", "Mobile Pay", "Siirto"])("is no person when the name is that of a way to pay (%s)", (name) => {
+    expect(isPersonName(name)).toBe(false);
+    expect(isPersonName("Ville Esimerkki")).toBe(true);
+    expect(isPersonName(null)).toBe(true);
+  });
+
+  it("keys wallet money that names no sender by the wallet, not by the wallet operator's account", () => {
+    const row = { counterpartyIban: VILLE_IBAN, counterparty: null, description: "MobilePay" };
+    expect(payerKeyOf(row)).toBe(WALLET_PAYER_KEY);
+  });
+
+  it("keys the money of an account three or more unrelated names pay from by the name", () => {
+    const named = (counterparty: string) => ({ counterpartyIban: VILLE_IBAN, counterparty });
+    const rows = [named("Ville Esimerkki"), named("Liisa Testinen"), named("Matti Meikalainen"), named("Meikalainen Matti")];
+    expect(pooledIbans(rows)).toEqual(new Set([VILLE_IBAN]));
+    const keyOf = payerKeysOf(rows);
+    expect(new Set(rows.map(keyOf)).size).toBe(3);
+    expect(keyOf(rows[0]!)).toBe("name:ESIMERKKI VILLE");
+    expect(keyOf(rows[2]!)).toBe(keyOf(rows[3]!));
+    // two names are a couple's or one person's account: the number still tells the payer
+    expect(pooledIbans(rows.slice(2))).toEqual(new Set());
+    expect(payerKeysOf(rows.slice(2))(rows[2]!)).toBe(VILLE);
   });
 
   it("is none for a row with neither: its description alone is never a payer", () => {

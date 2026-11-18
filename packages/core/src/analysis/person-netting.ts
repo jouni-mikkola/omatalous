@@ -3,7 +3,8 @@
  * of what the household sent to that same person.
  *
  * Money from a person that no rule, pair or answer placed (Maksut henkilöiltä, income that is not earned) settles what
- * the household sent to the same person (Maksut henkilöille, one payer key, `identifiedPayerKeyOf`) in the same month. The row
+ * the household sent to the same person (Maksut henkilöille, one payer key, `identifiedPayerKeyOf`; an account that many
+ * unrelated senders pay from is told apart by name, `pooledIbans`) in the same month. The row
  * takes what is left of those payments, oldest first, and lowers Maksut henkilöille by that much, as a row with its
  * minus. Only the rest of the row stays income, as Maksut henkilöiltä, which is no earned income. Income less spending
  * stays what it was, since the cents leave the income and the spending together, and Tulos is the same with and
@@ -15,7 +16,7 @@
  * sent. A row the split guess claims (`splitShareIds`) is a friend's share of a bill, which is asked about, and is left
  * alone. The result depends on the rows only, not on their order.
  */
-import { identifiedPayerKeyOf, steadyPayers } from "../payer-role.ts";
+import { identifiedPayerKeyOf, pooledIbans, steadyPayers } from "../payer-role.ts";
 import type { AnalysisTx } from "./context.ts";
 
 /** Maksut henkilöille: money in on it is from a person. */
@@ -51,10 +52,12 @@ export function netPersons(rows: readonly Row[], claimed: () => ReadonlySet<stri
     )
     .sort(byDay);
   if (!incoming.length) return out;
+  // an account many unrelated senders pay from is no one person: its rows are told apart by name
+  const pooled = pooledIbans(rows);
   const open = new Map<string, { id: string; left: number }[]>();
   for (const t of [...rows].sort(byDay)) {
     const left = t.spend - t.refunded;
-    const payer = identifiedPayerKeyOf(t);
+    const payer = identifiedPayerKeyOf(t, pooled);
     if (t.category !== TO_PERSONS || t.amountCents >= 0 || t.isTransfer || left <= 0 || !payer) continue;
     const key = `${monthOfRow(t)}|${payer}`;
     const list = open.get(key);
@@ -62,10 +65,10 @@ export function netPersons(rows: readonly Row[], claimed: () => ReadonlySet<stri
     else open.set(key, [{ id: t.id, left }]);
   }
   if (!open.size) return out;
-  const steady = steadyPayers(rows);
+  const steady = steadyPayers(rows, pooled);
   const split = claimed();
   for (const t of incoming) {
-    const payer = identifiedPayerKeyOf(t);
+    const payer = identifiedPayerKeyOf(t, pooled);
     if (!payer || steady.has(payer) || split.has(t.id)) continue;
     const taken: [string, number][] = [];
     let rest = t.amountCents;
