@@ -298,7 +298,7 @@ describe("Tilit: the form of an account", () => {
   });
 
   it("tells accounts of one name apart by the last four digits, and leaves a name alone that nothing else has", () => {
-    const out = markup([full("a1", "a", { name: "Käyttötili", iban: "FI2112345600000785" }), full("a2", "a", { name: "Käyttötili", iban: "FI4950009420028730" }), full("a3", "a", { name: "Säästötili", iban: "FI1410093000123458" })]);
+    const out = markup([full("a1", "a", { name: "Käyttötili", iban: "FI2112345600000785", digits: "0785" }), full("a2", "a", { name: "Käyttötili", iban: "FI4950009420028730", digits: "8730" }), full("a3", "a", { name: "Säästötili", iban: "FI1410093000123458", digits: "3458" })]);
     expect(out).toContain('<div class="acc-name">Käyttötili •••• 0785</div>');
     expect(out).toContain('<div class="acc-name">Käyttötili •••• 8730</div>');
     expect(out).toContain('<div class="acc-name">Säästötili</div>');

@@ -1,5 +1,5 @@
 // Decision: how the month stands: what came in, what went out, what is left of it, and where the income went
-import { bridgeView, MIN_COMPARE_MONTHS, type BridgeView } from "@banking/core";
+import { bridgeView, MIN_COMPARE_MONTHS, previousRange, type BridgeView } from "@banking/core";
 import { css } from "../../css.ts";
 import { answerMoney, completeMonths, dateRange, monthLong, percent } from "../../format.ts";
 import { t } from "../../text.ts";
@@ -11,10 +11,22 @@ type Data = DashboardData & { nyt: NonNullable<DashboardData["nyt"]> };
 type Tone = "income" | "spending" | "kept" | "debt" | "neutral";
 
 /**
+ * The words of the month before's figure, one rule for Tulot, Menot and Tulos: "to the same day", or "all of last month"
+ * when the window it is read in is the whole month, which is when it ends on another day of the month than today's (the
+ * month before is shorter, as 31.10. against September, or today is the month's last day, as 30.4. against all of March).
+ * The window is the one the server read (`previousRange`).
+ */
+function previousWords(data: Data, today: string): "home.fig_previous" | "home.tile_spent_previous_whole" {
+  const end = data.running ? today : data.range.to;
+  const [, previousTo] = previousRange(data.range.from, end);
+  return previousTo.slice(8) === end.slice(8) ? "home.fig_previous" : "home.tile_spent_previous_whole";
+}
+
+/**
  * The month's spending against its usual level to the same day, else last month's to the same day, else that the history
  * is short. A comparison that waits for a card's earlier purchases says nothing: the household cannot mend it here.
  */
-function spentLine(data: Data): string | null {
+function spentLine(data: Data, today: string): string | null {
   const usual = data.home.pace;
   if (usual) {
     const diff = answerMoney(Math.abs(usual.diffCents));
@@ -23,8 +35,7 @@ function spentLine(data: Data): string | null {
     return t("home.tile_spent_within", { sum: answerMoney(usual.expectedCents) });
   }
   const previous = data.pace.previous;
-  // a month before read to another day than today's (its last day, or the whole of it on the month's last day) is the whole month's sum, and the line says so
-  if (previous) return t(previous.day !== data.nyt.pace.day ? "home.tile_spent_previous_whole" : "home.fig_previous", { sum: answerMoney(previous.toToday) });
+  if (previous) return t(previousWords(data, today), { sum: answerMoney(previous.toToday) });
   if (data.home.paceGap === "history") return t("home.tile_gap_history", { months: completeMonths(MIN_COMPARE_MONTHS) });
   return null;
 }
@@ -101,14 +112,14 @@ function shownTerms(totals: Data["totals"], incomeCents: number, spentCents: num
   return { saved: faithful(saved, totals.savedCents), credit: faithful(credit, totals.borrowedCents) };
 }
 
-function itemsOf(data: Data): Item[] {
+function itemsOf(data: Data, today: string): Item[] {
   const { totals, previousTotals, comparable, overview, home } = data;
   // the figures are the ones the chart of the months draws (Tulot, Menot of the running month), so the page tells one sum for each
   const incomeCents = overview.income.cents;
   const spentCents = overview.months.at(-1)?.spendCents ?? data.nyt.pace.spentCents;
   const compared = comparable && data.running;
   const sameDay = (cents: number) => (compared ? cents : null);
-  const previousLine = (cents: number | null) => (cents === null ? null : t("home.fig_previous", { sum: answerMoney(cents) }));
+  const previousLine = (cents: number | null) => (cents === null ? null : t(previousWords(data, today), { sum: answerMoney(cents) }));
   const previousIncome = sameDay(previousTotals.incomeCents);
   const previousResult = sameDay(previousTotals.leftCents);
   const pace = home.pace;
@@ -136,7 +147,7 @@ function itemsOf(data: Data): Item[] {
         markCents: spentMark,
         band: pace ? { lowCents: pace.lowCents, highCents: pace.highCents } : null,
       },
-      line: spentLine(data),
+      line: spentLine(data, today),
     },
     {
       id: "result",
@@ -229,7 +240,7 @@ const monthHeading = (month: string) => monthLong(month).replace(/^./u, (c) => c
 export function Summary({ data, today }: { data: Data; today: string }) {
   const to = today < data.range.to ? today : data.range.to;
   const month = data.range.from.slice(0, 7);
-  const items = itemsOf(data);
+  const items = itemsOf(data, today);
   return (
     <section className="home-summary" aria-labelledby="home-summary-h">
       <div className="home-period">
