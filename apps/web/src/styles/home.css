@@ -68,6 +68,8 @@ a.home-left:hover .home-fig-label { text-decoration: underline; }
   .front > .home-now, .front > .home-summary { grid-column: 1 / 8; }
   .front > .home-now ~ .home-coming { grid-column: 8 / -1; grid-row: span 2; }
 }
+/* a month's bills with the estimated part beside them are two figures in one cell: the second goes under the first where the cell is too narrow, as at a large text size on a phone */
+.home-coming .rt td.num { white-space: normal; }
 .home-coming-wait { display: block; block-size: calc(var(--row-h-roomy) * 4); }
 
 /* the first fetch of a new bank */
