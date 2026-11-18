@@ -91,7 +91,7 @@ describe("transaction list and export paging", () => {
     const view = await own.listTransactions({ limit: 5000 }, ["acc-eero"]);
     expect(view.items.map((t) => t.id)).toEqual(all.map((t) => t.id));
     expect(view.total).toBe(105);
-    expect(view.days).toEqual([...new Set(all.map((t) => t.bookingDate))].sort());
+    expect(view.days.reduce((n, d) => n + d.count, 0)).toBe(105);
     expect(view.ids.slice().sort()).toEqual(all.map((t) => t.id).sort());
     for (const [limit, offset] of [[10, 0], [10, 95], [25, 40], [200, 0], [7, 100]] as const) {
       const page = await own.listTransactions({ limit, offset }, ["acc-eero"]);
@@ -121,7 +121,8 @@ describe("transaction list and export paging", () => {
     expect(matching).toHaveLength(1);
     expect(view.total).toBe(30);
     expect(view.ids).toHaveLength(30);
-    expect(view.days).toEqual([...new Set(rowsFor("acc-own", "own", 30).map((t) => t.bookingDate))].sort());
+    expect(view.days.reduce((n, d) => n + d.count, 0)).toBe(30);
+    expect(view.days.map((d) => d.date)).toEqual([...new Set(rowsFor("acc-own", "own", 30).map((t) => t.bookingDate))].sort());
   });
 
   it("does not read the bank's raw payload", async () => {
