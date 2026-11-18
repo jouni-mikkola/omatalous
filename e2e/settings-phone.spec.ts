@@ -40,7 +40,12 @@ test("Asetukset > Pankkiyhteydet, 390 px with a finger: the Muokkaa of an accoun
   await expect(page.locator(".loading")).toHaveCount(0, { timeout: 15_000 });
   const edit = page.locator("button[data-edit]").first();
   await edit.scrollIntoViewIfNeeded();
-  expect((await edit.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  // the target is the box or the reach of its ::after, as the audit of every page measures it
+  const reach = await edit.evaluate((el) => {
+    const after = getComputedStyle(el, "::after");
+    return Math.max(el.getBoundingClientRect().height, after.position === "absolute" && after.content !== "none" ? parseFloat(after.height) || 0 : 0);
+  });
+  expect(reach).toBeGreaterThanOrEqual(44);
   await context.close();
 });
 

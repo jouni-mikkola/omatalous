@@ -131,7 +131,7 @@ describe("touch targets", () => {
   });
 
   it("keeps the opener of a row off its name: in a block it is as wide as the room it leaves, with no negative margin", () => {
-    const block = sheet("table.css").filter((r) => r.selector === ".rt-wrap[data-block] .rt-drill" && r.body.includes("inline-size: 28px"));
+    const block = sheet("table.css").filter((r) => r.selector === ".rt-wrap[data-block] .rt-drill" && r.body.includes("inline-size: calc(var(--tap-floor) + var(--tick))"));
     expect(block).toHaveLength(1);
     expect(block[0]!.body).toMatch(/margin-inline: 0;/);
     expect(block[0]!.body).not.toMatch(/margin[^;]*-\d/);
@@ -139,7 +139,8 @@ describe("touch targets", () => {
 
   it("writes the 40 px of the opener in one unit", () => {
     const [drill] = sheet("table.css").filter((r) => r.selector === ".rt-drill");
-    expect(drill!.body).toMatch(/block-size: calc\(var\(--tap-min\) - 4px\);/);
+    expect(drill!.body).toMatch(/block-size: calc\(var\(--tap-min\) - var\(--tick\)\);/);
+    expect(blockSizes("table.css", ".rt-drill", "block-size")[0]).toBe(40);
   });
 
   it("makes the links under a table (CSV, fewer rows, the next page) at least 40 px high", () => {
