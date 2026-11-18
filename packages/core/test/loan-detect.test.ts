@@ -157,7 +157,6 @@ describe("what is never proposed", () => {
     ["pocket money to a person named Laina", monthly(6, 50, { counterparty: "LAINA KORHONEN", description: "VIIKKORAHA" })],
     ["a housing company's finance charge", monthly(6, 310, { counterparty: "AS OY KOTIKATU", description: "RAHOITUSVASTIKE LYHENNYS" })],
     ["a housing company's loan paid down", monthly(6, 310, { counterparty: "AS OY KOTIKATU", description: "YHTIÖLAINAN LYHENNYS" })],
-    ["two charges", carLoan(2)],
     ["a loan paid off in the spring", monthly(8, 250, { counterparty: "SANTANDER CONSUMER FINANCE OY", description: "LAINAN LYHENNYS", ended: 5 })],
     ["an instalment service's invoices of varying sums, each with its own reference", monthly(6, (i) => 120 + 15 * i, { counterparty: "KLARNA BANK AB", description: "OSAMAKSU", reference: (i) => `77001${i}3` })],
     ["a collector's payment plan", monthly(8, 80, { counterparty: "INTRUM OY", description: "MAKSUSUUNNITELMA 5521" })],
@@ -179,6 +178,10 @@ describe("what is never proposed", () => {
       expect(proposalsOf(monthly(6, 310, { counterparty, description: "LAINAOSUUS" }))).toEqual([]);
     },
   );
+
+  it("a lender paid twice is proposed with no monthly figure", () => {
+    expect(proposalsOf([...pay, ...carLoan(2)]).map((p) => [p.payee, p.paymentCents, p.monthlyCents])).toEqual([["Toyota Finance Finland", 25000, null]]);
+  });
 
   it("a loan share paid to anyone else is proposed", () => {
     expect(proposalsOf(monthly(6, 310, { counterparty: "PEKKA VIRTANEN", description: "LAINAOSUUS" }))).toHaveLength(1);
