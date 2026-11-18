@@ -3,9 +3,9 @@
  * keeps its own answer route (rules, payer roles, marks, loans, account answers); this only gathers and orders, so an
  * answer given here changes what the old card's answer changed.
  */
-import { addDays, type AnalysisContext, type AnalysisTx, billCents, billDueSubject, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, householdWords, isCancelled, isUnknownMerchant, type LoanKind, lenderInstalments, marksBySubject, memberOfRow, missedOn, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, type RecurringSeries, seriesMarkSubject, type UserInputs } from "@banking/core";
+import { addDays, type AnalysisContext, type AnalysisTx, billCents, billDueSubject, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, type HouseholdMember, householdWords, isCancelled, isUnknownMerchant, type LoanKind, lenderInstalments, marksBySubject, memberOfRow, missedOn, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, type RecurringSeries, seriesMarkSubject, type UserInputs } from "@banking/core";
 import { connectionView } from "./accounts.ts";
-import { proposalsFor, requestInputs, usesWithTraces } from "./analysis.ts";
+import { proposalsOf, requestInputs, usesWithTraces } from "./analysis.ts";
 import type { Services } from "./context.ts";
 import { memoOn } from "./context-memo.ts";
 import { industryMap } from "./enrich.ts";
@@ -14,6 +14,7 @@ import { reconcileOf } from "./reconcile.ts";
 import { type LoanTermsItem, loanTermsItems } from "./review-loan-terms.ts";
 import { memberMoneyItems, membersOf } from "./review-members.ts";
 import { type MoneyBackItem, moneyBackItems } from "./review-money-back.ts";
+import type { OwnView } from "./review-own.ts";
 import { type UnresolvedItem, unresolvedItems } from "./review-unresolved.ts";
 import { withoutWrongBills } from "./wrong-bills.ts";
 
@@ -218,30 +219,29 @@ export interface Review {
 /** `whole`: the rows are shown as the bank charged them, the basis of the item's figure (a loan's payment), also where the view counts them at a part. */
 type Sourced = ReviewItem & { rowIds?: readonly string[]; whole?: true };
 
-/** One source of questions. An extension adds its own to `SOURCES`. */
-type Source = (s: Services, userId: string) => Promise<Sourced[]>;
+/** One source of questions. An extension adds its own to `SOURCES`. `own` is what the queue read of the member's own view, once for all sources. */
+type Source = (s: Services, userId: string, own: OwnView) => Promise<Sourced[]>;
 
 /**
  * Every question `buildQuestions` asks today, read by the payees' and payers' source and by the rows' one. No proposals:
  * the loans and plans come from their own source with the placed loans too, so nothing is asked twice.
  */
-const questionsOf = (ctx: AnalysisContext, today: string, inputs: UserInputs) => memoOn(ctx, "review:questions", [today, inputs], () => buildQuestions(ctx, { from: today, to: today }, inputs, [], Infinity).items);
+const questionsOf = ({ ctx, inputs, stamp }: OwnView, today: string) => memoOn(ctx, "review:questions", [today, stamp], () => buildQuestions(ctx, { from: today, to: today }, inputs, [], Infinity).items);
 
 /** The questions of the front page's old card (payees, payers), all of them. */
-const front: Source = async (s, userId) => {
-  const { ctx, accounts } = await s.analysis.get(s, userId, "own");
-  const { inputs } = await requestInputs(s, userId, accounts);
+const front: Source = async (s, userId, own) => {
+  const { ctx, accounts, stamp } = own;
   const today = s.today();
   const repo = s.finance(userId);
   const [rules, industries, user] = await Promise.all([repo.listRules(), industryMap(repo), s.users.get(userId)]);
   const household = householdWords([user?.displayName, ...accounts.map((a) => a.holder)]);
-  const members = await membersOf(s);
+  const members = await own.members();
   const memberArgs = members.map((m) => [m.id, m.name ? [...m.name] : null, [...m.ibans]]);
-  return memoOn(ctx, "review:front", [today, inputs, rules, [...industries], [...household], memberArgs], () => {
+  return memoOn(ctx, "review:front", [today, stamp, rules, [...industries], [...household], memberArgs], () => {
     const byId = new Map(ctx.txs.map((t) => [t.id, t]));
     const picks = usedMost(ctx.txs, addDays(today, -365));
     const rank = payeeGuesser({ rows: ctx.txs, rules, industries, household });
-    return questionsOf(ctx, today, inputs).flatMap((q): Sourced[] => {
+    return questionsOf(own, today).flatMap((q): Sourced[] => {
       if (q.kind === "payer") {
         const { offMedianCents: _off, ...rest } = q;
         // money from another member is never the viewer's own money at another bank, as the member's own question says too
@@ -283,10 +283,10 @@ function usedMost(txs: readonly Pick<AnalysisTx, "bookingDate" | "status" | "isT
 
 // a plan is asked its end once; a loan is asked until it is saved or marked "Ei ole laina". Its rows are its series' own, at the
 // bank's whole charge as the payment is (a joint account counted at a part cuts them in the view)
-const loans: Source = async (s, userId) => {
-  const { ctx } = await s.analysis.get(s, userId, "own");
+const loans: Source = async (_s, _userId, own) => {
+  const { ctx } = own;
   const series = memoOn(ctx, "review:loan-series", null, () => new Map([...ctx.recurring, ...lenderInstalments(ctx)].map((r) => [r.id, r.transactionIds])));
-  return (await proposalsFor(s, userId)).flatMap((p): Sourced[] => {
+  return proposalsOf(ctx, own).flatMap((p): Sourced[] => {
     const cents = 12 * p.paymentCents;
     const rowIds = series.get(p.seriesId) ?? [];
     if (p.plan) return p.planAnswer === null ? [{ kind: "plan", id: `plan:${p.key}`, cents, key: p.key, payee: p.payee, paymentCents: p.paymentCents, lastDate: p.lastDate, rowIds, whole: true }] : [];
@@ -314,11 +314,7 @@ const splits: Source = async (s, userId) => {
 // the price rises and new regular charges the overview's Huomioitavaa told (core `openPriceRises`, `newCharges`) and the
 // quiet small subscriptions, by series: one that is two of these is one item, so no finding is in the queue twice. The
 // money at stake is the year of the charge, or for a rise alone what the rise adds to a year.
-const subscriptions: Source = async (s, userId) => {
-  const { ctx, accounts } = await s.analysis.get(s, userId, "own");
-  const { inputs } = await requestInputs(s, userId, accounts);
-  return memoOn(ctx, "review:subscriptions", inputs, () => subscriptionItems(ctx, inputs));
-};
+const subscriptions: Source = async (_s, _userId, { ctx, inputs, stamp }) => memoOn(ctx, "review:subscriptions", stamp, () => subscriptionItems(ctx, inputs));
 
 function subscriptionItems(ctx: AnalysisContext, inputs: UserInputs): Sourced[] {
   const marks = marksBySubject(inputs.marks);
@@ -352,11 +348,9 @@ function subscriptionItems(ctx: AnalysisContext, inputs: UserInputs): Sourced[] 
 }
 
 // no money rides on the answer, so the question comes last; a household with no rows yet is asked nothing
-const mortgage: Source = async (s, userId) => {
-  const { ctx, accounts } = await s.analysis.get(s, userId, "own");
+const mortgage: Source = async (_s, _userId, { ctx, balances, inputs, stamp }) => {
   if (!ctx.txs.length) return [];
-  const { balances, inputs } = await requestInputs(s, userId, accounts);
-  return memoOn(ctx, "review:mortgage", [balances, inputs], (): Sourced[] => (buildHousing(ctx, balances, inputs)?.ask ? [{ kind: "mortgage", id: "mortgage", cents: 0 }] : []));
+  return memoOn(ctx, "review:mortgage", stamp, (): Sourced[] => (buildHousing(ctx, balances, inputs)?.ask ? [{ kind: "mortgage", id: "mortgage", cents: 0 }] : []));
 };
 
 // the member's own accounts, each by its newest stretch: an older difference with a matched stretch after it is proved over.
@@ -375,9 +369,7 @@ const balances: Source = async (s, userId) => {
 
 // the member's own cards that tell no euro balance: the same cards core `aheadBasis` cannot take a debt off, whether the
 // bank told none or told it in another currency
-const cardBalances: Source = async (s, userId) => {
-  const { ctx, accounts } = await s.analysis.get(s, userId, "own");
-  const { balances } = await requestInputs(s, userId, accounts);
+const cardBalances: Source = async (s, _userId, { ctx, balances }) => {
   const from = addDays(s.today(), -365);
   return balances.flatMap((b): Sourced[] => {
     if (b.type !== "credit_card" || b.ownerName || b.balanceCents !== null) return [];
@@ -387,9 +379,9 @@ const cardBalances: Source = async (s, userId) => {
 };
 
 // every consent that is due, whether or not its bank can be started by id: the round of Asetukset renews those that can
-const consents: Source = async (s, userId) => {
+const consents: Source = async (s, userId, { ctx }) => {
   const repo = s.finance(userId);
-  const [accounts, connections, { ctx }] = await Promise.all([repo.listAccounts(), repo.listConnections(), s.analysis.get(s, userId, "own")]);
+  const [accounts, connections] = await Promise.all([repo.listAccounts(), repo.listConnections()]);
   const today = s.today();
   const views = connections.map((c) => connectionView(c, today, s.instance.current.timezone, accounts, connections));
   const from = addDays(today, -365);
@@ -407,9 +399,7 @@ const consents: Source = async (s, userId) => {
 // `billDueSubject`) for the one due day it names, so a later charge that does not come is asked again once one has
 // come between. If none comes, the item stays away until Laskut moves the bill to Päättyneet. A series removed in
 // Laskut as no bill is never asked.
-const bills: Source = async (s, userId) => {
-  const { ctx: all, accounts } = await s.analysis.get(s, userId, "own");
-  const { inputs } = await requestInputs(s, userId, accounts);
+const bills: Source = async (_s, _userId, { ctx: all, inputs }) => {
   const ctx = withoutWrongBills(all, inputs.marks);
   const cancelled = cancelledSubjects(inputs, ctx.today);
   const coming = new Set(inputs.marks.flatMap((m) => (m.mark === "in_use" ? [m.subject] : [])));
@@ -428,15 +418,14 @@ const bills: Source = async (s, userId) => {
 // payees' do in `front`), and for money in no row whose payer has a role, which is the role's to say, nor one a payer's
 // question asks of already (a payer known by its IBAN alone). Its income types (unknown, other income) are all a
 // default row of Muut tulot can be, so the category says that.
-const rows: Source = async (s, userId) => {
-  const { ctx, accounts } = await s.analysis.get(s, userId, "own");
-  const { inputs } = await requestInputs(s, userId, accounts);
+const rows: Source = async (s, _userId, own) => {
+  const { ctx, inputs, stamp } = own;
   const { payers } = inputs;
   const today = s.today();
   // the rows a member's question asks of depend on the other members, so they are part of the memo's key
-  const ofMembers = (await memberMoneyItems(s, userId)).flatMap((item) => item.rowIds);
-  return memoOn(ctx, "review:rows", [today, inputs, ofMembers], () => {
-    const asked = new Set([...questionsOf(ctx, today, inputs).flatMap((q) => (q.kind === "payer" ? q.rowIds : [])), ...ofMembers]);
+  const ofMembers = (await own.memberMoney()).flatMap((item) => item.rowIds);
+  return memoOn(ctx, "review:rows", [today, stamp, ofMembers], () => {
+    const asked = new Set([...questionsOf(own, today).flatMap((q) => (q.kind === "payer" ? q.rowIds : [])), ...ofMembers]);
     const from = addDays(today, -364);
     const picks = usedMost(ctx.txs, addDays(today, -365));
     return ctx.txs.flatMap((t): Sourced[] => {
@@ -451,13 +440,24 @@ const rows: Source = async (s, userId) => {
   });
 };
 
+/** The member's own view, read once for the queue: what each source would otherwise read for itself. */
+async function ownViewOf(s: Services, userId: string): Promise<OwnView> {
+  const { ctx, accounts } = await s.analysis.get(s, userId, "own");
+  const { balances, inputs, stamp } = await requestInputs(s, userId, accounts);
+  let members: Promise<HouseholdMember[]> | undefined;
+  let memberMoney: ReturnType<OwnView["memberMoney"]> | undefined;
+  const own: OwnView = { ctx, accounts, balances, inputs, stamp, members: () => (members ??= membersOf(s)), memberMoney: () => (memberMoney ??= memberMoneyItems(s, userId, own)) };
+  return own;
+}
+
 // the unexplained money in from another member: a payer the front's source asked already is kept once (`reviewQueue`)
-const SOURCES: readonly Source[] = [front, loans, splits, subscriptions, mortgage, loanTermsItems, balances, cardBalances, consents, bills, rows, memberMoneyItems, unresolvedItems, moneyBackItems];
+const SOURCES: readonly Source[] = [front, loans, splits, subscriptions, mortgage, loanTermsItems, balances, cardBalances, consents, bills, rows, (_s, _userId, own) => own.memberMoney(), unresolvedItems, moneyBackItems];
 
 /** The whole queue, the most money first; the page caps a sitting. */
 export async function reviewQueue(s: Services, userId: string): Promise<Review> {
-  const lists = await Promise.all(SOURCES.map((source) => source(s, userId)));
-  const { ctx } = await s.analysis.get(s, userId, "own");
+  const own = await ownViewOf(s, userId);
+  const lists = await Promise.all(SOURCES.map((source) => source(s, userId, own)));
+  const { ctx } = own;
   const byId = memoOn(ctx, "review:rows-by-id", null, () => new Map(ctx.txs.map((t) => [t.id, t])));
   const seen = new Set<string>();
   const items = lists
