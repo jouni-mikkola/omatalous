@@ -28,6 +28,7 @@ export const THRESHOLDS = {
   steadySpread: threshold(0.03, "share", "A judgement: a median change under 3 % from one month to the next reads as steady income."),
   yearMonths: threshold(12, "months", "A year: the last-twelve-months column of the spending table reads at most this many whole months, and the rare bills and the bill calendar count the twelve calendar months from this one."),
   aheadDays: threshold(30, "days", "A month: the bills of Laskut and the window of Yhteenveto look this far when no payday sets the end."),
+  lowPointDays: threshold(60, "days", "Two months: the lowest balance looks past the next payday to the one after it, since a payday that is a week away says little of the bills that fall in the weeks after it."),
   maxPaydayDays: threshold(45, "days", "A judgement: a payday over a month and a half away is not waited for, since a monthly pay missed by a few weeks would stretch the window over the next one."),
   minPayGapDays: threshold(15, "days", "Half a month: a monthly pay is expected at least this long after the last one. A nearer day is the last pay, which came a little off its day."),
   majorPayShare: threshold(0.5, "share", "A judgement: the smaller of two salaries is at least half of the larger and is a pay to wait for, while a child benefit is not."),
@@ -92,6 +93,7 @@ export const PERIODIC_MONTHS = THRESHOLDS.periodicMonths.value;
 export const RANGE_LOW = THRESHOLDS.rangeLow.value;
 export const RANGE_HIGH = THRESHOLDS.rangeHigh.value;
 export const AHEAD_DAYS = THRESHOLDS.aheadDays.value;
+export const LOW_POINT_DAYS = THRESHOLDS.lowPointDays.value;
 export const MAX_PAYDAY_DAYS = THRESHOLDS.maxPaydayDays.value;
 export const MIN_PAY_GAP_DAYS = THRESHOLDS.minPayGapDays.value;
 export const MAJOR_PAY_SHARE = THRESHOLDS.majorPayShare.value;

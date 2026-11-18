@@ -133,6 +133,15 @@ export const FIGURES = {
     additive: false,
     pages: ["Yhteenveto"],
   },
+  lowPoint: {
+    name: "Alin saldo edessä",
+    definition: "The lowest balance the counted accounts reach in the next days, past the next payday: today's balance walked through the bills, loan payments and regular savings of the bill calendar and the pays from their own day on, less the everyday spending expected on the days before each point, as Jää palkkapäivänä takes it off. The range is the lowest balance with the base months that spent the most to the one with those that spent the least. Without a known payday, a balance or three complete months the answer says why and gives no figure.",
+    source: { file: "low-point.ts", fn: "lowPoint", field: "cents" },
+    unit: "cents",
+    scope: "own",
+    additive: false,
+    pages: ["Yhteenveto"],
+  },
   everyday: {
     name: "Arkimenot päivässä",
     definition: "The expected everyday spending of a day over every account in view. A card's purchases are in it. It is the mean of the complete months before the month: six at most, three at least. Subscriptions, bills, card bills and one-off purchases are left out (ADR 0021).",

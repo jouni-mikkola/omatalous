@@ -1015,6 +1015,14 @@
     "months": 6
    }
   },
+  "lowPoint": {
+   "known": true,
+   "date": "2026-10-23",
+   "cents": 324294,
+   "lowCents": 307063,
+   "highCents": 340687,
+   "days": 60
+  },
   "pace": {
    "month": "2026-10",
    "day": 9,
