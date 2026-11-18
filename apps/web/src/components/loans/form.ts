@@ -125,7 +125,7 @@ export function formOfDraft(draft: LoanDraft, today: string, base: LoanForm = em
  * loan: that account is the same debt, so it is chosen, and the balance is what the bank tells on it (as an amount owed,
  * on the day it told it). With none, several, or one that tells no debt: as without.
  */
-export function formOfProposal(proposal: LoanProposalRow, today: string, accounts: readonly Account[] = [], loans: readonly Loan[] = [], terms: InferredLoanTerms | null = null): LoanForm {
+export function formOfProposal(proposal: Pick<LoanProposalRow, "key" | "payee" | "paymentCents" | "kind">, today: string, accounts: readonly Account[] = [], loans: readonly Loan[] = [], terms: InferredLoanTerms | null = null): LoanForm {
   // the latest payment where the rows tell it, else the proposal's usual one
   const values = { ...blank(), balanceDate: today, lender: proposal.payee.slice(0, 80), paymentCents: eurosText((terms ?? proposal).paymentCents), intervalMonths: "1" };
   if (terms) {

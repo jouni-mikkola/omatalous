@@ -9,8 +9,6 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { api } from "../api.ts";
-import { logoForInstitution } from "../banks.ts";
-import { BankLogo } from "../components/BankLogo.tsx";
 import { Figure } from "../components/Figure.tsx";
 import { MarkCell } from "../components/table/Cells.tsx";
 import { date, money } from "../format.ts";
@@ -105,6 +103,7 @@ export function Review({ meta, queue }: { meta: Meta; queue: Queue }) {
             problem={problem}
             onAnswer={(send) => void answer(view.item, send)}
             onHold={() => setHeld(view.item)}
+            onReload={queue.reload}
             onSkip={() => skip(view.item)}
           />
         </>
@@ -138,17 +137,18 @@ interface CardProps {
   onAnswer: (send: () => Promise<unknown>) => void;
   /** Keeps the item shown while it shows what its answer saved. */
   onHold: () => void;
+  /** Reads the queue again while the item stays: an answer of a list's row, whose figures the server counts. */
+  onReload: () => void;
   onSkip: () => void;
 }
 
-function ItemCard({ item, position, of, meta, heading, busy, waiting, problem, onAnswer, onHold, onSkip }: CardProps) {
+function ItemCard({ item, position, of, meta, heading, busy, waiting, problem, onAnswer, onHold, onReload, onSkip }: CardProps) {
   const figure = figureOf(item);
   const name = nameOf(item);
   const [all, setAll] = useState(false);
   // the item's own rows as the server picked them: nothing is filtered or added here
   const own = item.rows ?? [];
   const shown = all ? own : own.slice(0, NEWEST_ROWS);
-  const logo = item.kind === "loan" || item.kind === "plan" ? logoForInstitution(item.payee, meta.bank.banks) : null;
   const value = (
     <>
       <Figure text={figure.text} size="l" />
@@ -166,7 +166,7 @@ function ItemCard({ item, position, of, meta, heading, busy, waiting, problem, o
       <progress className="review-progress" value={position} max={of} aria-hidden="true" />
       <span className="review-kind">{eyebrow(item)}</span>
       <div className="review-who">
-        <MarkCell name={name} mark={logo ? <BankLogo src={logo} name={name} size="sm" /> : undefined} person={isPerson(item) || undefined} size="l">
+        <MarkCell name={name} person={isPerson(item) || undefined} size="l">
           <span className="review-name">{name}</span>
         </MarkCell>
       </div>
@@ -179,7 +179,7 @@ function ItemCard({ item, position, of, meta, heading, busy, waiting, problem, o
       ) : (
         <div className="review-figure">{value}</div>
       )}
-      <p className="review-line">{figure.line}</p>
+      {figure.line && <p className="review-line">{figure.line}</p>}
       {shown.length > 0 && (
         <ul className="review-row-list" aria-label={t("set.rv.latest_transactions_name", { name })}>
           {shown.map((r) => (
@@ -201,7 +201,7 @@ function ItemCard({ item, position, of, meta, heading, busy, waiting, problem, o
         <span className="review-place">{t("set.rv.place", { position, of })} </span>
         {questionOf(item)}
       </h2>
-      <Choices item={item} meta={meta} busy={busy} onAnswer={onAnswer} onHold={onHold} />
+      <Choices item={item} meta={meta} busy={busy} onAnswer={onAnswer} onHold={onHold} onReload={onReload} />
       {item.kind === "payer" && <p className="review-note">{t("set.rv.the_answer_also_covers_earlier")}</p>}
       {problem && (
         <Notice tone="error" className="review-error" as="p">

@@ -1,21 +1,20 @@
 /**
  * The choices of a Tarkistettavat item, one kind each: large buttons with the guess first and framed, a payee's
- * categories with the sheet of all of them, a plan's end, a loan's form. Each answer goes through its source's route.
+ * categories with the sheet of all of them, the list of debts, a loan's form. Each answer goes through its source's route.
  */
-import { loanTermsDismissible, type LoanTermsMissing, monthOf, MORTGAGE_QUESTION, planSubject } from "@banking/core";
+import { MORTGAGE_QUESTION } from "@banking/core";
 import { useEffect, useRef, useState } from "react";
 import { api, loanCalls, payerCalls } from "../api.ts";
 import { LoanEditor, LoanLinks } from "../components/loans/LoanEditor.tsx";
-import { formOfCard, formOfLoan, type LoanForm } from "../components/loans/form.ts";
-import type { LoanFieldKey } from "../components/loans/labels.ts";
+import { formOfLoan, type LoanForm } from "../components/loans/form.ts";
 import { useApi } from "../hooks.ts";
 import { eurosText } from "../format.ts";
 import { SETTINGS_ANCHOR, settingsCardHash, settingsHash } from "../routes.ts";
 import type { Category, LoansAnswer, Meta } from "../types.ts";
 import { answerCall, answerLabel, ownerOf, ownersOf } from "./settings/account-use.ts";
-import { groupCategories, MAX_PLAN_PAYMENTS, offeredCategories, payerChoices, planEnd, type ReviewItem } from "./review-items.ts";
+import { groupCategories, offeredCategories, payerChoices, type ReviewItem } from "./review-items.ts";
 import { Buttons, ChoiceButton, mark, plain } from "./review-buttons.tsx";
-import { CardBillChoices, LoanChoices } from "./ReviewLoanChoices.tsx";
+import { LoanTermsChoices } from "./ReviewLoanChoices.tsx";
 import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
 import { t } from "../text.ts";
@@ -23,7 +22,7 @@ import { useModal } from "../components/useModal.ts";
 /** The same user mark on several subjects, written in one request. */
 const marksOn = (subjects: string[], value: string) => () => api("/api/marks", { method: "PUT", body: { subjects, mark: value } });
 
-export function Choices({ item, meta, busy, onAnswer, onHold }: { item: ReviewItem; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void; onHold: () => void }) {
+export function Choices({ item, meta, busy, onAnswer, onHold, onReload }: { item: ReviewItem; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void; onHold: () => void; onReload: () => void }) {
   // the name is the text the button shows, the badge included, so a voice command that reads it finds the button
   const named = (c: { label: string; guess: boolean }) => (c.guess ? `${c.label} ${t("set.rc.suggestion")}` : c.label);
   switch (item.kind) {
@@ -34,12 +33,8 @@ export function Choices({ item, meta, busy, onAnswer, onHold }: { item: ReviewIt
       );
     case "payer":
       return <Buttons choices={payerChoices(item)} busy={busy} label={named} onPick={(role) => onAnswer(() => payerCalls.say(item.key, role))} />;
-    case "loan":
-      return <LoanChoices item={item} meta={meta} busy={busy} onAnswer={onAnswer} onHold={onHold} />;
-    case "card_bill":
-      return <CardBillChoices item={item} meta={meta} busy={busy} onAnswer={onAnswer} onHold={onHold} />;
-    case "plan":
-      return <PlanChoices item={item} busy={busy} onAnswer={onAnswer} />;
+    case "loan_terms_list":
+      return <LoanTermsChoices item={item} meta={meta} busy={busy} onAnswer={onAnswer} onHold={onHold} onReload={onReload} />;
     case "split": {
       const account = meta.accounts.find((a) => a.id === item.accountId);
       const owners = account ? ownersOf(account, meta) : [];
@@ -123,8 +118,7 @@ export function Choices({ item, meta, busy, onAnswer, onHold }: { item: ReviewIt
         />
       );
     case "loan_drift":
-    case "loan_terms":
-      return <LoanTermsChoices item={item} meta={meta} busy={busy} onAnswer={onAnswer} />;
+      return <LoanDriftChoices item={item} meta={meta} busy={busy} onAnswer={onAnswer} />;
     case "mortgage":
       // adding the loan is done on its own page; the question goes once the loan is saved
       return (
@@ -140,37 +134,21 @@ export function Choices({ item, meta, busy, onAnswer, onHold }: { item: ReviewIt
   }
 }
 
-/** The fields of the loan form that give the fact a debt lacks: the form asks these alone, and "Näytä kaikki kentät" opens the rest. */
-const ASKED_FOR: Record<LoanTermsMissing, LoanFieldKey[]> = {
-  repayment: ["repayment"],
-  interval: ["intervalMonths"],
-  payment: ["paymentCents"],
-  rate: ["rateBp", "reference", "marginBp"],
-  end_date: ["endDate"],
-  margin: ["marginBp"],
-  review_date: ["rateReviewDate"],
-};
-
 /** The loan's form with the payment the bank took, and the day it moved on when the loan has a reference rate. */
 function withNewPayment(form: LoanForm, { newPaymentCents, reviewDate }: { newPaymentCents: number; reviewDate: string | null }): LoanForm {
   return { ...form, values: { ...form.values, paymentCents: eurosText(newPaymentCents), ...(reviewDate === null ? {} : { rateReviewDate: reviewDate }) } };
 }
 
 /**
- * A debt that lacks a fact. A saved loan's own form, as Asetukset > Lainat edits it, opens here; a connected card with no
- * saved loan gets the form of a new loan linked to it, filled with the bank's balance and limit, and one whose linked
- * loan has no rate gets that loan's form. The item goes once the loan is saved with the fact. Älä muistuta tästä enää
- * sets the question aside with the mark of the item, except for the rate and the payment, which keep asking. A payment
- * the plan did not expect opens the loan's form with the new payment filled in, and for a loan on a reference rate the
- * day it moved on as the review day.
+ * A payment the plan did not expect: the saved loan's own form, as Asetukset > Lainat edits it, opens with the new
+ * payment filled in, and for a loan on a reference rate the day it moved on as the review day. The item goes once the
+ * loan is saved.
  */
-function LoanTermsChoices({ item, meta, busy, onAnswer }: { item: Extract<ReviewItem, { kind: "loan_terms" | "loan_drift" }>; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void }) {
+function LoanDriftChoices({ item, meta, busy, onAnswer }: { item: Extract<ReviewItem, { kind: "loan_drift" }>; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void }) {
   const [editing, setEditing] = useState(false);
   const loans = useApi<LoansAnswer>(editing ? "/api/loans" : null);
   const loan = loans.data?.loans.find((l) => l.id === item.loanId);
-  const accountId = item.kind === "loan_terms" ? item.accountId : null;
-  const card = meta.accounts.find((a) => a.id === accountId);
-  const initial = loan ? (item.kind === "loan_drift" ? withNewPayment(formOfLoan(loan), item) : formOfLoan(loan)) : card ? formOfCard(card, meta.today) : null;
+  const initial = loan ? withNewPayment(formOfLoan(loan), item) : null;
   const waiting = editing && !loans.data && !loans.error;
   const formShown = editing && loans.data !== null && initial !== null;
   const formBox = useRef<HTMLDivElement>(null);
@@ -178,13 +156,13 @@ function LoanTermsChoices({ item, meta, busy, onAnswer }: { item: Extract<Review
   useEffect(() => {
     if (formShown) formBox.current?.querySelector<HTMLElement>("input, select")?.focus();
   }, [formShown]);
-  // the loan was deleted, or the card unlinked, since the queue was read: nothing is left to ask, so the item leaves with no error
+  // the loan was deleted since the queue was read: nothing is left to ask, so the item leaves with no error
   const gone = editing && loans.data !== null && initial === null;
   useEffect(() => {
     if (gone) onAnswer(async () => undefined);
   }, [gone]);
   if (gone) return null;
-  if (editing && loans.data && initial) {
+  if (editing && loans.data && loan && initial) {
     return (
       <LoanLinks.Provider value={{ accounts: meta.accounts, loans: loans.data.loans, fixings: loans.data.fixings }}>
         <div className="review-loan" ref={formBox}>
@@ -192,10 +170,10 @@ function LoanTermsChoices({ item, meta, busy, onAnswer }: { item: Extract<Review
             initial={initial}
             today={meta.today}
             cancelLabel={t("set.rc.cancel")}
-            ask={item.kind === "loan_drift" ? (item.reviewDate === null ? ["paymentCents"] : ["paymentCents", "rateReviewDate"]) : ASKED_FOR[item.missing]}
+            ask={item.reviewDate === null ? ["paymentCents"] : ["paymentCents", "rateReviewDate"]}
             onSave={async (body) => {
               // the editor shows its own error; the page moves on only after the loan is saved
-              await (loan ? loanCalls.replace(loan.id, body) : loanCalls.add(body));
+              await loanCalls.replace(loan.id, body);
               onAnswer(async () => undefined);
             }}
             onCancel={() => setEditing(false)}
@@ -215,13 +193,8 @@ function LoanTermsChoices({ item, meta, busy, onAnswer }: { item: Extract<Review
             loans.reload();
           }}
         >
-          <span>{t(item.kind === "loan_drift" ? "set.rc.update_the_loan_payment" : accountId === null ? "set.rc.complete_the_loan" : "set.rc.complete_the_card_terms")}</span>
+          <span>{t("set.rc.update_the_loan_payment")}</span>
         </ChoiceButton>
-        {item.kind === "loan_terms" && loanTermsDismissible(item.missing) && (
-          <ChoiceButton busy={busy || waiting} onClick={() => onAnswer(mark(item.subject, "dismissed"))}>
-            <span>{t("set.rc.do_not_remind_of_this")}</span>
-          </ChoiceButton>
-        )}
       </div>
       {loans.error && (
         <Notice tone="error" className="review-error" as="p">
@@ -313,54 +286,3 @@ function CategorySheet({ categories, onPick, onClose }: { categories: Category[]
   );
 }
 
-/** A plan's end: the payments left after the latest one, or the month of the last one, or "En tiedä". The balance is never assumed. */
-function PlanChoices({ item, busy, onAnswer }: { item: Extract<ReviewItem, { kind: "plan" }>; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void }) {
-  const [left, setLeft] = useState("");
-  const [month, setMonth] = useState("");
-  // which save is on its way: only its button shows the wait
-  const [sent, setSent] = useState<"count" | "month" | null>(null);
-  const store = (endMonth: string | null, from: "count" | "month" | null = null) => {
-    setSent(from);
-    onAnswer(() => api("/api/marks", { method: "PUT", body: { subject: planSubject(endMonth, item.key), mark: "in_use" } }));
-  };
-  const end = planEnd(item, left);
-  return (
-    <div className="review-plan">
-      <form
-        className="review-plan-row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (end) store(end, "count");
-        }}
-      >
-        <label className="review-plan-field">
-          <span>{t("set.rc.payments_left")}</span>
-          <input type="number" min={1} max={MAX_PLAN_PAYMENTS} inputMode="numeric" value={left} disabled={busy} onChange={(e) => setLeft(e.target.value)} />
-        </label>
-        <Button className="review-choice" type="submit" disabled={busy || end === null} aria-busy={busy && sent === "count" ? true : undefined}>
-          {t("set.rc.save")}
-        </Button>
-      </form>
-      <form
-        className="review-plan-row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (month) store(month, "month");
-        }}
-      >
-        <label className="review-plan-field">
-          <span>{t("set.rc.last_month")}</span>
-          <input type="month" min={monthOf(item.lastDate)} value={month} disabled={busy} onChange={(e) => setMonth(e.target.value)} />
-        </label>
-        <Button className="review-choice" type="submit" disabled={busy || !month} aria-busy={busy && sent === "month" ? true : undefined}>
-          {t("set.rc.save_month")}
-        </Button>
-      </form>
-      <div className="review-choices">
-        <ChoiceButton busy={busy} onClick={() => store(null)}>
-          {t("set.rc.i_don_t_know")}
-        </ChoiceButton>
-      </div>
-    </div>
-  );
-}
