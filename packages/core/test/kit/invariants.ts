@@ -341,10 +341,12 @@ export function monthResult(h: GeneratedHousehold, v: HouseholdView, dashboard: 
   const spent = page.overview.months.at(-1)?.spendCents ?? 0;
   const terms = income - spent - totals.savedCents + totals.borrowedCents;
   if (terms !== totals.leftCents) say(`Tulot ${income} - Menot ${spent} - saved ${totals.savedCents} + credit ${totals.borrowedCents} is ${terms}, Tulos is ${totals.leftCents}`);
-  const view = bridgeView(totals);
+  const told = page.split.interestCents + page.split.principalCents + page.split.unsplitCents;
+  if (told !== totals.debtCents) say(`Velanhoito ${totals.debtCents} is told as interest ${page.split.interestCents}, repayments ${page.split.principalCents} and unsplit ${page.split.unsplitCents}, which add up to ${told}`);
+  const view = bridgeView(totals, page.split);
   const sum = (keys: readonly string[]) => view.figures.filter((f) => keys.includes(f.key)).reduce((s, f) => s + f.cents, 0);
   // with a gap the list adds up to the income and the cover, and what stayed is drawn money no row names
-  const went = sum(view.cover.gapCents === 0 ? ["consumption", "debt", "saved", "repaid", "left"] : ["consumption", "debt", "saved", "repaid"]);
+  const went = sum(view.cover.gapCents === 0 ? ["consumption", "interest", "debt", "principal", "saved", "repaid", "left"] : ["consumption", "interest", "debt", "principal", "saved", "repaid"]);
   const came = totals.incomeCents + sum(["credit", "savings", "accounts", "credit-left", "savings-left"]);
   if (Math.abs(went - came) > LIST_SLACK_CENTS) say(`Tulojen käyttö lists ${went} went against ${came} that came`);
   const shares = view.figures.flatMap((f) => (f.incomeUnits === null ? [] : [f.incomeUnits]));

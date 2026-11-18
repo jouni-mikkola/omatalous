@@ -208,6 +208,21 @@ describe("Yhteenveto's month", () => {
     expect(container.querySelector("[data-bar=sources]")).toBeNull();
   });
 
+  it("tells the debt service as interest, what is not split, a subtotal and the repayments, in the order of the bridge", () => {
+    const overview = { income: { cents: 412000, earnedCents: 398000 }, months: [{ month: "2026-11", incomeCents: 412000, spendCents: 170000, fromSavingsCents: 0, complete: false }] };
+    const container = summaryIn(data({ overview, split: { interestCents: 5000, principalCents: 12000, unsplitCents: 3000 } } as never));
+    const parts = [...container.querySelectorAll(".home-flow-list > li")].map((li) => [li.getAttribute("data-part"), li.querySelector(".home-flow-name")?.textContent, flat(li.querySelector(".home-flow-sum")?.textContent)]);
+    expect(parts).toEqual([
+      ["consumption", "Kulutus", "1 500 €"],
+      ["interest", "Korot ja luottokulut", "50 €"],
+      ["debt", "Velanhoito, erittelemättä", "30 €"],
+      ["subtotal", "Välisumma", "2 540 €"],
+      ["principal", "Lyhennykset", "120 €"],
+      ["saved", "Säästöön siirretty", "300 €"],
+      ["left", "Tulos", "2 120 €"],
+    ]);
+  });
+
   const barOf = (container: HTMLElement, which: string) =>
     [...container.querySelectorAll<HTMLElement>(`[data-bar=${which}] > span`)].map((s) => ({ part: s.getAttribute("data-part"), tone: s.getAttribute("data-tone"), share: Number.parseFloat(s.style.getPropertyValue("flex-grow")) }));
   const rowsOf = (container: HTMLElement) => [...container.querySelectorAll(".home-flow-list > li")].map((li) => [li.getAttribute("data-part"), flat(li.querySelector(".home-flow-name")?.textContent), flat(li.querySelector(".home-flow-sum")?.textContent)]);

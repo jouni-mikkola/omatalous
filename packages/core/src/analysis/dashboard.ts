@@ -5,6 +5,7 @@ import { flagLoanPayment } from "../loan-payment.ts";
 import { buildHoldings, type Holdings } from "../holdings.ts";
 import { type LoanProposal, loanProposals } from "../loan-detect.ts";
 import { type BalanceInput, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
+import { type DebtSplit, debtSplit } from "./debt-split.ts";
 import { type CategoryTotal, categoryTotals, type TopCategories, topCategories } from "./category-totals.ts";
 import { dataQualityReport, type QualitySignal } from "./data-quality.ts";
 import { type AheadData, aheadBasis } from "./ahead.ts";
@@ -48,6 +49,8 @@ export interface DashboardData {
   /** The range reaches today (from <= today <= to). The previous period is then cut to the same days. */
   running: boolean;
   totals: PeriodTotals;
+  /** `totals.debtCents` in interest, repayments and what no evidence splits (ADR 0028): their sum is `totals.debtCents`. The cash figures do not change. */
+  split: DebtSplit;
   previousTotals: PeriodTotals;
   /**
    * The whole calendar month before the month the range ends in (today's month when the range runs past today), every
@@ -184,6 +187,7 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
     leftOutAccounts,
     running,
     totals,
+    split: debtSplit(ctx, range, inputs),
     previousTotals,
     previousMonthTotals: previousMonthOf(ctx, monthOf(running ? ctx.today : range.to)),
     bridge: buildBridge(ctx, range, running, totals, settled),
