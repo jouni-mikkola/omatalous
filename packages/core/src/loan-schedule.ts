@@ -100,6 +100,8 @@ export function ratePathOf(loan: Loan, fixings: Fixings): { path: RatePath; flat
     if (fixing === undefined) continue;
     if (flatFrom === null && day > newest) flatFrom = day;
     path.push([day, Math.max(0, fixing[1]) + marginBp * 10]);
+    // every later review counts the same fixing again: the rate holds from here on
+    if (flatFrom !== null) break;
   }
   return { path, flatFrom };
 }
@@ -252,7 +254,7 @@ export function loanWhatIf(loan: Loan, from: IsoDate, change: ScheduleChange): W
   const probe = paymentsAfter(loan, plan, from, change, { keepPayment: true, lower: false });
   const end = probe.at(-1);
   if (end === undefined || end.balanceCents > 0) return null;
-  const resets = loan.repayment === "annuity" && endOf(loan) !== null && end.date < endOf(loan)!;
+  const resets = loan.repayment === "annuity" && endOf(loan) !== null;
   const shorter = resets ? paymentsAfter(loan, plan, from, change, { keepPayment: false, lower: false, end: end.date }) : probe;
   const last = shorter.at(-1)!;
   const lowerList = change.extra !== undefined && loan.repayment === "annuity" ? paymentsAfter(loan, plan, from, change, { keepPayment: false, lower: true }) : null;
