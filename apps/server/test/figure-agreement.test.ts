@@ -7,10 +7,10 @@
  * `PAGES` lists what a household sees. Each reader is a component and the field it draws, read from the component
  * itself: a field the page does not draw is no reader, since an agreement between figures nobody sees protects nobody.
  *
- * - Menot of a month: Summary (Menot), MonthBars (spending bar) and Rahankäyttö (Menot kuukausittain).
+ * - Menot of a month: Summary (Menot), MonthBars (spending bar) and Menot kategorioittain (Menot kuukausittain).
  * - Tulot of a month: Summary (Tulot), MonthBars (income bar) and the month table of the Tulot report.
  * - Varat velkojen jälkeen: Holdings of Yhteenveto, Holdings under Saldot and Saldot's own figures.
- * - The usual month: MonthBars' dashed line and Rahankäyttö's typical month.
+ * - The usual month: MonthBars' dashed line and Menot kategorioittain's typical month.
  *
  * `API_INVARIANTS` lists figures the routes must agree on and no page draws (the dashboard's `totals`, the cash flow
  * table, the earned and usual income of the Tulot report). They keep one definition under several routes (ADR 0004). A

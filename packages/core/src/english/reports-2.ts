@@ -152,10 +152,4 @@ export const EN_REPORTS_2: Record<keyof typeof FI_REPORTS_2, string> = {
   "rpt.fd_where": "Food took <b>{amount}</b> a month, most on: {top} {topAmount} a month.",
   "rpt.fd_none": "There is no food spending in the period.",
   "rpt.month_col": "Month",
-  "rpt.bl_latest": "{day} (latest)",
-  "rpt.bl_balance": "Balance of accounts and cards",
-  "rpt.bl_payday": "Payday",
-  "rpt.bl_pay": "pay",
-  "rpt.bl_low": "lowest {day} {amount}",
-  "rpt.bl_one_day": "The balance trend shows once the balance is known for two days.",
 };

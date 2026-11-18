@@ -155,10 +155,4 @@ export const FI_REPORTS_2 = {
   "rpt.fd_where": "Ruokaan meni <b>{amount}</b> kuussa, eniten: {top} {topAmount} kuussa.",
   "rpt.fd_none": "Jaksolla ei ole ruokamenoja.",
   "rpt.month_col": "Kuukausi",
-  "rpt.bl_latest": "{day} (viimeisin)",
-  "rpt.bl_balance": "Tilien ja korttien saldo",
-  "rpt.bl_payday": "Palkkapäivä",
-  "rpt.bl_pay": "palkka",
-  "rpt.bl_low": "alin {day} {amount}",
-  "rpt.bl_one_day": "Saldojen kehitys näkyy, kun saldo on tiedossa kahdelta päivältä.",
 } as const;

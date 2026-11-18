@@ -82,7 +82,7 @@ async function choices(page: Page, kind: ".segmented" | ".tabs", what: string): 
 }
 
 for (const width of [390, 1440]) {
-  // Rahankäyttö has the period's row of keys (3 kk, 6 kk, 12 kk ...)
+  // Menot kategorioittain has the period's row of keys (3 kk, 6 kk, 12 kk ...)
   for (const [name, path, kind] of [
     ["Raportit", "/#/reports?q=menot", ".segmented"],
     ["Asetukset", "/#/settings", ".tabs"],

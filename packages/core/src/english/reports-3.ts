@@ -2,8 +2,6 @@
 import type { FI_REPORTS_3 } from "../messages-reports-3.ts";
 
 export const EN_REPORTS_3: Record<keyof typeof FI_REPORTS_3, string> = {
-  "rpt.bl_aria": "Account balance by day, the lowest day and large purchases",
-  "rpt.bl_readout": "Account balance by day. Use the arrow keys to move from day to day.",
   "rpt.db_debt": "Debt",
   "rpt.db_move_up": "if the rate rises",
   "rpt.db_move_down": "if the rate falls",
@@ -43,13 +41,7 @@ export const EN_REPORTS_3: Record<keyof typeof FI_REPORTS_3, string> = {
   "rpt.category": "Category",
   "rpt.change": "Change",
   "rpt.yoy_chart": "Spending by category in {previous} and {year}, same months",
-  "rpt.tm_day": "Day",
   "rpt.payee": "Payee",
-  "rpt.fc_calc_caption": "Fixed costs a month and a year",
-  "rpt.fc_datum": "{month} a month, {year} a year",
-  "rpt.fc_payment": "Payment",
-  "rpt.fc_per_month": "Per month",
-  "rpt.fc_per_year": "Per year",
   "rpt.fc_prices": "Price changes",
   "rpt.fc_prices_datum": "{amount} a year",
   "rpt.fc_prices_caption": "Price changes and their yearly effect",
@@ -68,9 +60,6 @@ export const EN_REPORTS_3: Record<keyof typeof FI_REPORTS_3, string> = {
   "rpt.fc_ended_datum": "{amount} a month freed",
   "rpt.fc_ended_caption": "Payments that ended recently",
   "rpt.fc_last": "Last payment",
-  "rpt.fc_income_base": "Income a month",
-  "rpt.fc_empty": "No recurring payments found yet.",
-  "rpt.fc_paid": "{name}: payments of the last 12 months",
   "rpt.month": "Month",
   "rpt.fv_partial": "partial",
   "rpt.fv_fixed_share": "Fixed share",

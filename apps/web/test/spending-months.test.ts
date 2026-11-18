@@ -3,7 +3,7 @@ import "@banking/core/late";
 import { rowsHref } from "../src/pages/reports/sections/SpendingMonths.tsx";
 import { page } from "../src/pages/reports/pages/Spending.tsx";
 
-describe("Rahankäyttö: every figure opens the rows it is the sum of", () => {
+describe("Menot kategorioittain: every figure opens the rows it is the sum of", () => {
   const ctx = { range: { from: "2026-01-15", to: "2026-03-20" } };
   it("a category opens its rows of the period", () => {
     expect(rowsHref(ctx, "groceries")).toBe("#/transactions?category=groceries&from=2026-01-15&to=2026-03-20");
@@ -20,7 +20,7 @@ describe("Rahankäyttö: every figure opens the rows it is the sum of", () => {
   it("a payee of a category opens its rows", () => {
     expect(rowsHref(ctx, "groceries", undefined, "K-Market")).toBe("#/transactions?category=groceries&merchant=K-Market&from=2026-01-15&to=2026-03-20");
   });
-  // main's Rahankäyttö had no section a household without credit draws or an add-on would see
+  // the page has a section a household without credit draws or an add-on still sees
   it("the page starts with the categories", () => {
     expect(page.sections[0]!.id).toBe("kategoriat");
   });

@@ -1,7 +1,7 @@
 /**
  * Decision: what the household has and what it owes, before the month: each account with its balance, each credit card
  * with what is used of its limit and its next bill, each loan with what is left, and a total at the foot of each group.
- * Yhteenveto and Raportit > Tilit ja saldot show it under the heading Varat ja velat; the next bill of
+ * Yhteenveto and Raportit > Varat ja velat show it under the heading Varat ja velat; the next bill of
  * a card shows where the page gives the coming bills (`ahead`), which only Yhteenveto loads. The accounts
  * stand in their types (checking, savings, other) when there are two types or more, a type of two accounts or more with its total. The
  * first group's heading says the day most balances are from; a row says its own day only when it differs, and names its bank only when

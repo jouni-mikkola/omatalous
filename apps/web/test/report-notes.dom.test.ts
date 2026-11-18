@@ -1,6 +1,6 @@
 /**
  * Raportit: the tax-year card has no explanation lines and names the days it covers in its caption, and the months table of
- * Rahankäyttö draws the column of debt paid from savings only when a month holds some.
+ * Menot kategorioittain draws the column of debt paid from savings only when a month holds some.
  */
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { createElement } from "react";
@@ -96,7 +96,7 @@ const monthHeaders = (fromSavings: number[]) => {
   return within(screen.getByRole("table", { name: "Menot kuukausittain" })).getAllByRole("columnheader").map((h) => plain(h.textContent));
 };
 
-describe("Rahankäyttö: the column of debt paid from savings", () => {
+describe("Menot kategorioittain: the column of debt paid from savings", () => {
   it("is absent when every month is 0", () => {
     expect(monthHeaders([0, 0, 0, 0, 0, 0])).toEqual(["Kuukausi", "Summa"]);
   });

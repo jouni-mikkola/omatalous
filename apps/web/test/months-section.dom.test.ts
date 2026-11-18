@@ -1,4 +1,4 @@
-/** Raportit > Menot, Tulot ja menot: the twelve months of income and spending as bars, each a link to its rows. */
+/** Raportit > Tulot ja menot: the twelve months of income and spending as bars, each a link to its rows. */
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -37,7 +37,7 @@ async function show(answer: unknown) {
 }
 
 describe("Tulot ja menot", () => {
-  it("is a section of Raportit > Menot, named for what it shows", () => {
+  it("is a section of Raportit > Tulot ja menot, named for what it shows", () => {
     expect(section.page).toBe("reports");
     expect(section.title).toBe("Tulot ja menot");
     expect(section.visible?.(ctx)).toBe(true);
@@ -75,6 +75,26 @@ describe("Tulot ja menot", () => {
     const none = await show({ overview: overview({ usualSpendCents: null, usualMonths: 0 }) });
     expect(none.querySelector(".mb-usual")).toBeNull();
     expect(flat(none.querySelector(".mb-key")?.textContent)).not.toContain("Tavallinen");
+  });
+
+  it("says the gap of the complete months and what paid it, naming only the parts above zero", async () => {
+    const container = await show({ overview: overview({ gap: { gapCents: 123400, creditCents: 50000, savingsCents: 73400, accountsCents: 0 } }) });
+    const text = flat(container.textContent);
+    expect(text).toContain("ylittivät tulot 1 234 €.");
+    expect(text).toContain("Rahat tulivat luotosta 500 € ja säästöistä 734 €.");
+    expect(text).not.toContain("tileiltä");
+  });
+
+  it("says nothing about a gap when the months have none", async () => {
+    const container = await show({ overview: overview() });
+    expect(flat(container.textContent)).not.toContain("ylittivät tulot");
+  });
+
+  it("says the gap alone when nothing is known to have paid it", async () => {
+    const container = await show({ overview: overview({ gap: { gapCents: 20000, creditCents: 0, savingsCents: 0, accountsCents: 0 } }) });
+    const text = flat(container.textContent);
+    expect(text).toContain("ylittivät tulot 200 €.");
+    expect(text).not.toContain("Rahat tulivat");
   });
 
   it("is nothing with no month", async () => {

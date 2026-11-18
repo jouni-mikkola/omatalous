@@ -3,7 +3,7 @@
  * it, for the demo household, the kit household and a made-up one with own transfers, savings, a loan, a card's bills,
  * refunds, friends' shares, a pending purchase and a row whose category the user set (figures-household.ts). The
  * readers are the fields the pages draw: Yhteenveto (the running month's `/api/dashboard`: Summary, Months, Categories),
- * Raportit (`/api/reports`: Rahankäyttö, Tulot, Kiinteät menot), Tapahtumat (`/api/transactions`), Laskut
+ * Raportit (`/api/reports`: Menot kategorioittain, Tulot ja menot), Tapahtumat (`/api/transactions`), Laskut
  * (`/api/recurring`, `/api/reports`' bill calendar and the dashboard's `ahead`). A complete
  * month and the running month are both read; Yhteenveto shows only the running one. Two figures that may differ by
  * what they count have two names; this file holds only the ones that are one figure.
@@ -144,11 +144,11 @@ describe.each(HOUSEHOLDS.map((h) => [h.name, h] as const))("%s", (_, h) => {
     });
   });
 
-  it("Kiinteät menot: Raportit and Laskut", async () => {
-    const fixed = await get(`/api/reports?${ranges(running, h.day).year}&reports=fixedCosts`);
+  it("Kiinteät menot: Yhteenveto and Laskut", async () => {
+    const dash = await get(`/api/dashboard?${ranges(running, h.day).year}`);
     const { series, marks } = await get("/api/recurring");
     expectOne("Kiinteät menot", {
-      "Raportit > Kiinteät menot": fixed.fixedCosts.monthlyCents,
+      Yhteenveto: dash.fixedMonthlyCents,
       // Laskut adds the series up with core's function, as Bills.tsx does
       Laskut: fixedMonthlyCents(series, cancelledSubjects({ ...NO_INPUTS, marks })),
     });

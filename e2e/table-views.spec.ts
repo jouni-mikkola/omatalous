@@ -17,11 +17,9 @@ const ROUTES = [
   "/#/transactions?view=merchants",
   // Raportit, the tab
   "/#/reports",
-  // the list of reports: Rahankäyttö, Tulot, Kiinteät menot, Tilit ja saldot and Velat (Yhteiset menot needs a shared account)
+  // the list of reports: Tulot ja menot, Menot kategorioittain and Varat ja velat (Yhteiset menot needs a shared account)
   "/#/reports?q=menot#vuodet",
-  "/#/reports?q=kiinteat",
   "/#/reports?q=saldot",
-  "/#/reports?q=velat",
   "/#/reports?q=tulot",
   "/#/settings/banks",
   "/#/settings/household",

@@ -112,12 +112,12 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
 ### 1.5 Rows, Lisää and Asetukset
 - Rows: one list (`components/table/Table.tsx`), opened by any figure with its filter in the address, with search.
   Each row is date, name, category as text and amount. Kauppiaat is the view by merchant.
-- Raportit has three questions on every report page, named as short nouns (docs/UI_STYLE.md): Rahankäyttö (where the
-  money goes: the report Rahankäyttö, which the tab opens, with Tulot, the kinds of income, their payers and months and
-  the tax year, and Kiinteät menot, one table of what a month costs before any choice, each line opening its payments
-  of the last twelve months, as its refinements), Rahat ja velat (how they develop: Tilit ja saldot and Velat) and
-  Yhteiset menot (how shared spending is split, only with a shared account). The reports of the open question stand under its name. A report with nothing to show is not
-  listed, and a question with no report is not either.
+- Raportit has four reports, one list on every report page, named as short nouns (docs/UI_STYLE.md): Tulot ja menot
+  (the twelve months of income and spending, the sentence on a gap the months left and what paid it, the kinds of income
+  and the tax year, which the tab opens), Menot kategorioittain (the categories and their months, borrowing, the
+  category parts and the year comparison), Varat ja velat (the balances, the accounts, cards and loans) and Yhteiset
+  menot (how shared spending is split, only with a shared account). A report with nothing to show is not listed. The
+  fixed bills are on Laskut; the old addresses of Kiinteät menot and Velat open Laskut and Varat ja velat.
 - Asetukset has the six tabs of 1.0.0: Pankit ja tilit, Talous (loans), Jäsenet (admin only), Turvallisuus,
   Tiedot (export, import, example data), Palvelin ja ylläpito (admin only).
 - Tapahtumat has the two views of 1.0.0, Lista and Kauppiaat (`?view=merchants`), and the rules are under the merchants.
