@@ -198,6 +198,24 @@ describe("dashboard, next level", () => {
     expect(buildDashboard(ctx, { from: "2026-11-01", to: "2026-11-30" }).running).toBe(false);
   });
 
+  it("a running January is compared with the same days of December, in the income, the result and the spending alike", () => {
+    const jan15 = "2026-01-15";
+    // a salary on the 5th and groceries on the 10th every month from 2024-10; January 2025 and December 2025 differ
+    const months = Array.from({ length: 16 }, (_, i) => addMonths("2024-10", i));
+    const income = (m: string) => (m === "2025-12" ? 280000 : m === "2025-01" ? 150000 : 200000);
+    const groceries = (m: string) => (m === "2025-12" ? -9000 : m === "2025-01" ? -3000 : -5000);
+    const txs = months.flatMap((m) => [
+      tx({ accountId: "chk", bookingDate: `${m}-05`, amountCents: income(m), category: "salary", merchant: "Acme" }),
+      tx({ accountId: "chk", bookingDate: `${m}-10`, amountCents: groceries(m), category: "groceries", merchant: "Prisma" }),
+    ]);
+    const ctx = createContext(txs.filter((t) => t.bookingDate <= jan15), [checking], jan15);
+    const d = buildDashboard(ctx, { from: "2026-01-01", to: "2026-01-31" });
+    expect(d.running).toBe(true);
+    expect(d.range).toMatchObject({ previousFrom: "2025-12-01" });
+    expect(d.previousTotals.incomeCents).toBe(280000);
+    expect(d.pace.previous).toMatchObject({ month: "2025-12", day: 15, toToday: 9000 });
+  });
+
   it("a past period shows the fixed costs of its own end", () => {
     const txs = [
       ...base(),
@@ -223,7 +241,12 @@ describe("previousRange", () => {
     ["2026-01-01", "2026-12-31", "2025-01-01", "2025-12-31"],
     ["2026-01-01", "2026-10-09", "2025-01-01", "2025-10-09"],
     ["2028-01-01", "2028-02-29", "2027-01-01", "2027-02-28"],
-    ["2026-01-01", "2026-01-09", "2025-01-01", "2025-01-09"],
+    // a range inside January is a month: it compares with December, as every other month compares with the one before
+    ["2026-01-01", "2026-01-09", "2025-12-01", "2025-12-09"],
+    ["2026-01-01", "2026-01-15", "2025-12-01", "2025-12-15"],
+    ["2026-01-01", "2026-01-31", "2025-12-01", "2025-12-31"],
+    // the year so far keeps the same dates of the year before
+    ["2026-01-01", "2026-03-15", "2025-01-01", "2025-03-15"],
     ["2026-09-10", "2026-10-09", "2026-08-11", "2026-09-09"],
   ])("%s…%s → %s…%s", (from, to, pf, pt) => {
     expect(previousRange(from, to)).toEqual([pf, pt]);
