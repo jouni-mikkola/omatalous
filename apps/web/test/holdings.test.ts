@@ -19,7 +19,7 @@ const card = (over: Partial<Answer["cards"][number]> = {}): Answer["cards"][numb
 const loan = (over: Partial<Answer["loans"][number]> = {}): Answer["loans"][number] => ({
   id: "l1", name: "Kodin laina", lender: "Esimerkkirahoitus Oy", kind: "mortgage", ownerName: null, leftCents: 12_000_000, monthlyPaymentCents: 100_000, endDate: "2041-03-15", source: "typed", maybeTwice: false, paidOff: false, ...over,
 });
-const answer = (over: Partial<Answer> = {}): Answer => ({ accounts: [], accountsCents: null, typeCents: { checking: null, savings: null, other: null }, accountsAddUp: false, accountShares: null, netCents: null, cards: [], cardsCents: null, loans: [], loansCents: null, loansEndDate: null, debtCents: 0, ...over });
+const answer = (over: Partial<Answer> = {}): Answer => ({ accounts: [], accountsCents: null, typeCents: { checking: null, savings: null, other: null }, accountShares: null, netCents: null, cards: [], cardsCents: null, loans: [], loansCents: null, loansEndDate: null, debtCents: 0, ...over });
 const html = (h: Answer) => renderToStaticMarkup(createElement(Holdings, { holdings: h, meta }));
 // the euro sign and the spaces of a figure come from Intl: compare the digits
 const text = (markup: string) => markup.replace(/<\/span><span class="fig-(?:dec|unit)">/g, "").replace(/<[^>]+>/g, " ").replace(/[\s ]+/g, " ");
@@ -138,23 +138,23 @@ describe("Holdings", () => {
     const rows = (...cents: (number | null)[]) => cents.map((c, i) => account(`m${i}`, `Tili ${i}`, c));
     const total = (...cents: (number | null)[]) => cents.reduce<number>((a, b) => a + (b ?? 0), 0);
     // core works out the bracket and the shares (balances-holdings.test.ts): the page draws what it is given
-    const marks = (cents: (number | null)[], adds: boolean, shares: (number | null)[] | null) =>
-      html(answer({ accounts: rows(...cents), accountsCents: total(...cents), accountsAddUp: adds, accountShares: shares }));
+    const marks = (cents: (number | null)[], shares: (number | null)[] | null) =>
+      html(answer({ accounts: rows(...cents), accountsCents: total(...cents), accountShares: shares }));
 
     it("draws a track on each row as the answer says and no bracket line beside the rows", () => {
-      const out = marks([60_000, 30_000, 10_000], true, [60, 30, 10]);
+      const out = marks([60_000, 30_000, 10_000], [60, 30, 10]);
       expect(out).toContain('<ul class="st-rows">');
       expect(out.match(/holding-account share"/g)).toHaveLength(3);
       expect(out).not.toMatch(/adds-up|part-first|part-last/);
       expect(out).not.toContain("style=");
     });
     it("draws no track when the answer gives no shares", () => {
-      const out = marks([150_000, -50_000], true, null);
+      const out = marks([150_000, -50_000], null);
       expect(out).not.toContain("share");
-      expect(marks([100_000], false, null)).not.toContain("share");
+      expect(marks([100_000], null)).not.toContain("share");
     });
     it("leaves a row without a balance out of the tracks", () => {
-      const out = marks([70_000, null, 30_000], true, [70, null, 30]);
+      const out = marks([70_000, null, 30_000], [70, null, 30]);
       expect(out.match(/ share/g)).toHaveLength(2);
     });
   });
@@ -429,7 +429,6 @@ describe("Holdings", () => {
         answer({
           accounts: [typed("a", "Käyttötili", "checking", 100_000), typed("s", "Säästötili", "savings", 300_000)],
           accountsCents: 400_000,
-          accountsAddUp: true,
           accountShares: [25, 75],
           typeCents: { checking: 100_000, savings: 300_000, other: null },
         }),

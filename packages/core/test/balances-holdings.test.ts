@@ -372,19 +372,19 @@ describe("the marks of the accounts on the first page, worked out in core", () =
   const marks = (...cents: (number | null)[]) => {
     const balances = cents.map((c, i) => input(`m${i}`, `Tili ${i}`, "checking", c));
     const h = buildHoldings(createContext([], balances.map((b) => ({ id: b.id, name: b.name, iban: null, currency: "EUR", type: b.type })), today), balances, inputsOf([]));
-    return { adds: h.accountsAddUp, shares: h.accountShares };
+    return h.accountShares;
   };
-  it("adds up two known balances or more, and the shares tile 100 by the largest remainder", () => {
-    expect(marks(60_000, 30_000, 10_000)).toEqual({ adds: true, shares: [60, 30, 10] });
-    expect(marks(1, 1, 1)).toEqual({ adds: true, shares: [34, 33, 33] });
+  it("tiles the shares to 100 by the largest remainder", () => {
+    expect(marks(60_000, 30_000, 10_000)).toEqual([60, 30, 10]);
+    expect(marks(1, 1, 1)).toEqual([34, 33, 33]);
   });
-  it("keeps the bracket and gives no share when a balance is below zero; one account has neither", () => {
-    expect(marks(150_000, -50_000)).toEqual({ adds: true, shares: null });
-    expect(marks(100_000)).toEqual({ adds: false, shares: null });
+  it("gives no share when a balance is below zero, or when there is one account", () => {
+    expect(marks(150_000, -50_000)).toBeNull();
+    expect(marks(100_000)).toBeNull();
   });
-  it("leaves an unknown balance out of both", () => {
-    expect(marks(70_000, null, 30_000)).toEqual({ adds: true, shares: [70, null, 30] });
-    expect(marks(null, null)).toEqual({ adds: false, shares: null });
+  it("leaves an unknown balance out of the shares", () => {
+    expect(marks(70_000, null, 30_000)).toEqual([70, null, 30]);
+    expect(marks(null, null)).toBeNull();
   });
 });
 

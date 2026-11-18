@@ -92,8 +92,7 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
 
   // accounts that share a name are told apart by the last digits of their number
   const shownName = (a: Account) => {
-    const digits = (a.iban ?? a.cardMask ?? "").replace(/\D/g, "").slice(-4);
-    return digits && meta.accounts.some((o) => o.id !== a.id && o.name === a.name) ? t("set.conn.name_ending", { name: a.name, digits }) : a.name;
+    return a.digits && meta.accounts.some((o) => o.id !== a.id && o.name === a.name) ? t("set.conn.name_ending", { name: a.name, digits: a.digits }) : a.name;
   };
 
   // the rows in another currency, by account: none of them is in a euro figure
