@@ -3236,9 +3236,9 @@
   "interestKnown": true,
   "withoutRate": 0,
   "cost12": {
-   "cents": 0,
-   "interestCents": 0,
-   "feeCents": 0
+   "cents": null,
+   "interestCents": null,
+   "feeCents": null
   },
   "payments": {
    "monthlyCents": 0,
