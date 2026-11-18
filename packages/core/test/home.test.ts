@@ -180,6 +180,27 @@ describe("home.direction and home.reliability", () => {
     expect(direction.bufferNetCents! / direction.bufferSpendCents!).toBe(direction.bufferMonths);
   });
 
+  it("keeps a deficit in the buffer: the net is the real one, below zero, and the months are its quotient", () => {
+    const rows = [...pays(), ...rents(), ...shopping("2026-03-01", 4000)];
+    const plus = homeOf(rows, 200_000).direction;
+    const minus = homeOf(rows, -500_000).direction;
+    // the same bills and spending, and a balance 700 000 cents lower, so the net is exactly that much lower
+    expect(minus.bufferNetCents! - plus.bufferNetCents!).toBe(-700_000);
+    expect(minus.bufferNetCents!).toBeLessThan(0);
+    expect(minus.bufferSpendCents).toBe(plus.bufferSpendCents);
+    expect(minus.bufferMonths).toBe(minus.bufferNetCents! / minus.bufferSpendCents!);
+    expect(minus.bufferMonths!).toBeLessThan(0);
+    expect(minus.bufferGap).toBeNull();
+  });
+
+  it("says no spending when the expected month costs nothing, and divides by nothing", () => {
+    const { direction } = homeOf(pays());
+    expect(direction.usualCents).toBe(0);
+    expect(direction.bufferMonths).toBeNull();
+    expect([direction.bufferNetCents, direction.bufferSpendCents]).toEqual([null, null]);
+    expect(direction.bufferGap).toBe("no-spending");
+  });
+
   it("says why the buffer has no figure: no balance, or too short a history", () => {
     const full = [...pays(), ...rents(), ...shopping("2026-03-01", 4000)];
     const noBalance = buildDashboard(createContext(full, [own], TODAY), RANGE, [], NO_INPUTS).home.direction;

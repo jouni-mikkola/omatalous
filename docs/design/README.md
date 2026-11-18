@@ -45,7 +45,8 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
   the heading and a row names its own only when it differs; a row names its bank only when the accounts are at
   several banks. A row opens its rows. At the foot of the block on Yhteenveto stands the buffer, *Puskuri 1,4 kk*
   (`bufferMonths`), and its drill shows the two sums the months divide (`bufferNetCents`, `bufferSpendCents`). With no
-  figure the line says why, as core gives it (`bufferGap`): *Ei saldoa* or *Liian lyhyt historia*.
+  figure the line says why, as core gives it (`bufferGap`): *Ei saldoa*, *Liian lyhyt historia* or *Ei menoja*. A net
+  below zero is shown as it is, as negative months.
 - No chart and no list of categories on the first page: the categories of the month are in Raportit > Menot.
 - At 1440 px Nyt and the month stand on the left and the coming months beside them, then the accounts across the page.
   A phone reads Nyt, the month, the coming months and the accounts in one column, no taller than 2600 px.

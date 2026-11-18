@@ -83,12 +83,12 @@ interface HomeDirection {
   /** The last three complete months' mean less the mean of up to twelve; null under three months. The direction is read from it, and neither mean is shown. */
   recentChangeCents: number | null;
   direction: "up" | "down" | "flat" | null;
-  /** Cash on checking and savings accounts in months of expected spending. null without a balance or an expected level. */
+  /** Cash on checking and savings accounts in months of expected spending; negative when the card debt and the bills due exceed the cash. null without a balance or an expected level. */
   bufferMonths: number | null;
   /** The two figures `bufferMonths` is the quotient of: net cash and the expected month's spending (Odotettu), which is not the average above. Both null with `bufferMonths`. */
   bufferNetCents: number | null;
   bufferSpendCents: number | null;
-  /** Why `bufferMonths` is null: no balance of a savings or checking account, or too short a history for an expected month. null with a figure. */
+  /** Why `bufferMonths` is null: no balance of a savings or checking account, too short a history for an expected month, or an expected month with no spending. null with a figure. */
   bufferGap: BufferGap | null;
 }
 
@@ -161,7 +161,7 @@ function homePace(pace: MonthPace): HomePace | null {
 function homeDirection(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs): HomeDirection {
   const month = monthOf(ctx.today);
   const buffer = bufferReport(ctx, balances, inputs);
-  const basis = buffer.bufferMonths === null ? { bufferNetCents: null, bufferSpendCents: null, bufferGap: buffer.bufferGap } : { bufferNetCents: Math.max(0, buffer.netCents!), bufferSpendCents: buffer.expectedSpendCents, bufferGap: null };
+  const basis = buffer.bufferMonths === null ? { bufferNetCents: null, bufferSpendCents: null, bufferGap: buffer.bufferGap } : { bufferNetCents: buffer.netCents, bufferSpendCents: buffer.expectedSpendCents, bufferGap: null };
   const usual = { usualCents: buffer.expectedSpendCents, months: expectedFor(ctx, month)?.months.length ?? 0 };
   // `spendingThrough` is the booked spending, the base of the buffer and Odotettu; no page shows this direction under Menot, so it needs no flows base
   const spent = completeMonthsBefore(ctx, month, DIRECTION_MONTHS).map((m) => spendingThrough(ctx, m));

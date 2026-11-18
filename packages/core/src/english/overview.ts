@@ -96,6 +96,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.buffer_label": "Buffer",
   "home.buffer_no_balance": "No balance",
   "home.buffer_history": "History too short",
+  "home.buffer_no_spending": "No spending",
   "home.buffer_net": "Money after bills and card debt",
   "home.buffer_spend": "Usual spending a month",
   // Shared components

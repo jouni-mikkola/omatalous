@@ -73,7 +73,8 @@ for (const width of [390, 1440] as const) {
     await expect(buffer).toHaveCount(1);
     const { bufferMonths, bufferNetCents, bufferSpendCents, bufferGap } = home.direction;
     if (bufferMonths === null) {
-      expect(plain(await buffer.innerText())).toBe(`Puskuri ${bufferGap === "no-balance" ? "Ei saldoa" : "Liian lyhyt historia"}`);
+      const reasons: Record<string, string> = { "no-balance": "Ei saldoa", history: "Liian lyhyt historia", "no-spending": "Ei menoja" };
+      expect(plain(await buffer.innerText())).toBe(`Puskuri ${reasons[bufferGap as string]}`);
     } else {
       const months = bufferMonths.toLocaleString("fi-FI", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
       await expect(buffer.locator("summary")).toHaveText(`Puskuri ${months} kk`);

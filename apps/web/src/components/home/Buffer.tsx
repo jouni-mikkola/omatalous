@@ -5,10 +5,13 @@ import type { DashboardData } from "../../types.ts";
 
 type Direction = DashboardData["home"]["direction"];
 
+const GAP_TEXT = { "no-balance": "home.buffer_no_balance", history: "home.buffer_history", "no-spending": "home.buffer_no_spending" } as const;
+
 /**
  * The buffer line at the foot of Varat ja velat: "Puskuri 1,4 kk", core's `bufferMonths`, and a drill with the two sums
  * the months divide (`bufferNetCents` by `bufferSpendCents`). While core has no figure it gives the reason
- * (`bufferGap`) and the line says it: "Ei saldoa" or "Liian lyhyt historia". Nothing is added up or guessed here.
+ * (`bufferGap`) and the line says it: "Ei saldoa", "Liian lyhyt historia" or "Ei menoja". Nothing is added up or guessed here.
+ * A negative figure is shown as it is.
  */
 export function Buffer({ direction }: { direction: Direction }) {
   const { bufferMonths, bufferNetCents, bufferSpendCents, bufferGap } = direction;
@@ -18,7 +21,7 @@ export function Buffer({ direction }: { direction: Direction }) {
       <div className="home-buffer" data-buffer="none">
         <span className="home-buffer-label">{t("home.buffer_label")}</span>
         {" "}
-        <span className="home-buffer-status">{bufferGap === "no-balance" ? t("home.buffer_no_balance") : t("home.buffer_history")}</span>
+        <span className="home-buffer-status">{t(GAP_TEXT[bufferGap])}</span>
       </div>
     );
   }

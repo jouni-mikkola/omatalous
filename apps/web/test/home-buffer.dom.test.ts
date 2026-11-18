@@ -31,6 +31,25 @@ describe("Buffer", () => {
     ]);
   });
 
+  it("shows a negative buffer and its two sums as they are", () => {
+    const net = -150_000;
+    const spend = 300_000;
+    const { container } = render(createElement(Buffer, { direction: direction({ bufferMonths: net / spend, bufferNetCents: net, bufferSpendCents: spend }) }));
+    const summary = screen.getByText("Puskuri −0,5 kk");
+    fireEvent.click(summary);
+    const terms = [...container.querySelectorAll(".st-row")].map((row) => [...row.children].map((c) => flat(c.textContent)));
+    expect(terms).toEqual([
+      ["Raha laskujen ja korttivelan jälkeen", "−1 500,00 €"],
+      ["Tavalliset menot kuukaudessa", "3 000,00 €"],
+    ]);
+  });
+
+  it("says Ei menoja when core's reason is that the expected month has no spending", () => {
+    const { container } = render(createElement(Buffer, { direction: direction({ bufferGap: "no-spending" }) }));
+    expect(flat(container.textContent)).toBe("Puskuri Ei menoja");
+    expect(container.querySelector("details")).toBeNull();
+  });
+
   it("says Ei saldoa when core's reason is no balance", () => {
     const { container } = render(createElement(Buffer, { direction: direction({ bufferGap: "no-balance" }) }));
     expect(flat(container.textContent)).toBe("Puskuri Ei saldoa");
