@@ -46,6 +46,12 @@ describe("contracts: module host", () => {
     expect(screen.getByText("12,40 €")).toBeTruthy();
   });
 
+  it("keeps the class an add-on gives BasisDoor", () => {
+    const { BasisDoor } = MODULES["components/Why"] as typeof import("../src/components/Why.tsx");
+    const { container } = render(createElement(BasisDoor, { text: "12,40 €", className: "why-fig" }));
+    expect(container.querySelector(".why-fig")?.textContent).toBe("12,40 €");
+  });
+
   for (const f of frozen) {
     it(`${f.version}: every key and export of apiVersion ${f.apiVersion} stays, or the apiVersion is raised`, () => {
       if (f.apiVersion < HOST_API_VERSION) return;

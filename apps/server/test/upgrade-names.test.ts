@@ -29,7 +29,7 @@ describe("a merchant renamed by the card account's wording", () => {
     const { s, adminId, admin } = await setupApp();
     const repo = s.finance(adminId);
     expect((await seedCsv(s, admin, { content: CSV, accountName: "Käyttötili", accountType: "checking" })).status).toBe(200);
-    const fixed = async (): Promise<number> => (await admin.call("GET", "/api/dashboard")).body.fixedMonthlyCents;
+    const fixed = async (): Promise<number> => (await admin.call("GET", "/api/reports?reports=fixedCosts")).body.fixedCosts.monthlyCents;
     const series = async (): Promise<Parameters<typeof seriesMarkSubject>[0][]> => (await admin.call("GET", "/api/recurring")).body.series;
 
     const [today] = await series();

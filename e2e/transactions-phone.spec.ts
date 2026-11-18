@@ -48,7 +48,7 @@ test("390 px: rows sit under day groups, newest first, each a block of the merch
   const year = new Date().getFullYear();
   const days: number[] = [];
   for (const text of (await headers.allTextContents()).slice(0, 12)) {
-    const m = /^(su|ma|ti|ke|to|pe|la) (\d{1,2})\.(\d{1,2})\.(\d{4})?\s*\d+ tapahtuma/.exec(text.trim());
+    const m = /^(su|ma|ti|ke|to|pe|la) (\d{1,2})\.(\d{1,2})\.(\d{4})?$/.exec(text.trim());
     expect(m, `"${text}" is a day group`).not.toBeNull();
     const [, weekday, d, mo, y] = m!;
     const time = Date.UTC(Number(y ?? year), Number(mo) - 1, Number(d));
@@ -257,7 +257,7 @@ test("1366 px: the page is the table under the filter chips, the download in the
   await expect(page.locator("table.tx-table thead th")).toHaveText(["Saaja tai maksaja", "Tili", "Kategoria", "Summa"]);
   await expect(page.locator(DATA_ROW).first()).toBeVisible();
   // the day is the group row above its rows, with how many there are
-  await expect(page.locator("table.tx-table tr.rt-group th").first()).toHaveText(/^(su|ma|ti|ke|to|pe|la) \d{1,2}\.\d{1,2}\.(\d{4})? *\d+ tapahtuma/);
+  await expect(page.locator("table.tx-table tr.rt-group th").first()).toHaveText(/^(su|ma|ti|ke|to|pe|la) \d{1,2}\.\d{1,2}\.(\d{4})?$/);
   await expect(page.locator(".tx-day")).toHaveCount(0);
   // no native select on the page: the filters are chips, a row's category a chip
   await expect(page.locator(".tx-page select")).toHaveCount(0);
@@ -377,6 +377,53 @@ test("390 px: a tap on a row opens it, a second tap closes it, and the chevron o
   await expect(page.locator(".tx-detail-facts")).toHaveCount(0);
   await first.getByRole("button", { name: /: 12 kuukautta$/ }).tap();
   await expect(page.locator(".tx-detail-facts").first()).toBeVisible();
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("390 px: the list opens on the running month, and the x of its chip is a 44 px target that opens the whole history", async ({ browser }) => {
+  const context = await signedIn(browser, 390, 844);
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/transactions");
+  const x = page.getByRole("button", { name: "Poista rajaus: Aikaväli" });
+  await expect(x).toBeVisible();
+  await expect(page.locator(".tx-period .tx-fchip-value")).not.toHaveText("Koko historia");
+  // the button is 44 px wide and, with its ::after, 44 px high: a thumb that lands anywhere on the chip's x takes it
+  const box = (await x.boundingBox())!;
+  const reach = await x.evaluate((el) => parseFloat(getComputedStyle(el, "::after").height));
+  expect(box.width, "the x's width").toBeGreaterThanOrEqual(43.5);
+  expect(Math.max(box.height, reach), "the x's reach").toBeGreaterThanOrEqual(43.5);
+  await x.tap();
+  await expect(page).toHaveURL(/#\/transactions\?period=all$/);
+  await expect(page.locator(".tx-period .tx-fchip-value")).toHaveText("Koko historia");
+  await expect(page.getByRole("button", { name: "Poista rajaus: Aikaväli" })).toHaveCount(0);
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("390 px: far down a long list the Suodata button stands under the last row, covers no row and takes the reader back to the bar", async ({ browser }) => {
+  const context = await signedIn(browser, 390, 844);
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/transactions?period=all");
+  await expect(page.locator(DATA_ROW).first()).toBeVisible();
+  await expect(page.locator(".tx-shortcut")).toHaveCount(0);
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const shortcut = page.locator(".tx-shortcut");
+  await expect(shortcut).toBeVisible();
+  await expect(shortcut).toHaveText("Suodata");
+  const covered = await page.evaluate(() => {
+    const at = document.querySelector(".tx-shortcut")!.getBoundingClientRect();
+    return Array.from(document.querySelectorAll("table.tx-table tbody tr")).filter((row) => {
+      const r = row.getBoundingClientRect();
+      return r.height > 0 && Math.min(r.bottom, at.bottom) - Math.max(r.top, at.top) > 1 && Math.min(r.right, at.right) - Math.max(r.left, at.left) > 1;
+    }).length;
+  });
+  expect(covered, "rows under the button").toBe(0);
+  await shortcut.tap();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await expect(page.locator("#tx-bar .tx-filter-btn")).toBeFocused();
   expect(seen.problems).toEqual([]);
   await context.close();
 });

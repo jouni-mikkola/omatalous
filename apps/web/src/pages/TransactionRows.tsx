@@ -1,7 +1,7 @@
 import { isCardBill, UNKNOWN_MERCHANT } from "@banking/core";
 import { useSyncExternalStore } from "react";
 import { date, dayHeading, money } from "../format.ts";
-import { t as msg, tn } from "../text.ts";
+import { t as msg } from "../text.ts";
 import { ExtensionRowParts } from "../components/ExtensionRowParts.tsx";
 import { saveCsv, tableCsv } from "../components/table/csv.ts";
 import { Button } from "../components/ui/Button.tsx";
@@ -52,7 +52,6 @@ function byDay<T extends TransactionItem>(items: T[]): { day: string; items: T[]
 /** What all the filter's rows of one day add up to, the server's (`daySums`), also on a day the page limit cuts. */
 export interface DaySum {
   date: string;
-  count: number;
   inCents: number;
   outCents: number;
   /** What the day's rows move onto savings (negative: taken out), as the strip's Säästöön siirretty counts it. */
@@ -279,8 +278,7 @@ function DaySums({ sum }: { sum: Pick<DaySum, "inCents" | "outCents" | "savedCen
 }
 
 /**
- * The list: a day is a group, its row says the day, how many rows it has in the filter and what they add up to (the
- * server's). An amount is its figure and, on a joint row, the bank's sum under it. The rows stay newest first as the
+ * The list: a day is a group, its row says the day and what the day's rows add up to (the server's). An amount is its figure and, on a joint row, the bank's sum under it. The rows stay newest first as the
  * server sends them. An opened row shows its payee's twelve months under it.
  */
 export function TxTable({ items, whole = true, allRows, severalAccounts, today, daySums, rowProps, scope, open, onOpen, view, onView }: { items: ListedRow[]; /** The rows are all the filter has (the default). A page of a longer list keeps the chosen mark (a row with the mark can be on another page), and its CSV link fetches the other pages too (`allRows`; null when they did not come). */ whole?: boolean; allRows?: () => Promise<ListedRow[] | null>; /** The account column says which account only where there is a choice of them. */ severalAccounts: boolean; today: string; daySums: Map<string, DaySum>; rowProps: (t: ListedRow) => RowProps; scope: Scope; open: string | null; onOpen: (id: string | null) => void; view: TableView; onView: (next: TableView) => void }) {
@@ -326,12 +324,7 @@ export function TxTable({ items, whole = true, allRows, severalAccounts, today, 
         const sum = daySums.get(d.day);
         return {
           key: d.day,
-          title: (
-            <>
-              {dayHeading(d.day, today)}
-              <span className="rt-group-count">{tn(sum?.count ?? d.items.length, "row.day_one", "row.day_many")}</span>
-            </>
-          ),
+          title: dayHeading(d.day, today),
           figure: <DaySums sum={sum} />,
           figureSpan: 2,
           csv: d.day,

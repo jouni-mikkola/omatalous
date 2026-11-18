@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { taxYearCsv } from "../src/sheet-csv.ts";
 import { buildReports } from "../src/reports/index.ts";
-import { type Account, type BalanceInput, type Transaction } from "../src/types.ts";
+import { type Account, type BalanceInput, type Loan, type Transaction, type UserInputs } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 import { dataset } from "./report-dataset.ts";
 
@@ -46,12 +46,45 @@ describe("tax-year sheet", () => {
     expect(sheet.refunds.rows.map((x) => x.cents)).toEqual([74200]);
   });
 
-  it("lists interest rows of the year whose sum is the dashboard's category", () => {
-    const categories = buildReports({ ctx, range: sheet.range, balances }).categories;
-    const dashboard = categories.groups.flatMap((g) => g.categories).filter((c) => c.category === "interest").reduce((s, c) => s + c.totalCents, 0);
-    expect(sheet.interest.cents).toBe(dashboard);
-    expect(sheet.interest.cents).toBe(31234 + 4550);
-    expect(sheet.interest.rows.reduce((s, x) => s + x.cents, 0)).toBe(sheet.interest.cents);
+  describe("interest", () => {
+    const mortgageAccount: Account = { id: "acc-m", name: "Asuntolaina", iban: "FI1410093000123458", currency: "EUR", type: "loan" };
+    const consumerAccount: Account = { id: "acc-c", name: "Kulutusluotto", iban: "FI4950009420028730", currency: "EUR", type: "loan" };
+    const loan = (over: Partial<Loan>): Loan => ({
+      id: "loan-1", name: "Laina", lender: "Esimerkkipankki", kind: "mortgage", grantedCents: null, balanceCents: 10_000_000, balanceDate: today, rateBp: 400,
+      reference: null, marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: 50_000, endDate: null, limitCents: null, seriesKey: null, ...over,
+    });
+    const saved: UserInputs = { marks: [], expectedBills: [], loans: [loan({ id: "m", accountId: "acc-m" }), loan({ id: "c", kind: "consumer", accountId: "acc-c" })] };
+    const interestTo = (iban: string | null, cents: number, bookingDate: string) => tx({ bookingDate, amountCents: -cents, category: "interest", merchant: "Esimerkkipankki", counterpartyIban: iban });
+    const known = [interestTo("FI1410093000123458", 31234, "2026-03-10"), interestTo("FI1410093000123458", 4550, "2026-07-10"), interestTo("FI4950009420028730", 7700, "2026-05-10")];
+    const taxYear = (extra: Transaction[]) => {
+      const own = createContext([...dataset(), ...known, ...extra].filter((t) => t.bookingDate <= today), [checking, mortgageAccount, consumerAccount], today);
+      return buildReports({ ctx: own, range, balances, inputs: saved }).taxYear.interest;
+    };
+
+    it("counts the interest of a saved home loan and leaves consumer credit out", () => {
+      const interest = taxYear([]);
+      expect(interest.cents).toBe(31234 + 4550);
+      expect(interest.rows.map((x) => x.cents)).toEqual([31234, 4550]);
+      expect(interest.rows.reduce((s, x) => s + x.cents, 0)).toBe(interest.cents);
+    });
+
+    it("counts a student loan's interest too, and not a car loan's", () => {
+      const kinds = (student: Loan["kind"]): UserInputs => ({ marks: [], expectedBills: [], loans: [loan({ id: "m", kind: student, accountId: "acc-m" }), loan({ id: "c", kind: "car", accountId: "acc-c" })] });
+      const own = createContext([...dataset(), ...known].filter((t) => t.bookingDate <= today), [checking, mortgageAccount, consumerAccount], today);
+      expect(buildReports({ ctx: own, range, balances, inputs: kinds("student") }).taxYear.interest.cents).toBe(31234 + 4550);
+      expect(buildReports({ ctx: own, range, balances, inputs: kinds("car") }).taxYear.interest.cents).toBe(0);
+    });
+
+    it("is unknown, not 0, when an interest row reaches no saved loan, and still lists the rows that do", () => {
+      const interest = taxYear([interestTo(null, 1200, "2026-08-10")]);
+      expect(interest.cents).toBeNull();
+      expect(interest.rows.map((x) => x.cents)).toEqual([31234, 4550]);
+    });
+
+    it("counts no interest row of a household with no saved loan, and its sum is unknown", () => {
+      const own = createContext(rows(), [checking], today);
+      expect(buildReports({ ctx: own, range, balances }).taxYear.interest).toEqual({ cents: null, rows: [] });
+    });
   });
 
   it("keeps a student loan's payments on the sheet", () => {
@@ -78,7 +111,7 @@ describe("tax-year sheet", () => {
     const past = buildReports({ ctx, range: { from: "2025-01-01", to: "2025-12-31" }, balances }).taxYear;
     expect(past.partial).toBe(false);
     expect(past.range).toEqual({ from: "2025-01-01", to: "2025-12-31" });
-    expect(past.interest.cents).toBe(9900);
+    expect(past.interest).toEqual({ cents: null, rows: [] });
   });
 
   it("is quiet without rows", () => {
@@ -90,5 +123,14 @@ describe("tax-year sheet", () => {
     const say = (code: string, p?: Record<string, string | number>) => `${code}${p ? JSON.stringify(p) : ""}`;
     const tax = taxYearCsv(buildReports({ ctx, range, balances }).taxYear, say as never, (c) => c);
     expect(tax).toMatch(/742(,00)?\r?\n/);
+  });
+
+  it("writes the interest sum blank while it is unknown", () => {
+    const say = (code: string) => code;
+    const part = { name: "Lainan korko", date: "2026-03-10", cents: 31234 };
+    const rowsOnly = { ...sheet, interest: { cents: null, rows: [{ id: "x", ...part }] } };
+    expect(taxYearCsv(rowsOnly, say as never, (c) => c)).toContain("tax.interest;sheet.total;;\r\n");
+    const whole = { ...rowsOnly, interest: { cents: 31234, rows: rowsOnly.interest.rows } };
+    expect(taxYearCsv(whole, say as never, (c) => c)).toContain("tax.interest;sheet.total;;312,34");
   });
 });

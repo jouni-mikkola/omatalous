@@ -212,7 +212,7 @@ Each proof is a test or a screenshot at 390 and 1440 px attached to the PR. `pnp
 - after: none
 ### D5 Fold Merchants and Rules (taken back: Tapahtumat has Lista and Kauppiaat, the rules under the merchants)
 - why: a merchant list is a grouping of rows; rules are a setting.
-- done when (as it was written; only the grouping in the rows toolbar stays): `pages/Merchants.tsx` and `pages/Rules.tsx` are gone; group by merchant works in the rows toolbar; rules sit in Asetukset > Kotitalous; legacy addresses in `routes.ts` lead there (test).
+- done when (as it stands): `pages/Merchants.tsx` is the Kauppiaat tab of Tapahtumat and `pages/Rules.tsx` is the rules card under it; the old addresses of both and of the rules card of Asetukset lead there (`routes.ts`, test).
 - locks: transactions, settings, routes
 - after: D4
 ### D6 Delete the report sections that go

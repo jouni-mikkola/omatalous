@@ -30,7 +30,7 @@ import { loanSchedule, rateMilliAt } from "../loan-schedule.ts";
 import { loansOf } from "../loans.ts";
 import { isCut } from "../shared.ts";
 import { LOAN_ROW_DAYS, LOAN_ROW_TOLERANCE_CENTS, LOAN_ROW_TOLERANCE_SHARE } from "../thresholds.ts";
-import { type IsoDate, isRevolving, type Loan, type Part, type UserInputs } from "../types.ts";
+import { type Account, type IsoDate, isRevolving, type Loan, type Part, type UserInputs } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, spendRows } from "./context.ts";
 import { type DateRange, toDayRange } from "./period.ts";
 
@@ -59,12 +59,39 @@ function rowPart(t: AnalysisTx): Part {
   return isCut(t) && whole > 0 ? { from: 0, to: Math.abs(t.amountCents), of: whole } : WHOLE;
 }
 
+/** The connected loan accounts of the view: the ones that carry a loan's own rows, not a payment account of a loan. */
+const loanAccountsOf = (ctx: AnalysisContext): Account[] => ctx.accounts.filter((a) => a.type === "loan" && !ctx.paymentAccounts.has(a.id));
+
+/** The connected loan account a row pays: by the account number it names, else by the series of a saved loan connected to it. */
+function loanAccountPaidBy(loanAccounts: readonly Account[], loans: readonly Loan[]): (t: AnalysisTx) => string | undefined {
+  const byIban = new Map(loanAccounts.flatMap((a) => (normalizeIban(a.iban) ? [[normalizeIban(a.iban)!, a.id] as const] : [])));
+  const ids = new Set(loanAccounts.map((a) => a.id));
+  const keys = loans.flatMap((l) => l.seriesKey ?? []);
+  return (t) => {
+    const iban = normalizeIban(t.counterpartyIban);
+    const linked = loans.find((l) => l.accountId != null && ids.has(l.accountId) && l.seriesKey !== null && paysSeries(l.seriesKey, { accountId: t.accountId, merchant: t.merchant, amountCents: billCents(t) }, keys));
+    return (iban !== null ? byIban.get(iban) : undefined) ?? linked?.accountId ?? undefined;
+  };
+}
+
+/**
+ * The saved loan a row pays, through the connected loan account the row reaches (`loanAccountPaidBy`) and the loan that
+ * names that account. A row that reaches no such account, or one no saved loan is connected to, pays no loan known.
+ */
+export function savedLoanPaidBy(ctx: AnalysisContext, inputs: UserInputs): (t: AnalysisTx) => Loan | undefined {
+  const loans = loansOf(inputs);
+  const accountOf = loanAccountPaidBy(loanAccountsOf(ctx), loans);
+  return (t) => {
+    const account = accountOf(t);
+    return account === undefined ? undefined : loans.find((l) => l.accountId === account);
+  };
+}
+
 /** Evidence 2: the interest the connected loan account booked on the day of each row that pays it. A day's interest goes to one row. */
 function accountInterest(ctx: AnalysisContext, rows: readonly AnalysisTx[], inputs: UserInputs): Map<string, RowParts> {
-  const loanAccounts = ctx.accounts.filter((a) => a.type === "loan" && !ctx.paymentAccounts.has(a.id));
+  const loanAccounts = loanAccountsOf(ctx);
   const out = new Map<string, RowParts>();
   if (!loanAccounts.length) return out;
-  const byIban = new Map(loanAccounts.flatMap((a) => (normalizeIban(a.iban) ? [[normalizeIban(a.iban)!, a.id] as const] : [])));
   const ids = new Set(loanAccounts.map((a) => a.id));
   const booked = new Map<string, number>();
   for (const t of ctx.txs) {
@@ -73,14 +100,7 @@ function accountInterest(ctx: AnalysisContext, rows: readonly AnalysisTx[], inpu
     booked.set(key, (booked.get(key) ?? 0) - billCents(t));
   }
   if (!booked.size) return out;
-  const loans = loansOf(inputs);
-  const keys = loans.flatMap((l) => l.seriesKey ?? []);
-  /** The loan account a row pays: by the account number it names, else by the series of a saved loan connected to it. */
-  const accountOf = (t: AnalysisTx): string | undefined => {
-    const iban = normalizeIban(t.counterpartyIban);
-    const linked = loans.find((l) => l.accountId != null && ids.has(l.accountId) && l.seriesKey !== null && paysSeries(l.seriesKey, { accountId: t.accountId, merchant: t.merchant, amountCents: billCents(t) }, keys));
-    return (iban !== null ? byIban.get(iban) : undefined) ?? linked?.accountId ?? undefined;
-  };
+  const accountOf = loanAccountPaidBy(loanAccounts, loansOf(inputs));
   // a day on which the payer's own account counts the interest as a row of its own is that interest already: the loan account's booking of it is not counted again
   const paid = new Set<string>();
   for (const t of ctx.txs) {

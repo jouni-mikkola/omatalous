@@ -43,7 +43,7 @@ export const REPORTS = {
   income: ({ ctx, range, balances, lang }: ReportInput) => incomeReport(ctx, range, balances, lang),
   loans: ({ ctx, balances, inputs }: ReportInput) => loansReport(ctx, balances, inputs),
   housing: ({ ctx, balances, inputs }: ReportInput) => buildHousing(ctx, balances, inputs),
-  taxYear: ({ ctx, range, balances, lang }: ReportInput) => taxYearReport(ctx, range, incomeReport(ctx, taxYearDays(ctx, range), balances, lang)),
+  taxYear: ({ ctx, range, balances, inputs, lang }: ReportInput) => taxYearReport(ctx, range, incomeReport(ctx, taxYearDays(ctx, range), balances, lang), inputs),
   // no page shows it: the findings tool and the figure tests of the server read its views
   spendingChange: ({ ctx, range, lang }: ReportInput) => spendingChangeReport(ctx, range, lang),
   spendingMonths: ({ ctx, range, lang }: ReportInput) => spendingMonthsReport(ctx, range, lang),

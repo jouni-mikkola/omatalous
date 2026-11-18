@@ -104,6 +104,4 @@ export const FI_TABLES = {
   "select.category": "Kategoria",
   "ics.file": "pankkiyhteys",
   // Rows
-  "row.day_one": "{count} tapahtuma",
-  "row.day_many": "{count} tapahtumaa",
 } as const;

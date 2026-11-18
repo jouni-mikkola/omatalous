@@ -168,11 +168,12 @@ describe("the part of a joint account's row", () => {
   it("makes a day's rows add up to the day's sum the server gives, with a joint row among them", () => {
     // Pe 18.9 of the report: the joint row's bank amount is −36,24 €, the viewer's part −21,74 €, the head −167,73 €
     const items = [row({ id: "j", bookingDate: "2026-09-18", amountCents: -3_624, partCents: -2_174 }), row({ id: "o", accountId: "a/2", bookingDate: "2026-09-18", amountCents: -14_599 })];
-    const daySums = new Map<string, DaySum>([["2026-09-18", { date: "2026-09-18", count: 2, inCents: 0, outCents: 16_773 }]]);
+    const daySums = new Map<string, DaySum>([["2026-09-18", { date: "2026-09-18", inCents: 0, outCents: 16_773 }]]);
     const rowProps = (t: ListedRow) => ({ t, ...props });
     const lists = [renderToStaticMarkup(createElement(TxTable, { items, severalAccounts: true, today: "2026-10-05", daySums, rowProps, scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {} }))];
     for (const html of lists) {
       expect(figures(html, "rt-sub")).toEqual([-16_773]);
+      expect(html).not.toContain("rt-group-count");
       expect(figures(html, "tx-amount").reduce((a, b) => a + b, 0)).toBe(-16_773);
     }
   });

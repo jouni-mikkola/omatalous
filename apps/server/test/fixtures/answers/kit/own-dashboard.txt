@@ -63,7 +63,6 @@
   "basis": "last",
   "month": "2026-09"
  },
- "fixedMonthlyCents": 212135,
  "categories": [
   {
    "category": "housing",
