@@ -25,9 +25,9 @@ const incomeColumns = (): Column<TaxIncomeRow>[] => [
   { key: "amount", label: t("sheet.amount"), kind: "money", main: true, precision: "cents", cents: (r) => r.totalCents },
 ];
 
-/** A part with no rows is left out: a "no rows" line under a heading says nothing the household can act on. */
+/** A part with no rows is left out: a "no rows" line under a heading says nothing the household can act on. A sum that is not known stays, so it never reads as nothing. */
 function Rows({ caption, rows, total }: { caption: string; rows: readonly TaxRow[]; total?: { label: string; cents: number | null } }) {
-  if (rows.length === 0) return null;
+  if (rows.length === 0 && total?.cents !== null) return null;
   return (
     <>
       <h3 className="sheet-part">{caption}</h3>
@@ -88,6 +88,6 @@ export const section: ReportSection = {
   page: "reports",
   reports: ["taxYear"],
   // a year with nothing to check against the tax return has no card
-  visible: ({ data: { taxYear: r } }) => r.income.types.length + r.refunds.rows.length + r.interest.rows.length + r.loanPayments.length + r.household.rows.length + r.residual.rows.length > 0,
+  visible: ({ data: { taxYear: r } }) => r.interest.cents === null || r.income.types.length + r.refunds.rows.length + r.interest.rows.length + r.loanPayments.length + r.household.rows.length + r.residual.rows.length > 0,
   Component: TaxYear,
 };
