@@ -51,10 +51,10 @@ import { proposalsOf } from "./request-inputs.ts";
 import type { OwnView } from "./review-own.ts";
 
 /** Where a debt of the list comes from, which says how its row is saved. */
-export type LoanTermsSource = "loan" | "card" | "proposal" | "plan" | "card_bill";
+type LoanTermsSource = "loan" | "card" | "proposal" | "plan" | "card_bill";
 
 /** One debt of Täydennä lainat, with what is known of it to fill its row. */
-export interface LoanTermsDebt {
+interface LoanTermsDebt {
   id: string;
   source: LoanTermsSource;
   /** The saved loan's name, the card account's name, or the payee of the rows. */
