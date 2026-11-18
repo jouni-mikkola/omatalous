@@ -148,6 +148,15 @@ describe("a saved loan linked to a connected account is one debt", () => {
     expect(householdDebts([card], inputsOf([linkedCard]), today).connected[0]).toMatchObject({ balanceCents: 80_000, balanceDate: "2026-10-01" });
   });
 
+  it("a linked card with a typed payment keeps the bank's balance on the day, and pays the payment from then", () => {
+    // 800 € at the bank on 9.10., 18 % and 50 € a month: the first payment is due 9.11., 800 × 1,5 % = 12 € of interest
+    const paying: Loan = { ...linkedCard, paymentCents: 5_000 };
+    const pair = householdDebts([card], inputsOf([paying]), today).connected[0]!;
+    expect([pair.balanceCents, pair.balanceDate]).toEqual([80_000, today]);
+    expect(loanBalanceOn(pair, today)).toEqual({ cents: 80_000, unknown: null });
+    expect(loanBalanceOn(pair, "2026-11-09")).toEqual({ cents: 80_000 + 1_200 - 5_000, unknown: null });
+  });
+
   it("a plan with a last due date counts its due dates back from it, and goes on past it while the bank still tells a debt", () => {
     const ending = { ...sept, endDate: "2026-12-20" };
     expect(["2026-09-19", "2026-09-20", "2026-12-19", "2026-12-20", "2027-02-25"].map((day) => loanLastDueDate(ending, day))).toEqual([null, "2026-09-20", "2026-11-20", "2026-12-20", "2027-02-20"]);

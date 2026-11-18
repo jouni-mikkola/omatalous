@@ -868,7 +868,7 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
 
 | Figure | Means | In core |
 |---|---|---|
-| Balance on a day | The stated balance moved forward from its date by the repayment plan, one payment at a time. A loan whose plan lacks a field keeps the stated balance and names the field. Before the balance date there is no figure | `loanBalanceOn` |
+| Balance on a day | The stated balance moved forward from its date by the repayment plan, one payment at a time; a card or credit line with a typed payment and rate pays that payment each month. Every page and the loan drill tell this one figure. A loan whose plan lacks a field keeps the stated balance and names the field. Before the balance date there is no figure | `loanBalanceOn` |
 | Debt total | The sum of those balances. The loans left out or counted at their stated balance are listed with it | `debtTotalOn` |
 | Interest over 12 months | The interest parts of the payments due in the 12 months after the day. A loan whose balance stays (no plan, or a bullet loan) owes its rate on that balance for the days before its last due date, and a whole year is balance × rate. Without a rate there is no figure, except that a loan that owes nothing costs nothing | `loanInterestNext12Months`, `debtInterestNext12Months` |
 | Payoff date | The due date that brings the balance to zero, at the latest the last due date. None when a payment does not cover its interest or a field is missing | `loanPayoffDate` |

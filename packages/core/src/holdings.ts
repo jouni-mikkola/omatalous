@@ -19,7 +19,7 @@ import type { AnalysisContext } from "./analysis/context.ts";
 import type { Debt } from "./debt-part.ts";
 import { belowWhole, cardDebtOf, householdDebts, maybeTwice, paidFrom, type UnsavedLoans, unsavedLoans } from "./household-debts.ts";
 import { type LoanProposal, loanProposals } from "./loan-detect.ts";
-import { creditUse, debtPaymentsPerMonth, loanBalanceOn, loanInterestNext12Months, loanPayoffDate } from "./loans.ts";
+import { creditUse, debtPaymentsPerMonth, loanBalanceOn, loanPayoffDate } from "./loans.ts";
 import { normalizeIban } from "./transfers.ts";
 import type { AccountUse, BalanceInput, IsoDate, Loan, Part, UserInputs } from "./types.ts";
 
@@ -134,8 +134,6 @@ export interface Holdings {
     monthlyPaymentCents: number | null;
     /** The due date of the last payment (`loanPayoffDate`, the day the Lainat report gives as paid). Null when nothing is owed, the plan has no end or the payments never clear the loan: the row says so, it is never a guess. */
     endDate: IsoDate | null;
-    /** The interest of the 12 months after the day, the viewer's part of it (`loanInterestNext12Months`, the figure of Lainat). Null where the rate is not known. */
-    interest12Cents: number | null;
     /** An account tells it (the bank's, or the account a saved loan is linked to), or the household typed it with no account. */
     source: "account" | "typed";
     /** The debt may be in the totals twice: no link says that a saved loan and a connected account are one (`maybeTwice`). */
@@ -266,7 +264,6 @@ export function heldLoans(balances: readonly BalanceInput[], debts: ReturnType<t
       leftCents: loanBalanceOn(loan, day).cents,
       monthlyPaymentCents: monthly.counted ? monthly.monthlyCents : null,
       endDate: loanPayoffDate(loan).date,
-      interest12Cents: loanInterestNext12Months(loan, day).cents,
       source,
       maybeTwice: flagged,
       paidOff: false,

@@ -8,6 +8,7 @@
 import { partCents } from "./account-use.ts";
 import type { Debt } from "./debt-part.ts";
 import type { LoanProposal } from "./loan-detect.ts";
+import { loanBalanceByPlan } from "./loan-schedule.ts";
 import { paymentOf, type Side, sumShared } from "./shared.ts";
 import { creditAccountLoan, type DebtFigure, debtInterestNext12Months, debtTotalOn, loanBalanceOn, loanLastDueDate, loansOf, settledCardLoan } from "./loans.ts";
 import { belowWhole } from "./part-shape.ts";
@@ -114,7 +115,7 @@ interface HouseholdDebts {
  *   date are the saved loan's, so its payment, interest and payoff stay known. The limit is the saved loan's, or the
  *   account's when the loan has none.
  * - The bank's balance is dated on the plan's latest due date on or before the day (`loanLastDueDate`), and on the
- *   loan's own balance date when none has passed: the payments after it fall on the loan's due days, so the payoff
+ *   loan's own balance date when none has passed (on the day itself for a card or credit line paying a typed payment): the payments after it fall on the loan's due days, so the payoff
  *   date does not move with the day the debts are read on.
  * - The link holds only for an account that is in `accounts`, is a card or a loan account today (its type can be
  *   changed after the link was made) and has a balance at or below zero. Otherwise both sides count as if no link
@@ -153,7 +154,9 @@ export function householdDebts(accounts: readonly DebtAccount[], inputs: UserInp
       const terms = part ? atPart(holder, part) : holder;
       const pair = { ...terms, limitCents: terms.limitCents ?? told.limitCents };
       const stale = balanceDayOf(account.balanceAt, day) < holder.balanceDate;
-      connected.push(stale ? pair : { ...pair, balanceCents: told.balanceCents, balanceDate: loanLastDueDate(holder, day) ?? holder.balanceDate });
+      // a card or credit line with a typed payment has no due date in its plan: the bank's balance starts that payment on the day it is read, so it stays the bank's figure
+      const startsToday = isRevolving(holder.kind) && holder.repayment === null && loanBalanceByPlan(holder, day) !== null;
+      connected.push(stale ? pair : { ...pair, balanceCents: told.balanceCents, balanceDate: loanLastDueDate(holder, day) ?? (startsToday ? day : holder.balanceDate) });
       // where the account tells nothing yet the pair counts as typed: whole terms, cut at each figure
       sources.push({ loanId: holder.id, accountId: account.id, linked: true, typed: part ? { ...holder, part } : holder });
       if (part) parts.set(holder.id, part);
