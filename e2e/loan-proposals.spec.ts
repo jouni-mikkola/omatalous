@@ -3,9 +3,9 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
-// A loan proposal in Tarkistettavat: the demo household pays a car financing instalment every month, and the page asks
-// about it. It is saved as a loan, with the balance typed in; removing the loan in Asetukset > Lainat asks again, and then
-// it is answered "Ei ole laina". The rows are the demo data of a household member made here and removed at the end, so the demo household of the other
+// A loan proposal in Tarkistettavat: the demo household pays a car financing instalment every month, and the list of
+// debts asks about it in a row of its own. It is saved as a loan, with the balance typed in; removing the loan in
+// Asetukset > Lainat asks again, and then it is answered "Ei ole laina". The rows are the demo data of a household member made here and removed at the end, so the demo household of the other
 // specs stays as it was. Every payee and sum here is made up.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const FETCH = { "X-Requested-With": "fetch" };
@@ -43,44 +43,38 @@ test("a payment that looks like a loan is asked in Tarkistettavat: saved as a lo
     const seen = watch(page);
     const COMPANY = "Nordea Rahoitus Suomi Oy";
     const item = page.locator(".review-item");
-    const name = item.locator(".review-name");
-    // the queue is ordered by money: Ohita moves on until the proposal is the item shown
+    // the row of the proposal among the debts of the list, while it is asked, and once answered (the card's row has a name of its own)
+    const row = item.locator("li.review-debt:not(.is-done)").filter({ has: page.locator(".review-debt-name", { hasText: /^Nordea Rahoitus Suomi Oy · / }) });
+    const answered = item.locator("li.review-debt.is-done").filter({ has: page.locator(".review-debt-name", { hasText: /^Nordea Rahoitus Suomi Oy$/ }) });
+    // the link of a missing balance opens the list of debts first
     const reach = async () => {
-      await page.goto("/#/review");
+      await page.goto("/#/review?item=loan-terms");
       await page.reload();
-      await expect(page.locator(".review-item, .review-end").first()).toBeVisible({ timeout: 15_000 });
-      for (let n = 0; n < 25 && (await name.innerText()) !== COMPANY; n++) {
-        const was = await name.innerText();
-        await item.getByRole("button", { name: "Ohita" }).click();
-        await expect(name).not.toHaveText(was);
-      }
-      await expect(name).toHaveText(COMPANY);
+      await expect(item.getByRole("heading", { level: 2 })).toContainText("Täydennä lainat", { timeout: 15_000 });
+      await expect(row).toBeVisible();
     };
-    const queued = async () => ((await (await context.request.get("/api/review")).json()).items as { kind: string; payee?: string }[]).filter((i) => i.kind === "loan" && i.payee === COMPANY);
+    type Debt = { source: string; name: string };
+    const queued = async () => ((await (await context.request.get("/api/review")).json()).items as { kind: string; debts?: Debt[] }[]).flatMap((i) => (i.kind === "loan_terms_list" ? i.debts! : [])).filter((d) => d.source === "proposal" && d.name === COMPANY);
 
-    // the demo household has one such payment, asked in Tarkistettavat with the sum and a question a neighbour would ask
+    // the demo household has one such payment, a row of the list with what its rows tell in the heading
     expect((await (await context.request.get("/api/loans/proposals")).json()).proposals).toHaveLength(1);
     expect(await queued()).toHaveLength(1);
     await reach();
-    // every loan is asked one way: its kinds, the one its rows suggest first and named
-    await expect(item.getByRole("heading", { name: "Mikä laina tämä on?" })).toBeVisible();
-    await expect(item.locator(".review-choice").first()).toHaveAccessibleName("Autolaina Ehdotus");
-    // the rows are the loan's own: every one is the instalment, none of the bank's other payments
-    await expect(item.locator(".review-row-sum")).not.toHaveCount(0);
-    for (const sum of await item.locator(".review-row-sum").allInnerTexts()) expect(sum.replace(/\s/g, " ")).toBe("−289,00 €");
-    await expect(item.locator(".review-figure")).toHaveText(/289,00\s€\s?kuussa/);
-    // Asetukset > Lainat asks nothing any more
+    // a car financing by its words: the kind is known and not asked
+    await expect(row.locator(".review-debt-name")).toHaveText(/^Nordea Rahoitus Suomi Oy · Autolaina · 289,00\s€\/kk · eräpäivä 5\.$/);
+    await expect(row.getByRole("group", { name: "Laji" })).toHaveCount(0);
     expect(await overflow(page)).toBeLessThanOrEqual(1);
     if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-proposal-390.png"), fullPage: true });
 
-    // Tallenna lainaksi: the form opens in the item with what the rows show, and asks for the rest
-    await item.getByRole("button", { name: "Autolaina Ehdotus" }).click();
-    const form = item.locator(".review-loan");
+    // the form is in the row with what the rows show, and asks for the rest
+    const form = row.locator(".review-loan");
     // the rows gave the lender, the payment, the interval and the way of paying back: only the rest is asked, with no line of help
     await expect(form.locator(".loan-field")).toHaveCount(5);
     await expect(form.locator(".review-note, .field-help")).toHaveCount(0);
     await expect(form.getByLabel("Lainanantaja", { exact: true })).toHaveCount(0);
-    await expect(form.getByLabel("Lainaa jäljellä (€)")).toHaveValue("");
+    // the balance is asked as of the last payment day the rows show
+    const balance = form.getByLabel(/^Jäljellä \d{1,2}\.\d{1,2}\.(\d{4})? \(€\)$/);
+    await expect(balance).toHaveValue("");
     await expect(form.getByLabel("Korko (%)")).toHaveValue("");
     await expect(form.getByLabel("Viitekorko", { exact: true })).toHaveValue("");
     await expect(form.getByLabel("Myönnetty määrä (€)")).toHaveValue("");
@@ -93,26 +87,23 @@ test("a payment that looks like a loan is asked in Tarkistettavat: saved as a lo
     await expect(form.getByRole("alert")).toHaveText("Korjaa merkityt kentät.");
     await expect(form.getByText("Anna, paljonko lainaa on jäljellä.")).toBeVisible();
     expect((await (await context.request.get("/api/loans")).json()).loans).toEqual([]);
-    // Peruuta closes the form and the question stays
+    // Peruuta empties what was typed and the row asks the same again
+    await form.getByLabel("Korko (%)").fill("5");
     await form.getByRole("button", { name: "Peruuta" }).click();
-    await expect(form).toHaveCount(0);
-    await expect(name).toHaveText(COMPANY);
+    await expect(form.getByLabel("Korko (%)")).toHaveValue("");
+    await expect(row).toBeVisible();
 
-    // the same item at the width of a desktop, saved with the balance typed: the loan is linked to its payments and the next item shows
+    // the same row at the width of a desktop, saved with the balance typed: the loan is linked to its payments and the row
+    // closes into what was saved, with the list still shown
     await page.setViewportSize({ width: 1280, height: 900 });
     expect(await overflow(page)).toBeLessThanOrEqual(1);
-    await item.getByRole("button", { name: "Autolaina Ehdotus" }).click();
-    await form.getByLabel("Lainaa jäljellä (€)").fill("6 400,50");
+    await balance.fill("6 400,50");
     await form.getByLabel("Korko (%)").fill("7,90");
     if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-proposal-form-1280.png"), fullPage: true });
     await form.getByRole("button", { name: "Tallenna", exact: true }).click();
-    // the saved loan shows in the form's place, its rate and balance, until Seuraava
-    const result = item.locator(".review-loan .rt-kv");
-    await expect(result.locator("div").filter({ hasText: "Korko nyt" }).locator("dd")).toHaveText(/^7,90\s%$/);
-    await expect(result.locator("div").filter({ hasText: "Jäljellä" }).locator("dd")).toHaveText(/^6\s400,50\s€$/);
-    await expect(name).toHaveText(COMPANY);
-    await item.getByRole("button", { name: "Seuraava" }).click();
-    await expect(name).not.toHaveText(COMPANY);
+    await expect(answered.locator(".review-debt-result")).toHaveText(/^Jäljellä 6\s400,50\s€ · korko 7,90\s%/);
+    await expect(row).toHaveCount(0);
+    await expect(item.getByRole("heading", { level: 2 })).toContainText("Täydennä lainat");
     const { loans } = await (await context.request.get("/api/loans")).json();
     expect(loans).toHaveLength(1);
     expect(loans[0]).toMatchObject({ kind: "car", lender: COMPANY, balanceCents: 640_050, rateBp: 790, paymentCents: 28_900, intervalMonths: 1, repayment: "fixed_instalment" });
@@ -136,10 +127,10 @@ test("a payment that looks like a loan is asked in Tarkistettavat: saved as a lo
     await expect(card.getByText("Ei lainoja.")).toBeVisible();
     expect(await queued()).toHaveLength(1);
 
-    // Ei ole laina: the item goes at once, and the mark is stored under the subject of its own
+    // Ei ole laina: the row closes at once, and the mark is stored under the subject of its own
     await reach();
-    await item.getByRole("button", { name: "Ei ole laina" }).click();
-    await expect(name).not.toHaveText(COMPANY);
+    await row.getByRole("button", { name: "Ei ole laina" }).click();
+    await expect(answered.locator(".review-debt-result")).toHaveText("Ei ole laina");
     const { marks } = await (await context.request.get("/api/recurring")).json();
     expect(marks.map((m: { subject: string; mark: string }) => [m.subject.replace(/^(loan-proposal:out:)[^:]+:/, "$1<account>:"), m.mark])).toContainEqual(["loan-proposal:out:<account>:Nordea Rahoitus Suomi Oy#28900", "dismissed"]);
     expect(await queued()).toEqual([]);
