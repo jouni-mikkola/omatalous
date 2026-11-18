@@ -3,7 +3,7 @@
  * keeps its own answer route (rules, payer roles, marks, loans, account answers); this only gathers and orders, so an
  * answer given here changes what the old card's answer changed.
  */
-import { addDays, type AnalysisContext, type AnalysisTx, billCents, billDueSubject, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, type HouseholdMember, householdWords, isCancelled, isUnknownMerchant, type LoanKind, lenderInstalments, marksBySubject, memberOfRow, missedOn, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, proposalWeight, type RecurringSeries, seriesMarkSubject, type UserInputs } from "@banking/core";
+import { addDays, type AnalysisContext, type AnalysisTx, billCents, billDueSubject, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, type HouseholdMember, householdWords, type InferredLoanTerms, inferLoanTerms, isCancelled, isUnknownMerchant, type LoanKind, lenderInstalments, marksBySubject, memberOfRow, missedOn, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, proposalWeight, type RecurringSeries, seriesMarkSubject, type UserInputs } from "@banking/core";
 import { connectionView } from "./accounts.ts";
 import { requestInputs } from "./analysis.ts";
 import { visibleTo } from "./visible-accounts.ts";
@@ -76,6 +76,8 @@ interface LoanItem extends Base {
   /** The app's guess of the kind, for the form; the household decides. */
   guess: LoanKind;
   placed: boolean;
+  /** What the rows tell of its terms, for the form. */
+  terms: InferredLoanTerms | null;
 }
 
 /**
@@ -296,7 +298,9 @@ const loans: Source = async (_s, _userId, own) => {
     // a lender's few payments are no series: the proposal holds its rows
     const rowIds = series.get(p.seriesId) ?? [...(p.rowIds ?? [])];
     if (p.plan) return p.planAnswer === null ? [{ kind: "plan", id: `plan:${p.key}`, cents, key: p.key, payee: p.payee, paymentCents: p.paymentCents, lastDate: p.lastDate, rowIds, whole: true }] : [];
-    return [{ kind: "loan", id: `loan:${p.key}`, cents, key: p.key, payee: p.payee, paymentCents: p.paymentCents, ...(p.monthlyCents === null ? { noMonthly: true as const } : {}), months: p.months, firstDate: p.firstDate, lastDate: p.lastDate, guess: p.kind, placed: p.placed, rowIds, whole: true }];
+    const byId = memoOn(ctx, "review:rows-by-id", null, () => new Map(ctx.txs.map((t) => [t.id, t])));
+    const terms = inferLoanTerms(rowIds.flatMap((id) => byId.get(id) ?? []).map((t) => ({ date: t.bookingDate, cents: Math.abs(billCents(t)) })));
+    return [{ kind: "loan", id: `loan:${p.key}`, cents, key: p.key, payee: p.payee, paymentCents: p.paymentCents, ...(p.monthlyCents === null ? { noMonthly: true as const } : {}), months: p.months, firstDate: p.firstDate, lastDate: p.lastDate, guess: p.kind, placed: p.placed, terms, rowIds, whole: true }];
   });
 };
 
