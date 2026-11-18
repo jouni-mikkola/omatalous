@@ -113,6 +113,12 @@ describe("the table of themes", () => {
       "Auton osto",
     ]);
   });
+
+  it("has the car's finance under Velanhoito, not in Auto", () => {
+    expect(THEMES.find((t) => t.id === "car")!.lines.some((l) => l.id === "finance")).toBe(false);
+    expect(THEMES.find((t) => t.id === "loans")!.lines.map((l) => l.id)).toContain("loans");
+    expect(places([carLoan()])).toEqual(["Velanhoito / Kulutusluotot"]);
+  });
 });
 
 describe("a row's theme and line", () => {
