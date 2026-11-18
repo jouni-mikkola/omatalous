@@ -17,7 +17,7 @@ const card = (over: Partial<Answer["cards"][number]> = {}): Answer["cards"][numb
   id: "k1", name: "Esimerkkikortti", bank: null, ownerName: null, mask: null, limitCents: 300_000, usedCents: 0, freeCents: 300_000, overCents: 0, balanceAt: "2026-10-12", ...over,
 });
 const loan = (over: Partial<Answer["loans"][number]> = {}): Answer["loans"][number] => ({
-  id: "l1", name: "Kodin laina", lender: "Esimerkkirahoitus Oy", kind: "mortgage", ownerName: null, leftCents: 12_000_000, monthlyPaymentCents: 100_000, endDate: "2041-03-15", interest12Cents: 400_000, source: "typed", maybeTwice: false, paidOff: false, ...over,
+  id: "l1", name: "Kodin laina", lender: "Esimerkkirahoitus Oy", kind: "mortgage", ownerName: null, leftCents: 12_000_000, monthlyPaymentCents: 100_000, endDate: "2041-03-15", source: "typed", maybeTwice: false, paidOff: false, ...over,
 });
 const answer = (over: Partial<Answer> = {}): Answer => ({ accounts: [], accountsCents: null, typeCents: { checking: null, savings: null, other: null }, accountsAddUp: false, accountShares: null, netCents: null, cards: [], cardsCents: null, loans: [], loansCents: null, loansEndDate: null, debtCents: 0, ...over });
 const html = (h: Answer) => renderToStaticMarkup(createElement(Holdings, { holdings: h, meta }));
