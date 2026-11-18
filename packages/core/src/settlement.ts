@@ -218,8 +218,9 @@ const readsRow = (w: SaidWord, r: RowParts, poolKey: string): boolean =>
  * the closing day reads anew, and those of rows the month never held (booked after it was stored). An answer reads the
  * rows that paid from its group or the opening; a use, a split or an agreement of the pool in force by the month's end
  * reads every row, and one of a card the card's bills. A rule, a category or the holder names is no word of the
- * household, and a cost whose split is untold today says nothing new. `keeps`: whether an earlier correction that records
- * no rows is taken off, which only a word said by its day or a row the month never held can have made. Null when nothing
+ * household, and a cost whose split is untold today says nothing new. A cost counted in a fixed amount is taken with the
+ * month's fixed line and every other such cost. `keeps`: whether an earlier correction that records no rows is taken off,
+ * which only a word said by its day can have made or a row the month never held can be in already. Null when nothing
  * is taken: the month and the corrections later snapshots took in for it stand as they are.
  */
 function comparedLines(c: ClosedMonth, now: Settlement, pool: SettlementPool, agreements: readonly AgreementRow[], rowOf: ReadonlyMap<string, RowParts>, untoldToday: (key: string | undefined) => boolean) {
@@ -238,12 +239,12 @@ function comparedLines(c: ClosedMonth, now: Settlement, pool: SettlementPool, ag
     const r = key === undefined ? undefined : rowOf.get(key);
     return !!r && words.some((w) => readsRow(w, r, pool.key));
   };
-  const take = (l: SettlementLine): boolean => {
-    if (l.kind === "late_change" || untoldToday(l.key) || untoldToday(l.of)) return false;
-    // the month's one owed line follows its costs when one comes or an agreement or use is said anew
-    if (l.kind === "fixed") return anyFresh || words.some((w) => w.account !== undefined);
-    return fresh(l) || reads(l.key) || reads(l.of);
-  };
+  const anew = (l: SettlementLine): boolean => l.kind !== "late_change" && !untoldToday(l.key) && !untoldToday(l.of) && (fresh(l) || reads(l.key) || reads(l.of));
+  // a cost counted in the month's fixed amount owes nothing of its own: the fixed line owes it. So the fixed line and every
+  // such row, in either reading, are taken together or not at all, and the correction owes what it pays.
+  const inFixed = new Set([...now.lines, ...c.lines].filter((l) => (l.kind === "cost" || l.kind === "refund") && !l.owed.length).map((l) => l.key));
+  const fixedAnew = [...now.lines, ...c.lines].some((l) => inFixed.has(l.key) && anew(l));
+  const take = (l: SettlementLine): boolean => (l.kind === "fixed" || inFixed.has(l.key) ? fixedAnew : anew(l));
   if (![...now.lines, ...c.lines].some(take)) return null;
   return { take, keeps: (t: SettlementLine): boolean => anyFresh || words.some((w) => w.on <= t.day) };
 }

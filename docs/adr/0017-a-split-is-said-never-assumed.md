@@ -38,10 +38,18 @@ booked after it was stored, is compared too, so its cost lands as a correction.
 A correction records what it moved by row (`byRow`), and a later one takes off only the rows it reads again, so no
 figure is counted twice and none is reversed by a word on other rows.
 
+A cost counted in a fixed month's net cost owes nothing of its own: the month's fixed line owes it. So the fixed line and
+every such cost, as the month closed and as it reads today, are compared together or not at all, and a correction always
+owes what it pays.
+
 What this leaves:
 
 - A rule that turns a row that was no cost into a cost still corrects the month, since the month never held that row.
 - A word that is taken back leaves no date, so it brings no correction and the figure settled with it stands.
+- When one cost in a fixed amount is compared, a rule that moved another cost in or out of that amount corrects the
+  month too.
 - A correction stored before rows were recorded is taken off whole when a word that reads the month was said by its day,
-  or the month has rows it never held, and otherwise stands. An answer said before such a line and said again after it
-  is counted twice, since only its latest day is stored.
+  or the month has rows it never held, and otherwise stands. Such a line compared every row, so a row booked before it
+  and never held by the month is in it already; only taking the line off counts that row once. What the line carried for
+  a word since taken back is lost then. An answer said before such a line and said again after it is counted twice,
+  since only its latest day is stored.
