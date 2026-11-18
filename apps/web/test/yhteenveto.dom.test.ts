@@ -52,8 +52,8 @@ function data(more: Partial<DashboardData> = {}): Data {
   return { ...rest, ...more, nyt: nytOf(true) };
 }
 
-function summaryIn(d: Data) {
-  const { container } = render(createElement(Summary, { data: d, today: TODAY }));
+function summaryIn(d: Data, today = TODAY) {
+  const { container } = render(createElement(Summary, { data: d, today }));
   return container;
 }
 
@@ -129,17 +129,47 @@ describe("Yhteenveto's month", () => {
     expect(container.querySelectorAll(".home-figs a, .home-figs button").length).toBe(0);
   });
 
-  // the chart's words said it of a shorter month before; the figure said "to the same day" of the whole month
-  it("after a shorter month Menot names last month's sum as the whole month's", () => {
-    const curve = Array.from({ length: 30 }, () => 300000);
-    const d = data({ pace: { ...data().pace, month: "2026-12", previous: { month: "2026-11", curve, day: 30, toToday: 300000 } } } as never);
-    const end = { ...d, nyt: { ...d.nyt, from: "2026-12-31", pace: { ...d.nyt.pace, day: 31 } } };
-    expect(figuresIn(summaryIn(end))[1]!.lines).toEqual(["Koko viime kuussa 3 000 €"]);
-    const same = { ...d, nyt: { ...d.nyt, pace: { ...d.nyt.pace, day: 30 } } };
-    expect(figuresIn(summaryIn(same))[1]!.lines).toEqual(["Viime kuussa samaan päivään 3 000 €"]);
-    // after a longer month (30.4. against all of March) the month before is read past today's day: the whole month again
-    const longer = { ...d, nyt: { ...d.nyt, pace: { ...d.nyt.pace, day: 29 } } };
-    expect(figuresIn(summaryIn(longer))[1]!.lines).toEqual(["Koko viime kuussa 3 000 €"]);
+  // the chart's words said it of a shorter month before; the figure said "to the same day" of the whole month. Tulot and Tulos
+  // said "to the same day" on 30.4., which reads all of March, while Menot said "all of last month"
+  describe("the words of the month before", () => {
+    /** The month `today` is in, running, with the month before read the way the server reads it (Tulot, Tulos, Menot all from the data's own window). */
+    function onDay(today: string) {
+      const [year, month] = today.slice(0, 7).split("-").map(Number) as [number, number];
+      const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
+      const before = new Date(Date.UTC(year, month - 2, 1)).toISOString().slice(0, 7);
+      const curve = Array.from({ length: new Date(Date.UTC(year, month - 1, 0)).getUTCDate() }, () => 140000);
+      const d = data({
+        range: { from: `${today.slice(0, 7)}-01`, to: `${today.slice(0, 7)}-${last}`, previousFrom: `${before}-01` },
+        pace: { ...data().pace, month: today.slice(0, 7), previous: { month: before, curve, day: Math.min(Number(today.slice(8)), curve.length), toToday: 140000 } },
+      } as never);
+      return summaryIn({ ...d, nyt: { ...d.nyt, pace: { ...d.nyt.pace, day: Number(today.slice(8)) } } }, today);
+    }
+    const linesOf = (container: HTMLElement) => figuresIn(container).map((f) => f.lines[0]);
+    const SAME = ["Viime kuussa samaan päivään 3 800 €", "Viime kuussa samaan päivään 1 400 €", "Viime kuussa samaan päivään 1 900 €"];
+    const WHOLE = ["Koko viime kuussa 3 800 €", "Koko viime kuussa 1 400 €", "Koko viime kuussa 1 900 €"];
+
+    it("mid-month all three figures read to the same day", () => {
+      expect(linesOf(onDay("2026-11-11"))).toEqual(SAME);
+      // a month before as long as today's day of the month is still read to the same day
+      expect(linesOf(onDay("2026-04-29"))).toEqual(SAME);
+    });
+
+    it("on the 30th of April all three figures read all of March", () => {
+      expect(linesOf(onDay("2026-04-30"))).toEqual(WHOLE);
+    });
+
+    it("on the 31st of May all three figures read all of April", () => {
+      expect(linesOf(onDay("2026-05-31"))).toEqual(WHOLE);
+    });
+
+    it("on the last day of a short February all three figures read all of January", () => {
+      expect(linesOf(onDay("2026-02-28"))).toEqual(WHOLE);
+    });
+
+    it("a month before shorter than today's day is read whole, the 31st of October against September", () => {
+      expect(linesOf(onDay("2026-10-31"))).toEqual(WHOLE);
+      expect(linesOf(onDay("2026-03-30"))).toEqual(WHOLE);
+    });
   });
 
   it("without a comparison the figures say what they wait for or nothing", () => {
@@ -256,6 +286,25 @@ describe("Yhteenveto's month", () => {
     expect(rowsOf(container)).toEqual([["savings-left", "Otettu säästöistä", "200 €"], ["consumption", "Kulutus", "1 500 €"], ["debt", "Maksettu velanhoito", "200 €"], ["left", "Tulos", "1 928 €"]]);
     const shares = [...container.querySelectorAll(".home-flow-share")].map((el) => Number.parseInt(flat(el.textContent), 10)).filter((n) => !Number.isNaN(n));
     expect(shares.reduce((sum, n) => sum + n, 0)).toBe(100);
+  });
+
+  // a part of the list is never a negative sum: money taken out of savings or paid back to credit stands as the part that names it, positive, and the saved and drawn parts of the other direction are no row
+  it("a negative saved term shows as money taken out of savings: the same euros under Tulos and in the list, and no negative row", () => {
+    // 200,40 taken out of savings: Tulot 3 428, Menot 1 700, Tulos 1 928 in whole euros, so 200 € stands between them
+    const overview = { income: { cents: 342800, earnedCents: 342800 }, months: [{ month: "2026-11", incomeCents: 342800, spendCents: 170000, fromSavingsCents: 0, complete: false }] };
+    const container = summaryIn(data({ totals: totalsOf(342800, 150000, 20000, -20040), overview } as never));
+    expect([...container.querySelectorAll("[data-fig=result] .home-fig-term")].map((el) => flat(el.textContent))).toEqual(["Otettu säästöistä 200 €"]);
+    expect(rowsOf(container)).toEqual([["savings-left", "Otettu säästöistä", "200 €"], ["consumption", "Kulutus", "1 500 €"], ["debt", "Maksettu velanhoito", "200 €"], ["left", "Tulos", "1 928 €"]]);
+    expect(container.querySelector(".home-flow-list [data-part=saved]")).toBeNull();
+    expect(flat(container.querySelector(".home-flow-list")?.textContent)).not.toContain("−");
+  });
+
+  it("a negative credit term shows as credit paid back: the same euros under Tulos and in the list, and no row of credit drawn", () => {
+    const overview = { income: { cents: 100000, earnedCents: 100000 }, months: [{ month: "2026-11", incomeCents: 100000, spendCents: 50000, fromSavingsCents: 0, complete: false }] };
+    const container = summaryIn(data({ totals: { ...totalsOf(100000, 50000, 0, 0), borrowedCents: -40000, leftCents: 10000 }, overview } as never));
+    expect([...container.querySelectorAll("[data-fig=result] .home-fig-term")].map((el) => flat(el.textContent))).toEqual(["Luottoa maksettu takaisin 400 €"]);
+    expect(rowsOf(container)).toEqual([["consumption", "Kulutus", "500 €"], ["repaid", "Luottoa maksettu takaisin", "400 €"], ["left", "Tulos", "100 €"]]);
+    expect(container.querySelector(".home-flow-list [data-part=credit-left]")).toBeNull();
   });
 
   it("draws no bar with no income, and the parts stand as a list alone", () => {
