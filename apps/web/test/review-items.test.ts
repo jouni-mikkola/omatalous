@@ -159,10 +159,10 @@ describe("the choices", () => {
 });
 
 describe("the kinds the page has a card for", () => {
-  const KINDS = ["payee_out", "payee_in", "payer", "loan", "plan", "split", "subscription", "mortgage", "loan_terms", "money_back", "balance", "card_balance", "consent", "bill", "row"];
+  const KINDS = ["payee_out", "payee_in", "payer", "loan", "plan", "split", "subscription", "mortgage", "loan_terms", "loan_drift", "money_back", "balance", "card_balance", "consent", "bill", "row"];
   const of = (kind: string) => ({ kind, id: kind, cents: 0 }) as unknown as ReviewItem;
 
-  it("are the fifteen that stay: a number for the removed tips page is not one of them", () => {
+  it("are the sixteen that stay: a number for the removed tips page is not one of them", () => {
     expect(openItems(KINDS.map(of), NEW_SITTING).map((i) => i.kind)).toEqual(KINDS);
     // an older server may still send the question: it gets no card and is not counted
     expect(openItems([of("input"), of("mortgage")], NEW_SITTING).map((i) => i.kind)).toEqual(["mortgage"]);
@@ -175,12 +175,14 @@ describe("a saved loan that lacks a fact", () => {
   it("is named by the loan and asks for the one fact it lacks", () => {
     const asked = (missing: string) => questionOf({ ...loan, missing } as ReviewItem);
     expect([eyebrow(loan), nameOf(loan)]).toEqual(["Laina", "Asuntolaina"]);
-    expect(["repayment", "interval", "payment", "rate", "end_date"].map(asked)).toEqual([
+    expect(["repayment", "interval", "payment", "rate", "end_date", "margin", "review_date"].map(asked)).toEqual([
       "Miten maksat tämän lainan takaisin?",
       "Kuinka usein lyhennät tätä lainaa?",
       "Paljonko lainan maksuerä on?",
       "Mikä on lainan kokonaiskorko?",
       "Milloin lainan viimeinen eräpäivä on?",
+      "Mikä on lainan marginaali?",
+      "Minä päivänä pankki tarkistaa lainan koron?",
     ]);
   });
   it("asks a connected card for its total rate", () => {
@@ -190,6 +192,23 @@ describe("a saved loan that lacks a fact", () => {
   it("shows what the loan owes and the day of that balance", () => {
     const f = figureOf(loan);
     expect([f.text.replace(/\s/g, " "), f.unit, f.line]).toEqual(["150 000,00 €".replace(/\s/g, " "), "velkaa", "Saldo päivältä 1.10."]);
+  });
+});
+
+describe("a payment of a saved loan that its plan did not expect", () => {
+  const drift = { kind: "loan_drift", id: "loan_drift:l1", cents: 0, loanId: "l1", name: "Asuntolaina", date: "2026-11-05", paidCents: 95_000, expectedCents: 90_000, newPaymentCents: 95_000, reviewDate: null } as unknown as ReviewItem;
+  it("is named by the loan and asks whether the payment changed", () => {
+    expect([eyebrow(drift), nameOf(drift), questionOf(drift)]).toEqual(["Laina", "Asuntolaina", "Onko lainan maksuerä muuttunut?"]);
+  });
+  it("shows what the bank took and what the plan expected", () => {
+    const f = figureOf(drift);
+    expect([f.text.replace(/\s/g, " "), f.unit, f.line.replace(/\s/g, " ")]).toEqual(["950,00 €".replace(/\s/g, " "), "veloitus", "Veloitus 5.11., maksu korkoineen on 900,00 €".replace(/\s/g, " ")]);
+  });
+  it("names the whole due amount with its interest, not the payment the form holds, for an equal principal", () => {
+    const equalPrincipal = { ...drift, paidCents: 138_750, expectedCents: 133_750, newPaymentCents: 95_000 } as unknown as ReviewItem;
+    const f = figureOf(equalPrincipal);
+    expect(f.line.replace(/\s/g, " ")).toBe("Veloitus 5.11., maksu korkoineen on 1 337,50 €".replace(/\s/g, " "));
+    expect(f.line).not.toContain("maksuerä");
   });
 });
 
