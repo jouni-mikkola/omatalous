@@ -275,7 +275,8 @@ const ANSWERS: Record<FigureKey, Answers> = {
     return { report: row.cost?.rateMilli ?? null, debtCost: debtCost(typedLoan(h), h.today)?.rateMilli ?? null };
   },
   debtCost12: (h) => {
-    const r = loansReport(contextOf(h), [], { ...h.inputs, loans: [typedLoan(h)] });
+    // a context with no rows: a loan the rows show and nobody saved leaves the total unknown, which the report test holds
+    const r = loansReport(createContext([], [], h.today), [], { ...h.inputs, loans: [typedLoan(h)] });
     const rows = r.loans.map((l) => l.cost?.next12?.cents ?? null);
     return {
       report: r.cost12.cents,

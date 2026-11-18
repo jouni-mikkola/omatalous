@@ -588,7 +588,7 @@ describe("loans: the Lainat report and net worth", () => {
     // ten monthly payments to a lender nobody saved a loan of: it costs money and has no terms to price
     const lender = Array.from({ length: 10 }, (_, i) => {
       const description = "LAINANLYHENNYS 1234567";
-      return tx({ accountId: "acc-1", bookingDate: `${addMonths("2026-10", i - 9)}-05`, amountCents: -100_001, counterparty: "NORDEA BANK ABP", description, merchant: normalizeMerchant("NORDEA BANK ABP", description) });
+      return tx({ accountId: "acc-1", bookingDate: `${addMonths("2026-10", i - 9)}-05`, amountCents: -30_000, counterparty: "NORDEA BANK ABP", description, merchant: normalizeMerchant("NORDEA BANK ABP", description) });
     });
     const at = (rows: Transaction[], loans: Loan[]) =>
       buildReports({ ctx: createContext(enrichTransactions(rows, [checking], []), [checking], today), range: { from: "2026-08-01", to: today }, balances: [given(checking, 200000)], inputs: { marks: [], expectedBills: [], loans } }).loans;
