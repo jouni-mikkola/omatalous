@@ -12,15 +12,20 @@ const SHOTS = process.env.SHOTS_DIR;
 
 type Item = { id: string; kind: string; cents: number; [field: string]: unknown };
 
-const loan: Item = { kind: "loan", id: "loan:out:chk:Esimerkkirahoitus#25000", cents: 300_000, key: "out:chk:Esimerkkirahoitus#25000", payee: "Esimerkkirahoitus", paymentCents: 25_000, months: 9, firstDate: "2026-01-05", lastDate: "2026-09-05", guess: "car", placed: false };
+/** A debt of the list Täydennä lainat, as the server sends it. */
+const debtOf = (over: Record<string, unknown>) => ({ id: "d", source: "proposal", name: "", loanId: null, accountId: null, key: null, kind: "other", placed: true, monthlyCents: null, latestCents: null, lastDate: null, owedCents: null, balanceDate: null, gaps: [], subject: null, terms: null, savedCards: [], ...over });
+const listOf = (cents: number, debts: { key: unknown }[]): Item => ({ kind: "loan_terms_list", id: "loan-terms", cents, debts, debtsCents: null, noBalance: debts.length });
+const LOAN_KEY = "out:chk:Esimerkkirahoitus#25000";
+// a loan the app cannot place: its kind is asked in its row
+const loan = listOf(300_000, [debtOf({ id: `proposal:${LOAN_KEY}`, name: "Esimerkkirahoitus", key: LOAN_KEY, kind: "car", placed: false, monthlyCents: 25_000, latestCents: 25_000, lastDate: "2026-09-05" })]);
 /** The shop's own rows as the server sends them, the newest first: its display name and the bank's raw text. */
 const shopRows = [20, 19, 18, 17, 16].map((d, n) => ({ id: `r${n}`, date: `2026-09-${d}`, cents: -8450, name: "Esimerkki Kauppa Oy", text: "KORTTIOSTO ESIMERKKI KAUPPA" }));
 const shop: Item = { kind: "payee_out", id: "payee_out:Esimerkki Kauppa Oy", cents: 76_050, merchant: "Esimerkki Kauppa Oy", count: 5, lastDate: "2026-09-20", picks: ["groceries", "restaurants", "car", "shopping"], rows: shopRows, rowCount: 5 };
 const payer: Item = { kind: "payer", id: "payer:name:ESIMERKKI VILLE", cents: 60_000, key: "name:ESIMERKKI VILLE", merchant: "Esimerkki Ville", count: 3, lastDate: "2026-09-03", options: ["cost_share", "sales", "own_money", "gift", "pay"], proposal: "cost_share" };
 const split: Item = { kind: "split", id: "split:acc-1:in:g:text:KAVERI", cents: 45_000, accountId: "acc-1", accountName: "Yhteistili", question: "in", key: "g:text:KAVERI", label: "Esimerkki Kaveri" };
 const sub: Item = { kind: "subscription", id: "subscription:out:chk:Esimerkkistream", cents: 15_588, seriesId: "out:chk:Esimerkkistream", subject: "series:out:chk:Esimerkkistream#1299", merchant: "Esimerkkistream", monthlyCents: 1299, lastDate: "2026-10-08" };
-const plan: Item = { kind: "plan", id: "plan:out:chk:Esimerkkiosamaksu#4990", cents: 59_880, key: "out:chk:Esimerkkiosamaksu#4990", payee: "Esimerkkiosamaksu", paymentCents: 4990, lastDate: "2026-09-12" };
-const cardBill: Item = { kind: "card_bill", id: "card_bill:out:chk:Esimerkkikortti", cents: 552_000, key: "out:chk:Esimerkkikortti", payee: "Esimerkkikortti", savedCards: [], paymentCents: 46_000, months: 7, firstDate: "2026-03-12", lastDate: "2026-09-12" };
+const plan = debtOf({ id: "plan:out:chk:Esimerkkiosamaksu#4990", source: "plan", name: "Esimerkkiosamaksu", key: "out:chk:Esimerkkiosamaksu#4990", kind: "instalment", monthlyCents: 4990, latestCents: 4990, lastDate: "2026-09-12" });
+const cardBill = listOf(552_000, [debtOf({ id: "card_bill:out:chk:Esimerkkikortti", source: "card_bill", name: "Esimerkkikortti", key: "out:chk:Esimerkkikortti", kind: "card", monthlyCents: 46_000, latestCents: 46_000, lastDate: "2026-09-12" })]);
 const gift: Item = { kind: "payee_in", id: "payee_in:Esimerkki Täti", cents: 10_000, merchant: "Esimerkki Täti", count: 1, lastDate: "2026-06-12", picks: ["salary"] };
 
 interface Stub {
@@ -48,6 +53,13 @@ async function follow(page: Page, items: Item[]): Promise<Stub> {
   await page.route(/\/api\/marks$/, (route) =>
     record(route, { marks: [] }, (b) => {
       const subject = String(b.subject);
+      // a debt's answer takes the debt out of the list, and the list goes with its last debt
+      const answers = (d: { key: unknown }) => subject === `loan-proposal:${d.key}` || subject.endsWith(`:${String(d.key)}`);
+      stub.items = stub.items.flatMap((i) => {
+        if (i.kind !== "loan_terms_list") return [i];
+        const debts = (i.debts as { key: unknown }[]).filter((d) => !answers(d));
+        return debts.length > 0 ? [{ ...i, debts, noBalance: debts.length }] : [];
+      });
       return (i) => subject === i.subject || subject === `question:payee:${i.merchant}` || subject === `loan-proposal:${i.key}` || subject.endsWith(`:${i.key}`) || subject.endsWith(`:${String(i.key)}`);
     }),
   );
@@ -86,12 +98,13 @@ test("each kind is asked in its own words and answered through its own route, th
   // the head is the sitting: what is open, and no bar of its own; no sentence about the known share
   await expect(page.getByRole("progressbar")).toHaveCount(0);
 
-  // the most money first: a loan the app cannot place, its guess first and marked
-  await expect(card(page).locator(".review-kind")).toHaveText("Laina");
-  await expect(card(page).locator(".review-name")).toHaveText("Esimerkkirahoitus");
-  expect(plain(await card(page).locator(".review-figure").textContent() ?? "")).toBe("250,00 € kuussa");
-  await expect(question(page)).toContainText("Mikä laina tämä on?");
-  const choices = card(page).locator(".review-choice");
+  // the debts first: the list of loans, with a row for a loan the app cannot place, its guess first and marked
+  await expect(card(page).locator(".review-kind")).toHaveText("Velat");
+  await expect(card(page).locator(".review-name")).toHaveText("Lainat ja kortit");
+  await expect(question(page)).toContainText("Täydennä lainat");
+  const row = card(page).locator("li.review-debt");
+  expect(plain((await row.locator(".review-debt-name").textContent()) ?? "")).toBe("Esimerkkirahoitus · 250,00 €/kk · eräpäivä 5.");
+  const choices = row.getByRole("group", { name: "Laji" }).getByRole("button");
   await expect(choices.first()).toHaveAccessibleName("Autolaina Ehdotus");
   // the guess is framed, not filled: nothing reads as already chosen
   await expect(choices.first()).toHaveClass(/is-guess/);
@@ -99,9 +112,12 @@ test("each kind is asked in its own words and answered through its own route, th
   await expect(choices.last()).toHaveText("Ei ole laina");
   if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-loan-1280.png"), fullPage: true });
   await choices.last().click();
+  await expect.poll(() => stub.posted.at(-1)).toEqual({ path: "/api/marks", method: "PUT", body: { subject: `loan-proposal:${LOAN_KEY}`, mark: "dismissed" } });
+  // the row closes into its answer, and Seuraava moves on once no row is left
+  await expect(row.locator(".review-debt-result")).toHaveText("Ei ole laina");
+  await card(page).getByRole("button", { name: "Seuraava" }).click();
   await expect(card(page).locator(".review-name")).toHaveText("Esimerkki Kauppa Oy");
   await expect(question(page)).toBeFocused();
-  await expect.poll(() => stub.posted.at(-1)).toEqual({ path: "/api/marks", method: "PUT", body: { subject: `loan-proposal:${loan.key}`, mark: "dismissed" } });
   await expectOneCount(page, 5);
 
   // a payee: the rows behind it on a tap, then a category saved as the rule the old card saved
@@ -185,17 +201,18 @@ test("each kind is asked in its own words and answered through its own route, th
 
 test("on a phone the card whose bills are paid and which is not connected offers two large answers, and entering the debt opens the loan form", async ({ browser }) => {
   const { context, page, seen } = await open(browser, 390, [cardBill]);
-  await page.route(/\/api\/loans$/, (route) => (route.request().method() === "GET" ? route.fulfill({ json: { loans: [] } }) : route.fallback()));
-  await expect(card(page).locator(".review-kind")).toHaveText("Luottokortti");
-  await expect(card(page).locator(".review-name")).toHaveText("Esimerkkikortti");
-  await expect(question(page)).toContainText("Maksat kortin laskuja, mutta korttia ei ole yhdistetty");
+  await page.route(/\/api\/loans$/, (route) => (route.request().method() === "GET" ? route.fulfill({ json: { loans: [], fixings: {} } }) : route.fallback()));
+  await expect(card(page).locator(".review-kind")).toHaveText("Velat");
+  await expect(question(page)).toContainText("Täydennä lainat");
+  // the card is a row of the list, headed by what its bills tell
+  expect(plain((await card(page).locator(".review-debt-name").textContent()) ?? "")).toBe("Esimerkkikortti · 460,00 €/kk · eräpäivä 12.");
   const connect = card(page).getByRole("link", { name: "Yhdistä kortti" });
   const enter = card(page).getByRole("button", { name: "Kirjaa kortin velka" });
   for (const answer of [connect, enter]) expect((await answer.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   expect(await overflow(page)).toBeLessThanOrEqual(0);
   if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-card-bill-390.png"), fullPage: true });
   await enter.click();
-  await expect(card(page).getByLabel(/Lainaa jäljellä/)).toBeVisible();
+  await expect(card(page).getByLabel(/^(Lainaa j|J)äljellä/)).toBeVisible();
   expect(await overflow(page)).toBeLessThanOrEqual(0);
   expect(seen.problems).toEqual([]);
   await context.close();
@@ -249,24 +266,30 @@ test("a payee's guess comes first, framed, with its reason below; the rest are t
 });
 
 test("an instalment plan is asked how many payments are left: a count, a month or En tiedä, each a mark on the plan", async ({ browser }) => {
-  const second = { ...plan, id: "plan:two", key: "out:chk:Toinen#2500", payee: "Toinen osamaksu" };
-  const third = { ...plan, id: "plan:three", key: "out:chk:Kolmas#1500", payee: "Kolmas osamaksu", cents: 100 };
-  const { context, page, seen, stub } = await open(browser, 390, [plan, second, third]);
-  await expect(card(page).locator(".review-kind")).toHaveText("Osamaksu");
-  await expect(question(page)).toContainText("Montako maksua on vielä jäljellä?");
-  const save = card(page).getByRole("button", { name: "Tallenna", exact: true });
+  const second = { ...plan, id: "plan:two", key: "out:chk:Toinen#2500", name: "Toinen osamaksu" };
+  const third = { ...plan, id: "plan:three", key: "out:chk:Kolmas#1500", name: "Kolmas osamaksu" };
+  const { context, page, seen, stub } = await open(browser, 390, [listOf(59_880, [plan, second, third])]);
+  await expect(card(page).locator(".review-kind")).toHaveText("Velat");
+  // each plan is a row of the list, the first still asked on top
+  const asked = card(page).locator("li.review-debt:not(.is-done)").first();
+  await expect(asked.locator(".review-debt-name")).toContainText("Esimerkkiosamaksu");
+  const save = asked.getByRole("button", { name: "Tallenna", exact: true });
   await expect(save).toBeDisabled();
-  await card(page).getByLabel("Maksuja jäljellä").fill("6");
+  await asked.getByLabel("Maksuja jäljellä").fill("6");
   if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-plan-390.png"), fullPage: true });
   expect(await overflow(page)).toBeLessThanOrEqual(0);
   await save.click();
   await expect.poll(() => stub.posted.at(-1)?.body).toEqual({ subject: `question:plan-end:2027-03:${plan.key}`, mark: "in_use" });
-  await expect(card(page).locator(".review-name")).toHaveText("Toinen osamaksu");
-  await card(page).getByLabel("Viimeinen kuukausi").fill("2027-01");
-  await card(page).getByRole("button", { name: "Tallenna kuukausi" }).click();
+  await expect(asked.locator(".review-debt-name")).toContainText("Toinen osamaksu");
+  await asked.getByLabel("Viimeinen kuukausi").fill("2027-01");
+  await asked.getByRole("button", { name: "Tallenna kuukausi" }).click();
   await expect.poll(() => stub.posted.at(-1)?.body).toEqual({ subject: `question:plan-end:2027-01:${second.key}`, mark: "in_use" });
-  await card(page).getByRole("button", { name: "En tiedä" }).click();
+  await expect(asked.locator(".review-debt-name")).toContainText("Kolmas osamaksu");
+  await asked.getByRole("button", { name: "En tiedä" }).click();
   await expect.poll(() => stub.posted.at(-1)?.body).toEqual({ subject: `question:plan-unknown:${third.key}`, mark: "in_use" });
+  // every plan's row closed into its answer, and Seuraava ends the queue
+  await expect(card(page).locator("li.review-debt.is-done")).toHaveCount(3);
+  await card(page).getByRole("button", { name: "Seuraava" }).click();
   await expect(page.getByRole("heading", { name: "Ei kysyttävää" })).toBeVisible();
   expect(seen.problems).toEqual([]);
   await context.close();
@@ -274,7 +297,7 @@ test("an instalment plan is asked how many payments are left: a count, a month o
 
 test("at 390 the loan's kinds stand two to a row, and a first run with no bank opens the first-run page", async ({ browser }) => {
   const { context, page, seen, stub } = await open(browser, 390, [loan]);
-  const kinds = card(page).locator(".review-choice");
+  const kinds = card(page).getByRole("group", { name: "Laji" }).getByRole("button");
   const [a, b] = [await kinds.nth(0).boundingBox(), await kinds.nth(1).boundingBox()];
   expect(Math.abs(a!.y - b!.y)).toBeLessThan(2);
   expect(await overflow(page)).toBeLessThanOrEqual(0);

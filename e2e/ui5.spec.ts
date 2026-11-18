@@ -32,8 +32,13 @@ for (const width of [1000, 1099]) {
   }
 }
 
-// A loan question whose guess is the long "Asuntolaina", answered on a phone: the badge stays inside its button.
-const LOAN = { kind: "loan", id: "loan:ui5", cents: 120_000, key: "ui5", payee: "Pankki Oyj", paymentCents: 10_000, months: 12, firstDate: "2025-01-02", lastDate: "2025-12-02", guess: "mortgage", placed: true, rows: [], rowCount: 12 };
+// A loan in the list of debts whose kind the rows only suggest, the long "Asuntolaina", answered on a phone: the badge
+// stays inside its button.
+const DEBT = {
+  id: "proposal:ui5", source: "proposal", name: "Pankki Oyj", loanId: null, accountId: null, key: "ui5", kind: "mortgage", placed: false,
+  monthlyCents: 10_000, latestCents: 10_000, lastDate: "2025-12-02", owedCents: null, balanceDate: null, gaps: [], subject: null, terms: null, savedCards: [],
+};
+const LOAN = { kind: "loan_terms_list", id: "loan-terms", cents: 120_000, debts: [DEBT], debtsCents: null, noBalance: 1 };
 
 test(`390 px: Ehdotus fits inside the guessed choice`, async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 800 }, isMobile: true, hasTouch: true });

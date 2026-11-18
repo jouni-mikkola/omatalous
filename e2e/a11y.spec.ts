@@ -57,7 +57,12 @@ for (const [name, path, ready] of [
 
 // 0.69: the pages of the round's UI5, at the desktop and the phone width. Tarkistettavat is looked at with
 // a question on it and with the queue empty.
-const LOAN = { kind: "loan", id: "loan:a11y", cents: 120_000, key: "a11y", payee: "Pankki Oyj", paymentCents: 10_000, months: 12, firstDate: "2025-01-02", lastDate: "2025-12-02", guess: "mortgage", placed: true, rows: [], rowCount: 12 };
+// The list of debts: a loan whose kind the rows only suggest, so the kinds are asked, and one whose kind they tell.
+const debtOf = (n: number, placed: boolean) => ({
+  id: `proposal:a11y-${n}`, source: "proposal", name: `Pankki ${n} Oyj`, loanId: null, accountId: null, key: `a11y-${n}`, kind: placed ? "mortgage" : "consumer", placed,
+  monthlyCents: 10_000, latestCents: 10_000, lastDate: "2025-12-02", owedCents: null, balanceDate: null, gaps: [], subject: null, terms: null, savedCards: [],
+});
+const LOAN = { kind: "loan_terms_list", id: "loan-terms", cents: 240_000, debts: [debtOf(1, false), debtOf(2, true)], debtsCents: null, noBalance: 2 };
 for (const width of [1280, 390]) {
   for (const [name, path, ready, queue] of [
     ["Yhteenveto", "/#/overview", OVERVIEW_TILES, null],
@@ -80,13 +85,12 @@ for (const width of [1280, 390]) {
 
 // 0.69.1: three rules the serious-only checks above let through, on the pages that had them: a control's name holds its visible
 // text, a landmark is told apart from its twin, a table head cell is not empty. Any impact counts here.
-const ROWS = Array.from({ length: 5 }, (_, i) => ({ id: `r${i}`, date: `2025-0${i + 1}-02`, cents: -10_000, name: "Pankki Oyj", text: "LAINA" }));
-const MANY = { ...LOAN, rows: ROWS, rowCount: 5 };
+const MANY = { ...LOAN, debts: Array.from({ length: 5 }, (_, i) => debtOf(i + 1, i % 2 === 1)), noBalance: 5 };
 const RULES = ["label-content-name-mismatch", "landmark-unique", "empty-table-header"];
 for (const width of [1440, 390]) {
   for (const [name, path, ready, queue] of [
     ["Yhteenveto", "/#/overview", OVERVIEW_TILES, null],
-    ["Tarkistettavat", "/#/review", ".review-figure", [MANY]],
+    ["Tarkistettavat", "/#/review", ".review-debt-list", [MANY]],
     ["Tapahtumat", "/#/transactions", ".tx-bar", null],
     ["Asetukset", "/#/settings/members", "table:has(caption:text-is(\"Talouden jäsenet\"))", null],
   ] as const) {
