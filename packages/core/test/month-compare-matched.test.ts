@@ -125,22 +125,35 @@ function monthEndHousehold(today: IsoDate, lastMonth: string): Transaction[] {
   ];
 }
 
+const daysOf = (month: string): number => Number(monthEnd(month).slice(8));
+
 describe("the last days of a month", () => {
   it.each([
     ["2026-04-30", "2026-03"],
     ["2027-02-28", "2027-01"],
-  ] as const)("on %s a rent the month before booked on its last day is no part of Menot's days and is left out of Tulos's whole month", (today, lastMonth) => {
+  ] as const)("on %s a rent the month before booked on its last day is the payment this month has not booked, and is left out of both lines", (today, lastMonth) => {
     const d = buildDashboard(createContext(monthEndHousehold(today, lastMonth), [checking], today), { from: `${today.slice(0, 7)}-01`, to: today });
-    expect(d.pace.previous!.day).toBeLessThan(31);
+    expect(d.pace.previous!.day).toBe(daysOf(lastMonth));
     expect(d.range.previousFrom).toBe(`${lastMonth}-01`);
-    // the rent of the 31st is the payment this month has not booked, and no row of the first 28 or 30 days
     expect(lines(d)).toEqual({ menot: 10_000, tulos: 10_000 });
+  });
+
+  it.each([
+    ["2026-04-30", "2026-03"],
+    ["2027-02-28", "2027-01"],
+    ["2026-05-31", "2026-04"],
+  ] as const)("on %s a purchase of the month before's last day is in Menot and in Tulos, which read all of the month before", (today, lastMonth) => {
+    const rows = [...monthEndHousehold(today, lastMonth), tx({ bookingDate: monthEnd(lastMonth), amountCents: -4_000, merchant: "Prisma", category: "groceries" })];
+    const d = buildDashboard(createContext(rows, [checking], today), { from: `${today.slice(0, 7)}-01`, to: today });
+    expect(d.pace.previous).toMatchObject({ month: lastMonth, day: daysOf(lastMonth) });
+    expect(d.range.previousFrom).toBe(`${lastMonth}-01`);
+    expect(lines(d)).toEqual({ menot: 14_000, tulos: 14_000 });
   });
 
   it("reads a month before that is shorter than today's day whole, with its last payment, in both lines", () => {
     // 31.10. against September: its rent on the 30th is part of the whole month the line says it shows
     const d = buildDashboard(createContext(monthEndHousehold("2026-10-31", "2026-09"), [checking], "2026-10-31"), { from: "2026-10-01", to: "2026-10-31" });
-    expect(d.pace.previous!.day).toBeLessThan(31);
+    expect(d.pace.previous!.day).toBe(30);
     expect(lines(d)).toEqual({ menot: 115_000, tulos: 115_000 });
     expect(d.previousMonthTotals!.totals.expenseCents).toBe(115_000);
   });

@@ -74,6 +74,16 @@ describe("pace: the month against the month before", () => {
     expect(march.previous!.curve).toHaveLength(28);
   });
 
+  it("reads the whole month before on the last day of a shorter month: the 30th of April reads all of March", () => {
+    const rows = [pay("2026-03-01"), buy("2026-03-15", 3_000), buy("2026-03-31", 2_000), buy("2026-04-29", 100)];
+    const at = (day: IsoDate) => paceOf(rows, "2026-04", day).previous!;
+    expect(at("2026-04-30")).toMatchObject({ day: 31, toToday: 5_000 });
+    expect(at("2026-04-29")).toMatchObject({ day: 29, toToday: 3_000 });
+    // the 28th of February reads all of January
+    const jan = [pay("2027-01-01"), buy("2027-01-31", 2_000)];
+    expect(paceOf(jan, "2027-02", "2027-02-28").previous).toMatchObject({ day: 31, toToday: 2_000 });
+  });
+
   it("takes December of the year before for a January", () => {
     const dec = [pay("2026-12-01"), buy("2026-12-05", 4_000), buy("2026-12-20", 9_000), buy("2027-01-04", 1_000)];
     expect(paceOf(dec, "2027-01", "2027-01-12").previous).toMatchObject({ month: "2026-12", day: 12, toToday: 4_000 });

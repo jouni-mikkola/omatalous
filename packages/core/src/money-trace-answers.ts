@@ -97,14 +97,20 @@ export function settle(t: Trace, answers: readonly Answer[], users: readonly Tra
 const askedGroups = (t: Trace, said: ReadonlySet<string>) => t.groups.filter((g) => g.cents >= ASK_LIMIT && !said.has(g.key) && !isSharedCredit(g.key) && !t.unasked?.has(g.key));
 
 /**
- * Whether the opening is asked: unanswered, and the booked payments spent at least `ASK_LIMIT` of it. The sum is of the
- * opening's parts on booked outgoing rows, as `openingTaken` is: a pending row takes nothing and an incoming row's
- * opening part is a refund coming back. A smaller part stays unknown money and no question stands for it.
+ * The cents of the opening a part of a row takes: an outgoing row's opening part is spent, an incoming row's is a refund
+ * coming back, so it takes the opening's money away from what was spent.
+ */
+const openingTakenBy = (row: RowParts, part: SourcePart): number => (row.cents < 0 ? part.cents : -part.cents);
+
+/**
+ * Whether the opening is asked: unanswered, and the booked payments spent at least `ASK_LIMIT` of it, net of the refunds
+ * that returned some of it (a purchase of 60 €, its refund and another purchase of 60 € spent 60 €). A pending row takes
+ * nothing. A smaller sum stays unknown money and no question stands for it.
  */
 const openingAsked = (t: Trace, said: ReadonlySet<string>): boolean =>
   t.openingTaken &&
   !said.has("o") &&
-  sumCents(t.rows.filter((r) => !r.pending && r.cents < 0).flatMap((r) => r.parts.filter((p) => p.owner === "o").map((p) => p.cents))) >= ASK_LIMIT;
+  sumCents(t.rows.filter((r) => !r.pending).flatMap((r) => r.parts.filter((p) => p.owner === "o").map((p) => openingTakenBy(r, p)))) >= ASK_LIMIT;
 
 /** Whether a part is one a question stands for: unknown money of an unanswered group of the asking sum, or the unanswered opening once booked payments spent `ASK_LIMIT` of it. */
 export function openOf(t: Trace, answers: readonly Answer[]): (p: SourcePart) => boolean {
@@ -118,7 +124,7 @@ export function openOf(t: Trace, answers: readonly Answer[]): (p: SourcePart) =>
 export function questionsOf(t: Trace, answers: readonly Answer[]): Question[] {
   const open = openOf(t, answers);
   const openBy = new Map<Owner, number>();
-  for (const r of t.rows) for (const p of r.parts) if (open(p)) openBy.set(p.owner, (openBy.get(p.owner) ?? 0) + p.cents);
+  for (const r of t.rows) for (const p of r.parts) if (open(p)) openBy.set(p.owner, (openBy.get(p.owner) ?? 0) + (p.owner === "o" ? openingTakenBy(r, p) : p.cents));
   const said = new Set(answers.map((a) => a.key));
   const questions: Question[] = askedGroups(t, said).map((g) => ({ kind: "in", key: g.key, cents: g.cents, day: g.firstDay, openCents: openBy.get(g.key) ?? 0 }));
   if (openingAsked(t, said)) questions.push({ kind: "opening", key: "o", cents: t.openingCents, day: t.openingDay, openCents: openBy.get("o") ?? 0 });
