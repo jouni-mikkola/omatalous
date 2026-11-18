@@ -3,6 +3,29 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.6.1
+
+- Every new version is offered to installs as soon as it is published; the early-versions switch is gone.
+- On a month's last day this month's spending is compared with the whole month before, as income already was.
+- A shop or restaurant named like a union keeps its own category, and roofing counts for the household credit.
+
+Money and reports
+
+- A restaurant named like a union stays a restaurant, and roofers count for the household credit.
+- On a month's last day Menot reads all of the month before; refunds net the opening question.
+
+Look
+
+- The loan and card question has 44 px targets on a phone and drops out with its loan.
+
+Maintenance
+
+- A release is offered at once, and the switch for early versions on the Ylläpito page is gone.
+
+For developers
+
+- The answers and the cash flow report no longer compute figures that no page shows.
+
 ## 1.6.0
 
 - Yhteenveto has four blocks: Nyt with the lowest balance of the next 60 days, Tulevat kuukaudet, Varat ja velat and Menot.
