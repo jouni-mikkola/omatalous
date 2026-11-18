@@ -20,7 +20,7 @@ import { THRESHOLDS } from "./thresholds.ts";
 import { type IsoDate, isRevolving, type Loan } from "./types.ts";
 
 /** How dear a debt is by its yearly cost: nothing at all, under 7 %, under 15 %, and 15 % or more (`thresholds.ts`). */
-type DebtClass = "free" | "cheap" | "dear" | "very_dear";
+export type DebtClass = "free" | "cheap" | "dear" | "very_dear";
 
 /** A payment of the debt's linked series as the bank booked it: the whole sum that left the account, positive, fees in. */
 export interface SeriesPayment {

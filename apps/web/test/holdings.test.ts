@@ -15,10 +15,10 @@ const account = (id: string, name: string, balanceCents: number | null, mask: st
   id, name, type: "checking", bank: null, ownerName: null, balanceCents, balanceAt: balanceCents === null ? null : "2026-10-12", foreign: null, mask,
 });
 const card = (over: Partial<Answer["cards"][number]> = {}): Answer["cards"][number] => ({
-  id: "k1", name: "Esimerkkikortti", bank: null, ownerName: null, mask: null, limitCents: 300_000, usedCents: 0, freeCents: 300_000, overCents: 0, balanceAt: "2026-10-12", ...over,
+  id: "k1", name: "Esimerkkikortti", bank: null, ownerName: null, mask: null, limitCents: 300_000, usedCents: 0, freeCents: 300_000, overCents: 0, balanceAt: "2026-10-12", costClass: null, costRank: null, ...over,
 });
 const loan = (over: Partial<Answer["loans"][number]> = {}): Answer["loans"][number] => ({
-  id: "l1", name: "Kodin laina", lender: "Esimerkkirahoitus Oy", kind: "mortgage", ownerName: null, leftCents: 12_000_000, monthlyPaymentCents: 100_000, endDate: "2041-03-15", source: "typed", maybeTwice: false, paidOff: false, ...over,
+  id: "l1", name: "Kodin laina", lender: "Esimerkkirahoitus Oy", kind: "mortgage", ownerName: null, leftCents: 12_000_000, monthlyPaymentCents: 100_000, endDate: "2041-03-15", source: "typed", maybeTwice: false, paidOff: false, costClass: null, costRank: null, ...over,
 });
 const answer = (over: Partial<Answer> = {}): Answer => ({ accounts: [], accountsCents: null, typeCents: { checking: null, savings: null, other: null }, accountShares: null, netCents: null, cards: [], cardsCents: null, loans: [], loansCents: null, loansEndDate: null, debtCents: 0, ...over });
 const html = (h: Answer) => renderToStaticMarkup(createElement(Holdings, { holdings: h, meta }));
@@ -230,6 +230,24 @@ describe("Holdings", () => {
       // the row is told and nothing on it changes the loan: the name leads to the report, whose figures open their calculations, so the block has no button
       expect(links(markup)).toEqual(["#/reports#lainat", "#/reports#lainat"]);
       expect([...markup.matchAll(/<button[^>]*aria-label="([^"]*)"/g)].map((m) => m[1]!.replace(/[\u00a0\u202f]/g, " "))).toEqual([]);
+    });
+
+    it("tells only a dear loan's class, in a word among the lines under its name, in the order the answer gives, and says nothing of a cheaper class or an unknown cost", () => {
+      const rows = [
+        loan({ id: "l1", name: "Ensimmäinen", costClass: "very_dear", costRank: 1 }),
+        loan({ id: "l2", name: "Toinen", lender: null, costClass: "dear", costRank: 2 }),
+        loan({ id: "l3", name: "Kolmas", lender: null, costClass: "cheap", costRank: 3 }),
+        loan({ id: "l4", name: "Neljäs", lender: null, costClass: "free", costRank: 4 }),
+        loan({ id: "l5", name: "Viides", lender: null }),
+      ];
+      const markup = html(answer({ loans: rows, loansCents: 60_000_000, debtCents: 60_000_000 }));
+      expect(text(markup)).toContain("Ensimmäinen Esimerkkirahoitus Oy Erittäin kallis Lainaa jäljellä");
+      expect(text(markup)).toContain("Toinen Kallis Lainaa jäljellä");
+      expect(text(markup)).toContain("Kolmas Lainaa jäljellä");
+      expect(text(markup)).toContain("Neljäs Lainaa jäljellä");
+      expect(text(markup)).toContain("Viides Lainaa jäljellä");
+      expect(text(markup).match(/kallis/gi)).toHaveLength(2);
+      expect(text(markup)).not.toMatch(/edullinen|maksuton/i);
     });
 
     it("shows a dash for a loan that has no figure, and carries the note of a debt that may be there twice", () => {

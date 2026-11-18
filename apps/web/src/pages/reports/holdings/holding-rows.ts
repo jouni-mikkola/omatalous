@@ -57,6 +57,12 @@ export function cardsOwe(cards: readonly Pick<Answer["cards"][number], "usedCent
   return cards.some((c) => (c.usedCents ?? 0) > 0);
 }
 
+/** The word of a debt that is dear: only Kallis and Erittäin kallis are told, a cheaper class or a cost core cannot tell says nothing. */
+export function dearWord(costClass: Answer["loans"][number]["costClass"]): string | null {
+  if (costClass === "dear") return t("holdings.class_dear");
+  return costClass === "very_dear" ? t("holdings.class_very_dear") : null;
+}
+
 /** The words under a tick beside a balance: the line of Asetukset > Tilit, with "ei täsmää" where the rows differ; none where it cannot be told. */
 export function reconcileTitle(state: "ok" | "diff" | "unknown"): string | null {
   if (state === "unknown") return null;

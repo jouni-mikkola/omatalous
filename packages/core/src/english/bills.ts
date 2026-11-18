@@ -191,6 +191,8 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "holdings.free": "Credit left",
   "holdings.loans": "Loans",
   "holdings.paid_off": "Paid off",
+  "holdings.class_dear": "Dear",
+  "holdings.class_very_dear": "Very dear",
   "holdings.twice": "The same debt may be in the sum twice",
   "holdings.twice_see": "{twice}: see Loans.",
   "holdings.left": "Loan left",

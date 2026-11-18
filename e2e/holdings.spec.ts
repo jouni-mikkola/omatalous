@@ -313,3 +313,44 @@ test("a loan's name opens the report Lainat, the sums of the block stand on one 
   expect(seen.problems).toEqual([]);
   await context.close();
 });
+
+test("a dear loan says Erittäin kallis or Kallis in its row, a cheaper one says nothing, and the rows hold at 390 px with the text at 200 %", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 800 }, bypassCSP: true, isMobile: true, hasTouch: true });
+  const loans = [["Esimerkkilaina A", "very_dear"], ["Esimerkkilaina B", "dear"], ["Esimerkkilaina C", "cheap"]].map(([name, costClass], i) => ({
+    id: `rank-${i}`, name, lender: "Esimerkkirahoitus Oy", kind: "consumer", ownerName: null, leftCents: 500_000, monthlyPaymentCents: 30_000, endDate: "2030-01-01", source: "typed", maybeTwice: false, paidOff: false, costClass, costRank: i + 1,
+  }));
+  await context.route(/\/api\/dashboard(\?|$)/, async (route) => {
+    const response = await route.fetch().catch(() => null);
+    const json = await response?.json().catch(() => null);
+    if (!response || !json?.holdings) return route.continue();
+    json.holdings.loans = loans;
+    json.holdings.loansCents = 1_500_000;
+    await route.fulfill({ response, json });
+  });
+  const page = await context.newPage();
+  const seen = watch(page);
+  await page.goto("/#/overview");
+  const units = groupOf(page, "Lainat").locator(".holding-unit");
+  await expect(units).toHaveCount(3);
+  await expect(units.nth(0)).toContainText("Erittäin kallis");
+  await expect(units.nth(1)).toContainText(/Kallis/);
+  await expect(units.nth(1)).not.toContainText("Erittäin");
+  await expect(units.nth(2)).not.toContainText(/kallis|edullinen|maksuton/i);
+  // the word is a line of the row: no banner, hint or note of its own
+  await expect(units.nth(0).locator(".st-note")).toHaveCount(0);
+
+  for (const size of ["100%", "200%"]) {
+    await page.addStyleTag({ content: `html { font-size: ${size}; }` });
+    for (let i = 0; i < 3; i++) {
+      const [box, unit] = await Promise.all([units.nth(i).locator(".holding-unit-head").boundingBox(), units.nth(i).boundingBox()]);
+      expect(box!.x, `inside the unit at ${size}`).toBeGreaterThanOrEqual(unit!.x - 0.5);
+      expect(box!.x + box!.width, `inside the unit at ${size}`).toBeLessThanOrEqual(unit!.x + unit!.width + 0.5);
+    }
+    const small = await units.locator("a:visible").evaluateAll((els) => els.flatMap((e) => { const r = e.getBoundingClientRect(); return r.height < 44 ? [`${(e.textContent ?? "").trim()} ${Math.round(r.height)}`] : []; }));
+    expect(small, `links under 44 px high at ${size}`).toEqual([]);
+    expect(await overflow(page), `Yhteenveto scrolls sideways at ${size}`).toBeLessThanOrEqual(1);
+  }
+
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
