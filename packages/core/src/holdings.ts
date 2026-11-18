@@ -208,7 +208,8 @@ export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceIn
     return accountId === undefined || !ctx.txs.some((t) => t.accountId === accountId && t.day > ctx.todayDay - PAID_QUIET_DAYS);
   };
   const loans = heldLoans(balances, debts).map(({ row }) => ({ ...row, paidOff: row.leftCents === 0 && quiet(row.id) }));
-  const unsavedOf = unsavedLoans(proposals.filter((p) => !p.plan));
+  // a plan is a debt with its monthly payment; a lender's few payments tell no monthly figure to sum, so they wait here
+  const unsavedOf = unsavedLoans(proposals.filter((p) => p.monthlyCents !== null));
   const unsaved = unsavedOf ? { unsavedLoans: unsavedOf } : {};
   const balancesOf = accounts.map((a) => a.balanceCents);
   const accountsCents = sumKnown(balancesOf);

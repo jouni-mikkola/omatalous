@@ -291,7 +291,8 @@ const loans: Source = async (_s, _userId, own) => {
   const series = memoOn(ctx, "review:loan-series", null, () => new Map([...ctx.recurring, ...lenderInstalments(ctx)].map((r) => [r.id, r.transactionIds])));
   return proposalsOf(ctx, own).flatMap((p): Sourced[] => {
     const cents = 12 * p.paymentCents;
-    const rowIds = series.get(p.seriesId) ?? [];
+    // a lender's few payments are no series: the proposal holds its rows
+    const rowIds = series.get(p.seriesId) ?? [...(p.rowIds ?? [])];
     if (p.plan) return p.planAnswer === null ? [{ kind: "plan", id: `plan:${p.key}`, cents, key: p.key, payee: p.payee, paymentCents: p.paymentCents, lastDate: p.lastDate, rowIds, whole: true }] : [];
     return [{ kind: "loan", id: `loan:${p.key}`, cents, key: p.key, payee: p.payee, paymentCents: p.paymentCents, months: p.months, firstDate: p.firstDate, lastDate: p.lastDate, guess: p.kind, placed: p.placed, rowIds, whole: true }];
   });

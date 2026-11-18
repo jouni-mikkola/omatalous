@@ -66,7 +66,7 @@ describe("the members of a household add up to it where the split is said, and c
           const mine = byMember.flatMap((list) => list.filter((x) => x.key === p.key));
           // every member sees the loan, so the counted-whole case multiplies by all of them
           if (countedWhole(spec)) expect(mine.length, `${h.name}: ${p.key}`).toBe(spec.members);
-          expect(sumShared(mine.map(paymentOf), "part"), `${h.name}: ${p.key}`).toBe(countedWhole(spec) ? p.monthlyCents * mine.length : p.monthlyCents);
+          expect(sumShared(mine.map(paymentOf), "part"), `${h.name}: ${p.key}`).toBe(countedWhole(spec) ? (p.monthlyCents ?? 0) * mine.length : p.monthlyCents ?? 0);
           for (const x of mine) expect(x.paymentCents, `${h.name}: ${p.key}`).toBe(p.paymentCents);
         }
       }

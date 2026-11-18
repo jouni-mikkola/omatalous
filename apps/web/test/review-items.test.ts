@@ -131,11 +131,14 @@ describe("the choices", () => {
   });
 
   it("ask every loan its kind, the kind the rows suggest first, and a placed loan may be the kind the plain answers lack", () => {
-    const loan = { kind: "loan", id: "loan:k", cents: 346_800, key: "k", payee: "Esimerkkirahoitus", paymentCents: 28_900, months: 14, firstDate: "2025-09-05", lastDate: "2026-10-05", guess: "instalment", placed: true } as const;
+    const loan = { kind: "loan", id: "loan:k", cents: 346_800, key: "k", payee: "Esimerkkirahoitus", paymentCents: 28_900, months: 14, firstDate: "2025-09-05", lastDate: "2026-10-05", guess: "card", placed: true } as const;
     expect(questionOf(loan)).toBe(questionOf({ ...loan, placed: false }));
-    expect(loanKindChoices(loan).map((c) => [c.value, c.guess])[0]).toEqual(["instalment", true]);
+    expect(loanKindChoices(loan).map((c) => [c.value, c.guess])[0]).toEqual(["card", true]);
     // an answer stored as a mark has only the plain kinds
-    expect(loanKindChoices({ ...loan, placed: false }).map((c) => c.value)).not.toContain("instalment");
+    expect(loanKindChoices({ ...loan, placed: false }).map((c) => c.value)).not.toContain("card");
+    // a credit line and an instalment plan are plain answers, the guess first
+    expect(loanKindChoices({ ...loan, guess: "credit_line", placed: false }).map((c) => [c.value, c.guess])[0]).toEqual(["credit_line", true]);
+    expect(loanKindChoices({ ...loan, guess: "instalment", placed: false }).map((c) => c.value)).toContain("instalment");
   });
 
   it("call a sum of the last year's rows yhteensä: a payee's, a payer's and a consent's", () => {

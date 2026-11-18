@@ -23,8 +23,11 @@ export const sharedOf = (part: number, whole: number = part): Shared => ({ part,
 /** The two readings of a row: its cents as the view counts them and as the bank wrote them. */
 export const sharedRow = (t: Pick<Transaction, "amountCents" | "wholeCents">): Shared => sharedOf(t.amountCents, t.wholeCents ?? t.amountCents);
 
-/** The two readings of a proposed loan's payment: `monthlyCents` is the viewer's part and `paymentCents` the bank's whole. */
-export const paymentOf = (p: Pick<LoanProposal, "paymentCents" | "monthlyCents">): Shared => sharedOf(p.monthlyCents, p.paymentCents);
+/**
+ * The two readings of a proposed loan's payment: `monthlyCents` is the viewer's part and `paymentCents` the bank's whole.
+ * A proposal of no monthly figure adds nothing on either side: its latest payment is no month's.
+ */
+export const paymentOf = (p: Pick<LoanProposal, "paymentCents" | "monthlyCents">): Shared => (p.monthlyCents === null ? sharedOf(0) : sharedOf(p.monthlyCents, p.paymentCents));
 
 /** Whether the row is cut to a part of the bank's amount (`applyUse` set `wholeCents`). */
 export const isCut = (t: Pick<Transaction, "wholeCents">): boolean => t.wholeCents !== undefined;
