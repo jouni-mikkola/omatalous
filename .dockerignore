@@ -13,3 +13,16 @@ secrets
 *.db
 ops
 tools
+# What the build never reads. A change here no longer invalidates the layer that bundles the app (COPY . .).
+# The runtime stage copies release/module_signers, LICENSE and THIRD_PARTY_NOTICES, so those stay in the context.
+.github
+docs
+e2e
+changelog.d
+contracts
+deploy
+relay
+scripts
+**/*.md
+apps/*/test
+packages/*/test
