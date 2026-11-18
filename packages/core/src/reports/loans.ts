@@ -115,6 +115,19 @@ export interface LoansReport {
   overdraftTwice: readonly MaybeTwice[];
 }
 
+/**
+ * The rows in the order the Lainat list shows them: the rate, highest first, and a row with no rate last. Rows of the
+ * same rate go by the interest of the 12 months, highest first, a row without that figure after those with one, and
+ * by the order given where both are equal. Only the order changes: no row, figure or sum does. A pure view of rows, so
+ * `LoansReport.loans` itself stays in the order the debts are listed (saved loans, then connected accounts).
+ */
+export function inCostOrder(rows: readonly LoanRow[]): LoanRow[] {
+  const rate = (r: LoanRow) => r.rateBp ?? Number.NEGATIVE_INFINITY;
+  const interest = (r: LoanRow) => r.interest.cents ?? Number.NEGATIVE_INFINITY;
+  const byDescending = (a: number, b: number) => (a === b ? 0 : a < b ? 1 : -1);
+  return [...rows].sort((a, b) => byDescending(rate(a), rate(b)) || byDescending(interest(a), interest(b)));
+}
+
 /** The household's debts on the context's today, each with its figures from `loans.ts`. */
 export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs): LoansReport {
   const debts = debtsOf(ctx, balances, inputs);

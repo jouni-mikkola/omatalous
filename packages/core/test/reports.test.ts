@@ -7,7 +7,7 @@ import { USUAL_MONTHS } from "../src/thresholds.ts";
 import { SUBSCRIPTION_CATEGORIES } from "../src/categories.ts";
 import { expectedDates, fixedMonthlyCents, fixedSplit, isContract, isSavingsPlan, isSubscription, subscriptionsMonthlyCents } from "../src/commitments.ts";
 import type { BalanceInput } from "../src/reports/balances.ts";
-import { buildReports, isReportId, REPORTS } from "../src/reports/index.ts";
+import { buildReports, inCostOrder, isReportId, REPORTS } from "../src/reports/index.ts";
 import { fullMonths } from "../src/reports/shared.ts";
 import { addDays, monthIndex } from "../src/dates.ts";
 import { debtInterestNext12Months, loanBalanceOn, loanInterestNext12Months, loanPayoffDate } from "../src/loans.ts";
@@ -559,6 +559,37 @@ describe("loans: the Lainat report and net worth", () => {
     expect(named.balances.debt).toEqual({ day: today, cents: 12000000 + 80000, savedCents: 12000000 });
     expect(named.balances.accountsLessDebt.at(-1)).toBe(120000 - 12000000);
     expect(debtInterestNext12Months([home], today).cents).toBe(named.loans.interest.cents);
+  });
+
+  it("the Lainat list is in cost order: the rate, highest first, ties by the year's interest, a debt with no rate last, and no figure moves", () => {
+    const card2: Account = { id: "card2", name: "Toinen kortti", iban: null, currency: "EUR", type: "credit_card" };
+    // no plan and no end date: the year's interest is the balance times the rate, so every figure below is one multiplication
+    const mortgage = loan({ id: "mortgage", kind: "mortgage", balanceCents: 10_000_000, rateBp: 350 }); // 100 000 € at 3,5 %: 3 500 €
+    const line = loan({ id: "line", kind: "credit_line", balanceCents: 200_000, rateBp: 1200 }); // 2 000 € at 12 %: 240 €
+    const small = loan({ id: "small", kind: "consumer", balanceCents: 50_000, rateBp: 1200 }); // 500 € at 12 %: 60 €
+    const [b, a] = [loan({ id: "b", kind: "consumer", balanceCents: 100_000, rateBp: 600 }), loan({ id: "a", kind: "consumer", balanceCents: 100_000, rateBp: 600 })]; // 1 000 € at 6 %: 60 € each
+    const undrawn = loan({ id: "undrawn", kind: "credit_line", balanceCents: 0, limitCents: 500_000 });
+    // a saved card linked to the connected card, which owes 800 € at 20 %: 160 €
+    const terms = loan({ id: "terms", name: "Kortti", kind: "card", balanceCents: 90_000, rateBp: 2000, accountId: "card" });
+    const r = buildReports({
+      ctx: createContext(monthlyOn("2026-08", 3, 3, () => -50000, { accountId: "acc-1" }), [checking, card, card2], today),
+      range: { from: "2026-08-01", to: today },
+      balances: [given(checking, 200000), given(card, -80000), given(card2, -30000)],
+      inputs: { marks: [], expectedBills: [], loans: [b, a, line, small, mortgage, undrawn, terms] },
+    }).loans;
+    const rows = inCostOrder(r.loans);
+    expect(rows.map((l) => l.id)).toEqual(["terms", "line", "small", "b", "a", "mortgage", "undrawn", "account:card2"]);
+    expect(rows.map((l) => l.rateBp)).toEqual([2000, 1200, 1200, 600, 600, 350, null, null]);
+    // the card with terms is a row and its interest is the loan's own; the debt with no rate has none, never zero
+    expect(rows.map((l) => l.interest.cents)).toEqual([16_000, 24_000, 6_000, 6_000, 6_000, 350_000, 0, null]);
+    expect(rows[0]!.interest).toEqual(loanInterestNext12Months({ ...terms, balanceCents: 80_000 }, today));
+    expect(rows[7]!.interest).toEqual({ cents: null, unknown: "rate" });
+    // the order is a view: the report keeps its rows and every sum, and the unknown interest is not added as zero
+    expect(r.loans.map((l) => l.id)).toEqual(["b", "a", "line", "small", "mortgage", "undrawn", "terms", "account:card2"]);
+    expect(r.total.cents).toBe(80_000 + 30_000 + 10_000_000 + 200_000 + 50_000 + 100_000 + 100_000);
+    expect(r.total.cents).toBe(rows.reduce((sum, l) => sum + l.balance.cents!, 0));
+    expect(r.interest.cents).toBe(16_000 + 24_000 + 6_000 + 6_000 + 6_000 + 350_000);
+    expect(r.interestKnown).toBe(false);
   });
 });
 
