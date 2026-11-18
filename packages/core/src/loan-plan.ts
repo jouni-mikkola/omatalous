@@ -21,7 +21,8 @@ export function divRound(n: number, d: number): number {
 /**
  * The interest of one interval of `months` months at a rate in thousandths of a percent: balance × rate × months / 12,
  * to the nearest cent, a half cent up (1 200 000 = thousandths of a percent × months a year). Exact: a product past
- * 2^53 (the largest balance at the highest rate over a year of days) is computed in whole numbers of a wider type.
+ * 2^53 is computed in whole numbers of a wider type. The loan bounds stay under it (the largest balance at the highest
+ * rate over twelve months is about 6e14); a rate with a margin and a fixing on top can pass it.
  */
 export function intervalInterest(balanceCents: number, rateMilli: number, months: number): number {
   const product = balanceCents * rateMilli * months;

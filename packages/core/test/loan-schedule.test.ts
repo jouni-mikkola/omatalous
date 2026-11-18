@@ -176,13 +176,27 @@ describe("rate resets", () => {
 
   it("counts every interval at the rate in force when it starts", () => {
     const s = loanSchedule(loan({ balanceCents: 120_000_000, rateBp: 300, repayment: "equal_principal", paymentCents: 1_000_000, ratePath: [["2026-01-01", 3000], ["2026-03-15", 3001]] }), START);
-    // 15 March starts the interval that ends on 15 April: 0,001 % more on 1,2 million euros is one euro a year, 100 cents a month
+    // 15 March starts the interval that ends on 15 April: 0,001 % more on 1,2 million euros is 12 euros a year, 1 euro (100 cents) a month
     expect(s.rows.map((r) => r.rateMilli)).toEqual([3000, 3000, 3001, 3001].concat(Array(s.rows.length - 4).fill(3001)));
     const before = s.rows[1]!;
     const after = s.rows[2]!;
     const noStep = loanSchedule(loan({ balanceCents: 120_000_000, rateBp: 300, repayment: "equal_principal", paymentCents: 1_000_000 }), START).rows[2]!;
     expect(before.rateMilli).toBe(3000);
     expect(after.interestCents! - noStep.interestCents!).toBe(Math.round(((120_000_000 - 2 * 1_000_000) * 1) / 1_200_000));
+  });
+});
+
+describe("a schedule that starts between two due dates", () => {
+  it("labels the first row with the rate its interest was counted at, the rate of the interval's start", () => {
+    // the review on 10 March falls after the due date of 15 February, which starts the interval, and before `from`
+    const l = loan({ balanceCents: 200_000, rateBp: 300, repayment: "equal_principal", paymentCents: 20_000, ratePath: [["2026-01-01", 3000], ["2026-03-10", 5000]] });
+    const whole = loanSchedule(l, START).rows;
+    const mid = loanSchedule(l, "2026-03-12").rows;
+    expect(mid[0]).toEqual(whole.find((r) => r.date === "2026-03-15"));
+    expect(mid[0]).toMatchObject({ date: "2026-03-15", rateMilli: 3000 });
+    expect(mid[1]).toMatchObject({ date: "2026-04-15", rateMilli: 5000 });
+    // a change from the same day agrees
+    expect(loanSchedule(l, "2026-03-12", { extra: { cents: 0, on: "2026-03-12" } }).rows[0]).toMatchObject({ rateMilli: 3000 });
   });
 });
 
@@ -218,7 +232,7 @@ describe("the rate path of a reference rate", () => {
     const index = a.findIndex((r) => r.date === "2026-05-31");
     expect(a[index]!.rateMilli).toBe(3500);
     expect(b[index]!.rateMilli).toBe(3501);
-    // 0,001 % a year of the balance owed (a little under 117 000 €), a month's share, rounded half up on each side
+    // 0,001 % a year of the balance owed (a little under 1 170 000 €, so a little under 100 cents), a month's share, rounded half up on each side
     const owed = a[index - 1]!.balanceCents;
     expect(b[index]!.interestCents! - a[index]!.interestCents!).toBe(intervalInterest(owed, 3501, 1) - intervalInterest(owed, 3500, 1));
     expect(b[index]!.interestCents! - a[index]!.interestCents!).toBeGreaterThanOrEqual(97);
@@ -325,8 +339,8 @@ describe("an exact interest at the largest balance and rate", () => {
     return Number((2n * n + 1_200_000n) / 2_400_000n);
   };
 
-  it("passes 2^53 with the largest balance, 50 % and a margin over a year of days", () => {
-    // 10 000 000 € at 50 % and a margin of 20 %, 366 days: a product of 2,6e16
+  it("passes 2^53 with the largest balance, 50 % and a margin over more months than a loan may have", () => {
+    // 10 000 000 € at 50 % and a margin of 20 % over 366 months, more than a loan's interval allows: a product of 2,6e16
     const rateMilli = 50_000 + 20_000;
     expect(1_000_000_000 * rateMilli * 366).toBeGreaterThan(Number.MAX_SAFE_INTEGER);
     expect(intervalInterest(1_000_000_000, rateMilli, 12)).toBe(700_000_000);

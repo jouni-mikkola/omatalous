@@ -43,8 +43,9 @@ const FIELDS = [
 const MAX_NAME = 80;
 /**
  * Ten million euros. Core multiplies a balance by a rate in thousandths of a percent and by the months of an interval
- * (`intervalInterest`): at this size, `MAX_RATE_BP` and a margin the product can pass 2^53, so core computes it in whole
- * numbers of a wider type and the interest is exact to the cent. A typo stays visible too.
+ * (`intervalInterest`): at this size, `MAX_RATE_BP` and twelve months the product is about 6e14, well under 2^53, so
+ * the interest is exact to the cent. A product past 2^53 (a margin and a fixing on top) core computes in whole numbers
+ * of a wider type. A typo stays visible too.
  */
 const MAX_CENTS = 1_000_000_000;
 const MAX_EUROS = "10 000 000 €";
