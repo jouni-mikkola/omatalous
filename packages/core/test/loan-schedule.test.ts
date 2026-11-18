@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { dayNumber } from "../src/dates.ts";
 import { dayInterest, intervalInterest } from "../src/loan-plan.ts";
-import { annuityPayment, loanBalanceByPlan, loanPaymentAfter, loanRateLine, loanSchedule, loanWhatIf, ratePathOf } from "../src/loan-schedule.ts";
+import { annuityPayment, euriborRateBp, loanBalanceByPlan, loanPaymentAfter, loanRateLine, loanSchedule, loanWhatIf, ratePathOf } from "../src/loan-schedule.ts";
 import { debtTotalOn, loanBalanceOn, loanInterestNext12Months, loanNextPayment, loanPayoffDate, loanRateScenario, loansOf } from "../src/loans.ts";
 import { type Fixings, type Loan, NO_INPUTS, type RatePath } from "../src/types.ts";
 
@@ -218,6 +218,18 @@ describe("the rate path of a reference rate", () => {
   it("floors a negative fixing at zero before the margin is added", () => {
     const fixings: Fixings = { euribor_3: [["2026-04-30", -500]] };
     expect(pathOf(euribor3(), fixings)![1]).toBe("2026-04-30 1000");
+  });
+
+  it("counts the rate in force from the fixing of the last review day, floored at zero, and guesses none with no review day", () => {
+    const fixings: Fixings = { euribor_3: [["2026-01-30", 2500], ["2026-04-30", -250], ["2026-06-15", 3000]] };
+    // the review on 30.4. holds until 31.7.: the fixing below zero counts as zero, so the rate is the margin alone
+    expect(euriborRateBp(euribor3(), "2026-07-01", fixings)).toBe(100);
+    expect(euriborRateBp(euribor3(), "2026-03-01", fixings)).toBe(350);
+    // with no review day the fixing in force could be up to a cycle old: no rate
+    expect(euriborRateBp(euribor3({ rateReviewDate: null }), "2026-07-01", fixings)).toBeNull();
+    expect(euriborRateBp(euribor3({ marginBp: null }), "2026-07-01", fixings)).toBeNull();
+    expect(euriborRateBp(euribor3({ reference: "fixed" }), "2026-07-01", fixings)).toBeNull();
+    expect(euriborRateBp(euribor3(), "2026-01-31", { euribor_3: [["2026-02-02", 2500]] })).toBeNull();
   });
 
   it("moves the interest with a 0,001 % step in the fixing", () => {

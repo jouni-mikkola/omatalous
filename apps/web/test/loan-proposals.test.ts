@@ -4,11 +4,11 @@
  */
 import "@banking/core/late";
 import { describe, expect, it } from "vitest";
-import { emptyForm, formOfProposal, readForm, setValue } from "../src/components/loans/form.ts";
-import { editorHelp, helpBalanceAndRate, helpRate, proposalQuestion } from "../src/components/loans/proposal-words.ts";
+import { emptyForm, formOfLoan, formOfProposal, rateNow, readForm, setValue, shownFields } from "../src/components/loans/form.ts";
+import { proposalQuestion } from "../src/components/loans/proposal-words.ts";
 import { eurosText } from "../src/format.ts";
 import type { Account, LoanProposalRow } from "../src/types.ts";
-import type { Loan } from "@banking/core";
+import type { Fixings, InferredLoanTerms, Loan } from "@banking/core";
 
 const TODAY = "2026-10-12";
 const KEY = "out:chk-1:esimerkkirahoitus oy#25000";
@@ -31,12 +31,6 @@ describe("the form of a proposal beside the household's loan accounts", () => {
     const { body, errors } = readForm(form);
     expect(errors).toEqual({});
     expect(body).toMatchObject({ balanceCents: 14_912_345, balanceDate: "2026-10-08", accountId: "home", seriesKey: KEY });
-  });
-
-  it("asks only for what the form leaves empty: the rate when the balance is told, else the balance and the rate", () => {
-    expect(editorHelp(formOfProposal(proposal, TODAY, [account("home", "loan", -1_000)], []))).toBe(helpRate());
-    expect(editorHelp(formOfProposal(proposal, TODAY, [account("home", "loan", null)], []))).toBe(helpBalanceAndRate());
-    expect(editorHelp(formOfProposal(proposal, TODAY))).toBe(helpBalanceAndRate());
   });
 
   it("with none, or with the only one held by a saved loan, is as it was", () => {
@@ -112,10 +106,64 @@ describe("the form of a proposal", () => {
   });
 });
 
+describe("the form of a proposal with the terms its rows tell", () => {
+  const terms: InferredLoanTerms = { paymentCents: 31_250, dueDate: "2026-10-05", intervalMonths: 1, repayment: "annuity", reference: "euribor_12", nextReview: "2027-03-14" };
+  const fixings: Fixings = { euribor_12: [["2026-03-13", 2310], ["2026-09-30", 2500]] };
+  const filled = formOfProposal(proposal, TODAY, [], [], terms);
+
+  it("fills the latest payment, its interval, the way of paying back, the euribor with its review day and the due day as the balance date", () => {
+    expect(filled.values).toMatchObject({ paymentCents: "312,50", intervalMonths: "1", repayment: "annuity", reference: "euribor_12", rateReviewDate: "2027-03-14", balanceDate: "2026-10-05" });
+    // a quarterly loan keeps its interval; rows with no one interval keep the one-month default
+    expect(formOfProposal(proposal, TODAY, [], [], { ...terms, intervalMonths: 3 }).values.intervalMonths).toBe("3");
+    expect(formOfProposal(proposal, TODAY, [], [], { ...terms, intervalMonths: null }).values.intervalMonths).toBe("1");
+    // a due day after today dates the balance today
+    expect(formOfProposal(proposal, TODAY, [], [], { ...terms, dueDate: "2026-11-05" }).values.balanceDate).toBe(TODAY);
+    // rows that tell no way of paying back and no euribor leave those fields empty
+    expect(formOfProposal(proposal, TODAY, [], [], { ...terms, repayment: null, reference: null, nextReview: null }).values).toMatchObject({ repayment: "", reference: "", rateReviewDate: "" });
+  });
+
+  it("keeps the bank's balance and its day where one free loan account tells it", () => {
+    const home = { id: "home", name: "home", bankName: "home", customName: null, cardMask: null, type: "loan", balanceCents: -1_000_000, balanceAt: "2026-10-08T09:30:00.000Z" } as Account;
+    expect(formOfProposal(proposal, TODAY, [home], [], terms).values).toMatchObject({ balanceCents: eurosText(1_000_000), balanceDate: "2026-10-08", paymentCents: "312,50" });
+  });
+
+  it("asks a loan on a stored euribor its margin alone and counts its rate from the fixing of its last review day", () => {
+    const typed = setValue(setValue(filled, "balanceCents", "150 000"), "marginBp", "0,65");
+    expect(shownFields(typed, fixings)).not.toContain("rateBp");
+    // the review day before 5.10.2026 is 14.3.2026, whose fixing is the one of 13.3.2026: 2,310 % + 0,65 %
+    expect(rateNow(typed, fixings)).toBe(296);
+    const { body, errors } = readForm(typed, fixings);
+    expect(errors).toEqual({});
+    expect(body).toMatchObject({ rateBp: null, reference: "euribor_12", marginBp: 65, rateReviewDate: "2027-03-14", paymentCents: 31_250, intervalMonths: 1, repayment: "annuity", balanceDate: "2026-10-05" });
+  });
+
+  it("asks the rate where no fixing is stored, for a fixed rate, and keeps a saved rate that has no margin", () => {
+    expect(shownFields(filled)).toContain("rateBp");
+    expect(shownFields(filled, {})).toContain("rateBp");
+    expect(rateNow(setValue(filled, "marginBp", "0,65"), {})).toBeNull();
+    expect(shownFields(setValue(filled, "reference", "fixed"), fixings)).toContain("rateBp");
+    expect(shownFields(setValue(filled, "rateBp", "3,39"), fixings)).toContain("rateBp");
+    // with no margin yet the field of the margin is the one asked
+    expect(shownFields(filled, fixings)).not.toContain("rateBp");
+    expect(rateNow(filled, fixings)).toBeNull();
+  });
+
+  it("asks the rate of a euribor with no review day, as the fixing in force is not known, and keeps a saved loan's typed rate", () => {
+    const noDay = setValue(setValue(setValue(filled, "balanceCents", "150 000"), "marginBp", "0,65"), "rateReviewDate", "");
+    expect(shownFields(noDay, fixings)).toContain("rateBp");
+    expect(rateNow(noDay, fixings)).toBeNull();
+    // a saved loan on a euribor with a margin and no review day: its edit sends the typed rate, never a counted one
+    const saved = { id: "s1", name: "Kotilaina", kind: "mortgage", balanceCents: 15_000_000, balanceDate: "2026-10-05", rateBp: 339, reference: "euribor_12", marginBp: 65, rateReviewDate: null, repayment: "annuity", intervalMonths: 1, paymentCents: 80_000, accountId: null } as unknown as Loan;
+    const edited = formOfLoan(saved);
+    expect(shownFields(edited, fixings)).toContain("rateBp");
+    expect(readForm(edited, fixings).body).toMatchObject({ rateBp: 339, marginBp: 65, rateReviewDate: null });
+  });
+});
+
 describe("the words", () => {
   // built from code points: the repo rule that keeps em dashes out of text files reads the characters in a regex too
   const DASHES = new RegExp(`[${String.fromCharCode(0x2013, 0x2014)}]`);
-  const texts = [proposalQuestion(), helpRate(), helpBalanceAndRate()];
+  const texts = [proposalQuestion()];
 
   it("are plain: no dash for a pause, no exclamation mark, no 'ei X vaan Y'", () => {
     for (const text of texts) {

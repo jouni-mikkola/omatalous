@@ -238,19 +238,23 @@ describe("the fixings of a request and of GET /api/loans", () => {
     expect(filled.stamp).not.toBe(bare.stamp);
   });
 
-  it("answers the loans with the fixings from the day before the oldest balance, and each member the same public fixings", async () => {
+  it("answers the loans with the fixings from a year before the oldest balance, and each member the same public fixings", async () => {
     const t = await setupApp();
     await t.admin.call("POST", "/api/loans", loan);
     await t.s.referenceRates.upsert([
+      { reference: "euribor_12", day: "2025-08-20", rateMilli: 1800 },
+      { reference: "euribor_12", day: "2025-08-29", rateMilli: 1900 },
       { reference: "euribor_12", day: "2026-08-20", rateMilli: 2000 },
       { reference: "euribor_12", day: "2026-08-31", rateMilli: 2400 },
       { reference: "euribor_12", day: "2026-09-02", rateMilli: 2500 },
       { reference: "euribor_6", day: "2026-09-02", rateMilli: 2300 },
     ]);
     const body = (await t.admin.call("GET", "/api/loans")).body;
-    expect(body.fixings).toEqual({ euribor_12: [["2026-08-31", 2400], ["2026-09-02", 2500]], euribor_6: [["2026-09-02", 2300]] });
+    // from 1.9.2025 on, and the fixing of 29.8.2025 that holds until the first
+    const year = { euribor_12: [["2025-08-29", 1900], ["2026-08-20", 2000], ["2026-08-31", 2400], ["2026-09-02", 2500]], euribor_6: [["2026-09-02", 2300]] };
+    expect(body.fixings).toEqual(year);
     const eero = await t.member("eero");
-    // no loan: the newest fixing of each rate alone, which is all a loan saved today would count from
-    expect((await eero.call("GET", "/api/loans")).body).toEqual({ loans: [], fixings: { euribor_12: [["2026-09-02", 2500]], euribor_6: [["2026-09-02", 2300]] } });
+    // no loan: the year before today, from 9.10.2025 on, which the last review day of a loan saved today is in
+    expect((await eero.call("GET", "/api/loans")).body).toEqual({ loans: [], fixings: year });
   });
 });

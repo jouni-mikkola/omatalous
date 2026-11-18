@@ -6,7 +6,7 @@
  * within a lifetime of today, and no plan can make the balance grow. So a balance on any day is a whole number of
  * cents between zero and the stated balance.
  */
-import { addMonthsToDate, DEBT_ACCOUNT_TYPES, isRevolving, LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, loanPeriodInterest, MAX_LOAN_INTERVAL_MONTHS, mortgageSeriesKeys, type PaymentParts } from "@banking/core";
+import { addMonthsToDate, DEBT_ACCOUNT_TYPES, euriborRateBp, type Fixings, hasReferenceRate, isRevolving, LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, loanPeriodInterest, MAX_LOAN_INTERVAL_MONTHS, mortgageSeriesKeys, type PaymentParts } from "@banking/core";
 import { Hono } from "hono";
 import { NotFound, UserError } from "../platform/errors.ts";
 import { randomToken } from "../platform/ids.ts";
@@ -150,9 +150,10 @@ const heldBy = (holder: Loan) => new UserError(`Tähän tiliin on jo liitetty la
 
 /**
  * The fields of a loan, each checked against its range or list. Throws a UserError with a message safe to show.
- * `accounts` reads the user's own accounts, for the one a loan is linked to.
+ * `accounts` reads the user's own accounts, for the one a loan is linked to. `fixingsSince` reads the published fixings
+ * from a day on, for a loan on a euribor sent with its margin and no rate.
  */
-export async function parseLoan(raw: unknown, today: string, accounts: OwnAccounts): Promise<LoanFields> {
+export async function parseLoan(raw: unknown, today: string, accounts: OwnAccounts, fixingsSince?: (day: string) => Promise<Fixings>): Promise<LoanFields> {
   const input = strictObject(raw, BODY_FIELDS);
   const oldest = addMonthsToDate(today, -12 * YEARS_BACK);
   const latest = addMonthsToDate(today, 12 * YEARS_AHEAD);
@@ -164,7 +165,7 @@ export async function parseLoan(raw: unknown, today: string, accounts: OwnAccoun
     balanceCents: cents(input.balanceCents, 0, "Lainaa jäljellä"),
     // a balance told for a day that has not come is a guess, and core tells nothing before the balance date
     balanceDate: date(input.balanceDate, oldest, today, `Saldon päivä voi olla enintään ${YEARS_BACK} vuotta sitten, eikä se voi olla tulevaisuudessa.`),
-    rateBp: orNull(input.rateBp, (v) => rate(v, "Kokonaiskoron")),
+    rateBp: orNull(input.rateBp, (v) => rate(v, "Koron")),
     reference: orNull(input.reference, (v) => oneOf(v, LOAN_REFERENCES, "Tuntematon viitekorko.")),
     marginBp: orNull(input.marginBp, (v) => rate(v, "Marginaalin")),
     repayment: orNull(input.repayment, (v) => oneOf(v, LOAN_REPAYMENTS, "Tuntematon lyhennystapa.")),
@@ -184,6 +185,13 @@ export async function parseLoan(raw: unknown, today: string, accounts: OwnAccoun
     throw new UserError("Luottokortilla ja luottolimiitillä ei ole lyhennystapaa. Jätä se tyhjäksi.");
   }
   if (loan.repayment === "bullet" && loan.paymentCents !== null) throw new UserError("Kertalyhenteisellä lainalla ei ole maksuerää. Jätä maksuerä tyhjäksi.");
+  // A loan on a euribor sent with its margin alone is saved at the rate in force on its balance date: the fixing of the
+  // review day before it and the margin. With no review day, or no fixing stored that early, its rate stays unknown, as
+  // one sent with none.
+  if (fixingsSince && loan.rateBp === null && hasReferenceRate(loan) && loan.marginBp !== null) {
+    const derived = euriborRateBp(loan, loan.balanceDate, await fixingsSince(addMonthsToDate(loan.balanceDate, -12)));
+    if (derived !== null) loan.rateBp = rate(derived, "Koron");
+  }
   // The one way a balance could grow: a payment that holds the interest and is smaller than it. The interest only
   // shrinks with the balance, so a payment that covers the first interval covers every later one.
   const holdsInterest = loan.repayment === "annuity" || loan.repayment === "fixed_instalment";
@@ -225,12 +233,13 @@ export function loanRoutes(s: Services) {
 
   /**
    * The saved loans and the published fixings they count from, so the web works loans out with the same `loansOf` as the
-   * server. The fixings start at the oldest balance date, with the one before it that holds until the first.
+   * server. The fixings start a year before the oldest balance date, with the one before it that holds until the first:
+   * the form shows the rate a loan on a euribor has now from the fixing of its last review day, at most a year back.
    */
   app.get("/loans", async (c) => {
     const loans = await s.finance(c.get("user").id).listLoans();
     const since = loans.reduce((oldest, loan) => (loan.balanceDate < oldest ? loan.balanceDate : oldest), s.today());
-    return c.json({ loans, fixings: await s.referenceRates.since(since) });
+    return c.json({ loans, fixings: await s.referenceRates.since(addMonthsToDate(since, -12)) });
   });
 
   /**
@@ -247,7 +256,7 @@ export function loanRoutes(s: Services) {
   app.post("/loans", async (c) => {
     const repo = s.finance(c.get("user").id);
     const raw = strictObject(await body(c), BODY_FIELDS);
-    const input = await parseLoan(raw, s.today(), repo);
+    const input = await parseLoan(raw, s.today(), repo, (day) => s.referenceRates.since(day));
     const lastPayment = parseLastPayment(raw.lastPayment, s.today());
     if ((await repo.listLoans()).length >= MAX_LOANS) throw new UserError(`Lainoja voi olla enintään ${MAX_LOANS}. Poista ensin turhat.`);
     const loan: Loan = { id: randomToken(), ...input };
@@ -263,7 +272,7 @@ export function loanRoutes(s: Services) {
   app.put("/loans/:id", async (c) => {
     const repo = s.finance(c.get("user").id);
     const raw = strictObject(await body(c), BODY_FIELDS);
-    const loan: Loan = { id: c.req.param("id"), ...(await parseLoan(raw, s.today(), repo)) };
+    const loan: Loan = { id: c.req.param("id"), ...(await parseLoan(raw, s.today(), repo, (day) => s.referenceRates.since(day))) };
     const lastPayment = parseLastPayment(raw.lastPayment, s.today());
     const before = await mortgageSeries(repo.userId);
     const saved = await repo.updateLoan(loan, s.now().toISOString());

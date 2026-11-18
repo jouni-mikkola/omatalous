@@ -1,9 +1,9 @@
-import { LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, type LoanDraft, type LoanKind } from "@banking/core";
+import { type Fixings, LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, type LoanDraft, type LoanKind } from "@banking/core";
 import { createContext, type FormEvent, type ReactNode, useContext, useId, useState } from "react";
-import { money, parseEuros } from "../../format.ts";
+import { money, percent } from "../../format.ts";
 import { t } from "../../text.ts";
 import type { Account } from "../../types.ts";
-import { checksLeft, defaultName, formOfDraft, isCredit, type FormErrors, interestOverPayment, type LoanBody, type LoanForm, linkChoices, markOf, matchedLoan, readForm, setKind, setValue, shownFields, toggleConfirmed } from "./form.ts";
+import { checksLeft, defaultName, formOfDraft, type FormErrors, interestOverPayment, type LoanBody, type LoanForm, linkChoices, markOf, matchedLoan, rateNow, readForm, setKind, setValue, shownFields, toggleConfirmed } from "./form.ts";
 import { LoanSource } from "./LoanSource.tsx";
 import { FIELD_LABEL, INTERVALS, intervalLabel, KIND_LABEL, type LoanFieldKey, REFERENCE_LABEL, REPAYMENT_LABEL } from "./labels.ts";
 import { Button } from "../ui/Button.tsx";
@@ -14,34 +14,10 @@ const UNIT: Partial<Record<LoanFieldKey, string>> = { balanceCents: "€", grant
 /**
  * What the select "Sama velka pankin tilillä" offers from: the household's accounts and its saved loans (an account
  * another loan holds is not offered). The loans card provides it to every form it holds, so the new loan and the
- * proposals need no props for it. Without a provider the select is not shown.
+ * proposals need no props for it. Without a provider the select is not shown. `fixings` are the published fixings of
+ * `GET /api/loans`, which a loan on a euribor counts its rate from (`rateNow`).
  */
-export const LoanLinks = createContext<{ accounts: readonly Account[]; loans: readonly Loan[] }>({ accounts: [], loans: [] });
-
-const LINK_HELP = () => t("set.loans.link_help");
-/** Under the balance of a linked loan: the bank's balance counts while the bank tells one, and the typed one otherwise. */
-const LINKED_BALANCE_HELP = () => t("set.loans.linked_balance_help");
-const REVIEW_HELP = () => t("set.loans.review_help");
-
-/** What the payment figure is, by the way the loan is paid back. */
-function paymentHelp(form: LoanForm): string | null {
-  if (form.values.repayment === "equal_principal") return t("set.loans.payment_principal_only");
-  if (form.values.repayment === "annuity" || form.values.repayment === "fixed_instalment") return t("set.loans.payment_whole");
-  return null;
-}
-
-/** The typed amount in the language's money form (as typed when it is not a figure yet). */
-function moneyText(typed: string): string {
-  const cents = parseEuros(typed.trim());
-  return cents === null ? t("set.loans.typed_amount", { amount: typed }) : money(cents);
-}
-
-/** What a proposal's form filled from the bank's rows, in one line. */
-function prefilledLine(form: LoanForm): string {
-  const payment = !isCredit(form.kind) && form.values.paymentCents && `${moneyText(form.values.paymentCents)} ${intervalLabel(Number(form.values.intervalMonths) || 1).toLowerCase()}`;
-  const parts = [form.values.lender, payment, form.accountId && form.values.balanceCents && t("set.loans.prefilled_balance", { amount: moneyText(form.values.balanceCents) })].filter(Boolean);
-  return parts.length > 0 ? t("set.loans.prefilled", { parts: parts.join(", ") }) : t("set.loans.prefilled_none");
-}
+export const LoanLinks = createContext<{ accounts: readonly Account[]; loans: readonly Loan[]; fixings?: Fixings }>({ accounts: [], loans: [] });
 
 /**
  * The form of one loan: a loan typed in, a proposal from the bank's rows, or a saved loan. Nothing is sent before
@@ -76,10 +52,16 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
   const [busy, setBusy] = useState(false);
   const [all, setAll] = useState(false);
   const compact = ask !== undefined && !all;
-  const shown = shownFields(form).filter((key) => !compact || ask.includes(key));
-  const interest = interestOverPayment(form);
-  const left = checksLeft(form);
   const links = useContext(LoanLinks);
+  const fields = shownFields(form, links.fixings);
+  // on a euribor whose fixing is stored the margin stands in for the rate, so asking the rate asks the margin
+  const asked: readonly LoanFieldKey[] = ask?.includes("rateBp") && !fields.includes("rateBp") ? [...ask, "marginBp"] : (ask ?? []);
+  // a review day asked shows while a euribor is chosen: a fixed rate has none and an unknown one is picked first
+  const euribor = form.values.reference !== "" && form.values.reference !== "fixed";
+  const shown = fields.filter((key) => !compact || (asked.includes(key) && (key !== "rateReviewDate" || euribor)));
+  const interest = interestOverPayment(form, links.fixings);
+  const rate = rateNow(form, links.fixings);
+  const left = checksLeft(form);
   const choices = linkChoices(links.accounts, links.loans, form.id);
   // a stored link to an account that is not offered any more (removed, no card or loan account) is not kept by a save
   const linked = choices.some((c) => c.id === form.accountId) ? form.accountId : "";
@@ -99,7 +81,7 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (busy) return;
-    const { body, errors: found } = readForm({ ...form, accountId: linked });
+    const { body, errors: found } = readForm({ ...form, accountId: linked }, links.fixings);
     setErrors(found);
     // an error on a field that is not shown opens the rest of the form
     if (compact && (interest !== null || Object.keys(found).some((key) => key !== "kind" && !shown.includes(key as LoanFieldKey)))) setAll(true);
@@ -153,7 +135,6 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
   return (
     <form className="loan-form" onSubmit={(e) => void submit(e)} noValidate>
       {form.id === null && !noSource && !ask && <LoanSource today={today} onDrafts={take} />}
-      {compact && form.id === null && form.seriesKey !== null && <p className="small muted loan-note">{prefilledLine(form)}</p>}
       {!compact && (
       <div className="loan-fields">
         <div className="loan-field">
@@ -161,7 +142,6 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
             {t("set.loans.name")}
           </label>
           <input id={idOf("name")} type="text" maxLength={80} autoComplete="off" value={form.name} placeholder={form.kind === "" ? "" : defaultName(form.kind, form.values.lender)} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <span className="field-help">{t("set.loans.name_help")}</span>
         </div>
         <div className="loan-field">
           <label className="field-label" htmlFor={idOf("kind")}>
@@ -186,14 +166,13 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
 
       <div className="loan-fields">
         {shown.map((key) => {
-          const help = key === "paymentCents" ? paymentHelp(form) : key === "balanceCents" && linked ? LINKED_BALANCE_HELP() : key === "rateReviewDate" ? REVIEW_HELP() : null;
           const mark = markOf(form, key);
           const confirmed = form.confirmed.includes(key);
           // a value read with confidence and a field the household confirmed carry nothing: only what still asks is marked
           const badge = mark === "missing" || (mark === "check" && !confirmed) ? mark : null;
           const line = mark === "check" ? form.source?.lines[key] : undefined;
           const why = form.source?.warnings[key]?.join(" ");
-          const described = [badge && idOf(`${key}-mark`), line && idOf(`${key}-line`), why && !confirmed && idOf(`${key}-warning`), help && idOf(`${key}-help`), errors[key] && idOf(`${key}-error`)].filter(Boolean).join(" ") || undefined;
+          const described = [badge && idOf(`${key}-mark`), line && idOf(`${key}-line`), why && !confirmed && idOf(`${key}-warning`), key === "marginBp" && rate !== null && idOf("rate-now"), errors[key] && idOf(`${key}-error`)].filter(Boolean).join(" ") || undefined;
           return (
             <div key={key} className={`loan-field${mark === "check" && !confirmed ? " to-check" : ""}`}>
               <div className="loan-field-head">
@@ -224,9 +203,9 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
                   {t("set.ln.correct")}
                 </label>
               )}
-              {help && (
-                <span id={idOf(`${key}-help`)} className="field-help">
-                  {help}
+              {key === "marginBp" && rate !== null && (
+                <span id={idOf("rate-now")} className="loan-rate-now">
+                  {t("set.loans.rate_now", { rate: percent(rate / 10_000, 2) })}
                 </span>
               )}
               {errors[key] && (
@@ -244,7 +223,7 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
           <label className="field-label" htmlFor={idOf("account")}>
             {t("set.loans.same_debt")}
           </label>
-          <select id={idOf("account")} value={linked} aria-describedby={idOf("account-help")} onChange={(e) => setForm({ ...form, accountId: e.target.value })}>
+          <select id={idOf("account")} value={linked} onChange={(e) => setForm({ ...form, accountId: e.target.value })}>
             <option value="">{t("set.loans.not_linked")}</option>
             {choices.map((c) => (
               <option key={c.id} value={c.id}>
@@ -252,13 +231,8 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
               </option>
             ))}
           </select>
-          <span id={idOf("account-help")} className="field-help">
-            {LINK_HELP()}
-          </span>
         </div>
       )}
-
-      {form.values.repayment === "bullet" && shown.includes("repayment") && <p className="small muted loan-note">{t("set.loans.bullet_note")}</p>}
 
       {interest !== null && (
         <Notice tone="warning" className="loan-interest" role="status">

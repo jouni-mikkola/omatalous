@@ -3,7 +3,7 @@
  * and the mark that sets it aside. Made-up loans and sums.
  */
 import { describe, expect, it } from "vitest";
-import { loanDrift, loanTermsDismissed, loanTermsDismissible, loanTermsMissing, loanTermsSubject, parseLoanTermsSubject } from "../src/loan-terms-answer.ts";
+import { loanDrift, loanTermsDismissed, loanTermsDismissible, loanTermsGaps, loanTermsMissing, loanTermsSubject, parseLoanTermsSubject } from "../src/loan-terms-answer.ts";
 import { seriesId } from "../src/series-id.ts";
 import type { Loan } from "../src/types.ts";
 
@@ -44,6 +44,27 @@ describe("the facts of a loan on a reference rate", () => {
     expect(loanTermsMissing(loan({ ...euribor, paymentCents: null }))).toBe("payment");
     expect(loanTermsMissing(loan({ ...euribor, reference: "fixed" }))).toBeNull();
     expect(loanTermsMissing(loan({ ...euribor, reference: null }))).toBeNull();
+  });
+});
+
+describe("every fact a loan lacks", () => {
+  const euribor = { reference: "euribor_12" } as const;
+  it("lists them all in the order they are asked, the first being the one fact asked alone", () => {
+    const cases: [Partial<Loan>, string[]][] = [
+      [{}, ["repayment", "interval", "payment", "rate"]],
+      [euribor, ["repayment", "interval", "payment", "rate", "margin", "review_date"]],
+      [{ repayment: "bullet", ...euribor }, ["end_date", "margin", "review_date"]],
+      [{ repayment: "bullet", endDate: "2030-01-01" }, []],
+      [{ repayment: "equal_principal", intervalMonths: 1 }, ["payment"]],
+      [{ repayment: "annuity", intervalMonths: 1, paymentCents: 90_000, ...euribor, marginBp: 80 }, ["rate", "review_date"]],
+      [{ repayment: "annuity", intervalMonths: 1, paymentCents: 90_000, rateBp: 350, reference: "fixed" }, []],
+      [{ kind: "card", limitCents: 200_000 }, []],
+      [{ balanceCents: 0 }, []],
+    ];
+    for (const [over, gaps] of cases) {
+      expect(loanTermsGaps(loan(over)), JSON.stringify(over)).toEqual(gaps);
+      expect(loanTermsMissing(loan(over)), JSON.stringify(over)).toBe(gaps[0] ?? null);
+    }
   });
 });
 

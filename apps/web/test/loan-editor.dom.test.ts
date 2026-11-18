@@ -28,12 +28,13 @@ describe("LoanEditor in the reader's language", () => {
     setLanguage("fi");
   });
 
-  it("has the warning, the button and the help in English and no Finnish sentence", () => {
+  it("has the warning and the button in English, no line of help and no Finnish sentence", () => {
     const { container, getByRole } = open("en");
     const text = container.textContent ?? "";
     expect(container.querySelector(".loan-interest p")?.textContent).toMatch(/^The payment is smaller than the interest \(.*\)\. The loan does not shrink\./);
     expect(getByRole("button", { name: "Clear payment" })).toBeTruthy();
     expect(text).toContain("Same debt as an account at the bank");
+    expect(container.querySelector(".field-help")).toBeNull();
     for (const word of FINNISH) expect(text).not.toContain(word);
   });
 
