@@ -3,7 +3,7 @@ name: check
 # The name stays `check`, the one main's runs and the pull requests' status lists have always shown, and no other
 # workflow takes it (tools/test/release-workflow.test.ts).
 #
-# The light tier. It runs what is fast and needs a clean runner least: the shell lint, the
+# The light tier.  It runs what is fast and needs a clean runner least: the shell lint, the
 # types and the tests of what a change reaches (tools/check.sh --changed, the same scope a developer runs), with the pnpm
 # store cached. A run is a few minutes, and a change of documents alone starts none. A run started by hand is the same
 # tier, checked against main.
