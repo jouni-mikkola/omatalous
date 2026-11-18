@@ -7,7 +7,7 @@
  */
 import { type ClosedMonth, getCategory, normalizeIban, PAYER_ROLES } from "@banking/core";
 import { type OwnAccount, ImportRepo, type IdTable } from "../db/import-repo.ts";
-import { bankSignature, searchText } from "../db/finance-repo.ts";
+import { bankSignature, searchText, trimPartsStatement } from "../db/finance-repo.ts";
 import { randomToken } from "../platform/ids.ts";
 import { UserError } from "../platform/errors.ts";
 import { yieldToLoop } from "../platform/yield.ts";
@@ -375,11 +375,22 @@ async function buildPlan(s: Services, ses: Session, committed: boolean, checks: 
           refuse(s, ses, `Tiedoston kohdan loans rivi ${i + 1} on virheellinen (${err.message}).`);
         }
       }
+      // the split of a payment is held to the bounds of the loan form's last payment
+      if (store.key === "loanPaymentParts") {
+        try {
+          checks.part({ date: row.due_date, principalCents: row.principal_cents, interestCents: row.interest_cents, feeCents: row.fee_cents });
+        } catch (err) {
+          if (!(err instanceof UserError)) throw err;
+          refuse(s, ses, `Tiedoston kohdan loanPaymentParts rivi ${i + 1} on virheellinen (${err.message}).`);
+        }
+      }
       if (store.key === "rules") delete row.id;
       statements.push(ImportRepo.insert(store.table, row));
       tally(store.key).add++;
       if (store.accountKey) accountKeyRows++;
     }
+    // a loan keeps its newest payments only, as after a save of the loan form, in the same transaction
+    if (store.key === "loanPaymentParts") for (const loanId of new Set(fresh.map((x) => String(x.row.loan_id)))) statements.push(trimPartsStatement(me.id, loanId));
     await yieldToLoop();
   }
   const usersCount = rowsOf("users").length;

@@ -224,6 +224,22 @@ describe("a file read back", () => {
     expect(again.done.total.add).toBe(0);
     expect(await b.db.first("SELECT COUNT(*) AS n FROM loan_payment_parts")).toEqual({ n: 1 });
   });
+
+  it("keeps the newest 24 payments of a loan, as a save of the loan does, also on top of the ones it has", async () => {
+    const { a, b } = await pair();
+    const file = await exportOf(a.admin);
+    const part = file.loanPaymentParts[0];
+    // thirty monthly payments, 2024-01-05 to 2026-06-05
+    const dates = Array.from({ length: 30 }, (_, k) => `${2024 + Math.floor(k / 12)}-${String((k % 12) + 1).padStart(2, "0")}-05`);
+    const thirty = dates.map((due_date) => ({ ...part, due_date }));
+    await importFile(b.admin, { ...file, loanPaymentParts: thirty });
+    const kept = async () => (await b.db.all<{ due_date: string }>("SELECT due_date FROM loan_payment_parts WHERE user_id = ? AND loan_id = 'aino-loan' ORDER BY due_date", [b.adminId])).map((r) => r.due_date);
+    expect(await kept()).toEqual(dates.slice(6));
+    // the loan is the user's own now: a later file with older and newer payments leaves the newest 24 of all of them
+    const later = ["2023-12-05", "2026-07-05", "2026-08-05"].map((due_date) => ({ ...part, due_date }));
+    await importFile(b.admin, { ...file, loanPaymentParts: later });
+    expect(await kept()).toEqual([...dates.slice(8), "2026-07-05", "2026-08-05"]);
+  });
 });
 
 describe("another user's rows", () => {
@@ -404,6 +420,23 @@ describe("a hostile file is refused and changes nothing", () => {
     await refusedWith(b, b.admin, { ...file, statementRows: [{ ...file.statementRows[0], bill_tx_id: "aino-tx2" }] }, /bill_tx_id/);
     // a row that says it is aino's but names kaisa's username as its owner
     await refusedWith(b, b.admin, { ...file, accounts: [{ ...file.accounts[0], owner_username: "kaisa" }] }, /owner_username/);
+  });
+
+  it("a payment split the loan form would refuse: no amount, too much, or a day that is not a payment made in the last 40 years", async () => {
+    const { a, b } = await pair();
+    const file = await exportOf(a.admin);
+    const part = file.loanPaymentParts[0];
+    const sentence = /loanPaymentParts rivi 1 on virheellinen/;
+    const zero = { ...part, principal_cents: 0, interest_cents: 0, fee_cents: 0 };
+    await refusedWith(b, b.admin, { ...file, loanPaymentParts: [zero] }, sentence);
+    // 10 000 000 € is the most a payment of the form may be, in one part or as the sum of three
+    await refusedWith(b, b.admin, { ...file, loanPaymentParts: [{ ...part, principal_cents: 1_000_000_001 }] }, sentence);
+    await refusedWith(b, b.admin, { ...file, loanPaymentParts: [{ ...part, principal_cents: 500_000_000, interest_cents: 400_000_000, fee_cents: 100_000_001 }] }, sentence);
+    // the day of the test clock is 2026-10-09
+    await refusedWith(b, b.admin, { ...file, loanPaymentParts: [{ ...part, due_date: "2026-10-10" }] }, sentence);
+    await refusedWith(b, b.admin, { ...file, loanPaymentParts: [{ ...part, due_date: "1986-10-08" }] }, sentence);
+    // the second row is the one named
+    await refusedWith(b, b.admin, { ...file, loanPaymentParts: [part, { ...part, due_date: "2026-07-05", principal_cents: 0, interest_cents: 0 }] }, /loanPaymentParts rivi 2 on virheellinen/);
   });
 
   it("a chunk of another session, out of order, twice, or after the end", async () => {

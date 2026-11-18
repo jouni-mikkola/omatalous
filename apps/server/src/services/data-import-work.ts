@@ -29,8 +29,9 @@ export interface ImportPlan {
   committed: boolean;
 }
 
-/** What the route layer lends the import: the loan form's own checks (the services do not import routes). */
+/** What the route layer lends the import: the loan form's own checks, also of the split of a payment (the services do not import routes). */
 export interface ImportChecks {
+  part(fields: Record<string, unknown>): unknown;
   loan(fields: Record<string, unknown>, accounts: { getAccount(id: string): Promise<{ id: string; type: string } | null> }): Promise<unknown>;
 }
 

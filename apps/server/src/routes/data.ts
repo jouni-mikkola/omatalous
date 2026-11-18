@@ -7,7 +7,7 @@ import { exportEverything } from "../services/data-export.ts";
 import { addChunk, cancelImport, commitImport, dryRun, type ImportChecks, startImport } from "../services/data-import.ts";
 import { UserError } from "../platform/errors.ts";
 import { strictObject } from "../platform/validate.ts";
-import { parseLoan } from "./loans.ts";
+import { parseLastPayment, parseLoan } from "./loans.ts";
 import { parseScope, requestInputs, rowsInView } from "../services/analysis.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { removeDemoData } from "../services/accounts.ts";
@@ -22,7 +22,10 @@ const centsOrEmpty = (v: number | null) => (v === null ? null : cents(v));
 
 export function dataRoutes(s: Services) {
   const app = new Hono<AppEnv>();
-  const checks: ImportChecks = { loan: (fields, accounts) => parseLoan(fields, s.today(), accounts as never) };
+  const checks: ImportChecks = {
+    loan: (fields, accounts) => parseLoan(fields, s.today(), accounts as never),
+    part: (fields) => parseLastPayment(fields, s.today()),
+  };
 
   /**
    * What the signed-in user sees, one JSON file (docs/DATA_EXPORT.md): their own data and what is shared with them, for a
