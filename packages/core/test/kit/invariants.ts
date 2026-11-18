@@ -244,7 +244,7 @@ export function walletRole(h: GeneratedHousehold, v: HouseholdView, asked: reado
 }
 
 /** The monthly sum of each loan the views propose, by the loan's key. */
-export const monthlyLoans = (v: HouseholdView): Map<string, number> => new Map(loanProposals(v.ctx, NO_INPUTS).map((p) => [p.key, p.monthlyCents]));
+export const monthlyLoans = (v: HouseholdView): Map<string, number> => new Map(loanProposals(v.ctx, NO_INPUTS).flatMap((p) => (p.monthlyCents === null ? [] : [[p.key, p.monthlyCents] as const])));
 
 /** I4: the monthly sum of a loan in the household view is what its members' views add up to. */
 export function loanParts(h: GeneratedHousehold, views: readonly HouseholdView[]): Violation[] {

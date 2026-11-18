@@ -1,6 +1,7 @@
 /** Tarkistettavat's sitting and words: at most 25 items, the guess first, a split asked with no guess (owner rule L5). */
 import { describe, expect, it } from "vitest";
 import "./fixed-clock.ts";
+import { money } from "../src/format.ts";
 import { eyebrow, figureOf, groupCategories, leftText, offeredCategories, loanKindChoices, nameOf, NEW_SITTING, openItems, payerChoices, planEnd, questionOf, readableText, type ReviewItem, SITTING, sittingView, withFetch } from "../src/pages/review-items.ts";
 
 const payee = (n: number): ReviewItem => ({ kind: "payee_out", id: `payee_out:Kauppa ${n}`, cents: 100_000 - n, merchant: `Kauppa ${n}`, count: 3, lastDate: "2026-09-20", picks: [] });
@@ -131,11 +132,14 @@ describe("the choices", () => {
   });
 
   it("ask every loan its kind, the kind the rows suggest first, and a placed loan may be the kind the plain answers lack", () => {
-    const loan = { kind: "loan", id: "loan:k", cents: 346_800, key: "k", payee: "Esimerkkirahoitus", paymentCents: 28_900, months: 14, firstDate: "2025-09-05", lastDate: "2026-10-05", guess: "instalment", placed: true } as const;
+    const loan = { kind: "loan", id: "loan:k", cents: 346_800, key: "k", payee: "Esimerkkirahoitus", paymentCents: 28_900, months: 14, firstDate: "2025-09-05", lastDate: "2026-10-05", guess: "card", placed: true } as const;
     expect(questionOf(loan)).toBe(questionOf({ ...loan, placed: false }));
-    expect(loanKindChoices(loan).map((c) => [c.value, c.guess])[0]).toEqual(["instalment", true]);
+    expect(loanKindChoices(loan).map((c) => [c.value, c.guess])[0]).toEqual(["card", true]);
     // an answer stored as a mark has only the plain kinds
-    expect(loanKindChoices({ ...loan, placed: false }).map((c) => c.value)).not.toContain("instalment");
+    expect(loanKindChoices({ ...loan, placed: false }).map((c) => c.value)).not.toContain("card");
+    // a credit line and an instalment plan are plain answers, the guess first
+    expect(loanKindChoices({ ...loan, guess: "credit_line", placed: false }).map((c) => [c.value, c.guess])[0]).toEqual(["credit_line", true]);
+    expect(loanKindChoices({ ...loan, guess: "instalment", placed: false }).map((c) => c.value)).toContain("instalment");
   });
 
   it("call a sum of the last year's rows yhteensä: a payee's, a payer's and a consent's", () => {
@@ -155,6 +159,10 @@ describe("the choices", () => {
     expect(figureOf(loan).unit).toBe("kuussa");
     // the line counts the rows the card shows
     expect(figureOf(loan).line).toBe("10 maksua 5.1. alkaen, viimeksi 5.10.");
+    // a lender's few payments tell no month: the figure is the latest payment
+    const few: ReviewItem = { ...loan, noMonthly: true, months: 2, firstDate: "2026-09-05", rowCount: 2 };
+    expect([figureOf(few).text, figureOf(few).unit]).toEqual([money(25_000), "viimeisin maksu"]);
+    expect(figureOf(few).line).toBe("2 maksua 5.9. alkaen, viimeksi 5.10.");
   });
 });
 

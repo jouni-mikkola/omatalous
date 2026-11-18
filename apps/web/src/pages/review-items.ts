@@ -57,6 +57,8 @@ export interface LoanItem extends Base {
   key: string;
   payee: string;
   paymentCents: number;
+  /** The rows show no monthly payment: `paymentCents` is the latest payment and no month's. */
+  noMonthly?: true;
   months: number;
   firstDate: string;
   lastDate: string;
@@ -383,7 +385,7 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
       // the sum of the rows of the last 365 days: one payment, or a few weeks of history, would read as a year's figure with "vuodessa"
       return { text: money(item.cents), unit: t("set.ri.in_total"), line: tn(item.count, "set.ri.payments_year_one", "set.ri.payments_year_many", { last: date(item.lastDate) }) };
     case "loan":
-      return { text: money(item.paymentCents), unit: t("set.ri.a_month"), line: tn(item.rowCount ?? item.months, "set.ri.payments_since_one", "set.ri.payments_since_many", { first: date(item.firstDate), last: date(item.lastDate) }) };
+      return { text: money(item.paymentCents), unit: t(item.noMonthly ? "set.ri.latest_payment" : "set.ri.a_month"), line: tn(item.rowCount ?? item.months, "set.ri.payments_since_one", "set.ri.payments_since_many", { first: date(item.firstDate), last: date(item.lastDate) }) };
     case "plan":
       return { text: money(item.paymentCents), unit: t("set.ri.a_month"), line: t("set.ri.latest_payment_date_the_amount", { date: date(item.lastDate) }) };
     case "split":

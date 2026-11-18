@@ -3,7 +3,7 @@
  * keeps its own answer route (rules, payer roles, marks, loans, account answers); this only gathers and orders, so an
  * answer given here changes what the old card's answer changed.
  */
-import { addDays, type AnalysisContext, type AnalysisTx, billCents, billDueSubject, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, type HouseholdMember, householdWords, isCancelled, isUnknownMerchant, type LoanKind, lenderInstalments, marksBySubject, memberOfRow, missedOn, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, type RecurringSeries, seriesMarkSubject, type UserInputs } from "@banking/core";
+import { addDays, type AnalysisContext, type AnalysisTx, billCents, billDueSubject, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, type HouseholdMember, householdWords, isCancelled, isUnknownMerchant, type LoanKind, lenderInstalments, marksBySubject, memberOfRow, missedOn, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, proposalWeight, type RecurringSeries, seriesMarkSubject, type UserInputs } from "@banking/core";
 import { connectionView } from "./accounts.ts";
 import { requestInputs } from "./analysis.ts";
 import { visibleTo } from "./visible-accounts.ts";
@@ -68,6 +68,8 @@ interface LoanItem extends Base {
   key: string;
   payee: string;
   paymentCents: number;
+  /** The rows show no monthly payment (a lender's few payments): `paymentCents` is the latest payment and no month's. */
+  noMonthly?: true;
   months: number;
   firstDate: string;
   lastDate: string;
@@ -290,10 +292,11 @@ const loans: Source = async (_s, _userId, own) => {
   const { ctx } = own;
   const series = memoOn(ctx, "review:loan-series", null, () => new Map([...ctx.recurring, ...lenderInstalments(ctx)].map((r) => [r.id, r.transactionIds])));
   return proposalsOf(ctx, own).flatMap((p): Sourced[] => {
-    const cents = 12 * p.paymentCents;
-    const rowIds = series.get(p.seriesId) ?? [];
+    const cents = proposalWeight(p);
+    // a lender's few payments are no series: the proposal holds its rows
+    const rowIds = series.get(p.seriesId) ?? [...(p.rowIds ?? [])];
     if (p.plan) return p.planAnswer === null ? [{ kind: "plan", id: `plan:${p.key}`, cents, key: p.key, payee: p.payee, paymentCents: p.paymentCents, lastDate: p.lastDate, rowIds, whole: true }] : [];
-    return [{ kind: "loan", id: `loan:${p.key}`, cents, key: p.key, payee: p.payee, paymentCents: p.paymentCents, months: p.months, firstDate: p.firstDate, lastDate: p.lastDate, guess: p.kind, placed: p.placed, rowIds, whole: true }];
+    return [{ kind: "loan", id: `loan:${p.key}`, cents, key: p.key, payee: p.payee, paymentCents: p.paymentCents, ...(p.monthlyCents === null ? { noMonthly: true as const } : {}), months: p.months, firstDate: p.firstDate, lastDate: p.lastDate, guess: p.kind, placed: p.placed, rowIds, whole: true }];
   });
 };
 

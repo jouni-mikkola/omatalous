@@ -577,7 +577,7 @@ asked or under 95 % is classified. A question has one of five kinds:
   reaches `ASK_LIMIT`, with no role yet; it takes the place of the payee questions about the same money. A role
   (`PAYER_ROLES`; MobilePay money with no sender is asked only as cost share, sale or gift) rewrites every row of the payer, the past ones too.
 
-The questions come largest sum first (the window's sum; a loan's is twelve payments), ties by kind and name. The block lists five, or three when the inputs
+The questions come largest sum first (the window's sum; a loan's is twelve payments, or with no monthly figure what it owes at least or its latest payment, `proposalWeight`), ties by kind and name. The block lists five, or three when the inputs
 carry payer roles; `total` counts them all. A card bill is told in a line of its own (the issuers of the largest two), not as a question.
 
 **Varat ja velat** is `buildHoldings` in `holdings.ts`, the answer Saldot reads too. A group with nothing in it is left out. In a member's own view a joint account, a card
