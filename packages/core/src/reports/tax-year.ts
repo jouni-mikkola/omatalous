@@ -1,13 +1,14 @@
 // Decision: which rows of one calendar year the household checks against the pre-filled tax return, and whether a refund or a residual tax is on the accounts
 import type { AnalysisContext } from "../analysis/context.ts";
 import { spendSelect } from "../analysis/counted.ts";
+import { savedLoanPaidBy } from "../analysis/debt-split.ts";
 import { type DateRange, toDayRange } from "../analysis/period.ts";
 import type { IncomeGroup, IncomeType } from "../analysis/income.ts";
 import { paysHouseholdCreditWork } from "../household-credit.ts";
 import { fold } from "../merchant.ts";
 import { isBuildingWorkText, isCleaningWorkText, isOtherTaxText, isResidualTaxText } from "../wording.ts";
 import type { AnalysisTx } from "../analysis/context.ts";
-import type { IsoDate } from "../types.ts";
+import type { IsoDate, LoanKind, UserInputs } from "../types.ts";
 
 /** One bank row the sheet lists, so the household can find it: the amount as the spending or income figure counts it (a refund inside spending is negative). */
 export interface TaxRow {
@@ -32,6 +33,9 @@ interface TaxIncomeRow {
  */
 const LOAN_PAYMENT_CATEGORIES = ["mortgage", "student_loan"] as const;
 
+/** The kinds of saved loan whose interest a return may deduct: a home loan's and a student loan's. Consumer credit, a car loan and a card are not. */
+const DEDUCTIBLE_KINDS: readonly LoanKind[] = ["mortgage", "student"];
+
 interface TaxLoanPayment {
   category: (typeof LOAN_PAYMENT_CATEGORIES)[number];
   cents: number;
@@ -50,8 +54,12 @@ export interface TaxYearReport {
   refunds: { cents: number; rows: TaxRow[] };
   /** Rows of the tax office that name residual tax. */
   residual: { cents: number; rows: TaxRow[] };
-  /** The rows of "Korot ja luottokulut". */
-  interest: { cents: number; rows: TaxRow[] };
+  /**
+   * The interest rows that pay a saved loan of a deductible kind (`DEDUCTIBLE_KINDS`), and their sum. An interest row
+   * that reaches no saved loan is not counted, and the sum is then null: what the household may deduct is not known. A
+   * row of a saved loan of another kind is known not to count and leaves the sum as it is.
+   */
+  interest: { cents: number | null; rows: TaxRow[] };
   /** What the loans were paid, interest and principal together, by loan category. */
   loanPayments: TaxLoanPayment[];
   /**
@@ -89,18 +97,26 @@ interface TaxIncomeInput {
 /**
  * One calendar year (the year of the range's last day) gathered from the rows for checking the tax return. Nothing is
  * counted again: income is the income report's types over the year, and the spending rows are the ones every spending
- * figure counts (`spendSelect`, on the rows of `spendRows`), so a category's sum here is that category's sum on the dashboard. The household credit
+ * figure counts (`spendSelect`, on the rows of `spendRows`), so a category's sum here is that category's sum on the dashboard.
+ * The exception is interest, which is the part of that category that pays a deductible saved loan. The household credit
  * and residual tax lines are rows whose category and words suggest them; the sheet says "may be related" and decides
  * nothing, and it never says what can be deducted.
  */
-export function taxYearReport(ctx: AnalysisContext, range: DateRange, income: TaxIncomeInput): TaxYearReport {
+export function taxYearReport(ctx: AnalysisContext, range: DateRange, income: TaxIncomeInput, inputs: UserInputs): TaxYearReport {
   const days = taxYearDays(ctx, range);
   const year = Number(days.from.slice(0, 4));
   // A refund is no income of the year: its rows are their own part, and the income total leaves them out.
   const types = income.types.filter((t) => t.totalCents !== 0 && t.type !== "tax_refund").map((t): TaxIncomeRow => ({ type: t.type, label: t.label, group: t.group, earned: t.earned, totalCents: t.totalCents }));
   const { counted } = spendSelect(ctx, toDayRange(days));
   const pick = (category: string, also?: (t: AnalysisTx) => boolean): TaxRow[] => counted.filter((t) => t.category === category && (!also || also(t))).map((t) => rowOf(t, t.spend));
-  const interestRows = pick("interest");
+  const loanOf = savedLoanPaidBy(ctx, inputs);
+  const interestRows: TaxRow[] = [];
+  let interestKnown = true;
+  for (const t of counted.filter((x) => x.category === "interest")) {
+    const loan = loanOf(t);
+    if (loan === undefined) interestKnown = false;
+    else if (DEDUCTIBLE_KINDS.includes(loan.kind)) interestRows.push(rowOf(t, t.spend));
+  }
   const residualRows = pick("taxes", (t) => isResidualTaxText(textOf(t)) && !isOtherTaxText(textOf(t)));
   const householdRows = counted
     .filter((t) => (t.category === "home" && (isCleaningWorkText(textOf(t)) || isBuildingWorkText(textOf(t)))) || paysHouseholdCreditWork(t.merchant, ctx.industries?.get(t.merchant)))
@@ -113,7 +129,7 @@ export function taxYearReport(ctx: AnalysisContext, range: DateRange, income: Ta
     income: { totalCents: types.reduce((a, t) => a + t.totalCents, 0), types },
     refunds: { cents: income.types.find((t) => t.type === "tax_refund")?.totalCents ?? 0, rows: refundRows },
     residual: { cents: sum(residualRows), rows: residualRows },
-    interest: { cents: sum(interestRows), rows: interestRows },
+    interest: { cents: interestKnown ? sum(interestRows) : null, rows: interestRows },
     loanPayments: LOAN_PAYMENT_CATEGORIES.map((category) => {
       const rows = pick(category);
       return { category, cents: sum(rows), count: rows.length };

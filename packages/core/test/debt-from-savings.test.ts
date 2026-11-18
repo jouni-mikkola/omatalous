@@ -9,11 +9,18 @@ import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { leftOf } from "../src/analysis/flows.ts";
 import { buildReports } from "../src/reports/index.ts";
-import type { Account, IsoDate, Transaction } from "../src/types.ts";
+import type { Account, IsoDate, Loan, Transaction, UserInputs } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: "FI21 1234 5600 0007 85", currency: "EUR", type: "checking" };
 const savings: Account = { id: "acc-2", name: "Säästötili", iban: null, currency: "EUR", type: "savings" };
+const IBAN_LOAN = "FI1410093000123458";
+const loanAccount: Account = { id: "acc-3", name: "Asuntolaina", iban: IBAN_LOAN, currency: "EUR", type: "loan" };
+const mortgage: Loan = {
+  id: "loan-1", name: "Asuntolaina", lender: "Esimerkkipankki Oyj", kind: "mortgage", grantedCents: null, balanceCents: 10_000_000, balanceDate: "2026-10-01", rateBp: 400,
+  reference: null, marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: 40_000, endDate: null, limitCents: null, seriesKey: null, accountId: "acc-3",
+};
+const saved: UserInputs = { marks: [], expectedBills: [], loans: [mortgage] };
 const today: IsoDate = "2026-10-12";
 const range = { from: "2026-10-01", to: today };
 
@@ -27,7 +34,7 @@ const rows = [
   // 500 euro to the savings account, both legs: the checking account pays, the savings account receives
   tx({ bookingDate: "2026-10-06", amountCents: -50_000, merchant: "Oma siirto", category: "transfer", isTransfer: true }),
   tx({ bookingDate: "2026-10-06", amountCents: 50_000, accountId: "acc-2", merchant: "Oma siirto", category: "transfer", isTransfer: true }),
-  fromSavings("2026-10-08", INTEREST, { category: "interest" }),
+  fromSavings("2026-10-08", INTEREST, { category: "interest", counterpartyIban: IBAN_LOAN }),
   fromSavings("2026-10-09", INSTALMENT, { category: "mortgage" }),
 ];
 const ctx = createContext(rows, [checking, savings], today);
@@ -61,7 +68,9 @@ describe("a debt paid from a savings account", () => {
     // the categories hold what the identity leaves out, and nothing else
     expect(d.categories.reduce((sum, c) => sum + c.cents, 0)).toBe(d.totals.expenseCents + INTEREST + INSTALMENT);
 
-    const r = buildReports({ ctx, range, balances: [] }, ["spendingMonths", "taxYear"]);
+    // the interest counts on the sheet as it pays a saved home loan, whichever account paid it
+    const withLoan = createContext(rows, [checking, savings, loanAccount], today);
+    const r = buildReports({ ctx: withLoan, range, balances: [], inputs: saved }, ["spendingMonths", "taxYear"]);
     expect(r.spendingMonths.totalCents).toBe(d.totals.expenseCents + INTEREST + INSTALMENT);
     expect(r.taxYear.interest.cents).toBe(INTEREST);
     expect(r.taxYear.interest.rows).toHaveLength(1);
