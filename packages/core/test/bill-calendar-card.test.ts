@@ -25,7 +25,7 @@ const everyDay = (row: (day: IsoDate) => Transaction[]): Transaction[] => {
 };
 /** The leg that leaves the own account, paid to the card's bank by reference, as a card's payment channel is. */
 const move = (bookingDate: IsoDate, cents: number): Transaction[] => [
-  tx({ accountId: "own", bookingDate, amountCents: -cents, merchant: "Esimerkkipankki", counterparty: "Esimerkkipankki", counterpartyIban: "FI79 4405 2020 0360 82", reference: "1234561", category: "transfer", categorySource: "transfer", isTransfer: true }),
+  tx({ accountId: "own", bookingDate, amountCents: -cents, merchant: "Esimerkkipankki", counterparty: "Esimerkkipankki", counterpartyIban: "FI49 5000 9420 0287 30", reference: "1234561", category: "transfer", categorySource: "transfer", isTransfer: true }),
   tx({ accountId: "card", bookingDate, amountCents: cents, merchant: "Maksu", category: "transfer", categorySource: "transfer", isTransfer: true }),
 ];
 /** 20 euros of groceries a day from the own account and 10 on the card, the card's statement paid in full on each 9th from April. */
