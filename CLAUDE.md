@@ -172,7 +172,7 @@ change cannot weaken the check that judges it: the fix of a detector merges befo
   payment word list goes in `packages/core/src/wordlists.json` (repo rule 21), read through `wordlists.ts` and shared with `categorize.ts` through one constant of `wording.ts`.
 - New connector: a folder in `apps/server/src/connectors/` listed in its `registry.ts` (recipe in
   `docs/DEVELOPMENT.md`). A `Connector` (`connectors/types.ts`) is an `id`, an optional `sync` and an optional
-  `revokeAll`, and the id is stored and never renamed. The app reads no files on the server and has no import format. The one exception is a statement, a card's or a bank's CSV export or camt.053 file, read in the browser, of which only the rows go to the install (`connectors/card-file/`, `connectors/bank-file/`, ADR 0025).
+  `revokeAll`, and the id is stored and never renamed. The app reads no files on the server and has no import format. The exceptions are read in the browser, and only what the household confirms goes to the install: a statement, a card's or a bank's CSV export or camt.053 file, of which only the rows go (`connectors/card-file/`, `connectors/bank-file/`, ADR 0025), and the text or PDF of a loan, of which only the loan's fields go (`components/loans/`, ADR 0029).
 - Tables: every list of rows is `components/table/Table.tsx` (columns, groups, a total, a drill; `KeyValue` for the facts of
   one subject). A page writes cells and never a `<table>`, a column sorts only in a complete list read by size, and under
   600 px of room a row becomes a block, never a sideways scroll. A view nobody needs is deleted with its code, styles, tests

@@ -1,9 +1,10 @@
-import { LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, type LoanKind } from "@banking/core";
+import { LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, type LoanDraft, type LoanKind } from "@banking/core";
 import { createContext, type FormEvent, type ReactNode, useContext, useId, useState } from "react";
 import { money, parseEuros } from "../../format.ts";
 import { t } from "../../text.ts";
 import type { Account } from "../../types.ts";
-import { defaultName, isCredit, type FormErrors, interestOverPayment, type LoanBody, type LoanForm, linkChoices, readForm, setKind, setValue, shownFields } from "./form.ts";
+import { checksLeft, defaultName, formOfDraft, isCredit, type FormErrors, interestOverPayment, type LoanBody, type LoanForm, linkChoices, markOf, matchedLoan, readForm, setKind, setValue, shownFields, toggleConfirmed } from "./form.ts";
+import { LoanSource } from "./LoanSource.tsx";
 import { FIELD_LABEL, INTERVALS, intervalLabel, KIND_LABEL, type LoanFieldKey, REFERENCE_LABEL, REPAYMENT_LABEL } from "./labels.ts";
 import { Button } from "../ui/Button.tsx";
 import { Notice } from "../ui/Notice.tsx";
@@ -45,8 +46,17 @@ function prefilledLine(form: LoanForm): string {
  * The form of one loan: a loan typed in, a proposal from the bank's rows, or a saved loan. Nothing is sent before
  * Tallenna.
  */
-export function LoanEditor({ initial, today, cancelLabel, ask, onSave, onCancel }: {
+export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, ask, onSeveral, onSave, onCancel }: {
   initial: LoanForm;
+  /** The save button's name, when it does not save the loan itself (a row of the table of read loans). */
+  saveLabel?: string;
+  /** The form of a row that is read already has no input box. */
+  noSource?: boolean;
+  /**
+   * Where a read text of several loans, or of a loan the household has saved already, goes: a table that saves them all.
+   * Without it the form takes one loan and tells the household when the text holds more.
+   */
+  onSeveral?: (drafts: LoanDraft[]) => void;
   /**
    * The fields the household is asked for, when the rest is filled from the bank's rows (a proposal). The others stay
    * in the form, shown in one line, and "Näytä kaikki kentät" opens them. Without it every field shows.
@@ -67,12 +77,28 @@ export function LoanEditor({ initial, today, cancelLabel, ask, onSave, onCancel 
   const compact = ask !== undefined && !all;
   const shown = shownFields(form).filter((key) => !compact || ask.includes(key));
   const interest = interestOverPayment(form);
+  const left = checksLeft(form);
   const links = useContext(LoanLinks);
   const choices = linkChoices(links.accounts, links.loans, form.id);
   // a stored link to an account that is not offered any more (removed, no card or loan account) is not kept by a save
   const linked = choices.some((c) => c.id === form.accountId) ? form.accountId : "";
   const idOf = (key: string) => `${uid}-${key}`;
   const change = (key: LoanFieldKey, text: string) => setForm((f) => setValue(f, key, text));
+
+  // the text of a read: one new loan fills this form, several loans (or one already saved) go to the table
+  const take = (drafts: LoanDraft[]): string | null => {
+    const next = formOfDraft(drafts[0]!, today, form);
+    if (onSeveral && (drafts.length > 1 || matchedLoan(next, links.loans) !== null)) {
+      onSeveral(drafts);
+      return null;
+    }
+    if (drafts.length > 1) return t("set.ln.several_loans_here");
+    setForm(next);
+    setErrors({});
+    setProblem(null);
+    setAll(true);
+    return null;
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -81,10 +107,14 @@ export function LoanEditor({ initial, today, cancelLabel, ask, onSave, onCancel 
     setErrors(found);
     // an error on a field that is not shown opens the rest of the form
     if (compact && (interest !== null || Object.keys(found).some((key) => key !== "kind" && !shown.includes(key as LoanFieldKey)))) setAll(true);
-    const stop = Object.keys(found)[0] ?? (interest !== null ? "paymentCents" : null);
+    const stop = Object.keys(found)[0] ?? left[0] ?? (interest !== null ? "paymentCents" : null);
     if (!body || stop) {
       setProblem(
-        Object.keys(found).length > 0 ? t("set.loans.fix_marked") : t("set.loans.payment_below_interest"),
+        Object.keys(found).length > 0
+          ? t("set.loans.fix_marked")
+          : left.length > 0
+            ? t("set.ln.check_these", { fields: left.map((key) => FIELD_LABEL[key]).join(", ") })
+            : t("set.loans.payment_below_interest"),
       );
       if (stop) document.getElementById(idOf(stop))?.focus();
       return;
@@ -126,6 +156,7 @@ export function LoanEditor({ initial, today, cancelLabel, ask, onSave, onCancel 
 
   return (
     <form className="loan-form" onSubmit={(e) => void submit(e)} noValidate>
+      {form.id === null && !noSource && <LoanSource today={today} onDrafts={take} />}
       {compact && form.id === null && form.seriesKey !== null && <p className="small muted loan-note">{prefilledLine(form)}</p>}
       {!compact && (
       <div className="loan-fields">
@@ -160,16 +191,41 @@ export function LoanEditor({ initial, today, cancelLabel, ask, onSave, onCancel 
       <div className="loan-fields">
         {shown.map((key) => {
           const help = key === "paymentCents" ? paymentHelp(form) : key === "balanceCents" && linked ? LINKED_BALANCE_HELP() : key === "rateReviewDate" ? REVIEW_HELP() : null;
-          const described = [help && idOf(`${key}-help`), errors[key] && idOf(`${key}-error`)].filter(Boolean).join(" ") || undefined;
+          const mark = markOf(form, key);
+          const confirmed = form.confirmed.includes(key);
+          const line = form.source?.lines[key];
+          const why = form.source?.warnings[key]?.join(" ");
+          const described = [mark && idOf(`${key}-mark`), line && idOf(`${key}-line`), why && !confirmed && idOf(`${key}-why`), help && idOf(`${key}-help`), errors[key] && idOf(`${key}-error`)].filter(Boolean).join(" ") || undefined;
           return (
-            <div key={key} className="loan-field">
+            <div key={key} className={`loan-field${mark === "check" && !confirmed ? " to-check" : ""}`}>
               <div className="loan-field-head">
                 <label className="field-label" htmlFor={idOf(key)}>
                   {FIELD_LABEL[key]}
                   {UNIT[key] ? ` (${UNIT[key]})` : ""}
                 </label>
+                {mark && (
+                  <span id={idOf(`${key}-mark`)} className={`badge ${mark === "sure" || (mark === "check" && confirmed) ? "good" : mark === "check" ? "warn" : ""}`}>
+                    {mark === "sure" ? t("set.ln.mark_sure") : mark === "missing" ? t("set.ln.mark_missing") : confirmed ? t("set.ln.mark_checked") : t("set.ln.mark_check")}
+                  </span>
+                )}
               </div>
               {input(key, described)}
+              {line && (
+                <span id={idOf(`${key}-line`)} className="loan-source">
+                  {t("set.ln.in_the_text", { line })}
+                </span>
+              )}
+              {why && !confirmed && (
+                <span id={idOf(`${key}-why`)} className="loan-source">
+                  {why}
+                </span>
+              )}
+              {mark === "check" && (
+                <label className="loan-confirm">
+                  <input type="checkbox" checked={confirmed} onChange={(e) => setForm(toggleConfirmed(form, key, e.target.checked))} aria-label={t("set.ln.field_is_correct", { field: FIELD_LABEL[key] })} />
+                  {t("set.ln.correct")}
+                </label>
+              )}
               {help && (
                 <span id={idOf(`${key}-help`)} className="field-help">
                   {help}
@@ -224,7 +280,7 @@ export function LoanEditor({ initial, today, cancelLabel, ask, onSave, onCancel 
       )}
       <div className="form-row">
         <Button variant="primary" type="submit" busy={busy}>
-          {busy ? t("set.loans.saving") : t("ui.save")}
+          {busy ? t("set.loans.saving") : (saveLabel ?? t("ui.save"))}
         </Button>
         <Button disabled={busy} onClick={onCancel}>
           {cancelLabel}

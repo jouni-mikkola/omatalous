@@ -14,12 +14,14 @@ function built(files: Record<string, string>): string {
 }
 
 describe("the files the service worker keeps", () => {
-  it("lists the app's own files and leaves out the picture reader, the licence list, the old fonts and the worker itself", () => {
+  it("lists the app's own files and leaves out the PDF reader, the old fonts and the worker itself", () => {
     const out = built({
       "index.html": "<html>",
       "sw.js": "old",
       "manifest.webmanifest": "{}",
       "assets/index-1.js": "a",
+      "assets/pdf-Ab3_x.js": "p",
+      "assets/pdf.worker.min-Zy9-q.mjs": "w",
       "assets/font-1.woff2": "f",
       "assets/font-1.woff": "f",
       "icons/icon-192.png": "p",

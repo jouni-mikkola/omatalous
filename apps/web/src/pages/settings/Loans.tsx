@@ -1,10 +1,11 @@
-import { DEBT_ACCOUNT_TYPES, type Loan } from "@banking/core";
+import { DEBT_ACCOUNT_TYPES, type Loan, type LoanDraft } from "@banking/core";
 import { useEffect, useRef, useState } from "react";
 import { loanCalls } from "../../api.ts";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 import { Table } from "../../components/table/Table.tsx";
 import { emptyForm, formOfLoan, LOAN_LINK_PARAM, linkChoices } from "../../components/loans/form.ts";
 import { KIND_LABEL } from "../../components/loans/labels.ts";
+import { LoanDraftTable } from "../../components/loans/LoanDraftTable.tsx";
 import { LoanEditor, LoanLinks } from "../../components/loans/LoanEditor.tsx";
 import { date, money, percent } from "../../format.ts";
 import { useApi, useHashRoute } from "../../hooks.ts";
@@ -56,6 +57,8 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
   }, [loaded, onLoaded]);
   const [editing, setEditing] = useState<{ loan: Loan; account: string } | null>(null);
   const { open: adding, setOpen: setAdding, region } = useInPlaceForm();
+  // the loans of a text the household read in the new loan's form, when they are several or one is saved already
+  const [read, setRead] = useState<LoanDraft[] | null>(null);
   const [removing, setRemoving] = useState<Loan | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "good" | "warning"; text: string } | null>(null);
@@ -178,17 +181,31 @@ export function Loans({ meta, onLoaded }: { meta: Meta; onLoaded?: () => void })
       {adding && (
         <section className="loan-draft" aria-labelledby="loan-new-title">
           <h3 id="loan-new-title">{t("set.loans.new_loan")}</h3>
-          <LoanEditor
-            initial={emptyForm(meta.today)}
-            today={meta.today}
-            cancelLabel={t("set.loans.cancel")}
-            onSave={async (body) => {
-              await loanCalls.add(body);
-              setAdding(false);
-              done(`${body.name} tallennettu.`);
-            }}
-            onCancel={() => setAdding(false)}
-          />
+          {read ? (
+            <LoanDraftTable
+              drafts={read}
+              loans={loans}
+              today={meta.today}
+              onSaved={(count) => done(count === 1 ? t("set.ln.saved_one") : t("set.ln.saved_many", { count }))}
+              onClose={() => {
+                setRead(null);
+                setAdding(false);
+              }}
+            />
+          ) : (
+            <LoanEditor
+              initial={emptyForm(meta.today)}
+              today={meta.today}
+              cancelLabel={t("set.loans.cancel")}
+              onSeveral={setRead}
+              onSave={async (body) => {
+                await loanCalls.add(body);
+                setAdding(false);
+                done(`${body.name} tallennettu.`);
+              }}
+              onCancel={() => setAdding(false)}
+            />
+          )}
         </section>
       )}
 

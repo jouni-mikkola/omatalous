@@ -6,7 +6,10 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
-/** The address of every file of the built app that the worker keeps, sorted. The worker itself stays out, and so do the old `.woff` fonts (a browser with a worker reads `.woff2`) and the `.br` and `.gz` copies the server sends in place of a file. */
+/** The PDF reader of Asetukset > Lainat: its lazy chunk and its worker (over a megabyte), needed only while a loan PDF is read. */
+const PDF_READER = /^\/assets\/pdf(?:\.worker\.min)?-[\w-]+\.m?js$/;
+
+/** The address of every file of the built app that the worker keeps, sorted. The PDF reader, the worker itself and the old `.woff` fonts (a browser with a worker reads `.woff2`) stay out, and so do the `.br` and `.gz` copies the server sends in place of a file. */
 export function shellFiles(outDir: string): string[] {
   const found: string[] = [];
   const walk = (dir: string) => {
@@ -17,7 +20,7 @@ export function shellFiles(outDir: string): string[] {
     }
   };
   walk(outDir);
-  return found.filter((f) => f !== "/sw.js" && !f.endsWith(".woff") && !f.endsWith(".br") && !f.endsWith(".gz")).sort();
+  return found.filter((f) => f !== "/sw.js" && !PDF_READER.test(f) && !f.endsWith(".woff") && !f.endsWith(".br") && !f.endsWith(".gz")).sort();
 }
 
 /** The worker's source with `__SHELL__` replaced: `{ name: "shell-<hash of the files' names and bytes>", files }`. A changed file is a changed worker, which a browser installs and the old one's cache goes. */
