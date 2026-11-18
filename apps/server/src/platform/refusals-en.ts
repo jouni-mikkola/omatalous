@@ -134,6 +134,8 @@ const LINES: readonly (readonly [string, string])[] = [
   ["Luottokortilla ja luottolimiitillä ei ole lyhennystapaa. Jätä se tyhjäksi.", "A credit card and a credit limit have no repayment type. Leave it empty."],
   ["Kertalyhenteisellä lainalla ei ole maksuerää. Jätä maksuerä tyhjäksi.", "A bullet loan has no instalment. Leave the instalment empty."],
   ["Maksuerä on pienempi kuin lyhennysvälin korko, joten laina ei lyhenisi. Tarkista luvut tai jätä maksuerä tyhjäksi, jos maksat vain korkoa.", "The instalment is smaller than the interest of the repayment interval, so the loan would not shrink. Check the figures, or leave the instalment empty if you pay only interest."],
+  ["Koron muutoksesta pitää antaa sekä päivä että uusi korko. Täytä molemmat tai jätä molemmat tyhjiksi.", "Give both the day and the new rate of a rate change. Fill in both or leave both empty."],
+  ["Koron muutokselle pitää antaa myös nykyinen korko.", "Give the current rate too for a rate change."],
   ["Lainoja voi olla enintään {1}. Poista ensin turhat.", "There can be at most {1} loans. Delete the unneeded ones first."],
   ["Tavoitteen pitää olla vähintään 1 € ja enintään 1 000 000 € kuussa.", "The goal must be at least €1 and at most €1,000,000 a month."],
   ["Aseta tavoite vain ruoalle, ravintoloille ja liikenteelle.", "A goal can be set only for food, restaurants and transport."],
