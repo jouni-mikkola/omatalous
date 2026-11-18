@@ -1,7 +1,7 @@
 /**
  * Decision: what the household has and what it owes, before the month: each account with its balance, each credit card
  * with what is used of its limit and its next bill, each loan with what is left, and a total at the foot of each group.
- * Yhteenveto shows it under the heading Tilit ja kortit, Raportit > Tilit ja saldot under Varat ja velat; the next bill of
+ * Yhteenveto and Raportit > Tilit ja saldot show it under the heading Varat ja velat; the next bill of
  * a card shows where the page gives the coming bills (`ahead`), which only Yhteenveto loads. The accounts
  * stand in their types (checking, savings, other) when there are two types or more, a type of two accounts or more with its total. The
  * first group's heading says the day most balances are from; a row says its own day only when it differs, and names its bank only when
@@ -271,8 +271,8 @@ function Loans({ holdings }: { holdings: Answer }) {
   );
 }
 
-/** `ahead`: the window of the dashboard answer, whose bills give each card its next one; `title`: the block's heading. */
-export function Holdings({ holdings, meta, ahead, title = t("holdings.title") }: { holdings: Answer; meta: Meta; ahead?: Ahead | null; title?: string }) {
+/** `ahead`: the window of the dashboard answer, whose bills give each card its next one; `title`: the block's heading; `buffer`: the line Yhteenveto adds at the foot. */
+export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), buffer }: { holdings: Answer; meta: Meta; ahead?: Ahead | null; title?: string; buffer?: ReactNode }) {
   const { accounts, accountsCents, cards, loans, debtCents, unsavedLoans, netCents } = holdings;
   const groups = [accounts.length, cards.length, loans.length].filter((n) => n > 0).length;
   if (groups === 0) return null;
@@ -328,6 +328,7 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title") }:
           )}
         </dl>
       )}
+      {buffer}
     </section>
   );
 }

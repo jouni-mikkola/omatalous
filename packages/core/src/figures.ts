@@ -230,7 +230,7 @@ export const FIGURES = {
     unit: "months",
     scope: "own",
     additive: false,
-    pages: ["Raportit"],
+    pages: ["Yhteenveto", "Raportit"],
   },
   balanceChange: {
     name: "Saldomuutos",

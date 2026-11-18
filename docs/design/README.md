@@ -36,14 +36,16 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
   part of them), the pays expected and what is left after the bills. Each figure is a field of the month in
   `billCalendar` (`billsCents`, `estimateCents`, `incomeCents`, `afterCents`), the answer Laskut's month heads read, so
   both places tell the same sums. A sum that is not known is "Ei tiedossa", never 0, and a line counts the bills with
-  no sum (`unknownCount`). A link opens the bills table of Laskut.
+  no sum (`unknownCount`). The block has no link: the figure of Nyt is the way to Laskut.
 - The twelve months of income and spending (`overview.months`, with the usual month as a dashed line) are a section of
   Raportit > Menot, *Tulot ja menot*, not a block of the first page.
-- Tilit ja kortit: the block of Raportit > Tilit ja saldot. The accounts in their types (checking, savings, other), a
+- Varat ja velat: the block of Raportit > Tilit ja saldot. The accounts in their types (checking, savings, other), a
   type of two accounts or more with its total (`holdings.typeCents`), the cards with what is used, the limit and the
   next card bill (the card's row of `ahead.upcoming`), the loans with what is left. The day of the balances stands once in
   the heading and a row names its own only when it differs; a row names its bank only when the accounts are at
-  several banks. A row opens its rows.
+  several banks. A row opens its rows. At the foot of the block on Yhteenveto stands the buffer, *Puskuri 1,4 kk*
+  (`bufferMonths`), and its drill shows the two sums the months divide (`bufferNetCents`, `bufferSpendCents`). With no
+  figure the line says why, as core gives it (`bufferGap`): *Ei saldoa* or *Liian lyhyt historia*.
 - No chart and no list of categories on the first page: the categories of the month are in Raportit > Menot.
 - At 1440 px Nyt and the month stand on the left and the coming months beside them, then the accounts across the page.
   A phone reads Nyt, the month, the coming months and the accounts in one column, no taller than 2600 px.
@@ -62,7 +64,7 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
  Tulojen käyttö   ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇
  Kulutus 52 %  Maksettu velanhoito 6 %  Säästöön siirretty 4 %  Tulos 38 %
 
- Tilit ja kortit
+ Varat ja velat
  Käyttötilit   4 905 €   Luottokortit
  Säästötilit   8 100 €   Seuraava lasku
 ```

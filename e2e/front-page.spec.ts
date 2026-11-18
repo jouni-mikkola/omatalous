@@ -68,6 +68,18 @@ for (const width of [390, 1440] as const) {
     expect(order).toEqual(["home-now", "home-summary", "home-coming", "holdings"]);
     expect(await page.locator("main .card h2").allInnerTexts()).toEqual(["Tulevat kuukaudet", "Varat ja velat"]);
     await expect(page.locator("main .notice, main .home-notice")).toHaveCount(0);
+    // the buffer line at the foot of Varat ja velat: core's months, and its drill holds the two sums they divide, or core's reason
+    const buffer = page.locator(".holdings .home-buffer");
+    await expect(buffer).toHaveCount(1);
+    const { bufferMonths, bufferNetCents, bufferSpendCents, bufferGap } = home.direction;
+    if (bufferMonths === null) {
+      expect(plain(await buffer.innerText())).toBe(`Puskuri ${bufferGap === "no-balance" ? "Ei saldoa" : "Liian lyhyt historia"}`);
+    } else {
+      const months = bufferMonths.toLocaleString("fi-FI", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+      await expect(buffer.locator("summary")).toHaveText(`Puskuri ${months} kk`);
+      await buffer.locator("summary").click();
+      expect(sums(await buffer.locator(".st-num").allInnerTexts().then((all) => all.join(" ")))).toEqual([bufferNetCents, bufferSpendCents]);
+    }
     expect(await heightOf(page), `the page is ${await heightOf(page)} px high at ${width} px`).toBeLessThanOrEqual(MAX_HEIGHT[width]);
     expect(await overflow(page)).toBe(0);
     // the one look and the one view: no Väljä/Tiivis and no Kaavio/Taulukko to choose

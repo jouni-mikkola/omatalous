@@ -72,6 +72,13 @@ a.home-left:hover .home-fig-label { text-decoration: underline; }
 .home-coming .rt td.num { white-space: normal; }
 .home-coming-wait { display: block; block-size: calc(var(--row-h-roomy) * 4); }
 
+/* the buffer line at the foot of Varat ja velat: the months, and under its drill the two sums they divide */
+.holdings .home-buffer { margin: var(--sp-16) 0 0; padding-block-start: var(--sp-8); border-block-start: var(--hairline) solid var(--border); font-size: var(--fs-body); line-height: var(--lh-body); }
+.home-buffer > summary { font-weight: 600; }
+.home-buffer[data-buffer="none"] { display: flex; flex-wrap: wrap; column-gap: var(--sp-12); }
+.home-buffer-label { font-weight: 600; }
+.home-buffer-status { color: var(--text-2); }
+
 /* the first fetch of a new bank */
 .first-fetch p { margin: 0; color: var(--text-2); }
 .first-fetch-list { margin: var(--sp-8) 0 0; padding: 0; list-style: none; display: grid; gap: var(--sp-4); font-size: var(--fs-body); color: var(--text); }

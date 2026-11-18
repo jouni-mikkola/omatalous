@@ -136,6 +136,9 @@ export const count = (n: number): string => new Intl.NumberFormat(localeOf(lang)
 /** A number as `toLocaleString` writes it (up to three decimals) in the member's language. */
 export const plainNumber = (n: number): string => n.toLocaleString(localeOf(lang));
 
+/** A figure with one decimal in the member's language: 1.4 → "1,4" in Finnish, "1.4" in English. */
+export const oneDecimal = (n: number): string => n.toLocaleString(localeOf(lang), { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
 /** "1 tapahtuma", "3 tapahtumaa" */
 export function plural(n: number, one: string, many: string): string {
   return `${num0.format(n)} ${n === 1 ? one : many}`;

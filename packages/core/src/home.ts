@@ -8,7 +8,7 @@
  * direction of spending. Every figure is one of the registry (`figures.ts`); the page adds up and compares no money.
  */
 import { daysBetween, monthOf } from "./dates.ts";
-import { bufferReport } from "./reports/buffer.ts";
+import { type BufferGap, bufferReport } from "./reports/buffer.ts";
 import { DIRECTION_MONTHS, DIRECTION_RECENT_MONTHS, MIN_COMPARE_MONTHS } from "./thresholds.ts";
 import type { BalanceInput, IsoDate, UserInputs } from "./types.ts";
 import type { AheadBasis } from "./analysis/ahead.ts";
@@ -88,6 +88,8 @@ interface HomeDirection {
   /** The two figures `bufferMonths` is the quotient of: net cash and the expected month's spending (Odotettu), which is not the average above. Both null with `bufferMonths`. */
   bufferNetCents: number | null;
   bufferSpendCents: number | null;
+  /** Why `bufferMonths` is null: no balance of a savings or checking account, or too short a history for an expected month. null with a figure. */
+  bufferGap: BufferGap | null;
 }
 
 interface HomeReliability {
@@ -159,7 +161,7 @@ function homePace(pace: MonthPace): HomePace | null {
 function homeDirection(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs): HomeDirection {
   const month = monthOf(ctx.today);
   const buffer = bufferReport(ctx, balances, inputs);
-  const basis = buffer.bufferMonths === null ? { bufferNetCents: null, bufferSpendCents: null } : { bufferNetCents: Math.max(0, buffer.netCents!), bufferSpendCents: buffer.expectedSpendCents };
+  const basis = buffer.bufferMonths === null ? { bufferNetCents: null, bufferSpendCents: null, bufferGap: buffer.bufferGap } : { bufferNetCents: Math.max(0, buffer.netCents!), bufferSpendCents: buffer.expectedSpendCents, bufferGap: null };
   const usual = { usualCents: buffer.expectedSpendCents, months: expectedFor(ctx, month)?.months.length ?? 0 };
   // `spendingThrough` is the booked spending, the base of the buffer and Odotettu; no page shows this direction under Menot, so it needs no flows base
   const spent = completeMonthsBefore(ctx, month, DIRECTION_MONTHS).map((m) => spendingThrough(ctx, m));
