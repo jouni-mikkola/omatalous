@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { addDays } from "../src/dates.ts";
+import { billCalendar } from "../src/reports/bill-calendar.ts";
 import { buildReports } from "../src/reports/index.ts";
 import { upcomingReport } from "../src/reports/upcoming.ts";
 import type { Account, ExpectedBill, Transaction, UserInputs } from "../src/types.ts";
@@ -26,6 +27,9 @@ const bill = (name: string, amountCents: number, dueDate: string, cadence: Expec
 });
 const inputs = (...expectedBills: ExpectedBill[]): UserInputs => ({ marks: [], expectedBills });
 const report = (rows: Transaction[], u: UserInputs = inputs(), on = today) => upcomingReport(createContext(rows, [checking], on), u);
+const calendar = (rows: Transaction[], u: UserInputs = inputs(), on = today) => billCalendar(createContext(rows, [checking], on), u);
+/** What each month of the calendar has still to pay: the known and the estimated bills, paid ones left out. */
+const coming = (c: ReturnType<typeof calendar>) => c.months.map((m) => m.knownCents + m.estimateCents);
 
 describe("upcoming: what to set aside for rare bills", () => {
   it("the monthly reserve is the yearly cost of the rare bills over twelve", () => {
@@ -35,7 +39,8 @@ describe("upcoming: what to set aside for rare bills", () => {
     expect(u.yearlyCents).toBe(91200);
     expect(u.reserveMonthlyCents * 12).toBe(u.yearlyCents);
     expect(u.reserveMonthlyCents).toBe(7600);
-    expect(u.months.reduce((s, m) => s + m.cents, 0)).toBe(u.yearlyCents);
+    // nothing but rare bills here, so the calendar's twelve months hold the same year
+    expect(coming(calendar(rows, inputs(bill("Ajoneuvovero", 12000, "2027-03-01", "yearly", "taxes")))).reduce((s, c) => s + c, 0)).toBe(u.yearlyCents);
   });
 
   it("gives the reserve and the year as figures, and no sentence", () => {
@@ -45,12 +50,12 @@ describe("upcoming: what to set aside for rare bills", () => {
   });
 
   it("the year is twelve calendar months from this one, the dearest bill first in each", () => {
-    const u = report([...quarterly("If", "2026-08-20", 9640), ...semiannual("Lähitapiola", "2026-08-20", 8900)]);
-    expect(u.months.map((m) => m.month)).toEqual(["2026-10", "2026-11", "2026-12", "2027-01", "2027-02", "2027-03", "2027-04", "2027-05", "2027-06", "2027-07", "2027-08", "2027-09"]);
+    const c = calendar([...quarterly("If", "2026-08-20", 9640), ...semiannual("Lähitapiola", "2026-08-20", 8900)]);
+    expect(c.months.map((m) => m.month)).toEqual(["2026-10", "2026-11", "2026-12", "2027-01", "2027-02", "2027-03", "2027-04", "2027-05", "2027-06", "2027-07", "2027-08", "2027-09"]);
     // If on 20.11., 20.2., 20.5., 20.8.; Lähitapiola on 20.2. and 20.8.
-    expect(u.months.map((m) => m.cents)).toEqual([0, 9640, 0, 0, 9640 + 8900, 0, 0, 9640, 0, 0, 9640 + 8900, 0]);
-    expect(u.months[4]!.names).toEqual(["If", "Lähitapiola"]);
-    expect(u.months[0]!.names).toEqual([]);
+    expect(coming(c)).toEqual([0, 9640, 0, 0, 9640 + 8900, 0, 0, 9640, 0, 0, 9640 + 8900, 0]);
+    expect(c.months[4]!.rows.map((r) => r.payee)).toEqual(["If", "Lähitapiola"]);
+    expect(c.months[0]!.rows).toEqual([]);
   });
 
   it("the yearly figure does not depend on whether this month's charge has been paid", () => {
@@ -60,16 +65,19 @@ describe("upcoming: what to set aside for rare bills", () => {
     // and a bill paid this month is no longer ahead, so it is not in the next three months
     const paid = report(quarterly("If", "2026-10-03", 12000));
     expect(paid.items.map((i) => i.date)).toEqual(["2027-01-03"]);
-    expect(paid.months[0]!.cents).toBe(12000);
+    // the charge of this month is a row of the month, and it is paid: no part of what is still to come
+    const c = calendar(quarterly("If", "2026-10-03", 12000));
+    expect(c.months[0]!.rows).toMatchObject([{ date: "2026-10-03", cents: 12000, state: "paid" }]);
+    expect(coming(c)).toEqual([0, 0, 0, 12000, 0, 0, 12000, 0, 0, 12000, 0, 0]);
   });
 
   it("a bill paid this month is named as paid, with its day, and a coming one is not", () => {
     const u = report([...quarterly("If", "2026-10-05", 14230), ...quarterly("Lähitapiola", "2026-08-20", 9640)]);
-    expect(u.months[0]!.names).toEqual(["If"]);
-    expect(u.months[0]!.paid).toEqual([{ merchant: "If", date: "2026-10-05" }]);
+    const c = calendar([...quarterly("If", "2026-10-05", 14230), ...quarterly("Lähitapiola", "2026-08-20", 9640)]);
+    expect(c.months[0]!.rows.map((r) => [r.payee, r.date, r.state])).toEqual([["If", "2026-10-05", "paid"]]);
     // Lähitapiola is due 20.11., If again 5.1.
-    expect(u.months[1]!.paid).toEqual([]);
-    expect(u.months[3]!.paid).toEqual([]);
+    expect(c.months[1]!.rows.map((r) => [r.payee, r.date, r.state])).toEqual([["Lähitapiola", "2026-11-20", "known"]]);
+    expect(c.months[3]!.rows.map((r) => [r.payee, r.date, r.state])).toEqual([["If", "2027-01-05", "known"]]);
     expect(u.items.map((i) => i.merchant)).toEqual(["Lähitapiola", "If"]);
   });
 
@@ -92,7 +100,9 @@ describe("upcoming: what to set aside for rare bills", () => {
     const u = report(quarterly("If", "2026-06-29", 15000), inputs(), "2026-10-02");
     expect(u.items.map((i) => i.date)).toEqual(["2026-10-02", "2026-12-29"]);
     expect(u.yearlyCents).toBe(60000);
-    expect(u.months[0]!.cents).toBe(0);
+    // the late charge is expected today; the calendar holds the late one as this month's and the four of the year
+    const c = calendar(quarterly("If", "2026-06-29", 15000), inputs(), "2026-10-02");
+    expect(c.months.flatMap((m) => m.rows.map((r) => r.date))).toEqual(["2026-10-02", "2026-12-29", "2027-03-29", "2027-06-29", "2027-09-29"]);
   });
 
   it("a bill the user typed in and one the history found are not counted twice", () => {
@@ -120,7 +130,7 @@ describe("upcoming: what to set aside for rare bills", () => {
     const u = report([], inputs(bill("Veronpalautus", 60000, "2026-12-15", "once", "taxes")));
     // October, November and December: 200 € a month, and all of it in December
     expect(u.reserveMonthlyCents).toBe(20000);
-    expect(u.months.map((m) => m.cents)).toEqual([0, 0, 60000, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    expect(coming(calendar([], inputs(bill("Veronpalautus", 60000, "2026-12-15", "once", "taxes"))))).toEqual([0, 0, 60000, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     expect(u.yearlyCents).toBe(60000);
     // due this month: all of it now
     expect(report([], inputs(bill("Sakko", 15000, "2026-10-20", "once"))).reserveMonthlyCents).toBe(15000);
@@ -153,7 +163,7 @@ describe("upcoming: what to set aside for rare bills", () => {
     const u = report([], inputs(bill("Autovakuutus", 18000, "2026-11-01", "quarterly", "insurance")));
     expect(u.items).toEqual([{ merchant: "Autovakuutus", category: "insurance", cadence: "quarterly", date: "2026-11-01", amountCents: 18000, source: "manual" }]);
     expect(u.totalCents).toBe(18000);
-    expect(u.months.map((m) => m.cents)).toEqual([0, 18000, 0, 0, 18000, 0, 0, 18000, 0, 0, 18000, 0]);
+    expect(coming(calendar([], inputs(bill("Autovakuutus", 18000, "2026-11-01", "quarterly", "insurance"))))).toEqual([0, 18000, 0, 0, 18000, 0, 0, 18000, 0, 0, 18000, 0]);
     expect(u.yearlyCents).toBe(72000);
     expect(u.reserveMonthlyCents).toBe(6000);
   });
@@ -170,8 +180,6 @@ describe("upcoming: what to set aside for rare bills", () => {
     const monthly = series("2025-09-12", 30.44, 13, -1199, { category: "subscriptions", merchant: "Spotify" });
     const u = report(monthly);
     expect(u).toMatchObject({ items: [], totalCents: 0, yearlyCents: 0, reserveMonthlyCents: 0, manual: [] });
-    expect(u.months).toHaveLength(12);
-    expect(u.months.every((m) => m.cents === 0)).toBe(true);
   });
 
   it("lists every typed-in bill, the soonest first, whatever the horizon", () => {
