@@ -236,7 +236,7 @@ for (const { width, touch } of [{ width: 1440, touch: false }, { width: 390, tou
     await expect(result).toHaveText("");
     await rate.fill("6");
     await expect(plan.locator(".field-error")).toHaveCount(0);
-    await expect(result).toHaveText(/^Uusi laina maksaisi korkoina ja kuluina [\d\s]+ € · (?:[\d\s]+ € (?:vähemmän|enemmän)|saman verran)$/);
+    await expect(result).toHaveText(/^Uusi laina maksaisi korkoina ja kuluina [\d\s]+\s€ · (?:[\d\s]+\s€ (?:vähemmän|enemmän)|saman verran)$/);
     if (touch) {
       for (const field of [rate, months, fee]) expect((await field.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     }
