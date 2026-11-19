@@ -3,7 +3,7 @@
  * and the mark that sets it aside. Made-up loans and sums.
  */
 import { describe, expect, it } from "vitest";
-import { loanDrift, loanTermsDismissed, loanTermsDismissible, loanTermsGaps, loanTermsSubject, loanUnknownAsked, loanUnknownSubject, parseLoanTermsSubject, parseLoanUnknownSubject } from "../src/loan-terms-answer.ts";
+import { cardUnknownAsked, loanDrift, loanTermsDismissed, loanTermsDismissible, loanTermsGaps, loanTermsSubject, loanUnknownAsked, loanUnknownSubject, parseLoanTermsSubject, parseLoanUnknownSubject } from "../src/loan-terms-answer.ts";
 import { seriesId } from "../src/series-id.ts";
 import type { Loan } from "../src/types.ts";
 
@@ -142,6 +142,27 @@ describe("the mark of \"En tiedä\" on a proposed loan", () => {
     expect(loanUnknownAsked(marks, KEY, null)).toBe(false);
     expect(loanUnknownAsked(marks, "out:acc-1:Muu", 25_000)).toBe(false);
     expect(loanUnknownAsked([{ subject: loanUnknownSubject(null, KEY), mark: "in_use" as const }], KEY, null)).toBe(true);
+  });
+});
+
+describe("the mark of \"En tiedä\" on a card", () => {
+  const KEY = "out:acc-1:Esimerkkikortti";
+  const marks = [{ subject: loanUnknownSubject(40_000, KEY), mark: "in_use" as const }];
+  it("holds while the bill stays within a tenth above the sum said at, lower bills included", () => {
+    expect(cardUnknownAsked(marks, KEY, 40_000)).toBe(true);
+    expect(cardUnknownAsked(marks, KEY, 30_000)).toBe(true);
+    expect(cardUnknownAsked(marks, KEY, 44_000)).toBe(true);
+    expect(cardUnknownAsked(marks, KEY, null)).toBe(true);
+  });
+  it("asks again once the bill rises more than a tenth, and holds only for its own card and as En tiedä", () => {
+    expect(cardUnknownAsked(marks, KEY, 44_001)).toBe(false);
+    expect(cardUnknownAsked(marks, "out:acc-1:Toinenkortti", 40_000)).toBe(false);
+    expect(cardUnknownAsked([{ ...marks[0]!, mark: "dismissed" as const }], KEY, 40_000)).toBe(false);
+  });
+  it("holds a sum that was not known only while it is still not known", () => {
+    const none = [{ subject: loanUnknownSubject(null, KEY), mark: "in_use" as const }];
+    expect(cardUnknownAsked(none, KEY, null)).toBe(true);
+    expect(cardUnknownAsked(none, KEY, 10_000)).toBe(false);
   });
 });
 
