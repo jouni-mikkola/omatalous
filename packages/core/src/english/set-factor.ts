@@ -21,7 +21,7 @@ export const EN_SET_FACTOR: Record<keyof typeof FI_SET_FACTOR, string> = {
   "set.fac.two_step_sign_in": "Two-step sign-in",
   "set.fac.make_new_recovery_codes": "Make new recovery codes",
   "set.fac.turn_off": "Turn off",
-  "set.fac.not_in_use": "Not in use.",
+  "set.fac.not_in_use": "Not in use",
   "set.fac.make_new_codes": "Make new codes",
   "set.fac.in_use_since": "In use since {date}",
   "set.fac.last_used": "last used {time}",

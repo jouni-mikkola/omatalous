@@ -107,19 +107,48 @@ describe("Laskut: the table and the mark on one subscription", () => {
   });
 
   const MONTHLY = { monthly: true } as const;
-  it("lists every row of this month and the next, and closes the months after them", () => {
-    const monthly = (day: string, payee: string, cents: number) => bill({ date: day, payee, cents, ...MONTHLY });
+  const monthly = (day: string, payee: string, cents: number, over: Parameters<typeof bill>[0] = {}) => bill({ date: day, payee, cents, ...MONTHLY, ...over });
+  it("opens the running month alone while a bill of it is unpaid, and closes the months after it", () => {
     const cal = calendar([
       month("2026-10", [monthly("2026-10-12", "Vesiyhtiö", 2000)]),
       month("2026-11", [monthly("2026-11-12", "Vesiyhtiö", 2000)]),
       month("2026-12", [monthly("2026-12-12", "Vesiyhtiö", 2000), monthly("2026-12-15", "Kaasuyhtiö", 3000), bill({ date: "2026-12-20", payee: "Vakuutus", cents: 40000 })], { monthlyBillsCount: 2, monthlyBillsCents: 5000 }),
     ]);
     const out = cardOf([], [], cal);
-    expect(out.match(/Tiedot: Vesiyhtiö/g)).toHaveLength(2);
-    // the months after the next are closed, their head still says what they hold
+    expect(out.match(/aria-expanded="true"/g)).toHaveLength(1);
+    expect(out.match(/Tiedot: Vesiyhtiö/g)).toHaveLength(1);
+    // the months after it are closed, their head still says what they hold
     expect(out).not.toContain("Kaasuyhtiö");
     expect(out).not.toContain("Vakuutus");
+    expect(out).toContain("Marraskuu 2026");
     expect(out).toContain("Joulukuu 2026");
+  });
+
+  it("opens the next month alone when every bill of the running month is paid, and lists every row of it", () => {
+    const cal = calendar([
+      month("2026-10", [monthly("2026-10-03", "Vesiyhtiö", 2000, { state: "paid" })], { paidCents: 2000 }),
+      month("2026-11", [monthly("2026-11-12", "Vesiyhtiö", 2000), monthly("2026-11-15", "Kaasuyhtiö", 3000)], { monthlyBillsCount: 2, monthlyBillsCents: 5000 }),
+      month("2026-12", [monthly("2026-12-12", "Vesiyhtiö", 2000)]),
+    ]);
+    const out = cardOf([], [], cal);
+    expect(out.match(/aria-expanded="true"/g)).toHaveLength(1);
+    // the next month's rows, each its own: no fold of the monthly ones
+    expect(out.match(/Tiedot: Vesiyhtiö/g)).toHaveLength(1);
+    expect(out).toContain("Tiedot: Kaasuyhtiö");
+    expect(out).not.toContain("Kuukausittaiset laskut");
+    expect(out).not.toContain(">Maksettu<");
+  });
+
+  it("marks the one figure a closed month's head keeps on a phone: what is left after the bills, else the bills", () => {
+    const sums = { knownCents: 177000, billsCents: 177000, incomeCents: 590000 };
+    const cal = calendar([month("2026-10", [bill()], { ...sums, afterCents: 413000 }), month("2026-11", [bill()], { ...sums, afterCents: 413000 }), month("2026-12", [bill()], { ...sums, afterCents: null })]);
+    const out = cardOf([], [], cal);
+    const heads = out.match(/<span class="bill-sums"[^>]*>.*?<\/span><\/span>/g) ?? [];
+    expect(heads.map((h) => h.match(/class="bill-line">([^<]*)</)?.[1] ?? null)).toEqual(["Laskujen jälkeen 4 130,00 €", "Laskujen jälkeen 4 130,00 €", "Laskut 1 770,00 €"]);
+    // the open month tells every figure: only the closed ones are one line
+    expect(heads.map((h) => h.includes("data-closed"))).toEqual([false, true, true]);
+    // each head still holds every figure, which the opened month shows
+    for (const h of heads) expect(h).toContain("Tulot 5 900,00 €");
   });
 
   it("heads a month with core's sums, and says the sum left after the bills is not known while a bill's sum is not", () => {

@@ -2,7 +2,7 @@
 import type { FI_SET_BAPP } from "../messages-set-bapp.ts";
 
 export const EN_SET_BAPP: Record<keyof typeof FI_SET_BAPP, string> = {
-  "set.bapp.works": "Works.",
+  "set.bapp.works": "Works",
   "set.bapp.bank_app": "Bank app",
   "set.bapp.application": "Application",
   "set.bapp.household_application": "Household's application",

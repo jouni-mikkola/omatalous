@@ -365,7 +365,7 @@ describe("Raportit: Lainat", () => {
     expect(mine).not.toContain("Täydennä");
     // the drill says what the cost waits for, in words, and links nowhere
     const drill = opened("home", context(report([row({ ...untold, typedBy: "Aino" })])));
-    expect(drill).toContain("Korko puuttuu.");
+    expect(drill).toContain(">Korko puuttuu</p>");
     expect(drill).not.toContain("Täydennä");
   });
 

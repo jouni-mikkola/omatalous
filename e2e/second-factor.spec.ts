@@ -61,7 +61,7 @@ test("a member turns the second factor on, signs in with a code and once with a 
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto("/#/settings/security");
     const card = page.locator(".card", { has: page.getByRole("heading", { name: "Kaksivaiheinen kirjautuminen", exact: true }) });
-    await expect(card.getByText("Ei käytössä.", { exact: true })).toBeVisible();
+    await expect(card.getByText("Ei käytössä", { exact: true })).toBeVisible();
 
     // turning on: the wrong password and the wrong code are refused with the server's sentences
     await card.getByRole("button", { name: "Ota käyttöön", exact: true }).click();

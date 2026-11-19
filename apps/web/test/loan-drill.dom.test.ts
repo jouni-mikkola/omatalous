@@ -159,7 +159,7 @@ describe("the drill of a loan", () => {
 
   it("says what a debt without a cost waits for, where the what-if cannot", () => {
     render(createElement(LoanDrill, { l: { id: "account:c1", cost: { next12: null, unknown: "rate" } } as unknown as LoanRow, today: START, whatIf: false }));
-    expect(screen.getByText("Korko puuttuu.")).toBeTruthy();
+    expect(screen.getByText("Korko puuttuu")).toBeTruthy();
   });
 
   it("names the fee a 0 % plan waits for, never a gap in general", () => {

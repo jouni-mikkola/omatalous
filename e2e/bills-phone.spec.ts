@@ -21,14 +21,39 @@ for (const { width, scale } of [{ width: 390, scale: 100 }, { width: 390, scale:
       await page.addStyleTag({ content: `html { font-size: ${scale}%; }` });
       expect(await page.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize))).toBeCloseTo((14 * scale) / 100, 1);
     }
-    // the sums of a month's head stay inside the page, wrapped when the room is short
-    await expect(page.locator(".bill-sums").first()).toBeVisible();
-    const sums = await page.locator(".bill-sums > span").evaluateAll((els) => els.map((el) => ({ text: el.textContent?.trim() ?? "", right: el.getBoundingClientRect().right })));
-    for (const s of sums) expect(s.right, `${s.text}: right edge`).toBeLessThanOrEqual(width);
+    // one month starts open; on a phone each closed month's head is one line: its name and one figure, a target of a finger's size
+    await expect(page.locator("#laskut-taulukko .bill-month[aria-expanded=true]")).toHaveCount(1);
+    if (phone) {
+      const closed = await page.locator("#laskut-taulukko .bill-sums[data-closed]").evaluateAll((els) => els.map((el) => [...el.children].filter((c) => c.getBoundingClientRect().height > 0).map((c) => c.textContent ?? "")));
+      expect(closed.length, "closed months").toBeGreaterThan(5);
+      for (const shown of closed) expect(shown, "figures of a closed month").toHaveLength(1);
+      if (scale === 100) {
+        // the figure stands beside the name, inside the band of the opener: the head is one line
+        const heads = await page.locator("#laskut-taulukko tr.rt-group:has(.bill-sums[data-closed])").evaluateAll((els) =>
+          els.map((el) => {
+            const name = el.querySelector(".bill-month")!.getBoundingClientRect();
+            const figure = el.querySelector(".bill-line")!.getBoundingClientRect();
+            return { text: el.textContent ?? "", top: figure.top - name.top, bottom: name.bottom - figure.bottom };
+          }),
+        );
+        for (const h of heads) {
+          expect(h.top, `${h.text}: figure above the name`).toBeGreaterThanOrEqual(-1);
+          expect(h.bottom, `${h.text}: figure below the name`).toBeGreaterThanOrEqual(-1);
+        }
+      }
+      for (const box of await page.locator("#laskut-taulukko .bill-month").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height))) expect(box, "a month's opener").toBeGreaterThanOrEqual(44);
+    }
     if (process.env.E2E_SHOTS) {
       await page.locator("#laskut-taulukko").scrollIntoViewIfNeeded();
       await page.screenshot({ path: join(process.env.E2E_SHOTS, `bills-${width}.png`) });
     }
+    // a second month opened, so the rows of two months are compared
+    await page.locator("#laskut-taulukko .bill-month[aria-expanded=false]").first().click();
+    await expect(page.locator("#laskut-taulukko .bill-month[aria-expanded=true]")).toHaveCount(2);
+    // the sums of a month's head stay inside the page, wrapped when the room is short
+    await expect(page.locator(".bill-sums").first()).toBeVisible();
+    const sums = await page.locator(".bill-sums > span").evaluateAll((els) => els.map((el) => ({ text: el.textContent?.trim() ?? "", right: el.getBoundingClientRect().right })));
+    for (const s of sums) expect(s.right, `${s.text}: right edge`).toBeLessThanOrEqual(width);
     const found = await rows.evaluateAll((els) =>
       els.flatMap((row) => {
         const cell = row.querySelector<HTMLElement>("th[scope=row]");

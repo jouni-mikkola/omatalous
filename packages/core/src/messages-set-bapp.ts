@@ -4,7 +4,7 @@
  * Same shape as the tables of `messages.ts`: the Finnish table gives the codes and the English one must have the same codes and holes.
  */
 export const FI_SET_BAPP = {
-  "set.bapp.works": "Toimii.",
+  "set.bapp.works": "Toimii",
   "set.bapp.bank_app": "Pankkisovellus",
   "set.bapp.application": "Sovellus",
   "set.bapp.household_application": "Talouden sovellus",

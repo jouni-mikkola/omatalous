@@ -188,7 +188,7 @@ test("Lainat lists each debt in one table, says what it does not know and what a
   await expect(section.locator("tr.rt-detail")).toHaveCount(1);
   const cardDetail = plain(await section.locator("tr.rt-detail").innerText());
   expect(cardDetail).toContain(`Velkaa 1 240,00 € jäljellä ${Number(today.slice(8))}.${Number(today.slice(5, 7))}.`); // a day of the running year has no year (format.ts `date`)
-  expect(cardDetail).toContain("Korko puuttuu.");
+  expect(cardDetail).toContain("Korko puuttuu");
   await expect(section.locator("tr.rt-detail").getByRole("link")).toHaveCount(0);
   await expect(section.locator("tr.rt-detail .loan-scenario")).toHaveCount(0);
 
@@ -282,7 +282,7 @@ test("Lainat fits a phone: each debt is a block, its drill opens and the page do
   // a drill reaches the finger's size, and its rate said in words stays on the screen
   const button = page.locator('#lainat button.rt-drill[aria-label="Kaupan kortti"]');
   await button.click();
-  await expect(page.locator("#lainat tr.rt-detail")).toContainText("Korko puuttuu.");
+  await expect(page.locator("#lainat tr.rt-detail")).toContainText("Korko puuttuu");
   const box = (await button.boundingBox())!;
   expect(box.height).toBeGreaterThanOrEqual(44);
   expect(box.width).toBeGreaterThanOrEqual(44);

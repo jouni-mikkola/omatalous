@@ -412,7 +412,8 @@ test("sign out and back in", async ({ page }) => {
   expect(seen.problems.filter((p) => !/HTTP 401: POST .*\/api\/auth\/login/.test(p) && !/Failed to load resource.*401/.test(p))).toEqual([]);
 });
 
-test("the Laskut page fits a phone: the table of the months is inside the screen at 390 px, in at most 3000 px", async ({ browser }) => {
+// the demo household is a full year of bills: twelve months in the calendar, every one with its monthly bills, one of them open
+test("the Laskut page fits a phone: the table of the months is inside the screen at 390 px, in at most 1800 px", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   const seen = watch(page);
@@ -423,7 +424,11 @@ test("the Laskut page fits a phone: the table of the months is inside the screen
   const clipped = await page.evaluate(() => Array.from(document.querySelectorAll(".rt-wrap")).filter((w) => w.scrollWidth > w.clientWidth + 1).length);
   expect(clipped, "tables that scroll sideways").toBe(0);
   await fitsScreen(page, "Laskut");
-  expect(await page.evaluate(() => document.documentElement.scrollHeight), "page height at 390 px").toBeLessThanOrEqual(3000);
+  const months = await page.locator("#laskut-taulukko .bill-month").filter({ hasText: /\d{4}$/ }).count();
+  expect(months, "months of the calendar").toBe(12);
+  const height = await page.evaluate(() => document.documentElement.scrollHeight);
+  console.log(`Laskut at 390 px: ${height} px, ${months} months`);
+  expect(height, "page height at 390 px").toBeLessThanOrEqual(1800);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
