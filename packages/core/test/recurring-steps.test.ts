@@ -76,19 +76,30 @@ describe("the typical amount of a series", () => {
   });
 
   // a credit paid at 400 € with two repayments of capital (7 300 € and 2 500 €) and two months of 450 €
-  const prepaid = [40000, 40000, 40000, 730000, 40000, 250000, 45000, 45000, 40000];
+  const prepaid = [40000, 40000, 40000, 730000, 40000, 250000, 45000, 45000, 40000, 40000, 40000, 40000];
   const monthlyCadence = CADENCES.find((c) => c.id === "monthly")!;
 
   it("leaves repayments of capital out of the regular instalment", () => {
-    expect(typicalAmountOf(occurrences(prepaid))).toBe(40000);
-    expect(lender(prepaid).typicalAmountCents).toBe(40000);
-    expect(lender(prepaid).monthlyCents).toBe(40000);
+    expect(typicalAmountOf(occurrences(prepaid.slice(0, 9)))).toBe(40000);
+    expect(lender(prepaid.slice(0, 9)).typicalAmountCents).toBe(40000);
   });
 
-  it("counts a repayment of capital as one instalment in a year of a bill", () => {
-    const year = occurrences([...prepaid, 40000, 40000, 40000]);
-    // ten charges as paid (eight of 400 €, two of 450 €) and the two repayments as 400 € each
-    expect(yearlyCostOf(year, monthlyCadence, "bill", typicalAmountOf(year), 12)).toBe(490000);
+  it("keeps the regular instalment as the monthly payment while the history grows", () => {
+    // nine charges are one series of varying sums; from ten on, the 400 € instalments are a series of their own and the
+    // repayments fill their months as one instalment each
+    for (const amounts of [prepaid.slice(0, 9), prepaid.slice(0, 10), prepaid, [...prepaid, ...prepaid]]) {
+      const found = detectRecurring(series(addStart(amounts.length), 30.44, amounts.length, (i) => -amounts[i]!, { merchant: "Example Lender", category: "loans" }), today);
+      expect(found.map((s) => s.monthlyCents)).toEqual([40000]);
+    }
+  });
+
+  it("costs a year of a bill with a repayment of capital at its regular instalment", () => {
+    const year = occurrences(prepaid);
+    expect(yearlyCostOf(year, monthlyCadence, "bill", typicalAmountOf(year), 12)).toBe(480000);
+  });
+
+  it("leaves out a run of repayments that ends back at the instalment", () => {
+    expect(typicalAmountOf(occurrences([40000, 40000, 40000, 40000, 40000, 730000, 250000, 250000, 40000]))).toBe(40000);
   });
 
   it("moves to a new level that is over twice the old one and stays", () => {

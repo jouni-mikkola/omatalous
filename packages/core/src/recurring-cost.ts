@@ -60,9 +60,10 @@ export function priceStepsOf(occ: readonly Occurrence[], perYear: number): Price
  * year. A late payment moves a charge to the next month and keeps the count.
  * `others` is passed only for a loan instalment (`seriesOfGroup`): the
  * lender's charges on the account that no product of it holds. A month with
- * no instalment still counts when one of them, half to twice the newest
+ * no instalment still counts when one of them, at least half the newest
  * instalment, fell within the cadence's tolerance of that month's due day:
- * the lender took a short or extra sum that month. A fee meant to pause
+ * the lender took a short sum that month, or the instalment with a repayment
+ * of capital, which counts as one instalment. A fee meant to pause
  * (day care in July, a gym in summer) never gets these rows, so a purchase in
  * its paused month fills nothing.
  */
@@ -74,7 +75,7 @@ export function chargesPerYear(occ: readonly Occurrence[], cadence: CadenceDef, 
   const typical = year[year.length - 1]!.cents;
   const filled = new Set<number>();
   for (const o of others) {
-    if (o.cents * 2 < typical || o.cents > typical * 2) continue;
+    if (o.cents * 2 < typical) continue;
     const m = dueMonth(o.date, year, cadence);
     if (m !== null && m > last - 12 && m < last && !own.has(m)) filled.add(m);
   }
@@ -108,18 +109,27 @@ function lastTwelveMonths(occ: readonly Occurrence[], cadence: CadenceDef): Occu
 const LEVEL_CHARGES = 5;
 
 /**
- * The one-off charges of a series: each over ONE_OFF_TIMES its median whose next charge is back at or under that, such
- * as a loan paid at 400 with a repayment of 2 500 between two instalments. Only a series with a regular level has them,
- * at least REGULAR_LEVEL_SHARE of its charges at its median, so a card bill or a bill whose sum moves every month keeps
- * every charge. A price that rose and stayed is no one-off: its next charge did not come back, and the latest charge
- * has no next one.
+ * The one-off charges of a series: each run of charges over ONE_OFF_TIMES its median after which the series is back at
+ * or under that, such as a loan paid at 400 with repayments of 7 300 and 2 500 between two instalments. Only a series
+ * with a regular level has them, at least REGULAR_LEVEL_SHARE of its charges at its median, so a card bill or a bill
+ * whose sum moves every month keeps every charge. A price that rose and stayed is no one-off: the run reaches the
+ * latest charge.
  */
 function oneOffsOf(occ: readonly Occurrence[]): Set<Occurrence> {
+  const oneOffs = new Set<Occurrence>();
   const level = median(occ.map((o) => o.cents));
   const atLevel = occ.filter((o) => !amountsDiffer(o.cents, level)).length;
-  if (atLevel < occ.length * REGULAR_LEVEL_SHARE) return new Set();
+  if (atLevel < occ.length * REGULAR_LEVEL_SHARE) return oneOffs;
   const ceiling = level * ONE_OFF_TIMES;
-  return new Set(occ.filter((o, i) => i < occ.length - 1 && o.cents > ceiling && occ[i + 1]!.cents <= ceiling));
+  let run: Occurrence[] = [];
+  for (const o of occ) {
+    if (o.cents > ceiling) run.push(o);
+    else {
+      for (const r of run) oneOffs.add(r);
+      run = [];
+    }
+  }
+  return oneOffs;
 }
 
 /**
@@ -142,13 +152,14 @@ export function typicalAmountOf(occ: readonly Occurrence[]): number {
 /**
  * What a series costs in a year. A bill that varies with the season
  * (electricity) is what its last twelve charges came to: the latest
- * summer bills times twelve would miss the winter. A one-off charge
- * (`oneOffsOf`) counts as the typical one: it was that month's payment, and
- * the rest of it is no cost a year brings again.
+ * summer bills times twelve would miss the winter. A year with a one-off
+ * charge (`oneOffsOf`) costs the typical charge each time: the regular
+ * instalment is the cost, and a repayment of capital is no cost a year
+ * brings again.
  */
 export function yearlyCostOf(occ: readonly Occurrence[], cadence: CadenceDef, kind: RecurringKind, typical: number, perYear: number): number {
   const year = kind === "bill" ? lastTwelveMonths(occ, cadence) : null;
   if (!year || year.length < perYear) return Math.round(typical * perYear);
   const oneOffs = oneOffsOf(occ);
-  return sum(year.slice(-perYear).map((o) => (oneOffs.has(o) ? typical : o.cents)));
+  return year.some((o) => oneOffs.has(o)) ? Math.round(typical * perYear) : sum(year.slice(-perYear).map((o) => o.cents));
 }
