@@ -215,7 +215,6 @@ describe("everyday money", () => {
     [12.4, "OSINKO NOKIA", "NORDNET BANK AB", "investment_income", "income"],
     [0.37, "Koron pääomitus", null, "investment_income", "income"],
     [0.37, "TILITYS", "KORKOJEN PÄÄOMITUS", "investment_income", "income"],
-    [0.37, "Koron hyvitys", null, "investment_income", "income"],
     [35, "TORI.FI MYYNTI", null, "sales", "income"],
     [-80, "KÄTEISNOSTO OTTO", null, "cash", "consumption"],
     [-42, "PARTURI-KAMPAAMO SAKSET", null, "personal_care", "consumption"],

@@ -24,7 +24,7 @@ const account = async (t: App, userId: string, id: string, type: AccountType = "
 
 /** A row of the bank; `n` tells identical rows apart, which the bank does with its own reference. */
 const raw = (bookingDate: string, amountCents: number, counterparty: string, n = 0) => ({
-  externalId: `${bookingDate}|${amountCents}|${counterparty}|${n}`, bookingDate, valueDate: null, amountCents, currency: "EUR", status: "booked" as const, counterparty, counterpartyIban: null, description: null, reference: null, mcc: null
+  externalId: `${bookingDate}|${amountCents}|${counterparty}|${n}`, bookingDate, valueDate: null, amountCents, currency: "EUR", status: "booked" as const, counterparty, counterpartyIban: null, description: null as string | null, reference: null, mcc: null
 });
 
 const load = async (t: App, userId: string, id: string, rows: ReturnType<typeof raw>[]) => {
