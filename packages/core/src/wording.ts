@@ -255,8 +255,9 @@ export const isLenderName = (folded: string) => LENDERS.test(folded);
 /**
  * Card issuers whose bills come as plain e-invoices, as regex alternations. Their names stand here once: the card
  * bill, credit_draw and loans rules of categorize.ts and `isCardIssuerText` (pipeline.ts) all read these.
- * The banks among them also lend and take deposits, so a text of theirs that names a loan or a savings account is no
- * card bill. Komplett Bank has been Morrow Bank since 2023.
+ * The banks among them also lend and take deposits, so their name alone tells no card: with a card word it is a card
+ * bill, with a connected card of theirs too (pipeline.ts), and otherwise a credit of a kind the household is asked
+ * (`isCreditIssuerText`). Komplett Bank has been Morrow Bank since 2023.
  * SEB Kort issues Eurocard and the co-branded cards.
  */
 export const CARD_ISSUER_BANK_WORDS = alternation("CARD_ISSUER_BANK_WORDS");
@@ -273,6 +274,12 @@ export const CARD_ISSUER_WORDS = `${NORDEA_FINANCE_WORDS}|${CARD_ISSUER_BANK_WOR
 const CARD_ISSUER = words(CARD_ISSUER_WORDS);
 
 export const isCardIssuerText = (folded: string) => CARD_ISSUER.test(folded);
+const CARD_ISSUER_BANK = words(CARD_ISSUER_BANK_WORDS);
+/** A card issuer that is a bank (`CARD_ISSUER_BANK_WORDS`) by its name. */
+export const isCardIssuerBankText = (folded: string) => CARD_ISSUER_BANK.test(folded);
+const CREDIT_ISSUER = words(`${CARD_ISSUER_BANK_WORDS}|${RESURS_WORDS}`);
+/** A bank that issues cards and lends otherwise too: a payment that names it and no loan or card is a credit of unknown kind. */
+export const isCreditIssuerText = (folded: string) => CREDIT_ISSUER.test(folded);
 const SAVINGS_ACCOUNT = words(String.raw`SAASTOTILI[A-Z]*|SAASTO(?:ON|T)?|[A-Z]*TALLETUS[A-Z]*|SAVINGS(?: ACCOUNT)?`);
 /** A savings account or a deposit in a folded text. At an issuer that is a bank such a row is saving, in either direction. */
 export const isSavingsAccountText = (folded: string) => SAVINGS_ACCOUNT.test(folded);

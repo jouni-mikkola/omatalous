@@ -176,6 +176,8 @@ export interface UnsavedRow {
   name: string;
   monthlyCents: number | null;
   card: boolean;
+  /** A credit whose kind the rows do not tell (`LoanProposal.kindUnknown`): a card, a credit account or a loan. Absent otherwise. */
+  kindUnknown?: true;
 }
 
 /**
@@ -190,7 +192,7 @@ export function unsavedDebts(ctx: AnalysisContext, inputs: UserInputs, proposals
   return {
     few,
     total: unsavedLoans([...lenders, ...cards]),
-    rows: [...lenders.map((p): UnsavedRow => ({ name: p.payee, monthlyCents: p.monthlyCents, card: false })), ...cards.map((c): UnsavedRow => ({ name: c.payee, monthlyCents: c.monthlyCents, card: true }))],
+    rows: [...lenders.map((p): UnsavedRow => ({ name: p.payee, monthlyCents: p.monthlyCents, card: false, ...(p.kindUnknown ? { kindUnknown: true as const } : {}) })), ...cards.map((c): UnsavedRow => ({ name: c.payee, monthlyCents: c.monthlyCents, card: true }))],
   };
 }
 

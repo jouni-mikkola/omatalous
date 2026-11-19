@@ -17,9 +17,9 @@ import { answeredWalletRows, applyPayerRoles, payerHistoryOf, WALLET_PAYER_KEY }
 import { median } from "./stats.ts";
 import { matchReturns, monthlyRunRows, partyKey, returnClassOf, SHARE_WINDOW_DAYS, steadyParties } from "./returns.ts";
 import { mayBeTransferLeg } from "./pairing.ts";
-import { normalizeIban } from "./transfers.ts";
+import { namesCard, normalizeIban } from "./transfers.ts";
 import type { Account, CategoryRule, IsoDate, Loan, PayerInput, Transaction } from "./types.ts";
-import { isCardIssuerText, isLoanText } from "./wording.ts";
+import { isCardIssuerBankText, isCardIssuerText, isLoanText } from "./wording.ts";
 
 /**
  * Re-derives category and transfer flags for every transaction. Categories
@@ -132,10 +132,28 @@ const HOLD_CATEGORY = "hold";
 const isHold = (t: Transaction): boolean =>
   t.status === "pending" && t.amountCents < 0 && t.merchant === UNKNOWN_MERCHANT && !t.counterparty?.trim() && !t.description?.trim() && !t.mcc?.trim() && !t.counterpartyIban?.trim() && !t.bankTxnCode?.trim();
 
-/** Before transfer detection: a card bill pairs with the connected card's payment row. */
-function applyCardBills(next: readonly Transaction[], byUserRule: ReadonlySet<string>): void {
-  for (const t of cardBillsByAmount(next.filter((t) => !byUserRule.has(t.id)))) t.category = "card_bill";
+/**
+ * Before transfer detection: a card bill pairs with the connected card's payment row. An issuer that also lends is paid
+ * a card bill only where the payment names a connected card of the issuer: its name alone, or a sum that changes, tells
+ * no card, and such a payment stays a credit of unknown kind (loans), whose kind Tarkistettavat asks.
+ */
+function applyCardBills(next: readonly Transaction[], byUserRule: ReadonlySet<string>, accounts: readonly Account[]): void {
+  const cards = accounts.filter((a) => a.type === "credit_card");
+  if (!cards.length) return;
+  const rows = next.filter((t) => !byUserRule.has(t.id));
+  for (const t of [...cardBillsByAmount(rows), ...issuerBills(rows)]) {
+    const payee = [t.merchant, t.counterparty].filter(Boolean).join(" ");
+    if (cards.some((card) => namesCard(payee, card))) t.category = "card_bill";
+  }
 }
+
+/** Payments to a bank that issues cards and lends, by its name alone: a card bill where a connected card of it is named, at any sum. */
+const issuerBills = (txs: readonly Transaction[]): Transaction[] =>
+  txs.filter((t) => {
+    if (t.category !== "loans" || t.categorySource !== "rule" || t.amountCents >= 0) return false;
+    const text = fold([t.merchant, t.counterparty, t.description].filter(Boolean).join(" | "));
+    return isCardIssuerBankText(text) && !isLoanText(text);
+  });
 
 /** Money out that the people rules read as a person by the shape of a credit transfer alone: no reference, no card and no word of the bank's for a payment between people (categorize-people.ts, `unreferenced`). */
 const isGuessedPerson = (t: Transaction): boolean => t.category === "p2p" && t.categorySource === "rule" && !!t.counterpartyIban?.trim() && referenceOf(t) === "" && !isMobilePay(t);
@@ -210,7 +228,7 @@ function* enrichSteps(
 ): Generator<void, Transaction[], void> {
   const { next, byUserRule } = yield* classify(txs, userRules, accounts);
   yield;
-  applyCardBills(next, byUserRule);
+  applyCardBills(next, byUserRule, accounts);
   yield;
 
   // money that comes back (refund, repaid person, shared bill) cancels its payment; both rows stay out of transfer pairing
@@ -318,7 +336,7 @@ export function enrichIsland(input: IslandInput): IslandResult {
     let step = steps.next();
     while (!step.done) step = steps.next();
     const { next, byUserRule } = step.value;
-    applyCardBills(next, byUserRule);
+    applyCardBills(next, byUserRule, accounts);
     return { next, byUserRule, returns: matchReturns(next, ownIbans, byUserRule, input.today) };
   };
   const finishWith = (staged: ReturnType<typeof run>, payeeLedgers: ReadonlySet<string>) => {
@@ -422,7 +440,8 @@ const returnKey = (t: Transaction, ownIbans: ReadonlySet<string>, locked: boolea
 
 /**
  * Payments to a card issuer that a rule called "loans" but whose amounts
- * jump from month to month: a card bill, not an instalment. An amount paid
+ * jump from month to month: a card's bill, not an instalment, where a connected
+ * card of the issuer is named (`applyCardBills`). An amount paid
  * three times or more is an instalment and stays a loan, so a car loan and a
  * card bill from the same issuer are told apart.
  *

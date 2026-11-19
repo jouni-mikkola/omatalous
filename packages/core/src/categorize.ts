@@ -51,6 +51,9 @@ interface BuiltinRule {
 /** Whole-word alternation: the one word boundary of the bank dialect (wording.ts). */
 const w = words;
 
+/** A word for a card beside an issuer's name ("MORROW KORTTI LASKU"). KORT alone is a word of an issuer's own name. */
+const ISSUER_CARD_WORD = w(String.raw`[A-Z]*KORTTI[A-Z]*|KORTIN|CARD|MASTERCARD|VISA`);
+
 /** A car maker's foreign finance arm: it lends no payout to a household, so money in from it is a refund, never a loan drawn. */
 const FOREIGN_FINANCIER = /TOYOTA FINANCIAL SERVICES/;
 
@@ -85,11 +88,13 @@ const PURPOSE_RULES: readonly BuiltinRule[] = [
   // ── credit cards: the bill is a transfer when the card account is connected (transfers.ts) ──
   // The issuers that are banks also lend and take deposits: LAINA in the text is a loan payment (loans, below), SÄÄSTÖTILI is saving
   { category: "savings", re: w(CARD_ISSUER_BANK_WORDS), when: isSavingsAccountText },
+  // their name alone is a credit of unknown kind (loans, below); a card word beside it makes it the card's bill
+  { category: "card_bill", direction: "out", re: w(CARD_ISSUER_BANK_WORDS), when: (text) => ISSUER_CARD_WORD.test(text) && !/LAINA/.test(text) },
   {
     category: "card_bill",
     direction: "out",
     re: w(
-      String.raw`LUOTTOKORT[A-Z]*|KORTTILASKU|KORTIN LASKU|${NORDEA_CARD_WORDS}|(?:GOLD|PLATINUM)-?KORTTI|NORDEA (?:MASTERCARD|VISA)|OP[- ]?KORTTI(?:YHTIO)?|KORTTIYHTIO|AKTIA (?:VISA|MASTERCARD|KORTTI)|(?:${NORDEA_FINANCE_WORDS})[A-Z ]*(?:KORTTI|GOLD|PLATINUM|MASTERCARD|CREDIT)[A-Z]*|(?:MASTERCARD|VISA|AMEX)[A-Z ]*LASKU|AMERICAN EXPRESS|CREDIT CARD (?:PAYMENT|BILL)|OP[- ]?(?:VISA|MASTERCARD)|S-?ETUKORTTI VISA|(?:${CARD_ISSUER_BANK_WORDS})(?!.*LAINA)|${CARD_BRAND_WORDS}`,
+      String.raw`LUOTTOKORT[A-Z]*|KORTTILASKU|KORTIN LASKU|${NORDEA_CARD_WORDS}|(?:GOLD|PLATINUM)-?KORTTI|NORDEA (?:MASTERCARD|VISA)|OP[- ]?KORTTI(?:YHTIO)?|KORTTIYHTIO|AKTIA (?:VISA|MASTERCARD|KORTTI)|(?:${NORDEA_FINANCE_WORDS})[A-Z ]*(?:KORTTI|GOLD|PLATINUM|MASTERCARD|CREDIT)[A-Z]*|(?:MASTERCARD|VISA|AMEX)[A-Z ]*LASKU|AMERICAN EXPRESS|CREDIT CARD (?:PAYMENT|BILL)|OP[- ]?(?:VISA|MASTERCARD)|S-?ETUKORTTI VISA|${CARD_BRAND_WORDS}`,
     ),
   },
   // money in from a credit line (a card's "luoton siirto omalle tilille", financing payouts, a card issuer)
