@@ -3,7 +3,8 @@
  * Made-up names and sums: Matti (u:1), Maija (u:2), the pool "Yhteinen tili".
  */
 import { describe, expect, it } from "vitest";
-import { dayNumber as d } from "../src/dates.ts";
+import { dayNumber as d, fromDayNumber } from "../src/dates.ts";
+import { openingDefault } from "../src/money-trace-answers.ts";
 import type { Owner, TraceRow } from "../src/money-trace.ts";
 import { trace } from "../src/money-trace.ts";
 import type { AgreementRow } from "../src/settlement-agreements.ts";
@@ -27,9 +28,10 @@ interface Setup {
   split?: "unknown";
   asOf: string;
   closed?: ClosedMonth[];
+  opening?: number;
 }
 const run = (month: string, rows: readonly TraceRow[], o: Setup): Settlement => {
-  const t = trace(rows, 0, Math.min(...rows.map((r) => r.day)));
+  const t = trace(rows, o.opening ?? 0, Math.min(...rows.map((r) => r.day)));
   const pool = { key: POOL, trace: t, answers: o.answers ?? [], users: [{ owner: MATTI, weight: 1 }, { owner: MAIJA, weight: 1 }], ...(o.split ? { split: o.split } : {}), ...(o.said ? { usesSaidOn: new Map(Object.entries(o.said)) } : {}) };
   return settlement(month, pool, o.agreements ?? [EQUAL], new Set([MATTI, MAIJA]), [], new Map(), o.asOf, o.closed ?? []);
 };
@@ -164,5 +166,38 @@ describe("a closed month and what was said after it", () => {
       // today's answer gives Acme's purchase to Maija; Matti keeps the 100,00 the old line gave him
       expect(late(nov).map((l) => byOwner(l.paid))).toEqual([{ [ACME]: -10000, [MAIJA]: 10000 }]);
     });
+  });
+});
+
+describe("the opening's default and an answer that replaces it", () => {
+  // 200,00 was on the account before its history: September's purchase spends 100,00 of it and November's 40,00
+  const opening = 20000;
+  const rows = [row("shop", "2026-09-10", -10000), row("later", "2026-11-20", -4000)];
+  const t = trace(rows, opening, d("2026-09-10"));
+  const byDefault: SaidAnswer[] = openingDefault(t).map((a) => ({ ...a, saidOn: fromDayNumber(t.openingDay) }));
+  const said = (owner: Owner): SaidAnswer[] => [...byDefault, { kind: "opening", key: "o", owner, saidOn: "2026-11-05" }];
+  const paid = (s: Settlement): number[] => [...[MATTI, MAIJA].map((o) => s.members.find((m) => m.owner === o)?.paid ?? 0), s.unknownPaid];
+  const sep = run("2026-09", rows, { opening, answers: byDefault, asOf: "2026-10-15" });
+
+  it("closes a month with the opening as everyone's", () => {
+    expect(byDefault.map((a) => [a.owner, a.saidOn])).toEqual([["all", "2026-09-10"]]);
+    expect(sep.status).toEqual({ open: false, closedOn: "2026-09-30", by: "resolved" });
+    expect(paid(sep)).toEqual([5000, 5000, 0]);
+  });
+
+  it.each([
+    ["Maija", MAIJA, [0, 4000, 0]],
+    ["En tiedä", "none", [0, 0, 4000]],
+  ] as const)("keeps the closed month when a member answers %s later, and counts the answer from its day on", (_name, owner, november) => {
+    const answers = said(owner);
+    const again = run("2026-09", rows, { opening, answers, asOf: "2026-12-01" });
+    expect([again.status, paid(again)]).toEqual([sep.status, paid(sep)]);
+    for (const closed of [[], [sep as ClosedMonth]]) {
+      // no correction (the month after a stored one) and no answered line (the answer's month) moves September's opening money
+      expect(run("2026-10", rows, { opening, answers, asOf: "2026-12-01", closed }).lines).toEqual([]);
+      const nov = run("2026-11", rows, { opening, answers, asOf: "2026-12-01", closed });
+      expect(nov.lines.map((l) => l.kind)).toEqual(["cost"]);
+      expect(paid(nov)).toEqual(november);
+    }
   });
 });

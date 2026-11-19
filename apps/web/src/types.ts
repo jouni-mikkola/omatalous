@@ -63,7 +63,7 @@ export interface Account {
   traced?: boolean;
   /** Who set the split by who paid, and when. */
   split?: { by: "app" | "user"; at: string };
-  /** Only to the member who linked the account: the payers and the opening whose owner is not told, largest first. */
+  /** Only to the member who linked the account: the payers no member has answered for, largest first. */
   questions?: AccountQuestion[];
   /** The answers given, with the label of what they answer. */
   answers?: AccountAnswer[];

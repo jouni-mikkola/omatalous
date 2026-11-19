@@ -80,9 +80,9 @@ describe("the choices", () => {
   });
 
   it("ask a split with no guess", () => {
-    const split: ReviewItem = { kind: "split", id: "split:a:opening:o", cents: 312_045, accountId: "a", accountName: "Yhteistili", question: "opening", key: "o", label: "2026-07-01" };
+    const split: ReviewItem = { kind: "split", id: "split:a:in:g:text:esimerkki", cents: 312_045, accountId: "a", accountName: "Yhteistili", question: "in", key: "g:text:esimerkki", label: "Esimerkki Ville" };
     expect(split).not.toHaveProperty("guess");
-    expect([eyebrow(split), nameOf(split), questionOf(split)]).toEqual(["Yhteinen tili Yhteistili", "Saldo ennen 1.7.", "Kenen rahaa tämä oli?"]);
+    expect([eyebrow(split), nameOf(split), questionOf(split)]).toEqual(["Yhteinen tili Yhteistili", "Esimerkki Ville", "Kenen rahaa tämä oli?"]);
   });
 
   it("say a subscription's month and year", () => {

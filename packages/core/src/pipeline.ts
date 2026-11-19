@@ -78,13 +78,11 @@ export async function enrichTransactionsPausing(
 const CHUNK = 4000;
 
 /**
- * What a rule says depends on the row's names, its card code, the bank's own transaction code, whether it has a
- * reference number, whether it has the payee's account, whether the account pays the payee steadily, the direction of
- * the money and whether the sum is a car's (`dealerCategory`) only, and a long history repeats the same shop, text and
- * codes thousands of times: each distinct combination is decided once. The reference and the payee's account are there as a yes or no (the reference also as
- * not carried at all), never as their values: a number of its own on every row would make every row its own key. The
- * row's own account is not part of it but for that yes or no: the holders come from the whole list of accounts and no
- * rule reads a row's own.
+ * What a rule says depends on the row's names, its card code, the bank's transaction code, whether it has a reference
+ * number (or carries none), the payee's account and money in on a card or a loan account, each as a yes or no and never
+ * as a value (a number of its own would make every row its own key), whether the account pays the payee steadily, the
+ * direction of the money and whether the sum is a car's (`dealerCategory`). A long history repeats the same shop, text
+ * and codes thousands of times: each distinct combination is decided once.
  */
 function* classify(txs: readonly Transaction[], userRules: readonly CategoryRule[], accounts: readonly Account[]): Generator<void, { next: Transaction[]; byUserRule: Set<string> }, void> {
   const rules = compileRules(userRules);
@@ -96,6 +94,7 @@ function* classify(txs: readonly Transaction[], userRules: readonly CategoryRule
   const steadyIn = steadyParties(txs.filter((t) => t.amountCents > 0 && t.merchant !== UNKNOWN_MERCHANT));
   // the accounts the user's own name sent money to: money in from one of them is the user's own money coming back
   const holders = holdersOf(accounts);
+  const debts = new Set(accounts.filter((a) => a.type === "credit_card" || a.type === "loan").map((a) => a.id));
   // only a payment the own-name rule itself would take: no reference, no card code, and no other category from the user
   const sentToOwnName = new Set(txs.filter((t) => t.amountCents < 0 && isUserName(t.counterparty ?? "", holders) && !t.reference?.trim() && noCard(t) && (t.categorySource !== "user" || t.category === "savings" || t.category === "transfer")).map((t) => normalizeIban(t.counterpartyIban)).filter((iban): iban is string => !!iban));
   for (let i = 0; i < txs.length; i++) {
@@ -111,9 +110,10 @@ function* classify(txs: readonly Transaction[], userRules: readonly CategoryRule
     }
     const steadyPayee = (t.amountCents < 0 ? steady : steadyIn).has(partyKey(t));
     const fromOwnAccount = t.amountCents > 0 && sentToOwnName.has(normalizeIban(t.counterpartyIban) ?? "");
-    const key = `${t.amountCents >= 0 ? "+" : "-"}\u0000${t.merchant}\u0000${t.counterparty ?? "\u0001"}\u0000${t.description ?? "\u0001"}\u0000${t.mcc ?? "\u0001"}\u0000${t.bankTxnCode ?? "\u0001"}\u0000${t.reference === undefined ? "\u0001" : t.reference?.trim() ? "1" : "0"}\u0000${t.counterpartyIban?.trim() ? "1" : "0"}\u0000${steadyPayee ? "1" : "0"}\u0000${fromOwnAccount ? "1" : "0"}\u0000${dealerCategory(t.amountCents)}`;
+    const onDebtAccount = t.amountCents > 0 && debts.has(t.accountId);
+    const key = `${t.amountCents >= 0 ? "+" : "-"}\u0000${t.merchant}\u0000${t.counterparty ?? "\u0001"}\u0000${t.description ?? "\u0001"}\u0000${t.mcc ?? "\u0001"}\u0000${t.bankTxnCode ?? "\u0001"}\u0000${t.reference === undefined ? "\u0001" : t.reference?.trim() ? "1" : "0"}\u0000${t.counterpartyIban?.trim() ? "1" : "0"}\u0000${steadyPayee ? "1" : "0"}\u0000${fromOwnAccount ? "1" : "0"}\u0000${onDebtAccount ? "1" : "0"}\u0000${dealerCategory(t.amountCents)}`;
     let result = decided.get(key);
-    if (!result) decided.set(key, (result = categorizeInDirection(steadyPayee || fromOwnAccount ? { ...t, steadyPayee, fromOwnAccount } : t, rules, accounts)));
+    if (!result) decided.set(key, (result = categorizeInDirection(steadyPayee || fromOwnAccount || onDebtAccount ? { ...t, steadyPayee, fromOwnAccount, onDebtAccount } : t, rules, accounts)));
     const { category, source, byUser } = result;
     if (byUser) byUserRule.add(t.id);
     // a rule may say "this is a transfer" too (e.g. a user rule for "OMA SIIRTO")

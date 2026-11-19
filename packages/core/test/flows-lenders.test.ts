@@ -206,6 +206,16 @@ describe("peer lending", () => {
     check(["NORDNET BANK AB", "OSINKO", 80, "investment_income", { income: 8000 }]);
     check(["S-PANKKI OYJ", "TALLETUSKORKO", 12, "investment_income", { income: 1200 }]);
   });
+
+  it("reads the bank's words for interest added as income on a deposit only: on a card or a loan they give back interest charged", () => {
+    const card: Account = { id: "card", name: "Visa", iban: null, currency: "EUR", type: "credit_card" };
+    const loan: Account = { id: "loan", name: "Asuntolainatili", iban: null, currency: "EUR", type: "loan" };
+    // one text on three accounts in one run: the account's kind is part of what decides the row
+    const rows = ["chk", "card", "loan"].flatMap((id) => [row(id, "2026-09-30", 0.37, "Koron pääomitus"), row(id, "2026-09-30", 0.37, "TILITYS", "KORKOJEN PÄÄOMITUS")]);
+    const { final } = run(rows, [checking, card, loan]);
+    const income = final.map((t) => t.category === "investment_income");
+    expect(income).toEqual([true, true, false, false, false, false]);
+  });
 });
 
 describe("a saved home loan names the series that is the mortgage", () => {

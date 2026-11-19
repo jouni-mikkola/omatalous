@@ -48,19 +48,29 @@ function usersPart(users: readonly TraceUser[]): { owner: Owner; part: Part }[] 
 }
 
 /**
- * The answers with the opening's default added: money an account had before its history began is everyone's (Yhteistä)
- * until somebody says otherwise. Any answer to the opening wins over it, "none" (nobody knows) too, and the opening is
- * never asked.
+ * The opening's default: money an account had before its history began is everyone's (Yhteistä) until somebody says
+ * otherwise, so the opening is never asked. Nothing while no row took the opening.
  */
-export function withOpeningDefault(t: Trace, answers: readonly Answer[]): Answer[] {
-  const says = answers.some((a) => a.kind === "opening");
-  return t.openingTaken && !says ? [...answers, { kind: "opening", key: "o", owner: "all" }] : [...answers];
+export function openingDefault(t: Trace): Answer[] {
+  return t.openingTaken ? [{ kind: "opening", key: "o", owner: "all" }] : [];
 }
 
-/** What the answers say, by the owner they relabel; "none" says nothing. */
+/** The answers with the opening's default added. Any answer to the opening wins over it, "none" (nobody knows) too. */
+export function withOpeningDefault(t: Trace, answers: readonly Answer[]): Answer[] {
+  return answers.some((a) => a.kind === "opening") ? [...answers] : [...answers, ...openingDefault(t)];
+}
+
+/**
+ * What the answers say, by the owner they relabel. A later answer to a key wins over an earlier one, and "none" takes
+ * the earlier one back: the settlement reads the opening's default and the answer that replaced it in this order.
+ */
 function answered(answers: readonly Answer[]): Map<Owner, Owner | "all"> {
   const map = new Map<Owner, Owner | "all">();
-  for (const a of answers) if (a.owner !== "none" && (a.kind === "opening") === (a.key === "o")) map.set(a.key, a.owner);
+  for (const a of answers) {
+    if ((a.kind === "opening") !== (a.key === "o")) continue;
+    if (a.owner === "none") map.delete(a.key);
+    else map.set(a.key, a.owner);
+  }
   return map;
 }
 

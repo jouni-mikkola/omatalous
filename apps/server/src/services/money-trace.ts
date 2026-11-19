@@ -26,6 +26,7 @@ import {
   nameOf,
   normalizeIban,
   OTHER_HOLDER,
+  openingDefault,
   openOf,
   type Owner,
   type Part,
@@ -109,7 +110,7 @@ export interface SettledTrace {
   answers: Answer[];
   /** The answers as `settle` reads them: what the household said, and the opening's default when nobody said. */
   counted: Answer[];
-  /** The answers as `settlement` reads them: with the local day each was said on. */
+  /** The answers as `settlement` reads them: with the local day each was said on, the opening's default first. */
   said: SaidAnswer[];
   /** The card accounts of the household and the owners who use this pool (`u:` the holder nobody names is not one). */
   cards: CardUse[];
@@ -313,9 +314,13 @@ function settledOf(h: Household, key: string, signature: string, answerRows: rea
   // an answer names its owner: one who is no user now (the users changed) is no answer, and the question stands again
   const kept = answerRows.filter((a) => a.owner === "all" || a.owner === "none" || users.some((u) => u.owner === a.owner));
   const answers = answersOf(kept);
-  // the opening is everyone's until somebody says otherwise: the default counts from the first day of the history
+  // the opening is everyone's until somebody says otherwise: the default counts from the first day of the history, and
+  // the settlement reads it before any answer to the opening, which wins only from its own day
   const counted = withOpeningDefault(raw.trace, answers);
-  const said = counted.map((a, i): SaidAnswer => (i < kept.length ? { ...a, saidOn: localDay(h, kept[i]!.saidAt) ?? kept[i]!.saidAt.slice(0, 10) } : { ...a, saidOn: fromDayNumber(raw.trace.openingDay) }));
+  const said: SaidAnswer[] = [
+    ...openingDefault(raw.trace).map((a) => ({ ...a, saidOn: fromDayNumber(raw.trace.openingDay) })),
+    ...answers.map((a, i) => ({ ...a, saidOn: localDay(h, kept[i]!.saidAt) ?? kept[i]!.saidAt.slice(0, 10) })),
+  ];
   const cardUses = new Map([...(raw.prepared.payers.cards?.byAccount.values() ?? [])].map((c) => [c.key, c]));
   const settled = settle(raw.trace, counted, users);
   const window = windowOf(h.today);

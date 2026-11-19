@@ -12,7 +12,10 @@ import { type AgreementRow, agreementOn, agreementWeights, fixedOf, type Incomes
 /** Days after a month's last day on which it closes whatever is still unknown (a made-up default). */
 export const CLOSE_DAYS = 90;
 
-/** An answer to "whose money was this?" and the day it was said. One answer per key: the one that stands now. */
+/**
+ * An answer to "whose money was this?" and the day it was said. One answer per key, the one that stands now, but for the
+ * opening: its default, dated on the opening day, comes before the answer that replaced it.
+ */
 export interface SaidAnswer extends Answer {
   saidOn: string;
 }
@@ -185,9 +188,18 @@ export function makeBook(pool: SettlementPool, agreements: readonly AgreementRow
     const t = settle({ rows: [row(1), row(-1)], lots: [], before: [], groups: [], openingCents: 0, openingDay: 0, openingTaken: false, creditCents: 0 }, answers, pool.users);
     return merge(t.rows.flatMap((r, i) => r.parts.map((p) => ({ owner: p.owner, cents: i === 0 ? p.cents : -p.cents }))));
   };
-  const relabelAt = (day: number) =>
+  /** Whether `key` had an answer by `day`. */
+  const answeredBy = (key: string, day: number): boolean => pool.answers.some((a) => a.key === key && dayNumber(a.saidOn) <= day);
+  /**
+   * The answers said by `day`. For a month closed on `closed`, an answer to a key that already had one by the close (the
+   * opening's default) counts only from its own day, so the month keeps what it closed with.
+   */
+  const relabelAt = (day: number, closed: number | null = null) =>
     relabeler(
-      pool.answers.filter((a) => dayNumber(a.saidOn) <= day),
+      pool.answers.filter((a) => {
+        const on = dayNumber(a.saidOn);
+        return on <= day && (closed === null || on <= closed || !answeredBy(a.key, closed));
+      }),
     );
 
   /** Cents of a cost's credit still uncovered on `day`: fills and refunds that cancelled credit up to then are taken off. */
@@ -219,6 +231,6 @@ export function makeBook(pool: SettlementPool, agreements: readonly AgreementRow
     return day;
   };
 
-  return { users, members, incomes, agreements, perRow, pool, asOfDay, months, byMonth, treatOf, rawOf, relabeler, relabelAt, closedOn };
+  return { users, members, incomes, agreements, perRow, pool, asOfDay, months, byMonth, treatOf, rawOf, relabeler, relabelAt, answeredBy, closedOn };
 }
 
