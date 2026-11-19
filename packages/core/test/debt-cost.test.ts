@@ -80,6 +80,12 @@ describe("debtCost", () => {
     expect(debtCost(plan(), START)).toEqual({ rateMilli: null, costClass: null, next12: null, leftCents: null, feePerPaymentCents: null, unknown: "fee" });
   });
 
+  it("takes the fee the household typed, 0 € included, in place of the unknown one", () => {
+    expect(debtCost(plan({ paymentFeeCents: 0 }), START)).toMatchObject({ rateMilli: 0, costClass: "free", feePerPaymentCents: 0, unknown: null });
+    expect(debtCost(plan({ paymentFeeCents: 395 }), START)).toMatchObject({ costClass: "very_dear", feePerPaymentCents: 395, next12: { feeCents: 4_740 }, unknown: null });
+    expect(debtCost(plan({ paymentFeeCents: null }), START)).toMatchObject({ unknown: "fee" });
+  });
+
   it("judges a promotional rate over the whole plan left: the sooner the step, the dearer", () => {
     const promo = (step: string) => plan({ balanceCents: 240_000, paymentCents: 10_000, endDate: null, ratePath: [[START, 0], [step, 19_900]], paymentParts: withFee(0) });
     const late = debtCost(promo("2027-03-01"), START)!;

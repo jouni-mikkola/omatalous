@@ -26,6 +26,7 @@ const COLUMNS = [
   "rate_review_date",
   "rate_step_date",
   "rate_step_bp",
+  "payment_fee_cents",
 ] as const;
 
 const values = (l: Loan) => [
@@ -48,6 +49,7 @@ const values = (l: Loan) => [
   l.rateReviewDate ?? null,
   l.rateStepDate ?? null,
   l.rateStepBp ?? null,
+  l.paymentFeeCents ?? null,
 ];
 
 /**
@@ -86,6 +88,8 @@ const toLoan = (r: Row): Loan => ({
   ...(r.rate_review_date == null ? {} : { rateReviewDate: String(r.rate_review_date) }),
   // and for a loan with no step in its rate: both columns are set together
   ...(r.rate_step_date == null || r.rate_step_bp == null ? {} : { rateStepDate: String(r.rate_step_date), rateStepBp: Number(r.rate_step_bp) }),
+  // and for a loan whose payment fee nobody typed: 0 is a typed fee of nothing
+  ...(r.payment_fee_cents == null ? {} : { paymentFeeCents: Number(r.payment_fee_cents) }),
 });
 
 export class LoansRepo {

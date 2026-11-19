@@ -50,6 +50,7 @@ export const FI_SET_LOANS = {
   "set.loans.f_repayment": "Lyhennystapa",
   "set.loans.f_interval": "Lyhennysväli",
   "set.loans.f_payment": "Maksuerä",
+  "set.loans.f_fee": "Kulu erää kohden",
   "set.loans.f_end": "Viimeinen eräpäivä",
   "set.loans.rate_now": "Korko nyt {rate}",
   "set.loans.fix_marked": "Korjaa merkityt kentät.",

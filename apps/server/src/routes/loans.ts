@@ -40,6 +40,7 @@ const FIELDS = [
   "rateReviewDate",
   "rateStepDate",
   "rateStepBp",
+  "paymentFeeCents",
 ] as const satisfies readonly (keyof LoanFields)[];
 /** The body of a save also holds the split of the last payment a document stated, which is not a field of the loan (`parseLastPayment`). */
 const BODY_FIELDS = [...FIELDS, "lastPayment"] as const;
@@ -209,6 +210,8 @@ export async function parseLoan(raw: unknown, today: string, accounts: OwnAccoun
       loan.rateStepBp = stepRate;
     }
   }
+  // The fee each payment carries, typed for a plan whose fee nothing else tells. 0 is a fee of nothing; a loan with none typed has no field, as with the link.
+  if (!absent(input.paymentFeeCents)) loan.paymentFeeCents = cents(input.paymentFeeCents, 0, "Maksuerän kulun");
   // The one way a balance could grow: a payment that holds the interest and is smaller than it. The interest only
   // shrinks with the balance, so a payment that covers the first interval covers every later one, until the rate steps up.
   const holdsInterest = loan.repayment === "annuity" || loan.repayment === "fixed_instalment";

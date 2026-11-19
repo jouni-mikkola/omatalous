@@ -162,8 +162,8 @@ function documentParts(ctx: AnalysisContext, inputs: UserInputs): Map<string, Ro
   return out;
 }
 
-/** The fee of the newest payment a document stated, in every payment. */
-const feeOf = (loan: Loan): number => [...(loan.paymentParts ?? [])].sort((a, b) => b.dueDate.localeCompare(a.dueDate))[0]?.feeCents ?? 0;
+/** The fee of the newest payment a document stated, else the one the household typed, in every payment. */
+const feeOf = (loan: Loan): number => [...(loan.paymentParts ?? [])].sort((a, b) => b.dueDate.localeCompare(a.dueDate))[0]?.feeCents ?? loan.paymentFeeCents ?? 0;
 
 /** The balance before a payment, given the balance after it: `(B + row) / (1 + r·m/12)`, to the cent (1 200 000 = thousandths of a percent × months a year). Null past what whole numbers hold. */
 function balanceBefore(afterCents: number, paidCents: number, rateMilli: number, months: number): number | null {

@@ -144,7 +144,8 @@ const unknownCost = (unknown: DebtCostUnknown): DebtCost => ({ rateMilli: null, 
 
 /**
  * Source 1, the plan: the payments of `loanSchedule` after the day, each with its interest, repayment and fee. The fee is
- * the one a document stated, else the one the rows measure. A plan at 0 % with neither has a cost nothing tells (`fee`);
+ * the one a document stated, else the one the household typed (`paymentFeeCents`, 0 among them), else the one the rows
+ * measure. A plan at 0 % with none of them has a cost nothing tells (`fee`);
  * a plan with interest and neither costs its interest.
  */
 function planCost(loan: Loan, day: IsoDate, owedCents: number, rows: readonly SeriesPayment[]): DebtCost {
@@ -152,7 +153,7 @@ function planCost(loan: Loan, day: IsoDate, owedCents: number, rows: readonly Se
   if (schedule.unknown !== null) return unknownCost(schedule.unknown);
   if (schedule.summary === null) return unknownCost(schedule.never ? "payment" : "end_date");
   const first = schedule.rows[0]!;
-  const stated = loan.paymentParts?.length ? first.feeCents : null;
+  const stated = loan.paymentParts?.length ? first.feeCents : (loan.paymentFeeCents ?? null);
   const interestFree = schedule.rows.every((r) => r.interestCents === 0);
   // each row against the payment of its own date: the plan from the balance date holds those before the day too
   const fee = stated ?? (rows.length > 0 ? measuredFee(loanSchedule(loan, loan.balanceDate).rows, rows) : null) ?? (interestFree ? null : 0);

@@ -31,6 +31,7 @@ const ASKED_FOR: Record<LoanTermsMissing, LoanFieldKey[]> = {
   end_date: ["endDate"],
   margin: ["marginBp"],
   review_date: ["rateReviewDate"],
+  fee: ["paymentFeeCents"],
 };
 
 const askedFor = (gaps: readonly LoanTermsMissing[]): LoanFieldKey[] => [...new Set(gaps.flatMap((gap) => ASKED_FOR[gap]))];
@@ -55,6 +56,7 @@ function resultLine(loan: Loan, fixings: Fixings, today: string): string {
     r.rateMilli === null ? null : t("set.rc.lt_rate", { rate: percent(r.rateMilli / 100_000, 2) }),
     r.endDate === null ? null : t("set.rc.lt_ends", { date: date(r.endDate, today) }),
     r.interestLeftCents === null ? null : t("set.rc.lt_interest", { amount: money(r.interestLeftCents) }),
+    r.feeCents === null ? null : t("set.rc.lt_fee", { amount: money(r.feeCents) }),
   ]
     .filter((part) => part !== null)
     .join(" · ");
@@ -243,6 +245,13 @@ function SavedRow({ debt, meta, answer, busy, onSend, onSaved }: RowProps) {
   // the loan was deleted, or the card unlinked, since the queue was read: the read after the next save leaves it out
   if (!initial) return null;
   const dismissible = debt.subject !== null && debt.gaps.every(loanTermsDismissible);
+  // a plan at 0 % with no fee told: "0 €" saves the loan with a fee of nothing, as typing 0 does
+  const noFee = (saved: Loan) =>
+    onSend(async () => {
+      const { body, errors } = readForm({ ...initial, values: { ...initial.values, paymentFeeCents: "0" } }, answer.fixings);
+      if (!body) throw new Error(Object.values(errors)[0]);
+      return resultLine((await loanCalls.replace(saved.id, body)).loan, answer.fixings, meta.today);
+    });
   return (
     <>
       <RowForm
@@ -256,6 +265,13 @@ function SavedRow({ debt, meta, answer, busy, onSend, onSaved }: RowProps) {
         // Peruuta empties what was typed: the row asks the same again
         onCancel={() => setKey((k) => k + 1)}
       />
+      {loan && debt.gaps.includes("fee") && (
+        <div className="review-choices">
+          <ChoiceButton busy={busy} onClick={() => noFee(loan)}>
+            <span>{money(0, false)}</span>
+          </ChoiceButton>
+        </div>
+      )}
       {dismissible && (
         <div className="review-choices">
           <ChoiceButton busy={busy} onClick={() => onSend(() => mark(debt.subject!, "dismissed")().then(() => t("set.rc.lt_set_aside")))}>
