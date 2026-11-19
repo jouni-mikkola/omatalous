@@ -75,7 +75,7 @@ their own bank. A member can share an account with the others, read-only, with *
 ## 6. Add your loans
 
 Optional. A bank connection shows a card or a loan account, but not a loan at a lender that is not connected. Add
-those in *Asetukset*, under *Lainat*, with the figures from your bank's page.
+those in *Raportit > Varat ja velat* with *Lisää laina*, with the figures from your bank's page.
 
 ## After the install
 

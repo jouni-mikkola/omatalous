@@ -310,9 +310,9 @@ describe("Raportit: Lainat", () => {
     // an unsaved debt is a cause too: the list of debts asks for all of it
     const unsaved = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }];
     expect(link(html(loans, context(report([row(noRate)], { ...unknownCost, unsaved }))))).toEqual(["#/review?item=loan-terms"]);
-    // another member's loan or a connected account the viewer cannot change has no drill of theirs to open
-    expect(link(html(loans, context(report([row({ ...noRate, typedBy: "Aino" })], unknownCost))))).toEqual(["#/review?item=loan-terms"]);
-    expect(link(html(loans, context(report([row({ ...noRate, id: "account:acc-1" })], unknownCost))))).toEqual(["#/review?item=loan-terms"]);
+    // another member's loan or a connected account the viewer cannot change has no drill of theirs to open, and nothing to ask
+    expect(link(html(loans, context(report([row({ ...noRate, typedBy: "Aino" })], unknownCost))))).toEqual([]);
+    expect(link(html(loans, context(report([row({ ...noRate, id: "account:acc-1" })], unknownCost))))).toEqual([]);
   });
 
   it("Täydennä lainat opens the drill of a rate-only own loan when every unsaved debt is one Tarkistettavat no longer asks of", () => {
@@ -327,6 +327,24 @@ describe("Raportit: Lainat", () => {
     // one debt still asked of keeps the link on the list that asks it
     const open = [...asked, { name: "Toinenrahoitus", monthlyCents: 5_000, card: false }];
     expect(link(html(loans, context(report([row(noRate)], { ...unknownCost, unsaved: open }))))).toEqual(["#/review?item=loan-terms"]);
+  });
+
+  it("Täydennä lainat has no link when nothing in Tarkistettavat or in an own loan's form is left to answer", () => {
+    const noRate = { rateBp: null, reference: null, interest: { cents: null, unknown: "rate" }, cost: { rateMilli: null, costClass: null, next12: null, leftCents: null, feePerPaymentCents: null, unknown: "rate" } } as const;
+    const unknownCost = { cost12: { cents: null, interestCents: null, feeCents: null } };
+    const link = (out: string) => [...out.matchAll(/<a href="([^"]*)">Täydennä lainat<\/a>/g)].map((m) => m[1]!.replaceAll("&amp;", "&"));
+    const asked = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false, asked: true as const }];
+    // (a) every unsaved debt asked of already and no own loan with an unknown cost: the dash alone
+    const a = html(loans, context(report([row()], { ...unknownCost, unsaved: asked })));
+    expect(link(a)).toEqual([]);
+    expect(a).toContain('<span class="loan-unknown">–</span>');
+    // (b) an own loan whose cost is unknown by its repayment: the link opens its drill
+    const repayment = { cost: { rateMilli: null, costClass: null, next12: null, leftCents: null, feePerPaymentCents: null, unknown: "repayment" } } as const;
+    expect(link(html(loans, context(report([row(repayment)], { ...unknownCost, unsaved: asked }))))).toEqual([loanHash("home")]);
+    // (c) only a member's loan with an unknown cost: no drill of the viewer's and nothing to ask
+    const member = html(loans, context(report([row({ ...noRate, typedBy: "Aino" })], { ...unknownCost, unsaved: asked })));
+    expect(link(member)).toEqual([]);
+    expect(member).not.toContain("Täydennä");
   });
 
   it("the kind is left out under a name that is the kind", () => {
