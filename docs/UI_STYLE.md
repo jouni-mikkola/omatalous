@@ -40,6 +40,8 @@ with it. A new word for a thing already named here is not added: the term below 
 | The difference to the usual in a report table | *Yli tai alle*, the total *Yhteensä* | *Erotus* in the reports of Saldot and Velat |
 | A loan payment in the Velat report | *maksu*, *kuukausimaksu* | *erä*, *maksuerä*, *tasaerä* |
 | A loan's payments in its drill in Lainat | *Kuukausierä* (*Erä* when the interval is not a month; *Kuukausilyhennys* and *Lyhennys* for an equal principal loan, whose input is the principal), *Eriä jäljellä*, *Viimeinen erä*, *Kertalyhennys* for a one-off repayment | *maksuerä*, *tasaerä*, *ylimääräinen lyhennys* |
+| The fields of the loan form | *Lainan määrä*, *Kuukausierä*, *Miten erä muuttuu* (with the choices *Erä muuttuu koron mukana*, *Erä pienenee*, *Erä pysyy, laina-aika muuttuu*, *Kerralla lopussa*), the button *Lue lainan tiedot*; *En tiedä* where the household may leave a choice open | *Myönnetty määrä*, *Maksuerä*, *Lyhennystapa*, *Annuiteetti*, *Tasalyhennys*, *Lue tiedot*, *Ei tiedossa* as a choice |
+| Who paid into a shared account | *Kuka maksoi tilille* | *Sen mukaan, kuka tilille on maksanut* |
 | How dear a debt is on the first page | *Kallis* and *Erittäin kallis*, on those rows only; the cheaper classes (*Maksuton*, *Edullinen*) are not told there | *korkea korko*, *riskilaina* |
 | A month that is over | *päättynyt kuukausi* | *valmis kuukausi* |
 | The group a transaction belongs to | *kategoria* (*Kaikki kategoriat*, *Menot kategorioittain*); the verb *luokitella* stays | *ryhmä*, *luokka* and its forms (*luokittain*, *menoluokka*) |

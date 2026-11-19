@@ -179,7 +179,7 @@ describe("loans", () => {
     // a payment holiday is such a loan with every field right, so the message names the way to save it
     expect(await error({ ...mortgage, paymentCents: 43_162 })).toMatch(/jätä kuukausierä tyhjäksi/);
     expect(await error({ ...mortgage, repayment: "bullet" })).toMatch(/^Kertalyhenteisellä/);
-    expect(await error({ ...creditLine, repayment: "annuity" })).toBe("Luottokortilla ja joustoluotolla ei ole lyhennystapaa. Jätä se tyhjäksi.");
+    expect(await error({ ...creditLine, repayment: "annuity" })).toBe("Luottokortilla ja joustoluotolla ei ole kohtaa Miten erä muuttuu. Jätä se tyhjäksi.");
     expect(await error({ ...creditLine, kind: "card", repayment: "annuity" })).toMatch(/^Luottokortilla ja joustoluotolla/);
     expect(await error({ ...mortgage, kind: "boat" })).toBe("Tuntematon laji.");
     expect(await error({ ...mortgage, paymentCents: 43_162 })).toMatch(/jätä kuukausierä tyhjäksi, jos maksat vain korkoa\.$/);
