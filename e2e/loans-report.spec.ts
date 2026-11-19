@@ -129,10 +129,12 @@ test("Lainat lists each debt in one table, says what it does not know and what a
   expect(await texts(page, "#lainat table.rt thead th")).toEqual(expect.arrayContaining(["Velka", "Saldo", "Todellinen korko", "Korot ja kulut 12 kk"]));
   const rows = section.locator(ROWS);
   await expect(rows).toHaveCount(3);
-  expect(plain(await rows.nth(0).innerText())).toMatch(/^Kodin laina Asuntolaina · Esimerkkipankki 120 000 € \d,\d\d % [\d ]+ €$/);
+  // the chevron that opens a row's drill is the first character of its line
+  const rowLine = async (i: number) => plain(await rows.nth(i).innerText()).replace(/^› /, "");
+  expect(await rowLine(0)).toMatch(/^Kodin laina Asuntolaina · Esimerkkipankki 120 000 € \d,\d\d % [\d ]+ €$/);
   // the card owes and has no rate: a dash in each figure it lacks, never a zero
-  expect(plain(await rows.nth(1).innerText())).toMatch(/^Kaupan kortti.*1 240 € – –$/);
-  const unsaved = plain(await rows.nth(2).innerText());
+  expect(await rowLine(1)).toMatch(/^Kaupan kortti.*1 240 € – –$/);
+  const unsaved = await rowLine(2);
   expect(unsaved).toContain("saldo puuttuu");
   expect(unsaved).toMatch(/[\d ,]+ €\/kk/);
 
