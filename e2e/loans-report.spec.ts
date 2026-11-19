@@ -2,6 +2,7 @@ import { type Browser, type BrowserContext, type Page, expect, test } from "@pla
 import { existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
+import { auditTables } from "./table-audit.ts";
 
 // Raportit > Lainat of a household that saved two loans: a mortgage with its plan and a card it knows only the
 // balance of. The loans belong to a member of their own, with the demo accounts less the demo card (a connected card
@@ -85,9 +86,12 @@ const plain = (s: string) => s.replace(/\s+/g, " ").replace(/−/g, "-").trim();
 const texts = async (page: Page, selector: string) => (await page.locator(selector).allInnerTexts()).map(plain);
 /** "1 058,40 €" → 105840 */
 const cents = (s: string) => Math.round(Number(s.replace(/[ €]/g, "").replace(",", ".")) * 100);
+/** The rows of the debts, not the drills opened under them. */
+const ROWS = "table.rt tbody tr:not(.rt-detail):not(.rt-subrow):not(.rt-group):not(.rt-spacer)";
 
 async function open(browser: Browser, width: number): Promise<{ page: Page; seen: { problems: string[] }; context: BrowserContext }> {
-  const context = await browser.newContext({ storageState: MEMBER, viewport: { width, height: 844 } });
+  // a phone's width is a phone: a touch screen, where a target is a finger's size (`table.css` pointer: coarse)
+  const context = await browser.newContext({ storageState: MEMBER, viewport: { width, height: 844 }, ...(width < 600 ? { isMobile: true, hasTouch: true } : {}) });
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/reports?q=saldot");
@@ -106,66 +110,67 @@ test.describe.configure({ mode: "serial" });
 test.beforeAll(async ({ browser }) => household(browser));
 test.afterAll(async ({ browser }) => remove(browser));
 
-test("Lainat tells each saved loan with its figures, says what it does not know and what a move of the reference rate does", async ({ browser }) => {
-  const { page, seen, context } = await open(browser, 1280);
+test("Lainat lists each debt in one table, says what it does not know and what a move of the reference rate does", async ({ browser }) => {
+  const { page, seen, context } = await open(browser, 1440);
   const section = page.locator("#lainat");
 
-  // the totals: both loans are owed, and the loan nobody saved is a row of its own that the total leaves out
+  // the totals: the payments of a month; the debts and their cost are the foot of the table
   const tiles = await texts(page, "#lainat .kv > div");
-  expect(tiles[0]).toBe("Velat yhteensä, tiedossa 121 240 €");
-  await expect(section.getByText("saldo puuttuu")).toHaveCount(1);
-  // the card owes and has no rate, so the household's interest has no figure: the mortgage's own is in its row
-  expect(tiles[1]).toBe("Korot seuraavan 12 kuukauden aikana (arvio) –");
-  expect(tiles[2]).toBe("Maksut kuussa 1 000 €");
-  // and no path of the debts is drawn while a debt that owes cannot be projected
+  expect(tiles[0]).toBe("Maksut kuussa 1 000 €");
+  // and no path of the debts is drawn while a debt that owes cannot be projected, and no plan is told while a debt lacks its terms
   await expect(section.locator("#lainat-polku")).toHaveCount(0);
-  // a figure the card lacks is a dash in its row, its missing rate is said there, and no sentence tells which loans a sum leaves out
+  await expect(section.locator(".loan-plan")).toHaveCount(0);
   await expect(section.locator(".loans-notes")).toHaveCount(0);
   await expect(section).not.toContainText(/ei tiedossa/);
   // the accounts less the debts are told only for a range that reaches today (apps/web/test/loans-section.test.ts
   // reads their texts), and nothing on the page calls a figure net worth
   await expect(page.locator("main")).not.toContainText("Nettovarallisuus");
 
-  // the mortgage: every figure, and the payment split into its interest and amortisation, each with a label
-  const rows = section.locator(".loan-list > li");
+  // the head of the table, then the debts dearest first: the mortgage, the card with no rate, and the loan nobody saved last
+  expect(await texts(page, "#lainat table.rt thead th")).toEqual(expect.arrayContaining(["Velka", "Saldo", "Todellinen korko", "Korot ja kulut 12 kk"]));
+  const rows = section.locator(ROWS);
   await expect(rows).toHaveCount(3);
-  const home = rows.nth(0);
-  await expect(home.locator(".loan-head")).toHaveText(/Kodin laina\s*Asuntolaina · Esimerkkipankki/);
-  const figures = (await home.locator(".loan-figures > div").allInnerTexts()).map(plain);
-  expect(figures.slice(0, 3)).toEqual(["Velkaa 120 000,00 €", "Korko 4,00 % 12 kuukauden Euribor", "Maksu 1 000,00 €/kk Korko 400,00 € Lyhennys 600,00 €"]);
-  expect(figures[3]).toMatch(/^Korot seuraavan 12 kuukauden aikana \(arvio\) \d[\d ]* €$/);
-  expect(figures[4]).toMatch(/^Viimeinen maksupäivä \d{1,2}\.\d{1,2}\.\d{4}$/);
+  // the chevron that opens a row's drill is the first character of its line
+  const rowLine = async (i: number) => plain(await rows.nth(i).innerText()).replace(/^› /, "");
+  expect(await rowLine(0)).toMatch(/^Kodin laina Asuntolaina · Esimerkkipankki 120 000 € \d,\d\d % [\d ]+ €$/);
+  // the card owes and has no rate: a dash in each figure it lacks, never a zero
+  expect(await rowLine(1)).toMatch(/^Kaupan kortti.*1 240 € – –$/);
+  const unsaved = await rowLine(2);
+  expect(unsaved).toContain("saldo puuttuu");
+  expect(unsaved).toMatch(/[\d ,]+ €\/kk/);
 
-  // a point down the payment is smaller and a point up larger, and so is the year's interest
-  const line = plain(await home.locator(".loan-scenario").innerText());
+  // the foot: the debts told, and the cost of a year a dash with the one link to the list of what is missing
+  const foot = section.locator("table.rt tfoot tr");
+  expect(plain(await foot.innerText())).toBe("Velat yhteensä, tiedossa 121 240 € – Täydennä lainat");
+  await expect(foot.getByRole("link", { name: "Täydennä lainat" })).toHaveAttribute("href", /item=loan-terms/);
+
+  // the mortgage's drill: the payment split into its interest and amortisation, and what a point of the reference rate does
+  const cost = cents(plain(await rows.nth(0).locator("td").last().innerText()));
+  await section.getByRole("button", { name: "Kodin laina", exact: true }).click();
+  const detail = section.locator("tr.rt-detail").first();
+  const figures = (await detail.locator(".loan-figures > div").allInnerTexts()).map(plain);
+  expect(figures).toContain("Maksu 1 000,00 €/kk Korko 400,00 € Lyhennys 600,00 €");
+  const line = plain(await detail.locator(".loan-scenario").innerText());
   const moved = /^Jos viitekorko laskee prosenttiyksikön: maksu ([\d ,]+ €), korot 12 kuukaudessa ([\d ]+ €)\. Jos viitekorko nousee prosenttiyksikön: maksu ([\d ,]+ €), korot 12 kuukaudessa ([\d ]+ €)\.$/.exec(line);
   expect(moved, line).not.toBeNull();
   const [downPay, downInterest, upPay, upInterest] = moved!.slice(1).map(cents);
   expect(downPay!).toBeLessThan(100000);
   expect(upPay!).toBeGreaterThan(100000);
-  const interest = cents(figures[3]!.replace("Korot seuraavan 12 kuukauden aikana (arvio) ", ""));
-  expect(downInterest!).toBeLessThan(interest);
-  expect(upInterest!).toBeGreaterThan(interest);
+  expect(downInterest!).toBeLessThan(cost);
+  expect(upInterest!).toBeGreaterThan(cost);
 
-  // the card: the balance is known, and the rest is a dash instead of a zero; Tarkistettavat asks for what is missing
-  const card = rows.nth(1);
-  expect((await card.locator(".loan-figures > div").allInnerTexts()).map(plain)).toEqual([
-    `Velkaa 1 240,00 € jäljellä ${Number(today.slice(8))}.${Number(today.slice(5, 7))}.`, // a day of the running year has no year (format.ts `date`)
-    "Korko – Korko puuttuu.",
-    "Maksu –",
-    "Korot seuraavan 12 kuukauden aikana (arvio) –",
-    "Viimeinen maksupäivä –",
-  ]);
-  await expect(card.locator(".loan-scenario")).toHaveCount(0);
-  await expect(card.getByRole("link")).toHaveCount(0);
-
-  // the loan nobody saved comes last: its payment, and no balance to count
-  const unsaved = plain(await rows.nth(2).locator(".loan-figures").innerText());
-  expect(unsaved).toContain("saldo puuttuu");
-  expect(unsaved).toMatch(/Maksu [\d ,]+ €\/kk/);
+  // the card's drill: the balance as told, the rate it lacks said in words, and no link
+  await section.getByRole("button", { name: "Kaupan kortti", exact: true }).click();
+  // one drill is open at a time: the card's closed the mortgage's
+  await expect(section.locator("tr.rt-detail")).toHaveCount(1);
+  const cardDetail = plain(await section.locator("tr.rt-detail").innerText());
+  expect(cardDetail).toContain(`Velkaa 1 240,00 € jäljellä ${Number(today.slice(8))}.${Number(today.slice(5, 7))}.`); // a day of the running year has no year (format.ts `date`)
+  expect(cardDetail).toContain("Korko puuttuu.");
+  await expect(section.locator("tr.rt-detail").getByRole("link")).toHaveCount(0);
+  await expect(section.locator("tr.rt-detail .loan-scenario")).toHaveCount(0);
 
   expect(await overflow(page)).toBe(0);
-  await shot(page, 1280);
+  await shot(page, 1440);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -193,14 +198,22 @@ test("Raportit has none of the paragraphs the figures replaced, and its balances
   await context.close();
 });
 
-test("Lainat fits a phone: the figures wrap and the page does not scroll sideways", async ({ browser }) => {
+test("Lainat fits a phone: each debt is a block, its drill opens and the page does not scroll sideways", async ({ browser }) => {
   const { page, seen, context } = await open(browser, 390);
-  await expect(page.locator("#lainat .loan-list > li")).toHaveCount(3);
-  // the debt with a rate comes first and the one with none follows, with its missing rate said on it, as at a desktop's width; the loan nobody saved is last
-  await expect(page.locator("#lainat .loan-list > li .loan-head")).toHaveText([/^Kodin laina/, /^Kaupan kortti/, /./]);
-  await expect(page.locator("#lainat .loan-list > li").nth(2)).toContainText("saldo puuttuu");
-  await expect(page.locator("#lainat .loan-list > li").nth(1)).toContainText("Korko puuttuu.");
+  const rows = page.locator(`#lainat ${ROWS}`);
+  await expect(rows).toHaveCount(3);
+  // the debt with a cost comes first and the one with none follows, as at a desktop's width; the loan nobody saved is last
+  await expect(page.locator("#lainat .loan-name")).toHaveText([/^Kodin laina/, /^Kaupan kortti/, /./]);
+  await expect(rows.nth(2)).toContainText("saldo puuttuu");
   await page.locator("#lainat").scrollIntoViewIfNeeded();
+  expect(await overflow(page)).toBe(0);
+  // a drill reaches the finger's size, and its rate said in words stays on the screen
+  const button = page.locator('#lainat button.rt-drill[aria-label="Kaupan kortti"]');
+  await button.click();
+  await expect(page.locator("#lainat tr.rt-detail")).toContainText("Korko puuttuu.");
+  const box = (await button.boundingBox())!;
+  expect(box.height).toBeGreaterThanOrEqual(44);
+  expect(box.width).toBeGreaterThanOrEqual(44);
   expect(await overflow(page)).toBe(0);
   // no figure is cut: each one is as wide as its text
   const cut = await page.locator("#lainat .loan-figures dd").evaluateAll((cells) => cells.filter((c) => c.scrollWidth > c.clientWidth + 1).length);
@@ -209,3 +222,17 @@ test("Lainat fits a phone: the figures wrap and the page does not scroll sideway
   expect(seen.problems).toEqual([]);
   await context.close();
 });
+
+// The table of the debts with its drills open, as every table is audited in table-views.spec.ts, here on the household
+// that has saved loans: no sideways scroll, nothing hidden, axe finds nothing and, under a finger, 44 px targets.
+for (const { width, touch } of [{ width: 1440, touch: false }, { width: 390, touch: true }]) {
+  test(`the table of the debts passes the table audit: ${width} px`, async ({ browser }) => {
+    test.setTimeout(120_000);
+    const context = await browser.newContext({ storageState: MEMBER, viewport: { width, height: 900 }, bypassCSP: true, ...(touch ? { isMobile: true, hasTouch: true } : {}) });
+    const page = await context.newPage();
+    await page.goto("/#/reports?q=saldot");
+    await expect(page.locator("#lainat").getByRole("heading", { name: "Lainat" })).toBeVisible();
+    expect(await auditTables(page, width, touch)).toEqual([]);
+    await context.close();
+  });
+}

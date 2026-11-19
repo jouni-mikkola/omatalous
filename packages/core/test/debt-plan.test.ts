@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { debtCost } from "../src/debt-cost.ts";
-import { consolidation, payoffPlan } from "../src/debt-plan.ts";
+import { consolidationBasis, consolidationCost, payoffPlan } from "../src/debt-plan.ts";
 import { annuityPayment, loanSchedule, loanWhatIf } from "../src/loan-schedule.ts";
 import { settledCardLoan } from "../src/loans.ts";
 import type { IsoDate, Loan } from "../src/types.ts";
@@ -137,15 +137,26 @@ describe("consolidation", () => {
   const home = loan({ id: "home", kind: "mortgage", balanceCents: 15_000_000, rateBp: 300, paymentCents: 70_000 });
 
   it("sets what the dear debts cost from here against one loan at the typed terms", () => {
-    const offer = consolidation([card, credit, home], START, { rateBp: 600, months: 60, feeCents: 500 })!;
-    expect(offer.debtIds).toEqual(["card", "credit"]);
-    expect(offer.nowCents).toBe(debtCost(card, START)!.leftCents! + debtCost(credit, START)!.leftCents!);
+    const basis = consolidationBasis([card, credit, home], START)!;
+    expect(basis.debtIds).toEqual(["card", "credit"]);
+    expect(basis.owedCents).toBe(150_000 + 700_000);
+    expect(basis.nowCents).toBe(debtCost(card, START)!.leftCents! + debtCost(credit, START)!.leftCents!);
+    const offer = consolidationCost(basis, START, { rateBp: 600, months: 60, feeCents: 500 })!;
+    expect(offer.nowCents).toBe(basis.nowCents);
+    expect(offer.newCents).toBeGreaterThan(30_000);
+    expect(offer.savedCents).toBe(offer.nowCents - offer.newCents);
     // at 0 % the new loan costs its fees alone
-    expect(consolidation([card, credit], START, { rateBp: 0, months: 60, feeCents: 500 })!.newCents).toBe(30_000);
+    expect(consolidationCost(consolidationBasis([card, credit], START)!, START, { rateBp: 0, months: 60, feeCents: 500 })!.newCents).toBe(30_000);
+  });
+
+  it("prices no offer whose months are not a whole number of at least one", () => {
+    const basis = consolidationBasis([card], START)!;
+    expect(consolidationCost(basis, START, { rateBp: 600, months: 0, feeCents: 0 })).toBeNull();
+    expect(consolidationCost(basis, START, { rateBp: 600, months: 12.5, feeCents: 0 })).toBeNull();
   });
 
   it("is shown for two dear debts or one very dear, and never for cheap ones", () => {
-    expect(consolidation([credit, home], START, { rateBp: 600, months: 60, feeCents: 0 })).toBeNull();
-    expect(consolidation([card], START, { rateBp: 600, months: 60, feeCents: 0 })!.debtIds).toEqual(["card"]);
+    expect(consolidationBasis([credit, home], START)).toBeNull();
+    expect(consolidationBasis([card], START)!.debtIds).toEqual(["card"]);
   });
 });

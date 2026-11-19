@@ -2406,6 +2406,8 @@
    "interestCents": null,
    "feeCents": null
   },
+  "plan": null,
+  "consolidation": null,
   "payments": {
    "monthlyCents": 0,
    "counted": 0,

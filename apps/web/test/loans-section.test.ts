@@ -4,10 +4,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import "./fixed-clock.ts";
 import { Figure } from "../src/components/Figure.tsx";
+import { hasWhatIf } from "../src/components/loans/LoanDrill.tsx";
 import { percent } from "../src/format.ts";
+import { PageAddressContext } from "../src/page-address.ts";
 import { section as balances } from "../src/pages/reports/sections/Balances.tsx";
 import { section as loans } from "../src/pages/reports/sections/Loans.tsx";
 import type { ReportContext, ReportSection } from "../src/pages/reports/types.ts";
+import { DRILL_PARAM, tableId, writeTableState } from "../src/table-state.ts";
+import { t } from "../src/text.ts";
 
 const day = "2026-10-11";
 /** A mortgage with every figure known. Made up, like every loan here. */
@@ -23,7 +27,7 @@ const row = (over: Partial<LoanRow> = {}): LoanRow =>
 const NO_PATH: NonNullable<LoansReport["path"]> = { days: [day], balanceCents: [0], interestCents: [0], tops: [0], payoff: null, moves: [] };
 const report = (rows: LoanRow[], over: Partial<LoansReport> = {}) => ({
   day, saved: rows.length, loans: rows, unsaved: [], total: { cents: 12_000_000, unknown: [] }, totalKnown: true, interest: { cents: 380_000, unknown: [] }, interestKnown: true,
-  withoutRate: 0, cost12: { cents: 380_000, interestCents: 380_000, feeCents: 0 }, payments: { monthlyCents: 100_000, counted: 1, unknown: 0, bullets: 0 }, path: NO_PATH, maybeTwice: [], overdraftTwice: [], ...over,
+  withoutRate: 0, cost12: { cents: 380_000, interestCents: 380_000, feeCents: 0 }, plan: null, consolidation: null, payments: { monthlyCents: 100_000, counted: 1, unknown: 0, bullets: 0 }, path: NO_PATH, maybeTwice: [], overdraftTwice: [], ...over,
 });
 const balanceData = {
   months: ["2026-09", "2026-10"], total: [100_000, 120_000], monthChange: [null, 20_000], missing: [], accountsLessDebt: [null, -11_880_000], lowest: null,
@@ -42,8 +46,17 @@ const figure = (label: string, value: string) => `<dt>${label}</dt><dd>${value}<
 const withAccounts = (data: unknown, accounts: object[]): ReportContext => ({ ...context(data), meta: { today: day, accounts } }) as unknown as ReportContext;
 /** The rows of Saldot: label and figure of each, in order. */
 const rowsOf = (out: string) => [...out.matchAll(/<dt class="st-name holding-label">([^<]*)<\/dt><dd class="st-num">([^<]*)<\/dd>/g)].map((m) => `${m[1]} ${m[2]}`);
-/** The figures of a loan row: label and value of each, in order. */
+/** The section as the words a reader meets: tags gone, one space between. */
+const words = (out: string) => out.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
+/** The figures of the open drills: label and value of each, in order. */
 const figuresOf = (out: string) => [...out.matchAll(/<div><dt>([^<]*)<\/dt><dd[^>]*>([^<]*)/g)].map((m) => `${m[1]} ${m[2]}`);
+/** The names of the table's rows, in order. */
+const namesOf = (out: string) => [...out.matchAll(/<span class="loan-name">([^<]*)<\/span>/g)].map((m) => m[1]);
+/** The section with the drill of one debt open, as a reader who pressed its chevron (or followed a link to it) sees it. */
+const opened = (key: string, ctx: ReportContext) => {
+  const search = { [DRILL_PARAM]: writeTableState(undefined, tableId(t("rpt.ln_caption")), key) };
+  return html0(createElement(PageAddressContext.Provider, { value: { search, change: () => {} } }, createElement(loans.Component, { ctx })));
+};
 /** A connected card with 1 240 € used. */
 const card = (over: Partial<LoanRow> = {}) =>
   row({ id: "account:c1", name: "Esimerkkikortti Gold", lender: null, kind: "card", accountType: "credit_card", balance: { cents: 124_000, unknown: "repayment" }, rateBp: null, reference: null, repayment: null, payment: { cents: null, interestCents: null, amortisationCents: null, intervalMonths: null, date: null, unknown: "repayment" }, interest: { cents: null, unknown: "rate" }, payoff: { date: null, unknown: "repayment", never: false }, ...over });
@@ -66,51 +79,51 @@ describe("Raportit: Lainat", () => {
     expect(percent(0.0325, 2).replace(/ /g, " ")).toBe("3,25 %");
     expect(percent(-0.005, 2).replace(/ /g, " ")).toBe("−0,50 %");
     expect(percent(0.254).replace(/ /g, " ")).toBe("25 %");
-    expect(html(loans, context(report([row()])))).toContain("<dd>3,25 %<small>12 kuukauden Euribor</small></dd>");
   });
 
-  it("a payment without an interval is told without one, and never with the word null", () => {
-    const out = html(loans, context(report([row({ payment: { cents: 20_000, interestCents: null, amortisationCents: null, intervalMonths: null, date: null, unknown: "interval" } })])));
-    expect(out).toContain(figure("Maksu", "200,00 €"));
-    expect(out).not.toContain("null");
-    // the interest and the amortisation of the payment are values with a label of their own, not a clause
-    const parts = '<dl class="loan-parts"><div><dt>Korko</dt><dd>325,00 €</dd></div><div><dt>Lyhennys</dt><dd>675,00 €</dd></div></dl>';
-    expect(html(loans, context(report([row()])))).toContain(`1 000,00 €/kk${parts}</dd>`);
-    expect(html(loans, context(report([row()])))).not.toMatch(/korkoa 325|lyhennystä/);
+  it("lists each debt with its balance, its core rate, the class word of a dear one and its cost of 12 months", () => {
+    const cost = (rateMilli: number, costClass: "cheap" | "dear" | "very_dear", cents: number) => ({ rateMilli, costClass, next12: { cents, interestCents: cents, feeCents: 0 }, leftCents: cents, feePerPaymentCents: 0, unknown: null });
+    const out = words(html(loans, context(report([row({ id: "a", name: "Kallis laina", balance: { cents: 500_000, unknown: null }, cost: cost(9_400, "dear", 40_000) }), row({ id: "b", name: "Halpa laina", cost: cost(3_300, "cheap", 380_000) }), row({ id: "c", name: "Kortti", cost: cost(31_000, "very_dear", 90_000) })]))));
+    expect(out).toContain("Velka Saldo Todellinen korko Korot ja kulut 12 kk");
+    expect(out).toMatch(/Kallis laina .*5 000 € 9,40 % Kallis 400 €/);
+    expect(out).toContain("3,30 % 3 800 €");
+    expect(out).toContain("Erittäin kallis");
+    // a cheap debt carries no word, and no other word is told
+    expect(out).not.toMatch(/Edullinen|Maksuton|korkea korko/);
   });
 
-  it("the day a loan ends is the last payment, and a loan that owes nothing has no payment and no date", () => {
-    expect(html(loans, context(report([row()])))).toContain(figure("Viimeinen maksupäivä", "1.2.2040"));
-    const none = { cents: null, interestCents: null, amortisationCents: null, intervalMonths: 1, date: null, unknown: null };
-    const out = html(loans, context(report([row({ balance: { cents: 0, unknown: null }, payment: none, interest: { cents: 0, unknown: null }, payoff: { date: null, unknown: null, never: false } })])));
-    expect(out).toContain(figure("Maksu", "–"));
-    expect(out).toContain(figure("Viimeinen maksupäivä", "–"));
-    expect(out).not.toContain("Maksettu");
-  });
-
-  it("tells the day of a balance no plan moved forward, and a balance dated ahead, in the words of the form", () => {
-    const kept = row({ balance: { cents: 124_000, unknown: "repayment" }, balanceDate: "2026-03-01" });
-    expect(html(loans, context(report([kept])))).toContain(`<dt>Velkaa</dt><dd>1 240,00 €<small>jäljellä 1.3.</small></dd>`);
+  it("a balance dated ahead has no total, a dash and never a zero", () => {
     const ahead = report([row()], { total: { cents: 0, unknown: [{ loanId: "home", unknown: "before_balance_date", counted: false }] }, totalKnown: false });
     const out = html(loans, context(ahead));
-    expect(out).toContain(tile("Velkaa yhteensä", "–"));
+    expect(words(out)).toContain("Velkaa yhteensä –");
     expect(out).not.toContain("puuttuu");
   });
 
-  it("a bullet has no payment to tell, in its row, after a move of the rate or in the payments of a month", () => {
+  it("the cost total is a dash with the one link to Tarkistettavat while a debt lacks its terms, never the known part", () => {
+    const out = html(loans, context(report([row({ cost: null })], { cost12: { cents: null, interestCents: null, feeCents: null } })));
+    expect(out).toContain('<a href="#/review?item=loan-terms">Täydennä lainat</a>');
+    expect(out.split("Täydennä lainat").length - 1).toBe(1);
+    expect(words(out)).toMatch(/Velkaa yhteensä 120 000 € – Täydennä lainat/);
+    expect(out).not.toContain("3 800");
+    // the terms known: the figure and no link
+    const known = html(loans, context(report([row()])));
+    expect(known).not.toContain("loan-terms");
+    expect(words(known)).toContain("Velkaa yhteensä 120 000 € 3 800 €");
+  });
+
+  it("a bullet has no payment to tell, in its drill, after a move of the rate or in the payments of a month", () => {
     const bullet = row({ repayment: "bullet", payment: { cents: null, interestCents: null, amortisationCents: null, intervalMonths: null, date: null, unknown: null }, scenarios: [{ shiftBp: 100, movedBp: 100, rateBp: 425, paymentCents: null, interestCents: 510_000, unknown: null }] });
-    const out = html(loans, context(report([bullet], { payments: { monthlyCents: 0, counted: 0, unknown: 0, bullets: 1 } })));
+    const out = opened("home", context(report([bullet], { payments: { monthlyCents: 0, counted: 0, unknown: 0, bullets: 1 } })));
     expect(out).toContain("<dd>Kertalyhennys<small>maksat kerralla lopussa</small></dd>");
     expect(out).toContain("Jos viitekorko nousee prosenttiyksikön: korot 12 kuukaudessa 5 100 €.");
     expect(out).toContain(`${tile("Maksut kuussa", "ei maksuja")}`);
     expect(out).not.toContain("korot eivät ole mukana");
   });
 
-  it("a fall shorter than a point is told as far as it goes, and a sum nothing is known of is not zero", () => {
+  it("a fall shorter than a point is told as far as it goes in the drill, and a sum nothing is known of is not zero", () => {
     const near = row({ scenarios: [{ shiftBp: -100, movedBp: -50, rateBp: 275, paymentCents: 97_000, interestCents: 320_000, unknown: null }] });
-    const out = html(loans, context(report([near], { interestKnown: false, payments: { monthlyCents: 0, counted: 0, unknown: 1, bullets: 0 } })));
+    const out = opened("home", context(report([near], { interestKnown: false, payments: { monthlyCents: 0, counted: 0, unknown: 1, bullets: 0 } })));
     expect(out).toContain("Jos viitekorko laskee 0,5 prosenttiyksikköä: maksu 970,00 €, korot 12 kuukaudessa 3 200 €.");
-    expect(out).toContain(`${tile("Korot seuraavan 12 kuukauden aikana (arvio)", "–")}`);
     expect(out).toContain(`${tile("Maksut kuussa", "–")}`);
     expect(out).not.toContain("ei tiedossa");
     expect(out).not.toContain("puuttuu");
@@ -154,29 +167,34 @@ describe("Raportit: Lainat", () => {
   it("a move of the rate names the payment only when it has one, and a move with no figure has no line", () => {
     const typed = { cents: 10_000, interestCents: null, amortisationCents: null, intervalMonths: 1, date: null, unknown: "repayment" } as const;
     const move = (shiftBp: number, paymentCents: number | null, interestCents: number | null) => ({ shiftBp, movedBp: shiftBp, rateBp: 700 + shiftBp, paymentCents, interestCents, unknown: null });
-    const line = html(loans, context(report([row({ payment: typed, scenarios: [move(-100, null, 18_000), move(100, null, 24_000)] })])));
+    const line = opened("home", context(report([row({ payment: typed, scenarios: [move(-100, null, 18_000), move(100, null, 24_000)] })])));
     expect(line).toContain('<p class="loan-scenario">Jos viitekorko laskee prosenttiyksikön: korot 12 kuukaudessa 180 €. Jos viitekorko nousee prosenttiyksikön: korot 12 kuukaudessa 240 €.</p>');
-    const none = html(loans, context(report([row({ scenarios: [move(-100, null, null), move(100, null, null)] })])));
+    const none = opened("home", context(report([row({ scenarios: [move(-100, null, null), move(100, null, null)] })])));
     expect(none).not.toContain("loan-scenario");
     expect(none).not.toContain("Jos viitekorko");
-    const one = html(loans, context(report([row({ scenarios: [move(-100, null, null), move(100, 105_000, 500_000)] })])));
+    const one = opened("home", context(report([row({ scenarios: [move(-100, null, null), move(100, 105_000, 500_000)] })])));
     expect(one).toContain('<p class="loan-scenario">Jos viitekorko nousee prosenttiyksikön: maksu 1 050,00 €, korot 12 kuukaudessa 5 000 €.</p>');
   });
 
-  it("the drill is on the viewer's own whole saved loans only: no account row, another member's loan or part of a shared one has it", () => {
-    const drills = (rows: LoanRow[]) => html(loans, context(report(rows))).split('class="loan-drill"').length - 1;
-    expect(drills([row()])).toBe(1);
-    expect(drills([card()])).toBe(0);
-    expect(drills([row({ id: "theirs", typedBy: "Aino" })])).toBe(0);
-    expect(drills([row({ id: "half", part: { from: 0, to: 2, of: 5 } })])).toBe(0);
-    expect(drills([row(), row({ id: "second" }), card(), row({ id: "theirs", typedBy: "Aino" })])).toBe(2);
+  it("the plan line is above the list when the server has a plan, and there is none while it has not", () => {
+    const plan = { debtFreeDate: "2029-03-01", baseDebtFreeDate: "2030-01-01", savedCents: 41_000, bufferCents: 0, bufferFullDate: null, snowballExtraCents: 0, debts: [{ id: "home", order: 1, endDate: "2029-03-01", baseEndDate: "2029-03-01" }] };
+    const out = html(loans, context(report([row()], { plan })));
+    expect(words(out)).toContain("Velaton 3/2029 · säästät 410 €");
+    expect(out.indexOf("loan-plan")).toBeLessThan(out.indexOf('class="rt-wrap"'));
+    expect(html(loans, context(report([row()])))).not.toContain("loan-plan");
+  });
+
+  it("the what-if is for the viewer's own whole saved loans only: no account row, another member's loan or part of a shared one has it", () => {
+    expect(hasWhatIf(row())).toBe(true);
+    expect(hasWhatIf(card())).toBe(false);
+    expect(hasWhatIf(row({ id: "theirs", typedBy: "Aino" }))).toBe(false);
+    expect(hasWhatIf(row({ id: "half", part: { from: 0, to: 2, of: 5 } }))).toBe(false);
   });
 
   it("a figure nothing is known of is a dash in the totals, and no sentence says which loans a total leaves out for it", () => {
     const later = { cents: 0, unknown: [{ loanId: "home", unknown: "before_balance_date", counted: false }] } as const;
     const out = html(loans, context(report([row()], { interest: later, interestKnown: false, payments: { monthlyCents: 0, counted: 0, unknown: 1, bullets: 0 } })));
     expect(out).toContain(`${tile("Maksut kuussa", "–")}`);
-    expect(out).toContain(`${tile("Korot seuraavan 12 kuukauden aikana (arvio)", "–")}`);
     expect(html(loans, context(report([row()], { withoutRate: 2 })))).not.toContain("puuttuu");
   });
 
@@ -216,8 +234,11 @@ describe("Raportit: Lainat", () => {
     expect(out).toContain("Esimerkkikauppa");
     expect(out).toContain("Luottokortti");
     expect(out.match(/saldo puuttuu/g)).toHaveLength(2);
-    expect(out).toContain(figure("Maksu", "100,00 €/kk"));
-    expect(out).toContain(figure("Maksu", "200,00 €/kk"));
+    expect(out).toContain('<small class="loan-about">100,00 €/kk</small>');
+    expect(out).toContain('<small class="loan-about">Luottokortti · 200,00 €/kk</small>');
+    // nothing is saved, so there is no total and no row to open
+    expect(out).not.toContain("rt-total");
+    expect(out).not.toContain("data-drill");
     // no total of a debt nobody told: the tiles are of the saved loans
     expect(out).not.toContain("tiedossa");
   });
@@ -225,14 +246,14 @@ describe("Raportit: Lainat", () => {
   it("shows a dash, never 0, for an unsaved debt with no monthly figure", () => {
     const unsaved = [{ name: "Esimerkkierä", monthlyCents: null, card: false }];
     const out = html(loans, context(report([], { unsaved, payments: { monthlyCents: 0, counted: 0, unknown: 0, bullets: 0 } })));
-    expect(out).toContain("<dt>Maksu</dt><dd class=\"unknown\">–</dd>");
+    expect(out).not.toContain("loan-about");
     expect(out).not.toContain("/kk");
     expect(out).toContain("saldo puuttuu");
   });
 
   it("names the total of saved loans as the known one while a debt has no balance", () => {
     const unsaved = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }];
-    expect(html(loans, context(report([row()], { unsaved })))).toContain("<div class=\"k\">Velat yhteensä, tiedossa</div>");
+    expect(words(html(loans, context(report([row()], { unsaved }))))).toContain("Velat yhteensä, tiedossa 120 000 €");
     expect(html(loans, context(report([row()])))).not.toContain("tiedossa");
   });
 
@@ -255,50 +276,57 @@ describe("Raportit: Lainat", () => {
 
   it("a loan another member typed in says who after the kind, and the viewer's own says nothing; a part is the labelled value Osuutesi", () => {
     const theirs = row({ id: "theirs", part: { from: 3, to: 5, of: 5 }, typedBy: "Aino" });
-    const out = html(loans, context(report([row(), theirs])));
-    expect(out).toContain("<strong>Kodin laina</strong><span>Asuntolaina · Esimerkkipankki · Lisännyt Aino</span>");
-    expect(out).toContain("<strong>Kodin laina</strong><span>Asuntolaina · Esimerkkipankki</span>");
+    const out = opened("theirs", context(report([row(), theirs])));
+    expect(out).toContain('<span class="loan-name">Kodin laina</span><small class="loan-about">Asuntolaina · Esimerkkipankki · Lisännyt Aino</small>');
+    expect(out).toContain('<span class="loan-name">Kodin laina</span><small class="loan-about">Asuntolaina · Esimerkkipankki</small>');
     expect(out.split("Lisännyt").length - 1).toBe(1);
     expect(out).toContain(figure("Osuutesi", "40 %"));
     expect(out.split("Osuutesi").length - 1).toBe(1);
     expect(out).not.toContain("osuutesi");
+    // the loan no what-if opens for tells its known rate and reference in its drill
+    expect(out).toContain("<dt>Korko</dt><dd>3,25 %<small>12 kuukauden Euribor</small></dd>");
   });
 
   it("the kind is left out under a name that is the kind", () => {
-    expect(html(loans, context(report([row({ name: "Asuntolaina" })])))).toContain("<strong>Asuntolaina</strong><span>Esimerkkipankki</span>");
-    expect(html(loans, context(report([row({ name: "asuntolaina", lender: null })])))).not.toContain("<span>");
-    expect(html(loans, context(report([row({ name: "Asuntolaina 2" })])))).toContain("<strong>Asuntolaina 2</strong><span>Asuntolaina · Esimerkkipankki</span>");
+    expect(html(loans, context(report([row({ name: "Asuntolaina" })])))).toContain('<span class="loan-name">Asuntolaina</span><small class="loan-about">Esimerkkipankki</small>');
+    expect(html(loans, context(report([row({ name: "asuntolaina", lender: null })])))).not.toContain("loan-about");
+    expect(html(loans, context(report([row({ name: "Asuntolaina 2" })])))).toContain('<span class="loan-name">Asuntolaina 2</span><small class="loan-about">Asuntolaina · Esimerkkipankki</small>');
   });
 
   it("a loan with a figure not told has a dash and no link: Tarkistettavat asks for what is missing", () => {
-    const untold = { rateBp: null, reference: null, interest: { cents: null, unknown: "rate" } } as const;
+    const untold = { rateBp: null, reference: null, interest: { cents: null, unknown: "rate" }, cost: { rateMilli: null, costClass: null, next12: null, leftCents: null, feePerPaymentCents: null, unknown: "rate" } } as const;
     const mine = html(loans, context(report([row(untold)])));
-    expect(mine).toContain('<dt>Korko</dt><dd class="unknown">–<small>Korko puuttuu.</small></dd>');
+    expect(mine).toContain('<span class="loan-unknown">–</span>');
     expect(mine).not.toContain("Täydennä");
+    // the drill says what the cost waits for, in words, and links nowhere
+    const drill = opened("home", context(report([row({ ...untold, typedBy: "Aino" })])));
+    expect(drill).toContain("Korko puuttuu.");
+    expect(drill).not.toContain("Täydennä");
   });
 
   it("lists the debts by Todellinen korko, highest first, and the debt with no cost last", () => {
     const cost = (rateMilli: number, costClass: "cheap" | "dear") => ({ rateMilli, costClass, next12: { cents: 1000, interestCents: 1000, feeCents: 0 }, leftCents: 1000, feePerPaymentCents: 0, unknown: null });
     const out = html(loans, context(report([card(), row({ id: "low", name: "Matala", rateBp: 325, cost: cost(3_300, "cheap") }), row({ id: "high", name: "Korkea", rateBp: 900, cost: cost(9_400, "dear") })])));
-    const names = [...out.matchAll(/<strong>([^<]*)<\/strong>/g)].map((m) => m[1]);
-    expect(names.filter((n) => ["Korkea", "Matala", "Esimerkkikortti Gold"].includes(n!))).toEqual(["Korkea", "Matala", "Esimerkkikortti Gold"]);
+    expect(namesOf(out)).toEqual(["Korkea", "Matala", "Esimerkkikortti Gold"]);
   });
 
   it("a connected card has its used credit and, when the account has a limit, the limit; none of a loan's terms and no link", () => {
-    const limited = html(loans, withAccounts(report([card()]), [{ id: "c1", creditLimitCents: 500_000 }]));
-    expect(figuresOf(limited)).toEqual(["Käytetty luotto 1 240,00 €", "Luottoraja 5 000,00 €", "Korko –"]);
-    // the list of the loans, not the totals above it
-    const list = limited.slice(limited.indexOf('<ul class="loan-list">'));
+    const open = (data: unknown, accounts: object[]) => opened("account:c1", { ...context(data), meta: { today: day, accounts } } as unknown as ReportContext);
+    const limited = open(report([card()]), [{ id: "c1", creditLimitCents: 500_000 }]);
+    expect(figuresOf(limited)).toEqual(["Luottoraja 5 000,00 €"]);
+    // the balance is the used credit, in the column of the balance, and the drill is what comes after the row
+    expect(words(limited)).toContain("Esimerkkikortti Gold 1 240 €");
+    const list = limited.slice(limited.indexOf('<tr class="rt-detail"'));
     for (const word of ["Maksu", "Korot seuraavan 12 kuukauden aikana (arvio)", "Viimeinen maksupäivä", "Yhdistetty tili", "jäljellä", "Täydennä", "ei tiedossa"]) expect(list, word).not.toContain(word);
-    expect(list).toContain("<strong>Esimerkkikortti Gold</strong></div>");
+    expect(namesOf(limited)).toEqual(["Esimerkkikortti Gold"]);
     // no limit told, or one of nothing: the used credit alone
-    expect(figuresOf(html(loans, withAccounts(report([card()]), [{ id: "c1", creditLimitCents: null }])))).toEqual(["Käytetty luotto 1 240,00 €", "Korko –"]);
-    expect(figuresOf(html(loans, withAccounts(report([card()]), [{ id: "c1", creditLimitCents: 0 }])))).toEqual(["Käytetty luotto 1 240,00 €", "Korko –"]);
+    expect(figuresOf(open(report([card()]), [{ id: "c1", creditLimitCents: null }]))).toEqual([]);
+    expect(figuresOf(open(report([card()]), [{ id: "c1", creditLimitCents: 0 }]))).toEqual([]);
     // the limit is the account's: a card the viewer has a part of shows the part used and its share, no limit beside it
-    const half = html(loans, withAccounts(report([card({ part: { from: 0, to: 2, of: 5 } })]), [{ id: "c1", creditLimitCents: 500_000 }]));
-    expect(figuresOf(half)).toEqual(["Käytetty luotto 1 240,00 €", "Korko –", "Osuutesi 40 %"]);
+    const half = open(report([card({ part: { from: 0, to: 2, of: 5 } })]), [{ id: "c1", creditLimitCents: 500_000 }]);
+    expect(figuresOf(half)).toEqual(["Osuutesi 40 %"]);
     // a saved loan of the kind card is a loan with the terms of one
-    expect(figuresOf(html(loans, withAccounts(report([row({ kind: "card", name: "Kaupan kortti" })]), [{ id: "c1", creditLimitCents: 500_000 }]))).map((f) => f.split(" ")[0])).toEqual(["Velkaa", "Korko", "Maksu", "Korko", "Lyhennys", "Korot", "Viimeinen"]);
+    expect(figuresOf(opened("home", withAccounts(report([row({ kind: "card", name: "Kaupan kortti" })]), [{ id: "c1", creditLimitCents: 500_000 }]))).map((f) => f.split(" ")[0])).toEqual(["Maksu", "Korko", "Lyhennys"]);
   });
 
   it("a debt that may be there twice offers no link for a loan another member typed in, and says who can remove it", () => {
@@ -308,7 +336,7 @@ describe("Raportit: Lainat", () => {
     const linkable = html(loans, withAccounts(report(rows, { maybeTwice: [beside] }), [{ id: "acc" }]));
     expect(linkable).toContain("Liitä Kodin laina tiliin Lainatili</a>");
     expect(linkable).not.toContain("Liitä Autolaina");
-    expect(linkable).not.toContain("theirs");
+    expect(linkable).not.toMatch(/href="[^"]*theirs/);
     // a set with a loan of the viewer's own and no account to link to: the viewer removes their own, as before
     expect(html(loans, withAccounts(report(rows, { maybeTwice: [beside] }), []))).toContain("Jos kyse on samasta velasta, poista tallennettu laina kohdassa Asetukset &gt; Talous &gt; Lainat, niin laskemme sen vain kerran.");
     // every saved loan of the set is another member's: nothing to link though the account is the viewer's own, and the typists are named once each

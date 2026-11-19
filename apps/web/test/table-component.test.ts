@@ -117,6 +117,12 @@ describe("Table", () => {
     expect(html).toContain('aria-expanded="false"');
     expect(html).not.toContain("rt-detail");
   });
+
+  it("gives no chevron to a row whose drill is null", () => {
+    const html = render({ drill: (r) => (r.id === "a" ? null : `rivi ${r.id}`), drillLabel: (r) => `Avaa ${r.name}` });
+    expect(html).not.toContain('aria-label="Avaa Öljy"');
+    expect(html).toContain('aria-label="Avaa Auto"');
+  });
 });
 
 describe("ChartTable", () => {
