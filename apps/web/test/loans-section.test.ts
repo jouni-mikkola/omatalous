@@ -101,10 +101,12 @@ describe("Raportit: Lainat", () => {
   });
 
   it("the cost total is a dash with the one link to Tarkistettavat while a debt lacks its terms, never the known part", () => {
-    const out = html(loans, context(report([row({ cost: null })], { cost12: { cents: null, interestCents: null, feeCents: null } })));
+    // the debt lacking its terms is an unsaved one Tarkistettavat still asks of
+    const unsaved = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }];
+    const out = html(loans, context(report([row({ cost: null })], { cost12: { cents: null, interestCents: null, feeCents: null }, unsaved })));
     expect(out).toContain('<a href="#/review?item=loan-terms">Täydennä lainat</a>');
     expect(out.split("Täydennä lainat").length - 1).toBe(1);
-    expect(words(out)).toMatch(/Velat yhteensä 120 000 € – Täydennä lainat/);
+    expect(words(out)).toMatch(/Velat yhteensä, tiedossa 120 000 € – Täydennä lainat/);
     expect(out).not.toContain("3 800");
     // the terms known: the figure and no link
     const known = html(loans, context(report([row()])));
