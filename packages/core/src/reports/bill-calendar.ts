@@ -61,6 +61,8 @@ interface BillMonth {
   incomeCents: number;
   /** The month's bills still to pay, known and estimated: `knownCents` and `estimateCents` together. */
   billsCents: number;
+  /** The bills and loan payments already charged this month (state "paid"), the ones on a card left out: in no sum above, so the running month's head tells them next to `billsCents`. 0 in a month to come. */
+  paidCents: number;
   /**
    * `billsCents` by what the bills are for (`costKindOf`): the four add up to it, to the cent. A bill whose sum is not known is in none of
    * them, as it is in no `billsCents`; the month's count of those is `unknownsIn`.
@@ -287,6 +289,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
     const estimateCents = sum((r) => bill(r, "estimate"));
     const kindCents = (kind: CostKind) => sum((r) => (bill(r, "known") || bill(r, "estimate")) && costKindOf(r.category, r.kind === "loan") === kind);
     const [essentialCents, debtCents, contractCents, optionalCents] = COST_KINDS.map(kindCents) as [number, number, number, number];
+    const paidCents = sum((r) => (r.kind === "bill" || r.kind === "loan") && r.state === "paid" && !r.onCard);
     const savingCents = sum(saving);
     const incomeCents = sum((r) => r.kind === "income");
     return {
@@ -297,6 +300,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       savingCents,
       incomeCents,
       billsCents: knownCents + estimateCents,
+      paidCents,
       essentialCents,
       debtCents,
       contractCents,
