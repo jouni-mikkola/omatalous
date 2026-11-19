@@ -3,6 +3,56 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.6.3
+
+- Lainat ranks every debt by its real rate, says Kallis or Erittäin kallis, and opens each one to its cost and payoff plan.
+- Täydennä lainat asks every debt that lacks a balance, rate, payment or fee in one list.
+- Short loans, credit lines and instalment plans of payment services are found in the bank rows as unsaved loans.
+- Cards whose purchases are missing are listed under Asetukset, and a card statement never counts a purchase twice.
+- A loan can have a rate change on a set day, for an offer such as 0 % until March, then 19,9 %.
+
+Money and reports
+
+- Asetukset > Pankit ja tilit lists the cards whose purchases are missing, each with Yhdistä or Lisää tiliote.
+- A card bill within 31 days of the card's first row counts as before the history, not as unpaired.
+- A card statement that repeats rows the bank already gave for a connected card is refused, so no purchase counts twice.
+- Short loans, credit lines and parallel instalment plans are now proposed as unsaved loans.
+- Two instalments of a payment service whose rows say they pay in parts are an instalment plan.
+- A loan the rows show no monthly payment of shows its latest payment in Tarkistettavat, and the net figure counts it among the loans it leaves out.
+- Loans and cards with no balance are listed under the debts, and an unconnected card's bills are asked about. A card saved under Lainat is not asked about again, and a card of a connected issuer drops out at once.
+- The first page lists loans dearest first and says Kallis or Erittäin kallis on the costly ones.
+- Lainat lists the debts by their real rate, and the rate after a rate change counts from the change day.
+- Raportit > Lainat ranks debts by real rate; each row opens to its cost and payoff plan.
+- Täydennä lainat asks the fee of each payment of a 0 % plan, and a card saved by hand with no rate.
+- A closed month of Yhteiset menot changes only by what a member said after it closed, never twice.
+- A card or credit line with a payment and rate typed shows what its plan leaves owed.
+- Yhteiset menot opens every month back to the joint account's first row, not only the last twelve.
+- A card bill no longer counts as spending in a merchant's monthly figures.
+- Yhteenveto reads a month that is over against all of the month before.
+- A card with a reminder or late fee since its last bills no longer counts as paid in full.
+- A day in Tapahtumat shows its date and sum, without the row count.
+- The tax-year interest counts only interest of saved home and student loans, not consumer credit or cards.
+- Months with no bank data are blank in the cash flow report and its CSV, not 0 €.
+- A loan with a typed rate can have a day and a new rate from that day on, for an offer such as 0 % until March, then 19,9 %.
+- A loan on a euribor with its review day needs only its margin: the form shows the rate now and the loan is saved at it. Without a review day the typed rate is kept.
+- A loan found in the bank rows starts its form with the payment, interval, repayment type and review day the rows show. A review cycle is read only from two or more changes of the payment.
+- A loan saved in Tarkistettavat shows its rate and balance before the next question.
+- The loan form has one field named Korko, repayment types that say what changes, and no lines of help.
+- Tarkistettavat asks every debt that lacks a balance, rate or payment in one list, Täydennä lainat.
+- Laskut sums a month by kind; Menot kategorioittain gathers all debt payments under Velanhoito.
+- The tax-year interest reads unknown, not 0, while a home or student loan payment is not split.
+- Figures read clearer: Tulos on Tapahtumat, one name per sum, plainer notes when money is short.
+- Vuosivertailu compares the same days a year earlier; the month table CSV totals match the screen.
+
+Reliability
+
+- The CSV file of a table no longer sometimes fails to download.
+
+Upgrade
+
+- Migration 0035 adds the fee of each payment to loans, and runs on the first start after the usual copy.
+- Migration 0034 adds two empty columns to loans, after the usual copy.
+
 ## 1.6.2
 
 Money and reports
