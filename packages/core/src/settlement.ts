@@ -85,7 +85,7 @@ function compute(month: string, pool: SettlementPool, agreements: readonly Agree
   const asOfDay = dayNumber(asOf);
   const book = makeBook(pool, agreements, members, cards, incomes, asOfDay);
   const closed = book.closedOn(month);
-  const relabel = book.relabelAt(current ? asOfDay : (closed ?? asOfDay), closed);
+  const relabel = book.relabelAt(current ? asOfDay : (closed ?? asOfDay));
   const fixedA = fixedOf(agreements, pool.key, month);
   const everyone = book.users.map((u) => u.owner).sort(compareOwners);
   const lines: SettlementLine[] = [];
@@ -141,8 +141,7 @@ function compute(month: string, pool: SettlementPool, agreements: readonly Agree
     lines.push({ kind: "fixed", key: month, day: monthLast(month), cents: c, paid: [], owed: f.owed, how: "fixed", fixed: { fsum: f.fsum, c: f.c, r: f.r } });
   } else if (fixedA) used.set(`${pool.key}|${fixedA.validFrom}`, { accountKey: pool.key, validFrom: fixedA.validFrom });
 
-  // an answer said in this month that gives a closed month's unknown money to its owner: it lands here. Money an answer
-  // in force at the close gave an owner (the opening's default) was not unknown, and the month keeps it.
+  // an answer said in this month that gives a closed month's unknown money to its owner: it lands here
   for (const a of pool.answers) {
     const s = dayNumber(a.saidOn);
     if (s > asOfDay || monthOfDay(s) !== month) continue;
@@ -150,7 +149,7 @@ function compute(month: string, pool: SettlementPool, agreements: readonly Agree
     for (const m of book.months) {
       if (m >= month) break;
       const end = book.closedOn(m);
-      if (end === null || end >= s || frozen.has(m) || book.answeredBy(a.key, end)) continue;
+      if (end === null || end >= s || frozen.has(m)) continue;
       for (const raw of book.rawOf(m)) {
         const mine = raw.parts.filter((e) => e.owner === a.key);
         const to = apply(mine);

@@ -90,8 +90,12 @@ describe("one member funds the pool and nobody has said whose the opening was", 
       const after = await dump(w, "pool-a");
       expect(august(after), owner).toEqual(expected[owner]);
       expect(others(after), owner).toEqual(others(before));
+      // a stored answer replaces the opening's default whole: the settlement reads it alone, from its own day, as it did before the default
+      const t = (await settledTrace(w.s, KEY))!;
+      expect([t.counted, t.said.map((a) => [a.key, a.owner, a.saidOn])], owner).toEqual([t.answers, [["o", owner, "2026-10-09"]]]);
       await takeBackAnswer(w.s, KEY, "opening", "o");
       expect(await dump(w, "pool-a"), owner).toEqual(before);
+      expect((await settledTrace(w.s, KEY))!.said.map((a) => [a.key, a.owner]), owner).toEqual([["o", "all"]]);
     }
     // no answer and every answer leave the opening unasked
     expect((await settledTrace(w.s, KEY))!.questions).toHaveLength(0);

@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { dayNumber as d, fromDayNumber } from "../src/dates.ts";
-import { openingDefault } from "../src/money-trace-answers.ts";
+import { withOpeningDefault } from "../src/money-trace-answers.ts";
 import type { Owner, TraceRow } from "../src/money-trace.ts";
 import { trace } from "../src/money-trace.ts";
 import type { AgreementRow } from "../src/settlement-agreements.ts";
@@ -169,35 +169,46 @@ describe("a closed month and what was said after it", () => {
   });
 });
 
-describe("the opening's default and an answer that replaces it", () => {
-  // 200,00 was on the account before its history: September's purchase spends 100,00 of it and November's 40,00
+describe("the opening's default, and an answer to the opening that replaces it", () => {
+  // 200,00 was on the account before its history: September's purchase spends 100,00 of it
   const opening = 20000;
-  const rows = [row("shop", "2026-09-10", -10000), row("later", "2026-11-20", -4000)];
-  const t = trace(rows, opening, d("2026-09-10"));
-  const byDefault: SaidAnswer[] = openingDefault(t).map((a) => ({ ...a, saidOn: fromDayNumber(t.openingDay) }));
-  const said = (owner: Owner): SaidAnswer[] => [...byDefault, { kind: "opening", key: "o", owner, saidOn: "2026-11-05" }];
+  const rows = [row("shop", "2026-09-10", -10000)];
   const paid = (s: Settlement): number[] => [...[MATTI, MAIJA].map((o) => s.members.find((m) => m.owner === o)?.paid ?? 0), s.unknownPaid];
-  const sep = run("2026-09", rows, { opening, answers: byDefault, asOf: "2026-10-15" });
+  const opened = (owner: Owner, saidOn: string): SaidAnswer => ({ kind: "opening", key: "o", owner, saidOn });
 
-  it("closes a month with the opening as everyone's", () => {
+  it("closes a month with the opening as everyone's while nobody answered it", () => {
+    const t = trace(rows, opening, d("2026-09-10"));
+    const byDefault = withOpeningDefault(t, []).map((a): SaidAnswer => ({ ...a, saidOn: fromDayNumber(t.openingDay) }));
     expect(byDefault.map((a) => [a.owner, a.saidOn])).toEqual([["all", "2026-09-10"]]);
+    const sep = run("2026-09", rows, { opening, answers: byDefault, asOf: "2026-10-15" });
     expect(sep.status).toEqual({ open: false, closedOn: "2026-09-30", by: "resolved" });
     expect(paid(sep)).toEqual([5000, 5000, 0]);
   });
 
   it.each([
-    ["Maija", MAIJA, [0, 4000, 0]],
-    ["En tiedä", "none", [0, 0, 4000]],
-  ] as const)("keeps the closed month when a member answers %s later, and counts the answer from its day on", (_name, owner, november) => {
-    const answers = said(owner);
-    const again = run("2026-09", rows, { opening, answers, asOf: "2026-12-01" });
-    expect([again.status, paid(again)]).toEqual([sep.status, paid(sep)]);
-    for (const closed of [[], [sep as ClosedMonth]]) {
-      // no correction (the month after a stored one) and no answered line (the answer's month) moves September's opening money
-      expect(run("2026-10", rows, { opening, answers, asOf: "2026-12-01", closed }).lines).toEqual([]);
-      const nov = run("2026-11", rows, { opening, answers, asOf: "2026-12-01", closed });
-      expect(nov.lines.map((l) => l.kind)).toEqual(["cost"]);
-      expect(paid(nov)).toEqual(november);
-    }
+    ["Maija", MAIJA, [{ [MAIJA]: 10000, o: -10000 }]],
+    ["En tiedä", "none", []],
+  ] as const)("settles as before the default when %s was answered after the month closed with the opening unknown", (_name, owner, moved) => {
+    // September closed by time with the opening nobody's, the answer came on 10.1. and October took in its correction
+    const sep = closedSep(rows, { opening });
+    expect(paid(sep)).toEqual([0, 0, 10000]);
+    const answers = [opened(owner, "2027-01-10")];
+    const oct = run("2026-10", rows, { opening, answers, asOf: "2027-02-01", closed: [sep] });
+    expect(late(oct).map((l) => byOwner(l.paid))).toEqual(moved);
+    // the month after reads September again with the same answer: nothing more moves
+    const nov = run("2026-11", rows, { opening, answers, asOf: "2027-02-01", closed: [sep, oct as ClosedMonth] });
+    expect(nov.lines.filter((l) => l.kind === "late_change" || l.kind === "answered")).toEqual([]);
+    // September not stored: it reads as it closed, and the answer moves its money in the answer's own month
+    expect(paid(run("2026-09", rows, { opening, answers, asOf: "2027-02-01" }))).toEqual([0, 0, 10000]);
+    const jan = run("2027-01", rows, { opening, answers, asOf: "2027-02-01" });
+    expect(jan.lines.filter((l) => l.kind === "answered").map((l) => byOwner(l.paid))).toEqual(moved);
+  });
+
+  it("moves a month closed with one answer to the answer that replaced it, never to everyone", () => {
+    // Maija was said on 5.9. and September closed with it; Matti replaced it on 15.10., and only the latest is stored
+    const sep = run("2026-09", rows, { opening, answers: [opened(MAIJA, "2026-09-05")], asOf: "2026-10-01" });
+    expect([sep.status.open, paid(sep)]).toEqual([false, [0, 10000, 0]]);
+    const oct = run("2026-10", rows, { opening, answers: [opened(MATTI, "2026-10-15")], asOf: "2026-11-01", closed: [sep as ClosedMonth] });
+    expect(late(oct).map((l) => byOwner(l.paid))).toEqual([{ [MATTI]: 10000, [MAIJA]: -10000 }]);
   });
 });

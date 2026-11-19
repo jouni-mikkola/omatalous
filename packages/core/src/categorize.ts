@@ -67,9 +67,9 @@ const PURPOSE_RULES: readonly BuiltinRule[] = [
   { category: "salary", direction: "in", re: SWEDISH_SALARY_FIELD },
   // a peer-lending service pays back the loan given, interest and all: money that was saved comes home
   { category: "investments", direction: "in", re: w(PEER_LENDING_WORDS), when: (text) => !namesLoanOrCredit(text) },
-  { category: "investment_income", direction: "in", re: w(String.raw`OSINKO|OSINGOT|OSINGONMAKSU|DIVIDEND|DIVIDENDI|KORKOTULO|TALLETUSKORKO|HYVITYSKORKO|KORKO|KORKOHYVITYS`) },
+  { category: "investment_income", direction: "in", re: w(String.raw`OSINKO|OSINGOT|OSINGONMAKSU|DIVIDEND|DIVIDENDI|KORKOTULO|TALLETUSKORKO|HYVITYSKORKO`) },
   // interest the bank adds to a deposit; on a card or a loan the same words give back interest it charged
-  { category: "investment_income", direction: "in", re: w(INTEREST_CREDIT_WORDS), when: (_text, input) => !input.onDebtAccount },
+  { category: "investment_income", direction: "in", re: w(String.raw`${INTEREST_CREDIT_WORDS}|KORKO|KORKOHYVITYS`), when: (_text, input) => !input.onDebtAccount },
   { category: "tax_refund", direction: "in", re: w(TAX_REFUND_WORDS) },
   {
     category: "benefits",

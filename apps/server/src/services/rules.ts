@@ -33,11 +33,15 @@ export async function ownRulesOfRows(s: Services, userId: string, rows: readonly
   const out = new Map<string, Pick<CategoryRule, "field" | "pattern">>();
   const ruled = rows.filter((t) => t.userId === userId && t.categorySource === "rule");
   if (!ruled.length) return out;
-  const rules = await s.finance(userId).listRules();
+  const repo = s.finance(userId);
+  const rules = await repo.listRules();
   const own = compileRules(rules).filter((r) => r.byUser);
   const byId = new Map(rules.map((r) => [r.id, r]));
+  // as the pipeline reads a row: money in on a card or a loan account gives back what the bank charged
+  const debts = new Set((await repo.listAccounts()).filter((a) => a.type === "credit_card" || a.type === "loan").map((a) => a.id));
   for (const t of ruled) {
-    const id = ownRuleOf(t, t.category, own)?.id;
+    const onDebtAccount = t.amountCents > 0 && debts.has(t.accountId);
+    const id = ownRuleOf(onDebtAccount ? { ...t, onDebtAccount } : t, t.category, own)?.id;
     const rule = id === undefined ? undefined : byId.get(id);
     if (rule) out.set(t.id, { field: rule.field, pattern: rule.pattern });
   }

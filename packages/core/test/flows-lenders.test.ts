@@ -211,10 +211,12 @@ describe("peer lending", () => {
     const card: Account = { id: "card", name: "Visa", iban: null, currency: "EUR", type: "credit_card" };
     const loan: Account = { id: "loan", name: "Asuntolainatili", iban: null, currency: "EUR", type: "loan" };
     // one text on three accounts in one run: the account's kind is part of what decides the row
-    const rows = ["chk", "card", "loan"].flatMap((id) => [row(id, "2026-09-30", 0.37, "Koron pääomitus"), row(id, "2026-09-30", 0.37, "TILITYS", "KORKOJEN PÄÄOMITUS")]);
+    // PÄÄOMITETTU KORKO holds KORKO as a word of its own, which names interest income on a deposit
+    const texts: [description: string, counterparty?: string][] = [["Koron pääomitus"], ["TILITYS", "KORKOJEN PÄÄOMITUS"], ["PÄÄOMITETTU KORKO"], ["KORKO"]];
+    const rows = ["chk", "card", "loan"].flatMap((id) => texts.map(([description, counterparty]) => row(id, "2026-09-30", 0.37, description, counterparty)));
     const { final } = run(rows, [checking, card, loan]);
     const income = final.map((t) => t.category === "investment_income");
-    expect(income).toEqual([true, true, false, false, false, false]);
+    expect(income).toEqual([true, true, true, true, ...Array(8).fill(false)]);
   });
 });
 
