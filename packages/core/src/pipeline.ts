@@ -1,7 +1,8 @@
-import { applyDeclaredMortgages } from "./declared-loans.ts";
+import { applyDeclaredCards, applyDeclaredMortgages } from "./declared-loans.ts";
 import { loanPaymentAccounts } from "./loan-payment.ts";
 import { getCategory } from "./categories.ts";
-import { isInstalments, isLenderPayout, referenceOf, settleTransfers, varyingRows } from "./card-channel.ts";
+import { applyCardBills } from "./card-bills.ts";
+import { isLenderPayout, referenceOf, settleTransfers } from "./card-channel.ts";
 import { type CategorizeResult, compileRules } from "./categorize.ts";
 import { categorizeInDirection } from "./categorize-direction.ts";
 import { dealerCategory } from "./wording-car.ts";
@@ -10,16 +11,14 @@ import { holdersOf, isUserName, noCard } from "./categorize-people.ts";
 import { businessMerchants, CAR_HIRE, hireCategory, isBusinessRow, isMobilePay, ledgerOf, ledgersWithPayeeAccounts } from "./industry.ts";
 import { lexiconCategory } from "./lexicon.ts";
 import { isSharedPurchase, SHARE_DAYS } from "./mobilepay.ts";
-import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
+import { UNKNOWN_MERCHANT } from "./merchant.ts";
 import { dayNumber } from "./dates.ts";
 import { applyPayerConsistency } from "./payer-consistency.ts";
 import { answeredWalletRows, applyPayerRoles, payerHistoryOf, WALLET_PAYER_KEY } from "./payer-role.ts";
-import { median } from "./stats.ts";
 import { matchReturns, monthlyRunRows, partyKey, returnClassOf, SHARE_WINDOW_DAYS, steadyParties } from "./returns.ts";
 import { mayBeTransferLeg } from "./pairing.ts";
 import { normalizeIban } from "./transfers.ts";
 import type { Account, CategoryRule, IsoDate, Loan, PayerInput, Transaction } from "./types.ts";
-import { isCardIssuerText, isLoanText } from "./wording.ts";
 
 /**
  * Re-derives category and transfer flags for every transaction. Categories
@@ -32,7 +31,7 @@ import { isCardIssuerText, isLoanText } from "./wording.ts";
  * Money that comes back (see matchReturns) takes its payment's category. Last, the member's payer roles (`payers`)
  * move the rows of the payers they name (`applyPayerRoles`). `household` holds the IBANs of the accounts of the
  * household's other members: money to or from one of them is a transfer in every view, though the rows of the
- * other account are not among these. `loans` are the member's saved loans: the rows of a series a home loan is linked to are the mortgage.
+ * other account are not among these. `loans` are the member's saved loans: the rows of a series a home loan is linked to are the mortgage, those of a card's the card's bills.
  */
 export function enrichTransactions(
   txs: readonly Transaction[],
@@ -132,11 +131,6 @@ const HOLD_CATEGORY = "hold";
 const isHold = (t: Transaction): boolean =>
   t.status === "pending" && t.amountCents < 0 && t.merchant === UNKNOWN_MERCHANT && !t.counterparty?.trim() && !t.description?.trim() && !t.mcc?.trim() && !t.counterpartyIban?.trim() && !t.bankTxnCode?.trim();
 
-/** Before transfer detection: a card bill pairs with the connected card's payment row. */
-function applyCardBills(next: readonly Transaction[], byUserRule: ReadonlySet<string>): void {
-  for (const t of cardBillsByAmount(next.filter((t) => !byUserRule.has(t.id)))) t.category = "card_bill";
-}
-
 /** Money out that the people rules read as a person by the shape of a credit transfer alone: no reference, no card and no word of the bank's for a payment between people (categorize-people.ts, `unreferenced`). */
 const isGuessedPerson = (t: Transaction): boolean => t.category === "p2p" && t.categorySource === "rule" && !!t.counterpartyIban?.trim() && referenceOf(t) === "" && !isMobilePay(t);
 
@@ -210,7 +204,7 @@ function* enrichSteps(
 ): Generator<void, Transaction[], void> {
   const { next, byUserRule } = yield* classify(txs, userRules, accounts);
   yield;
-  applyCardBills(next, byUserRule);
+  applyCardBills(next, byUserRule, accounts);
   yield;
 
   // money that comes back (refund, repaid person, shared bill) cancels its payment; both rows stay out of transfer pairing
@@ -244,6 +238,7 @@ function* enrichSteps(
   // a person paid back whole is one pair: the payment stays with its return, whatever role the person has
   applyPayerRoles(next, locked, payers);
   applyDeclaredMortgages(next, locked, loans);
+  applyDeclaredCards(next, locked, loans);
   return changedRows(next, txs);
 }
 
@@ -318,7 +313,7 @@ export function enrichIsland(input: IslandInput): IslandResult {
     let step = steps.next();
     while (!step.done) step = steps.next();
     const { next, byUserRule } = step.value;
-    applyCardBills(next, byUserRule);
+    applyCardBills(next, byUserRule, accounts);
     return { next, byUserRule, returns: matchReturns(next, ownIbans, byUserRule, input.today) };
   };
   const finishWith = (staged: ReturnType<typeof run>, payeeLedgers: ReadonlySet<string>) => {
@@ -332,6 +327,7 @@ export function enrichIsland(input: IslandInput): IslandResult {
     applyPayerConsistency(next, locked);
     applyPayerRoles(next, locked, input.payers, history);
     applyDeclaredMortgages(next, locked, input.loans);
+    applyDeclaredCards(next, locked, input.loans);
     return next;
   };
   // Whether a ledger (an account's rows of one source) carries payee accounts is known from the island's rows as far
@@ -419,57 +415,6 @@ const transferKey = (t: Transaction): string => {
 
 /** What returns look at in a row's state (the rest of what they read is in the bank's fields, which a change does not touch). */
 const returnKey = (t: Transaction, ownIbans: ReadonlySet<string>, locked: boolean) => returnClassOf(t, ownIbans, locked);
-
-/**
- * Payments to a card issuer that a rule called "loans" but whose amounts
- * jump from month to month: a card bill, not an instalment. An amount paid
- * three times or more is an instalment and stays a loan, so a car loan and a
- * card bill from the same issuer are told apart.
- *
- * One reference is one contract, so the payments under it share the answer: where at least half of them are equal
- * instalments, an extra payment and an instalment that changed are the same loan's, and where most vary, the equal
- * ones are that card's bills too. A reference seen once or twice is an invoice's own number and says nothing: its
- * rows are judged with the ones that have none, each by its amount as before.
- */
-function cardBillsByAmount(txs: readonly Transaction[]): Transaction[] {
-  const groups = new Map<string, Transaction[]>();
-  for (const t of txs) {
-    if (t.category !== "loans" || t.categorySource !== "rule" || t.amountCents >= 0) continue;
-    const text = fold([t.merchant, t.counterparty, t.description].filter(Boolean).join(" | "));
-    if (!isCardIssuerText(text) || isLoanText(text)) continue;
-    const key = `${t.accountId}|${t.merchant}`;
-    const group = groups.get(key);
-    if (group) group.push(t);
-    else groups.set(key, [t]);
-  }
-  const bills: Transaction[] = [];
-  for (const rows of groups.values()) {
-    const byReference = new Map<string, Transaction[]>();
-    for (const t of rows) {
-      const reference = referenceOf(t);
-      const same = byReference.get(reference);
-      if (same) same.push(t);
-      else byReference.set(reference, [t]);
-    }
-    const rest: Transaction[] = [];
-    for (const [reference, same] of byReference) {
-      if (reference === "" || same.length < 3) rest.push(...same);
-      else bills.push(...billsAmong(same, true));
-    }
-    bills.push(...billsAmong(rest, false));
-  }
-  return bills;
-}
-
-/** The card bills among one payee's rows: all or none of a contract's, and otherwise the ones whose amount varies. */
-function billsAmong(rows: readonly Transaction[], contract: boolean): readonly Transaction[] {
-  const varying = varyingRows(rows).sort((a, b) => a.bookingDate.localeCompare(b.bookingDate));
-  if (varying.length < 3 || (contract && isInstalments(rows))) return [];
-  // month-to-month change, not the overall range: a slowly shrinking instalment is not a card bill
-  const changes = varying.slice(1).map((t, i) => Math.abs(t.amountCents - varying[i]!.amountCents) / Math.abs(varying[i]!.amountCents));
-  if (median(changes) <= 0.1) return [];
-  return contract ? rows : varying;
-}
 
 /** Categories whose rows say nothing about what a merchant sells. */
 const NO_VOTE = new Set(["p2p", "p2p_in", "card_bill", "cash", "fees"]);

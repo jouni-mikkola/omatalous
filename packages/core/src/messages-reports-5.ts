@@ -77,7 +77,7 @@ export const FI_REPORTS_5 = {
   "rpt.ln_kind_consumer": "Kulutusluotto",
   "rpt.ln_kind_car": "Autolaina",
   "rpt.ln_kind_student": "Opintolaina",
-  "rpt.ln_kind_credit_line": "Luottolimiitti",
+  "rpt.ln_kind_credit_line": "Joustoluotto",
   "rpt.ln_kind_card": "Luottokortti",
   "rpt.ln_kind_instalment": "Osamaksu",
   "rpt.ln_kind_other": "Muu laina",

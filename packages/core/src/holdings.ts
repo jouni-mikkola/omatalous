@@ -23,7 +23,7 @@ import { type LoanProposal, loanProposals, paysSeries } from "./loan-detect.ts";
 import { creditUse, debtPaymentsPerMonth, loanBalanceOn, loanPayoffDate, loansOf } from "./loans.ts";
 import { hasMonthly } from "./shared.ts";
 import { normalizeIban } from "./transfers.ts";
-import { unconnectedCards } from "./unconnected-cards.ts";
+import { unconnectedCardsAndCredits } from "./unconnected-cards.ts";
 import type { AccountUse, BalanceInput, IsoDate, Loan, Part, UserInputs } from "./types.ts";
 
 /**
@@ -176,6 +176,8 @@ export interface UnsavedRow {
   name: string;
   monthlyCents: number | null;
   card: boolean;
+  /** A credit whose kind the rows do not tell (`LoanProposal.kindUnknown`): a card, a credit line or a loan. Absent otherwise. */
+  kindUnknown?: true;
 }
 
 /**
@@ -183,14 +185,19 @@ export interface UnsavedRow {
  * and the cards nobody connected or saved. `total` is what `unsavedLoans` counts, `rows` what Yhteenveto, Saldot and Lainat list.
  */
 export function unsavedDebts(ctx: AnalysisContext, inputs: UserInputs, proposals: readonly LoanProposal[] = loanProposals(ctx, inputs)): { total: UnsavedLoans | null; rows: UnsavedRow[]; few: number } {
+  const { cards, creditsLeft } = unconnectedCardsAndCredits(ctx, inputs);
+  // a credit saved with no link is one of the credits of unknown kind, which one the rows do not tell: the largest
+  // payments are taken first (`loanProposals` lists them so), as a card loan takes a card. Tarkistettavat still offers
+  // the link (review-loan-terms.ts).
+  const saved = new Set(proposals.filter((p) => p.kindUnknown).slice(0, creditsLeft));
+  const unsaved = proposals.filter((p) => !saved.has(p));
   // a lender's few payments tell no monthly figure to sum, so they are counted apart (`unsavedFewPayments`)
-  const lenders = proposals.filter(hasMonthly);
-  const few = proposals.filter((p) => !hasMonthly(p)).length;
-  const cards = unconnectedCards(ctx, inputs);
+  const lenders = unsaved.filter(hasMonthly);
+  const few = unsaved.filter((p) => !hasMonthly(p)).length;
   return {
     few,
     total: unsavedLoans([...lenders, ...cards]),
-    rows: [...lenders.map((p): UnsavedRow => ({ name: p.payee, monthlyCents: p.monthlyCents, card: false })), ...cards.map((c): UnsavedRow => ({ name: c.payee, monthlyCents: c.monthlyCents, card: true }))],
+    rows: [...lenders.map((p): UnsavedRow => ({ name: p.payee, monthlyCents: p.monthlyCents, card: false, ...(p.kindUnknown ? { kindUnknown: true as const } : {}) })), ...cards.map((c): UnsavedRow => ({ name: c.payee, monthlyCents: c.monthlyCents, card: true }))],
   };
 }
 

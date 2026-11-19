@@ -9,7 +9,7 @@
  *
  * - A home loan is a debt of the view whose kind is `mortgage` and that still owes.
  * - Loan payments in the rows that no saved loan is linked to are a row without terms: an active series of the
- *   category `mortgage` that no saved loan names (`Loan.seriesKey`) and the household did not call "Ei ole laina". A saved
+ *   category `mortgage` that no saved loan names (`Loan.seriesKey`) and the household did not call "Ei ole velan maksu". A saved
  *   home loan with no link takes such a series as its own payments, so the loan and its payments are one row and the
  *   payment is in the total once. It takes one when a payment is typed for the loan and the series' charges fit it
  *   (`fitsPayment`), or when no payment is typed, the loan is the only one without, and the series is the only one

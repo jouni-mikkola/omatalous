@@ -226,8 +226,9 @@ describe("a bank's name is no loan by itself", () => {
     expect(categories).toEqual(["loans"]);
   });
 
-  it("a card issuer named BANK keeps its card bill", () => {
-    expect(one("BANK NORWEGIAN", "VIITE 12345 67890", -240)).toBe("card_bill");
+  it("a card issuer named BANK is a credit by its name alone and a card bill with a card word", () => {
+    expect(one("BANK NORWEGIAN", "VIITE 12345 67890", -240)).toBe("loans");
+    expect(one("BANK NORWEGIAN", "KORTTILASKU VIITE 12345 67890", -240)).toBe("card_bill");
   });
 
   it("a bank's name, a finance word and a form is still a lender", () => {

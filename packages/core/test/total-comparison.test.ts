@@ -47,7 +47,7 @@ function household(cardSince: string | null) {
       out.push(row(`dine-${i}`, "card", dateIn(m, 8), -12_000, "RAVINTOLA ESIMERKKI"));
     }
     if (m < TODAY.slice(0, 7)) {
-      out.push(row(`bill-${i}`, "chk", dateIn(m, 24), -52_000, "MORROW BANK ASA", "LASKU"));
+      out.push(row(`bill-${i}`, "chk", dateIn(m, 24), -52_000, "MORROW BANK ASA", "KORTTILASKU"));
       if (own) out.push(row(`paid-${i}`, "card", dateIn(m, 24), 52_000, "SUORITUS", "SUORITUS"));
     }
   });

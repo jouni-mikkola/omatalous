@@ -1,6 +1,6 @@
 /**
  * Loans the household pays and never typed in: a debt series that still runs every month is proposed as a loan, for the
- * page that lets the household save it (`Loan`, loans.ts) or say "Ei ole laina".
+ * page that lets the household save it (`Loan`, loans.ts) or say "Ei ole velan maksu".
  *
  * What is proposed: a series of `ctx.recurring` that is active, monthly, money out, in a loan's category (mortgage,
  * loans, student_loan), with three or more charges (two of a plan whose rows say so, `planRuns`) and one payment
@@ -16,8 +16,8 @@
  *
  * The key of a proposal is the series id with its payment, `out:<account>:<payee>#<cents>` (`seriesId`, ADR 0009). It
  * is what `Loan.seriesKey` holds once the loan is saved, and `loan-proposal:<key>` is the subject of the mark that
- * says "Ei ole laina" (`notLoanMark`). The subject is the proposal's own: Laskut marks the same series as `series:<key>`,
- * and the marks table keeps one mark for a subject, so a shared subject would let Käytössä take "Ei ole laina" away. The
+ * says "Ei ole velan maksu" (`notLoanMark`). The subject is the proposal's own: Laskut marks the same series as `series:<key>`,
+ * and the marks table keeps one mark for a subject, so a shared subject would let Käytössä take "Ei ole velan maksu" away. The
  * payment is in the key so that a second loan from the same lender gets a key of its own.
  *
  * A payment is read at the bank's amount (`billCents`), also in a member's own view, where the rows of a joint account
@@ -42,7 +42,7 @@ import { parseSeriesId, seriesId } from "./series-id.ts";
 import { STEADY_BAND, steadyBy } from "./returns.ts";
 import type { IsoDate, LoanKind, Transaction, UserInputs } from "./types.ts";
 import { hasLoanText, withoutSwedishTwin } from "./wording-lenders.ts";
-import { hasPayeeForm, housingCharge, isCarFinanceText, isHousingCompanyName, isInsuranceText, isLeaseText, isLenderName, isLoanText, isNamedLaina, isRent } from "./wording.ts";
+import { hasPayeeForm, housingCharge, isCarFinanceText, isCreditIssuerText, isHousingCompanyName, isInsuranceText, isLeaseText, isLenderName, isLoanText, isNamedLaina, isRent } from "./wording.ts";
 
 /** A debt series that looks like a loan nobody saved. */
 export interface LoanProposal {
@@ -74,6 +74,12 @@ export interface LoanProposal {
   category: string;
   /** A first choice for the form, from the category and the payee's words. The household decides. */
   kind: LoanKind;
+  /**
+   * The payee is a lender that issues cards and lends otherwise, named alone, and the sum changes (`isCreditIssuerText`):
+   * a card, a credit line or a loan, which the rows do not tell. `kind` is then no guess, and Tarkistettavat asks the
+   * kind among those three. Absent where the rows place a kind or suggest one.
+   */
+  kindUnknown?: true;
   /** The payment reference the payments share, null when the rows carry none. */
   reference: string | null;
   /**
@@ -123,7 +129,7 @@ const MIN_LOAN_CHARGES = 3;
 export { notLoanMark } from "./loan-mark.ts";
 
 /**
- * The series key an "Ei ole laina" mark's subject names (`loan-proposal:<key>`), or null for any other subject and for a
+ * The series key an "Ei ole velan maksu" mark's subject names (`loan-proposal:<key>`), or null for any other subject and for a
  * key no series has. The marks route asks it before it stores such a subject.
  */
 export function notLoanKey(subject: string): string | null {
@@ -153,7 +159,7 @@ export function sameSeriesKey(a: string, b: string, others: readonly string[] = 
 }
 
 /**
- * Whether a stored key (a loan's `seriesKey`, or the key of an "Ei ole laina" mark) names this series: the same payee,
+ * Whether a stored key (a loan's `seriesKey`, or the key of an "Ei ole velan maksu" mark) names this series: the same payee,
  * account and direction, and a payment the series has charged. `covers` owns how far apart two payments of one
  * contract can be, and reads the key as a mark on the series. Every charge is asked, so a key holds after the rate has
  * moved the payment many times. A key without a payment names every series the payee has on the account.
@@ -333,17 +339,19 @@ function answeredPlan(inputs: UserInputs): (s: RecurringSeries, charges: Charges
 
 /**
  * Whether a series is spoken for, asked of the series and its charges: a saved loan is linked to it (`Loan.seriesKey`),
- * or the household said "Ei ole laina" of it. A key holds the payment as it was in the view that saved it, so the part
+ * or the household said "Ei ole velan maksu" of it. A key holds the payment as it was in the view that saved it, so the part
  * and the bank's amount of every charge are asked. The proposals and the home loans of the first page read the one
- * answer (`housing.ts`).
+ * answer (`housing.ts`). With `amountOnly` a key with no amount, which names every series of the payee, takes none.
  */
-export function takenSeries(inputs: UserInputs): (s: RecurringSeries, charges: Charges) => boolean {
+export function takenSeries(inputs: UserInputs): (s: RecurringSeries, charges: Charges, amountOnly?: boolean) => boolean {
   const keys = [...loansOf(inputs).map((loan) => loan.seriesKey), ...inputs.marks.filter((m) => m.mark === "dismissed").map((m) => notLoanKey(m.subject))].filter((key): key is string => !!key);
+  const withAmount = keys.filter((key) => typeof parseSeriesId(key)?.product === "number");
   const loanKeys = loansOf(inputs).flatMap((loan) => loan.seriesKey ?? []);
-  return (s, charges) => {
-    if (!keys.length) return false;
+  return (s, charges, amountOnly = false) => {
+    const asked = amountOnly ? withAmount : keys;
+    if (!asked.length) return false;
     const amounts = amountsOf(s, charges);
-    return keys.some((key) => names(key, s, amounts, loanKeys));
+    return asked.some((key) => names(key, s, amounts, loanKeys));
   };
 }
 
@@ -363,7 +371,7 @@ export function fitsPayment(paymentCents: number, s: RecurringSeries, charges: C
 }
 
 /**
- * The loans to propose today, the largest payment first. A series the household marked "Ei ole laina" or cancelled, and one
+ * The loans to propose today, the largest payment first. A series the household marked "Ei ole velan maksu" or cancelled, and one
  * a saved loan is linked to, is left out.
  */
 export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "standing" | "today">, inputs: UserInputs): LoanProposal[] {
@@ -379,6 +387,21 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
   const byId = standingById(ctx);
   const draws = creditDraws(txs, ctx.today);
   const taken = takenSeries(inputs);
+  // a payee paid sums that change on the account: a key with no amount is their answer, and one sum paid in the same
+  // months as them (three or more, as `steadyBesideChanging` of declared-loans.ts reads) an instalment of the same
+  // lender, asked on its own. The changing sums may be in the instalment's own series, which holds the lender's rows no
+  // product holds (recurring.ts). A single credit pays one row a month, so its sum changing over time is no such month.
+  const changingBeside = (s: RecurringSeries, charges: readonly AnalysisTx[], typical: number) => {
+    const { accountId, merchant } = parseSeriesId(s.id)!;
+    const beside = ctx.recurring.filter((o) => {
+      const p = parseSeriesId(o.id);
+      return o.active && o.id !== s.id && p?.direction === "out" && p.accountId === accountId && p.merchant === merchant;
+    });
+    const rows = [...charges, ...beside.flatMap((o) => o.transactionIds.flatMap((id) => byId.get(id) ?? []))];
+    const near = (t: AnalysisTx) => Math.abs(t.amountCents - typical) <= Math.abs(typical) * STEADY_BAND;
+    const changing = new Set(rows.filter((t) => !near(t)).map((t) => monthOf(t.bookingDate)));
+    return [...new Set(rows.filter(near).map((t) => monthOf(t.bookingDate)))].filter((m) => changing.has(m)).length >= 3;
+  };
   // a saved loan with a typed payment and no series linked takes one series it fits, as in Asuminen (housing.ts)
   const unlinked = loansOf(inputs).flatMap((loan) => (loan.seriesKey ? [] : [typedBill(loan, ctx.today)].filter((c): c is number => c !== null)));
   const cancelled = cancelledSubjects(inputs);
@@ -413,14 +436,19 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
     // an instalment service is a plan only for the same sum in three months running, or two that say so; its other payments are purchases
     const plan = INSTALMENT_SERVICE.test(text);
     if (plan && planRuns(charges).length === 0) continue;
-    const invoicedLoan = isLenderPayment(payee, text) || hasLoanText(payee);
+    // a lender that issues cards and lends otherwise, by its name alone: one sum month after month is an instalment, a sum
+    // that changes may be a card's bill, a credit line's or a loan's, which only the household tells
+    const issuer = isCreditIssuerText(text) && !isLoanText(text);
+    const invoicedLoan = isLenderPayment(payee, text) || hasLoanText(payee) || issuer;
     if (references.size > 1 && !invoicedLoan && !plan) continue;
     // an insurer, a landlord, a lessor and a housing company charging for its own loan are paid no loan of the household's
     if (isInsuranceText(text) || isRent(text) || isLeaseText(text) || isHousingCompanyName(payee)) continue;
     // Laina is a first name too: a person so named is a lender only when the payment text names the loan
     if (isNamedLaina(payee) && !hasPayeeForm(payee) && !isLoanText(fold(last.description ?? ""))) continue;
     if (isCancelled(cancelled, s)) continue;
-    if (taken(s, charges)) continue;
+    const typical = steadyBy(charges, () => "series").get("series");
+    const steady = typical !== undefined;
+    if (taken(s, charges) && (!steady || taken(s, charges, true) || !changingBeside(s, charges, typical))) continue;
     const fits = unlinked.findIndex((bill) => fitsPayment(bill, s, charges));
     if (fits >= 0) {
       unlinked.splice(fits, 1);
@@ -433,11 +461,14 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
     // the credit the payee paid in may name its kind ("Joustoluotot"), and a credit line is no mortgage whatever its payment
     const drawn = placing.placed ? null : drawnKind(draws, s.merchant);
     // a known lender's payment of about one sum month after month is a loan with no question: the kind stays a guess for the form
-    const lender = steadyBy(charges, () => "series").size > 0 && isKnownLender(payee, text);
-    const home = !placing.placed && drawn === null && owner && paymentCents > MORTGAGE_PAYMENT_CENTS;
+    const lender = steady && (isKnownLender(payee, text) || issuer);
+    // an issuer's changing sum is no mortgage however large: a card's bill of a home owner is as large
+    const kindUnknown = issuer && !steady && told === null && drawn === null && !placing.placed && !plan;
+    const home = !kindUnknown && !placing.placed && drawn === null && owner && paymentCents > MORTGAGE_PAYMENT_CENTS;
     const owed = isFew ? fewOwed : (owedAtLeast(txs, draws, s.merchant, ctx.today)?.cents ?? null);
     out.push({
-      key: seriesId({ ...parts, product: cut ? paymentCents : (parts.product ?? paymentCents) }),
+      // a sum that changes is no product: the key names every series of the payee on the account, as a card's does (unconnected-cards.ts)
+      key: seriesId({ ...parts, product: kindUnknown ? null : cut ? paymentCents : (parts.product ?? paymentCents) }),
       seriesId: s.id,
       payee: withoutSwedishTwin(s.merchant),
       accountId: parts.accountId,
@@ -451,6 +482,7 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
       category: s.category,
       kind: told ?? drawn ?? (home ? "mortgage" : placing.kind),
       placed: told !== null || home || placing.placed || lender || plan,
+      ...(kindUnknown ? { kindUnknown: true as const } : {}),
       plan,
       planAnswer: plan ? planned(s, charges) : null,
       reference: references.size === 1 ? [...references][0]! : null,

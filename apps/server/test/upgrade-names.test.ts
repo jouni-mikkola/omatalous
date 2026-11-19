@@ -236,7 +236,7 @@ describe("one card issuer under three names: what the household chose on the old
   it("a choice on one old name only is the new name's none: it covers its own rows, and the names without it keep their category", async () => {
     const { s, repo, rows } = await oldHousehold([[TEXTS[0][1], "gifts"]], [[TEXTS[1][1], "cancelled"]]);
     expect(await runUpgradeTasks(s, "0.60.0+one")).toMatchObject({ users: 1, merchantsRenamed: 6 });
-    expect(await rows()).toEqual([...Array(2).fill(`${NEW_NAME} gifts/user`), ...Array(4).fill(`${NEW_NAME} card_bill/rule`)]);
+    expect(await rows()).toEqual([...Array(2).fill(`${NEW_NAME} gifts/user`), ...Array(4).fill(`${NEW_NAME} loans/rule`)]);
     expect(await ruleList(repo)).toEqual([[TEXTS[0][1], "gifts"]]);
     expect((await repo.listMarks()).map((m) => m.subject)).toEqual([`merchant:${TEXTS[1][1]}`]);
     const [rulesBefore, rowsBefore] = [await ruleList(repo), await rows()];
@@ -248,8 +248,8 @@ describe("one card issuer under three names: what the household chose on the old
   it("a rule on the plain name does not reach the bank's bills, which had none", async () => {
     const h = await seeded([["MORROW", "Morrow", 45], ["MORROW", "Morrow", 46], ["MORROW BANK ASA", "Morrow Bank Asa", 400], ["MORROW BANK ASA", "Morrow Bank Asa", 410]], [["Morrow", "gifts"]]);
     const rows = await upgradeTwice(h, "0.60.0+plain");
-    // the two rows the household sorted keep their category; the bills are still card bills
-    expect(rows.sort()).toEqual(["Morrow Bank card_bill/rule", "Morrow Bank card_bill/rule", "Morrow Bank gifts/user", "Morrow Bank gifts/user"]);
+    // the two rows the household sorted keep their category; the bills, which name the lender and no card, stay credit payments
+    expect(rows.sort()).toEqual(["Morrow Bank gifts/user", "Morrow Bank gifts/user", "Morrow Bank loans/rule", "Morrow Bank loans/rule"]);
     expect(await ruleList(h.repo)).toEqual([["Morrow", "gifts"]]);
   });
 
@@ -263,7 +263,7 @@ describe("one card issuer under three names: what the household chose on the old
   it("old names that chose differently give the new name no rule and no mark, and each keeps its rows as the household set them", async () => {
     const { s, repo, rows } = await oldHousehold([[TEXTS[0][1], "gifts"], [TEXTS[1][1], "home"]], [[TEXTS[0][1], "cancelled"], [TEXTS[1][1], "dismissed"]]);
     expect(await runUpgradeTasks(s, "0.60.0+conflict")).toMatchObject({ users: 1, merchantsRenamed: 6 });
-    expect(await rows()).toEqual([...Array(2).fill(`${NEW_NAME} gifts/user`), ...Array(2).fill(`${NEW_NAME} home/user`), ...Array(2).fill(`${NEW_NAME} card_bill/rule`)]);
+    expect(await rows()).toEqual([...Array(2).fill(`${NEW_NAME} gifts/user`), ...Array(2).fill(`${NEW_NAME} home/user`), ...Array(2).fill(`${NEW_NAME} loans/rule`)]);
     // the old rules stay for a rollback; the new name has none
     expect(await ruleList(repo)).toEqual([[TEXTS[0][1], "gifts"], [TEXTS[1][1], "home"]].sort());
     expect((await repo.listMarks()).map((m) => m.subject).sort()).toEqual([`merchant:${TEXTS[0][1]}`, `merchant:${TEXTS[1][1]}`].sort());

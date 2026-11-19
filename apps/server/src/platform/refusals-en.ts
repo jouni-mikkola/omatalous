@@ -132,7 +132,7 @@ const LINES: readonly (readonly [string, string])[] = [
   ["Virheellinen maksusarja.", "Invalid payment series."],
   ["Lainan voi liittää vain omaan luottokortti- tai lainatiliin.", "A loan can be linked only to your own credit card or loan account."],
   ["Tähän tiliin on jo liitetty laina {1}. Poista liitos siitä ensin.", "The loan {1} is already linked to this account. Remove the link from it first."],
-  ["Luottokortilla ja luottolimiitillä ei ole lyhennystapaa. Jätä se tyhjäksi.", "A credit card and a credit limit have no repayment type. Leave it empty."],
+  ["Luottokortilla ja joustoluotolla ei ole lyhennystapaa. Jätä se tyhjäksi.", "A credit card and a credit line have no repayment type. Leave it empty."],
   ["Kertalyhenteisellä lainalla ei ole maksuerää. Jätä maksuerä tyhjäksi.", "A bullet loan has no instalment. Leave the instalment empty."],
   ["Maksuerä on pienempi kuin lyhennysvälin korko, joten laina ei lyhenisi. Tarkista luvut tai jätä maksuerä tyhjäksi, jos maksat vain korkoa.", "The instalment is smaller than the interest of the repayment interval, so the loan would not shrink. Check the figures, or leave the instalment empty if you pay only interest."],
   ["Koron muutoksesta pitää antaa sekä päivä että uusi korko. Täytä molemmat tai jätä molemmat tyhjiksi.", "Give both the day and the new rate of a rate change. Fill in both or leave both empty."],
