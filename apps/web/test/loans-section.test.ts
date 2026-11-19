@@ -347,6 +347,9 @@ describe("Raportit: Lainat", () => {
     const member = html(loans, context(report([row({ ...noRate, typedBy: "Aino" })], { ...unknownCost, unsaved: asked })));
     expect(link(member)).toEqual([]);
     expect(member).not.toContain("Täydennä");
+    // (d) a connected card owing at an unknown rate: Tarkistettavat keeps asking its rate, so the link opens the list
+    const cardRate = { cost: { rateMilli: null, costClass: null, next12: null, leftCents: null, feePerPaymentCents: null, unknown: "rate" } } as const;
+    expect(link(html(loans, context(report([card(cardRate)], { ...unknownCost, unsaved: asked }))))).toEqual(["#/review?item=loan-terms"]);
   });
 
   it("the kind is left out under a name that is the kind", () => {

@@ -306,10 +306,12 @@ function Loans({ ctx }: SectionProps) {
   const limitOf = (l: LoanRow) => (l.accountType === "credit_card" && !belowWhole(l.part) ? cardLimitCents(ctx.meta.accounts.find((a) => `account:${a.id}` === l.id)?.creditLimitCents) : null);
   // the server's order, dearest first: the web never sorts the debts
   const entries: Entry[] = [...inCostOrder(r.loans).map((loan): Entry => ({ id: loan.id, loan })), ...r.unsaved.map((unsaved, i): Entry => ({ id: `unsaved ${i}`, unsaved }))];
-  // where "Täydennä lainat" leads: the list when it still asks about an unsaved debt (not `asked`), else the drill of the
-  // first saved loan the viewer can change whose cost has a missing fact (its own form asks for it), else nowhere
+  // where "Täydennä lainat" leads: the list when it still asks about an unsaved debt (not `asked`) or a connected card's
+  // unknown rate (the list keeps asking it), else the drill of the first saved loan the viewer can change whose cost has a
+  // missing fact (its own form asks for it), else nowhere
+  const listAsks = r.unsaved.some((u) => !u.asked) || r.loans.some((l) => l.id.startsWith("account:") && l.accountType === "credit_card" && l.cost?.unknown === "rate");
   const ownUnknown = r.loans.find((l) => changesLoan(l) && l.cost?.unknown != null);
-  const fillHref = r.unsaved.some((u) => !u.asked) ? LOAN_TERMS_HASH : ownUnknown ? loanHash(ownUnknown.id) : null;
+  const fillHref = listAsks ? LOAN_TERMS_HASH : ownUnknown ? loanHash(ownUnknown.id) : null;
   // a total that leaves unsaved debts out says so, as Yhteenveto's does; the cost is unknown, never the known part, while a debt lacks its terms
   const total = {
     label: t(r.unsaved.length > 0 ? "holdings.debts_known" : "holdings.debts_total"),
