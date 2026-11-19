@@ -18,7 +18,7 @@ export const FI_SET_BANKS = {
   "set.banks.pick_no_match": "Haulla ei löydy pankkia.",
   "set.banks.pick_other_banks": "Luokittelemme muiden pankkien kuin Nordean tapahtumat pankin omien koodien mukaan. Tarkista ensimmäisen kuukauden kategoriat.",
   "set.banks.cards_before": "Ennen {date}",
-  "set.banks.cards_until": "Laskut {date} asti",
+  "set.banks.cards_until": "{date} asti",
   "set.banks.cards_connect": "Yhdistä",
   "set.banks.cards_add_statement": "Lisää tiliote",
   "set.banks.cards_period": "Ajalta",
