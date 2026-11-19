@@ -80,6 +80,13 @@ describe("the question of a loan whose payments cannot be placed", () => {
     expect((await queue(t.admin)).map((d) => d.loanId)).toEqual([line]);
   });
 
+  it("asks the rate once of a card saved by hand with no link beside a connected card that owes at an unknown rate: the two may be one card", async () => {
+    const t = await setupApp();
+    await account(t, t.adminId, "card", "credit_card", -50_000);
+    await save(t.admin, { name: "Kortti", kind: "card", balanceCents: 50_000, balanceDate: "2026-10-01", limitCents: 200_000 });
+    expect(await queue(t.admin)).toEqual([expect.objectContaining({ id: "card:card", loanId: null, gaps: ["rate"] })]);
+  });
+
   it("lists a card saved by hand and linked to its account once, as the card", async () => {
     const t = await setupApp();
     await account(t, t.adminId, "card", "credit_card", -50_000);

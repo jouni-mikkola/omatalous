@@ -155,6 +155,8 @@ function savedDebts(view: OwnView): Listed[] {
   const own = balances.filter((b) => b.ownerName === null);
   const debts = debtsOf(ctx, own, { ...inputs, loans: saved });
   const seriesKeys = saved.flatMap((loan) => loan.seriesKey ?? []);
+  // a connected card that owes at an unknown rate and no saved loan holds may be the very card saved by hand: its row asks the rate once
+  const looseCard = debts.sources.some((src, at) => !src.linked && own.some((b) => b.id === src.accountId && b.type === "credit_card") && debts.connected[at]!.balanceCents > 0 && debts.connected[at]!.rateBp === null);
   const loans = saved.flatMap((loan): Listed[] => {
     // a loan linked to its account owes what the account says, unless the typed balance is the newer word of the two
     const at = debts.sources.findIndex((src) => src.linked && src.loanId === loan.id);
@@ -163,7 +165,7 @@ function savedDebts(view: OwnView): Listed[] {
     const owedCents = told ? debts.connected[at]!.balanceCents : loan.balanceCents;
     const planGaps = openLoanGaps(loan, owedCents, loanTermsDismissed(inputs.marks, loan.id));
     // a card or credit line saved by hand with no link to an account and no rate has no plan to ask, and its rate is the one fact (a linked one is the card's, below)
-    const bareRate = at < 0 && isRevolving(loan.kind) && owedCents > 0 && loan.rateBp === null && !hasReferenceRate(loan);
+    const bareRate = at < 0 && !looseCard && isRevolving(loan.kind) && owedCents > 0 && loan.rateBp === null && !hasReferenceRate(loan);
     // a plan at 0 % that nothing tells the fee of has no cost: its fee is asked when the plan has no other gap
     const gaps = planGaps.length ? planGaps : bareRate ? (["rate"] satisfies LoanTermsMissing[]) : isRevolving(loan.kind) ? [] : loanFeeGaps({ ...loan, balanceCents: owedCents }, debts.day, debtPayments(ctx, loan, seriesKeys));
     if (!gaps.length) return [];
