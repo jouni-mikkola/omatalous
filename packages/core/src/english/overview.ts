@@ -87,6 +87,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.coming_after": "After bills",
   "home.coming_after_unknown": "Not known",
   "home.coming_estimate": "{sum} (estimated {estimate})",
+  "home.coming_unpaid": "{sum} unpaid",
   "home.low": "Lowest balance in {days} days: {date}, about {range}",
   "home.low_label": "Lowest balance in {days} days:",
   "home.low_bills": "The sum or day of a bill is not known",
