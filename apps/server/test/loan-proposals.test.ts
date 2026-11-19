@@ -90,6 +90,27 @@ describe("loan proposals", () => {
     expect(await categories()).toEqual(["loans"]);
   });
 
+  it("reads a credit of unknown kind as the card's bills once a card is saved with its key, and as a credit again when it is removed", async () => {
+    // a bank that issues cards and lends, paid by its name alone in changing sums
+    const changing = [180, 420, 260, 510, 230, 390, 470];
+    const t = await withLoanRows(rows.map((r, i) => (r.amountCents < 0 ? { ...r, counterparty: "BANK NORWEGIAN", description: "VIITE 1234 5678", amountCents: -changing[i / 2]! * 100 } : r)));
+    const [proposal] = await t.proposals();
+    expect(proposal!.key).toMatch(/^out:chk-.+:Bank Norwegian$/);
+    const categories = async () => [...new Set((await t.s.finance(t.adminId).allTransactions()).filter((r) => r.amountCents < 0).map((r) => r.category))];
+    expect(await categories()).toEqual(["loans"]);
+    const credit = { name: "Luottotili", kind: "credit_line", balanceCents: 240_000, balanceDate: "2026-10-01", limitCents: 500_000, seriesKey: proposal!.key };
+    const saved = await t.admin.call("POST", "/api/loans", credit);
+    expect(saved.status).toBe(200);
+    expect(await t.proposals()).toEqual([]);
+    expect(await categories()).toEqual(["loans"]);
+    expect((await t.admin.call("PUT", `/api/loans/${saved.body.loan.id}`, { ...credit, kind: "card" })).status).toBe(200);
+    expect(await categories()).toEqual(["card_bill"]);
+    expect(await t.proposals()).toEqual([]);
+    expect((await t.admin.call("DELETE", `/api/loans/${saved.body.loan.id}`)).status).toBe(200);
+    expect(await categories()).toEqual(["loans"]);
+    expect((await t.proposals()).map((p) => p.key)).toEqual([proposal!.key]);
+  });
+
   it("goes when Ei ole laina is marked, at once, and comes back when the mark is taken away", async () => {
     const t = await withLoanRows();
     const [proposal] = await t.proposals();

@@ -15,7 +15,8 @@
  * A saved loan of kind card likewise names the series of its bills: a bank that issues cards and lends otherwise is paid
  * by its name alone, which the lender rule reads as a credit of unknown kind (`loans`), and the household's answer makes
  * those rows the card's bills (`card_bill`). A card's bill changes every month, so its key holds no amount and every
- * row of the payee on the account that the rule left as `loans` and that names no loan moves.
+ * row of the payee on the account that the rule left as `loans`, that names no loan and that no other saved loan's key
+ * names moves.
  */
 import { daysBetween } from "./dates.ts";
 import { fold } from "./merchant.ts";
@@ -72,9 +73,12 @@ export function applyDeclaredCards(next: readonly Transaction[], locked: Readonl
   const keys = cardSeriesKeys(loans);
   if (!keys.length) return;
   const others = loans.flatMap((loan) => loan.seriesKey ?? []);
+  // a row another saved loan's key names is that loan's payment, such as an instalment of the same bank
+  const rivals = others.filter((key) => !keys.includes(key));
   for (const t of next) {
     if (t.amountCents >= 0 || t.isTransfer || t.category !== "loans" || locked.has(t.id) || SETTLED.has(t.categorySource)) continue;
     if (isLoanText(fold([t.merchant, t.counterparty, t.description].filter(Boolean).join(" ")))) continue;
+    if (rivals.some((rival) => paysSeries(rival, t, others))) continue;
     if (keys.some((key) => paysSeries(key, t, others))) Object.assign(t, { category: "card_bill", categorySource: "rule" });
   }
 }

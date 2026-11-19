@@ -280,6 +280,9 @@ export const isCardIssuerBankText = (folded: string) => CARD_ISSUER_BANK.test(fo
 const CREDIT_ISSUER = words(`${CARD_ISSUER_BANK_WORDS}|${RESURS_WORDS}`);
 /** A bank that issues cards and lends otherwise too: a payment that names it and no loan or card is a credit of unknown kind. */
 export const isCreditIssuerText = (folded: string) => CREDIT_ISSUER.test(folded);
+/** A word for a card beside an issuer's name ("MORROW KORTTI LASKU"), and no loan. KORT alone is a word of an issuer's own name. */
+const ISSUER_CARD_WORD = words(String.raw`[A-Z]*KORTTI[A-Z]*|KORTIN|CARD|MASTERCARD|VISA`);
+export const namesIssuerCard = (folded: string) => ISSUER_CARD_WORD.test(folded) && !/LAINA/.test(folded);
 const SAVINGS_ACCOUNT = words(String.raw`SAASTOTILI[A-Z]*|SAASTO(?:ON|T)?|[A-Z]*TALLETUS[A-Z]*|SAVINGS(?: ACCOUNT)?`);
 /** A savings account or a deposit in a folded text. At an issuer that is a bank such a row is saving, in either direction. */
 export const isSavingsAccountText = (folded: string) => SAVINGS_ACCOUNT.test(folded);

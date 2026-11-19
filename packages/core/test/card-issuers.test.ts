@@ -60,7 +60,9 @@ describe("one display name per card issuer", () => {
       return categorize({ merchant, counterparty, description, mcc: null, amountCents: -45000 }, compileRules([])).category;
     };
     for (const bank of ["MORROW", "Morrow Bank Ab", "SEB Kort Bank Ab", "SEB KORT"]) {
-      expect(category(bank, "LASKU 09/2026"), bank).toBe("card_bill");
+      // the bank's name alone is a credit of unknown kind; a card word makes it the card's bill
+      expect(category(bank, "LASKU 09/2026"), bank).toBe("loans");
+      expect(category(bank, "KORTTILASKU 09/2026"), bank).toBe("card_bill");
       expect(category(bank, "LAINAN LYHENNYS"), bank).toBe("loans");
       expect(category(bank, "SAASTOTILI"), bank).toBe("savings");
     }

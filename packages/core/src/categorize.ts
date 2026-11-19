@@ -12,7 +12,7 @@ import { CARD_CASH_WORDS, OWN_ACCOUNT_TRANSFER_WORDS, TAX_REFUND_WORDS } from ".
 import { GAMBLING_NAME, isGamblingMcc, isGamblingOperator } from "./wording-gambling.ts";
 import { dealerCategory, isCarBrandDealer, isCarBrandName, isCarDealerName, isCarTradeName } from "./wording-car.ts";
 import { HOME_LOAN_WORDS, STUDENT_LOAN_WORDS } from "./wording-loan-pages.ts";
-import { CARD_BRAND_WORDS, CARD_ISSUER_BANK_WORDS, CARD_ISSUER_WORDS, CONSUMER_LENDER_WORDS, CREDIT_WORDS, DAYCARE_WORDS, declinedWords, ELECTRICITY_NETWORK_WORDS, ELECTRICITY_SELLER_WORDS, FINANCE_LENDER_WORDS, hasPayeeForm, INSTALMENT_SERVICE_WORDS, INSURER_WORDS, isBusinessPaymentText, isCashWithdrawalCode, isHousingCompanyName, isInstalmentPlanText, isMortgageBankText, isNoCreditText, isOwnTransferCode, isRefundText, isReimbursementText, isSalaryCode, isSavingsAccountText, LANDLORD_WORDS, LOAN_WORDS, MOBILEPAY_WORDS, namesLoanOrCredit, NORDEA_CARD_WORDS, NORDEA_FINANCE_WORDS, OTHER_TAX_WORDS, PEER_LENDING_WORDS, PENSION_PAYER_WORDS, REIMBURSEMENT_WORDS, RESIDUAL_TAX_WORDS, RESURS_WORDS, SWEDISH_BANK_FEE_WORDS, SWEDISH_SALARY_FIELD, words } from "./wording.ts";
+import { CARD_BRAND_WORDS, CARD_ISSUER_BANK_WORDS, CARD_ISSUER_WORDS, CONSUMER_LENDER_WORDS, CREDIT_WORDS, DAYCARE_WORDS, declinedWords, ELECTRICITY_NETWORK_WORDS, ELECTRICITY_SELLER_WORDS, FINANCE_LENDER_WORDS, hasPayeeForm, INSTALMENT_SERVICE_WORDS, INSURER_WORDS, isBusinessPaymentText, isCashWithdrawalCode, isHousingCompanyName, isInstalmentPlanText, isMortgageBankText, isNoCreditText, isOwnTransferCode, isRefundText, isReimbursementText, isSalaryCode, isSavingsAccountText, LANDLORD_WORDS, LOAN_WORDS, MOBILEPAY_WORDS, namesIssuerCard, namesLoanOrCredit, NORDEA_CARD_WORDS, NORDEA_FINANCE_WORDS, OTHER_TAX_WORDS, PEER_LENDING_WORDS, PENSION_PAYER_WORDS, REIMBURSEMENT_WORDS, RESIDUAL_TAX_WORDS, RESURS_WORDS, SWEDISH_BANK_FEE_WORDS, SWEDISH_SALARY_FIELD, words } from "./wording.ts";
 
 export interface CategorizeInput {
   merchant: string;
@@ -51,9 +51,6 @@ interface BuiltinRule {
 /** Whole-word alternation: the one word boundary of the bank dialect (wording.ts). */
 const w = words;
 
-/** A word for a card beside an issuer's name ("MORROW KORTTI LASKU"). KORT alone is a word of an issuer's own name. */
-const ISSUER_CARD_WORD = w(String.raw`[A-Z]*KORTTI[A-Z]*|KORTIN|CARD|MASTERCARD|VISA`);
-
 /** A car maker's foreign finance arm: it lends no payout to a household, so money in from it is a refund, never a loan drawn. */
 const FOREIGN_FINANCIER = /TOYOTA FINANCIAL SERVICES/;
 
@@ -86,10 +83,10 @@ const PURPOSE_RULES: readonly BuiltinRule[] = [
   { category: "income", direction: "in", re: w(String.raw`VUOKRA(?:T|TULO[A-Z]*|TILITYS|NMAKSU)?`) },
 
   // ── credit cards: the bill is a transfer when the card account is connected (transfers.ts) ──
-  // The issuers that are banks also lend and take deposits: LAINA in the text is a loan payment (loans, below), SÄÄSTÖTILI is saving
+  // The issuers that are banks also lend and take deposits: LAINA in the text is a loan payment (loans, below), SÄÄSTÖTILI is saving,
+  // a card word the card's bill, and their name alone a credit of unknown kind (loans, below)
   { category: "savings", re: w(CARD_ISSUER_BANK_WORDS), when: isSavingsAccountText },
-  // their name alone is a credit of unknown kind (loans, below); a card word beside it makes it the card's bill
-  { category: "card_bill", direction: "out", re: w(CARD_ISSUER_BANK_WORDS), when: (text) => ISSUER_CARD_WORD.test(text) && !/LAINA/.test(text) },
+  { category: "card_bill", direction: "out", re: w(CARD_ISSUER_BANK_WORDS), when: namesIssuerCard },
   {
     category: "card_bill",
     direction: "out",
