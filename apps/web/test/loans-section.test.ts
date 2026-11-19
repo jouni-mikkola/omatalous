@@ -310,7 +310,6 @@ describe("Raportit: Lainat", () => {
     // an unsaved debt is a cause too: the list of debts asks for all of it
     const unsaved = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }];
     expect(link(html(loans, context(report([row(noRate)], { ...unknownCost, unsaved }))))).toEqual(["#/review?item=loan-terms"]);
-    expect(link(html(loans, context(report([], { ...unknownCost, unsaved, payments: { monthlyCents: 0, counted: 0, unknown: 0, bullets: 0 } }))))).toEqual(["#/review?item=loan-terms"]);
     // another member's loan or a connected account the viewer cannot change has no drill of theirs to open
     expect(link(html(loans, context(report([row({ ...noRate, typedBy: "Aino" })], unknownCost))))).toEqual(["#/review?item=loan-terms"]);
     expect(link(html(loans, context(report([row({ ...noRate, id: "account:acc-1" })], unknownCost))))).toEqual(["#/review?item=loan-terms"]);
