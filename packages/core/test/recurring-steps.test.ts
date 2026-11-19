@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { detectRecurring } from "../src/recurring.ts";
-import { typicalAmountOf } from "../src/recurring-cost.ts";
+import { typicalAmountOf, yearlyCostOf } from "../src/recurring-cost.ts";
+import { CADENCES } from "../src/recurring-cadence.ts";
 import { series } from "./helpers.ts";
 
 const today = "2026-10-09";
@@ -72,5 +73,53 @@ describe("the typical amount of a series", () => {
     expect(typicalAmountOf(occurrences([6120, 7480, 5530, 4210, 6120]))).toBe(5530);
     // the latest charge is lower and was seen before, yet the sums are on no two levels
     expect(typicalAmountOf(occurrences([4210, 7480, 5530, 6120, 4210]))).toBe(5530);
+  });
+
+  // a credit paid at 400 € with two repayments of capital (7 300 € and 2 500 €) and two months of 450 €
+  const prepaid = [40000, 40000, 40000, 730000, 40000, 250000, 45000, 45000, 40000, 40000, 40000, 40000];
+  const monthlyCadence = CADENCES.find((c) => c.id === "monthly")!;
+
+  it("leaves repayments of capital out of the regular instalment", () => {
+    expect(typicalAmountOf(occurrences(prepaid.slice(0, 9)))).toBe(40000);
+    expect(lender(prepaid.slice(0, 9)).typicalAmountCents).toBe(40000);
+  });
+
+  it("keeps the regular instalment as the monthly payment while the history grows", () => {
+    // nine charges are one series of varying sums; from ten on, the 400 € instalments are a series of their own and the
+    // repayments fill their months as one instalment each
+    for (const amounts of [prepaid.slice(0, 9), prepaid.slice(0, 10), prepaid, [...prepaid, ...prepaid]]) {
+      const found = detectRecurring(series(addStart(amounts.length), 30.44, amounts.length, (i) => -amounts[i]!, { merchant: "Example Lender", category: "loans" }), today);
+      expect(found.map((s) => s.monthlyCents)).toEqual([40000]);
+    }
+  });
+
+  it("costs a year of a bill with a repayment of capital at its regular instalment", () => {
+    const year = occurrences(prepaid);
+    expect(yearlyCostOf(year, monthlyCadence, "bill", typicalAmountOf(year), 12, true)).toBe(480000);
+  });
+
+  it("counts a one-off of a bill that is no debt as one typical charge and keeps its other charges", () => {
+    const utility = [40000, 40000, 40000, 40000, 60000, 60000, 60000, 730000, 40000, 40000, 40000, 40000];
+    const year = occurrences(utility);
+    expect(typicalAmountOf(year)).toBe(40000);
+    // 8 x 400 + 3 x 600 + the 7 300 one-off as 400
+    expect(yearlyCostOf(year, monthlyCadence, "bill", 40000, 12, false)).toBe(540000);
+  });
+
+  it("leaves out a run of repayments that ends back at the instalment", () => {
+    expect(typicalAmountOf(occurrences([40000, 40000, 40000, 40000, 40000, 730000, 250000, 250000, 40000]))).toBe(40000);
+  });
+
+  it("moves to a new level that is over twice the old one and stays", () => {
+    expect(typicalAmountOf(occurrences([1000, 1000, 1000, 1000, 1000, 1000, 2500, 2500, 2500]))).toBe(2500);
+    expect(typicalAmountOf(occurrences([1000, 1000, 1000, 1000, 1000, 1000, 1000, 2500, 2600]))).toBe(2500);
+  });
+
+  it("keeps every charge of a card bill, whose sum has no regular level", () => {
+    const card = [30000, 80000, 150000, 45000, 200000, 60000, 70000, 52000, 180000, 66000, 91000, 40000];
+    const year = occurrences(card);
+    // the median of the latest three and the sum of the twelve, as before one-off charges were left out
+    expect(typicalAmountOf(year)).toBe(66000);
+    expect(yearlyCostOf(year, monthlyCadence, "bill", 66000, 12, false)).toBe(card.reduce((a, b) => a + b, 0));
   });
 });
