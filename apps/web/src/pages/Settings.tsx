@@ -6,11 +6,11 @@ import { Tabs } from "../components/ui/Tabs.tsx";
 import "../styles/settings.css";
 
 /**
- * Asetukset is six targets, each a route of its own (`#/settings/<id>`, routes.ts `SETTINGS_TARGETS`): Pankit ja tilit,
- * Talous, Turvallisuus, Tiedot and, for an admin, Jäsenet and Palvelin ja ylläpito. While an add-on module is loaded,
+ * Asetukset is five targets, each a route of its own (`#/settings/<id>`, routes.ts `SETTINGS_TARGETS`): Pankit ja tilit,
+ * Turvallisuus, Tiedot and, for an admin, Jäsenet and Palvelin ja ylläpito. While an add-on module is loaded,
  * Lisäosa comes after them (`ADD_ON_TARGET`). This is the frame: the links to the
  * targets that the signed-in role is offered, and the outlet where the router puts the open one. An address from before
- * the targets (`?section=`, a bare `#/settings`, an anchor such as `#lainat`) is rewritten to its target in `redirectRoute`.
+ * the targets (`?section=`, a bare `#/settings`, an anchor such as `#salasana`) is rewritten to its target in `redirectRoute`.
  * `?add=1` opens Pankit ja tilit at the bank picker, and an address anchor scrolls to its card. The row of
  * tabs wraps under 600 px so every target is in sight, and scrolls sideways where it still does not fit, with the open target brought into sight.
  */

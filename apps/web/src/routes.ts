@@ -1,5 +1,7 @@
+import { LOAN_LINK_PARAM } from "./components/loans/form.ts";
 import { WEB_EXTENSIONS } from "./extensions.ts";
 import { pageOfPeriod } from "./period.ts";
+import { DRILL_PARAM, tableId, writeTableState } from "./table-state.ts";
 import { t } from "./text.ts";
 
 export interface Route {
@@ -22,8 +24,8 @@ export const SETTINGS_ANCHOR = {
   quality: "laatu",
   accounts: "tilit",
   exampleData: "esimerkkitiedot",
+  /** The loans were a card of Asetukset: an address that names it opens the loans in Raportit (`loansRoute`). */
   loans: "lainat",
-  goal: "menotavoite",
   bankApp: "pankkisovellus",
   statement: "tiliote",
   server: "palvelin",
@@ -32,12 +34,11 @@ export const SETTINGS_ANCHOR = {
 } as const;
 
 /**
- * The six targets of Asetukset, in the order the reader sees them. Each is a route of its own (`#/settings/<id>`); an
+ * The five targets of Asetukset, in the order the reader sees them. Each is a route of its own (`#/settings/<id>`); an
  * `admin` target is not offered to a member and its address opens the first target instead.
  */
 export const SETTINGS_TARGETS = [
   { id: "banks", get label() { return t("set.tab.banks"); } },
-  { id: "household", get label() { return t("set.tab.household"); } },
   { id: "members", get label() { return t("set.tab.members"); }, admin: true },
   { id: "security", get label() { return t("set.tab.security"); } },
   { id: "data", get label() { return t("set.tab.data"); } },
@@ -45,7 +46,7 @@ export const SETTINGS_TARGETS = [
 ] as const satisfies readonly { id: string; label: string; admin?: true }[];
 
 /**
- * The target of an add-on module (docs/MODULES.md), after the six: the module's own cards (extensions.ts `settingsCard`)
+ * The target of an add-on module (docs/MODULES.md), after the five: the module's own cards (extensions.ts `settingsCard`)
  * and, for an admin, the card of the add-on's code, version and state. It is offered only while a module is loaded in
  * the page (`addOnTargetOffered`); without one the code card is on Palvelin ja ylläpito.
  */
@@ -77,8 +78,6 @@ const CARD_TARGET: Record<string, SettingsTarget> = {
   [SETTINGS_ANCHOR.accounts]: "banks",
   [SETTINGS_ANCHOR.exampleData]: "data",
   "tilien-kayttajat": "banks",
-  [SETTINGS_ANCHOR.loans]: "household",
-  [SETTINGS_ANCHOR.goal]: "household",
   "jasenet-ilman-tunnusta": "members",
   "tilien-jakaminen": "banks",
   [SETTINGS_ANCHOR.password]: "security",
@@ -156,6 +155,28 @@ function merchantsView(route: Route): Route {
 /** The card of Raportit that tells the loans, as the anchor of its section. */
 export const LOANS_REPORT_ANCHOR = "lainat";
 
+/** The page of Raportit where the loans are kept: Varat ja velat. */
+const LOANS_QUESTION = "saldot";
+
+/**
+ * Where the loans are kept: Raportit > Varat ja velat. With `loan` that loan's row of Lainat is open, whose drill edits
+ * and removes it; `edit` opens its editor too, with `account` chosen for the link when it is one the loan can take.
+ */
+export function loansRoute(open?: { loan: string; edit?: boolean; account?: string | null }): Route {
+  const params = new URLSearchParams({ q: LOANS_QUESTION });
+  if (!open) return { page: "reports", params };
+  params.set(DRILL_PARAM, writeTableState(undefined, tableId(t("rpt.ln_caption")), open.loan)!);
+  if (open.edit) params.set(LOAN_LINK_PARAM.loan, open.loan);
+  if (open.edit && open.account) params.set(LOAN_LINK_PARAM.account, open.account);
+  return { page: "reports", params, anchor: LOANS_REPORT_ANCHOR };
+}
+
+/** The address of a loan's row in Varat ja velat, open. */
+export const loanHash = (loan: string): string => hashOf(loansRoute({ loan }));
+
+/** The address that opens the editor of a saved loan, with `account` chosen for its link. */
+export const loanEditHash = (loan: string, account?: string): string => hashOf(loansRoute({ loan, edit: true, account }));
+
 /** The parameters with `patch` laid over them: a value that is empty or undefined removes its parameter. The one way an address is built from another. */
 export function withParams(base: URLSearchParams, patch: Record<string, string | undefined>): URLSearchParams {
   const next = new URLSearchParams(base);
@@ -184,8 +205,8 @@ export function parseHash(hash: string): Route {
 /**
  * Where an address that is not a page's own opens, or null when it is. The router rewrites the address with
  * `replaceState`, so Back does not return to it. A period belongs to one page: a Raportit period on the month page, or
- * a month on Raportit, opens the page that offers it. Asetukset has six targets and the add-on target, each a route of
- * its own (`#/settings/household`): the bare `#/settings` (the return from a bank comes there with `connected` or
+ * a month on Raportit, opens the page that offers it. Asetukset has five targets and the add-on target, each a route of
+ * its own (`#/settings/security`): the bare `#/settings` (the return from a bank comes there with `connected` or
  * `error`, and `?add=1` opens the bank list) and an address that names no target open the first target with their
  * parameters, and a member's address of an admin's target opens the first target. An address that names a card on
  * another target (`#/settings/household#salasana`, from the time the cards were on three targets, or
@@ -197,7 +218,8 @@ export function parseHash(hash: string): Route {
  * (`#/recurring`), which became Laskut (`#/bills`); Kuukausi of Raportit (`#/reports?q=kuukausi`, `#/reports#kuukausi`,
  * `#/reports?month=`), which opens Yhteenveto; and the technical page and Ylläpito of Asetukset (`?section=technical`,
  * `?section=maintenance`), which open the server target for an admin and the first target for a member; and the reports
- * Kiinteät menot (`#/reports?q=kiinteat`), which opens Laskut, and Velat (`?q=velat`), which opens Varat ja velat.
+ * Kiinteät menot (`#/reports?q=kiinteat`), which opens Laskut, and Velat (`?q=velat`), which opens Varat ja velat; and
+ * Asetukset > Talous with its card of the loans (`#/settings/household`, `#lainat`), which opens Varat ja velat.
  */
 export function redirectRoute(route: Route, role: "admin" | "member" = "member"): Route | null {
   const section = route.page === "settings" ? route.params.get("section") : null;
@@ -216,6 +238,12 @@ export function redirectRoute(route: Route, role: "admin" | "member" = "member")
   // an address that names a card on another target (a link from before the card moved) opens the card's own target
   const home = route.page === "settings" || route.page.startsWith("settings/") ? targetOfCard(route.anchor) : undefined;
   if (home && route.page !== `settings/${home}`) return opened({ page: `settings/${home}`, params: route.params, anchor: route.anchor! }, role);
+  // the loans were Asetukset > Talous (`#/settings/household`, its card `#lainat`) and are kept in Varat ja velat; a link to
+  // one loan's editor (`linkLoan`, `linkAccount`) opens that loan's row with its editor
+  if (route.page === "settings/household" || ((route.page === "settings" || route.page.startsWith("settings/")) && route.anchor === SETTINGS_ANCHOR.loans)) {
+    const loan = route.params.get(LOAN_LINK_PARAM.loan);
+    return loansRoute(loan ? { loan, edit: true, account: route.params.get(LOAN_LINK_PARAM.account) } : undefined);
+  }
   // the add-on target while no module is loaded, or with nothing there for a member
   if (route.page === ADD_ON_PAGE && !addOnTargetOffered(role)) return opened(route, role);
   // the bare address, and one under settings/ that names no target (typed by hand), open the first target
