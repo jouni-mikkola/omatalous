@@ -123,7 +123,7 @@ function takenBill(inputs: UserInputs): (t: Pick<AnalysisTx, "accountId" | "merc
   return (t) => keys.some((key) => paysSeries(key, t, loanKeys));
 }
 
-/** The sum and the last day of a card's bills, null for none. */
+/** The sum and the last day of a card's bills (`missingCardBills`, from loweredRows: what its statement left of each), null for none. */
 function billsOf(bills: readonly AnalysisTx[]): Pick<CardGap, "cents" | "lastDate"> {
   if (!bills.length) return { cents: null, lastDate: null };
   return { cents: bills.reduce((sum, t) => sum + t.spend, 0), lastDate: bills.reduce((last, t) => (t.bookingDate > last ? t.bookingDate : last), bills[0]!.bookingDate) };

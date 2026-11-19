@@ -5,7 +5,8 @@ import { missingCardPurchases } from "../src/analysis/card-bills.ts";
 import { periodProblem, type StatementBill } from "../src/analysis/statement-explain.ts";
 import { dayNumber, monthIndex } from "../src/dates.ts";
 import { spendingMonthsReport } from "../src/reports/spending-months.ts";
-import type { Account, AccountUse, Part, Transaction } from "../src/types.ts";
+import { type Account, type AccountUse, NO_INPUTS, type Part, type Transaction } from "../src/types.ts";
+import { cardGaps } from "../src/unconnected-cards.ts";
 import { tx } from "./helpers.ts";
 
 const TODAY = "2026-04-01";
@@ -66,6 +67,11 @@ describe("a card statement explains one bill", () => {
     expect(spendRows(none, ALL)).toEqual(none.txs);
     expect(spendOf(build([bill()], [statement(caseA())]))).toBe(spendOf(none));
     expect(billsIn(none)).toBe(42000);
+  });
+
+  it("the card's row in Täydennä lainat asks what the statement left of the bill, as the figure of missing purchases does", () => {
+    expect(cardGaps(build([bill()], [statement(caseA())]), NO_INPUTS).map((g) => [g.cardId, g.cents])).toEqual([["card", 12850]]);
+    expect(cardGaps(build([bill()], []), NO_INPUTS).map((g) => [g.cardId, g.cents])).toEqual([["card", 42000]]);
   });
 
   it("E over S reads none, one cent under is read and leaves the cent unexplained", () => {

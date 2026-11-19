@@ -302,7 +302,7 @@ describe("a card whose purchases are missing in the list", () => {
     await screen.findByRole("link", { name: "Lisää tiliote" }, T);
     expect(answers(openRow(0))).toEqual(["Lisää tiliote", "En tiedä"]);
     const heading = plain(openRow(0).querySelector(".review-debt-name")!.textContent);
-    expect(heading).toMatch(/^Kolmaspankki Gold · ostot 1\.6\.(2026 )?alkaen$/);
+    expect(heading).toMatch(/^Kolmaspankki Gold · ostot 1\.6\.( 2026)? alkaen$/);
     expect(heading).not.toMatch(/0,00|laskut|eräpäivä/);
     fireEvent.click(within(openRow(0)).getByRole("button", { name: "En tiedä" }));
     await waitFor(() => expect(seen.some((s) => s.path === "/api/marks")).toBe(true), T);
