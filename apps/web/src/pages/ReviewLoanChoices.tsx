@@ -15,12 +15,13 @@ import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
 import { date, money, monthYear, percent } from "../format.ts";
 import { useApi } from "../hooks.ts";
-import { SETTINGS_ANCHOR, settingsCardHash, settingsHash } from "../routes.ts";
+import { SETTINGS_ANCHOR, settingsCardHash } from "../routes.ts";
 import { t } from "../text.ts";
 import type { LoansAnswer, Meta } from "../types.ts";
 import { ChoiceButton, mark } from "./review-buttons.tsx";
 import { creditKindChoices } from "./review-items.ts";
 import type { LoanTermsDebt, LoanTermsListItem } from "./review-loan-items.ts";
+import { cardGapFacts, CardChoices } from "./ReviewCardChoices.tsx";
 import { PlanChoices } from "./ReviewPlanChoices.tsx";
 
 /**
@@ -56,11 +57,13 @@ function resultLine(loan: Loan, fixings: Fixings, today: string): string {
  */
 function factsOf(debt: LoanTermsDebt): string[] {
   const proposed = debt.source === "proposal";
-  const due = debt.terms?.dueDate ?? debt.lastDate;
-  const kindKnown = proposed ? debt.kindUnknown !== true : debt.placed && debt.source !== "card_bill";
+  // a card's missing bills tell no due day
+  const due = debt.source === "card_gap" ? null : (debt.terms?.dueDate ?? debt.lastDate);
+  const kindKnown = proposed ? debt.kindUnknown !== true : debt.placed && debt.source !== "card_bill" && debt.source !== "card_gap";
   return [
     kindKnown && KIND_LABEL[debt.kind] !== debt.name ? KIND_LABEL[debt.kind] : null,
     debt.monthlyCents === null ? null : t("rpt.ln_per_month", { amount: money(debt.monthlyCents) }),
+    ...cardGapFacts(debt),
     due === null || proposed ? null : t("set.rc.lt_due_day", { day: Number(due.slice(8, 10)) }),
     debt.owedCents === null ? null : `${t("set.loans.remaining")} ${money(debt.owedCents)}`,
   ].filter((fact) => fact !== null);
@@ -113,7 +116,7 @@ export function LoanTermsChoices({ item, meta, busy, onAnswer, onHold, onReload 
   const open = item.debts.filter((d) => !closed.some((c) => c.id === d.id));
   const done = open.length === 0;
   // forms filled from rows share the connected loan accounts: with two of them in the list, neither takes one by itself
-  const fromRows = (debts: readonly LoanTermsDebt[]) => debts.filter((d) => d.source === "proposal" || d.source === "card_bill").length;
+  const fromRows = (debts: readonly LoanTermsDebt[]) => debts.filter((d) => d.source === "proposal" || d.source === "card_bill" || (d.source === "card_gap" && d.accountId === null)).length;
   const [oneAtOpen] = useState(() => fromRows(item.debts) <= 1);
   const ownsAccount = oneAtOpen && fromRows(open) <= 1;
 
@@ -211,6 +214,7 @@ function DebtRow(props: RowProps) {
     case "plan":
       return <PlanChoices lastDate={props.debt.lastDate ?? props.meta.today} busy={props.busy} onEnd={(end) => props.onSend(() => mark(planSubject(end, props.debt.key ?? ""), "in_use")().then(() => (end === null ? t("set.rc.i_don_t_know") : t("set.rc.lt_ends", { date: monthYear(end) }))))} />;
     case "card_bill":
+    case "card_gap":
       return <CardBillRow {...props} />;
   }
 }
@@ -456,9 +460,9 @@ function SavedLoanChoice({ debt, answer, meta, busy, onSend, already, open, gone
 }
 
 /**
- * A card the household pays and has not connected: connect it where the connections are, or save what it owes as a loan
- * of kind card, linked to its bills. A card already saved under Lainat with no link is told by linking that loan to the
- * series, so its debt is not saved twice; with several such loans the household says which one it is.
+ * A card the household pays and has not connected, or whose purchases are missing (`CardChoices`); saving what it owes
+ * opens the form of a loan of kind card, linked to its bills. A card already saved under Lainat with no link is told by
+ * linking that loan to the series, so its debt is not saved twice; with several such loans the household says which one it is.
  */
 function CardBillRow({ debt, meta, answer, busy, onSend, onSaved, ownsAccount }: RowProps) {
   const [saving, setSaving] = useState(false);
@@ -472,14 +476,8 @@ function CardBillRow({ debt, meta, answer, busy, onSend, onSaved, ownsAccount }:
     );
   }
   return (
-    <div className="review-choices">
-      <Button className="review-choice" href={settingsHash("banks")}>
-        {t("set.rc.connect_the_card")}
-      </Button>
-      <ChoiceButton busy={busy} onClick={() => setSaving(true)}>
-        {t("set.rc.enter_the_card_debt")}
-      </ChoiceButton>
+    <CardChoices debt={debt} busy={busy} onSend={onSend} onDebt={() => setSaving(true)}>
       {debt.savedCards.length > 0 && <SavedLoanChoice debt={debt} answer={answer} meta={meta} busy={busy} onSend={onSend} already={t("set.rc.card_already_saved")} open={t("set.rc.open_the_saved_card")} gone={t("set.rc.saved_card_gone")} />}
-    </div>
+    </CardChoices>
   );
 }

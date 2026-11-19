@@ -109,6 +109,8 @@ export interface CardGap {
   cents: number | null;
   /** The day of the latest of those bills, null for none. */
   lastDate: IsoDate | null;
+  /** The day a connected card's rows begin when that is inside the twelve months, else null. */
+  since: IsoDate | null;
 }
 
 /**
@@ -163,12 +165,14 @@ export function cardGaps(ctx: AnalysisContext, inputs: UserInputs): CardGap[] {
     const bills = byCard.get(card.id) ?? [];
     const late = Number.isFinite(began(card.id)) && !accountCovers(ctx, [card.id], window.from);
     if (otherKind.has(card.id) || (!bills.length && !late)) return [];
-    return [{ key: seriesId({ direction: "out", accountId: card.id, merchant: card.id, product: null }), payee: card.name, cardId: card.id, ...billsOf(bills) }];
+    // the rows are sorted by day, so the first of the card is the day they begin
+    const since = late ? (ctx.txs.find((t) => t.accountId === card.id)?.bookingDate ?? null) : null;
+    return [{ key: seriesId({ direction: "out", accountId: card.id, merchant: card.id, product: null }), payee: card.name, cardId: card.id, ...billsOf(bills), since }];
   });
   const loose = [...byIssuer.values()]
     .map((bills): CardGap => {
       const last = bills.reduce((a, b) => (b.bookingDate > a.bookingDate ? b : a));
-      return { key: seriesId({ direction: "out", accountId: last.accountId, merchant: last.merchant, product: null }), payee: withoutSwedishTwin(last.merchant), cardId: null, ...billsOf(bills) };
+      return { key: seriesId({ direction: "out", accountId: last.accountId, merchant: last.merchant, product: null }), payee: withoutSwedishTwin(last.merchant), cardId: null, ...billsOf(bills), since: null };
     })
     .sort(largestFirst);
   // the card loans saved with no link that the cards paid each month left over take the largest of these

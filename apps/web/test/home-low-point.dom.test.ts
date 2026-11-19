@@ -49,7 +49,7 @@ describe("LowPoint", () => {
   });
 
   it.each([
-    ["cards", "#/settings/banks#tiliote", "Lisää kortin tiliote"],
+    ["cards", "#/review?item=loan-terms", "Lisää kortin tiliote"],
     ["bills", "#/bills", "Laskun summa puuttuu"],
   ] as const)("links the reason %s to where it is mended, in three words at most", (reason, href, text) => {
     const { container } = render(createElement(LowPoint, { lowPoint: { known: false, reason, days: 60 } }));
