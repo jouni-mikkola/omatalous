@@ -61,11 +61,19 @@ export async function install(root: string, checked: CheckedBundle, packed: Buff
   return a;
 }
 
-/** Deletes every module, version and leftover temporary file but the active one; run at start, before anything serves them. */
-export async function prune(root: string, a: Active): Promise<void> {
+/** True when active.json is not there at all. A file that is there but unreadable is not missing: nothing is deleted beside it. */
+export function activeMissing(root: string): boolean {
+  return !existsSync(activeFile(root));
+}
+
+/**
+ * Deletes every module, version and leftover temporary file but the active one, or all of them when there is none;
+ * run at start, before anything serves them.
+ */
+export async function prune(root: string, a: Active | null): Promise<void> {
   for (const id of await readdir(root)) {
     if (id === "active.json") continue;
-    if (id !== a.id) await rm(join(root, id), { recursive: true, force: true });
+    if (!a || id !== a.id) await rm(join(root, id), { recursive: true, force: true });
     else for (const v of await readdir(join(root, id))) if (v !== a.version) await rm(join(root, id, v), { recursive: true, force: true });
   }
 }
@@ -83,7 +91,10 @@ export async function extract(root: string, a: Active, files: Map<string, Buffer
   return dir;
 }
 
-/** Deletes the module folder. The module's tables in the database stay. */
-export async function removeAll(root: string): Promise<void> {
-  await rm(root, { recursive: true, force: true });
+/**
+ * Names no module as installed, so the next start loads none and `prune` then deletes the files. They stay until then:
+ * the running process serves the module's web files from them. The module's tables in the database stay.
+ */
+export async function removeActive(root: string): Promise<void> {
+  await rm(activeFile(root), { force: true });
 }

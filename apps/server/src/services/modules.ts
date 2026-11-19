@@ -12,7 +12,7 @@ import { type ModuleCode, moduleCodeText, parseModuleCode } from "../modules/cod
 import { download, FetchFailed, listCandidates } from "../modules/fetch.ts";
 import type { StartState } from "../modules/load.ts";
 import { compareVersions, parseVersion } from "../modules/semver.ts";
-import { install, readActive, removeAll } from "../modules/store.ts";
+import { install, readActive, removeActive } from "../modules/store.ts";
 import type { Services } from "./context.ts";
 import { checkPassword, type Req } from "./ops.ts";
 import { recordEvent } from "./security.ts";
@@ -204,14 +204,15 @@ export async function setModuleCode(s: Services, user: User, o: { code?: unknown
 }
 
 /**
- * Removes the code and the module's files, for the admin's password. Its tables and the version floor stay; the running
- * process keeps it until a restart.
+ * Removes the code and the module's install record, for the admin's password. Its tables and the version floor stay.
+ * The files stay until the next start deletes them: the running process serves the module's web files from them.
+ * A running module keeps running until then.
  */
 export async function removeModuleCode(s: Services, user: User, o: { password?: unknown }, req: Req): Promise<ModuleView> {
   await checkPassword(s, user, typeof o.password === "string" ? o.password : "", req, "lisäosan poisto");
   await s.settings.delete(KEY);
   await s.settings.delete(STATUS_KEY);
-  if (s.modules?.root) await removeAll(s.modules.root);
+  if (s.modules?.root) await removeActive(s.modules.root);
   await recordEvent(s, { kind: "module_code_removed", userId: user.id, ip: req.ip, userAgent: req.userAgent ?? null });
   return moduleView(s);
 }
