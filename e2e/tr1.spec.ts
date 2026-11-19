@@ -202,7 +202,7 @@ test("each kind is asked in its own words and answered through its own route, th
   await context.close();
 });
 
-test("on a phone the card whose bills are paid and which is not connected offers two large answers, and entering the debt opens the loan form", async ({ browser }) => {
+test("on a phone the card whose bills are paid and which is not connected offers four large answers, and adding the debt opens the loan form", async ({ browser }) => {
   const { context, page, seen } = await open(browser, 390, [cardBill]);
   await page.route(/\/api\/loans$/, (route) => (route.request().method() === "GET" ? route.fulfill({ json: { loans: [], fixings: {} } }) : route.fallback()));
   await expect(card(page).locator(".review-kind")).toHaveText("Velat");
@@ -210,8 +210,10 @@ test("on a phone the card whose bills are paid and which is not connected offers
   // the card is a row of the list, headed by what its bills tell
   expect(plain((await card(page).locator(".review-debt-name").textContent()) ?? "")).toBe("Esimerkkikortti · 460,00 €/kk · eräpäivä 12.");
   const connect = card(page).getByRole("link", { name: "Yhdistä kortti" });
-  const enter = card(page).getByRole("button", { name: "Kirjaa kortin velka" });
-  for (const answer of [connect, enter]) expect((await answer.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  const enter = card(page).getByRole("button", { name: "Lisää kortin velka" });
+  const statement = card(page).getByRole("link", { name: "Lisää tiliote" });
+  const unknown = card(page).getByRole("button", { name: "En tiedä" });
+  for (const answer of [connect, enter, statement, unknown]) expect((await answer.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   expect(await overflow(page)).toBeLessThanOrEqual(0);
   if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-card-bill-390.png"), fullPage: true });
   await enter.click();
