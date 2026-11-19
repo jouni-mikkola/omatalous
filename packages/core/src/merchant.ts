@@ -484,7 +484,7 @@ export function normalizeMerchant(counterparty: string | null, description: stri
     // The chains of the car trade are listed with their form ("LAAKKONEN OY"): that form stays too.
     while (all.length > 1 && COMPANY_FORMS.has(fold(all[all.length - 1]!)) && !formTellsApart(all)) all.pop();
     // the bank's Swedish word beside the Finnish one it repeats ("LAINAT LÅN") is no part of the name, as in a loan's name
-    const words = withoutSwedishTwin(all.join(" ")).split(" ").slice(0, 4);
+    const words = withoutSwedishTwin(all.join(" ")).split(" ").filter(Boolean).slice(0, 4);
     // whole words up to 40 characters
     while (words.length > 1 && words.join(" ").length > 40) words.pop();
     if (words.length) return titleCase(words.join(" ")).slice(0, 40);
