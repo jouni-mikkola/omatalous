@@ -88,8 +88,9 @@ function MonthSums({ month, unknownCount, open }: { month: CalMonth; unknownCoun
   const bills = month.estimateCents > 0 ? (paid ? t("bills.sum_unpaid_estimate", pay) : t("bills.sum_bills_estimate", pay)) : paid ? t("bills.sum_unpaid", pay) : t("bills.sum_bills", pay);
   return (
     <span className="bill-sums">
-      {paid && <span>{t("bills.sum_paid", { sum: money(month.paidCents) })}</span>}
+      {/* the bills still to pay come first, as in the bills column of the front page: both read `billsCents` */}
       <span>{bills}</span>
+      {paid && <span>{t("bills.sum_paid", { sum: money(month.paidCents) })}</span>}
       {open && <span className="bill-kinds">{KINDS.map(([code, field]) => month[field] > 0 && <span key={field}>{t(code, { sum: money(month[field]) })}</span>)}</span>}
       {unknownCount > 0 && <span>{tn(unknownCount, "bills.unknown_one", "bills.unknown_many")}</span>}
       {month.incomeCents > 0 && <span>{t("bills.sum_income", { sum: money(month.incomeCents) })}</span>}
