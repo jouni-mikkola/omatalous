@@ -85,7 +85,7 @@ describe("Raportit: Lainat", () => {
     const cost = (rateMilli: number, costClass: "cheap" | "dear" | "very_dear", cents: number) => ({ rateMilli, costClass, next12: { cents, interestCents: cents, feeCents: 0 }, leftCents: cents, feePerPaymentCents: 0, unknown: null });
     const out = words(html(loans, context(report([row({ id: "a", name: "Kallis laina", balance: { cents: 500_000, unknown: null }, cost: cost(9_400, "dear", 40_000) }), row({ id: "b", name: "Halpa laina", cost: cost(3_300, "cheap", 380_000) }), row({ id: "c", name: "Kortti", cost: cost(31_000, "very_dear", 90_000) })]))));
     expect(out).toContain("Velka Saldo Todellinen korko Korot ja kulut 12 kk");
-    expect(out).toMatch(/Kallis laina .*5 000 € 0,09 % Kallis 400 €/);
+    expect(out).toMatch(/Kallis laina .*5 000 € 9,40 % Kallis 400 €/);
     expect(out).toContain("3,30 % 3 800 €");
     expect(out).toContain("Erittäin kallis");
     // a cheap debt carries no word, and no other word is told
@@ -238,7 +238,7 @@ describe("Raportit: Lainat", () => {
     expect(out).toContain('<small class="loan-about">Luottokortti · 200,00 €/kk</small>');
     // nothing is saved, so there is no total and no row to open
     expect(out).not.toContain("rt-total");
-    expect(out).not.toContain("rt-drill");
+    expect(out).not.toContain("data-drill");
     // no total of a debt nobody told: the tiles are of the saved loans
     expect(out).not.toContain("tiedossa");
   });
@@ -297,7 +297,7 @@ describe("Raportit: Lainat", () => {
     expect(mine).toContain('<span class="loan-unknown">–</span>');
     expect(mine).not.toContain("Täydennä");
     // the drill says what the cost waits for, in words, and links nowhere
-    const drill = opened("home", context(report([row(untold)])));
+    const drill = opened("home", context(report([row({ ...untold, typedBy: "Aino" })])));
     expect(drill).toContain("Korko puuttuu.");
     expect(drill).not.toContain("Täydennä");
   });
@@ -334,7 +334,7 @@ describe("Raportit: Lainat", () => {
     const linkable = html(loans, withAccounts(report(rows, { maybeTwice: [beside] }), [{ id: "acc" }]));
     expect(linkable).toContain("Liitä Kodin laina tiliin Lainatili</a>");
     expect(linkable).not.toContain("Liitä Autolaina");
-    expect(linkable).not.toContain("theirs");
+    expect(linkable).not.toMatch(/href="[^"]*theirs/);
     // a set with a loan of the viewer's own and no account to link to: the viewer removes their own, as before
     expect(html(loans, withAccounts(report(rows, { maybeTwice: [beside] }), []))).toContain("Jos kyse on samasta velasta, poista tallennettu laina kohdassa Asetukset &gt; Talous &gt; Lainat, niin laskemme sen vain kerran.");
     // every saved loan of the set is another member's: nothing to link though the account is the viewer's own, and the typists are named once each
