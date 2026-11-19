@@ -16,7 +16,7 @@ type Item = { id: string; kind: string; cents: number; [field: string]: unknown 
 const debtOf = (over: Record<string, unknown>) => ({ id: "d", source: "proposal", name: "", loanId: null, accountId: null, key: null, kind: "other", placed: true, monthlyCents: null, latestCents: null, lastDate: null, owedCents: null, balanceDate: null, gaps: [], subject: null, terms: null, savedCards: [], ...over });
 const listOf = (cents: number, debts: { key: unknown }[]): Item => ({ kind: "loan_terms_list", id: "loan-terms", cents, debts, debtsCents: null, noBalance: debts.length });
 const LOAN_KEY = "out:chk:Esimerkkirahoitus#25000";
-// a loan the app cannot place: its kind is asked in its row
+// a loan the app cannot place: its row names the kind it guesses and asks what is left
 const loan = listOf(300_000, [debtOf({ id: `proposal:${LOAN_KEY}`, name: "Esimerkkirahoitus", key: LOAN_KEY, kind: "car", placed: false, monthlyCents: 25_000, latestCents: 25_000, lastDate: "2026-09-05" })]);
 /** The shop's own rows as the server sends them, the newest first: its display name and the bank's raw text. */
 const shopRows = [20, 19, 18, 17, 16].map((d, n) => ({ id: `r${n}`, date: `2026-09-${d}`, cents: -8450, name: "Esimerkki Kauppa Oy", text: "KORTTIOSTO ESIMERKKI KAUPPA" }));
@@ -103,15 +103,17 @@ test("each kind is asked in its own words and answered through its own route, th
   await expect(card(page).locator(".review-name")).toHaveText("Lainat ja kortit");
   await expect(question(page)).toContainText("Täydennä lainat");
   const row = card(page).locator("li.review-debt");
-  expect(plain((await row.locator(".review-debt-name").textContent()) ?? "")).toBe("Esimerkkirahoitus · 250,00 €/kk · eräpäivä 5.");
-  const kinds = row.getByRole("group", { name: "Laji" }).getByRole("button");
-  await expect(kinds.first()).toHaveAccessibleName("Autolaina Ehdotus");
-  // the guess is framed, not filled: nothing reads as already chosen
-  await expect(kinds.first()).toHaveClass(/is-guess/);
-  await expect(card(page).locator(".review-choice.btn-primary")).toHaveCount(0);
-  await expect(kinds.last()).toHaveText("Ei ole velan maksu");
+  expect(plain((await row.locator(".review-debt-name").textContent()) ?? "")).toBe("Esimerkkirahoitus · Autolaina · 250,00 €/kk");
+  // one field and three answers, and no kind to pick
+  await expect(row.getByRole("group", { name: "Laji" })).toHaveCount(0);
+  await expect(row.getByLabel("Jäljellä nyt (€)")).toBeVisible();
+  await expect(row.getByLabel(/Korko|Viitekorko|Marginaali|Maksuerä|Alkuperäinen/)).toHaveCount(0);
+  await expect(row.getByRole("button", { name: "Tallenna", exact: true })).toBeVisible();
+  await expect(row.getByRole("button", { name: "En tiedä", exact: true })).toBeVisible();
+  const notLoan = row.getByRole("button", { name: "Ei ole velan maksu", exact: true });
+  await expect(notLoan).toBeVisible();
   if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-loan-1280.png"), fullPage: true });
-  await kinds.last().click();
+  await notLoan.click();
   await expect.poll(() => stub.posted.at(-1)).toEqual({ path: "/api/marks", method: "PUT", body: { subject: `loan-proposal:${LOAN_KEY}`, mark: "dismissed" } });
   // the row closes into its answer, and Seuraava moves on once no row is left
   await expect(row.locator(".review-debt-result")).toHaveText("Ei ole velan maksu");
@@ -296,11 +298,11 @@ test("an instalment plan is asked how many payments are left: a count, a month o
   await context.close();
 });
 
-test("at 390 the loan's kinds stand two to a row, and a first run with no bank opens the first-run page", async ({ browser }) => {
+test("at 390 the loan's one field and three answers are a thumb high and fit, and a first run with no bank opens the first-run page", async ({ browser }) => {
   const { context, page, seen, stub } = await open(browser, 390, [loan]);
-  const kinds = card(page).getByRole("group", { name: "Laji" }).getByRole("button");
-  const [a, b] = [await kinds.nth(0).boundingBox(), await kinds.nth(1).boundingBox()];
-  expect(Math.abs(a!.y - b!.y)).toBeLessThan(2);
+  for (const target of [card(page).getByLabel("Jäljellä nyt (€)"), card(page).getByRole("button", { name: "Tallenna", exact: true }), card(page).getByRole("button", { name: "En tiedä", exact: true }), card(page).getByRole("button", { name: "Ei ole velan maksu", exact: true })]) {
+    expect((await target.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
   expect(await overflow(page)).toBeLessThanOrEqual(0);
   if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-loan-390.png"), fullPage: true });
   expect(stub.posted.filter((p) => p.path === "/api/transactions")).toEqual([]);

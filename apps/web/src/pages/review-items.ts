@@ -2,13 +2,13 @@
  * Tarkistettavat without React: the items GET /api/review sends, what each one asks in the page's words, and the sitting
  * (at most `SITTING` items, then "Kävit tämän erän kysymykset läpi"). The page draws what these return.
  */
-import { addMonths, fold, LOAN_KIND_ANSWERS, type LoanKind, monthOf, type PayerRole, type UnresolvedReason } from "@banking/core";
+import { addMonths, fold, type LoanKind, monthOf, type PayerRole, type UnresolvedReason } from "@banking/core";
 import { KIND_LABEL } from "../components/loans/labels.ts";
 import { PAYER_ROLE_LABEL, WALLET_ROLE_LABEL } from "../components/questions.ts";
 import { date, dateTime, money } from "../format.ts";
 import type { SyncRun } from "../types.ts";
 import { t, tn } from "../text.ts";
-import type { LoanDriftItem, LoanTermsDebt, LoanTermsListItem } from "./review-loan-items.ts";
+import type { LoanDriftItem, LoanTermsListItem } from "./review-loan-items.ts";
 
 export interface Base {
   id: string;
@@ -407,16 +407,9 @@ export function payerChoices(item: PayerItem): Choice<PayerRole>[] {
   return guessFirst(item.options.map((role) => ({ value: role, label: label(role), guess: role === item.proposal })));
 }
 
-/**
- * The kinds of a loan, one question for every loan: the kind its rows suggest first and named (for a loan saved with
- * its form also one the plain answers lack, such as Osamaksu), then the rest. "Muu laina" is no guess worth marking.
- */
-export function loanKindChoices(debt: Pick<LoanTermsDebt, "kind" | "placed" | "kindUnknown">): Choice<LoanKind>[] {
-  // a credit the rows tell no kind of is one of three, none of them a guess
-  if (debt.kindUnknown) return CREDIT_KINDS.map((kind) => ({ value: kind, label: KIND_LABEL[kind], guess: false }));
-  // a kind the plain answers lack is offered only where it is saved with the loan's form, not stored as an answer
-  const kinds: LoanKind[] = !debt.placed || (LOAN_KIND_ANSWERS as readonly LoanKind[]).includes(debt.kind) ? [...LOAN_KIND_ANSWERS] : [debt.kind, ...LOAN_KIND_ANSWERS];
-  return guessFirst(kinds.map((kind) => ({ value: kind, label: KIND_LABEL[kind], guess: kind === debt.kind && kind !== "other" })));
+/** The kind of a credit the rows tell no kind of: one of three, none of them a guess. A loan the rows name keeps that kind, changed at the loan's own form. */
+export function creditKindChoices(): Choice<LoanKind>[] {
+  return CREDIT_KINDS.map((kind) => ({ value: kind, label: KIND_LABEL[kind], guess: false }));
 }
 
 /**

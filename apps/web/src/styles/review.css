@@ -78,7 +78,7 @@
 @media (max-width: 640px) {
   .review-sheet { inline-size: 100vw; max-inline-size: 100vw; margin: auto 0 0; border-radius: var(--radius) var(--radius) 0 0; max-block-size: 85vh; }
   /* the form of a loan or card in the question: every field and button is a thumb's size on a phone */
-  .review-loan :is(.btn, select, input:not([type="checkbox"], [type="radio"])) { min-height: var(--tap-min); }
+  :is(.review-loan, .review-field) :is(.btn, select, input:not([type="checkbox"], [type="radio"])) { min-height: var(--tap-min); }
   .review-loan .btn-link { display: inline-flex; align-items: center; min-height: var(--tap-min); }
 }
 
@@ -91,6 +91,10 @@
 .review-debt { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-12); padding-block-start: var(--sp-16); border-block-start: var(--hairline) solid var(--border); }
 .review-debt-name { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--w-strong); overflow-wrap: anywhere; }
 .review-debt-facts { font-weight: normal; color: var(--text-2); font-variant-numeric: tabular-nums; }
+/* the one field of a row, its buttons beneath */
+.review-field { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-12); }
+.review-field .loan-field { max-inline-size: 20rem; }
+.review-debt-ask { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--w-strong); }
 .review-debt-result { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); font-variant-numeric: tabular-nums; }
 .review-debt.is-done .review-debt-name { color: var(--text-2); }
 

@@ -1,14 +1,15 @@
 /**
- * Täydennä lainat: every debt that lacks a balance, a rate or a payment, one row each, the largest payments first. A row
- * writes what is known of its debt in its heading and asks only the rest, with the form Asetukset > Lainat opens; each
- * answer goes through its source's route. A saved row closes into its result line and the queue is read again, so the
+ * Täydennä lainat: every debt that lacks a balance or a payment, one row each, the largest payments first. A row writes
+ * what is known of its debt in its heading and asks one thing: a loan the rows show, what it owes now (the rest of its
+ * terms are edited at the loan); a card, whether it is paid in full each month, and its rate if not; a saved loan, the
+ * payment fact its plan lacks. Each answer goes through its source's route. A saved row closes into its result line and the queue is read again, so the
  * figures at the top are the server's. When every row is answered the list shows what was saved and Seuraava moves on.
  */
-import { type Fixings, type Loan, type LoanKind, loanTermsDismissible, type LoanTermsMissing, loanTermsResult, planSubject } from "@banking/core";
-import { useEffect, useRef, useState } from "react";
+import { type Fixings, type Loan, type LoanKind, loanTermsDismissible, type LoanTermsMissing, loanTermsResult, loanUnknownSubject, planSubject } from "@banking/core";
+import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { api, loanCalls } from "../api.ts";
 import { LoanEditor, LoanLinks } from "../components/loans/LoanEditor.tsx";
-import { formOfCard, formOfLoan, formOfProposal, isCredit, LOAN_LINK_PARAM, type LoanForm, readForm, shownFields } from "../components/loans/form.ts";
+import { formOfCard, formOfLoan, formOfProposal, LOAN_LINK_PARAM, type LoanBody, type LoanForm, readForm } from "../components/loans/form.ts";
 import { KIND_LABEL, type LoanFieldKey } from "../components/loans/labels.ts";
 import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
@@ -18,35 +19,22 @@ import { SETTINGS_ANCHOR, settingsCardHash, settingsHash } from "../routes.ts";
 import { t } from "../text.ts";
 import type { LoansAnswer, Meta } from "../types.ts";
 import { ChoiceButton, mark } from "./review-buttons.tsx";
-import { loanKindChoices } from "./review-items.ts";
+import { creditKindChoices } from "./review-items.ts";
 import type { LoanTermsDebt, LoanTermsListItem } from "./review-loan-items.ts";
 import { PlanChoices } from "./ReviewPlanChoices.tsx";
 
-/** The fields of the loan form that give the facts a saved loan or a card lacks: the row asks these, and "Näytä kaikki kentät" opens the rest. */
-const ASKED_FOR: Record<LoanTermsMissing, LoanFieldKey[]> = {
-  repayment: ["repayment"],
+/**
+ * The fields of the loan form that give the facts of a saved loan's plan the review asks. Its rate, reference rate,
+ * margin and review day and its way of paying back are not asked here: they are edited at the loan.
+ */
+const ASKED_FOR: Partial<Record<LoanTermsMissing, LoanFieldKey[]>> = {
   interval: ["intervalMonths"],
   payment: ["paymentCents"],
-  rate: ["rateBp", "reference", "marginBp"],
   end_date: ["endDate"],
-  margin: ["marginBp"],
-  review_date: ["rateReviewDate"],
   fee: ["paymentFeeCents"],
 };
 
-const askedFor = (gaps: readonly LoanTermsMissing[]): LoanFieldKey[] => [...new Set(gaps.flatMap((gap) => ASKED_FOR[gap]))];
-
-/**
- * What a debt of the rows still asks: the rate, the way of paying back and the amount granted (the limit of a card or
- * credit line), the balance only where no connected loan account told it, and the payment where the rows told none a
- * month. The rows gave the rest. A loan's rate is asked with its reference rate and, on a euribor, its review day (filled
- * from the cycle the payments step at, when they show one), as the rate in force is counted from that day's fixing; the
- * margin then stands in for the rate (`LoanEditor`).
- */
-function proposalAsk(form: LoanForm, noMonthly: boolean): LoanFieldKey[] {
-  const own = shownFields(form).filter((key) => key === "grantedCents" || key === "limitCents" || key === "rateBp" || key === "repayment" || ((key === "reference" || key === "rateReviewDate") && !isCredit(form.kind)) || (key === "paymentCents" && noMonthly));
-  return form.values.balanceCents === "" ? ["balanceCents", ...own] : own;
-}
+const askedFor = (gaps: readonly LoanTermsMissing[]): LoanFieldKey[] => [...new Set(gaps.flatMap((gap) => ASKED_FOR[gap] ?? []))];
 
 /** The line a saved loan's row closes into: what it owes, its rate now, its last instalment and the interest left, as core counts them. */
 function resultLine(loan: Loan, fixings: Fixings, today: string): string {
@@ -62,13 +50,18 @@ function resultLine(loan: Loan, fixings: Fixings, today: string): string {
     .join(" · ");
 }
 
-/** What is known of a debt, written in its row's heading after the name. */
+/**
+ * What is known of a debt, written in its row's heading after the name. A loan the rows show has the kind they guess (a
+ * credit of unknown kind has none yet) and its monthly payment: its one question is the balance.
+ */
 function factsOf(debt: LoanTermsDebt): string[] {
+  const proposed = debt.source === "proposal";
   const due = debt.terms?.dueDate ?? debt.lastDate;
+  const kindKnown = proposed ? debt.kindUnknown !== true : debt.placed && debt.source !== "card_bill";
   return [
-    debt.placed && debt.source !== "card_bill" && KIND_LABEL[debt.kind] !== debt.name ? KIND_LABEL[debt.kind] : null,
+    kindKnown && KIND_LABEL[debt.kind] !== debt.name ? KIND_LABEL[debt.kind] : null,
     debt.monthlyCents === null ? null : t("rpt.ln_per_month", { amount: money(debt.monthlyCents) }),
-    due === null ? null : t("set.rc.lt_due_day", { day: Number(due.slice(8, 10)) }),
+    due === null || proposed ? null : t("set.rc.lt_due_day", { day: Number(due.slice(8, 10)) }),
     debt.owedCents === null ? null : `${t("set.loans.remaining")} ${money(debt.owedCents)}`,
   ].filter((fact) => fact !== null);
 }
@@ -211,7 +204,8 @@ function DebtRow(props: RowProps) {
   switch (props.debt.source) {
     case "loan":
     case "card":
-      return <SavedRow {...props} />;
+      // a card's only gap is its rate, asked as whether it is paid in full each month
+      return props.debt.gaps.includes("rate") ? <CardRow {...props} /> : <SavedRow {...props} />;
     case "proposal":
       return <ProposalRow {...props} />;
     case "plan":
@@ -221,29 +215,76 @@ function DebtRow(props: RowProps) {
   }
 }
 
-/** The loan form in a row, asking `ask` of `initial`; the label of an asked balance names the day it is of. */
+/**
+ * The one field a row asks, typed into `form` whose other fields stay as the rows gave them. Tallenna saves the loan;
+ * `children` are the row's other answers, beside it.
+ */
+function FieldForm({ form, field, label, fixings, busy, onSave, children }: { form: LoanForm; field: "balanceCents" | "rateBp"; label: string; fixings: Fixings; busy: boolean; onSave: (body: LoanBody) => Promise<void>; children?: React.ReactNode }) {
+  const id = useId();
+  const [text, setText] = useState(form.values[field]);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (saving) return;
+    const { body, errors } = readForm({ ...form, values: { ...form.values, [field]: text } }, fixings);
+    if (!body) {
+      setError(errors[field] ?? Object.values(errors)[0] ?? "");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave(body);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setSaving(false);
+    }
+  };
+  return (
+    <form className="review-field" onSubmit={(e) => void submit(e)} noValidate>
+      <div className="loan-field">
+        <label className="field-label" htmlFor={id}>
+          {label}
+        </label>
+        <input id={id} type="text" inputMode="decimal" autoComplete="off" value={text} aria-invalid={error ? true : undefined} aria-describedby={error ? `${id}-error` : undefined} onChange={(e) => setText(e.target.value)} />
+        {error && (
+          <span id={`${id}-error`} className="field-error" role="alert">
+            {error}
+          </span>
+        )}
+      </div>
+      <div className="review-choices">
+        <Button className="review-choice" variant="primary" type="submit" busy={saving} disabled={busy}>
+          {t("set.rc.save")}
+        </Button>
+        {children}
+      </div>
+    </form>
+  );
+}
+
+/** The loan form in a row, asking `ask` of `initial`. */
 function RowForm({ initial, ask, answer, meta, onSave, onCancel, cancelLabel }: { initial: LoanForm; ask: LoanFieldKey[]; answer: LoansAnswer; meta: Meta; onSave: (body: Omit<Loan, "id">) => Promise<void>; onCancel: () => void; cancelLabel: string }) {
   return (
     <LoanLinks.Provider value={{ accounts: meta.accounts, loans: answer.loans, fixings: answer.fixings }}>
       <div className="review-loan">
-        <LoanEditor initial={initial} today={meta.today} cancelLabel={cancelLabel} ask={ask} balanceOn onSave={onSave} onCancel={onCancel} />
+        <LoanEditor initial={initial} today={meta.today} cancelLabel={cancelLabel} ask={ask} onSave={onSave} onCancel={onCancel} />
       </div>
     </LoanLinks.Provider>
   );
 }
 
 /**
- * A saved loan that lacks a fact, or a connected card whose rate is unknown. The loan's own form asks the facts; a card
- * with no saved loan gets the form of a new loan linked to it, filled with the bank's balance and limit. Älä muistuta
- * tästä enää sets a loan aside, except while its rate or payment is missing, which keep asking.
+ * A saved loan that lacks a fact of its plan: the loan's own form asks it. Älä muistuta tästä enää sets a loan aside,
+ * except while its payment is missing, which keeps asking.
  */
 function SavedRow({ debt, meta, answer, busy, onSend, onSaved }: RowProps) {
   const [key, setKey] = useState(0);
   const loan = debt.loanId === null ? undefined : answer.loans.find((l) => l.id === debt.loanId);
-  const card = meta.accounts.find((a) => a.id === debt.accountId);
-  const initial = loan ? formOfLoan(loan) : card ? formOfCard(card, meta.today) : null;
-  // the loan was deleted, or the card unlinked, since the queue was read: the read after the next save leaves it out
-  if (!initial) return null;
+  const initial = loan ? formOfLoan(loan) : null;
+  // the loan was deleted since the queue was read: the read after the next save leaves it out
+  if (!loan || !initial) return null;
   const dismissible = debt.subject !== null && debt.gaps.every(loanTermsDismissible);
   // a plan at 0 % with no fee told: "0 €" saves the loan with a fee of nothing, as typing 0 does
   const noFee = (saved: Loan) =>
@@ -261,11 +302,11 @@ function SavedRow({ debt, meta, answer, busy, onSend, onSaved }: RowProps) {
         answer={answer}
         meta={meta}
         cancelLabel={t("set.rc.cancel")}
-        onSave={async (body) => onSaved((await (loan ? loanCalls.replace(loan.id, body) : loanCalls.add(body))).loan)}
+        onSave={async (body) => onSaved((await loanCalls.replace(loan.id, body)).loan)}
         // Peruuta empties what was typed: the row asks the same again
         onCancel={() => setKey((k) => k + 1)}
       />
-      {loan && debt.gaps.includes("fee") && (
+      {debt.gaps.includes("fee") && (
         <div className="review-choices">
           <ChoiceButton busy={busy} onClick={() => noFee(loan)}>
             <span>{money(0, false)}</span>
@@ -283,24 +324,70 @@ function SavedRow({ debt, meta, answer, busy, onSend, onSaved }: RowProps) {
   );
 }
 
+/**
+ * A card whose rate is unknown, connected or saved by hand: is it paid in full each month? Yes saves a rate of 0, which
+ * costs no interest; no asks the rate, and nothing else of its terms. A card with no saved loan is saved as a new loan
+ * linked to it, with the bank's balance and limit.
+ */
+function CardRow({ debt, meta, answer, busy, onSend, onSaved }: RowProps) {
+  const [asking, setAsking] = useState(false);
+  const loan = debt.loanId === null ? undefined : answer.loans.find((l) => l.id === debt.loanId);
+  const card = meta.accounts.find((a) => a.id === debt.accountId);
+  const initial = loan ? formOfLoan(loan) : card ? formOfCard(card, meta.today) : null;
+  // the loan was deleted, or the card unlinked, since the queue was read: the read after the next save leaves it out
+  if (!initial) return null;
+  const save = (body: LoanBody) => (loan ? loanCalls.replace(loan.id, body) : loanCalls.add(body));
+  const inFull = () =>
+    onSend(async () => {
+      const { body, errors } = readForm({ ...initial, values: { ...initial.values, rateBp: "0" } }, answer.fixings);
+      if (!body) throw new Error(Object.values(errors)[0]);
+      return resultLine((await save(body)).loan, answer.fixings, meta.today);
+    });
+  if (asking) {
+    return (
+      <FieldForm form={initial} field="rateBp" label={t("set.rc.lt_rate_pct")} fixings={answer.fixings} busy={busy} onSave={async (body) => onSaved((await save(body)).loan)}>
+        <ChoiceButton busy={busy} onClick={() => setAsking(false)}>
+          <span>{t("set.rc.cancel")}</span>
+        </ChoiceButton>
+      </FieldForm>
+    );
+  }
+  return (
+    <>
+      <p className="review-debt-ask">{t("set.rc.lt_card_in_full")}</p>
+      <div className="review-choices">
+        <ChoiceButton busy={busy} onClick={inFull}>
+          <span>{t("set.rc.lt_yes")}</span>
+        </ChoiceButton>
+        <ChoiceButton busy={busy} onClick={() => setAsking(true)}>
+          <span>{t("set.rc.lt_no")}</span>
+        </ChoiceButton>
+      </div>
+    </>
+  );
+}
+
 /** The form of a loan filled from a debt's rows and linked to its series. */
-function rowsForm(debt: LoanTermsDebt, kind: LoanKind, meta: Meta, answer: LoansAnswer, ownsAccount: boolean): { initial: LoanForm; ask: LoanFieldKey[] } {
-  const noMonthly = debt.latestCents === null;
+function rowsForm(debt: LoanTermsDebt, kind: LoanKind, meta: Meta, answer: LoansAnswer, ownsAccount: boolean): LoanForm {
   const proposed = formOfProposal({ key: debt.key ?? "", payee: debt.name, paymentCents: debt.latestCents ?? 0, kind }, meta.today, ownsAccount ? meta.accounts : [], answer.loans, debt.terms);
-  // a lender's few payments tell no monthly payment: the household types that
-  const initial = noMonthly ? { ...proposed, values: { ...proposed.values, paymentCents: "" } } : proposed;
-  return { initial, ask: proposalAsk(initial, noMonthly) };
+  // a lender's few payments tell no monthly payment, and it is never saved as 0
+  return debt.latestCents === null ? { ...proposed, values: { ...proposed.values, paymentCents: "" } } : proposed;
 }
 
 /**
- * A loan the rows show and nobody saved. A kind the rows only suggest is asked first, the guess picked; the form follows
- * with that kind and saves the loan linked to its series. A credit whose kind the rows do not tell picks none: the form
- * opens with the kind the household picks, or the household tells it as a card or credit saved already with no link.
- * Ei ole velan maksu keeps the series from being asked again.
+ * A loan the rows show and nobody saved, with the kind the rows guess (changed at the loan's own form). Its one question
+ * is what it owes now; the form saves it linked to its series, with what the rows tell of its terms. En tiedä puts the
+ * loan away until its monthly payment changes, and Ei ole velan maksu keeps the series from being asked again. A credit
+ * whose kind the rows do not tell picks the kind first, or the household tells it as a card or credit saved already with
+ * no link.
  */
 function ProposalRow({ debt, meta, answer, busy, onSend, onSaved, ownsAccount }: RowProps) {
   const [kind, setKind] = useState<LoanKind | null>(debt.kindUnknown ? null : debt.kind);
-  const [key, setKey] = useState(0);
+  const unknown = (
+    <ChoiceButton busy={busy} onClick={() => onSend(() => mark(loanUnknownSubject(debt.monthlyCents, debt.key ?? ""), "in_use")().then(() => t("set.rc.i_don_t_know")))}>
+      <span>{t("set.rc.i_don_t_know")}</span>
+    </ChoiceButton>
+  );
   const notLoan = (
     <ChoiceButton busy={busy} onClick={() => onSend(() => loanCalls.notLoan(debt.key ?? "").then(() => t("set.rc.not_a_loan")))}>
       <span>{t("set.rc.not_a_loan")}</span>
@@ -308,14 +395,13 @@ function ProposalRow({ debt, meta, answer, busy, onSend, onSaved, ownsAccount }:
   );
   return (
     <>
-      {!debt.placed && (
+      {debt.kindUnknown && (
         <div className="review-choices" role="group" aria-label={t("set.rc.lt_kind")}>
-          {loanKindChoices(debt).map((c) => (
+          {creditKindChoices().map((c) => (
             <Button key={c.value} className={`review-choice${c.value === kind ? " is-guess" : ""}`} aria-pressed={c.value === kind} disabled={busy} onClick={() => setKind(c.value)}>
-              <span>{c.label}</span> {c.guess && <span className="review-guess">{t("set.rc.suggestion")}</span>}
+              <span>{c.label}</span>
             </Button>
           ))}
-          {notLoan}
         </div>
       )}
       {debt.kindUnknown && debt.savedCards.length > 0 && (
@@ -323,8 +409,17 @@ function ProposalRow({ debt, meta, answer, busy, onSend, onSaved, ownsAccount }:
           <SavedLoanChoice debt={debt} answer={answer} meta={meta} busy={busy} onSend={onSend} already={t("set.rc.credit_already_saved")} open={t("set.rc.open_the_saved_credit")} gone={t("set.rc.saved_credit_gone")} />
         </div>
       )}
-      {kind !== null && <RowForm key={`${kind}:${key}`} {...rowsForm(debt, kind, meta, answer, ownsAccount)} answer={answer} meta={meta} cancelLabel={t("set.rc.cancel")} onSave={async (body) => onSaved((await loanCalls.add(body)).loan)} onCancel={() => setKey((k) => k + 1)} />}
-      {debt.placed && <div className="review-choices">{notLoan}</div>}
+      {kind === null ? (
+        <div className="review-choices">
+          {unknown}
+          {notLoan}
+        </div>
+      ) : (
+        <FieldForm key={kind} form={rowsForm(debt, kind, meta, answer, ownsAccount)} field="balanceCents" label={t("set.rc.lt_left_now")} fixings={answer.fixings} busy={busy} onSave={async (body) => onSaved((await loanCalls.add(body)).loan)}>
+          {unknown}
+          {notLoan}
+        </FieldForm>
+      )}
     </>
   );
 }
@@ -366,8 +461,13 @@ function SavedLoanChoice({ debt, answer, meta, busy, onSend, already, open, gone
 function CardBillRow({ debt, meta, answer, busy, onSend, onSaved, ownsAccount }: RowProps) {
   const [saving, setSaving] = useState(false);
   if (saving) {
-    const { initial, ask } = rowsForm(debt, "card", meta, answer, ownsAccount);
-    return <RowForm initial={initial} ask={ask} answer={answer} meta={meta} cancelLabel={t("set.rc.cancel")} onSave={async (body) => onSaved((await loanCalls.add(body)).loan)} onCancel={() => setSaving(false)} />;
+    return (
+      <FieldForm form={rowsForm(debt, "card", meta, answer, ownsAccount)} field="balanceCents" label={t("set.rc.lt_left_now")} fixings={answer.fixings} busy={busy} onSave={async (body) => onSaved((await loanCalls.add(body)).loan)}>
+        <ChoiceButton busy={busy} onClick={() => setSaving(false)}>
+          <span>{t("set.rc.cancel")}</span>
+        </ChoiceButton>
+      </FieldForm>
+    );
   }
   return (
     <div className="review-choices">

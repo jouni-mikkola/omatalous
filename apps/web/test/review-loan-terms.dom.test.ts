@@ -1,9 +1,10 @@
 /**
- * Täydennä lainat in Tarkistettavat: one item lists every debt that lacks a balance, a rate or a payment, one row each.
- * A row asks only what its debt lacks and closes into its result line once saved; the queue is read again so the
- * totals are the server's, and Seuraava moves on after the last row. Made-up lenders, cards and sums.
+ * Täydennä lainat in Tarkistettavat: one item lists every debt that lacks a balance or a payment, one row each.
+ * A row asks one thing of its debt (a loan the rows show: what it owes now; a card: whether it is paid in full each
+ * month) and closes into its result line once saved; the queue is read again so the totals are the server's, and
+ * Seuraava moves on after the last row. Made-up lenders, cards and sums.
  */
-import { type Loan, notLoanMark } from "@banking/core";
+import { type Loan, loanUnknownSubject, notLoanMark } from "@banking/core";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -50,12 +51,13 @@ describe("Täydennä lainat", () => {
     stubApi({ "GET /api/loans": { loans: [], fixings: {} } });
     const debts = [
       debtOf({ id: "proposal:k", source: "proposal", name: "Esimerkkipankki", key: "k", kind: "mortgage", monthlyCents: 86_141, latestCents: 86_141, lastDate: "2026-10-16" }),
-      debtOf({ id: "loan-8", source: "loan", name: "Autolaina", loanId: "loan-8", kind: "car", owedCents: 1_200_000, gaps: ["rate"] }),
+      debtOf({ id: "loan-8", source: "loan", name: "Autolaina", loanId: "loan-8", kind: "car", owedCents: 1_200_000, gaps: ["payment"] }),
     ];
     show([listOf(debts, null, 1)]);
     expect(document.querySelector(".review-item")!.textContent).toContain("Täydennä lainat");
     const names = [...document.querySelectorAll(".review-debt-name")].map((h) => plain(h.textContent));
-    expect(names).toEqual([plain("Esimerkkipankki · Asuntolaina · 861,41 €/kk · eräpäivä 16."), plain("Autolaina · Jäljellä 12 000,00 €")]);
+    // a loan the rows show reads payee, the kind guessed and the monthly payment
+    expect(names).toEqual([plain("Esimerkkipankki · Asuntolaina · 861,41 €/kk"), plain("Autolaina · Jäljellä 12 000,00 €")]);
     // the total is unknown while a debt has no balance: a dash, never a sum the page adds itself
     expect(totals()).toBe(plain("Velat yhteensä, tiedossa –Ilman saldoa 1"));
   });
@@ -63,7 +65,7 @@ describe("Täydennä lainat", () => {
   it("words the total as the front page does: known only while a debt has no balance", () => {
     queryClient.clear();
     stubApi({ "GET /api/loans": { loans: [], fixings: {} } });
-    const debts = [debtOf({ id: "loan-8", source: "loan", name: "Autolaina", loanId: "loan-8", kind: "car", owedCents: 1_200_000, gaps: ["rate"] })];
+    const debts = [debtOf({ id: "loan-8", source: "loan", name: "Autolaina", loanId: "loan-8", kind: "car", owedCents: 1_200_000, gaps: ["payment"] })];
     const view = show([listOf(debts, 12_000_000, 1)]);
     expect(totals()).toBe(plain("Velat yhteensä, tiedossa 120 000,00 €Ilman saldoa 1"));
     view.rerender(createElement(Review, { meta: metaOf(), queue: { data: { items: [listOf(debts, 12_000_000, 0)] }, error: null, reload: () => {} } }));
@@ -72,27 +74,27 @@ describe("Täydennä lainat", () => {
 
   it("asks a saved loan only the fact it lacks, saves the loan's own form, closes the row into its result line and reads the queue again", async () => {
     queryClient.clear();
-    const loan = savedLoan({});
+    const loan = savedLoan({ rateBp: 350, paymentCents: null });
     const other = savedLoan({ id: "loan-8", name: "Toinen laina" });
-    const seen = stubApi({ "GET /api/loans": { loans: [other, loan], fixings: {} }, "PUT /api/loans/loan-7": { loan: { ...loan, rateBp: 350 } } });
+    const seen = stubApi({ "GET /api/loans": { loans: [other, loan], fixings: {} }, "PUT /api/loans/loan-7": { loan: { ...loan, paymentCents: 90_000 } } });
     let reloads = 0;
     const debts = [
-      debtOf({ id: "loan-7", source: "loan", name: "Asuntolaina", loanId: "loan-7", kind: "mortgage", owedCents: 15_000_000, gaps: ["rate"], subject: "question:loan-terms:loan-7" }),
+      debtOf({ id: "loan-7", source: "loan", name: "Asuntolaina", loanId: "loan-7", kind: "mortgage", owedCents: 15_000_000, gaps: ["payment"], subject: "question:loan-terms:loan-7" }),
       debtOf({ id: "loan-8", source: "loan", name: "Toinen laina", loanId: "loan-8", kind: "mortgage", gaps: ["end_date"], subject: "question:loan-terms:loan-8" }),
     ];
     const view = show([listOf(debts, 30_000_000, 0)], metaOf(), () => void reloads++);
-    const rate = await within(openRow(0)).findByLabelText(/^Korko/, {}, T);
-    // the missing fact alone is asked; the rest of the form is behind one button
-    expect(screen.queryAllByLabelText(/^Kuukausierä/)).toHaveLength(0);
+    const payment = await within(openRow(0)).findByLabelText(/^Kuukausierä/, {}, T);
+    // the missing fact alone is asked, never the rate, whose gap lists no saved loan; the rest of the form is behind one button
+    expect(screen.queryAllByLabelText(/^Korko/)).toHaveLength(0);
     expect(screen.queryAllByLabelText("Nimi")).toHaveLength(0);
     expect(within(openRow(1)).getByLabelText(/^Viimeinen eräpäivä/)).toBeTruthy();
-    // the rate and the payment keep asking: no dismissal on that row, one on the row that lacks its end
+    // the payment keeps asking: no dismissal on that row, one on the row that lacks its end
     expect(within(openRow(0)).queryByRole("button", { name: "Älä muistuta tästä enää" })).toBeNull();
     expect(within(openRow(1)).getByRole("button", { name: "Älä muistuta tästä enää" })).toBeTruthy();
-    fireEvent.change(rate, { target: { value: "3,5" } });
+    fireEvent.change(payment, { target: { value: "900" } });
     fireEvent.click(within(openRow(0)).getByRole("button", { name: "Tallenna" }));
     await waitFor(() => expect(seen.some((s) => s.method === "PUT" && s.path === "/api/loans/loan-7")).toBe(true), T);
-    expect(seen.find((s) => s.method === "PUT")!.body).toMatchObject({ name: "Asuntolaina", rateBp: 350 });
+    expect(seen.find((s) => s.method === "PUT")!.body).toMatchObject({ name: "Asuntolaina", rateBp: 350, paymentCents: 90_000 });
     const line = await screen.findByText(/^Jäljellä [^·]+ · korko 3,5/, {}, T);
     expect(reloads).toBe(1);
     // the focus moves from the form that is gone to the line it closed into
@@ -114,28 +116,33 @@ describe("Täydennä lainat", () => {
     await screen.findByText("Ei muistutuksia", {}, T);
   });
 
-  it("gives a connected card with no saved loan the form of a new loan linked to it, and a card with a loan that loan's form", async () => {
+  it("asks a connected card only whether it is paid in full: yes saves a rate of 0 as a new loan linked to it, no asks the rate alone and saves the card's loan", async () => {
     queryClient.clear();
     const card = { id: "card-1", name: "Luottokortti", type: "credit_card", balanceCents: -50_000, balanceAt: "2026-10-08", creditLimitCents: 200_000 };
     const linked = { ...savedLoan({ id: "loan-9", name: "Kortti", kind: "card", balanceCents: 40_000, repayment: null, intervalMonths: null, paymentCents: null, limitCents: 200_000 }), accountId: "card-2" };
-    const seen = stubApi({ "GET /api/loans": { loans: [linked], fixings: {} }, "POST /api/loans": { loan: { ...linked, id: "loan-10", accountId: "card-1", rateBp: 1_900 } }, "PUT /api/loans/loan-9": { loan: { ...linked, rateBp: 1_500 } } });
+    const seen = stubApi({ "GET /api/loans": { loans: [linked], fixings: {} }, "POST /api/loans": { loan: { ...linked, id: "loan-10", accountId: "card-1", rateBp: 0 } }, "PUT /api/loans/loan-9": { loan: { ...linked, rateBp: 1_500 } } });
     const debts = [
       debtOf({ id: "account:card-1", source: "card", name: "Luottokortti", accountId: "card-1", kind: "card", owedCents: 50_000, gaps: ["rate"] }),
       debtOf({ id: "loan-9", source: "card", name: "Kortti", loanId: "loan-9", accountId: "card-2", kind: "card", owedCents: 40_000, gaps: ["rate"] }),
     ];
     show([listOf(debts, 90_000, 0)], metaOf([card, { ...card, id: "card-2", name: "Toinen kortti" }]));
-    fireEvent.change(await within(openRow(0)).findByLabelText(/^Korko/, {}, T), { target: { value: "19" } });
-    fireEvent.click(within(openRow(0)).getByRole("button", { name: "Tallenna" }));
+    expect(await within(openRow(0)).findByText("Maksetaanko kortti kokonaan joka kuukausi?", {}, T)).toBeTruthy();
+    // neither the rate nor the reference rate nor the margin is asked before the answer
+    expect(screen.queryAllByLabelText(/^Korko|^Marginaali|^Viitekorko|^Luottoraja/)).toHaveLength(0);
+    fireEvent.click(within(openRow(0)).getByRole("button", { name: "Kyllä" }));
     await waitFor(() => expect(seen.some((s) => s.method === "POST" && s.path === "/api/loans")).toBe(true), T);
-    expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ name: "Luottokortti", kind: "card", accountId: "card-1", balanceCents: 50_000, limitCents: 200_000, rateBp: 1_900 });
-    await screen.findByText(/korko 19/, {}, T);
-    fireEvent.change(within(openRow(0)).getByLabelText(/^Korko/), { target: { value: "15" } });
+    expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ name: "Luottokortti", kind: "card", accountId: "card-1", balanceCents: 50_000, limitCents: 200_000, rateBp: 0 });
+    await screen.findByText(/korko 0/, {}, T);
+    fireEvent.click(within(openRow(0)).getByRole("button", { name: "Ei" }));
+    // the rate is the one field of a card not paid in full
+    expect(screen.queryAllByLabelText(/^Marginaali|^Viitekorko|^Luottoraja/)).toHaveLength(0);
+    fireEvent.change(within(openRow(0)).getByLabelText("Korko (%)"), { target: { value: "15" } });
     fireEvent.click(within(openRow(0)).getByRole("button", { name: "Tallenna" }));
     await waitFor(() => expect(seen.some((s) => s.method === "PUT" && s.path === "/api/loans/loan-9")).toBe(true), T);
     expect(seen.find((s) => s.method === "PUT")!.body).toMatchObject({ kind: "card", accountId: "card-2", rateBp: 1_500 });
   });
 
-  it("saves a proposed loan on a euribor from its margin and review day, ends with what was saved and no total, and moves on with Seuraava", async () => {
+  it("saves a proposed loan on a euribor asking only its balance, ends with what was saved and no total, and moves on with Seuraava", async () => {
     queryClient.clear();
     const terms = { paymentCents: 31_250, dueDate: "2026-10-05", intervalMonths: 1, repayment: "annuity", reference: "euribor_12", nextReview: "2027-03-14" } as LoanTermsDebt["terms"];
     const saved = savedLoan({ id: "loan-1", lender: "Esimerkkipankki", balanceCents: 10_000_000, balanceDate: "2026-10-05", rateBp: 296, reference: "euribor_12", marginBp: 65, rateReviewDate: "2027-03-14", paymentCents: 31_250, seriesKey: "k" });
@@ -145,15 +152,15 @@ describe("Täydennä lainat", () => {
     const meta = metaOf([], "2026-10-12");
     const view = show(items, meta);
     const heading = () => screen.getByRole("heading", { level: 2 });
-    // the review day comes from the cycle the payments step at; with it and a stored fixing the margin stands in for the rate
-    expect(((await screen.findByLabelText(/^Koron tarkistuspäivä/, {}, T)) as HTMLInputElement).value).toBe("2027-03-14");
-    expect(screen.queryByLabelText(/^Korko/)).toBeNull();
-    // the balance is asked as of the latest payment's due day
-    fireEvent.change(screen.getByLabelText("Jäljellä 5.10. (€)"), { target: { value: "100 000" } });
-    fireEvent.change(screen.getByLabelText(/^Marginaali/), { target: { value: "0,65" } });
+    fireEvent.change(await screen.findByLabelText("Jäljellä nyt (€)", {}, T), { target: { value: "100 000" } });
+    // the rate, the reference rate, the margin and the review day are edited at the loan, not asked here
+    expect(screen.queryAllByLabelText(/^Korko|^Marginaali|^Viitekorko|^Koron tarkistuspäivä/)).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "En tiedä" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Ei ole velan maksu" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
     await waitFor(() => expect(seen.some((s) => s.method === "POST" && s.path === "/api/loans")).toBe(true), T);
-    expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ kind: "mortgage", reference: "euribor_12", marginBp: 65, rateReviewDate: "2027-03-14", rateBp: null, balanceCents: 10_000_000, seriesKey: "k" });
+    // what the rows tell of its terms is saved with it: the reference rate and the cycle's review day
+    expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ kind: "mortgage", reference: "euribor_12", marginBp: null, rateReviewDate: "2027-03-14", rateBp: null, balanceCents: 10_000_000, balanceDate: "2026-10-05", seriesKey: "k" });
     // the saved loan's balance and its rate counted now (2,31 % on 13.3.2026 and the margin)
     await screen.findByText(/^Jäljellä 100\s000,00\s€ · korko 2,96/, {}, T);
     // the end: what was saved and how many lack a balance, no total of the page's own
@@ -169,23 +176,30 @@ describe("Täydennä lainat", () => {
     await waitFor(() => expect(heading().textContent).toContain("Kysymys 2 / 2"), T);
   });
 
-  it("asks a proposed loan its kind, the rows' guess picked, and saves the kind picked with the loan; Ei ole velan maksu keeps the series from asking", async () => {
+  it("asks a proposed loan only what it owes now, with the kind the rows guess in its heading, and saves the loan with that kind; En tiedä and Ei ole velan maksu answer through marks", async () => {
     queryClient.clear();
-    const seen = stubApi({ "GET /api/loans": { loans: [], fixings: {} }, "POST /api/loans": { loan: savedLoan({ id: "loan-2", kind: "car", balanceCents: 200_000, paymentCents: 25_000, seriesKey: "k" }) }, "PUT /api/marks": {} });
+    const seen = stubApi({ "GET /api/loans": { loans: [], fixings: {} }, "POST /api/loans": { loan: savedLoan({ id: "loan-2", kind: "consumer", balanceCents: 200_000, paymentCents: 25_000, seriesKey: "k" }) }, "PUT /api/marks": {} });
     const debt = debtOf({ id: "proposal:k", source: "proposal", name: "Esimerkkirahoitus", key: "k", kind: "consumer", placed: false, monthlyCents: 25_000, latestCents: 25_000, lastDate: "2026-09-05" });
-    show([listOf([debt, { ...debt, id: "proposal:j", key: "j", name: "Toinen rahoitus" }])]);
-    const kinds = await within(openRow(0)).findByRole("group", { name: "Laji" }, T);
-    expect(kinds.querySelector("button[aria-pressed='true']")!.textContent).toMatch(/^Kulutusluotto/);
-    fireEvent.click([...kinds.querySelectorAll("button")].find((b) => /^Autolaina/.test(b.textContent ?? ""))!);
-    fireEvent.change(await within(openRow(0)).findByLabelText(/^Jäljellä/, {}, T), { target: { value: "2 000" } });
+    show([listOf([debt, { ...debt, id: "proposal:j", key: "j", name: "Toinen rahoitus" }, { ...debt, id: "proposal:i", key: "i", name: "Kolmas rahoitus" }])]);
+    const field = await within(openRow(0)).findByLabelText("Jäljellä nyt (€)", {}, T);
+    // the kind is the guess, read from the heading and changed at the loan's home: it is not asked
+    expect(within(openRow(0)).queryByRole("group", { name: "Laji" })).toBeNull();
+    expect(plain(openRow(0).querySelector(".review-debt-name")!.textContent)).toBe(plain("Esimerkkirahoitus · Kulutusluotto · 250,00 €/kk"));
+    expect(within(openRow(0)).queryAllByLabelText(/^Korko|^Maksuerä|^Alkuperäinen/)).toHaveLength(0);
+    fireEvent.change(field, { target: { value: "2 000" } });
     fireEvent.click(within(openRow(0)).getByRole("button", { name: "Tallenna" }));
     await waitFor(() => expect(seen.some((s) => s.method === "POST" && s.path === "/api/loans")).toBe(true), T);
-    expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ kind: "car", seriesKey: "k", balanceCents: 200_000 });
+    expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ kind: "consumer", seriesKey: "k", balanceCents: 200_000, paymentCents: 25_000 });
     expect(seen.some((s) => s.path === "/api/marks")).toBe(false);
     await screen.findByText(/^Jäljellä 2\s000,00\s€/, {}, T);
-    fireEvent.click(within(openRow(0)).getByRole("button", { name: "Ei ole velan maksu" }));
+    // En tiedä holds while the monthly payment stays what it was said at
+    fireEvent.click(within(openRow(0)).getByRole("button", { name: "En tiedä" }));
     await waitFor(() => expect(seen.some((s) => s.path === "/api/marks")).toBe(true), T);
-    expect(seen.find((s) => s.path === "/api/marks")!.body).toEqual(notLoanMark({ key: "j" }));
+    expect(seen.find((s) => s.path === "/api/marks")!.body).toEqual({ subject: loanUnknownSubject(25_000, "j"), mark: "in_use" });
+    await screen.findByText("En tiedä", { selector: ".review-debt-result" }, T);
+    fireEvent.click(within(openRow(0)).getByRole("button", { name: "Ei ole velan maksu" }));
+    await waitFor(() => expect(seen.filter((s) => s.path === "/api/marks")).toHaveLength(2), T);
+    expect(seen.filter((s) => s.path === "/api/marks")[1]!.body).toEqual(notLoanMark({ key: "i" }));
   });
 
   it("gives the one connected loan account with no loan to a proposed loan only when no other row could take it", async () => {
@@ -197,11 +211,10 @@ describe("Täydennä lainat", () => {
     const two = show([listOf([debt, { ...debt, id: "proposal:j", key: "j", name: "Toinen rahoitus" }])], metaOf([account]));
     for (const n of [0, 1]) expect((await within(openRow(n)).findByLabelText<HTMLInputElement>(/^Jäljellä/, {}, T)).value).toBe("");
     two.unmount();
-    // one row: the account's balance is its own, so the row does not ask it
+    // one row: the account's balance is its own, told in the field for the household to confirm
     queryClient.clear();
     show([listOf([debt])], metaOf([account]));
-    await within(openRow(0)).findByRole("button", { name: "Tallenna" }, T);
-    expect(within(openRow(0)).queryByLabelText(/^Jäljellä/)).toBeNull();
+    expect((await within(openRow(0)).findByLabelText<HTMLInputElement>(/^Jäljellä/, {}, T)).value).toMatch(/^5\D?000/);
   });
 
   it("shows the error of the other forms when the loans cannot be read", async () => {
@@ -260,37 +273,40 @@ describe("a credit of unknown kind in the list", () => {
   const debt = debtOf({ id: "proposal:out:chk:Esimerkkipankki", source: "proposal", name: "Esimerkkipankki", key: "out:chk:Esimerkkipankki", kind: "consumer", placed: false, kindUnknown: true, monthlyCents: 33_000, latestCents: 41_000, lastDate: "2026-09-12" });
   const kindButtons = (group: HTMLElement) => [...group.querySelectorAll("button")].map((b) => plain(b.textContent).trim());
 
-  it("asks card, credit line or consumer credit with none picked and no guess, and opens the form of the kind picked only", async () => {
+  it("asks card, credit line or consumer credit with none picked and no guess, then only the balance of the kind picked, with no credit limit", async () => {
     queryClient.clear();
     const credit = savedLoan({ id: "loan-3", name: "Esimerkkipankki", kind: "credit_line", balanceCents: 240_000, repayment: null, intervalMonths: null, paymentCents: null, limitCents: 500_000, seriesKey: debt.key });
     const seen = stubApi({ "GET /api/loans": { loans: [], fixings: {} }, "POST /api/loans": { loan: credit } });
     show([listOf([debt])]);
     const kinds = await within(openRow(0)).findByRole("group", { name: "Laji" }, T);
-    expect(kindButtons(kinds)).toEqual(["Luottokortti", "Joustoluotto", "Kulutusluotto", "Ei ole velan maksu"]);
+    expect(kindButtons(kinds)).toEqual(["Luottokortti", "Joustoluotto", "Kulutusluotto"]);
     expect(kinds.querySelector("button[aria-pressed='true']")).toBeNull();
     expect(openRow(0).textContent).not.toContain("Ehdotus");
-    // nothing to fill in until the kind is told
+    // nothing to fill in until the kind is told; the two other answers are there
     expect(within(openRow(0)).queryByLabelText(/^Jäljellä/)).toBeNull();
     expect(within(openRow(0)).queryByRole("button", { name: "Tallenna" })).toBeNull();
+    expect(within(openRow(0)).getByRole("button", { name: "En tiedä" })).toBeTruthy();
+    expect(within(openRow(0)).getByRole("button", { name: "Ei ole velan maksu" })).toBeTruthy();
     fireEvent.click(within(kinds).getByRole("button", { name: "Joustoluotto" }));
     expect(kinds.querySelector("button[aria-pressed='true']")!.textContent).toMatch(/^Joustoluotto/);
-    await within(openRow(0)).findByLabelText(/^Luottoraja/, {}, T);
-    fireEvent.change(within(openRow(0)).getByLabelText(/^Jäljellä/), { target: { value: "2 400" } });
-    fireEvent.change(within(openRow(0)).getByLabelText(/^Luottoraja/), { target: { value: "5 000" } });
+    fireEvent.change(await within(openRow(0)).findByLabelText(/^Jäljellä/, {}, T), { target: { value: "2 400" } });
+    // a credit line asks no credit limit
+    expect(within(openRow(0)).queryAllByLabelText(/^Luottoraja/)).toHaveLength(0);
     fireEvent.click(within(openRow(0)).getByRole("button", { name: "Tallenna" }));
     await waitFor(() => expect(seen.some((s) => s.method === "POST" && s.path === "/api/loans")).toBe(true), T);
-    expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ kind: "credit_line", seriesKey: debt.key, balanceCents: 240_000, limitCents: 500_000 });
+    expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ kind: "credit_line", seriesKey: debt.key, balanceCents: 240_000, limitCents: null });
     expect(seen.some((s) => s.path === "/api/marks")).toBe(false);
   });
 
-  it("a card picked asks the card's limit, and Ei ole velan maksu marks the series", async () => {
+  it("a card picked asks the balance alone, and Ei ole velan maksu marks the series", async () => {
     queryClient.clear();
     const seen = stubApi({ "GET /api/loans": { loans: [], fixings: {} }, "PUT /api/marks": {} });
     show([listOf([debt])]);
     const kinds = await within(openRow(0)).findByRole("group", { name: "Laji" }, T);
     fireEvent.click(within(kinds).getByRole("button", { name: "Luottokortti" }));
-    await within(openRow(0)).findByLabelText(/^Luottoraja/, {}, T);
-    fireEvent.click(within(kinds).getByRole("button", { name: "Ei ole velan maksu" }));
+    await within(openRow(0)).findByLabelText(/^Jäljellä/, {}, T);
+    expect(within(openRow(0)).queryAllByLabelText(/^Luottoraja/)).toHaveLength(0);
+    fireEvent.click(within(openRow(0)).getByRole("button", { name: "Ei ole velan maksu" }));
     await waitFor(() => expect(seen.some((s) => s.path === "/api/marks")).toBe(true), T);
     expect(seen.find((s) => s.path === "/api/marks")!.body).toEqual(notLoanMark({ key: debt.key! }));
   });

@@ -136,6 +136,19 @@ describe("marks on subscriptions and alerts", () => {
     expect((await admin.call("PUT", "/api/marks", { subject: "question:payee:Acme", mark: null })).body.marks).toHaveLength(1);
   });
 
+  it("takes \"En tiedä\" on a proposed loan under its payment and series key, as in_use only", async () => {
+    const { admin } = await setupApp();
+    const key = "out:acc-1:Esimerkkirahoitus";
+    for (const subject of ["question:loan-unknown:", `question:loan-unknown:${key}`, `question:loan-unknown:x:${key}`, `question:loan-unknown:25000:Esimerkkirahoitus`, `question:loan-unknown:-5:${key}`]) {
+      expect((await admin.call("PUT", "/api/marks", { subject, mark: "in_use" })).status, subject).toBe(400);
+    }
+    for (const mark of ["dismissed", "cancelled"]) expect((await admin.call("PUT", "/api/marks", { subject: `question:loan-unknown:25000:${key}`, mark })).status, mark).toBe(400);
+    for (const subject of [`question:loan-unknown:25000:${key}`, `question:loan-unknown:none:${key}`]) {
+      expect((await admin.call("PUT", "/api/marks", { subject, mark: "in_use" })).status, subject).toBe(200);
+    }
+    expect((await admin.call("PUT", "/api/marks", { subject: `question:loan-unknown:none:${key}`, mark: null })).status).toBe(200);
+  });
+
   it("takes the answer to the question about a home loan under its one subject, stores it as any mark, and takes no other question", async () => {
     const { admin } = await setupApp();
     const bad = ["question:other", "question:", "question", "question:Mortgage", "question:mortgage ", "question:mortgage:2", `question:${"x".repeat(201)}`, "Question:mortgage"];

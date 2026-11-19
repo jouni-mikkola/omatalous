@@ -32,17 +32,16 @@ for (const width of [1000, 1099]) {
   }
 }
 
-// A loan in the list of debts whose kind the rows only suggest, the long "Asuntolaina", answered on a phone: the badge
-// stays inside its button.
-const DEBT = {
-  id: "proposal:ui5", source: "proposal", name: "Pankki Oyj", loanId: null, accountId: null, key: "ui5", kind: "mortgage", placed: false,
-  monthlyCents: 10_000, latestCents: 10_000, lastDate: "2025-12-02", owedCents: null, balanceDate: null, gaps: [], subject: null, terms: null, savedCards: [],
+// A payee whose category the rows only suggest, answered on a phone: the badge stays inside its button.
+const ROW = { id: "r0", date: "2026-09-20", cents: -8450, name: "Esimerkki Kauppa Oy", text: "KORTTIOSTO ESIMERKKI KAUPPA" };
+const PAYEE = {
+  kind: "payee_out", id: "payee_out:Esimerkki Kauppa Oy", cents: 8450, merchant: "Esimerkki Kauppa Oy", count: 1, lastDate: "2026-09-20",
+  picks: ["pets", "groceries", "restaurants", "car"], rows: [ROW], rowCount: 1, guess: { category: "pets", reason: "Sama kategoria kuin Esimerkki Kauppa Oy" },
 };
-const LOAN = { kind: "loan_terms_list", id: "loan-terms", cents: 120_000, debts: [DEBT], debtsCents: null, noBalance: 1 };
 
 test(`390 px: Ehdotus fits inside the guessed choice`, async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 800 }, isMobile: true, hasTouch: true });
-  await context.route(/\/api\/review(\?|$)/, (r) => r.fulfill({ json: { items: [LOAN] } }));
+  await context.route(/\/api\/review(\?|$)/, (r) => r.fulfill({ json: { items: [PAYEE] } }));
   const page = await context.newPage();
   await page.goto("/#/review");
   const badge = page.locator(".review-guess").first();
