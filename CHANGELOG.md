@@ -3,6 +3,17 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.6.5
+
+Look
+
+- Laskut opens one month with its paid bills folded, and a closed month on a phone is one line.
+
+Reliability
+
+- A downloaded add-on update no longer stops the running add-on until the next start.
+- Removing the add-on no longer breaks the open pages before the next start.
+
 ## 1.6.4
 
 - Loans live in Raportit > Varat ja velat: add, edit and remove them there, also before linking a bank.
