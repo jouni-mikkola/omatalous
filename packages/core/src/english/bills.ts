@@ -99,6 +99,7 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "bills.sum_after": "After bills {sum}",
   "bills.sum_after_unknown": "After bills: not known",
   "bills.monthly_fold": "Monthly bills, {count}",
+  "bills.paid_fold": "Paid bills, {count}",
   "bills.year": "Next 12 months: bills {bills}, less often than monthly {rare} ({reserve} a month)",
   "bills.unknown_one": "The sum or day of {count} bill is not known",
   "bills.unknown_many": "The sum or day of {count} bills is not known",

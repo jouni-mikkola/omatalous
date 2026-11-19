@@ -25,6 +25,8 @@ export interface CalGroup {
   key: string;
   /** The month of the calendar; null for what has ended. */
   month: CalMonth | null;
+  /** The paid rows of an open month, two or more, in a group of their own under a toggle: the keys of those rows, shown or not. */
+  paidKeys?: string[];
   /** The rows of the group when it is open; none while it is closed. */
   rows: CalRow[];
   /** How many ended series the group of what has ended holds. */
@@ -62,16 +64,24 @@ export function startOpenMonth(calendar: Calendar, items: readonly Item[]): stri
   return unpaid || !next ? running.month : next.month;
 }
 
+/** The key of the group of a month's paid rows. */
+const paidGroupKey = (month: string) => `${month}:paid`;
+
+/** A month with this many paid rows or more lists them in a group of their own, closed until the reader opens it. */
+const FOLDED_PAID = 2;
+
 /**
  * The groups of the table: a month each, in the calendar's order, then what has ended. A group in `shown` lists its
  * rows in the order of the calendar; from the third month on its monthly bills are one row that opens to them, and
  * everything else (a bill that comes less often, a pay, a saving, a bill a card pays) is listed. A group not in `shown`
- * has no rows. The row of a series carries its item, the one of a bill typed in its bill.
+ * has no rows. An open month with two paid rows or more lists what is still to come first and its paid rows in a group
+ * after it (`paidGroupKey`), whose rows are listed while it is in `shown`. The row of a series carries its item, the one
+ * of a bill typed in its bill.
  */
 export function calendarGroups(calendar: Calendar, items: readonly Item[], typed: readonly TypedBill[], shown: (key: string) => boolean): CalGroup[] {
   const bySeries = new Map(items.flatMap((i) => (i.series && !i.ended ? [[i.series.id, i] as const] : [])));
   const late = lateItems(calendar, items);
-  const months = calendar.months.map((m, at): CalGroup => {
+  const months = calendar.months.flatMap((m, at): CalGroup[] => {
     const rows: CalRow[] = [];
     if (shown(m.month)) {
       if (at === 0) {
@@ -91,7 +101,13 @@ export function calendarGroups(calendar: Calendar, items: readonly Item[], typed
         rows.push({ key: `${m.month}:${n}`, kind: "row", bill, item, typed: own });
       });
     }
-    return { key: m.month, month: m, rows, ended: 0 };
+    const paid = rows.filter((r) => r.kind === "row" && r.bill.state === "paid");
+    if (paid.length < FOLDED_PAID) return [{ key: m.month, month: m, rows, ended: 0 }];
+    const key = paidGroupKey(m.month);
+    return [
+      { key: m.month, month: m, rows: rows.filter((r) => !paid.includes(r)), ended: 0 },
+      { key, month: m, paidKeys: paid.map((r) => r.key), rows: shown(key) ? paid : [], ended: 0 },
+    ];
   });
   const ended = items.filter((i) => i.ended);
   if (!ended.length) return months;

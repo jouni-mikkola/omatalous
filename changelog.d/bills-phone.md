@@ -1,2 +1,2 @@
 section: Look
-- Laskut opens one month, and on a phone a closed month is one line: its name and one sum.
+- Laskut opens one month with its paid bills folded, and a closed month on a phone is one line.

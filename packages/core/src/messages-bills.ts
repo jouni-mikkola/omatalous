@@ -101,6 +101,7 @@ export const FI_BILLS = {
   "bills.sum_after": "Laskujen jälkeen {sum}",
   "bills.sum_after_unknown": "Laskujen jälkeen: ei tiedossa",
   "bills.monthly_fold": "Kuukausittaiset laskut, {count} kpl",
+  "bills.paid_fold": "Maksetut laskut, {count} kpl",
   "bills.year": "Seuraavat 12 kk: laskuja {bills}, harvemmin kuin kuukausittain {rare} ({reserve} kuussa)",
   "bills.unknown_one": "{count} laskun summa tai päivä ei ole tiedossa",
   "bills.unknown_many": "{count} laskun summa tai päivä ei ole tiedossa",

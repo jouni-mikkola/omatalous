@@ -1,4 +1,4 @@
-import { expect, test, type BrowserContext } from "@playwright/test";
+import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { join } from "node:path";
 import { parseSeriesId } from "../packages/core/src/recurring.ts";
 import { cents, watch } from "./helpers.ts";
@@ -19,6 +19,12 @@ interface Dashboard {
   nyt: { left: { billsCents: number; leftCents: number } };
 }
 const dashboardOf = async (context: BrowserContext): Promise<Dashboard> => (await context.request.get("/api/dashboard")).json();
+
+/** Opens the folded paid rows of the open month on Laskut, where a bill paid this month stands. */
+async function showPaid(page: Page): Promise<void> {
+  await expect(page.locator("#laskut-taulukko .bill-month").first()).toBeVisible();
+  for (const fold of await page.locator("#laskut-taulukko .bill-paid[aria-expanded=false]").all()) await fold.click();
+}
 
 interface Series {
   id: string;
@@ -44,6 +50,7 @@ test("a row of Tulossa opens the bill's earlier amounts, and their sum is the su
     const paid = behind.items.map((r) => -(r.partCents ?? r.amountCents));
 
     await page.goto("/#/bills");
+    await showPaid(page);
     const row = page.locator("#laskut-taulukko tbody tr").filter({ has: page.getByRole("button", { name: `Tiedot: ${bill!.merchant}`, exact: true }) });
     // the bill stands in each of the months it falls in; the first one is opened
     await expect(row.first()).toBeVisible();
@@ -94,6 +101,7 @@ test("a found bill that is no recurring bill is marked away on Tulossa and is no
   const name = bill!.merchant;
   try {
     await page.goto("/#/bills");
+    await showPaid(page);
     const row = page.locator("#laskut-taulukko tbody tr").filter({ has: page.getByRole("button", { name: `Tiedot: ${name}`, exact: true }) });
     await expect(row.first()).toBeVisible();
     await row.first().getByRole("button", { name: `Tiedot: ${name}`, exact: true }).click();
@@ -107,6 +115,7 @@ test("a found bill that is no recurring bill is marked away on Tulossa and is no
     await expect(page.locator("#laskut-taulukko tbody tr").first()).toBeVisible();
     await page.reload();
     await expect(page.locator("#laskut-taulukko tbody tr").first()).toBeVisible();
+    await showPaid(page);
     await expect(row).toHaveCount(0);
     const after = (await (await context.request.get("/api/recurring")).json()) as { series: Series[] };
     expect(after.series.some((s) => s.id === bill!.id)).toBe(false);

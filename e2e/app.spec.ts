@@ -413,6 +413,7 @@ test("sign out and back in", async ({ page }) => {
 });
 
 // the demo household is a full year of bills: twelve months in the calendar, every one with its monthly bills, one of them open
+// with its paid rows folded
 test("the Laskut page fits a phone: the table of the months is inside the screen at 390 px, in at most 1800 px", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
@@ -428,21 +429,6 @@ test("the Laskut page fits a phone: the table of the months is inside the screen
   expect(months, "months of the calendar").toBe(12);
   const height = await page.evaluate(() => document.documentElement.scrollHeight);
   console.log(`Laskut at 390 px: ${height} px, ${months} months`);
-  console.log(
-    "Laskut parts: " +
-      JSON.stringify(
-        await page.evaluate(() => {
-          const h = (el: Element | null) => (el ? Math.round(el.getBoundingClientRect().height) : -1);
-          const pick = (sel: string) => [...document.querySelectorAll(sel)].map((el) => `${el.tagName.toLowerCase()}.${el.className}:${h(el)}`);
-          return {
-            body: [...document.body.querySelectorAll("header, main > *, main > * > *")].map((el) => `${el.tagName.toLowerCase()}.${String(el.className).slice(0, 30)}:${h(el)}`),
-            table: pick("#laskut-taulukko > *, #laskut-taulukko thead, #laskut-taulukko caption"),
-            heads: [...document.querySelectorAll("#laskut-taulukko tr.rt-group")].map(h),
-            rows: [...document.querySelectorAll("#laskut-taulukko tbody tr:not(.rt-group)")].map(h),
-          };
-        }),
-      ),
-  );
   expect(height, "page height at 390 px").toBeLessThanOrEqual(1800);
   expect(seen.problems).toEqual([]);
   await context.close();
@@ -457,7 +443,8 @@ test("the Laskut page at 1440 px is at most 1800 px tall and does not scroll sid
   await page.waitForLoadState("networkidle");
   expect(await page.evaluate(() => document.documentElement.scrollHeight), "page height at 1440 px").toBeLessThanOrEqual(1800);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
-  // the openers of the rows stand one under the other with no box over a neighbour's
+  // the openers of the rows stand one under the other with no box over a neighbour's, the folded paid rows opened too
+  for (const fold of await page.locator("#laskut-taulukko .bill-paid[aria-expanded=false]").all()) await fold.click();
   const drills = await page.locator("#laskut-taulukko .rt-drill").evaluateAll((els) =>
     els.map((el) => el.getBoundingClientRect()).filter((b) => b.width > 0).map((b) => ({ top: b.top, bottom: b.bottom })).sort((a, b) => a.top - b.top),
   );

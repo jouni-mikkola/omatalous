@@ -19,6 +19,8 @@ for (const width of [390, 1440]) {
     await page.goto("/#/bills");
     const bills = page.locator("#laskut-taulukko .sub-merchant");
     await expect(bills.first()).toBeVisible();
+    // the paid rows of the open month are folded; the series paid this month are among them
+    for (const fold of await page.locator("#laskut-taulukko .bill-paid[aria-expanded=false]").all()) await fold.click();
     const onBills = (await bills.allTextContents()).map((s) => s.replace(/\s+/g, " ").trim());
     if (SHOTS) {
       await page.locator("#laskut-taulukko").scrollIntoViewIfNeeded();
