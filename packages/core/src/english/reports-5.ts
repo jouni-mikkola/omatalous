@@ -61,7 +61,7 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.ln_remove_others": "{names} can remove the saved loan",
   "rpt.ln_remove_own": "remove the saved loan",
   "rpt.ln_fix_link": "If it is the same debt, it is counted once when you link the loan to the account.",
-  "rpt.ln_fix_remove": "If it is the same debt, {remove} under Settings > Household > Loans and it is counted once.",
+  "rpt.ln_fix_remove": "If it is the same debt, {remove} under Assets and debts > Loans and it is counted once.",
   "rpt.ln_twice": "{same}: {sides}. {fix}",
   "rpt.ln_overdraft": "If the loan you saved also shows in the bank's data, it is in the figure {label} twice. The right figure is then higher by the amount of the loan.",
   "rpt.ln_path_last": "The last loan is paid off in {month}.",

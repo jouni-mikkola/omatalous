@@ -4,11 +4,13 @@
  * Tarkistettavat from its home loan question with the kind set, so a loan is added the same way wherever it is asked.
  */
 import type { LoanDraft, LoanKind } from "@banking/core";
-import { useId, useState } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { loanCalls } from "../../api.ts";
 import { useApi } from "../../hooks.ts";
 import { t } from "../../text.ts";
 import type { LoansAnswer, Meta } from "../../types.ts";
+import { Button } from "../ui/Button.tsx";
+import { useInPlaceForm } from "../ui/in-place-form.ts";
 import { emptyForm, setKind } from "./form.ts";
 import { LoanDraftTable } from "./LoanDraftTable.tsx";
 import { LoanEditor, LoanLinks } from "./LoanEditor.tsx";
@@ -53,5 +55,38 @@ export function AddLoan({ meta, kind, onSaved, onClose }: {
   );
 }
 
-/** The line Varat ja velat says after a save of the new loans. */
-export const savedText = (count: number): string => t(count === 1 ? "set.loans.loan_saved" : "set.loans.loans_saved");
+/** The line a panel says after a save of new loans. */
+const savedText = (count: number): string => t(count === 1 ? "set.loans.loan_saved" : "set.loans.loans_saved");
+
+/**
+ * Lisää laina for a panel's head and the form it opens under the head. The button stays in the head, so the focus goes
+ * back to it when the form closes, by a button of the form or by Escape. `say` tells what was saved.
+ */
+export function useAddLoan(meta: Pick<Meta, "accounts" | "today">, say?: (text: string | null) => void): { opener: ReactNode; form: ReactNode } {
+  const { open, setOpen, region } = useInPlaceForm();
+  const opener = useRef<HTMLButtonElement>(null);
+  const was = useRef(open);
+  useEffect(() => {
+    if (was.current && !open) opener.current?.focus();
+    was.current = open;
+  }, [open]);
+  return {
+    opener: (
+      <Button
+        ref={opener}
+        aria-expanded={open}
+        onClick={() => {
+          say?.(null);
+          setOpen(true);
+        }}
+      >
+        {t("set.loans.add_loan")}
+      </Button>
+    ),
+    form: open && (
+      <div {...region}>
+        <AddLoan meta={meta} onSaved={(count) => say?.(savedText(count))} onClose={() => setOpen(false)} />
+      </div>
+    ),
+  };
+}

@@ -1,5 +1,6 @@
 // Decision: is the buffer growing and the debt shrinking
 import { addDays } from "@banking/core";
+import { useAddLoan } from "../../../components/loans/AddLoan.tsx";
 import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
 import { DeltaChip } from "../../../components/table/Cells.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
@@ -18,6 +19,8 @@ const savedLabel = (linked: boolean) => t(linked ? "rpt.bal_saved_unlinked" : "r
 
 function Balances({ ctx }: SectionProps) {
   const r = ctx.data.balances;
+  // the loans are added here, also by a viewer with no account, whose panel has nothing else
+  const adding = useAddLoan(ctx.meta, ctx.sayLoan);
   const last = r.months.length - 1;
   // the month in progress has no end yet: its point is the balance of today
   const lastIsToday = last >= 0 && r.months[last] === ctx.running;
@@ -67,39 +70,51 @@ function Balances({ ctx }: SectionProps) {
           </span>
         )
       }
+      actions={adding.opener}
     >
-      {/* told for today only, as the debts are, and only to a household that saved a loan; with cents, so the three figures subtract */}
-      {lastIsToday && r.debt.savedCents > 0 && r.accountsLessDebt[last] != null && r.total[last] != null && (
-        <>
-          <dl className="st-rows balance-rows">
-            <FigureRow label={t("rpt.bal_row")}>{money(r.total[last]!)}</FigureRow>
-            <FigureRow label={savedLabel(ctx.data.loans.loans.some((l) => l.linkedAccount !== null))}>{money(r.debt.savedCents)}</FigureRow>
-            <FigureRow label={accountsLessDebt().label}>{money(r.accountsLessDebt[last]!)}</FigureRow>
-          </dl>
-          {(maybeTwice.length > 0 || overdrafts.length > 0) && (
-            <ul className="loans-notes">
-              {maybeTwice.length > 0 && <li className="warn">{t("rpt.bal_twice_see", { text: sameDebtTwice() })}</li>}
-              {overdrafts.length > 0 && <li className="warn">{overdraftTwice()}</li>}
-            </ul>
-          )}
-        </>
+      {ctx.loanSaid && (
+        <p className="loan-said" role="status">
+          {ctx.loanSaid}
+        </p>
       )}
-      <QuestionChart id="saldot-kaavio" question={t("rpt.bal_q_trend")} answer={answer} table={tableView} />
-      <hr className="qc-rule" />
-      {/* the page is named Varat ja velat, and Lainat (shown with a saved or an unsaved loan) lists the loans and their total */}
-      <Holdings holdings={r.holdings} meta={ctx.meta} title={null} loansListed={listsLoans(ctx.data.loans)} />
-      {r.missing.length > 0 && (
+      {adding.form}
+      {/* a viewer with no account has nothing more here */}
+      {r.accounts.length > 0 && (
         <>
+          {/* told for today only, as the debts are, and only to a household that saved a loan; with cents, so the three figures subtract */}
+          {lastIsToday && r.debt.savedCents > 0 && r.accountsLessDebt[last] != null && r.total[last] != null && (
+            <>
+              <dl className="st-rows balance-rows">
+                <FigureRow label={t("rpt.bal_row")}>{money(r.total[last]!)}</FigureRow>
+                <FigureRow label={savedLabel(ctx.data.loans.loans.some((l) => l.linkedAccount !== null))}>{money(r.debt.savedCents)}</FigureRow>
+                <FigureRow label={accountsLessDebt().label}>{money(r.accountsLessDebt[last]!)}</FigureRow>
+              </dl>
+              {(maybeTwice.length > 0 || overdrafts.length > 0) && (
+                <ul className="loans-notes">
+                  {maybeTwice.length > 0 && <li className="warn">{t("rpt.bal_twice_see", { text: sameDebtTwice() })}</li>}
+                  {overdrafts.length > 0 && <li className="warn">{overdraftTwice()}</li>}
+                </ul>
+              )}
+            </>
+          )}
+          <QuestionChart id="saldot-kaavio" question={t("rpt.bal_q_trend")} answer={answer} table={tableView} />
           <hr className="qc-rule" />
-          <QuestionChart id="saldot-puuttuvat" question={t("rpt.bal_q_missing")} answer={t(r.missing.length === 1 ? "rpt.bal_missing_one" : "rpt.bal_missing_many", { count: plural(r.missing.length, t("rpt.u_account"), t("rpt.u_accounts")) })}>
-            <dl className="st-rows balance-rows">
-              {r.missing.map((m) => (
-                <FigureRow key={m.accountId} label={m.name}>
-                  {m.foreign ? moneyIn(m.foreign.cents, m.foreign.currency) : t("rpt.bal_unknown")}
-                </FigureRow>
-              ))}
-            </dl>
-          </QuestionChart>
+          {/* the page is named Varat ja velat, and Lainat (shown with a saved or an unsaved loan) lists the loans and their total */}
+          <Holdings holdings={r.holdings} meta={ctx.meta} title={null} loansListed={listsLoans(ctx.data.loans)} />
+          {r.missing.length > 0 && (
+            <>
+              <hr className="qc-rule" />
+              <QuestionChart id="saldot-puuttuvat" question={t("rpt.bal_q_missing")} answer={t(r.missing.length === 1 ? "rpt.bal_missing_one" : "rpt.bal_missing_many", { count: plural(r.missing.length, t("rpt.u_account"), t("rpt.u_accounts")) })}>
+                <dl className="st-rows balance-rows">
+                  {r.missing.map((m) => (
+                    <FigureRow key={m.accountId} label={m.name}>
+                      {m.foreign ? moneyIn(m.foreign.cents, m.foreign.currency) : t("rpt.bal_unknown")}
+                    </FigureRow>
+                  ))}
+                </dl>
+              </QuestionChart>
+            </>
+          )}
         </>
       )}
     </ReportPanel>
@@ -114,6 +129,5 @@ export const section: ReportSection = {
   order: 110,
   page: "reports",
   reports: ["balances", "loans"],
-  visible: (ctx) => ctx.data.balances.accounts.length > 0,
   Component: Balances,
 };

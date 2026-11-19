@@ -22,6 +22,10 @@ export interface ReportContext {
   compare?: string | null;
   /** The name of the period the page shows ("12 kk"), so a figure that sums it can say so. Raportit sets it. */
   span?: string;
+  /** What the last change of a loan did ('Laina poistettu.'), told under the head of Saldot; null when nothing is to tell. Raportit keeps it, so it stays when the change hides the section that made it. */
+  loanSaid?: string | null;
+  /** Tells a change of a loan in that line, or empties it with null. */
+  sayLoan?: (text: string | null) => void;
 }
 
 export interface SectionProps {
