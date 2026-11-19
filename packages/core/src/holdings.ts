@@ -187,8 +187,9 @@ export interface UnsavedRow {
 export function unsavedDebts(ctx: AnalysisContext, inputs: UserInputs, proposals: readonly LoanProposal[] = loanProposals(ctx, inputs)): { total: UnsavedLoans | null; rows: UnsavedRow[]; few: number } {
   const { cards, creditsLeft } = unconnectedCardsAndCredits(ctx, inputs);
   // a credit saved with no link is one of the credits of unknown kind, which one the rows do not tell: the largest
-  // payments are taken first, as a card loan takes a card. Tarkistettavat still offers the link (review-loan-terms.ts).
-  const saved = new Set(proposals.filter((p) => p.kindUnknown).sort((a, b) => b.paymentCents - a.paymentCents).slice(0, creditsLeft));
+  // payments are taken first (`loanProposals` lists them so), as a card loan takes a card. Tarkistettavat still offers
+  // the link (review-loan-terms.ts).
+  const saved = new Set(proposals.filter((p) => p.kindUnknown).slice(0, creditsLeft));
   const unsaved = proposals.filter((p) => !saved.has(p));
   // a lender's few payments tell no monthly figure to sum, so they are counted apart (`unsavedFewPayments`)
   const lenders = unsaved.filter(hasMonthly);

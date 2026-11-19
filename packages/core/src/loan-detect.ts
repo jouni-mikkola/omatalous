@@ -387,14 +387,18 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
   const byId = standingById(ctx);
   const draws = creditDraws(txs, ctx.today);
   const taken = takenSeries(inputs);
-  const steadyOf = (rows: readonly AnalysisTx[]) => steadyBy(rows, () => "series").size > 0;
-  // a payee paid sums that change on the account: a key with no amount is their answer, and a fixed sum beside them an
-  // instalment of the same lender, asked on its own (declared-loans.ts leaves its rows loans too)
-  const changingBeside = (accountId: string, merchant: string) =>
-    ctx.recurring.some((o) => {
+  // a payee paid sums that change on the account: a key with no amount is their answer, and one sum beside them an
+  // instalment of the same lender, asked on its own (declared-loans.ts leaves its rows loans too). The changing sums
+  // may be in the instalment's own series, which holds the lender's rows no product holds (recurring.ts).
+  const changingBeside = (s: RecurringSeries, charges: readonly AnalysisTx[], typical: number) => {
+    const { accountId, merchant } = parseSeriesId(s.id)!;
+    const beside = ctx.recurring.filter((o) => {
       const p = parseSeriesId(o.id);
-      return o.active && p?.direction === "out" && p.accountId === accountId && p.merchant === merchant && !steadyOf(o.transactionIds.flatMap((id) => byId.get(id) ?? []));
+      return o.active && o.id !== s.id && p?.direction === "out" && p.accountId === accountId && p.merchant === merchant;
     });
+    const rows = [...charges, ...beside.flatMap((o) => o.transactionIds.flatMap((id) => byId.get(id) ?? []))];
+    return new Set(rows.filter((t) => Math.abs(t.amountCents - typical) > Math.abs(typical) * STEADY_BAND).map((t) => monthOf(t.bookingDate))).size >= 3;
+  };
   // a saved loan with a typed payment and no series linked takes one series it fits, as in Asuminen (housing.ts)
   const unlinked = loansOf(inputs).flatMap((loan) => (loan.seriesKey ? [] : [typedBill(loan, ctx.today)].filter((c): c is number => c !== null)));
   const cancelled = cancelledSubjects(inputs);
@@ -439,8 +443,9 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
     // Laina is a first name too: a person so named is a lender only when the payment text names the loan
     if (isNamedLaina(payee) && !hasPayeeForm(payee) && !isLoanText(fold(last.description ?? ""))) continue;
     if (isCancelled(cancelled, s)) continue;
-    const steady = steadyOf(charges);
-    if (taken(s, charges) && (!steady || taken(s, charges, true) || !changingBeside(parts.accountId, parts.merchant))) continue;
+    const typical = steadyBy(charges, () => "series").get("series");
+    const steady = typical !== undefined;
+    if (taken(s, charges) && (!steady || taken(s, charges, true) || !changingBeside(s, charges, typical))) continue;
     const fits = unlinked.findIndex((bill) => fitsPayment(bill, s, charges));
     if (fits >= 0) {
       unlinked.splice(fits, 1);
