@@ -286,7 +286,10 @@ describe("a saved credit with no link beside the credit of unknown kind", () => 
     const inputs = withLoans(saved("consumer", null, { paymentCents: 15_000 }));
     expect(loanProposals(both, inputs)).toEqual([expect.objectContaining({ payee: "Bank Norwegian", kindUnknown: true })]);
     expect(unsavedDebts(both, inputs).rows).toEqual([expect.objectContaining({ name: "Bank Norwegian", kindUnknown: true })]);
-    expect(loansReport(both, [], inputs).totalKnown).toBe(false);
+    // Velat yhteensä names the known part, and the year's cost is partial
+    const report = loansReport(both, [], inputs);
+    expect(report.unsaved).toEqual([expect.objectContaining({ name: "Bank Norwegian", kindUnknown: true })]);
+    expect(report.cost12.cents).toBeNull();
   });
 
   it("the credits the row may be are the cards, credit lines and consumer credits saved with no series and no account", () => {
