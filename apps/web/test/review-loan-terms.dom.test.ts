@@ -270,7 +270,7 @@ describe("the fee of a plan at 0 %", () => {
     expect(await within(openRow(0)).findByLabelText("Kulu erää kohden (€)", {}, T)).toBeTruthy();
     expect(within(openRow(0)).queryByLabelText(/^Korko/)).toBeNull();
     expect(within(openRow(0)).queryByRole("button", { name: "Älä muistuta tästä enää" })).toBeNull();
-    fireEvent.click(within(openRow(0)).getByRole("button", { name: "0 €" }));
+    fireEvent.click(within(openRow(0)).getByRole("button", { name: /^0\s€$/ }));
     await waitFor(() => expect(seen.some((s) => s.method === "PUT" && s.path === "/api/loans/loan-5")).toBe(true), T);
     expect(seen.find((s) => s.method === "PUT")!.body).toMatchObject({ name: "Osamaksu", rateBp: 0, paymentFeeCents: 0 });
     await screen.findByText(/kulu erää kohden 0,00/, {}, T);

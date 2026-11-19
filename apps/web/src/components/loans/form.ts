@@ -212,9 +212,9 @@ export function shownFields(form: LoanForm, fixings?: Fixings): LoanFieldKey[] {
   if (form.values.reference !== "" && form.values.reference !== "fixed") for (const key of STEP_KEYS) hidden.add(key);
   if (marginOnly(form, fixings)) hidden.add("rateBp");
   if (isCredit(form.kind)) for (const key of ["grantedCents", "repayment", "intervalMonths", "paymentCents", "paymentFeeCents", "endDate"] as const) hidden.add(key);
+  else if (form.kind !== "") hidden.add("limitCents");
   // the fee of each payment is told of a plan at 0 %, where the fee is all it costs; one already typed stays to change
   if (form.values.paymentFeeCents.trim() === "" && parseRate(form.values.rateBp.trim()) !== 0) hidden.add("paymentFeeCents");
-  else if (form.kind !== "") hidden.add("limitCents");
   if (form.values.repayment === "bullet") hidden.add("paymentCents");
   return FIELD_KEYS.filter((key) => !hidden.has(key));
 }
