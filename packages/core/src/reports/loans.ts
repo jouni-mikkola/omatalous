@@ -54,18 +54,15 @@ interface MonthlyPayments {
   unknown: number;
 }
 
-/** The unsaved debts as `unsavedDebts` tells them: the sum of their payments, the rows and the count of lenders paid only a few times. */
-type UnsavedDebts = ReturnType<typeof unsavedDebts>;
-
 /**
- * The payments the page lists, saved or not, in one sum: the saved loans' payments and the unsaved debts' sum
- * (`UnsavedLoans.paymentCents`, the viewer's part). The rows are read only to count the debts that tell no payment.
+ * The payments the page lists, saved or not, in one sum: the saved loans' payments and the payments of the unsaved rows
+ * (`UnsavedRow.monthlyCents`, the viewer's part), with the debts that tell none counted, a lender paid only a few times (`few`) among them.
  */
-export function monthlyPayments(payments: DebtPayments, unsaved: UnsavedDebts): MonthlyPayments {
-  const known = unsaved.rows.filter((row) => row.monthlyCents !== null).length;
+export function monthlyPayments(payments: DebtPayments, unsaved: Pick<ReturnType<typeof unsavedDebts>, "rows" | "few">): MonthlyPayments {
+  const known = unsaved.rows.flatMap((row) => row.monthlyCents ?? []);
   return {
-    cents: payments.counted + known > 0 ? payments.monthlyCents + (unsaved.total?.paymentCents ?? 0) : null,
-    unknown: payments.unknown + unsaved.rows.length - known + unsaved.few,
+    cents: payments.counted + known.length > 0 ? known.reduce((sum, cents) => sum + cents, payments.monthlyCents) : null,
+    unknown: payments.unknown + unsaved.rows.length - known.length + unsaved.few,
   };
 }
 
