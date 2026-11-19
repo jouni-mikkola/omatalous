@@ -1,5 +1,5 @@
 /**
- * What the build copies for the picture reader of Asetukset > Lainat (`ocrFiles` in vite.config.ts). The licences of
+ * What the build copies for the picture reader of Lisää laina (`ocrFiles` in vite.config.ts). The licences of
  * these files are in THIRD_PARTY_NOTICES (tools/third-party-notices.mjs). Node only: the web app never imports this.
  */
 import { createHash } from "node:crypto";

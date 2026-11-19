@@ -6,10 +6,10 @@ import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 
-/** The PDF reader of Asetukset > Lainat: its lazy chunk and its worker (over a megabyte), needed only while a loan PDF is read. */
+/** The PDF reader of Lisää laina: its lazy chunk and its worker (over a megabyte), needed only while a loan PDF is read. */
 const PDF_READER = /^\/assets\/pdf(?:\.worker\.min)?-[\w-]+\.m?js$/;
 
-/** The picture reader of Asetukset > Lainat: its worker, WebAssembly cores and language data (about 11 MB under `assets/ocr-<hash>/`, `ocrFiles` in vite.config.ts), needed only while a loan picture is read. */
+/** The picture reader of Lisää laina: its worker, WebAssembly cores and language data (about 11 MB under `assets/ocr-<hash>/`, `ocrFiles` in vite.config.ts), needed only while a loan picture is read. */
 const PICTURE_READER = /^\/assets\/ocr-[0-9a-f]{8}\//;
 
 /** The small chunk that `import("tesseract.js")` makes. Its name is the module's (`index`), the same as the app's own, so it is found in the bundle and not by its name. */

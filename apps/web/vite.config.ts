@@ -8,7 +8,7 @@ import { ocrFolder, ocrSources } from "./ocr-build.ts";
 import { pictureReaderChunks, shellFiles, shellWorkerSource } from "./shell-build.ts";
 
 /**
- * The files the picture reader of Asetukset > Lainat loads while it runs: the Tesseract worker, its WASM core (the one
+ * The files the picture reader of Lisää laina loads while it runs: the Tesseract worker, its WASM core (the one
  * with SIMD or the one without, by what the browser can do) and the Finnish and English data. The worker loads them by
  * address, so the bundler never sees them and they are copied here. The app serves them itself: no browser fetches
  * them from another host. Their folder under assets/ is named by their content, so the server caches them like every
