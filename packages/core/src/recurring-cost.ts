@@ -5,6 +5,7 @@ import type { CadenceDef } from "./recurring-cadence.ts";
 import { amountsDiffer, type Occurrence } from "./recurring-occurrence.ts";
 import type { PriceChange, PriceStep, RecurringKind } from "./recurring.ts";
 import { median, sum } from "./stats.ts";
+import { ONE_OFF_TIMES, REGULAR_LEVEL_SHARE } from "./thresholds.ts";
 
 export function latestPriceChange(occ: readonly Occurrence[]): PriceChange | null {
   for (let i = occ.length - 1; i > 0; i--) {
@@ -107,14 +108,30 @@ function lastTwelveMonths(occ: readonly Occurrence[], cadence: CadenceDef): Occu
 const LEVEL_CHARGES = 5;
 
 /**
- * What the next charge is expected to be: the median of the latest three, which keeps one extra repayment out. A
- * series that moves between two prices (400, 400, 450, 450, 400) and whose latest charge is back on the lower one,
+ * The one-off charges of a series: each over ONE_OFF_TIMES its median whose next charge is back at or under that, such
+ * as a loan paid at 400 with a repayment of 2 500 between two instalments. Only a series with a regular level has them,
+ * at least REGULAR_LEVEL_SHARE of its charges at its median, so a card bill or a bill whose sum moves every month keeps
+ * every charge. A price that rose and stayed is no one-off: its next charge did not come back, and the latest charge
+ * has no next one.
+ */
+function oneOffsOf(occ: readonly Occurrence[]): Set<Occurrence> {
+  const level = median(occ.map((o) => o.cents));
+  const atLevel = occ.filter((o) => !amountsDiffer(o.cents, level)).length;
+  if (atLevel < occ.length * REGULAR_LEVEL_SHARE) return new Set();
+  const ceiling = level * ONE_OFF_TIMES;
+  return new Set(occ.filter((o, i) => i < occ.length - 1 && o.cents > ceiling && occ[i + 1]!.cents <= ceiling));
+}
+
+/**
+ * What the next charge is expected to be, the one-off charges (`oneOffsOf`) left out: the median of the latest three,
+ * which keeps one extra repayment out. A series that moves between two prices (400, 400, 450, 450, 400) and whose latest charge is back on the lower one,
  * a price it held within those charges, stands on that price: the median of three would stay on the higher price that the two
  * charges before it held. A latest charge above the median is never followed, since one larger sum is an extra
  * repayment, and a price the series did not hold lately is no step yet.
  */
 export function typicalAmountOf(occ: readonly Occurrence[]): number {
-  const cents = occ.map((o) => o.cents);
+  const oneOffs = oneOffsOf(occ);
+  const cents = occ.filter((o) => !oneOffs.has(o)).map((o) => o.cents);
   const typical = Math.round(median(cents.slice(-3)));
   const last = cents[cents.length - 1]!;
   const onTwoLevels = cents.slice(-LEVEL_CHARGES).every((c) => !amountsDiffer(c, last) || !amountsDiffer(c, typical));
@@ -125,9 +142,13 @@ export function typicalAmountOf(occ: readonly Occurrence[]): number {
 /**
  * What a series costs in a year. A bill that varies with the season
  * (electricity) is what its last twelve charges came to: the latest
- * summer bills times twelve would miss the winter.
+ * summer bills times twelve would miss the winter. A one-off charge
+ * (`oneOffsOf`) counts as the typical one: it was that month's payment, and
+ * the rest of it is no cost a year brings again.
  */
 export function yearlyCostOf(occ: readonly Occurrence[], cadence: CadenceDef, kind: RecurringKind, typical: number, perYear: number): number {
   const year = kind === "bill" ? lastTwelveMonths(occ, cadence) : null;
-  return year && year.length >= perYear ? sum(year.slice(-perYear).map((o) => o.cents)) : Math.round(typical * perYear);
+  if (!year || year.length < perYear) return Math.round(typical * perYear);
+  const oneOffs = oneOffsOf(occ);
+  return sum(year.slice(-perYear).map((o) => (oneOffs.has(o) ? typical : o.cents)));
 }
