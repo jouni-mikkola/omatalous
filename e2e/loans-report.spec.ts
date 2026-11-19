@@ -136,14 +136,14 @@ test("Lainat lists each debt in one table, says what it does not know and what a
   const { page, seen, context } = await open(browser, 1440);
   const section = page.locator("#lainat");
 
-  // the totals: the payments of a month; the debts and their cost are the foot of the table
+  // the totals: the payments of a month, the mortgage's and the unsaved loan's, and the card that tells none; the debts and their cost are the foot of the table
   const tiles = await texts(page, "#lainat .kv > div");
-  expect(tiles[0]).toBe("Maksut kuussa 1 000 €");
+  expect(tiles[0]).toBe("Maksut kuussa 1 289 € + 1 ei tiedossa");
   // and no path of the debts is drawn while a debt that owes cannot be projected, and no plan is told while a debt lacks its terms
   await expect(section.locator("#lainat-polku")).toHaveCount(0);
   await expect(section.locator(".loan-plan")).toHaveCount(0);
   await expect(section.locator(".loans-notes")).toHaveCount(0);
-  await expect(section).not.toContainText(/ei tiedossa/);
+  await expect(section.locator("table.rt")).not.toContainText(/ei tiedossa/);
   // the accounts less the debts are told only for a range that reaches today (apps/web/test/loans-section.test.ts
   // reads their texts), and nothing on the page calls a figure net worth
   await expect(page.locator("main")).not.toContainText("Nettovarallisuus");
