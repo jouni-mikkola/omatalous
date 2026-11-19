@@ -60,7 +60,7 @@ function spendingParts(ctx: AnalysisContext, range: DateRange): { rows: Analysis
 }
 
 /** The twelve complete months up to `to`: the month of `to` when `to` is its last day, else the twelve before it. */
-function completeYear(to: IsoDate): DateRange {
+export function completeYear(to: IsoDate): DateRange {
   const month = monthEnd(monthOf(to)) === to ? monthOf(to) : addMonths(monthOf(to), -1);
   return { from: dateIn(addMonths(month, -11), 1), to: monthEnd(month) };
 }

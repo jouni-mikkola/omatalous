@@ -10,6 +10,7 @@
 import { billCents } from "./account-use.ts";
 import { daysBetween } from "./dates.ts";
 import { paysSeries } from "./loan-detect.ts";
+import { STEADY_BAND } from "./returns.ts";
 import { endOf, intervalOf, planOf, typedPayment } from "./loan-plan.ts";
 import { payments } from "./loan-schedule.ts";
 import { hasReferenceRate } from "./loans.ts";
@@ -81,6 +82,20 @@ export function parseLoanUnknownSubject(subject: string): { monthlyCents: number
 
 /** Whether the household said it does not know what the proposed loan of `key` owes while its monthly payment is `monthlyCents`. */
 export const loanUnknownAsked = (marks: readonly Pick<UserMark, "subject" | "mark">[], key: string, monthlyCents: number | null): boolean => marks.some((m) => m.mark === "in_use" && m.subject === loanUnknownSubject(monthlyCents, key));
+
+/**
+ * Whether the household said "En tiedä" of the card of `key` (`loanUnknownSubject`, with the sum of that day) and `cents`
+ * has not risen since by more than `STEADY_BAND`: a card's bills differ each month, so only a clear rise asks again. A
+ * sum that was not known holds while it is still not known.
+ */
+export function cardUnknownAsked(marks: readonly Pick<UserMark, "subject" | "mark">[], key: string, cents: number | null): boolean {
+  return marks.some((m) => {
+    const said = m.mark === "in_use" ? parseLoanUnknownSubject(m.subject) : null;
+    if (said?.key !== key) return false;
+    if (said.monthlyCents === null) return cents === null;
+    return cents === null || cents <= said.monthlyCents * (1 + STEADY_BAND);
+  });
+}
 
 /** A bank row is the payment of a due date when it falls within this many days of it. */
 const DUE_DAYS = 7;
