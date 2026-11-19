@@ -83,18 +83,15 @@ const PURPOSE_RULES: readonly BuiltinRule[] = [
   { category: "income", direction: "in", re: w(String.raw`VUOKRA(?:T|TULO[A-Z]*|TILITYS|NMAKSU)?`) },
 
   // ── credit cards: the bill is a transfer when the card account is connected (transfers.ts) ──
-  // issuer banks lend and take deposits: SÄÄSTÖTILI is saving, a card word a card's bill, LAINA or the name alone loans; a card brand alone a card's bill
+  // issuer banks lend and take deposits: SÄÄSTÖTILI is saving, a card word a card's bill, LAINA or the name alone loans; a card brand alone a card's bill, with a loan word a loan's
   { category: "savings", re: w(`${CARD_ISSUER_BANK_WORDS}|${CARD_BRAND_WORDS}`), when: isSavingsAccountText },
   { category: "card_bill", direction: "out", re: w(CARD_ISSUER_BANK_WORDS), when: namesIssuerCard },
+  { category: "card_bill", direction: "out", re: w(CARD_BRAND_WORDS), when: (text) => !isLoanText(text) },
   {
     category: "card_bill",
     direction: "out",
-    re: w(
-      String.raw`LUOTTOKORT[A-Z]*|KORTTILASKU|KORTIN LASKU|${NORDEA_CARD_WORDS}|(?:GOLD|PLATINUM)-?KORTTI|NORDEA (?:MASTERCARD|VISA)|OP[- ]?KORTTI(?:YHTIO)?|KORTTIYHTIO|AKTIA (?:VISA|MASTERCARD|KORTTI)|(?:${NORDEA_FINANCE_WORDS})[A-Z ]*(?:KORTTI|GOLD|PLATINUM|MASTERCARD|CREDIT)[A-Z]*|(?:MASTERCARD|VISA|AMEX)[A-Z ]*LASKU|AMERICAN EXPRESS|CREDIT CARD (?:PAYMENT|BILL)|OP[- ]?(?:VISA|MASTERCARD)|S-?ETUKORTTI VISA`,
-    ),
+    re: w(String.raw`LUOTTOKORT[A-Z]*|KORTTILASKU|KORTIN LASKU|${NORDEA_CARD_WORDS}|(?:GOLD|PLATINUM)-?KORTTI|NORDEA (?:MASTERCARD|VISA)|OP[- ]?KORTTI(?:YHTIO)?|KORTTIYHTIO|AKTIA (?:VISA|MASTERCARD|KORTTI)|(?:${NORDEA_FINANCE_WORDS})[A-Z ]*(?:KORTTI|GOLD|PLATINUM|MASTERCARD|CREDIT)[A-Z]*|(?:MASTERCARD|VISA|AMEX)[A-Z ]*LASKU|AMERICAN EXPRESS|CREDIT CARD (?:PAYMENT|BILL)|OP[- ]?(?:VISA|MASTERCARD)|S-?ETUKORTTI VISA`),
   },
-  // a card brand's issuer lends too: a loan word it names makes the row a loan's
-  { category: "card_bill", direction: "out", re: w(CARD_BRAND_WORDS), when: (text) => !isLoanText(text) },
   // money in from a credit line (a card's "luoton siirto omalle tilille", financing payouts, a card issuer)
   {
     category: "credit_draw",
