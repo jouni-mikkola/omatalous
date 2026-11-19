@@ -3,7 +3,7 @@
  * and the mark that sets it aside. Made-up loans and sums.
  */
 import { describe, expect, it } from "vitest";
-import { cardUnknownAsked, loanDrift, loanTermsDismissed, loanTermsDismissible, loanTermsGaps, loanTermsSubject, loanUnknownAsked, loanUnknownSubject, parseLoanTermsSubject, parseLoanUnknownSubject } from "../src/loan-terms-answer.ts";
+import { cardUnknownAsked, loanDrift, loanTermsDismissed, loanTermsDismissible, loanTermsGaps, loanTermsSubject, loanUnknownSubject, parseLoanTermsSubject, parseLoanUnknownSubject, unsavedDebtAnswered } from "../src/loan-terms-answer.ts";
 import { seriesId } from "../src/series-id.ts";
 import type { Loan } from "../src/types.ts";
 
@@ -135,13 +135,22 @@ describe("the mark of \"En tiedä\" on a proposed loan", () => {
     expect(parseLoanUnknownSubject(`question:loan-unknown:${KEY}`)).toBeNull();
     expect(parseLoanUnknownSubject("question:loan-terms:loan-1")).toBeNull();
   });
+  type Marks = Parameters<typeof unsavedDebtAnswered>[0];
+  const loanAsked = (marks: Marks, key: string, monthlyCents: number | null) => unsavedDebtAnswered(marks, { proposal: { key, plan: false, planAnswer: null, monthlyCents, paymentCents: monthlyCents ?? 0 } });
   it("holds while the payment is the one said at and asks again when it changes", () => {
     const marks = [{ subject: loanUnknownSubject(25_000, KEY), mark: "in_use" as const }];
-    expect(loanUnknownAsked(marks, KEY, 25_000)).toBe(true);
-    expect(loanUnknownAsked(marks, KEY, 26_000)).toBe(false);
-    expect(loanUnknownAsked(marks, KEY, null)).toBe(false);
-    expect(loanUnknownAsked(marks, "out:acc-1:Muu", 25_000)).toBe(false);
-    expect(loanUnknownAsked([{ subject: loanUnknownSubject(null, KEY), mark: "in_use" as const }], KEY, null)).toBe(true);
+    expect(loanAsked(marks, KEY, 25_000)).toBe(true);
+    expect(loanAsked(marks, KEY, 26_000)).toBe(false);
+    expect(loanAsked(marks, KEY, null)).toBe(false);
+    expect(loanAsked(marks, "out:acc-1:Muu", 25_000)).toBe(false);
+    expect(loanAsked([{ subject: loanUnknownSubject(null, KEY), mark: "in_use" as const }], KEY, null)).toBe(true);
+  });
+  it("is no answer of a plan, which only its end answers", () => {
+    const marks = [{ subject: loanUnknownSubject(4_990, KEY), mark: "in_use" as const }];
+    const plan = (planAnswer: { known: false } | { known: true; endMonth: string } | null) => unsavedDebtAnswered(marks, { proposal: { key: KEY, plan: true, planAnswer, monthlyCents: 4_990, paymentCents: 4_990 } });
+    expect(plan(null)).toBe(false);
+    expect(plan({ known: false })).toBe(true);
+    expect(plan({ known: true, endMonth: "2027-03" })).toBe(true);
   });
 });
 

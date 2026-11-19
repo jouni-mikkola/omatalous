@@ -44,6 +44,11 @@ interface BillRow {
    * sum of the month (a card's bill holds it, as Nyt takes it).
    */
   onCard?: true;
+  /**
+   * A saved loan's key names the series (`takenSeries`), a credit line's too: the series is the loan's payment and no bill
+   * the household can take off the list. Only on a series' row; a loan whose plan is its row is of kind "loan".
+   */
+  loanSeries?: true;
 }
 
 interface BillMonth {
@@ -161,6 +166,8 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
     if (s) paying.set(loan.id, s);
   }
   const loanSeries = new Set([...paying.values()].map((s) => s.id));
+  // the keys of every saved loan, the revolving ones too, which have no plan and so no row of their own
+  const namedByLoan = takenSeries({ ...inputs, marks: [] });
 
   // the largest charge of the month a year ago: the months of one bill do not add up
   const sameMonthLastYear = (s: RecurringSeries, month: string): number => {
@@ -179,6 +186,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       seriesId: s.id,
       ...(s.cadence === "monthly" ? { monthly: true as const } : {}),
       ...offOf(s),
+      ...(namedByLoan(s, rowsOf(s)) ? { loanSeries: true as const } : {}),
     };
     if (s.lastDate >= windowStart && s.lastAmountCents !== 0) rows.push({ ...base, state: "paid", date: s.lastDate, cents: Math.abs(s.lastAmountCents) });
     // a bill that a payment from another account settled is paid in the month it fell due

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { watch } from "./helpers.ts";
 import { lockedPdf, scannedPdf, textPdf } from "./pdf-fixtures.ts";
 
-// Asetukset > Lainat: the box of a new loan that reads pasted text or a PDF. The PDFs are made by pdf-fixtures.ts from
+// Lisää laina of Varat ja velat: the box of a new loan that reads pasted text or a PDF. The PDFs are made by pdf-fixtures.ts from
 // bytes, and every lender and figure here is made up. The loans this spec saves are removed again.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const FETCH = { "X-Requested-With": "fetch" };
@@ -30,12 +30,13 @@ async function clearLoans(context: BrowserContext): Promise<void> {
   for (const loan of await loansOf(context)) expect((await context.request.delete(`/api/loans/${loan.id}`, { headers: FETCH, ...RESEND })).status()).toBe(200);
 }
 
-const lainat = (page: Page) => page.locator("#lainat");
+/** Saldot of Raportit > Varat ja velat: Lisää laina in its head, and the line that tells what was saved. */
+const saldot = (page: Page) => page.locator("#saldot");
 const said = (card: Locator, text: string) => expect(card.getByRole("status").filter({ hasText: text })).toHaveText(text);
 
 async function openNewLoan(page: Page): Promise<Locator> {
-  await page.goto("/#/settings/household");
-  const card = lainat(page);
+  await page.goto("/#/reports?q=saldot");
+  const card = saldot(page);
   await card.getByRole("button", { name: "Lisää laina" }).click();
   const form = card.getByRole("region", { name: "Uusi laina" });
   await expect(form.getByLabel("Lainan tiedot")).toBeVisible();
@@ -86,7 +87,7 @@ test("pasted text fills the form, marks what it read, holds the save until the f
   expect(await loansOf(context)).toHaveLength(0);
   for (const box of await form.getByRole("checkbox").all()) await box.check();
   await form.getByRole("button", { name: "Tallenna" }).click();
-  await said(lainat(page), "Asuntolaina, Esimerkkipankki Oyj tallennettu.");
+  await said(saldot(page), "Laina tallennettu");
 
   const [loan] = await loansOf(context);
   expect(loan).toMatchObject({ kind: "mortgage", lender: "Esimerkkipankki Oyj", grantedCents: 15_000_000, balanceCents: 12_000_000, balanceDate: "2026-09-30", rateBp: 339, repayment: "annuity", paymentCents: 68_920, endDate: "2046-10-31" });
@@ -164,7 +165,7 @@ test("a text of several loans goes to a table, each loan is matched to a saved o
     await expect(dialog).toHaveCount(0);
   }
   await page.getByRole("button", { name: "Tallenna 2 lainaa" }).click();
-  await said(lainat(page), "Tallensimme 2 lainaa.");
+  await said(saldot(page), "Lainat tallennettu");
 
   const loans = await loansOf(context);
   expect(loans).toHaveLength(2);

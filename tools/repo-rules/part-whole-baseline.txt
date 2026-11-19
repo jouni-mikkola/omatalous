@@ -3,7 +3,6 @@ apps/server/src/routes/loans.ts  paymentCents  4
 apps/server/src/services/analysis.ts  wholeCents  2
 apps/web/src/components/loans/form.ts  paymentCents  2
 apps/web/src/pages/reports/sections/Loans.tsx  paymentCents  2
-apps/web/src/pages/settings/Loans.tsx  paymentCents  2
 packages/core/src/analysis/conservation.ts  wholeCents  1
 packages/core/src/analysis/questions.ts  paymentCents  1
 packages/core/src/analysis/statement-explain.ts  wholeCents  4

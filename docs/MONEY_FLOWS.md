@@ -597,7 +597,7 @@ asked or under 95 % is classified. A question has one of five kinds:
 - `payee_out`: a payee whose spending is in Muut menot by the default (a payment service such as Trustly is asked per
   service). A category for it moves every row of the payee out of the unknown; *Ohita* keeps its money among the unknown and ends the question.
 - `payee_in`: a payee whose money the default left in Muut tulot; a category, or *Ohita*, as above.
-- `loan`: a monthly payment that looks like a loan the app cannot place. A kind saves it as a loan (Asetukset > Lainat). *Ei ole velan maksu* ends the question.
+- `loan`: a monthly payment that looks like a loan the app cannot place. A kind saves it as a loan (Raportit > Varat ja velat > Lainat). *Ei ole velan maksu* ends the question.
 - `plan`: an instalment plan of a payment service whose end the household has not said; it is answered with the payments left, the last month or *En tiedä*.
 - `payer`: only when the inputs carry payer roles. A payer that is steady (about the same sum in three months or more) or
   reaches `ASK_LIMIT`, with no role yet; it takes the place of the payee questions about the same money. A role

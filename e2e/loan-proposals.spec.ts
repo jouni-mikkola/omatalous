@@ -5,7 +5,7 @@ import { overflow, watch } from "./helpers.ts";
 
 // A loan proposal in Tarkistettavat: the demo household pays a car financing instalment every month, and the list of
 // debts asks about it in a row of its own, with one field, what is left now. It is saved as a loan, with the balance typed in; removing the loan in
-// Asetukset > Lainat asks again, and then it is answered "En tiedä" (which keeps it away while the payment is the same) and "Ei ole velan maksu". The rows are the demo data of a household member made here and removed at the end, so the demo household of the other
+// Varat ja velat asks again, and then it is answered "En tiedä" (which keeps it away while the payment is the same) and "Ei ole velan maksu". The rows are the demo data of a household member made here and removed at the end, so the demo household of the other
 // specs stays as it was. Every payee and sum here is made up.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const FETCH = { "X-Requested-With": "fetch" };
@@ -101,18 +101,22 @@ test("a payment that looks like a loan is asked in Tarkistettavat: saved as a lo
     expect((await (await context.request.get("/api/loans/proposals")).json()).proposals).toEqual([]);
     expect(await queued()).toEqual([]);
 
-    // removing the loan in Asetukset > Lainat asks again: the payments are still there
-    await page.goto("/#/settings/household");
+    // removing the loan in Varat ja velat > Lainat asks again: the payments are still there
+    await page.goto("/#/reports?q=saldot");
     const card = page.locator("#lainat");
-    const saved = card.getByRole("row").filter({ hasText: `Autolaina, ${COMPANY}` });
-    await expect(saved).toContainText(/6\s400,50\s€/);
-    await saved.getByRole("button", { name: /Poista laina/ }).click();
+    const name = `Autolaina, ${COMPANY}`;
+    await card.getByRole("button", { name, exact: true }).click();
+    await card.getByRole("button", { name: `Muokkaa lainaa ${name}` }).click();
+    const editor = page.getByRole("dialog", { name: "Muokkaa lainaa" });
+    await expect(editor.getByLabel("Lainaa jäljellä (€)")).toHaveValue("6 400,50");
+    await editor.getByRole("button", { name: "Peruuta" }).click();
+    await card.getByRole("button", { name: `Poista laina ${name}` }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Poista laina", exact: true }).click();
-    await expect(card.getByRole("status").filter({ hasText: "Laina poistettu." })).toBeVisible();
-    // the payments are asked in Tarkistettavat only: the card of the loans does not list them
-    await expect(card.getByRole("heading", { name: "Tunnistettu, saldo puuttuu" })).toHaveCount(0);
-    await expect(card.getByText(COMPANY)).toHaveCount(0);
-    await expect(card.getByText("Ei lainoja.")).toBeVisible();
+    await expect(page.locator("#saldot").getByRole("status").filter({ hasText: "Laina poistettu" })).toHaveText("Laina poistettu");
+    // the saved loan is gone; the payments are a debt nobody told the balance of, with nothing to change in Lainat
+    await expect(page.getByRole("heading", { name: "Tunnistettu, saldo puuttuu" })).toHaveCount(0);
+    await expect(page.getByRole("row").filter({ hasText: name })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^(Poista laina|Muokkaa lainaa) / })).toHaveCount(0);
     expect(await queued()).toHaveLength(1);
 
     // En tiedä: the row closes at once and stays away while the payment is the same

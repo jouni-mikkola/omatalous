@@ -10,6 +10,7 @@ import { PageAddressContext } from "../src/page-address.ts";
 import { section as balances } from "../src/pages/reports/sections/Balances.tsx";
 import { section as loans } from "../src/pages/reports/sections/Loans.tsx";
 import type { ReportContext, ReportSection } from "../src/pages/reports/types.ts";
+import { loanHash } from "../src/routes.ts";
 import { DRILL_PARAM, tableId, writeTableState } from "../src/table-state.ts";
 import { t } from "../src/text.ts";
 
@@ -133,7 +134,7 @@ describe("Raportit: Lainat", () => {
     const twice = report([row()], { maybeTwice: [{ loans: [{ id: "home", name: "Kodin laina" }, { id: "car", name: "Autolaina" }], accounts: [{ id: "acc", name: "Asuntolaina" }] }] });
     const out = html(loans, context(twice));
     expect(out).toContain("Sama velka voi olla summassa kahdesti: tallennettu laina Kodin laina tai Autolaina ja yhdistetty tili Asuntolaina.");
-    expect(out).toContain("Jos kyse on samasta velasta, poista tallennettu laina kohdassa Asetukset &gt; Talous &gt; Lainat, niin laskemme sen vain kerran.");
+    expect(out).toContain("Jos kyse on samasta velasta, poista tallennettu laina kohdassa Varat ja velat &gt; Lainat, niin laskemme sen vain kerran.");
     expect(out.toLowerCase()).not.toContain("liitä");
     expect(html(balances, context(twice))).toContain("Sama velka voi olla summassa kahdesti: katso Lainat.");
     expect(html(balances, context(report([row()])))).not.toContain("kahdesti");
@@ -300,6 +301,34 @@ describe("Raportit: Lainat", () => {
     expect(out).toContain("<dt>Korko</dt><dd>3,25 %<small>12 kuukauden Euribor</small></dd>");
   });
 
+  it("Täydennä lainat opens the drill of the saved loan the viewer can change when its rate is what the cost waits for, and Tarkistettavat otherwise", () => {
+    const noRate = { rateBp: null, reference: null, interest: { cents: null, unknown: "rate" }, cost: { rateMilli: null, costClass: null, next12: null, leftCents: null, feePerPaymentCents: null, unknown: "rate" } } as const;
+    const unknownCost = { cost12: { cents: null, interestCents: null, feeCents: null } };
+    const link = (out: string) => [...out.matchAll(/<a href="([^"]*)">Täydennä lainat<\/a>/g)].map((m) => m[1]!.replaceAll("&amp;", "&"));
+    // a rate-only saved loan of the viewer: its own drill
+    expect(link(html(loans, context(report([row(noRate)], unknownCost))))).toEqual([loanHash("home")]);
+    // an unsaved debt is a cause too: the list of debts asks for all of it
+    const unsaved = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }];
+    expect(link(html(loans, context(report([row(noRate)], { ...unknownCost, unsaved }))))).toEqual(["#/review?item=loan-terms"]);
+    // another member's loan or a connected account the viewer cannot change has no drill of theirs to open
+    expect(link(html(loans, context(report([row({ ...noRate, typedBy: "Aino" })], unknownCost))))).toEqual(["#/review?item=loan-terms"]);
+    expect(link(html(loans, context(report([row({ ...noRate, id: "account:acc-1" })], unknownCost))))).toEqual(["#/review?item=loan-terms"]);
+  });
+
+  it("Täydennä lainat opens the drill of a rate-only own loan when every unsaved debt is one Tarkistettavat no longer asks of", () => {
+    const noRate = { rateBp: null, reference: null, interest: { cents: null, unknown: "rate" }, cost: { rateMilli: null, costClass: null, next12: null, leftCents: null, feePerPaymentCents: null, unknown: "rate" } } as const;
+    const unknownCost = { cost12: { cents: null, interestCents: null, feeCents: null } };
+    const link = (out: string) => [...out.matchAll(/<a href="([^"]*)">Täydennä lainat<\/a>/g)].map((m) => m[1]!.replaceAll("&amp;", "&"));
+    const asked = [
+      { name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false, asked: true as const },
+      { name: "Esimerkkikortti", monthlyCents: 20_000, card: true, asked: true as const },
+    ];
+    expect(link(html(loans, context(report([row(noRate)], { ...unknownCost, unsaved: asked }))))).toEqual([loanHash("home")]);
+    // one debt still asked of keeps the link on the list that asks it
+    const open = [...asked, { name: "Toinenrahoitus", monthlyCents: 5_000, card: false }];
+    expect(link(html(loans, context(report([row(noRate)], { ...unknownCost, unsaved: open }))))).toEqual(["#/review?item=loan-terms"]);
+  });
+
   it("the kind is left out under a name that is the kind", () => {
     expect(html(loans, context(report([row({ name: "Asuntolaina" })])))).toContain('<span class="loan-name">Asuntolaina</span><small class="loan-about">Esimerkkipankki</small>');
     expect(html(loans, context(report([row({ name: "asuntolaina", lender: null })])))).not.toContain("loan-about");
@@ -351,12 +380,12 @@ describe("Raportit: Lainat", () => {
     expect(linkable).not.toContain("Liitä Autolaina");
     expect(linkable).not.toMatch(/href="[^"]*theirs/);
     // a set with a loan of the viewer's own and no account to link to: the viewer removes their own, as before
-    expect(html(loans, withAccounts(report(rows, { maybeTwice: [beside] }), []))).toContain("Jos kyse on samasta velasta, poista tallennettu laina kohdassa Asetukset &gt; Talous &gt; Lainat, niin laskemme sen vain kerran.");
+    expect(html(loans, withAccounts(report(rows, { maybeTwice: [beside] }), []))).toContain("Jos kyse on samasta velasta, poista tallennettu laina kohdassa Varat ja velat &gt; Lainat, niin laskemme sen vain kerran.");
     // every saved loan of the set is another member's: nothing to link though the account is the viewer's own, and the typists are named once each
     const others = { ...beside, loans: [{ id: "theirs", name: "Autolaina" }, { id: "second", name: "Remonttilaina" }, { id: "his", name: "Venelaina" }] };
     const all = [row({ id: "theirs", typedBy: "Aino" }), row({ id: "second", typedBy: "Aino" }), row({ id: "his", typedBy: "Eero" })];
     const out = html(loans, withAccounts(report(all, { maybeTwice: [others] }), [{ id: "acc" }]));
-    expect(out).toContain("Jos kyse on samasta velasta, Aino tai Eero voi poistaa tallennetun lainan kohdassa Asetukset &gt; Talous &gt; Lainat, niin laskemme sen vain kerran.");
+    expect(out).toContain("Jos kyse on samasta velasta, Aino tai Eero voi poistaa tallennetun lainan kohdassa Varat ja velat &gt; Lainat, niin laskemme sen vain kerran.");
     expect(out).not.toContain("Liitä");
     expect(out).not.toContain("<a ");
   });

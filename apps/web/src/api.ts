@@ -127,7 +127,7 @@ export function saveFile(blob: Blob, filename: string): void {
 }
 
 /**
- * The writes of Asetukset > Lainat (`GET /api/loans` lists them). A body is every field of a loan but its id: PUT
+ * The writes of the loans (`GET /api/loans` lists them). A body is every field of a loan but its id: PUT
  * replaces the whole loan, so an edit sends back also what its form does not show.
  */
 export const loanCalls = {

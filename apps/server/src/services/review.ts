@@ -92,7 +92,7 @@ interface SubscriptionItem extends Base {
 
 /**
  * Whether the household has a home loan, asked while Asuminen shows none and nothing says they rent (core `buildHousing`'s
- * `ask`). Answered by adding the loan in Asetukset > Lainat or with the mark `question:mortgage` (PUT /api/marks), the
+ * `ask`). Answered by adding the loan (Lisää asuntolaina) or with the mark `question:mortgage` (PUT /api/marks), the
  * subject the first page's card stored before the question moved here, so an old answer still counts.
  */
 interface MortgageItem extends Base {

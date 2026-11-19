@@ -9,13 +9,13 @@ import { type Fixings, type Loan, type LoanKind, loanTermsDismissible, type Loan
 import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { api, loanCalls } from "../api.ts";
 import { LoanEditor, LoanLinks, UNIT } from "../components/loans/LoanEditor.tsx";
-import { formOfCard, formOfLoan, formOfProposal, LOAN_LINK_PARAM, type LoanBody, type LoanForm, readForm } from "../components/loans/form.ts";
+import { formOfCard, formOfLoan, formOfProposal, type LoanBody, type LoanForm, readForm } from "../components/loans/form.ts";
 import { FIELD_LABEL, KIND_LABEL, type LoanFieldKey } from "../components/loans/labels.ts";
 import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
 import { date, money, monthYear, percent } from "../format.ts";
 import { useApi } from "../hooks.ts";
-import { SETTINGS_ANCHOR, settingsCardHash } from "../routes.ts";
+import { loanEditHash, SETTINGS_ANCHOR, settingsCardHash } from "../routes.ts";
 import { t } from "../text.ts";
 import type { LoansAnswer, Meta } from "../types.ts";
 import { ChoiceButton, mark } from "./review-buttons.tsx";
@@ -456,7 +456,7 @@ function SavedLoanChoice({ debt, answer, meta, busy, onSend, already, open, gone
           </ChoiceButton>
         ))}
       {only && (
-        <Button className="review-choice" href={settingsCardHash(SETTINGS_ANCHOR.loans, new URLSearchParams({ [LOAN_LINK_PARAM.loan]: only.id }))}>
+        <Button className="review-choice" href={loanEditHash(only.id)}>
           {open}
         </Button>
       )}

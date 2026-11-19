@@ -1,7 +1,7 @@
 // Decision: which debt to pay down first, and whether the payments hold when the reference rate moves
 import { belowWhole, cardLimitCents, inCostOrder, type LoanRow, type LoansReport, type MaybeTwice, type RateScenario } from "@banking/core";
 import { Fragment } from "react";
-import { LOAN_LINK_PARAM } from "../../../components/loans/form.ts";
+import { changesLoan, LoanChanges } from "../../../components/loans/LoanChanges.tsx";
 import { hasWhatIf, LoanDrill, PlanDrill } from "../../../components/loans/LoanDrill.tsx";
 import { intervalLabel, KIND_LABEL, referenceName } from "../../../components/loans/labels.ts";
 import { type Column, Table } from "../../../components/table/Table.tsx";
@@ -11,7 +11,7 @@ import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
 import { ACCOUNT_TYPE_LABEL, date, money, monthLongIn, percent, plainNumber } from "../../../format.ts";
 import { accountsLessDebt, sameDebtTwice } from "../parts.tsx";
 import { typedByText } from "../../../part.ts";
-import { LOAN_TERMS_HASH, LOANS_REPORT_ANCHOR, SETTINGS_ANCHOR, settingsCardHash } from "../../../routes.ts";
+import { LOAN_TERMS_HASH, loanEditHash, loanHash, LOANS_REPORT_ANCHOR } from "../../../routes.ts";
 import { dearWord } from "../holdings/holding-rows.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/loans.css";
@@ -189,7 +189,7 @@ const sides = (twin: MaybeTwice) =>
     accounts: t(twin.accounts.length === 1 ? "rpt.ln_acct_one" : "rpt.ln_acct_many", { names: listed(twin.accounts.map((a) => a.name), and()) }),
   });
 
-/** A link that ends a sentence: it opens an editor in Asetukset > Lainat. */
+/** A link that ends a sentence: it opens a loan's editor in its row of Lainat. */
 interface Offer {
   label: string;
   href: string;
@@ -206,7 +206,7 @@ function offers(twin: MaybeTwice, own: ReadonlySet<string>, typists: ReadonlyMap
     .flatMap((l) =>
       twin.accounts
         .filter((a) => own.has(a.id))
-        .map((a) => ({ label: t("rpt.ln_link", { loan: l.name, account: a.name }), href: settingsCardHash(SETTINGS_ANCHOR.loans, new URLSearchParams({ [LOAN_LINK_PARAM.loan]: l.id, [LOAN_LINK_PARAM.account]: a.id })) })),
+        .map((a) => ({ label: t("rpt.ln_link", { loan: l.name, account: a.name }), href: loanEditHash(l.id, a.id) })),
     );
 }
 
@@ -306,6 +306,9 @@ function Loans({ ctx }: SectionProps) {
   const limitOf = (l: LoanRow) => (l.accountType === "credit_card" && !belowWhole(l.part) ? cardLimitCents(ctx.meta.accounts.find((a) => `account:${a.id}` === l.id)?.creditLimitCents) : null);
   // the server's order, dearest first: the web never sorts the debts
   const entries: Entry[] = [...inCostOrder(r.loans).map((loan): Entry => ({ id: loan.id, loan })), ...r.unsaved.map((unsaved, i): Entry => ({ id: `unsaved ${i}`, unsaved }))];
+  // a saved loan the viewer can change whose cost waits for its rate is filled in its own drill; with an unsaved debt
+  // Tarkistettavat still asks of (not `asked`) the list there asks for all of it
+  const rateLoan = r.unsaved.some((u) => !u.asked) ? undefined : r.loans.find((l) => changesLoan(l) && l.cost?.unknown === "rate");
   // a total that leaves unsaved debts out says so, as Yhteenveto's does; the cost is unknown, never the known part, while a debt lacks its terms
   const total = {
     label: t(r.unsaved.length > 0 ? "holdings.debts_known" : "holdings.debts_total"),
@@ -314,7 +317,7 @@ function Loans({ ctx }: SectionProps) {
       cost:
         r.cost12.cents === null ? (
           <>
-            <Unknown /> <a href={LOAN_TERMS_HASH}>{t("rpt.ln_fill")}</a>
+            <Unknown /> <a href={rateLoan ? loanHash(rateLoan.id) : LOAN_TERMS_HASH}>{t("rpt.ln_fill")}</a>
           </>
         ) : (
           money(r.cost12.cents, false)
@@ -377,6 +380,7 @@ function Loans({ ctx }: SectionProps) {
             <>
               <LoanFacts l={e.loan} limitCents={limitOf(e.loan)} whatIf={hasWhatIf(e.loan)} />
               <LoanDrill l={e.loan} today={ctx.meta.today} whatIf={hasWhatIf(e.loan)} />
+              {changesLoan(e.loan) && <LoanChanges id={e.loan.id} meta={ctx.meta} say={ctx.sayLoan} />}
             </>
           ) : null
         }

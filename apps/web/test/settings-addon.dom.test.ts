@@ -1,6 +1,6 @@
 /**
  * Asetukset on the real server with an add-on module loaded in the page: its card and the add-on's own card (code,
- * version, state) are on the tab Lisäosa, and neither is left on Talous or Palvelin ja ylläpito. Without a module there
+ * version, state) are on the tab Lisäosa, and neither is left on Turvallisuus or Palvelin ja ylläpito. Without a module there
  * is no such tab and the code card stays on Palvelin ja ylläpito. The module is made up in the test.
  */
 import { screen, waitFor } from "@testing-library/react";
@@ -28,8 +28,8 @@ describe("Asetukset > Lisäosa", () => {
     await openApp("#/settings/addon", "Asetukset");
     await waitFor(() => expect(cardHeadings()).toEqual(["Esimerkin asetukset", "Lisäosa"]), T);
     expect(tabs()).toMatch(/Palvelin ja ylläpitoLisäosa$/);
-    await router.navigate({ href: "/settings/household" });
-    await screen.findByRole("heading", { name: "Lainat" }, T);
+    await router.navigate({ href: "/settings/security" });
+    await screen.findByRole("button", { name: "Vaihda salasana" }, T);
     expect(cardHeadings()).not.toContain("Esimerkin asetukset");
     await router.navigate({ href: "/settings/server" });
     await screen.findByRole("heading", { name: "Ylläpito" }, T);

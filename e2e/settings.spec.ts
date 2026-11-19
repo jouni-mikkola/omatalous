@@ -2,11 +2,11 @@ import { type Browser, expect, test } from "@playwright/test";
 import { join } from "node:path";
 import { linkFakeBank, makeMember, overflow, removeMember, waitForSync, watch } from "./helpers.ts";
 
-// Asetukset: the header link, the six targets, the card every old address lands on, and the repair of a bank connection
+// Asetukset: the header link, the five targets, the card every old address lands on, and the repair of a bank connection
 // that ended. The server has the administrator and the demo household already (e2e/run.mjs makes them). A member lives in
 // the household for the length of the file.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
-const TARGET_LABELS = ["Pankit ja tilit", "Talous", "Jäsenet", "Turvallisuus", "Tiedot", "Palvelin ja ylläpito"];
+const TARGET_LABELS = ["Pankit ja tilit", "Jäsenet", "Turvallisuus", "Tiedot", "Palvelin ja ylläpito"];
 /** Cards that were removed: each is a row, a field or a line of another card now, and no address brings it back. */
 const REMOVED = ["Tietoja", "Palvelutunnukset", "Jäsenet ilman tunnusta", "Tilien jakaminen", "Kokeiltavat toiminnot"];
 /**
@@ -18,7 +18,6 @@ const INVENTORY: { heading: string; target: string; admin?: true; example?: true
   { heading: "Tilit", target: "banks" },
   { heading: "Pankkihaut", target: "banks", fetched: true },
   { heading: "Pankkisovellus", target: "banks" },
-  { heading: "Lainat", target: "household" },
   { heading: "Talouden jäsenet", target: "members", admin: true },
   { heading: "Salasana", target: "security" },
   { heading: "Kaksivaiheinen kirjautuminen", target: "security" },
@@ -29,7 +28,7 @@ const INVENTORY: { heading: string; target: string; admin?: true; example?: true
   { heading: "Palvelin", target: "server", admin: true },
   { heading: "Ylläpito", target: "server", admin: true },
 ];
-const TARGET_LABEL: Record<string, string> = { banks: "Pankit ja tilit", household: "Talous", members: "Jäsenet", security: "Turvallisuus", data: "Tiedot", server: "Palvelin ja ylläpito" };
+const TARGET_LABEL: Record<string, string> = { banks: "Pankit ja tilit", members: "Jäsenet", security: "Turvallisuus", data: "Tiedot", server: "Palvelin ja ylläpito" };
 /** The targets only an admin is offered. */
 const ADMIN_TARGETS = ["members", "server"];
 
@@ -45,7 +44,7 @@ async function admin(browser: Browser, width = 1440, height = 800) {
   return { context, page, seen: watch(page), hash: () => new URL(page.url()).hash };
 }
 
-test("Asetukset is in the user menu and has six targets, each its own address", async ({ browser }) => {
+test("Asetukset is in the user menu and has five targets, each its own address", async ({ browser }) => {
   const { context, page, seen, hash } = await admin(browser);
   const nav = page.getByRole("navigation", { name: "Päävalikko" });
   const targets = page.getByRole("navigation", { name: "Asetukset", exact: true });
@@ -66,7 +65,7 @@ test("Asetukset is in the user menu and has six targets, each its own address", 
   await expect(header).toHaveAttribute("aria-current", "page");
   await menu.locator("summary").click();
 
-  // the six targets in a row, the open one marked, and each opens its own address with its own cards
+  // the five targets in a row, the open one marked, and each opens its own address with its own cards
   await expect(targets.getByRole("link")).toHaveText(TARGET_LABELS);
   await expect(targets.getByRole("link", { name: "Pankit ja tilit" })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("button", { name: "Yhdistä pankki" })).toBeVisible();
@@ -134,7 +133,7 @@ test("every setting is at most two clicks from Asetukset, and a member is offere
   for (const { heading, target, fetched } of INVENTORY) {
     if (fetched) continue;
     // start on a target that is not the card's own, so that the click is needed
-    await page.goto(target === "banks" ? "/#/settings/household" : "/#/settings/banks");
+    await page.goto(target === "banks" ? "/#/settings/data" : "/#/settings/banks");
     await expect(targets).toBeVisible();
     let clicks = 0;
     await targets.getByRole("link", { name: TARGET_LABEL[target], exact: true }).click();
@@ -160,7 +159,7 @@ test("every setting is at most two clicks from Asetukset, and a member is offere
       await expect(memberPage.getByRole("heading", { level: 2 }).first()).toBeVisible();
       await expect(memberPage.getByRole("heading", { name: heading, exact: true }), `${heading} is the admin's`).toHaveCount(0);
     } else {
-      await memberPage.goto(target === "banks" ? "/#/settings/household" : "/#/settings/banks");
+      await memberPage.goto(target === "banks" ? "/#/settings/data" : "/#/settings/banks");
       await memberTargets.getByRole("link", { name: TARGET_LABEL[target], exact: true }).click();
       await expect(memberPage.getByRole("heading", { name: heading, exact: true }), `${heading} on ${target}`).toBeVisible();
     }
@@ -181,7 +180,9 @@ test("every address of Asetukset lands on the card it names, on the target that 
   const cases: [address: string, lands: string, card: string | null][] = [
     ["/#/settings", "#/settings/banks", null],
     ["/#/settings/banks#tilit", "#/settings/banks#tilit", "tilit"],
-    ["/#/settings/household#lainat", "#/settings/household#lainat", "lainat"],
+    // the loans were a card of Asetukset > Talous, and are kept in Raportit > Varat ja velat, under Saldot and its Lisää laina
+    ["/#/settings/household#lainat", "#/reports?q=saldot", "saldot"],
+    ["/#/settings/household", "#/reports?q=saldot", "saldot"],
     ["/#/settings/security#salasana", "#/settings/security#salasana", "salasana"],
     ["/#/settings/security#kirjautuminen", "#/settings/security#kirjautuminen", "kirjautuminen"],
     ["/#/settings/security#turvallisuusloki", "#/settings/security#turvallisuusloki", "turvallisuusloki"],
@@ -447,7 +448,7 @@ for (const width of [390, 1440]) {
     await tabs.getByRole("link", { name: "Pankit ja tilit", exact: true }).focus();
     await page.keyboard.press("Tab");
     await page.keyboard.press("Enter");
-    await expect.poll(() => new URL(page.url()).hash).toBe("#/settings/household");
+    await expect.poll(() => new URL(page.url()).hash).toBe("#/settings/members");
     await context.close();
   });
 }

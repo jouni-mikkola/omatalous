@@ -53,13 +53,13 @@ import {
   loanTermsListCents,
   type LoanTermsMissing,
   loanTermsSubject,
-  loanUnknownAsked,
   openCardRows,
   openLoanGaps,
   paymentOf,
   savedLoanYearCents,
   unlinkedCardLoans,
   unlinkedCreditLoans,
+  unsavedDebtAnswered,
 } from "@banking/core";
 import { todayIn } from "../platform/config.ts";
 import type { Services } from "./context.ts";
@@ -241,11 +241,10 @@ function proposedDebts({ ctx, inputs, stamp }: OwnView): Listed[] {
   const series = memoOn(ctx, "review:loan-series", null, () => new Map([...ctx.recurring, ...lenderInstalments(ctx)].map((r) => [r.id, r.transactionIds])));
   const byId = memoOn(ctx, "review:rows-by-id", null, () => new Map(ctx.txs.map((t) => [t.id, t])));
   return proposalsOf(ctx, { inputs, stamp }).flatMap((p): Listed[] => {
-    // a plan is asked its end once; a loan until it is saved or marked "Ei ole velan maksu"
-    if (p.plan && p.planAnswer !== null) return [];
+    // a plan is asked its end once; a loan until it is saved, marked "Ei ole velan maksu", or said "En tiedä" at this
+    // monthly payment. The first page reads the same answer, so it links here only while this list asks.
+    if (unsavedDebtAnswered(inputs.marks, { proposal: p })) return [];
     const monthly = hasMonthly(p) ? paymentOf(p) : null;
-    // "En tiedä" holds while the monthly payment is the one it was said at
-    if (!p.plan && loanUnknownAsked(inputs.marks, p.key, monthly?.part ?? null)) return [];
     const common = { seriesId: p.seriesId, yearCents: monthly === null ? null : 12 * monthly.part, name: p.payee, key: p.key, monthlyCents: monthly?.part ?? null, latestCents: monthly?.whole ?? null, lastDate: p.lastDate };
     if (p.plan) return [debt({ ...common, id: `plan:${p.key}`, source: "plan", kind: "instalment", placed: true })];
     // a lender's few payments are no series: the proposal holds its rows, at the bank's whole charge as the payment is

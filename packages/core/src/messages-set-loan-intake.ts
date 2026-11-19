@@ -43,6 +43,4 @@ export const FI_SET_LOAN_INTAKE = {
   "set.ln.same_loan_twice": "Kaksi riviä päivittää samaa lainaa. Valitse toiselle uusi laina.",
   "set.ln.save_one": "Tallenna laina",
   "set.ln.save_many": "Tallenna {count} lainaa",
-  "set.ln.saved_one": "Tallensimme lainan.",
-  "set.ln.saved_many": "Tallensimme {count} lainaa.",
 } as const;

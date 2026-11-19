@@ -11,7 +11,9 @@ import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { addMonths } from "../src/dates.ts";
 import { buildHoldings, unsavedDebts } from "../src/holdings.ts";
 import { loanProposals } from "../src/loan-detect.ts";
+import { loanUnknownSubject } from "../src/loan-terms-answer.ts";
 import { notLoanMark } from "../src/loan-mark.ts";
+import { planSubject } from "../src/plan-answer.ts";
 import { normalizeMerchant } from "../src/merchant.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import { loansReport } from "../src/reports/loans.ts";
@@ -111,6 +113,38 @@ describe("the question of the kind", () => {
     const holdings = buildHoldings(ctx, [], NO_INPUTS);
     expect(holdings.unsavedLoans?.rows).toEqual(listed);
     expect(loansReport(ctx, [], NO_INPUTS).unsaved).toEqual(listed);
+  });
+
+  it("carries asked after En tiedä at this payment, and only then: the row and the totals stay", () => {
+    const [p] = loanProposals(ctx, NO_INPUTS);
+    const said = (monthlyCents: number | null): UserInputs => ({ ...NO_INPUTS, marks: [{ subject: loanUnknownSubject(monthlyCents, p!.key), mark: "in_use", markedAt: "2026-10-01T00:00:00Z" }] });
+    const plain = unsavedDebts(ctx, NO_INPUTS);
+    expect(plain.rows[0]).not.toHaveProperty("asked");
+    const asked = unsavedDebts(ctx, said(p!.monthlyCents));
+    expect(asked.rows).toEqual([{ ...plain.rows[0]!, asked: true }]);
+    expect(asked.total).toEqual(plain.total);
+    expect(buildHoldings(ctx, [], said(p!.monthlyCents)).unsavedLoans?.rows).toEqual(asked.rows);
+    // a payment that moved since the answer asks again
+    expect(unsavedDebts(ctx, said(p!.monthlyCents! + 100)).rows).toEqual(plain.rows);
+    expect(unsavedDebts(ctx, said(null)).rows[0]).not.toHaveProperty("asked");
+  });
+
+  it("carries asked of a card said En tiedä at its bill and of a plan whose end is told, and of no debt left unanswered", () => {
+    const cardBills = payments(CHANGING.map((e) => e + 15), "KORTTILASKU", "ENTERCARD", 5);
+    const plan = payments([50, 50, 50, 50], "LASKU", "KLARNA BANK AB", 8);
+    const all = contextOf([...rows, ...cardBills, ...plan]);
+    const [card] = unconnectedCards(all, NO_INPUTS);
+    const planned = loanProposals(all, NO_INPUTS).find((p) => p.plan);
+    const mark = (subject: string) => ({ subject, mark: "in_use" as const, markedAt: "2026-10-01T00:00:00Z" });
+    const plain = unsavedDebts(all, NO_INPUTS).rows;
+    expect(plain).toHaveLength(3);
+    expect(plain.filter((r) => r.asked)).toEqual([]);
+    expect(plain.map((r) => r.name)).toEqual(expect.arrayContaining(["Bank Norwegian", card!.payee, planned!.payee]));
+    const answered = unsavedDebts(all, { ...NO_INPUTS, marks: [mark(loanUnknownSubject(card!.monthlyCents, card!.key)), mark(planSubject("2027-03", planned!.key))] });
+    expect(answered.rows).toEqual(plain.map((r) => (r.name === card!.payee || r.name === planned!.payee ? { ...r, asked: true } : r)));
+    expect(answered.total).toEqual(unsavedDebts(all, NO_INPUTS).total);
+    // a card bill that rose by more than a tenth since the answer asks again, as Tarkistettavat does
+    expect(unsavedDebts(all, { ...NO_INPUTS, marks: [mark(loanUnknownSubject(Math.round(card!.monthlyCents / 2), card!.key))] }).rows).toEqual(plain);
   });
 
   it("is mandatory debt service, counted once", () => {

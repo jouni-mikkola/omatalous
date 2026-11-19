@@ -7,13 +7,13 @@ const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 const VIEWS = [
   { hash: "#/overview", title: "Yhteenveto" },
-  { hash: "#/reports", title: "Raportit" },
   { hash: "#/bills", title: "Laskut" },
   { hash: "#/review", title: "Tarkistettavat" },
 ];
 
-// A member with no account and no bank: each of the four views has its title and the button that opens Pankit ja tilit.
-test("with no account each view has its title and opens Pankit ja tilit", async ({ browser }) => {
+// A member with no account and no bank: each of the three views has its title and the button that opens Pankit ja tilit.
+// Raportit opens Varat ja velat, where a loan is added before any bank: Saldot with Lisää laina, and no sum.
+test("with no account each view has its title and opens Pankit ja tilit, and Raportit offers Lisää laina", async ({ browser }) => {
   const { state, id } = await makeMember(browser, "e2e-eka-tila");
   const context = await browser.newContext({ storageState: state, viewport: { width: 1280, height: 900 } });
   try {
@@ -32,6 +32,13 @@ test("with no account each view has its title and opens Pankit ja tilit", async 
       await expect(page).toHaveURL(/#\/settings\/banks/);
       await expect(page.locator("#pankkiyhteydet")).toBeVisible();
     }
+    await page.goto("/#/reports");
+    const saldot = page.locator("#saldot");
+    await expect(saldot.getByRole("heading", { name: "Saldot", exact: true })).toBeVisible();
+    await expect(saldot.getByRole("button", { name: "Lisää laina" })).toBeVisible();
+    await expect(page.locator(".first-run")).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "Raportit" }).getByRole("link")).toHaveText(["Varat ja velat"]);
+    await expect(page.locator("main")).not.toContainText("€");
     expect(seen.problems).toEqual([]);
   } finally {
     await context.close();

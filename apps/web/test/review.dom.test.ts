@@ -2,7 +2,7 @@
  * Tarkistettavat on the real server: one question at a time, an answer goes to the route of its source and the next
  * question comes, a skipped one waits.
  */
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 import { queryClient } from "../src/query-client.ts";
@@ -134,5 +134,25 @@ describe("Tarkistettavat", () => {
     await waitFor(() => expect(focusWhenShown).not.toBeNull(), T);
     watch.disconnect();
     expect(focusWhenShown).toBe(true);
+  });
+
+  it("saves a mortgage from Lisää asuntolaina in place and moves on to the next question", async () => {
+    queryClient.clear();
+    const seen = stubApi({ "GET /api/loans": { loans: [] }, "POST /api/loans": (s: { body: unknown }) => ({ loan: { id: "loan-1", ...(s.body as object) } }) });
+    const items: ReviewItem[] = ["a", "b"].map((id) => ({ id, kind: "mortgage", cents: 0 }));
+    const meta = { accounts: [], sharedAccounts: [], bank: { banks: [] }, today: "2026-11-18" } as unknown as Meta;
+    render(createElement(Review, { meta, queue: { data: { items }, error: null, reload: () => {} } }));
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toContain("Kysymys 1 / 2");
+    fireEvent.click(screen.getByRole("button", { name: "Lisää asuntolaina" }));
+    const form = await screen.findByRole("region", { name: "Uusi laina" }, T);
+    expect((within(form).getByLabelText("Laji") as HTMLSelectElement).value).toBe("mortgage");
+    fireEvent.change(within(form).getByLabelText("Nimi"), { target: { value: "Asuntolaina" } });
+    fireEvent.change(within(form).getByLabelText("Lainaa jäljellä (€)"), { target: { value: "120 000" } });
+    fireEvent.click(within(form).getByRole("button", { name: "Tallenna" }));
+    await waitFor(() => expect(screen.getByRole("heading", { level: 2 }).textContent).toContain("Kysymys 2 / 2"), T);
+    const post = seen.filter((s) => s.method === "POST" && s.path === "/api/loans");
+    expect(post).toHaveLength(1);
+    expect(post[0]!.body).toMatchObject({ name: "Asuntolaina", kind: "mortgage", balanceCents: 12_000_000 });
+    expect(screen.queryByRole("region", { name: "Uusi laina" })).toBeNull();
   });
 });

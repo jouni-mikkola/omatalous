@@ -124,8 +124,8 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
   category parts and the year comparison), Varat ja velat (the balances, the accounts, cards and loans) and Yhteiset
   menot (how shared spending is split, only with a shared account). A report with nothing to show is not listed. The
   fixed bills are on Laskut; the old addresses of Kiinteät menot and Velat open Laskut and Varat ja velat.
-- Asetukset has the six tabs of 1.0.0: Pankit ja tilit, Talous (loans), Jäsenet (admin only), Turvallisuus,
-  Tiedot (export, import, example data), Palvelin ja ylläpito (admin only).
+- Asetukset has the tabs Pankit ja tilit, Jäsenet (admin only), Turvallisuus, Tiedot (export, import, example data)
+  and Palvelin ja ylläpito (admin only). The loans are kept in Varat ja velat.
 - Tapahtumat has the two views of 1.0.0, Lista and Kauppiaat (`?view=merchants`), and the rules are under the merchants.
 
 ## 2. What goes

@@ -318,6 +318,8 @@ function Drill({ r, name, controls, scope, onRemove, onWrong }: { r: CalRow; nam
     );
   }
   const id = parseSeriesId(s.id);
+  // the payment of a saved loan is the loan's, which Varat ja velat keeps: no bill to take off the list
+  const loanPays = r.kind === "row" && (r.bill.kind === "loan" || r.bill.loanSeries === true);
   return (
     <div className="sub-drill">
       <dl className="sub-facts">
@@ -353,7 +355,7 @@ function Drill({ r, name, controls, scope, onRemove, onWrong }: { r: CalRow; nam
       ))}
       {/* a bill that did not come is ended by the mark Tarkistettavat's answer Lopetettu sets; one that was never a bill is still removed */}
       {(i.kind === "subscription" || i.stopped || i.missed) && <MarkAction s={s} name={name} controls={controls} />}
-      {(i.kind === "bill" || i.kind === "contract") && !i.twins?.length && (
+      {(i.kind === "bill" || i.kind === "contract") && !i.twins?.length && !loanPays && (
         // a bill or a contract the rows gave and the household says is none: out of the list and of the sums of what is coming
         <div className="sub-actions">
           <Button aria-label={t("bills.remove_named", { name })} onClick={() => onWrong(s)}>

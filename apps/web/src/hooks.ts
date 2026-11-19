@@ -86,7 +86,7 @@ export function useWidth<T extends HTMLElement>(): [RefObject<T | null>, number]
 /**
  * The open address as a route: "#/transactions?category=x" gives { page, params }, read again when it changes. The
  * router (router.tsx) has already moved an old address by the time a page reads this; the shell hands the pages their
- * parameters, and this is for a component that reads the address on its own (Asetukset > Lainat).
+ * parameters, and this is for a component that reads the address on its own (the drill of a loan in Varat ja velat).
  */
 export function useHashRoute(): Route {
   const [route, setRoute] = useState(() => parseHash(window.location.hash));

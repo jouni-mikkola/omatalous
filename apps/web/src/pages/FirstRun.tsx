@@ -8,11 +8,10 @@ import type { Meta } from "../types.ts";
 import "../styles/first-run.css";
 
 /** The views that have a first-run page, by the page id of each. */
-export type FirstRunView = "overview" | "reports" | "bills" | "review";
+export type FirstRunView = "overview" | "bills" | "review";
 
 const TITLE = {
   overview: () => t("nav.overview"),
-  reports: () => t("nav.reports"),
   bills: () => t("nav.bills"),
   review: () => t("nav.review"),
 } satisfies Record<FirstRunView, () => string>;

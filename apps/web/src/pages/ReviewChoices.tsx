@@ -5,6 +5,7 @@
 import { MORTGAGE_QUESTION } from "@banking/core";
 import { useEffect, useRef, useState } from "react";
 import { api, loanCalls, payerCalls } from "../api.ts";
+import { AddLoan } from "../components/loans/AddLoan.tsx";
 import { LoanEditor, LoanLinks } from "../components/loans/LoanEditor.tsx";
 import { formOfLoan, type LoanForm } from "../components/loans/form.ts";
 import { useApi } from "../hooks.ts";
@@ -120,18 +121,37 @@ export function Choices({ item, meta, busy, onAnswer, onHold, onReload }: { item
     case "loan_drift":
       return <LoanDriftChoices item={item} meta={meta} busy={busy} onAnswer={onAnswer} />;
     case "mortgage":
-      // adding the loan is done on its own page; the question goes once the loan is saved
-      return (
-        <div className="review-choices">
-          <Button className="review-choice" href={settingsCardHash(SETTINGS_ANCHOR.loans)}>
-            {t("set.rc.add_a_home_loan")}
-          </Button>
-          <ChoiceButton busy={busy} onClick={() => onAnswer(mark(MORTGAGE_QUESTION, "dismissed"))}>
-            <span>{t("set.rc.no_home_loan")}</span>
-          </ChoiceButton>
-        </div>
-      );
+      return <MortgageChoices meta={meta} busy={busy} onAnswer={onAnswer} />;
   }
+}
+
+/**
+ * A home loan the rows suggest: Lisää asuntolaina opens here the form Varat ja velat adds a loan with, on the kind of a
+ * home loan. The question goes once the loan is saved.
+ */
+function MortgageChoices({ meta, busy, onAnswer }: { meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void }) {
+  const [adding, setAdding] = useState(false);
+  const formBox = useRef<HTMLDivElement>(null);
+  // the form opens at its first field, so the loan can be typed at once
+  useEffect(() => {
+    if (adding) formBox.current?.querySelector<HTMLElement>("input, select, textarea")?.focus();
+  }, [adding]);
+  if (adding)
+    return (
+      <div className="review-loan" ref={formBox}>
+        <AddLoan meta={meta} kind="mortgage" onSaved={() => onAnswer(async () => undefined)} onClose={() => setAdding(false)} />
+      </div>
+    );
+  return (
+    <div className="review-choices">
+      <ChoiceButton busy={busy} onClick={() => setAdding(true)}>
+        <span>{t("set.rc.add_a_home_loan")}</span>
+      </ChoiceButton>
+      <ChoiceButton busy={busy} onClick={() => onAnswer(mark(MORTGAGE_QUESTION, "dismissed"))}>
+        <span>{t("set.rc.no_home_loan")}</span>
+      </ChoiceButton>
+    </div>
+  );
 }
 
 /** The loan's form with the payment the bank took, and the day it moved on when the loan has a reference rate. */
@@ -140,7 +160,7 @@ function withNewPayment(form: LoanForm, { newPaymentCents, reviewDate }: { newPa
 }
 
 /**
- * A payment the plan did not expect: the saved loan's own form, as Asetukset > Lainat edits it, opens with the new
+ * A payment the plan did not expect: the saved loan's own form, as Varat ja velat edits it, opens with the new
  * payment filled in, and for a loan on a reference rate the day it moved on as the review day. The item goes once the
  * loan is saved.
  */

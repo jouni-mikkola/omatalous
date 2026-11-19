@@ -9,7 +9,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { createElement } from "react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { queryClient } from "../src/query-client.ts";
-import { CONNECT_BANK_HASH, SETTINGS_ANCHOR, settingsCardHash } from "../src/routes.ts";
+import { CONNECT_BANK_HASH, loanEditHash, SETTINGS_ANCHOR, settingsCardHash } from "../src/routes.ts";
 import { Review } from "../src/pages/Review.tsx";
 import type { ReviewItem } from "../src/pages/review-items.ts";
 import type { LoanTermsDebt } from "../src/pages/review-loan-items.ts";
@@ -249,7 +249,7 @@ describe("a card in the list that is not connected", () => {
     const seen = stubApi({ "GET /api/loans": { loans: [saved("l1", "Esimerkkikortti")], fixings: {} }, "PUT /api/loans/l1": { loan: saved("l1", "Esimerkkikortti") } });
     let reloads = 0;
     show([listOf([{ ...debt, savedCards: [{ id: "l1", name: "Esimerkkikortti" }] }])], metaOf(), () => void reloads++);
-    expect((await screen.findByRole("link", { name: "Avaa kirjattu kortti" }, T)).getAttribute("href")).toContain("linkLoan=l1");
+    expect((await screen.findByRole("link", { name: "Avaa kirjattu kortti" }, T)).getAttribute("href")).toBe(loanEditHash("l1"));
     fireEvent.click(screen.getByRole("button", { name: "Kortti on jo kirjattu" }));
     await waitFor(() => expect(reloads).toBe(1), T);
     const put = seen.find((s) => s.method === "PUT" && s.path === "/api/loans/l1")!;
@@ -361,7 +361,7 @@ describe("a credit of unknown kind in the list", () => {
     const seen = stubApi({ "GET /api/loans": { loans: [credit], fixings: {} }, "PUT /api/loans/l1": { loan: { ...credit, seriesKey: debt.key } } });
     let reloads = 0;
     show([listOf([{ ...debt, savedCards: [{ id: "l1", name: "Esimerkkiluotto" }] }])], metaOf(), () => void reloads++);
-    expect((await screen.findByRole("link", { name: "Avaa kirjattu luotto" }, T)).getAttribute("href")).toContain("linkLoan=l1");
+    expect((await screen.findByRole("link", { name: "Avaa kirjattu luotto" }, T)).getAttribute("href")).toBe(loanEditHash("l1"));
     expect(openRow(0).textContent).not.toMatch(/Kortti on jo|kirjattu kortti/);
     fireEvent.click(screen.getByRole("button", { name: "Luotto on jo kirjattu" }));
     await waitFor(() => expect(reloads).toBe(1), T);

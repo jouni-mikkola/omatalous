@@ -6,7 +6,7 @@
  * is saved for it, whether a loan is linked to it or not. Only the member's own loans and cards are asked. Made-up names and sums; the test clock is 9.10.2026.
  */
 import type { AccountType } from "@banking/core";
-import { loanTermsSubject, loanUnknownSubject } from "@banking/core";
+import { loanTermsSubject, loanUnknownSubject, planSubject } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { reprocess } from "../src/services/enrich.ts";
 import { ingestTransactions } from "../src/services/ingest.ts";
@@ -402,6 +402,44 @@ describe("En tiedä on a loan the rows propose", () => {
     expect((await t.admin.call("PUT", "/api/marks", { subject: subject(25_000), mark: "in_use" })).status).toBe(200);
     expect(await proposals(t.admin)).toEqual([]);
     expect((await t.admin.call("GET", "/api/loans/proposals")).body.proposals).toHaveLength(1);
+  });
+});
+
+describe("the debts nobody saved on the first page and in Täydennä lainat", () => {
+  it("marks asked exactly the debts the list no longer asks of: a card and a loan said En tiedä, a plan whose end is told", async () => {
+    const t = await setupApp();
+    await account(t, t.adminId, "chk", "checking", 100_000);
+    const repo = t.s.finance(t.adminId);
+    const months = ["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"];
+    const loan = months.map((m) => raw(`${m}-02`, -25_000, "ESIMERKKIRAHOITUS OY", "LAINAN LYHENNYS"));
+    const card = months.map((m, i) => raw(`${m}-12`, -(40_000 + 1_000 * i), "ESIMERKKIPANKKI KORTTI"));
+    const plan = months.slice(-4).map((m) => raw(`${m}-20`, -4_990, "KLARNA BANK AB", "LASKU"));
+    await ingestTransactions(repo, "chk", [...loan, ...card, ...plan], "csv");
+    await t.db.run("UPDATE transactions SET category = 'card_bill', category_source = 'user' WHERE counterparty = ?", ["ESIMERKKIPANKKI KORTTI"]);
+    await reprocess(repo, t.s.settings);
+    type Asked = { source: string; name: string; key: string; monthlyCents: number | null };
+    const listed = async () => (((await t.admin.call("GET", "/api/review")).body.items as Item[]).find((i) => i.kind === "loan_terms_list")?.debts ?? []) as Asked[];
+    const unsaved = async () => ((await t.admin.call("GET", "/api/dashboard?scope=own")).body.holdings.unsavedLoans?.rows ?? []) as { name: string; asked?: true }[];
+    /** The names the first page marks asked, and the names of its rows the list no longer holds: the two are one set. */
+    const agree = async () => {
+      const rows = await unsaved();
+      const asked = new Set((await listed()).map((d) => d.name));
+      expect(new Set(rows.filter((r) => r.asked).map((r) => r.name))).toEqual(new Set(rows.filter((r) => !asked.has(r.name)).map((r) => r.name)));
+      return rows;
+    };
+    const debts = await listed();
+    expect(debts.map((d) => d.source).sort()).toEqual(["card_bill", "plan", "proposal"]);
+    const first = await agree();
+    expect(first).toHaveLength(3);
+    expect(first.filter((r) => r.asked)).toEqual([]);
+    const of = (source: string) => debts.find((d) => d.source === source)!;
+    expect((await t.admin.call("PUT", "/api/marks", { subject: loanUnknownSubject(of("card_bill").monthlyCents, of("card_bill").key), mark: "in_use" })).status).toBe(200);
+    expect((await t.admin.call("PUT", "/api/marks", { subject: planSubject("2027-03", of("plan").key), mark: "in_use" })).status).toBe(200);
+    expect((await agree()).filter((r) => r.asked).map((r) => r.name).sort()).toEqual([of("card_bill").name, of("plan").name].sort());
+    expect((await listed()).map((d) => d.source)).toEqual(["proposal"]);
+    expect((await t.admin.call("PUT", "/api/marks", { subject: loanUnknownSubject(of("proposal").monthlyCents, of("proposal").key), mark: "in_use" })).status).toBe(200);
+    expect((await agree()).every((r) => r.asked)).toBe(true);
+    expect(await listed()).toEqual([]);
   });
 });
 

@@ -22,7 +22,7 @@ import { query } from "../../../api.ts";
 import { date, money, moneyIn, monthYear } from "../../../format.ts";
 import { t, tn } from "../../../text.ts";
 import { partText, typedByText } from "../../../part.ts";
-import { LOAN_TERMS_HASH, LOANS_REPORT_ANCHOR } from "../../../routes.ts";
+import { LOAN_TERMS_HASH, loanHash } from "../../../routes.ts";
 import type { DashboardData, Meta, ReconcileState } from "../../../types.ts";
 import { cardBankOf } from "../../../components/BankLogo.tsx";
 import { Figure } from "../../../components/Figure.tsx";
@@ -255,7 +255,7 @@ function Loans({ holdings, known }: { holdings: Answer; known: boolean }) {
           <Unit
             key={l.id}
             name={l.name}
-            href={`#/reports#${LOANS_REPORT_ANCHOR}`}
+            href={loanHash(l.id)}
             lines={[l.lender, dearWord(l.costClass), l.paidOff ? t("holdings.paid_off") : null, l.part && partText(l.part, "debt"), l.typedBy && typedByText(l.typedBy)]}
             note={l.maybeTwice && <p className="st-note">{t("holdings.twice_see", { twice: t("holdings.twice") })}</p>}
           >
@@ -332,8 +332,8 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), b
               <dt className="st-name">{u.card ? `${u.name} · ${t("set.ri.credit_card")}` : u.kindUnknown ? `${u.name} · ${t("set.ri.credit_kind_not_known")}` : u.name}</dt>
               <dd className="st-num">
                 {u.monthlyCents === null ? null : `${t("rpt.ln_per_month", { amount: money(u.monthlyCents) })} · `}
-                {/* the missing balance is typed in Tarkistettavat, the list of debts that lack one */}
-                <a href={LOAN_TERMS_HASH}>{t("holdings.balance_missing")}</a>
+                {/* the missing balance is typed in Tarkistettavat, the list of debts that lack one; a debt answered "En tiedä" is no longer asked there */}
+                {u.asked ? t("holdings.balance_missing") : <a href={LOAN_TERMS_HASH}>{t("holdings.balance_missing")}</a>}
               </dd>
             </div>
           ))}

@@ -35,8 +35,10 @@ test("the question about a loan and its form hand the focus back to the button t
   const page = await context.newPage();
   const seen = watch(page);
   try {
-    await page.goto("/#/settings/household");
+    // the loan's row in Raportit > Varat ja velat opens what changes it
+    await page.goto("/#/reports?q=saldot");
     const card = page.locator("#lainat");
+    await card.getByRole("button", { name: "Dialogilaina", exact: true }).click();
     await returns(page, card.getByRole("button", { name: "Poista laina Dialogilaina" }), "Peruuta");
     await returns(page, card.getByRole("button", { name: "Muokkaa lainaa Dialogilaina" }), "Peruuta");
     expect(seen.problems).toEqual([]);

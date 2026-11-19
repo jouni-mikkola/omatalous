@@ -446,7 +446,7 @@ export async function requestInputs(s: Services, userId: string, accounts: reado
 
 /**
  * The loans to propose to the viewer: by default worked out from the viewer's own rows, marks and loans, whatever view
- * a page is in. The list in Asetukset > Lainat and the question on the front page both read this one, so the front page
+ * a page is in. `GET /api/loans/proposals` and the question on the front page both read this one, so the front page
  * names no proposal the list leaves out. Only the front page's total of unsaved loans asks for the view's own scope,
  * since its monthly figures follow the view (a joint loan's whole payment in the household's view).
  */
