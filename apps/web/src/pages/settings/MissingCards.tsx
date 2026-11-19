@@ -1,5 +1,5 @@
 /** Asetukset > Pankit ja tilit: the cards whose purchases are not in the data, each with the way to bring them in. */
-// Decision: a household that sees "Kortin ostot eivät näy historiassa" connects the card or adds its statement from the card it names
+// Decision: a household that sees "Lisää kortin tiliote" connects the card or adds its statement from the card it names
 import { query } from "../../api.ts";
 import { Table } from "../../components/table/Table.tsx";
 import { Button } from "../../components/ui/Button.tsx";

@@ -19,13 +19,14 @@ import { addDays, dayNumber, daysInMonth, monthEnd, monthIndex, monthOf } from "
 import type { RecurringSeries } from "../recurring.ts";
 import { CADENCES } from "../recurring-cadence.ts";
 import { MIN_COMPARE_MONTHS, PERIODIC_MONTHS, RANGE_HIGH, RANGE_LOW, SPARSE_SHARE } from "../thresholds.ts";
+import { namesCard } from "../transfers.ts";
 import type { IsoDate } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, spendRows } from "./context.ts";
 import { flowSpendOf } from "./counted.ts";
 import { accountCovers } from "./coverage.ts";
 import { LEVEL, oneOffs as levelOneOffs } from "./one-offs.ts";
 import { usualBase } from "./change-plan.ts";
-import { cardsBreakUsual, completeIncomeMonthsBefore, coveredMonths, earnedIncome } from "./usual.ts";
+import { accountsWithRows, cardsBreakUsual, completeIncomeMonthsBefore, coveredMonths, earnedIncome } from "./usual.ts";
 
 /** How a category's expected spending behaves: it grows day by day, falls on a date, comes in some months, or comes rarely. */
 type ExpectedKind = "daily" | "dated" | "periodic" | "sparse";
@@ -365,7 +366,7 @@ interface ExpectedEveryday {
   months: number;
 }
 
-/** Why there is no expected everyday spending: under `MIN_COMPARE_MONTHS` complete months, or a linked card's purchases are missing from them. */
+/** Why there is no expected everyday spending: under `MIN_COMPARE_MONTHS` complete months, or the base starts at a card connected later. */
 export type EverydayGap = "history" | "cards";
 
 /**
@@ -376,16 +377,28 @@ export type EverydayGap = "history" | "cards";
  * a day a base month does not have (the 31st) adds that month's mean day (its spending over its
  * length). `keep` limits it to the rows of some accounts: the
  * payday runway asks for the ones the counted accounts pay themselves. `month` is the month whose base months it reads (`from`'s by default): a span that starts in the next month (the day after the month's last day) still reads this one's, since the next one has no complete month yet. The day-by-day rate of the first page and the
- * runway read this, so everyday spending has one definition.
+ * runway read this, so everyday spending has one definition. A base month that holds a card's purchases only as a bill
+ * (outside `covered`) has no days for them: the bill's sum is spread evenly over the month's days, so the total pace of
+ * the month is whole and the spans that read it still have a figure. A bill of a connected card that has rows in the
+ * month is not spread (`paysCardWithRows`). Only a base too short, or one that starts at a card connected later, leaves it
+ * without.
  */
 export function expectedEveryday(ctx: AnalysisContext, from: IsoDate, until: IsoDate, keep: (t: AnalysisTx) => boolean = () => true, month: string = monthOf(from)): ExpectedEveryday | EverydayGap {
   const figure = expectedFor(ctx, month);
   // the reason Yhteenveto's month gives, so the runway's cannot say "history" beside their "cards"
-  if (!figure || !coversCategories(figure)) return usualGap(ctx, month) ?? "history";
+  if (!figure) return usualGap(ctx, month) ?? "history";
   const struck = expectedOneOffs(ctx, [...figure.months, figure.month]);
   const perDay = figure.months.map((m) => {
     const days = new Array<number>(31).fill(0);
-    for (const t of rowsOf(ctx, m)) if (t.spend !== 0 && !ctx.fixedIds.has(t.id) && t.category !== "card_bill" && !struck.has(t.id) && keep(t)) days[dayOf(t) - 1]! += t.spend;
+    const bridged = !figure.covered.includes(m);
+    const length = daysInMonth(m);
+    for (const t of rowsOf(ctx, m)) {
+      if (t.spend === 0 || struck.has(t.id) || !keep(t)) continue;
+      // the only record of a card's purchases in a month the feed does not cover: its sum, with no day of its own
+      if (t.category === "card_bill") {
+        if (bridged && !paysCardWithRows(ctx, t, m)) for (let d = 0; d < length; d++) days[d]! += t.spend / length;
+      } else if (!ctx.fixedIds.has(t.id)) days[dayOf(t) - 1]! += t.spend;
+    }
     return days;
   });
   const totals = figure.months.map(() => 0);
@@ -399,6 +412,17 @@ export function expectedEveryday(ctx: AnalysisContext, from: IsoDate, until: Iso
   const sorted = [...totals].sort((a, b) => a - b);
   const cents = Math.round(sumOf(totals) / totals.length);
   return { cents, lowCents: Math.min(cents, quantile(sorted, RANGE_LOW)), highCents: Math.max(cents, quantile(sorted, RANGE_HIGH)), months: totals.length };
+}
+
+/**
+ * Whether a card bill of `month` names a connected card (`namesCard`) that has rows in the month. Such a bill pays the
+ * card's period before its rows began or soon after (`paysPurchasesBeforeRows`): the month's own purchases are its rows,
+ * and the period's purchases from the first row on are rows too, so spreading the bill would count them twice.
+ */
+function paysCardWithRows(ctx: AnalysisContext, t: AnalysisTx, month: string): boolean {
+  const here = accountsWithRows(ctx, month);
+  const text = [t.merchant, t.counterparty, t.description].filter(Boolean).join(" ");
+  return ctx.accounts.some((a) => a.type === "credit_card" && here.has(a.id) && namesCard(text, a));
 }
 
 /** The expected everyday spending of a day of `month` in whole cents, over all the accounts in view: the month's expected everyday spending over its days. 0 without a figure. */

@@ -19,7 +19,7 @@ const ASKS = /(^|\/)messages-set-ri\./;
 export const REMOVED: readonly Removed[] = [
   // the page is Säästövinkit; the route, the feature id and the code keep the old name
   { name: "Optimoi", re: /(?<!\p{L})optimo\p{L}*/iu, fix: 'write "Säästövinkit" (the page) or "säästövinkki"' },
-  { name: "Yli jäi", re: /(?<!\p{L})yli\s+jäi(?!\p{L})/iu, fix: 'write "Tulos" (income less spending of the month)' },
+  { name: "Yli jäi", re: /(?<!\p{L})yli\s+jäi(?!\p{L})/iu, fix: 'write "Käteen jäi" (what the month left on the accounts)' },
   // as the name of a figure: a short text that starts with it. A sentence that uses the word is not a name.
   { name: "Tileillä as a figure name", re: /^\s*Tileillä(?!\p{L})[^.!?,:]{0,30}$/u, fix: 'write "Tilien saldo" (and "Varat velkojen jälkeen" for the balance less card debt)' },
   // plain words for the usual level and the finished months (docs/UI_STYLE.md, Glossary)

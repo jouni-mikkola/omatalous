@@ -5,7 +5,7 @@ import { rules } from "./css-kit.ts";
 const css = rules(readFileSync(new URL("../src/styles/home.css", import.meta.url), "utf8"));
 
 describe("the month of Yhteenveto", () => {
-  it("stands three across with Tulos the widest, and on a phone Tulot and Menot side by side with Tulos under them", () => {
+  it("stands three across with Käteen jäi the widest, and on a phone Tulot and Menot side by side with Käteen jäi under them", () => {
     const [wide, phone] = css.filter((r) => r.selector === ".home-figs").map((r) => r.body);
     expect(wide).toMatch(/grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\) minmax\(0, 1\.6fr\)/);
     expect(phone).toMatch(/grid-template-columns: repeat\(auto-fit, minmax\(min\(100%, 9rem\), 1fr\)\)/);

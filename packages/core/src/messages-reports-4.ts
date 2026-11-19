@@ -74,7 +74,6 @@ export const FI_REPORTS_4 = {
   "rpt.cf_saved_back": "Otit säästöistä {amount}.",
   "rpt.cf_inc": "Tuloja oli <b>{amount}</b>.",
   "rpt.cf_inc_neg": "Tuloja peruuntui <b>{amount}</b>.",
-  "rpt.cf_result": "Tulos <b>{amount}</b>.",
   "rpt.cf_span_m1": "kuukaudessa",
   "rpt.cf_span_mn": "kuukaudessa",
   "rpt.cf_q_rate": "Säästöaste",
