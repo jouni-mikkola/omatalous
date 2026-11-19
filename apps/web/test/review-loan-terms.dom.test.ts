@@ -101,7 +101,7 @@ describe("Täydennä lainat", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Älä muistuta tästä enää" }, T));
     await waitFor(() => expect(seen.some((s) => s.path === "/api/marks")).toBe(true), T);
     expect(seen.find((s) => s.path === "/api/marks")!.body).toEqual({ subject: "question:loan-terms:loan-7", mark: "dismissed" });
-    await screen.findByText("Ei muistuteta enää", {}, T);
+    await screen.findByText("Ei muistutuksia", {}, T);
   });
 
   it("gives a connected card with no saved loan the form of a new loan linked to it, and a card with a loan that loan's form", async () => {
@@ -256,5 +256,34 @@ describe("a plan in the list", () => {
     await waitFor(() => expect(seen.some((s) => s.path === "/api/marks")).toBe(true), T);
     expect(seen.find((s) => s.path === "/api/marks")!.body).toMatchObject({ mark: "in_use" });
     await screen.findByText(/^viimeinen erä/, {}, T);
+  });
+});
+
+describe("the fee of a plan at 0 %", () => {
+  const free = savedLoan({ id: "loan-5", name: "Osamaksu", kind: "instalment", balanceCents: 60_000, rateBp: 0, repayment: "fixed_instalment", paymentCents: 5_000 });
+  const row = debtOf({ id: "loan-5", source: "loan", name: "Osamaksu", loanId: "loan-5", kind: "instalment", owedCents: 60_000, gaps: ["fee"], subject: "question:loan-terms:loan-5" });
+
+  it("asks the fee of each payment alone, with a 0 € answer and no dismissal, and saves a fee of nothing in one tap", async () => {
+    queryClient.clear();
+    const seen = stubApi({ "GET /api/loans": { loans: [free], fixings: {} }, "PUT /api/loans/loan-5": { loan: { ...free, paymentFeeCents: 0 } } });
+    show([listOf([row])]);
+    expect(await within(openRow(0)).findByLabelText("Kulu erää kohden (€)", {}, T)).toBeTruthy();
+    expect(within(openRow(0)).queryByLabelText(/^Korko/)).toBeNull();
+    expect(within(openRow(0)).queryByRole("button", { name: "Älä muistuta tästä enää" })).toBeNull();
+    fireEvent.click(within(openRow(0)).getByRole("button", { name: "0 €" }));
+    await waitFor(() => expect(seen.some((s) => s.method === "PUT" && s.path === "/api/loans/loan-5")).toBe(true), T);
+    expect(seen.find((s) => s.method === "PUT")!.body).toMatchObject({ name: "Osamaksu", rateBp: 0, paymentFeeCents: 0 });
+    await screen.findByText(/kulu erää kohden 0,00/, {}, T);
+  });
+
+  it("saves the fee typed and closes the row into it", async () => {
+    queryClient.clear();
+    const seen = stubApi({ "GET /api/loans": { loans: [free], fixings: {} }, "PUT /api/loans/loan-5": { loan: { ...free, paymentFeeCents: 395 } } });
+    show([listOf([row])]);
+    fireEvent.change(await within(openRow(0)).findByLabelText("Kulu erää kohden (€)", {}, T), { target: { value: "3,95" } });
+    fireEvent.click(within(openRow(0)).getByRole("button", { name: "Tallenna" }));
+    await waitFor(() => expect(seen.some((s) => s.method === "PUT")).toBe(true), T);
+    expect(seen.find((s) => s.method === "PUT")!.body).toMatchObject({ paymentFeeCents: 395 });
+    await screen.findByText(/kulu erää kohden 3,95/, {}, T);
   });
 });

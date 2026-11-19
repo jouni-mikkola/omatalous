@@ -48,6 +48,7 @@ export const EN_SET_LOANS: Record<keyof typeof FI_SET_LOANS, string> = {
   "set.loans.f_repayment": "Repayment method",
   "set.loans.f_interval": "Repayment interval",
   "set.loans.f_payment": "Payment",
+  "set.loans.f_fee": "Fee per payment",
   "set.loans.f_end": "Last due date",
   "set.loans.rate_now": "Rate now {rate}",
   "set.loans.fix_marked": "Correct the marked fields.",

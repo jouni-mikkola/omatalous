@@ -2,7 +2,9 @@
  * Tarkistettavat's questions about the member's own debts, from the view the queue read once (`OwnView`):
  * - `loan_terms_list`, Täydennä lainat: one item that lists every debt whose balance, rate or payment is not known, each
  *   once and the largest year of payments first (core `loanTermsList`). A debt is
- *   - a saved loan still owing whose plan lacks a fact (core `openLoanGaps`): its own form answers it (PUT /api/loans/:id);
+ *   - a saved loan still owing whose plan lacks a fact (core `openLoanGaps`): its own form answers it (PUT /api/loans/:id).
+ *     A card or credit line saved by hand with no account linked and no rate lacks its rate, and a plan at 0 % whose
+ *     fee nothing tells (`debtCost` is unknown by `fee`) lacks the fee of each payment, which "0 €" answers;
  *   - a connected card that owes while its rate is unknown: the bank tells the balance and nothing of its terms. A new
  *     loan linked to the card answers it, or the linked loan that saved no rate. A card the rows show paid in full each
  *     month costs no interest (`debtsOf`), and a saved rate of 0 is a rate, so neither is listed;
@@ -22,8 +24,10 @@
 import {
   balanceDayOf,
   billCents,
+  debtPayments,
   debtsOf,
   hasMonthly,
+  hasReferenceRate,
   inferLoanTerms,
   type InferredLoanTerms,
   isRevolving,
@@ -32,6 +36,7 @@ import {
   type LoanKind,
   loanDrift,
   loansOf,
+  loanFeeGaps,
   loanTermsDismissed,
   type ListedDebt,
   loanTermsList,
@@ -149,19 +154,25 @@ function savedDebts(view: OwnView): Listed[] {
   const saved = ownLoans(view);
   const own = balances.filter((b) => b.ownerName === null);
   const debts = debtsOf(ctx, own, { ...inputs, loans: saved });
+  const seriesKeys = saved.flatMap((loan) => loan.seriesKey ?? []);
   const loans = saved.flatMap((loan): Listed[] => {
     // a loan linked to its account owes what the account says, unless the typed balance is the newer word of the two
     const at = debts.sources.findIndex((src) => src.linked && src.loanId === loan.id);
     const account = at < 0 ? undefined : own.find((b) => b.id === debts.sources[at]!.accountId);
     const told = account !== undefined && balanceDayOf(account.balanceAt, debts.day) >= loan.balanceDate;
     const owedCents = told ? debts.connected[at]!.balanceCents : loan.balanceCents;
-    const gaps = openLoanGaps(loan, owedCents, loanTermsDismissed(inputs.marks, loan.id));
+    const planGaps = openLoanGaps(loan, owedCents, loanTermsDismissed(inputs.marks, loan.id));
+    // a card or credit line saved by hand with no link to an account and no rate has no plan to ask, and its rate is the one fact (a linked one is the card's, below)
+    const bareRate = at < 0 && isRevolving(loan.kind) && owedCents > 0 && loan.rateBp === null && !hasReferenceRate(loan);
+    // a plan at 0 % that nothing tells the fee of has no cost: its fee is asked when the plan has no other gap
+    const gaps = planGaps.length ? planGaps : bareRate ? (["rate"] satisfies LoanTermsMissing[]) : isRevolving(loan.kind) ? [] : loanFeeGaps({ ...loan, balanceCents: owedCents }, debts.day, debtPayments(ctx, loan, seriesKeys));
     if (!gaps.length) return [];
     const yearCents = savedLoanYearCents(loan);
     return [
       debt({
         id: `loan:${loan.id}`,
-        seriesId: null,
+        // the loan's own series, so a proposal of the same series is no second row
+        seriesId: loan.seriesKey ?? null,
         yearCents,
         source: "loan",
         name: loan.name,

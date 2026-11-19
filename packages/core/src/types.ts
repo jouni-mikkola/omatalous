@@ -334,6 +334,11 @@ export interface Loan {
   rateStepDate?: IsoDate | null;
   rateStepBp?: number | null;
   /**
+   * The fee each payment carries, as the household typed it for a plan whose fee nothing else tells. 0 is told: no fee.
+   * Left out or null means none typed. A fee a document stated (`paymentParts`) and one the rows measure come first.
+   */
+  paymentFeeCents?: number | null;
+  /**
    * The payments whose split a document stated. The newest one's fee is the fee of every payment to come
    * (`loan-schedule.ts`). Left out means none.
    */

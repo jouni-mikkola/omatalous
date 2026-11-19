@@ -9,16 +9,18 @@ import type { Account, LoanProposalRow } from "../../types.ts";
 import { KIND_LABEL, type LoanFieldKey } from "./labels.ts";
 
 /** The fields of a loan the form shows, in the order it shows them. Name and kind stand above them. */
-const FIELD_KEYS = ["lender", "balanceCents", "balanceDate", "grantedCents", "limitCents", "rateBp", "reference", "marginBp", "rateReviewDate", "rateStepDate", "rateStepBp", "repayment", "intervalMonths", "paymentCents", "endDate"] as const satisfies readonly LoanFieldKey[];
+const FIELD_KEYS = ["lender", "balanceCents", "balanceDate", "grantedCents", "limitCents", "rateBp", "reference", "marginBp", "rateReviewDate", "rateStepDate", "rateStepBp", "repayment", "intervalMonths", "paymentCents", "paymentFeeCents", "endDate"] as const satisfies readonly LoanFieldKey[];
 
 /** The step in the typed rate is typed in and never read from a text: a document gives the rate it states, not its change. */
 const STEP_KEYS = ["rateStepDate", "rateStepBp"] as const;
-type ReadKey = Exclude<LoanFieldKey, (typeof STEP_KEYS)[number]>;
-const READ_KEYS = FIELD_KEYS.filter((key): key is ReadKey => !(STEP_KEYS as readonly string[]).includes(key));
+/** The fields typed in only: a text states a payment's fee in its split (`lastPayment`), not as a field. */
+const TYPED_KEYS = [...STEP_KEYS, "paymentFeeCents"] as const;
+type ReadKey = Exclude<LoanFieldKey, (typeof TYPED_KEYS)[number]>;
+const READ_KEYS = FIELD_KEYS.filter((key): key is ReadKey => !(TYPED_KEYS as readonly string[]).includes(key));
 
 /** The form's own text of the loan's payment, read by key like every other field of the form. */
 const PAYMENT: LoanFieldKey = "paymentCents";
-const MONEY_KEYS = ["balanceCents", "grantedCents", "limitCents", "paymentCents"] as const;
+const MONEY_KEYS = ["balanceCents", "grantedCents", "limitCents", "paymentCents", "paymentFeeCents"] as const;
 const RATE_KEYS = ["rateBp", "marginBp", "rateStepBp"] as const;
 
 /** Read as printed, read with doubt, or not in the text. */
@@ -64,7 +66,7 @@ export interface LoanForm {
 export type LoanBody = Omit<Loan, "id"> & { lastPayment?: LoanDraftLastPayment };
 export type FormErrors = Partial<Record<LoanFieldKey | "kind", string>>;
 
-const blank = (): Record<LoanFieldKey, string> => ({ lender: "", grantedCents: "", balanceCents: "", balanceDate: "", rateBp: "", reference: "", marginBp: "", rateReviewDate: "", rateStepDate: "", rateStepBp: "", repayment: "", intervalMonths: "", paymentCents: "", endDate: "", limitCents: "" });
+const blank = (): Record<LoanFieldKey, string> => ({ lender: "", grantedCents: "", balanceCents: "", balanceDate: "", rateBp: "", reference: "", marginBp: "", rateReviewDate: "", rateStepDate: "", rateStepBp: "", repayment: "", intervalMonths: "", paymentCents: "", paymentFeeCents: "", endDate: "", limitCents: "" });
 
 function textOf(key: LoanFieldKey, value: string | number | null): string {
   if (value === null) return "";
@@ -209,7 +211,9 @@ export function shownFields(form: LoanForm, fixings?: Fixings): LoanFieldKey[] {
   // a loan on a euribor takes its rate from the reviews: a step in the typed rate is for a fixed or an unnamed one
   if (form.values.reference !== "" && form.values.reference !== "fixed") for (const key of STEP_KEYS) hidden.add(key);
   if (marginOnly(form, fixings)) hidden.add("rateBp");
-  if (isCredit(form.kind)) for (const key of ["grantedCents", "repayment", "intervalMonths", "paymentCents", "endDate"] as const) hidden.add(key);
+  if (isCredit(form.kind)) for (const key of ["grantedCents", "repayment", "intervalMonths", "paymentCents", "paymentFeeCents", "endDate"] as const) hidden.add(key);
+  // the fee of each payment is told of a plan at 0 %, where the fee is all it costs; one already typed stays to change
+  if (form.values.paymentFeeCents.trim() === "" && parseRate(form.values.rateBp.trim()) !== 0) hidden.add("paymentFeeCents");
   else if (form.kind !== "") hidden.add("limitCents");
   if (form.values.repayment === "bullet") hidden.add("paymentCents");
   return FIELD_KEYS.filter((key) => !hidden.has(key));
@@ -337,6 +341,8 @@ export function readForm(form: LoanForm, fixings?: Fixings): { body: LoanBody | 
     intervalMonths: months === "" ? null : Number(months),
     paymentCents: positive(cents("paymentCents")),
     endDate: text("endDate") || null,
+    // 0 is told, a fee of nothing: only an empty field sends none
+    ...(text("paymentFeeCents") === "" ? {} : { paymentFeeCents: cents("paymentFeeCents") }),
     limitCents: positive(cents("limitCents")),
     seriesKey: form.seriesKey,
     // PUT replaces every field, so a body without the link removes the one that was there (the server reads it as null)
