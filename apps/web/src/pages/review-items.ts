@@ -347,7 +347,7 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
       // the totals are in the list itself, read again after each save; a figure here would stay as the queue was first read
       return { text: "", line: "" };
     case "split":
-      return { text: money(item.cents), unit: t("set.ri.in_total"), line: t("set.ri.money_has_come_into_the") };
+      return { text: money(item.cents), unit: t("set.ri.in_total"), line: "" };
     case "subscription": {
       // a rise says the old and the new charge (its `cents` may be what the rise adds, so no year is told), a new charge its first day
       const line =
@@ -365,7 +365,7 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
       return { text: money(item.cents), unit: t("set.ri.money_back_unit"), line };
     }
     case "mortgage":
-      return { text: "", line: t("set.ri.housing_costs_show_no_loan") };
+      return { text: "", line: "" };
     case "balance":
       return { text: money(item.cents), unit: t("set.ri.difference"), line: t("set.ri.balance_changed_rows_add_up", { from: date(item.fromDay), to: date(item.toDay), bank: money(item.bankCents), rows: money(item.rowsCents) }) };
     case "card_balance":

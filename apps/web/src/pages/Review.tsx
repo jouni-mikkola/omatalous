@@ -112,15 +112,15 @@ export function Review({ meta, queue, first = null }: { meta: Meta; queue: Queue
       {view.state === "enough" && <End title={t("set.rv.this_batch_of_questions_is")} text={leftText(view.left)} heading={heading} />}
       {view.state === "skipped" && <End title={t("set.rv.the_rest_are_waiting")} text={leftText(view.left)} heading={heading} />}
       {/* a household with no account sees the first-run page instead (views/ReviewView.tsx), so an empty queue here was gone through */}
-      {view.state === "empty" && <End title={t("set.rv.nothing_to_ask")} text={t("set.rv.new_questions_come_when_the")} heading={heading} />}
+      {view.state === "empty" && <End title={t("set.rv.nothing_to_ask")} heading={heading} />}
     </div>
   );
 }
 
-function End({ title, text, heading }: { title: string; text: string; heading: React.RefObject<HTMLHeadingElement | null> }) {
+function End({ title, text, heading }: { title: string; text?: string; heading: React.RefObject<HTMLHeadingElement | null> }) {
   return (
     <Empty className="review-end" title={title} headingRef={heading} mark={<span className="review-done-mark" aria-hidden="true" />} action={<Button href="#/overview">{t("set.rv.go_to_summary")}</Button>}>
-      <p>{text}</p>
+      {text && <p>{text}</p>}
     </Empty>
   );
 }
@@ -203,7 +203,6 @@ function ItemCard({ item, position, of, meta, heading, busy, waiting, problem, o
         {questionOf(item)}
       </h2>
       <Choices item={item} meta={meta} busy={busy} onAnswer={onAnswer} onHold={onHold} onReload={onReload} />
-      {item.kind === "payer" && <p className="review-note">{t("set.rv.the_answer_also_covers_earlier")}</p>}
       {problem && (
         <Notice tone="error" className="review-error" as="p">
           {problem}

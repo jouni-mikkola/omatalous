@@ -163,7 +163,7 @@ test("each kind is asked in its own words and answered through its own route, th
   // a payer: the proposal first, and the answer is the member's own role
   const choices = card(page).locator(".review-choice");
   await expect(choices.first()).toHaveAccessibleName("Yhteisten menojen osuus Ehdotus");
-  await expect(card(page).locator(".review-note")).toContainText("Vastaus koskee myös aiempia kuukausia, mutta ei maksuja, jotka poikkeavat selvästi tavallisesta.");
+  await expect(card(page)).not.toContainText("Vastaus koskee");
   await card(page).getByRole("button", { name: "Palkka tai etuus" }).click();
   await expect(card(page).locator(".review-kind")).toHaveText("Yhteinen tili Yhteistili");
   await expect.poll(() => stub.posted.at(-1)).toEqual({ path: "/api/payer-roles", method: "PUT", body: { key: payer.key, role: "pay" } });

@@ -89,7 +89,7 @@ describe("Tarkistettavat", () => {
     const item = { id: "loan_drift:loan-7", kind: "loan_drift", cents: 0, loanId: "loan-7", name: "Asuntolaina", date: "2026-11-05", paidCents: 95_000, expectedCents: 90_000, newPaymentCents: 95_000, reviewDate: "2026-11-05" } as unknown as ReviewItem;
     const meta = { accounts: [], sharedAccounts: [], bank: { banks: [] }, today: "2026-11-18" } as unknown as Meta;
     render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => {} } }));
-    expect(document.querySelector(".review-item")!.textContent).toContain("Onko lainan maksuerä muuttunut?");
+    expect(document.querySelector(".review-item")!.textContent).toContain("Onko lainan kuukausierä muuttunut?");
     expect(choices().map((b) => b.textContent?.trim())).toEqual(["Päivitä lainan maksuerä"]);
     fireEvent.click(screen.getByRole("button", { name: "Päivitä lainan maksuerä" }));
     expect(((await screen.findByLabelText(/^Kuukausierä/, {}, T)) as HTMLInputElement).value).toMatch(/^950/);

@@ -15,7 +15,7 @@ export const FI_SET_IMPORT = {
   "set.imp.account_use": "Tilien käyttö",
   "set.imp.parts_of_transactions": "Tapahtumien osat",
   "set.imp.loans": "Lainat",
-  "set.imp.loan_payment_parts": "Lainojen maksuerien osat",
+  "set.imp.loan_payment_parts": "Lainojen kuukausierien osat",
   "set.imp.expected_bills": "Tulossa olevat laskut",
   "set.imp.monthly_spending_goal": "Kuukauden menotavoite",
   "set.imp.category_spending_goals": "Kategorioiden menotavoitteet",

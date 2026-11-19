@@ -297,9 +297,9 @@ function Loans({ ctx }: SectionProps) {
         : r.payments.bullets > 0
           ? t("rpt.ln_no_payments")
           : money(0, false);
-  const items: [label: string, value: string, sub?: string][] = [
+  const items: [label: string, value: string][] = [
     [t("rpt.ln_payments_month"), monthly],
-    ...(less === undefined ? [] : [[accountsLessDebt().label, less === null ? DASH : money(less, false), accountsLessDebt().sub] as [string, string, string]]),
+    ...(less === undefined ? [] : [[accountsLessDebt().label, less === null ? DASH : money(less, false)] as [string, string]]),
   ];
   const lines = notes(r, less !== undefined, new Set(ctx.meta.accounts.map((a) => a.id)));
   // the limit of a connected card is the account's own: a card at a part shows the viewer's part of what is used, and no limit beside it
@@ -326,11 +326,10 @@ function Loans({ ctx }: SectionProps) {
       {/* with no loan saved or connected there is nothing to add up: the payments of the unsaved ones are in their rows */}
       {r.loans.length > 0 && (
         <div className="kv">
-          {items.map(([label, value, sub]) => (
+          {items.map(([label, value]) => (
             <div key={label}>
               <div className="k">{label}</div>
               <div className="v"><Figure text={value} size="m" /></div>
-              {sub && <div className="loans-tile-sub">{sub}</div>}
             </div>
           ))}
         </div>
