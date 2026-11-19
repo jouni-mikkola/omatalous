@@ -87,7 +87,7 @@ test("pasted text fills the form, marks what it read, holds the save until the f
   expect(await loansOf(context)).toHaveLength(0);
   for (const box of await form.getByRole("checkbox").all()) await box.check();
   await form.getByRole("button", { name: "Tallenna" }).click();
-  await said(saldot(page), "Laina tallennettu.");
+  await said(saldot(page), "Laina tallennettu");
 
   const [loan] = await loansOf(context);
   expect(loan).toMatchObject({ kind: "mortgage", lender: "Esimerkkipankki Oyj", grantedCents: 15_000_000, balanceCents: 12_000_000, balanceDate: "2026-09-30", rateBp: 339, repayment: "annuity", paymentCents: 68_920, endDate: "2046-10-31" });
@@ -165,7 +165,7 @@ test("a text of several loans goes to a table, each loan is matched to a saved o
     await expect(dialog).toHaveCount(0);
   }
   await page.getByRole("button", { name: "Tallenna 2 lainaa" }).click();
-  await said(saldot(page), "Lainat tallennettu.");
+  await said(saldot(page), "Lainat tallennettu");
 
   const loans = await loansOf(context);
   expect(loans).toHaveLength(2);

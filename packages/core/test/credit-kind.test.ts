@@ -11,6 +11,7 @@ import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { addMonths } from "../src/dates.ts";
 import { buildHoldings, unsavedDebts } from "../src/holdings.ts";
 import { loanProposals } from "../src/loan-detect.ts";
+import { loanUnknownSubject } from "../src/loan-terms-answer.ts";
 import { notLoanMark } from "../src/loan-mark.ts";
 import { normalizeMerchant } from "../src/merchant.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
@@ -111,6 +112,20 @@ describe("the question of the kind", () => {
     const holdings = buildHoldings(ctx, [], NO_INPUTS);
     expect(holdings.unsavedLoans?.rows).toEqual(listed);
     expect(loansReport(ctx, [], NO_INPUTS).unsaved).toEqual(listed);
+  });
+
+  it("carries asked after En tiedä at this payment, and only then: the row and the totals stay", () => {
+    const [p] = loanProposals(ctx, NO_INPUTS);
+    const said = (monthlyCents: number | null): UserInputs => ({ ...NO_INPUTS, marks: [{ subject: loanUnknownSubject(monthlyCents, p!.key), mark: "in_use", markedAt: "2026-10-01T00:00:00Z" }] });
+    const plain = unsavedDebts(ctx, NO_INPUTS);
+    expect(plain.rows[0]).not.toHaveProperty("asked");
+    const asked = unsavedDebts(ctx, said(p!.monthlyCents));
+    expect(asked.rows).toEqual([{ ...plain.rows[0]!, asked: true }]);
+    expect(asked.total).toEqual(plain.total);
+    expect(buildHoldings(ctx, [], said(p!.monthlyCents)).unsavedLoans?.rows).toEqual(asked.rows);
+    // a payment that moved since the answer asks again
+    expect(unsavedDebts(ctx, said(p!.monthlyCents! + 100)).rows).toEqual(plain.rows);
+    expect(unsavedDebts(ctx, said(null)).rows[0]).not.toHaveProperty("asked");
   });
 
   it("is mandatory debt service, counted once", () => {

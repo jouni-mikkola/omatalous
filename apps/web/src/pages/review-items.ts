@@ -74,7 +74,7 @@ interface SubscriptionItem extends Base {
   lastDate: string;
 }
 
-/** Whether the household has a home loan: Lisää asuntolaina opens Asetukset > Lainat, Ei asuntolainaa is the mark `question:mortgage`. */
+/** Whether the household has a home loan: Lisää asuntolaina opens the home-loan form in place, Ei asuntolainaa is the mark `question:mortgage`. */
 interface MortgageItem extends Base {
   kind: "mortgage";
 }

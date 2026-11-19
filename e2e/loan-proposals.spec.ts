@@ -112,7 +112,7 @@ test("a payment that looks like a loan is asked in Tarkistettavat: saved as a lo
     await editor.getByRole("button", { name: "Peruuta" }).click();
     await card.getByRole("button", { name: `Poista laina ${name}` }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Poista laina", exact: true }).click();
-    await expect(page.locator("#saldot").getByRole("status").filter({ hasText: "Laina poistettu." })).toBeVisible();
+    await expect(page.locator("#saldot").getByRole("status").filter({ hasText: "Laina poistettu" })).toHaveText("Laina poistettu");
     // the saved loan is gone; the payments are a debt nobody told the balance of, with nothing to change in Lainat
     await expect(page.getByRole("heading", { name: "Tunnistettu, saldo puuttuu" })).toHaveCount(0);
     await expect(page.getByRole("row").filter({ hasText: name })).toHaveCount(0);

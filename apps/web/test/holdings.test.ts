@@ -80,6 +80,15 @@ describe("Holdings", () => {
       expect(links(unsaved).filter((h) => h!.startsWith("#/reports"))).toEqual([]);
     });
 
+    it("tells a debt answered En tiedä as plain text, with no link to a list that no longer asks for it", () => {
+      const answered = [{ ...rows[0]!, asked: true as const }, rows[1]!];
+      const debts = html(answer({ ...base, netCents: 100_000, unsavedLoans: { ...unsavedLoans, rows: answered } }));
+      const foot = debts.slice(debts.indexOf('class="st-rows holding-foot"'));
+      expect(text(foot)).toContain("Esimerkkirahoitus 100,00 €/kk · saldo puuttuu");
+      expect(text(foot)).toContain("Esimerkkikauppa · Luottokortti 200,00 €/kk · saldo puuttuu");
+      expect(links(foot)).toEqual(["#/review?item=loan-terms"]);
+    });
+
     it("says only that the balance is missing for an unsaved debt with no monthly figure", () => {
       const open = [{ name: "Esimerkkerä", monthlyCents: null, card: false }];
       const out = text(html(answer({ ...base, netCents: 100_000, unsavedLoans: { count: 1, names: [], paymentCents: 0, rows: open } })));

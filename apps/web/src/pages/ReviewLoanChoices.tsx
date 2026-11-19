@@ -15,7 +15,7 @@ import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
 import { date, money, monthYear, percent } from "../format.ts";
 import { useApi } from "../hooks.ts";
-import { LOAN_LINK_PARAM, SETTINGS_ANCHOR, settingsCardHash } from "../routes.ts";
+import { loanEditHash, SETTINGS_ANCHOR, settingsCardHash } from "../routes.ts";
 import { t } from "../text.ts";
 import type { LoansAnswer, Meta } from "../types.ts";
 import { ChoiceButton, mark } from "./review-buttons.tsx";
@@ -456,7 +456,7 @@ function SavedLoanChoice({ debt, answer, meta, busy, onSend, already, open, gone
           </ChoiceButton>
         ))}
       {only && (
-        <Button className="review-choice" href={settingsCardHash(SETTINGS_ANCHOR.loans, new URLSearchParams({ [LOAN_LINK_PARAM.loan]: only.id }))}>
+        <Button className="review-choice" href={loanEditHash(only.id)}>
           {open}
         </Button>
       )}

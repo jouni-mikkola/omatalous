@@ -20,6 +20,7 @@ import { debtCost, type DebtClass, type DebtCost, type SeriesPayment } from "./d
 import type { Debt } from "./debt-part.ts";
 import { belowWhole, cardDebtOf, householdDebts, maybeTwice, paidFrom, type UnsavedLoans, unsavedLoans } from "./household-debts.ts";
 import { type LoanProposal, loanProposals, paysSeries } from "./loan-detect.ts";
+import { loanUnknownAsked } from "./loan-terms-answer.ts";
 import { creditUse, debtPaymentsPerMonth, loanBalanceOn, loanPayoffDate, loansOf } from "./loans.ts";
 import { hasMonthly } from "./shared.ts";
 import { normalizeIban } from "./transfers.ts";
@@ -178,6 +179,8 @@ export interface UnsavedRow {
   card: boolean;
   /** A credit whose kind the rows do not tell (`LoanProposal.kindUnknown`): a card, a credit line or a loan. Absent otherwise. */
   kindUnknown?: true;
+  /** The household said "En tiedä" of this loan at this monthly payment (`loanUnknownAsked`): Tarkistettavat no longer asks its balance, so no page links there. Absent otherwise. */
+  asked?: true;
 }
 
 /**
@@ -197,7 +200,7 @@ export function unsavedDebts(ctx: AnalysisContext, inputs: UserInputs, proposals
   return {
     few,
     total: unsavedLoans([...lenders, ...cards]),
-    rows: [...lenders.map((p): UnsavedRow => ({ name: p.payee, monthlyCents: p.monthlyCents, card: false, ...(p.kindUnknown ? { kindUnknown: true as const } : {}) })), ...cards.map((c): UnsavedRow => ({ name: c.payee, monthlyCents: c.monthlyCents, card: true }))],
+    rows: [...lenders.map((p): UnsavedRow => ({ name: p.payee, monthlyCents: p.monthlyCents, card: false, ...(p.kindUnknown ? { kindUnknown: true as const } : {}), ...(!p.plan && loanUnknownAsked(inputs.marks, p.key, p.monthlyCents) ? { asked: true as const } : {}) })), ...cards.map((c): UnsavedRow => ({ name: c.payee, monthlyCents: c.monthlyCents, card: true }))],
   };
 }
 

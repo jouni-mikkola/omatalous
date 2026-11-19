@@ -144,11 +144,14 @@ test("a loan is typed into the form, a missing kind holds Tallenna back, and the
   await expect(form.getByLabel("Luottoraja (€)")).toHaveCount(0);
   await form.getByRole("button", { name: "Tallenna" }).click();
 
-  await said(page, "Laina tallennettu.");
+  await said(page, "Laina tallennettu");
   expect(writes).toEqual(["POST"]);
   await expect(form).toHaveCount(0);
   await expect(card.getByRole("button", { name: "Lisää laina" })).toBeVisible();
   await expect(rowOf(page, "Asuntolaina, Esimerkkipankki Oyj")).toContainText("Esimerkkipankki Oyj");
+  // what the row of Lainat shows: the balance in whole euros and the rate
+  await expect(rowOf(page, "Asuntolaina, Esimerkkipankki Oyj")).toContainText(/120\s000\s€/);
+  await expect(rowOf(page, "Asuntolaina, Esimerkkipankki Oyj")).toContainText(new RegExp(percentText(339)));
   const typedFigures = { Lainanantaja: "Esimerkkipankki Oyj", "Lainaa jäljellä (€)": "120 000,00", "Korko (%)": "3,39", "Kuukausierä (€)": "689,20", "Viimeinen eräpäivä": loan.endDate };
   await expectSaved(page, "Asuntolaina, Esimerkkipankki Oyj", typedFigures);
 
@@ -193,7 +196,7 @@ test("a saved loan is edited in a dialog and removed after a question", async ({
   await expect(dialog.locator(".loan-rate-now")).toHaveText(new RegExp(`^Korko nyt ${percentText(rateBp)}$`));
   await dialog.getByRole("button", { name: "Tallenna" }).click();
   await expect(dialog).toHaveCount(0);
-  await said(page, "Muutokset tallennettu.");
+  await said(page, "Muutokset tallennettu");
   const row = rowOf(page, "Kodin laina");
   await expect(row).toBeVisible();
   await editLoan(page, "Kodin laina");
@@ -212,7 +215,7 @@ test("a saved loan is edited in a dialog and removed after a question", async ({
   await expect(row).toBeVisible();
   await card.getByRole("button", { name: "Poista laina Kodin laina" }).click();
   await question.getByRole("button", { name: "Poista laina" }).click();
-  await said(page, "Laina poistettu.");
+  await said(page, "Laina poistettu");
   await noRow(page, "Kodin laina");
   expect(seen.problems).toEqual([]);
   await context.close();
@@ -248,7 +251,7 @@ test("the day the rate is reviewed is typed in the form and kept, a fixed rate h
   await form.getByLabel("Viitekorko", { exact: true }).selectOption("euribor_12");
   await expect(day).toHaveValue("2027-03-14");
   await form.getByRole("button", { name: "Tallenna" }).click();
-  await said(page, "Laina tallennettu.");
+  await said(page, "Laina tallennettu");
   expect(await loans()).toMatchObject([{ name: "Kotilaina", reference: "euribor_12", rateReviewDate: "2027-03-14" }]);
 
   // the day is kept: it is in the editor after a reload
@@ -265,7 +268,7 @@ test("the day the rate is reviewed is typed in the form and kept, a fixed rate h
   await dialog.getByLabel("Viitekorko", { exact: true }).selectOption("fixed");
   await expect(dialog.getByLabel("Koron tarkistuspäivä", { exact: true })).toHaveCount(0);
   await dialog.getByRole("button", { name: "Tallenna" }).click();
-  await said(page, "Muutokset tallennettu.");
+  await said(page, "Muutokset tallennettu");
   expect(await loans()).toMatchObject([{ name: "Kotilaina", reference: "fixed" }]);
   expect((await loans())[0]!.rateReviewDate ?? null).toBeNull();
   // and its editor has no field either
@@ -316,7 +319,7 @@ test("on a phone a loan on a euribor is typed with its margin alone, the form sh
   expect(await overflow(page)).toBeLessThanOrEqual(1);
 
   await form.getByRole("button", { name: "Tallenna" }).click();
-  await said(page, "Laina tallennettu.");
+  await said(page, "Laina tallennettu");
   const { loans } = await (await context.request.get("/api/loans", RESEND)).json();
   expect(loans).toMatchObject([{ name: "Marginaalilaina", reference: "euribor_12", marginBp: 65, rateReviewDate: reviewDay, rateBp, balanceDate: day }]);
   // the saved rate is the figure the form showed, with the balance day
@@ -360,8 +363,9 @@ test("a member sees and changes only their own loans, and the page fits a phone"
     await form.getByLabel("Korko (%)").fill("5,25");
     expect(await overflow(page)).toBeLessThanOrEqual(1);
     await form.getByRole("button", { name: "Tallenna" }).click();
-    await said(page, "Laina tallennettu.");
+    await said(page, "Laina tallennettu");
     await expect(rowOf(page, "Auton laina")).toBeVisible();
+    await expect(rowOf(page, "Auton laina")).toContainText(/9\s801\s€/);
     expect(await overflow(page)).toBeLessThanOrEqual(1);
     // the phone shows the balance and the rate in the loan's editor
     const dialog = await editLoan(page, "Auton laina");
@@ -419,7 +423,7 @@ test("the Lainat report offers to link a saved card to the card account, and the
   await expect(page).not.toHaveURL(/linkLoan|linkAccount/);
   await dialog.getByRole("button", { name: "Tallenna" }).click();
   await expect(dialog).toHaveCount(0);
-  await said(page, "Muutokset tallennettu.");
+  await said(page, "Muutokset tallennettu");
   // the editor keeps the account it is linked to
   const linked = await editLoan(page, "Esimerkkikortti");
   await expect(linked.getByLabel("Sama velka pankin tilillä")).toHaveValue(account!.id);

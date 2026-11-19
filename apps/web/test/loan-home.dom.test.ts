@@ -24,7 +24,7 @@ describe("Lainat in Varat ja velat", () => {
     expect(dialog.textContent).toContain("Poista Autolaina?");
     expect(server.seen.some((s) => s.method === "DELETE" && s.path.startsWith("/api/loans/"))).toBe(false);
     fireEvent.click(within(dialog).getByRole("button", { name: "Poista laina", hidden: true }));
-    await said("Laina poistettu.");
+    await said("Laina poistettu");
     expect(server.seen.some((s) => s.method === "DELETE" && s.path.startsWith("/api/loans/"))).toBe(true);
   }, 60000);
 
@@ -55,7 +55,7 @@ describe("Lainat in Varat ja velat", () => {
     fireEvent.change(within(form).getByLabelText("Laji"), { target: { value: "car" } });
     fireEvent.change(within(form).getByLabelText("Lainaa jäljellä (€)"), { target: { value: "12 000" } });
     fireEvent.click(within(form).getByRole("button", { name: "Tallenna" }));
-    await said("Laina tallennettu.");
+    await said("Laina tallennettu");
     await screen.findByRole("heading", { name: "Lainat", level: 2 }, T);
     fireEvent.click(await screen.findByRole("button", { name: "Autolaina" }, T));
     fireEvent.click(await screen.findByRole("button", { name: "Poista laina Autolaina" }, T));
