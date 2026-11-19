@@ -208,13 +208,24 @@ const MAX_OFFER_MONTHS = 600;
 const MAX_OFFER_RATE_BP = 5000;
 const MAX_OFFER_FEE_CENTS = 100_000;
 
-/** What the typed offer says, or null until a rate and a term that make a loan are typed. The fee may stay empty: it is then 0. */
-function offerOf(rateText: string, monthsText: string, feeText: string): { rateBp: number; months: number; feeCents: number } | null {
+type OfferKey = "rate" | "months" | "fee";
+
+/**
+ * What the typed offer says, and the fields whose text it refuses. The offer is null until a rate and a term that make a
+ * loan are typed; the fee may stay empty: it is then 0. An empty field is not yet typed and has no error.
+ */
+function readOffer(rateText: string, monthsText: string, feeText: string): { offer: { rateBp: number; months: number; feeCents: number } | null; errors: Partial<Record<OfferKey, string>> } {
   const rateBp = parseRate(rateText.trim());
   const months = /^\d{1,4}$/.test(monthsText.trim()) ? Number(monthsText.trim()) : null;
   const feeCents = feeText.trim() === "" ? 0 : parseEuros(feeText);
-  if (rateBp === null || rateBp > MAX_OFFER_RATE_BP || months === null || months < 1 || months > MAX_OFFER_MONTHS || feeCents === null || feeCents < 0 || feeCents > MAX_OFFER_FEE_CENTS) return null;
-  return { rateBp, months, feeCents };
+  const rateOk = rateBp !== null && rateBp <= MAX_OFFER_RATE_BP;
+  const monthsOk = months !== null && months >= 1 && months <= MAX_OFFER_MONTHS;
+  const feeOk = feeCents !== null && feeCents >= 0 && feeCents <= MAX_OFFER_FEE_CENTS;
+  const errors: Partial<Record<OfferKey, string>> = {};
+  if (!rateOk && rateText.trim() !== "") errors.rate = t("rpt.ln_consol_rate_error", { max: percent(MAX_OFFER_RATE_BP / 10_000) });
+  if (!monthsOk && monthsText.trim() !== "") errors.months = t("rpt.ln_consol_months_error", { max: String(MAX_OFFER_MONTHS) });
+  if (!feeOk) errors.fee = t("rpt.ln_consol_fee_error", { max: money(MAX_OFFER_FEE_CENTS, false) });
+  return { offer: rateOk && monthsOk && feeOk ? { rateBp, months, feeCents } : null, errors };
 }
 
 /** The fields of an offer and its one line. */
@@ -223,15 +234,20 @@ function Consolidation({ basis, names, today }: { basis: Basis; names: readonly 
   const [months, setMonths] = useState("");
   const [fee, setFee] = useState("");
   const id = useId();
-  const offer = offerOf(rate, months, fee);
+  const { offer, errors } = readOffer(rate, months, fee);
   const cost = offer === null ? null : consolidationCost(basis, today, offer);
   const gap = cost?.savedCents ?? 0;
-  const field = (key: string, label: string, value: string, set: (v: string) => void) => (
+  const field = (key: OfferKey, label: string, value: string, set: (v: string) => void) => (
     <div className="loan-field">
       <label className="field-label" htmlFor={`${id}-${key}`}>
         {label}
       </label>
-      <input id={`${id}-${key}`} type="text" inputMode="decimal" autoComplete="off" value={value} onChange={(e) => set(e.target.value)} />
+      <input id={`${id}-${key}`} type="text" inputMode="decimal" autoComplete="off" value={value} aria-invalid={errors[key] ? true : undefined} aria-describedby={errors[key] ? `${id}-${key}-error` : undefined} onChange={(e) => set(e.target.value)} />
+      {errors[key] && (
+        <span id={`${id}-${key}-error`} className="field-error">
+          {errors[key]}
+        </span>
+      )}
     </div>
   );
   return (

@@ -8,21 +8,25 @@ import { auditTables } from "./table-audit.ts";
 // balance of. The loans belong to a member of their own, with the demo accounts less the demo card (a connected card
 // that owes is a debt of its own and would stand beside the two), so the demo household of the administrator that the
 // other specs read stays as it is. The member is removed at the end, and one a broken run left behind is removed first.
+// A second member of its own saves two dear debts and answers the payment the demo rows show as no loan, so every debt
+// has its terms and the payoff plan line is there; the first member keeps the debt nobody saved.
 // Run alone, the spec creates the administrator itself. With E2E_SHOTS set the section is saved there as a picture
 // at each width.
 const DIR = process.env.E2E_DIR ?? ".";
 const STATE = join(DIR, "admin-state.json");
 const MEMBER = join(DIR, "loans-report-state.json");
+const PLANNER = join(DIR, "loans-plan-state.json");
 const BASE = process.env.E2E_BASE_URL ?? "";
 const SHOTS = process.env.E2E_SHOTS ?? "";
 
 const USERNAME = "e2e-lainat";
+const PLAN_USERNAME = "e2e-lainat-suunnitelma";
 const FETCH = { "X-Requested-With": "fetch" };
 
 /** The server's own day (/api/meta), read once the member is signed in: the loans are told on it. */
 let today = "";
-/** The member made here, removed in the end. */
-let memberId = "";
+/** The members made here, removed in the end. */
+const memberIds: string[] = [];
 
 const NOT_GIVEN = { lender: null, grantedCents: null, rateBp: null, reference: null, marginBp: null, repayment: null, intervalMonths: null, paymentCents: null, endDate: null, limitCents: null, seriesKey: null };
 
@@ -32,14 +36,20 @@ const loans = () => [
   { ...NOT_GIVEN, name: "Kaupan kortti", kind: "card", balanceCents: 124000, balanceDate: today },
 ];
 
+/** A card at 24 % and a consumer loan at 18 %, both with a payment: very dear debts, so the plan and the offer for them are told. */
+const dearLoans = () => [
+  { ...NOT_GIVEN, name: "Kulutusluotto", lender: "Esimerkkirahoitus", kind: "consumer", balanceCents: 300000, balanceDate: today, rateBp: 1800, repayment: "annuity", intervalMonths: 1, paymentCents: 15000 },
+  { ...NOT_GIVEN, name: "Kaupan kortti", kind: "card", balanceCents: 100000, balanceDate: today, rateBp: 2400, intervalMonths: 1, paymentCents: 5000 },
+];
+
 async function post(context: BrowserContext, path: string, data: object): Promise<Record<string, unknown>> {
   const r = await context.request.post(`${BASE}${path}`, { data, headers: FETCH });
   expect(r.ok(), `POST ${path} answered ${r.status()}: ${await r.text()}`).toBe(true);
   return (await r.json()) as Record<string, unknown>;
 }
 
-/** A member with the rows and the loans above, signed in. */
-async function household(browser: Browser): Promise<void> {
+/** A member with the rows and the loans given, signed in; `answered` says that the payments the rows show as loans are no loans. */
+async function household(browser: Browser, who: { username: string; state: string; loans: () => object[]; answered: boolean }): Promise<void> {
   if (!existsSync(STATE)) {
     const setup = await browser.newContext();
     await post(setup, "/api/auth/setup", { code: process.env.E2E_SETUP_CODE ?? "", username: "e2e-admin", displayName: "E2E Admin", password: "e2e-salasana-123456" });
@@ -50,12 +60,12 @@ async function household(browser: Browser): Promise<void> {
   }
   const admin = await browser.newContext({ storageState: STATE });
   const { users } = (await (await admin.request.get(`${BASE}/api/users`, { headers: FETCH })).json()) as { users: { id: string; username: string }[] };
-  for (const u of users.filter((x) => x.username === USERNAME)) await admin.request.delete(`${BASE}/api/users/${u.id}`, { headers: FETCH });
-  const { user, temporaryPassword } = (await post(admin, "/api/users", { username: USERNAME, displayName: "E2E Lainat", role: "member" })) as { user: { id: string }; temporaryPassword: string };
-  memberId = user.id;
+  for (const u of users.filter((x) => x.username === who.username)) await admin.request.delete(`${BASE}/api/users/${u.id}`, { headers: FETCH });
+  const { user, temporaryPassword } = (await post(admin, "/api/users", { username: who.username, displayName: "E2E Lainat", role: "member" })) as { user: { id: string }; temporaryPassword: string };
+  memberIds.push(user.id);
   await admin.close();
   const member = await browser.newContext();
-  await post(member, "/api/auth/login", { username: USERNAME, password: temporaryPassword });
+  await post(member, "/api/auth/login", { username: who.username, password: temporaryPassword });
   await post(member, "/api/auth/first-password", { next: "e2e-lainat-123456" });
   today = ((await (await member.request.get(`${BASE}/api/meta`, { headers: FETCH })).json()) as { today: string }).today;
   expect(today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
@@ -67,17 +77,26 @@ async function household(browser: Browser): Promise<void> {
     const gone = await member.request.delete(`${BASE}/api/accounts/${card.id}`, { headers: FETCH });
     expect(gone.ok(), `DELETE /api/accounts answered ${gone.status()}`).toBe(true);
   }
-  for (const loan of loans()) await post(member, "/api/loans", loan);
-  await member.storageState({ path: MEMBER });
+  if (who.answered) {
+    const { proposals } = (await (await member.request.get(`${BASE}/api/loans/proposals`, { headers: FETCH })).json()) as { proposals: { key: string }[] };
+    for (const p of proposals) {
+      const marked = await member.request.put(`${BASE}/api/marks`, { headers: FETCH, data: { subject: `loan-proposal:${p.key}`, mark: "dismissed" } });
+      expect(marked.ok(), `PUT /api/marks answered ${marked.status()}`).toBe(true);
+    }
+  }
+  for (const loan of who.loans()) await post(member, "/api/loans", loan);
+  await member.storageState({ path: who.state });
   await member.close();
 }
 
-/** The member and its loans go, so the instance is as the spec found it. */
+/** The members and their loans go, so the instance is as the spec found it. */
 async function remove(browser: Browser): Promise<void> {
-  if (!memberId) return;
+  if (memberIds.length === 0) return;
   const admin = await browser.newContext({ storageState: STATE });
-  const gone = await admin.request.delete(`${BASE}/api/users/${memberId}`, { headers: FETCH });
-  expect(gone.ok(), `DELETE /api/users answered ${gone.status()}`).toBe(true);
+  for (const id of memberIds) {
+    const gone = await admin.request.delete(`${BASE}/api/users/${id}`, { headers: FETCH });
+    expect(gone.ok(), `DELETE /api/users answered ${gone.status()}`).toBe(true);
+  }
   await admin.close();
 }
 
@@ -89,9 +108,9 @@ const cents = (s: string) => Math.round(Number(s.replace(/[ €]/g, "").replace(
 /** The rows of the debts, not the drills opened under them. */
 const ROWS = "table.rt tbody tr:not(.rt-detail):not(.rt-subrow):not(.rt-group):not(.rt-spacer)";
 
-async function open(browser: Browser, width: number): Promise<{ page: Page; seen: { problems: string[] }; context: BrowserContext }> {
+async function open(browser: Browser, width: number, state = MEMBER): Promise<{ page: Page; seen: { problems: string[] }; context: BrowserContext }> {
   // a phone's width is a phone: a touch screen, where a target is a finger's size (`table.css` pointer: coarse)
-  const context = await browser.newContext({ storageState: MEMBER, viewport: { width, height: 844 }, ...(width < 600 ? { isMobile: true, hasTouch: true } : {}) });
+  const context = await browser.newContext({ storageState: state, viewport: { width, height: 844 }, ...(width < 600 ? { isMobile: true, hasTouch: true } : {}) });
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/reports?q=saldot");
@@ -107,7 +126,10 @@ async function shot(page: Page, width: number): Promise<void> {
 
 test.describe.configure({ mode: "serial" });
 
-test.beforeAll(async ({ browser }) => household(browser));
+test.beforeAll(async ({ browser }) => {
+  await household(browser, { username: USERNAME, state: MEMBER, loans, answered: false });
+  await household(browser, { username: PLAN_USERNAME, state: PLANNER, loans: dearLoans, answered: true });
+});
 test.afterAll(async ({ browser }) => remove(browser));
 
 test("Lainat lists each debt in one table, says what it does not know and what a move of the reference rate does", async ({ browser }) => {
@@ -174,6 +196,55 @@ test("Lainat lists each debt in one table, says what it does not know and what a
   expect(seen.problems).toEqual([]);
   await context.close();
 });
+
+// A household whose debts all have their terms: a drill opens, the plan line above the list tells the month the debts end
+// in, and the offer of one loan for the dear debts names a field it cannot read and prices the offer once it is whole.
+// At a phone's width the finger's size holds for the plan line and each field.
+for (const { width, touch } of [{ width: 1440, touch: false }, { width: 390, touch: true }]) {
+  test(`Lainat opens a drill, tells the payoff plan and prices a new loan for the dear debts: ${width} px`, async ({ browser }) => {
+    const { page, seen, context } = await open(browser, width, PLANNER);
+    const section = page.locator("#lainat");
+    await expect(section.locator(ROWS)).toHaveCount(2);
+    // the card at 24 % is dearer than the loan at 18 %, so it comes first
+    await expect(section.locator(".loan-name")).toHaveText([/^Kaupan kortti/, /^Kulutusluotto/]);
+
+    // a drill of a saved loan opens with what is left of it
+    await section.getByRole("button", { name: "Kulutusluotto", exact: true }).click();
+    await expect(section.locator("tr.rt-detail")).toHaveCount(1);
+    await expect(section.locator("tr.rt-detail")).toContainText("Jäljellä");
+
+    // the plan line: the month the debts end in, then the order they are paid in
+    const line = section.locator(".loan-plan > summary");
+    await expect(line).toHaveText(/^Velaton \d{1,2}\/\d{4}/);
+    if (touch) expect((await line.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    await line.click();
+    const plan = section.locator(".loan-plan");
+    await expect(plan.locator(".loan-plan-list li")).toHaveCount(2);
+
+    // the offer: nothing is told until a rate and a term are typed, and a value that cannot be an offer names its field
+    const result = plan.locator(".loan-wi-result");
+    const rate = plan.getByLabel("Uuden lainan korko, %");
+    const months = plan.getByLabel("Laina-aika, kuukautta");
+    const fee = plan.getByLabel("Kulu kuukausierässä");
+    await expect(result).toHaveText("");
+    await expect(plan.locator(".field-error")).toHaveCount(0);
+    await rate.fill("60");
+    await months.fill("60");
+    await fee.fill("5");
+    await expect(plan.locator(".field-error")).toHaveText(/^Anna korko prosentteina, enintään 50\s%\.$/);
+    await expect(rate).toHaveAttribute("aria-invalid", "true");
+    await expect(result).toHaveText("");
+    await rate.fill("6");
+    await expect(plan.locator(".field-error")).toHaveCount(0);
+    await expect(result).toHaveText(/^Uusi laina maksaisi korkoina ja kuluina [\d\s]+ € · (?:[\d\s]+ € (?:vähemmän|enemmän)|saman verran)$/);
+    if (touch) {
+      for (const field of [rate, months, fee]) expect((await field.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+    }
+    expect(await overflow(page)).toBe(0);
+    expect(seen.problems).toEqual([]);
+    await context.close();
+  });
+}
 
 test("the loan figures are plain text, with no button to open a calculation", async ({ browser }) => {
   const { page, seen, context } = await open(browser, 1280);

@@ -14,7 +14,7 @@
  */
 import { partCents } from "./account-use.ts";
 import { addMonthsToDate } from "./dates.ts";
-import { debtCost, type DebtCost, type SeriesPayment } from "./debt-cost.ts";
+import { debtCost, type DebtCost } from "./debt-cost.ts";
 import { type Debt, partly } from "./debt-part.ts";
 import { divRound, dueDates, type Instalments, MAX_LOAN_PAYMENTS, typedPayment } from "./loan-plan.ts";
 import { annuityPayment, loanSchedule, type Payment, paymentOf, payments, paymentToEnd, rateMilliAt, resetsPayment, schedulePlan } from "./loan-schedule.ts";
@@ -215,15 +215,15 @@ function shortened(lanes: readonly Lane[], day: IsoDate, order: readonly Lane[],
 
 /**
  * The debt-free plan with `extraCents` more a month from `day`: the buffer first, then the dearest debt first (the
- * avalanche), each ended debt's payment rolled into the next. `rowsOf` gives each debt's series payments, for its cost.
+ * avalanche), each ended debt's payment rolled into the next. `costOf` gives each debt's cost, which the caller prices once.
  *
  * Null when no debt owes, and when a debt that owes has no plan to follow (no payment, no rate, or a plan that never
  * ends): the others alone would tell a part of the debt as all of it. A card paid in full is no debt to pay down.
  */
-export function payoffPlan(debts: readonly Debt[], day: IsoDate, extraCents: number, buffer: PlanBuffer, rowsOf: (debt: Debt) => readonly SeriesPayment[] = () => []): PayoffPlan | null {
+export function payoffPlan(debts: readonly Debt[], day: IsoDate, extraCents: number, buffer: PlanBuffer, costOf: (debt: Debt) => DebtCost | null = (debt) => debtCost(debt, day)): PayoffPlan | null {
   const lanes: Lane[] = [];
   for (const debt of debts) {
-    const cost = debtCost(debt, day, rowsOf(debt));
+    const cost = costOf(debt);
     if (cost === null) continue;
     const lane = laneOf(debt, day, cost);
     if (lane === "unknown") return null;
@@ -283,9 +283,9 @@ interface Consolidation {
  * `very_dear`. Null otherwise, and when a dear debt's cost or balance is not known: a part would read as the whole.
  * It holds no offer, so the report works it out once and `consolidationCost` prices an offer from it.
  */
-export function consolidationBasis(debts: readonly Debt[], day: IsoDate, rowsOf: (debt: Debt) => readonly SeriesPayment[] = () => []): ConsolidationBasis | null {
+export function consolidationBasis(debts: readonly Debt[], day: IsoDate, costOf: (debt: Debt) => DebtCost | null = (debt) => debtCost(debt, day)): ConsolidationBasis | null {
   const dear = debts.flatMap((debt) => {
-    const cost = debtCost(debt, day, rowsOf(debt));
+    const cost = costOf(debt);
     return cost?.costClass === "dear" || cost?.costClass === "very_dear" ? [{ debt, cost }] : [];
   });
   if (dear.length < 2 && !dear.some((d) => d.cost.costClass === "very_dear")) return null;
