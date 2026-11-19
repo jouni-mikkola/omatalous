@@ -51,18 +51,19 @@ describe("the review count and the queue read once", () => {
     const t = await household();
     const items = async (id: string) => (await reviewQueue(t.s, id)).items;
     const first = await items(t.adminId);
-    expect(first.map((i) => i.kind)).toContain("loan");
+    expect(first.map((i) => i.kind)).toContain("loan_terms_list");
+    const debts = (items: typeof first) => items.flatMap((i) => (i.kind === "loan_terms_list" ? i.debts : []));
     expect((await reviewCount(t.s, t.adminId)).count).toBe(first.length);
     expect(await items(t.adminId)).toEqual(first);
     // the loan questions are the proposals of the loans route, which reads its own view and its own inputs
     const proposals = (await t.admin.call("GET", "/api/loans/proposals")).body.proposals as { key: string }[];
-    expect(first.flatMap((i) => (i.kind === "loan" ? [(i as { key: string }).key] : [])).sort()).toEqual(proposals.map((p) => p.key).sort());
+    expect(debts(first).flatMap((d) => (d.source === "proposal" || d.source === "plan" ? [d.key] : [])).sort()).toEqual(proposals.map((p) => p.key).sort());
 
-    // an answer takes its item away, and the count follows
-    const loan = first.find((i) => i.kind === "loan") as { id: string; key: string };
-    expect((await t.admin.call("PUT", "/api/marks", notLoanMark({ key: loan.key }))).status).toBe(200);
+    // an answer takes its debt away, and the count follows
+    const loan = debts(first).find((d) => d.source === "proposal")!;
+    expect((await t.admin.call("PUT", "/api/marks", notLoanMark({ key: loan.key! }))).status).toBe(200);
     const answered = await items(t.adminId);
-    expect(answered.map((i) => i.id)).not.toContain(loan.id);
+    expect(debts(answered).map((d) => d.id)).not.toContain(loan.id);
     expect((await reviewCount(t.s, t.adminId)).count).toBe(answered.length);
 
     // a new payee is asked about

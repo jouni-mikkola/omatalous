@@ -65,6 +65,7 @@ export * from "./plan-answer.ts";
 export * from "./bill-answer.ts";
 export * from "./unresolved-answer.ts";
 export * from "./loan-terms-answer.ts";
+export * from "./loan-terms-list.ts";
 export { euriborRateBp } from "./loan-schedule.ts";
 export * from "./loan-terms-infer.ts";
 export * from "./pipeline.ts";

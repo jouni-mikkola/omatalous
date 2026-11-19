@@ -2,13 +2,13 @@
  * Tarkistettavat without React: the items GET /api/review sends, what each one asks in the page's words, and the sitting
  * (at most `SITTING` items, then "Kävit tämän erän kysymykset läpi"). The page draws what these return.
  */
-import { addMonths, fold, type InferredLoanTerms, LOAN_KIND_ANSWERS, type LoanKind, monthOf, type PayerRole, type UnresolvedReason } from "@banking/core";
+import { addMonths, fold, LOAN_KIND_ANSWERS, type LoanKind, monthOf, type PayerRole, type UnresolvedReason } from "@banking/core";
 import { KIND_LABEL } from "../components/loans/labels.ts";
 import { PAYER_ROLE_LABEL, WALLET_ROLE_LABEL } from "../components/questions.ts";
 import { date, dateTime, money } from "../format.ts";
 import type { SyncRun } from "../types.ts";
 import { t, tn } from "../text.ts";
-import type { CardBillItem, LoanDriftItem, LoanTermsItem } from "./review-loan-items.ts";
+import type { LoanDriftItem, LoanTermsDebt, LoanTermsListItem } from "./review-loan-items.ts";
 
 export interface Base {
   id: string;
@@ -50,30 +50,6 @@ export interface PayerItem extends Base {
   options: PayerRole[];
   proposal: PayerRole | null;
   wallet?: true;
-}
-
-export interface LoanItem extends Base {
-  kind: "loan";
-  key: string;
-  payee: string;
-  paymentCents: number;
-  /** The rows show no monthly payment: `paymentCents` is the latest payment and no month's. */
-  noMonthly?: true;
-  months: number;
-  firstDate: string;
-  lastDate: string;
-  guess: LoanKind;
-  placed: boolean;
-  terms?: InferredLoanTerms | null;
-}
-
-/** An instalment plan whose end nobody has said: payments left, the last month, or "En tiedä". */
-export interface PlanItem extends Base {
-  kind: "plan";
-  key: string;
-  payee: string;
-  paymentCents: number;
-  lastDate: string;
 }
 
 interface SplitItem extends Base {
@@ -182,7 +158,7 @@ interface FetchItem extends Base {
   message: string | null;
 }
 
-export type ReviewItem = PayeeItem | PayerItem | LoanItem | CardBillItem | PlanItem | SplitItem | SubscriptionItem | MortgageItem | LoanTermsItem | LoanDriftItem | MoneyBackItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | FetchItem;
+export type ReviewItem = PayeeItem | PayerItem | LoanTermsListItem | SplitItem | SubscriptionItem | MortgageItem | LoanDriftItem | MoneyBackItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | FetchItem;
 
 /**
  * A failed fetch is a queue item (design, section 4): the last run that failed stays first in the queue until a later
@@ -190,6 +166,12 @@ export type ReviewItem = PayeeItem | PayerItem | LoanItem | CardBillItem | PlanI
  * The queue the page shows: a failed fetch first, then what the server asks.
  */
 export const withFetch = (items: readonly ReviewItem[], run: SyncRun | null | undefined): ReviewItem[] => run?.status === "failed" ? [{ kind: "fetch", id: `fetch:${run.id}`, cents: 0, at: run.finishedAt ?? run.startedAt, message: run.message }, ...items] : [...items];
+
+/** The queue with the item a link names (`#/review?item=loan-terms`) first; an id the queue lacks changes nothing. */
+export function linkedFirst(items: readonly ReviewItem[], id: string | null): ReviewItem[] {
+  const linked = id === null ? undefined : items.find((i) => i.id === id);
+  return linked ? [linked, ...items.filter((i) => i !== linked)] : [...items];
+}
 
 export interface ReviewAnswer {
   items: ReviewItem[];
@@ -216,7 +198,7 @@ export type SittingView =
  * The kinds this page has a card for. An item of a kind that is not here (the server's `extension`, which no source
  * sends today, the `input` an older server asked a tip's number with, or a newer server's) is left out, since the words below have nothing to say of it.
  */
-const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan: true, card_bill: true, plan: true, split: true, subscription: true, mortgage: true, loan_terms: true, loan_drift: true, money_back: true, balance: true, card_balance: true, consent: true, bill: true, row: true, unresolved: true, fetch: true };
+const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan_terms_list: true, split: true, subscription: true, mortgage: true, loan_drift: true, money_back: true, balance: true, card_balance: true, consent: true, bill: true, row: true, unresolved: true, fetch: true };
 const hasCard = (item: { kind: string }): boolean => Object.hasOwn(KINDS, item.kind);
 
 /** The items still open: the queue without what this sitting has answered. The one number its heading and the header's mark show. */
@@ -246,17 +228,12 @@ export function eyebrow(item: ReviewItem): string {
       return t("set.ri.unclassified_income");
     case "payer":
       return t("set.ri.money_received");
-    case "loan":
     case "loan_drift":
       return t("set.ri.loan");
-    case "card_bill":
-      return t("set.ri.credit_card");
-    case "loan_terms":
-      return t(item.accountId === null ? "set.ri.loan" : "set.ri.credit_card");
+    case "loan_terms_list":
+      return t("set.ri.debts");
     case "money_back":
       return t(item.reason === "double" ? "set.ri.money_back_double" : "set.ri.money_back_cancelled");
-    case "plan":
-      return t("set.ri.instalment_plan");
     case "split":
       return t("set.ri.joint_account_account", { account: item.accountName });
     case "subscription":
@@ -290,12 +267,9 @@ export function nameOf(item: ReviewItem): string {
       return item.merchant;
     case "payer":
       return item.wallet ? "MobilePay" : item.merchant;
-    case "loan":
-    case "card_bill":
-    case "plan":
-      return item.payee;
+    case "loan_terms_list":
+      return t("set.ri.loans_and_cards");
     case "loan_drift":
-    case "loan_terms":
       return item.name;
     case "split":
       return item.question === "opening" ? t("set.ri.balance_before_date", { date: date(item.label) }) : item.label;
@@ -331,34 +305,13 @@ export function questionOf(item: ReviewItem): string {
       return t("set.ri.what_is_this_income");
     case "payer":
       return t("set.ri.what_are_these_payments");
-    case "loan":
-      return t("set.ri.which_loan_is_this");
-    case "card_bill":
-      return t("set.ri.card_bill_question");
-    case "plan":
-      return t("set.ri.how_many_payments_are_left");
+    case "loan_terms_list":
+      return t("set.ri.complete_the_loans");
     case "split":
       return t("set.ri.whose_money_was_this");
     case "subscription":
       // a charge that began lately has not run long enough to ask whether it is "still" used
       return item.reason === "new" && item.since ? t("set.ri.is_the_subscription_in_use") : t("set.ri.is_the_subscription_still_in");
-    case "loan_terms":
-      switch (item.missing) {
-        case "repayment":
-          return t("set.ri.loan_terms_repayment");
-        case "interval":
-          return t("set.ri.loan_terms_interval");
-        case "payment":
-          return t("set.ri.loan_terms_payment");
-        case "rate":
-          return t(item.accountId === null ? "set.ri.loan_terms_rate" : "set.ri.loan_terms_card_rate");
-        case "end_date":
-          return t("set.ri.loan_terms_end_date");
-        case "margin":
-          return t("set.ri.loan_terms_margin");
-        case "review_date":
-          return t("set.ri.loan_terms_review_date");
-      }
     case "loan_drift":
       return t("set.ri.loan_drift_question");
     case "mortgage":
@@ -390,11 +343,9 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
     case "payer":
       // the sum of the rows of the last 365 days: one payment, or a few weeks of history, would read as a year's figure with "vuodessa"
       return { text: money(item.cents), unit: t("set.ri.in_total"), line: tn(item.count, "set.ri.payments_year_one", "set.ri.payments_year_many", { last: date(item.lastDate) }) };
-    case "loan":
-    case "card_bill":
-      return { text: money(item.paymentCents), unit: t(item.kind === "loan" && item.noMonthly ? "set.ri.latest_payment" : "set.ri.a_month"), line: tn(item.rowCount ?? item.months, "set.ri.payments_since_one", "set.ri.payments_since_many", { first: date(item.firstDate), last: date(item.lastDate) }) };
-    case "plan":
-      return { text: money(item.paymentCents), unit: t("set.ri.a_month"), line: t("set.ri.latest_payment_date_the_amount", { date: date(item.lastDate) }) };
+    case "loan_terms_list":
+      // the totals are in the list itself, read again after each save; a figure here would stay as the queue was first read
+      return { text: "", line: "" };
     case "split":
       return { text: money(item.cents), unit: t("set.ri.in_total"), line: item.question === "opening" ? t("set.ri.the_account_already_had_money") : t("set.ri.money_has_come_into_the") };
     case "subscription": {
@@ -409,8 +360,6 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
     }
     case "loan_drift":
       return { text: money(item.paidCents), unit: t("set.ri.loan_drift_unit"), line: t("set.ri.loan_drift_line", { date: date(item.date), expected: money(item.expectedCents) }) };
-    case "loan_terms":
-      return { text: money(item.owedCents), unit: t("set.ri.loan_terms_owed"), line: t("set.ri.loan_terms_balance_date", { date: date(item.balanceDate) }) };
     case "money_back": {
       const line = item.askedOn ? t("set.ri.money_back_asked", { date: date(item.askedOn) }) : item.reason === "double" ? t("set.ri.money_back_double_line", { count: item.count, last: date(item.lastDate) }) : tn(item.count, "set.ri.money_back_cancelled_one", "set.ri.money_back_cancelled_many", { last: date(item.lastDate) });
       return { text: money(item.cents), unit: t("set.ri.money_back_unit"), line };
@@ -459,10 +408,10 @@ export function payerChoices(item: PayerItem): Choice<PayerRole>[] {
  * The kinds of a loan, one question for every loan: the kind its rows suggest first and named (for a loan saved with
  * its form also one the plain answers lack, such as Osamaksu), then the rest. "Muu laina" is no guess worth marking.
  */
-export function loanKindChoices(item: LoanItem): Choice<LoanKind>[] {
+export function loanKindChoices(debt: Pick<LoanTermsDebt, "kind" | "placed">): Choice<LoanKind>[] {
   // a kind the plain answers lack is offered only where it is saved with the loan's form, not stored as an answer
-  const kinds: LoanKind[] = !item.placed || (LOAN_KIND_ANSWERS as readonly LoanKind[]).includes(item.guess) ? [...LOAN_KIND_ANSWERS] : [item.guess, ...LOAN_KIND_ANSWERS];
-  return guessFirst(kinds.map((kind) => ({ value: kind, label: KIND_LABEL[kind], guess: kind === item.guess && kind !== "other" })));
+  const kinds: LoanKind[] = !debt.placed || (LOAN_KIND_ANSWERS as readonly LoanKind[]).includes(debt.kind) ? [...LOAN_KIND_ANSWERS] : [debt.kind, ...LOAN_KIND_ANSWERS];
+  return guessFirst(kinds.map((kind) => ({ value: kind, label: KIND_LABEL[kind], guess: kind === debt.kind && kind !== "other" })));
 }
 
 /**
@@ -478,7 +427,7 @@ export const leftText = (left: number): string => (left === 1 ? t("set.ri.one_le
 export const MAX_PLAN_PAYMENTS = 120;
 
 /** The month of a plan's last payment when `left` payments follow the latest one; null for a count that is no whole number from 1 to 120. */
-export function planEnd(item: Pick<PlanItem, "lastDate">, left: string): string | null {
+export function planEnd(item: { lastDate: string }, left: string): string | null {
   const count = Number(left.trim());
   return left.trim() !== "" && Number.isInteger(count) && count >= 1 && count <= MAX_PLAN_PAYMENTS ? addMonths(monthOf(item.lastDate), count) : null;
 }

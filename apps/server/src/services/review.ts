@@ -3,7 +3,7 @@
  * keeps its own answer route (rules, payer roles, marks, loans, account answers); this only gathers and orders, so an
  * answer given here changes what the old card's answer changed.
  */
-import { addDays, type AnalysisContext, type AnalysisTx, billCents, billDueSubject, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, type HouseholdMember, householdWords, type InferredLoanTerms, inferLoanTerms, isCancelled, isUnknownMerchant, type LoanKind, lenderInstalments, marksBySubject, memberOfRow, missedOn, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, proposalWeight, type RecurringSeries, seriesMarkSubject, type UserInputs } from "@banking/core";
+import { addDays, type AnalysisContext, type AnalysisTx, billCents, billDueSubject, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, type HouseholdMember, householdWords, isCancelled, isUnknownMerchant, marksBySubject, memberOfRow, missedOn, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, type RecurringSeries, seriesMarkSubject, type UserInputs } from "@banking/core";
 import { connectionView } from "./accounts.ts";
 import { requestInputs } from "./analysis.ts";
 import { visibleTo } from "./visible-accounts.ts";
@@ -13,9 +13,7 @@ import { memoOn } from "./context-memo.ts";
 import { industryMap } from "./enrich.ts";
 import { settledTrace } from "./money-trace.ts";
 import { reconcileOf } from "./reconcile.ts";
-import { proposalsOf } from "./request-inputs.ts";
-import { type LoanDriftItem, loanDriftItems, type LoanTermsItem, loanTermsItems } from "./review-loan-terms.ts";
-import { type CardBillItem, cardBillItems } from "./review-card-bills.ts";
+import { type LoanDriftItem, loanDriftItems, type LoanTermsListItem, loanTermsListItems } from "./review-loan-terms.ts";
 import { memberMoneyItems, membersOf } from "./review-members.ts";
 import { type MoneyBackItem, moneyBackItems } from "./review-money-back.ts";
 import type { OwnView } from "./review-own.ts";
@@ -61,27 +59,6 @@ type PayeeItem = Base & Omit<PayeeAsked, "cents" | "rowIds"> & { picks: string[]
 type PayerItem = Base & Omit<PayerAsked, "cents" | "offMedianCents" | "rowIds">;
 
 /**
- * A monthly payment to a lender nobody saved as a loan. Placed: the app knows what it is and asks to save it
- * (POST /api/loans). Not placed: "Mikä laina tämä on?" (mark `question:loan-kind:`). "Ei ole laina" either way.
- */
-interface LoanItem extends Base {
-  kind: "loan";
-  key: string;
-  payee: string;
-  paymentCents: number;
-  /** The rows show no monthly payment (a lender's few payments): `paymentCents` is the latest payment and no month's. */
-  noMonthly?: true;
-  months: number;
-  firstDate: string;
-  lastDate: string;
-  /** The app's guess of the kind, for the form; the household decides. */
-  guess: LoanKind;
-  placed: boolean;
-  /** What the rows tell of its terms, for the form. */
-  terms: InferredLoanTerms | null;
-}
-
-/**
  * Money on a shared account nobody said whose it was (PUT /api/accounts/:id/answers). There is no guess: a split exists
  * only when a member said it, so the page offers the users, "Yhteistä" and "En tiedä" alike.
  */
@@ -93,18 +70,6 @@ interface SplitItem extends Base {
   key: string;
   /** The payer's name, or the opening's day. */
   label: string;
-}
-
-/**
- * An instalment plan of a payment service whose end nobody has said: "Montako maksua on vielä jäljellä?", answered with
- * the payments left (counted from `lastDate`), the last month or "En tiedä" (mark `question:plan-end:` or `question:plan-unknown:`).
- */
-interface PlanItem extends Base {
-  kind: "plan";
-  key: string;
-  payee: string;
-  paymentCents: number;
-  lastDate: string;
 }
 
 /**
@@ -217,7 +182,7 @@ interface ExtensionItem extends Base {
   choices: { id: string; label: string; answer: { method: "PUT" | "POST"; path: `/api/${string}`; body: unknown } }[];
 }
 
-type ReviewItem = PayeeItem | PayerItem | LoanItem | CardBillItem | PlanItem | SplitItem | SubscriptionItem | MortgageItem | LoanTermsItem | LoanDriftItem | MoneyBackItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | ExtensionItem;
+type ReviewItem = PayeeItem | PayerItem | LoanTermsListItem | SplitItem | SubscriptionItem | MortgageItem | LoanDriftItem | MoneyBackItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | ExtensionItem;
 
 export interface Review {
   items: ReviewItem[];
@@ -288,22 +253,6 @@ function usedMost(txs: readonly Pick<AnalysisTx, "bookingDate" | "status" | "isT
   const top = (m: Map<string, number>) => [...m].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, PICKS).map(([id]) => id);
   return { out: top(counts.out), in: top(counts.in) };
 }
-
-// a plan is asked its end once; a loan is asked until it is saved or marked "Ei ole laina". Its rows are its series' own, at the
-// bank's whole charge as the payment is (a joint account counted at a part cuts them in the view)
-const loans: Source = async (_s, _userId, own) => {
-  const { ctx } = own;
-  const series = memoOn(ctx, "review:loan-series", null, () => new Map([...ctx.recurring, ...lenderInstalments(ctx)].map((r) => [r.id, r.transactionIds])));
-  return proposalsOf(ctx, own).flatMap((p): Sourced[] => {
-    const cents = proposalWeight(p);
-    // a lender's few payments are no series: the proposal holds its rows
-    const rowIds = series.get(p.seriesId) ?? [...(p.rowIds ?? [])];
-    if (p.plan) return p.planAnswer === null ? [{ kind: "plan", id: `plan:${p.key}`, cents, key: p.key, payee: p.payee, paymentCents: p.paymentCents, lastDate: p.lastDate, rowIds, whole: true }] : [];
-    const byId = memoOn(ctx, "review:rows-by-id", null, () => new Map(ctx.txs.map((t) => [t.id, t])));
-    const terms = inferLoanTerms(rowIds.flatMap((id) => byId.get(id) ?? []).map((t) => ({ date: t.bookingDate, cents: Math.abs(billCents(t)) })));
-    return [{ kind: "loan", id: `loan:${p.key}`, cents, key: p.key, payee: p.payee, paymentCents: p.paymentCents, ...(p.monthlyCents === null ? { noMonthly: true as const } : {}), months: p.months, firstDate: p.firstDate, lastDate: p.lastDate, guess: p.kind, placed: p.placed, terms, rowIds, whole: true }];
-  });
-};
 
 // the questions of a split go to the member who linked the account, as Asetukset > Tilit shows them
 const splits: Source = async (s, userId, { reads }) => {
@@ -462,16 +411,20 @@ async function ownViewOf(s: Services, userId: string): Promise<OwnView> {
   return own;
 }
 
-/** A loan has one question at a time: its terms, and only when none is lacking, its drift. */
+/** A loan has one question at a time: its terms in Täydennä lainat, and only when none is lacking, its drift. */
 const loanQuestions: Source = async (s, userId, own) => {
-  const terms = await loanTermsItems(s, userId, own);
-  return [...terms, ...(await loanDriftItems(s, userId, own, new Set(terms.flatMap((item) => item.loanId ?? []))))];
+  const list = await loanTermsListItems(s, userId, own);
+  const asked = new Set(list.flatMap((item) => item.debts.flatMap((d) => d.loanId ?? [])));
+  return [...list, ...(await loanDriftItems(s, userId, own, asked))];
 };
 
 // the unexplained money in from another member: a payer the front's source asked already is kept once (`reviewQueue`)
-const SOURCES: readonly Source[] = [front, loans, cardBillItems, splits, subscriptions, mortgage, loanQuestions, balances, cardBalances, consents, bills, rows, (_s, _userId, own) => own.memberMoney(), unresolvedItems, moneyBackItems];
+const SOURCES: readonly Source[] = [front, splits, subscriptions, mortgage, loanQuestions, balances, cardBalances, consents, bills, rows, (_s, _userId, own) => own.memberMoney(), unresolvedItems, moneyBackItems];
 
-/** The whole queue, the most money first; the page caps a sitting. */
+/** Täydennä lainat first, as every debt figure waits on it; then the whole queue, the most money first. The page caps a sitting. */
+const first = (item: ReviewItem): number => (item.kind === "loan_terms_list" ? 1 : 0);
+
+/** The whole queue in its order; the page caps a sitting. */
 export async function reviewQueue(s: Services, userId: string): Promise<Review> {
   const own = await ownViewOf(s, userId);
   const lists = await Promise.all(SOURCES.map((source) => source(s, userId, own)));
@@ -486,7 +439,7 @@ export async function reviewQueue(s: Services, userId: string): Promise<Review> 
       const rows = rowIds.flatMap((id) => byId.get(id) ?? []).sort((a, b) => (a.bookingDate < b.bookingDate ? 1 : a.bookingDate > b.bookingDate ? -1 : 0));
       return { ...item, rowCount: rows.length, rows: rows.slice(0, ROWS).map((t) => ({ id: t.id, date: t.bookingDate, cents: whole ? billCents(t) : t.amountCents, name: t.merchant, text: t.description || t.counterparty || "" })) };
     })
-    .sort((a, b) => b.cents - a.cents || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    .sort((a, b) => first(b) - first(a) || b.cents - a.cents || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   return { items };
 }
 

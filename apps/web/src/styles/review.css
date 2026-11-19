@@ -84,6 +84,16 @@
 
 .review-loan { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-12); }
 
+/* Täydennä lainat: one row a debt, its form's fields in the loan form's own grid (one column on a phone, three or four on a wide screen) */
+.review-debts { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-16); }
+.review-debt-totals { display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-24); margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--w-strong); font-variant-numeric: tabular-nums; }
+.review-debt-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-16); margin: 0; padding: 0; list-style: none; }
+.review-debt { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-12); padding-block-start: var(--sp-16); border-block-start: var(--hairline) solid var(--border); }
+.review-debt-name { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--w-strong); overflow-wrap: anywhere; }
+.review-debt-facts { font-weight: normal; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.review-debt-result { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.review-debt.is-done .review-debt-name { color: var(--text-2); }
+
 /* the end is the shared empty card of base.css (.card.empty); only its mark is the page's own */
 /* a drawn tick in a ring: the queue is done, nothing more */
 .card.empty > .review-done-mark { order: -1; }

@@ -57,7 +57,8 @@ const PAGE_FIELDS = {
   bills: {},
   transactions: TRANSACTIONS,
   reports: REPORTS,
-  review: {},
+  /** `item`: the id of the question shown first (`loan-terms` from Kokonaisuus). */
+  review: { item: text },
   more: {},
   settings: SETTINGS,
   /** A module's own page: its parameters are its own. */

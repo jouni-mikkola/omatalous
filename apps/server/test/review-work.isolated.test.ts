@@ -45,7 +45,7 @@ type T = Awaited<ReturnType<typeof household>>;
 const frontPage = async (t: T) => {
   const [count, queue, dashboard] = await Promise.all([t.admin.call("GET", "/api/review/count"), t.admin.call("GET", "/api/review"), t.admin.call("GET", "/api/dashboard?scope=own")]);
   for (const r of [count, queue, dashboard]) expect(r.status).toBe(200);
-  return { count: count.body.count as number, items: queue.body.items as { id: string; kind: string; key?: string }[] };
+  return { count: count.body.count as number, items: queue.body.items as { id: string; kind: string; debts?: { id: string; source: string; key: string | null }[] }[] };
 };
 
 beforeEach(() => {
@@ -57,7 +57,7 @@ describe("the work behind the review queue", () => {
   it("works out the proposals and the questions once for the count, the queue and the dashboard, and the count is the queue's length", async () => {
     const t = await household();
     const first = await frontPage(t);
-    expect(first.items.map((i) => i.kind)).toContain("loan");
+    expect(first.items.map((i) => i.kind)).toContain("loan_terms_list");
     expect(first.count).toBe(first.items.length);
     expect(calls).toEqual({ loanProposals: 1, buildQuestions: 1 });
     // the next page asks for the count again: nothing is worked out again, and the answer is the same
@@ -68,10 +68,10 @@ describe("the work behind the review queue", () => {
 
   it("an answer, a new day and new rows work them out again, and the queue says what changed", async () => {
     const t = await household();
-    const loan = (await frontPage(t)).items.find((i) => i.kind === "loan")!;
+    const loan = (await frontPage(t)).items.flatMap((i) => i.debts ?? []).find((d) => d.source === "proposal")!;
     expect((await t.admin.call("PUT", "/api/marks", notLoanMark({ key: loan.key! }))).status).toBe(200);
     const answered = await frontPage(t);
-    expect(answered.items.map((i) => i.id)).not.toContain(loan.id);
+    expect(answered.items.flatMap((i) => i.debts ?? []).map((d) => d.id)).not.toContain(loan.id);
     expect(answered.count).toBe(answered.items.length);
     expect(calls).toEqual({ loanProposals: 2, buildQuestions: 2 });
 

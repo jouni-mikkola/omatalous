@@ -267,6 +267,9 @@ test("a loan's name opens the report Lainat, the sums of the block stand on one 
   // the debts nobody told the balance of are rows of their own under a total that names itself the known one
   await expect(foot.locator(".st-name").first()).toHaveText("Velat yhteensä, tiedossa");
   await expect(foot.locator(".st-row").nth(1).locator(".st-num")).toContainText("saldo puuttuu");
+  // the missing balance is a link to the list of debts in Tarkistettavat, where it is typed
+  const missing = foot.locator(".st-row").nth(1).getByRole("link", { name: "saldo puuttuu" });
+  await expect(missing).toHaveAttribute("href", "#/review?item=loan-terms");
   const edges = [...(await rights(lainat.locator(".st-num"))), ...(await rights(foot.locator(".st-num")))];
   expect(edges.length).toBeGreaterThanOrEqual(4);
   expect(new Set(edges).size, `the sums of Lainat and the foot end at ${edges.join(", ")}`).toBe(1);
@@ -309,6 +312,13 @@ test("a loan's name opens the report Lainat, the sums of the block stand on one 
   await lainat.getByRole("link", { name: "Kodin laina" }).click();
   await expect(page).toHaveURL(/#\/reports#lainat$/);
   await expect(page.locator("#lainat").getByRole("heading", { name: "Lainat" })).toBeInViewport();
+
+  // the missing balance opens Tarkistettavat at the list of debts
+  await page.goto("/#/overview");
+  await missing.click();
+  await expect(page).toHaveURL(/#\/review\?item=loan-terms$/);
+  await expect(page.locator(".review-item").getByRole("heading", { level: 2 })).toContainText("Täydennä lainat");
+  await expect(page.locator(".review-debt").first()).toBeVisible();
 
   expect(seen.problems).toEqual([]);
   await context.close();

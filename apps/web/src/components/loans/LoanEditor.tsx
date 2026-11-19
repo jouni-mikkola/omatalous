@@ -1,11 +1,11 @@
 import { type Fixings, LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, type LoanDraft, type LoanKind } from "@banking/core";
 import { createContext, type FormEvent, type ReactNode, useContext, useId, useState } from "react";
-import { money, percent } from "../../format.ts";
+import { date, money, percent } from "../../format.ts";
 import { t } from "../../text.ts";
 import type { Account } from "../../types.ts";
 import { checksLeft, defaultName, formOfDraft, type FormErrors, interestOverPayment, type LoanBody, type LoanForm, linkChoices, markOf, matchedLoan, rateNow, readForm, setKind, setValue, shownFields, toggleConfirmed } from "./form.ts";
 import { LoanSource } from "./LoanSource.tsx";
-import { FIELD_LABEL, INTERVALS, intervalLabel, KIND_LABEL, type LoanFieldKey, REFERENCE_LABEL, REPAYMENT_LABEL } from "./labels.ts";
+import { FIELD_LABEL, INTERVALS, intervalLabel, KIND_LABEL, type LoanFieldKey, referenceName, REPAYMENT_LABEL } from "./labels.ts";
 import { Button } from "../ui/Button.tsx";
 import { Notice } from "../ui/Notice.tsx";
 import "../../styles/loans.css";
@@ -23,8 +23,10 @@ export const LoanLinks = createContext<{ accounts: readonly Account[]; loans: re
  * The form of one loan: a loan typed in, a proposal from the bank's rows, or a saved loan. Nothing is sent before
  * Tallenna.
  */
-export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, ask, onSeveral, onSave, onCancel }: {
+export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, ask, balanceOn, onSeveral, onSave, onCancel }: {
   initial: LoanForm;
+  /** The balance's label names the day it is of ("Jäljellä 16.10. (€)"), where the form asks the balance of one debt among others. */
+  balanceOn?: boolean;
   /** The save button's name, when it does not save the loan itself (a row of the table of read loans). */
   saveLabel?: string;
   /** The form of a row that is read already has no input box, and neither has a form that asks for given fields only. */
@@ -120,7 +122,7 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
         ))}
       </select>
     );
-    if (key === "reference") return pick(LOAN_REFERENCES.map((id) => [id, REFERENCE_LABEL[id]] as const));
+    if (key === "reference") return pick(LOAN_REFERENCES.map((id) => [id, referenceName(id)] as const));
     if (key === "repayment") return pick(LOAN_REPAYMENTS.map((id) => [id, REPAYMENT_LABEL[id]] as const));
     if (key === "intervalMonths") {
       const current = Number(form.values.intervalMonths);
@@ -177,8 +179,7 @@ export function LoanEditor({ initial, today, cancelLabel, saveLabel, noSource, a
             <div key={key} className={`loan-field${mark === "check" && !confirmed ? " to-check" : ""}`}>
               <div className="loan-field-head">
                 <label className="field-label" htmlFor={idOf(key)}>
-                  {FIELD_LABEL[key]}
-                  {UNIT[key] ? ` (${UNIT[key]})` : ""}
+                  {key === "balanceCents" && balanceOn && form.values.balanceDate ? t("set.rc.lt_left_on", { date: date(form.values.balanceDate, today) }) : `${FIELD_LABEL[key]}${UNIT[key] ? ` (${UNIT[key]})` : ""}`}
                 </label>
                 {badge && (
                   <span id={idOf(`${key}-mark`)} className={`badge${badge === "check" ? " warn" : ""}`}>

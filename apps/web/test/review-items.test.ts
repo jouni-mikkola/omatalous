@@ -1,8 +1,7 @@
 /** Tarkistettavat's sitting and words: at most 25 items, the guess first, a split asked with no guess (owner rule L5). */
 import { describe, expect, it } from "vitest";
 import "./fixed-clock.ts";
-import { money } from "../src/format.ts";
-import { eyebrow, figureOf, groupCategories, leftText, offeredCategories, loanKindChoices, nameOf, NEW_SITTING, openItems, payerChoices, planEnd, questionOf, readableText, type ReviewItem, SITTING, sittingView, withFetch } from "../src/pages/review-items.ts";
+import { eyebrow, figureOf, groupCategories, leftText, linkedFirst, offeredCategories, loanKindChoices, nameOf, NEW_SITTING, openItems, payerChoices, planEnd, questionOf, readableText, type ReviewItem, SITTING, sittingView, withFetch } from "../src/pages/review-items.ts";
 
 const payee = (n: number): ReviewItem => ({ kind: "payee_out", id: `payee_out:Kauppa ${n}`, cents: 100_000 - n, merchant: `Kauppa ${n}`, count: 3, lastDate: "2026-09-20", picks: [] });
 const queue = (n: number) => Array.from({ length: n }, (_, i) => payee(i));
@@ -74,10 +73,10 @@ describe("the choices", () => {
   it("put the app's guess first", () => {
     const payer: ReviewItem = { kind: "payer", id: "payer:k", cents: 90_000, key: "name:X", merchant: "Esimerkki Ville", count: 3, lastDate: "2026-09-03", options: ["cost_share", "sales", "own_money", "gift", "pay"], proposal: "pay" };
     expect(payerChoices(payer).map((c) => [c.value, c.guess])).toEqual([["pay", true], ["cost_share", false], ["sales", false], ["own_money", false], ["gift", false]]);
-    const loan: ReviewItem = { kind: "loan", id: "loan:k", cents: 300_000, key: "k", payee: "Esimerkkirahoitus", paymentCents: 25_000, months: 9, firstDate: "2026-01-05", lastDate: "2026-09-05", guess: "car", placed: false };
-    expect(loanKindChoices(loan)[0]).toMatchObject({ value: "car", guess: true });
+    const debt = { kind: "car", placed: false } as const;
+    expect(loanKindChoices(debt)[0]).toMatchObject({ value: "car", guess: true });
     // "Muu laina" is no guess worth marking
-    expect(loanKindChoices({ ...loan, guess: "other" }).some((c) => c.guess)).toBe(false);
+    expect(loanKindChoices({ ...debt, kind: "other" }).some((c) => c.guess)).toBe(false);
   });
 
   it("ask a split with no guess", () => {
@@ -107,8 +106,7 @@ describe("the choices", () => {
   });
 
   it("count a plan's payments left from its latest payment, and take only a whole number from 1 to 120", () => {
-    const plan: ReviewItem = { kind: "plan", id: "plan:k", cents: 59_880, key: "k", payee: "Klarna", paymentCents: 4990, lastDate: "2026-09-12" };
-    expect([eyebrow(plan), questionOf(plan)]).toEqual(["Osamaksu", "Montako maksua on vielä jäljellä?"]);
+    const plan = { lastDate: "2026-09-12" };
     expect(planEnd(plan, "1")).toBe("2026-10");
     expect(planEnd(plan, " 6 ")).toBe("2027-03");
     expect(planEnd(plan, "120")).toBe("2036-09");
@@ -132,14 +130,13 @@ describe("the choices", () => {
   });
 
   it("ask every loan its kind, the kind the rows suggest first, and a placed loan may be the kind the plain answers lack", () => {
-    const loan = { kind: "loan", id: "loan:k", cents: 346_800, key: "k", payee: "Esimerkkirahoitus", paymentCents: 28_900, months: 14, firstDate: "2025-09-05", lastDate: "2026-10-05", guess: "card", placed: true } as const;
-    expect(questionOf(loan)).toBe(questionOf({ ...loan, placed: false }));
-    expect(loanKindChoices(loan).map((c) => [c.value, c.guess])[0]).toEqual(["card", true]);
+    const debt = { kind: "card", placed: true } as const;
+    expect(loanKindChoices(debt).map((c) => [c.value, c.guess])[0]).toEqual(["card", true]);
     // an answer stored as a mark has only the plain kinds
-    expect(loanKindChoices({ ...loan, placed: false }).map((c) => c.value)).not.toContain("card");
+    expect(loanKindChoices({ ...debt, placed: false }).map((c) => c.value)).not.toContain("card");
     // a credit line and an instalment plan are plain answers, the guess first
-    expect(loanKindChoices({ ...loan, guess: "credit_line", placed: false }).map((c) => [c.value, c.guess])[0]).toEqual(["credit_line", true]);
-    expect(loanKindChoices({ ...loan, guess: "instalment", placed: false }).map((c) => c.value)).toContain("instalment");
+    expect(loanKindChoices({ kind: "credit_line", placed: false }).map((c) => [c.value, c.guess])[0]).toEqual(["credit_line", true]);
+    expect(loanKindChoices({ kind: "instalment", placed: false }).map((c) => c.value)).toContain("instalment");
   });
 
   it("call a sum of the last year's rows yhteensä: a payee's, a payer's and a consent's", () => {
@@ -154,52 +151,31 @@ describe("the choices", () => {
 
   it("name the period of every figure", () => {
     const payee: ReviewItem = { kind: "payee_out", id: "p", cents: 23_880, merchant: "Kauppa", count: 3, lastDate: "2026-09-20", picks: [] };
-    const loan: ReviewItem = { kind: "loan", id: "l", cents: 300_000, key: "k", payee: "Pankki", paymentCents: 25_000, months: 14, firstDate: "2026-01-05", lastDate: "2026-10-05", guess: "car", placed: true, rowCount: 10 };
     expect(figureOf(payee).unit).toBe("yhteensä");
-    expect(figureOf(loan).unit).toBe("kuussa");
-    // the line counts the rows the card shows
-    expect(figureOf(loan).line).toBe("10 maksua 5.1. alkaen, viimeksi 5.10.");
-    // a lender's few payments tell no month: the figure is the latest payment
-    const few: ReviewItem = { ...loan, noMonthly: true, months: 2, firstDate: "2026-09-05", rowCount: 2 };
-    expect([figureOf(few).text, figureOf(few).unit]).toEqual([money(25_000), "viimeisin maksu"]);
-    expect(figureOf(few).line).toBe("2 maksua 5.9. alkaen, viimeksi 5.10.");
   });
 });
 
 describe("the kinds the page has a card for", () => {
-  const KINDS = ["payee_out", "payee_in", "payer", "loan", "plan", "split", "subscription", "mortgage", "loan_terms", "loan_drift", "money_back", "balance", "card_balance", "consent", "bill", "row"];
+  const KINDS = ["payee_out", "payee_in", "payer", "loan_terms_list", "split", "subscription", "mortgage", "loan_drift", "money_back", "balance", "card_balance", "consent", "bill", "row"];
   const of = (kind: string) => ({ kind, id: kind, cents: 0 }) as unknown as ReviewItem;
 
-  it("are the sixteen that stay: a number for the removed tips page is not one of them", () => {
+  it("are the fourteen that stay: a number for the removed tips page is not one of them", () => {
     expect(openItems(KINDS.map(of), NEW_SITTING).map((i) => i.kind)).toEqual(KINDS);
     // an older server may still send the question: it gets no card and is not counted
     expect(openItems([of("input"), of("mortgage")], NEW_SITTING).map((i) => i.kind)).toEqual(["mortgage"]);
+    // the debts once asked one by one are asked in the one list now
+    expect(openItems(["loan", "plan", "card_bill", "loan_terms"].map(of), NEW_SITTING)).toEqual([]);
     expect(sittingView([of("input")], NEW_SITTING)).toEqual({ state: "empty" });
   });
 });
 
-describe("a saved loan that lacks a fact", () => {
-  const loan = { kind: "loan_terms", id: "loan_terms:l1", cents: 0, loanId: "l1", accountId: null, name: "Asuntolaina", owedCents: 15_000_000, balanceDate: "2026-10-01", missing: "rate", subject: "question:loan-terms:l1" } as unknown as ReviewItem;
-  it("is named by the loan and asks for the one fact it lacks", () => {
-    const asked = (missing: string) => questionOf({ ...loan, missing } as ReviewItem);
-    expect([eyebrow(loan), nameOf(loan)]).toEqual(["Laina", "Asuntolaina"]);
-    expect(["repayment", "interval", "payment", "rate", "end_date", "margin", "review_date"].map(asked)).toEqual([
-      "Miten maksat tämän lainan takaisin?",
-      "Kuinka usein lyhennät tätä lainaa?",
-      "Paljonko lainan maksuerä on?",
-      "Mikä on lainan korko?",
-      "Milloin lainan viimeinen eräpäivä on?",
-      "Mikä on lainan marginaali?",
-      "Minä päivänä pankki tarkistaa lainan koron?",
-    ]);
+describe("the debts that lack a balance, a rate or a payment", () => {
+  const list: ReviewItem = { kind: "loan_terms_list", id: "loan-terms", cents: 1_200_000, debts: [], debtsCents: null, noBalance: 1 };
+  it("are one item that asks to complete the loans", () => {
+    expect([eyebrow(list), nameOf(list), questionOf(list)]).toEqual(["Velat", "Lainat ja kortit", "Täydennä lainat"]);
   });
-  it("asks a connected card for its rate", () => {
-    const card = { ...loan, id: "loan_terms:account:c1", loanId: null, accountId: "c1", name: "Luottokortti", missing: "rate" } as unknown as ReviewItem;
-    expect([eyebrow(card), nameOf(card), questionOf(card)]).toEqual(["Luottokortti", "Luottokortti", "Mikä on kortin korko?"]);
-  });
-  it("shows what the loan owes and the day of that balance", () => {
-    const f = figureOf(loan);
-    expect([f.text.replace(/\s/g, " "), f.unit, f.line]).toEqual(["150 000,00 €".replace(/\s/g, " "), "velkaa", "Saldo päivältä 1.10."]);
+  it("show no figure of their own: the list shows the totals the server counts after each save", () => {
+    expect(figureOf(list)).toMatchObject({ text: "", line: "" });
   });
 });
 
@@ -242,14 +218,6 @@ describe("money a merchant may owe back", () => {
   });
 });
 
-describe("a card whose bills are paid and which is not connected", () => {
-  const bills = { kind: "card_bill", id: "card_bill:k", cents: 552_000, key: "k", payee: "Esimerkkikortti", paymentCents: 46_000, months: 7, firstDate: "2026-03-12", lastDate: "2026-09-12" } as ReviewItem;
-  it("is named by its payee and asks why the card is missing", () => {
-    expect([eyebrow(bills), nameOf(bills), questionOf(bills)]).toEqual(["Luottokortti", "Esimerkkikortti", "Maksat kortin laskuja, mutta korttia ei ole yhdistetty"]);
-    expect(figureOf(bills).text.replace(/\s/g, " ")).toBe("460,00 €");
-  });
-});
-
 describe("a card with no balance", () => {
   const card = { kind: "card_balance", id: "card_balance:card", cents: 12_340, accountId: "card", accountName: "Luottokortti" } as unknown as ReviewItem;
   it("is named by its card, in the words of the tile that waits for it", () => {
@@ -262,6 +230,18 @@ describe("a card with no balance", () => {
     const sek = { ...card, currency: "SEK" } as ReviewItem;
     expect([eyebrow(sek), nameOf(sek), questionOf(sek)]).toEqual(["Kortin saldo", "Luottokortti", "Kortin saldo on muussa valuutassa"]);
     expect(figureOf(sek).line).toBe("Kortin Luottokortti saldo on valuutassa SEK. Laskemme Käytettävissä palkkapäivään -luvun vain euroista, joten emme voi näyttää sitä, kun tämä kortti on mukana.");
+  });
+});
+
+describe("a link to one item", () => {
+  it("shows that item first and keeps the order of the rest", () => {
+    const items = queue(3);
+    expect(linkedFirst(items, items[2]!.id).map((i) => i.id)).toEqual([items[2]!.id, items[0]!.id, items[1]!.id]);
+  });
+  it("changes nothing when the item is not in the queue or no item is named", () => {
+    const items = queue(3);
+    expect(linkedFirst(items, "loan-terms")).toEqual(items);
+    expect(linkedFirst(items, null)).toEqual(items);
   });
 });
 
