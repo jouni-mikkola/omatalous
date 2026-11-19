@@ -265,6 +265,8 @@ describe("the payments of a month over every debt the page lists", () => {
     // four unsaved rows with a figure and one without, beside a saved loan with no payment: 1 382,24 € and two unknown
     const rows = [row(50_000), row(40_000), row(30_000), row(18_224), row(null)];
     expect(monthlyPayments({ ...none, unknown: 1 }, rows)).toEqual({ cents: 138_224, unknown: 2 });
+    // a saved loan paid 1 000 € and a saved card with no payment, beside one lender's payment nobody saved: 1 289 € and one unknown
+    expect(monthlyPayments({ monthlyCents: 100_000, counted: 1, unknown: 1, bullets: 0 }, [row(28_900)])).toEqual({ cents: 128_900, unknown: 1 });
     // a saved loan's payment is added to theirs
     expect(monthlyPayments({ monthlyCents: 20_000, counted: 1, unknown: 0, bullets: 0 }, [row(10_000)])).toEqual({ cents: 30_000, unknown: 0 });
   });
