@@ -77,11 +77,11 @@ describe("how much of the spending is known (knownSpending)", () => {
       return [q!.cents, q!.count, q!.rowIds!.map((id) => rows.find((t) => t.id === id)!.bookingDate)];
     };
     // a refund of 100 took the later payment back whole and 40 of the earlier: the 20 left is the earlier one's
-    const spread = [...base(), unknownOut(60, "Kioski Oy", { bookingDate: "2026-08-01" }), unknownOut(60, "Kioski Oy", { bookingDate: "2026-08-05" }), tx({ bookingDate: "2026-08-18", amountCents: eur(100), merchant: "Kioski Oy" })];
-    expect(rowsOf(spread)).toEqual([eur(20), 1, ["2026-08-01"]]);
+    const spread = [...base(), unknownOut(180, "Kioski Oy", { bookingDate: "2026-08-01" }), unknownOut(180, "Kioski Oy", { bookingDate: "2026-08-05" }), tx({ bookingDate: "2026-08-18", amountCents: eur(300), merchant: "Kioski Oy" })];
+    expect(rowsOf(spread)).toEqual([eur(60), 1, ["2026-08-01"]]);
     // the refund took back part of a payment from before the window, which the question does not count
-    const early = [...base(), unknownOut(60, "Kioski Oy", { bookingDate: "2025-10-01" }), tx({ bookingDate: "2025-10-20", amountCents: eur(20), merchant: "Kioski Oy" }), unknownOut(30, "Kioski Oy", { bookingDate: "2026-09-01" })];
-    expect(rowsOf(early)).toEqual([eur(30), 1, ["2026-09-01"]]);
+    const early = [...base(), unknownOut(60, "Kioski Oy", { bookingDate: "2025-10-01" }), tx({ bookingDate: "2025-10-20", amountCents: eur(20), merchant: "Kioski Oy" }), unknownOut(80, "Kioski Oy", { bookingDate: "2026-09-01" })];
+    expect(rowsOf(early)).toEqual([eur(80), 1, ["2026-09-01"]]);
   });
 
   it("reads the twelve complete months up to the period's end: the month still running is not one", () => {
@@ -98,9 +98,9 @@ describe("what would mend it most", () => {
   it("ranks by the sum, then kind, then name, and gives each payee its sum, count and last day", () => {
     const rows = [
       ...base(),
-      unknownOut(20, "Beta Oy"),
-      unknownOut(20, "Alfa Oy"),
-      unknownIn(20, "Alfa Oy"),
+      unknownOut(50, "Beta Oy"),
+      unknownOut(50, "Alfa Oy"),
+      unknownIn(50, "Alfa Oy"),
       unknownOut(30, "Gamma Oy", { bookingDate: "2026-08-01" }),
       unknownOut(10, "Gamma Oy", { bookingDate: "2026-09-02" }),
       unknownOut(90, "Delta Oy"),
@@ -108,10 +108,10 @@ describe("what would mend it most", () => {
     const items = questionsOf(rows).items as { rowIds?: string[] }[];
     expect(items.map(({ rowIds: _ids, ...rest }) => rest)).toEqual([
       { kind: "payee_out", merchant: "Delta Oy", cents: 9000, count: 1, lastDate: "2026-09-21" },
+      { kind: "payee_in", merchant: "Alfa Oy", cents: 5000, count: 1, lastDate: "2026-09-22" },
+      { kind: "payee_out", merchant: "Alfa Oy", cents: 5000, count: 1, lastDate: "2026-09-21" },
+      { kind: "payee_out", merchant: "Beta Oy", cents: 5000, count: 1, lastDate: "2026-09-21" },
       { kind: "payee_out", merchant: "Gamma Oy", cents: 4000, count: 2, lastDate: "2026-09-02" },
-      { kind: "payee_in", merchant: "Alfa Oy", cents: 2000, count: 1, lastDate: "2026-09-22" },
-      { kind: "payee_out", merchant: "Alfa Oy", cents: 2000, count: 1, lastDate: "2026-09-21" },
-      { kind: "payee_out", merchant: "Beta Oy", cents: 2000, count: 1, lastDate: "2026-09-21" },
     ]);
     // each question names exactly the rows it counts, for Tarkistettavat to show
     for (const q of items) expect((q as { rowIds?: string[] }).rowIds, (q as { merchant: string }).merchant).toHaveLength((q as { count: number }).count);
@@ -141,9 +141,9 @@ describe("what would mend it most", () => {
   });
 
   it("gives five of six and says six", () => {
-    const rows = [...base(), ...[10, 20, 30, 40, 50, 60].map((euros, i) => unknownOut(euros, `Kauppa ${i}`))];
+    const rows = [...base(), ...[50, 60, 70, 80, 90, 100].map((euros, i) => unknownOut(euros, `Kauppa ${i}`))];
     const q = questionsOf(rows);
-    expect(q.items.map((i) => i.cents)).toEqual([6000, 5000, 4000, 3000, 2000]);
+    expect(q.items.map((i) => i.cents)).toEqual([10000, 9000, 8000, 7000, 6000]);
     expect(q.total).toBe(6);
   });
 
@@ -177,6 +177,29 @@ describe("what would mend it most", () => {
     expect(household.share).toBe(1 - 40000 / 120000);
     expect(names(household.items)).toEqual(["Oma Kauppa", "Kioski Oy"]);
     expect(own.share).not.toBe(household.share);
+  });
+});
+
+describe("one small payment to a payee nothing recognised", () => {
+  it("is not asked at 49,99 euros and is asked at 50 euros", () => {
+    expect(questionsOf([...base(), unknownOut(49.99, "Kioski Oy")]).items).toEqual([]);
+    expect(names(questionsOf([...base(), unknownOut(50, "Kioski Oy")]).items)).toEqual(["Kioski Oy"]);
+  });
+
+  it("stays in Muut menot: the share of known spending still counts it once", () => {
+    const q = questionsOf([...base(), unknownOut(49.99, "Kioski Oy")]);
+    expect(q).toMatchObject({ items: [], total: 0, share: 1 - 4999 / 84999 });
+  });
+
+  it("is asked again when a second payment arrives, however small", () => {
+    const rows = [...base(), unknownOut(10, "Kioski Oy", { bookingDate: "2026-08-01" })];
+    expect(questionsOf(rows).items).toEqual([]);
+    const [q] = questionsOf([...rows, unknownOut(10, "Kioski Oy")]).items;
+    expect(q).toMatchObject({ kind: "payee_out", merchant: "Kioski Oy", cents: 2000, count: 2 });
+  });
+
+  it("leaves a small sum of money in alone: the rule is for payments out", () => {
+    expect(names(questionsOf([...base(), unknownIn(10, "Kaveri")]).items)).toEqual(["Kaveri"]);
   });
 });
 

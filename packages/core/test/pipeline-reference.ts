@@ -33,13 +33,15 @@ export function enrichTransactionsReference(
   const steady = steadyParties(txs.filter((t) => t.amountCents < 0 && t.merchant !== UNKNOWN_MERCHANT));
   // the accounts the user's own name sent money to: money in from one of them is the user's own money coming back
   const holders = holdersOf(accounts);
+  const debts = new Set(accounts.filter((a) => a.type === "credit_card" || a.type === "loan").map((a) => a.id));
   // only a payment the own-name rule itself would take: no reference, no card code, and no other category from the user
   const sentToOwnName = new Set(txs.filter((t) => t.amountCents < 0 && isUserName(t.counterparty ?? "", holders) && !t.reference?.trim() && noCard(t) && (t.categorySource !== "user" || t.category === "savings" || t.category === "transfer")).map((t) => normalizeIban(t.counterpartyIban)).filter((iban): iban is string => !!iban));
   const next = txs.map((t): Transaction => {
     if (t.categorySource === "user") return { ...t, isTransfer: t.category === "transfer" };
     const steadyPayee = t.amountCents < 0 && steady.has(partyKey(t));
     const fromOwnAccount = t.amountCents > 0 && sentToOwnName.has(normalizeIban(t.counterpartyIban) ?? "");
-    const { category, source, byUser } = categorizeInDirection(steadyPayee || fromOwnAccount ? { ...t, steadyPayee, fromOwnAccount } : t, rules, accounts);
+    const onDebtAccount = t.amountCents > 0 && debts.has(t.accountId);
+    const { category, source, byUser } = categorizeInDirection(steadyPayee || fromOwnAccount || onDebtAccount ? { ...t, steadyPayee, fromOwnAccount, onDebtAccount } : t, rules, accounts);
     if (byUser) byUserRule.add(t.id);
     // a rule may say "this is a transfer" too (e.g. a user rule for "OMA SIIRTO")
     return { ...t, category, categorySource: source, isTransfer: category === "transfer" };

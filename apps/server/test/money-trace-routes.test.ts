@@ -230,15 +230,15 @@ describe("a question asked of the linking member and answered", () => {
   };
   const answer = (w: World, userId: string, body: unknown) => w.as(userId).call("PUT", "/api/accounts/pool-a/answers", body);
 
-  it("/meta lists the question with its label and the offer, an answer moves the rows and the question goes, taking it back brings both back", async () => {
+  it("/meta asks nothing of the opening, an answer still moves the rows, and taking it back brings the default back", async () => {
     const w = await world(one(T1, 312045, { extra: choose }));
     const mortgage = at("2026-08-03", -1104.37);
-    // the opening takes the August mortgage, whose owner nobody knows: it is cut by the weights, half and half
+    // the opening takes the August mortgage, and the opening is everyone's until somebody says otherwise: cut by the weights, half and half
     const open = (await lists(w)).rows.get(mortgage)!;
     expect([open.aino, open.ville]).toEqual([-55219, -55218]);
     const meta = await metaOf(w, w.aino);
     expect(meta).toMatchObject({ traced: true, part: HALF(true), use: { mode: "source" }, split: { by: "user" } });
-    expect(meta.questions).toEqual([expect.objectContaining({ kind: "opening", key: "o", cents: 312045, label: "2026-07-01" })]);
+    expect(meta.questions).toBeUndefined();
     expect(meta.answers).toBeUndefined();
     // he sees the split but is asked nothing: he did not link the account
     const his = (await w.as(w.ville).call("GET", "/api/meta")).body.sharedAccounts.find((a: { id: string }) => a.id === "pool-a");
@@ -259,7 +259,7 @@ describe("a question asked of the linking member and answered", () => {
     expect(after.answers).toEqual([{ kind: "opening", key: "o", label: "2026-07-01", owner: `u:${w.aino}` }]);
     expect((await w.as(w.aino).call("DELETE", "/api/accounts/pool-a/answers", { kind: "opening", key: "o" })).body).toEqual({ ok: true });
     expect((await lists(w)).rows.get(mortgage)).toEqual(open);
-    expect((await metaOf(w, w.aino)).questions).toHaveLength(1);
+    expect((await metaOf(w, w.aino)).questions).toBeUndefined();
     // taking back an answer never said is fine
     expect((await w.as(w.aino).call("DELETE", "/api/accounts/pool-a/answers", { kind: "opening", key: "o" })).status).toBe(200);
   });

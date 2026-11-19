@@ -18,6 +18,7 @@ import {
   balanceDayOf,
   type CardUse,
   dayNumber,
+  fromDayNumber,
   holdersIn,
   isUserOwner,
   type Joined,
@@ -46,6 +47,7 @@ import {
   traceRows,
   type Transaction,
   userNameOf,
+  withOpeningDefault,
 } from "@banking/core";
 import { isEuro } from "../connectors/balance-sign.ts";
 import type { StoredMember } from "../db/agreement-repo.ts";
@@ -103,9 +105,11 @@ export interface SettledTrace {
   /** The pool's users, in the order of the parts, and `split` "unknown" when their weights come from holder names and nobody said the split (ADR 0017). */
   users: TraceUser[];
   split?: "unknown";
-  /** What the household said, as `settle` reads it. */
+  /** What the household said. */
   answers: Answer[];
-  /** The answers as `settlement` reads them: with the local day each was said on. */
+  /** The answers as `settle` reads them: what the household said, and the opening's default when nobody said. */
+  counted: Answer[];
+  /** `counted` as `settlement` reads it: with the local day each was said on, the opening's default on the opening day. */
   said: SaidAnswer[];
   /** The card accounts of the household and the owners who use this pool (`u:` the holder nobody names is not one). */
   cards: CardUse[];
@@ -309,9 +313,13 @@ function settledOf(h: Household, key: string, signature: string, answerRows: rea
   // an answer names its owner: one who is no user now (the users changed) is no answer, and the question stands again
   const kept = answerRows.filter((a) => a.owner === "all" || a.owner === "none" || users.some((u) => u.owner === a.owner));
   const answers = answersOf(kept);
-  const said = answers.map((a, i): SaidAnswer => ({ ...a, saidOn: localDay(h, kept[i]!.saidAt) ?? kept[i]!.saidAt.slice(0, 10) }));
+  // the opening is everyone's until somebody says otherwise: the default counts from the first day of the history while
+  // no answer to the opening is stored. A stored one (from a version that asked the opening) replaces it whole, so that
+  // household settles every month as it did before the default.
+  const counted = withOpeningDefault(raw.trace, answers);
+  const said = counted.map((a, i): SaidAnswer => (i < kept.length ? { ...a, saidOn: localDay(h, kept[i]!.saidAt) ?? kept[i]!.saidAt.slice(0, 10) } : { ...a, saidOn: fromDayNumber(raw.trace.openingDay) }));
   const cardUses = new Map([...(raw.prepared.payers.cards?.byAccount.values() ?? [])].map((c) => [c.key, c]));
-  const settled = settle(raw.trace, answers, users);
+  const settled = settle(raw.trace, counted, users);
   const window = windowOf(h.today);
   const labels = new Map<string, string>();
   const cardBills = new Set<string>();
@@ -324,16 +332,17 @@ function settledOf(h: Household, key: string, signature: string, answerRows: rea
   return {
     key, signature, users, ...(h.uses.get(key)!.split ? { split: "unknown" as const } : {}),
     answers,
+    counted,
     said,
     cards: [...cardUses.values()],
     members: new Set([...(raw.prepared.payers.cards?.members ?? [])].filter((o) => o !== "u:")),
     cardBills,
     raw: raw.trace,
     trace: settled,
-    open: openOf(raw.trace, answers),
-    questions: questionsOf(raw.trace, answers),
+    open: openOf(raw.trace, counted),
+    questions: questionsOf(raw.trace, counted),
     labels,
-    offer: split ? null : offerOf(raw.trace, users, window, splitOf(raw.trace, answers, users, window)),
+    offer: split ? null : offerOf(raw.trace, users, window, splitOf(raw.trace, counted, users, window)),
   };
 }
 
@@ -386,7 +395,7 @@ async function rebuild(s: Services, key: string): Promise<void> {
   if (settled && !split && use.source !== "said") {
     // set by the app, once: nobody said a use, the bank names two holders or more, the history reaches the window, no cost row in it has an unknown part, no part got its owner from an answer
     const window = windowOf(today);
-    const c = splitOf(settled.raw, settled.answers, settled.users, window);
+    const c = splitOf(settled.raw, settled.counted, settled.users, window);
     if (use.source === "bank" && c.c3 && c.c4 && c.c5 && (await s.household.setSplit(key, null, at, false))) {
       await bumpSeers(s, key);
       settled = { ...settled, offer: null };

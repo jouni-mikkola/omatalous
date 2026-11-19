@@ -56,7 +56,7 @@ interface SplitItem extends Base {
   kind: "split";
   accountId: string;
   accountName: string;
-  question: "in" | "opening";
+  question: "in";
   key: string;
   label: string;
 }
@@ -272,7 +272,7 @@ export function nameOf(item: ReviewItem): string {
     case "loan_drift":
       return item.name;
     case "split":
-      return item.question === "opening" ? t("set.ri.balance_before_date", { date: date(item.label) }) : item.label;
+      return item.label;
     case "mortgage":
       return t("set.ri.home_loan");
     case "balance":
@@ -293,7 +293,7 @@ export function nameOf(item: ReviewItem): string {
 
 /** A person's money gets the person glyph, never initials: a payer the app would offer "Omaa rahaa", a shared account's payer. */
 export function isPerson(item: ReviewItem): boolean {
-  return (item.kind === "payer" && !item.wallet && item.options.includes("own_money")) || (item.kind === "split" && item.question === "in");
+  return (item.kind === "payer" && !item.wallet && item.options.includes("own_money")) || item.kind === "split";
 }
 
 /** The question itself, the page's heading for the item. */
@@ -347,7 +347,7 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
       // the totals are in the list itself, read again after each save; a figure here would stay as the queue was first read
       return { text: "", line: "" };
     case "split":
-      return { text: money(item.cents), unit: t("set.ri.in_total"), line: item.question === "opening" ? t("set.ri.the_account_already_had_money") : t("set.ri.money_has_come_into_the") };
+      return { text: money(item.cents), unit: t("set.ri.in_total"), line: t("set.ri.money_has_come_into_the") };
     case "subscription": {
       // a rise says the old and the new charge (its `cents` may be what the rise adds, so no year is told), a new charge its first day
       const line =

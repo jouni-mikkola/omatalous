@@ -8,7 +8,7 @@ import { fold, namesUnknownMerchant } from "./merchant.ts";
 import { payeeRules } from "./payees.ts";
 import { tradeWordCategory } from "./trade-words.ts";
 import type { Account, CategoryRule, CategorySource, RuleField } from "./types.ts";
-import { CARD_CASH_WORDS, OWN_ACCOUNT_TRANSFER_WORDS, TAX_REFUND_WORDS } from "./wording-moves.ts";
+import { CARD_CASH_WORDS, INTEREST_CREDIT_WORDS, OWN_ACCOUNT_TRANSFER_WORDS, TAX_REFUND_WORDS } from "./wording-moves.ts";
 import { GAMBLING_NAME, isGamblingMcc, isGamblingOperator } from "./wording-gambling.ts";
 import { dealerCategory, isCarBrandDealer, isCarBrandName, isCarDealerName, isCarTradeName } from "./wording-car.ts";
 import { HOME_LOAN_WORDS, STUDENT_LOAN_WORDS } from "./wording-loan-pages.ts";
@@ -28,6 +28,8 @@ export interface CategorizeInput {
   steadyPayee?: boolean;
   /** Money in whose payer account is one the user's own name sent money to: the user's own account, at a bank that is not connected. Absent: not known, taken as no. */
   fromOwnAccount?: boolean;
+  /** Money in on a credit card or a loan account: a credit there gives back what the bank charged. Absent: not known, taken as no. */
+  onDebtAccount?: boolean;
   amountCents: number;
 }
 
@@ -61,15 +63,13 @@ const FOREIGN_FINANCIER = /TOYOTA FINANCIAL SERVICES/;
  */
 const PURPOSE_RULES: readonly BuiltinRule[] = [
   // ── income ──
-  {
-    category: "salary",
-    direction: "in",
-    re: w(String.raw`PALKKA|PALKAN|PALKKAERA|LOMARAHA|LOMAPALKKA|LOMAKORVAUS|PALKKIO|KOKOUSPALKKIO|TYOKORVAUS|SALARY|LONEUTBETALNING|PAYROLL`),
-  },
+  { category: "salary", direction: "in", re: w(String.raw`PALKKA|PALKAN|PALKKAERA|LOMARAHA|LOMAPALKKA|LOMAKORVAUS|PALKKIO|KOKOUSPALKKIO|TYOKORVAUS|SALARY|LONEUTBETALNING|PAYROLL`) },
   { category: "salary", direction: "in", re: SWEDISH_SALARY_FIELD },
   // a peer-lending service pays back the loan given, interest and all: money that was saved comes home
   { category: "investments", direction: "in", re: w(PEER_LENDING_WORDS), when: (text) => !namesLoanOrCredit(text) },
-  { category: "investment_income", direction: "in", re: w(String.raw`OSINKO|OSINGOT|OSINGONMAKSU|DIVIDEND|DIVIDENDI|KORKOTULO|TALLETUSKORKO|HYVITYSKORKO|KORKO|KORKOHYVITYS`) },
+  { category: "investment_income", direction: "in", re: w(String.raw`OSINKO|OSINGOT|OSINGONMAKSU|DIVIDEND|DIVIDENDI|KORKOTULO|TALLETUSKORKO|HYVITYSKORKO`) },
+  // interest the bank adds to a deposit; on a card or a loan the same words give back interest it charged
+  { category: "investment_income", direction: "in", re: w(String.raw`${INTEREST_CREDIT_WORDS}|KORKO|KORKOHYVITYS`), when: (_text, input) => !input.onDebtAccount },
   { category: "tax_refund", direction: "in", re: w(TAX_REFUND_WORDS) },
   {
     category: "benefits",

@@ -45,7 +45,7 @@ export const ASK_LIMIT = 10000;
  */
 export const TRACE_PAIR_DAYS = 3;
 /** Changes when a rule of the trace changes: a trace kept anywhere is built again. */
-export const TRACE_VERSION = 3;
+export const TRACE_VERSION = 4;
 
 /**
  * Traces a pool. `openingCents` is the balance before the first booked row (`openingDay`: that row's day); below zero

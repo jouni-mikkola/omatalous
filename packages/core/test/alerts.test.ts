@@ -43,7 +43,8 @@ describe("alerts", () => {
   });
 
   describe("double_charge", () => {
-    const shop = { merchant: "K-Citymarket", category: "groceries" };
+    // a card terminal's merchant code is the evidence that a row pays a business
+    const shop = { merchant: "K-Citymarket", category: "groceries", mcc: "5411" };
     it("finds the same charge twice on one day", () => {
       const twice = [tx({ ...shop, bookingDate: "2026-05-16", amountCents: -16743 }), tx({ ...shop, bookingDate: "2026-05-16", amountCents: -16743 })];
       const [a] = ofKind(alertsOf([...household(), ...twice]), "double_charge");
@@ -57,18 +58,28 @@ describe("alerts", () => {
     });
 
     it("finds a monthly bill paid twice within a week", () => {
-      const bill = monthly("2025-11-25", 11, -11900, { merchant: "Puhtaaksi Oy", category: "home" });
-      const again = tx({ merchant: "Puhtaaksi Oy", category: "home", bookingDate: "2026-08-29", amountCents: -11900 });
+      const bill = monthly("2025-11-25", 11, -11900, { merchant: "Puhtaaksi Oy", category: "home", mcc: "7349" });
+      const again = tx({ merchant: "Puhtaaksi Oy", category: "home", mcc: "7349", bookingDate: "2026-08-29", amountCents: -11900 });
       const [a] = ofKind(alertsOf([...household(), ...bill, again]), "double_charge");
       expect(a).toMatchObject({ id: `double:${again.id}`, title: "Sama veloitus kahdesti: Puhtaaksi Oy 119,00 €", detail: "25.8.2026 ja 29.8.2026" });
     });
 
     it("a monthly bill paid twice is settled when the second payment came back whole", () => {
-      const bill = monthly("2025-11-25", 11, -11900, { merchant: "Puhtaaksi Oy", category: "home" });
-      const again = tx({ merchant: "Puhtaaksi Oy", category: "home", bookingDate: "2026-08-29", amountCents: -11900 });
+      const bill = monthly("2025-11-25", 11, -11900, { merchant: "Puhtaaksi Oy", category: "home", mcc: "7349" });
+      const again = tx({ merchant: "Puhtaaksi Oy", category: "home", mcc: "7349", bookingDate: "2026-08-29", amountCents: -11900 });
       const back = tx({ merchant: "Puhtaaksi Oy", category: "home", bookingDate: "2026-09-03", amountCents: 11900 });
       expect(ofKind(alertsOf([...household(), ...bill, again]), "double_charge")).toHaveLength(1);
       expect(ofKind(alertsOf([...household(), ...bill, again, back]), "double_charge")).toEqual([]);
+    });
+
+    it("is no double charge when the same sum went twice to a person or between own accounts", () => {
+      const pair = (partial: Partial<Transaction>) => [0, 1].map(() => tx({ ...partial, bookingDate: "2026-05-16", amountCents: -16743 }));
+      const person = { merchant: "Matti Meikalainen", category: "other", counterparty: "Matti Meikalainen", counterpartyIban: "FI2112345600000785", description: "Tilisiirto" };
+      const own = { merchant: "Oma tili", category: "transfer", isTransfer: true, counterpartyIban: "FI2112345600000785" };
+      expect(ofKind(alertsOf([...household(), ...pair(person)]), "double_charge")).toEqual([]);
+      expect(ofKind(alertsOf([...household(), ...pair(own)]), "double_charge")).toEqual([]);
+      // the near miss: the same two rows at a card terminal are found
+      expect(ofKind(alertsOf([...household(), ...pair({ ...shop })]), "double_charge")).toHaveLength(1);
     });
 
     it("near misses: other account, small amount, a routine pair, outside the range", () => {
@@ -79,7 +90,7 @@ describe("alerts", () => {
       expect(ofKind(alertsOf([...household(), ...pair("2026-05-16", -16743, "acc-2")], year, [checking, other]), "double_charge")).toEqual([]);
       expect(ofKind(alertsOf([...household(), ...pair("2026-05-16", -1990)]), "double_charge")).toEqual([]);
       // two cinema tickets every time
-      const cinema = ["2026-01-10", "2026-03-14", "2026-06-20"].flatMap((d) => [0, 1].map(() => tx({ merchant: "Finnkino", category: "entertainment", bookingDate: d, amountCents: -2490 })));
+      const cinema = ["2026-01-10", "2026-03-14", "2026-06-20"].flatMap((d) => [0, 1].map(() => tx({ merchant: "Finnkino", category: "entertainment", mcc: "7832", bookingDate: d, amountCents: -2490 })));
       expect(ofKind(alertsOf([...household(), ...cinema]), "double_charge")).toEqual([]);
       expect(ofKind(alertsOf([...household(), ...pair("2026-05-16", -16743)], { from: "2026-06-01", to: today }), "double_charge")).toEqual([]);
     });
@@ -429,7 +440,7 @@ describe("alerts", () => {
   });
 
   it("keeps the order, one of each kind first, at most six", () => {
-    const shop = { merchant: "K-Citymarket", category: "groceries" };
+    const shop = { merchant: "K-Citymarket", category: "groceries", mcc: "5411" };
     const all = [
       ...household(),
       tx({ ...shop, bookingDate: "2026-05-16", amountCents: -16743 }),

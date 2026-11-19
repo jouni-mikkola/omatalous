@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { dayNumber as d } from "../src/dates.ts";
-import { type Answer, openOf, questionsOf, settle, shareOf, splitOf, type TraceUser } from "../src/money-trace-answers.ts";
+import { type Answer, openOf, questionsOf, settle, shareOf, splitOf, type TraceUser, withOpeningDefault } from "../src/money-trace-answers.ts";
 import { ASK_LIMIT, TRACE_PAIR_DAYS, type RowParts, TRACE_VERSION, type Trace, type TraceRow, trace } from "../src/money-trace.ts";
 import { rng } from "./gen.ts";
 import { history } from "./money-trace-history.ts";
@@ -142,6 +142,29 @@ describe("one funds: the old balance has an owner or not", () => {
     expect(early.openingTaken).toBe(false);
     expect(questionsOf(early, [])).toEqual([]);
     expect(questionsOf(raw, [])).toEqual([{ kind: "opening", key: "o", cents: 312045, day: d("2025-07-01"), openCents: 110437 }]);
+  });
+
+  it("gives the opening to everyone when nobody said, and asks nothing of it", () => {
+    const answers = withOpeningDefault(raw, []);
+    expect(answers).toEqual([answer("all")]);
+    const t = settle(raw, answers, two);
+    expect(cutOf(t, "mort-aug")).toEqual([55219, 55218, 0]);
+    expect(questionsOf(raw, answers)).toEqual([]);
+    expect(rowOf(t, "mort-aug").parts.some((p) => openOf(raw, answers)(p))).toBe(false);
+    expect(sum(t.lots.map((l) => l.cents))).toBe(4563 + 201608);
+  });
+
+  it.each([["Aino", AINO], ["Ville", VILLE], ["Yhteistä", "all"], ["En tiedä", "none"]])("keeps an answer of %s over the default", (_name, owner) => {
+    const said = [answer(owner)];
+    expect(withOpeningDefault(raw, said)).toEqual(said);
+    expect(cutOf(settle(raw, withOpeningDefault(raw, said), two), "mort-aug")).toEqual(cutOf(settle(raw, said, two), "mort-aug"));
+  });
+
+  it("adds nothing while no row took the opening, and leaves the answers to a payer alone", () => {
+    const early = trace(rows.slice(0, 3), 312045, d("2025-07-01"));
+    expect(withOpeningDefault(early, [])).toEqual([]);
+    const payer = answer(AINO, OWNER_Q);
+    expect(withOpeningDefault(raw, [payer])).toEqual([payer, answer("all")]);
   });
 
   it("gives one answer for 100 shuffles", () => expectStable(rows, 312045));

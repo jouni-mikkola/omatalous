@@ -182,7 +182,7 @@ describe("a dismissed alert", () => {
   });
 
   it("a double charge goes the same way with any answer of the review item, and a mark on another subject does nothing", () => {
-    const twice = [tx({ merchant: "K-Citymarket", category: "groceries", bookingDate: "2026-05-16", amountCents: -16743 }), tx({ merchant: "K-Citymarket", category: "groceries", bookingDate: "2026-05-16", amountCents: -16743 })];
+    const twice = [tx({ merchant: "K-Citymarket", category: "groceries", mcc: "5411", bookingDate: "2026-05-16", amountCents: -16743 }), tx({ merchant: "K-Citymarket", category: "groceries", mcc: "5411", bookingDate: "2026-05-16", amountCents: -16743 })];
     const all = [...household(), ...twice];
     const [double] = ofKind(alertsOf(all, inputs()), "double_charge");
     expect(double).toBeDefined();

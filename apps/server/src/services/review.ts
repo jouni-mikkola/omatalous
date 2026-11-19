@@ -3,7 +3,7 @@
  * keeps its own answer route (rules, payer roles, marks, loans, account answers); this only gathers and orders, so an
  * answer given here changes what the old card's answer changed.
  */
-import { addDays, type AnalysisContext, type AnalysisTx, billCents, billDueSubject, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, fromDayNumber, getCategory, type GuessCandidate, type HouseholdMember, householdWords, isCancelled, isUnknownMerchant, marksBySubject, memberOfRow, missedOn, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, type RecurringSeries, seriesMarkSubject, type UserInputs } from "@banking/core";
+import { addDays, type AnalysisContext, type AnalysisTx, billCents, billDueSubject, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, getCategory, type GuessCandidate, type HouseholdMember, householdWords, isCancelled, isUnknownMerchant, marksBySubject, memberOfRow, missedOn, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, type RecurringSeries, seriesMarkSubject, type UserInputs } from "@banking/core";
 import { connectionView } from "./accounts.ts";
 import { requestInputs } from "./analysis.ts";
 import { visibleTo } from "./visible-accounts.ts";
@@ -66,9 +66,9 @@ interface SplitItem extends Base {
   kind: "split";
   accountId: string;
   accountName: string;
-  question: "in" | "opening";
+  question: "in";
   key: string;
-  /** The payer's name, or the opening's day. */
+  /** The payer's name. */
   label: string;
 }
 
@@ -264,8 +264,9 @@ const splits: Source = async (s, userId, { reads }) => {
     const t = facts ? await settledTrace(s, facts.key) : null;
     if (!t) continue;
     for (const q of t.questions) {
-      const label = q.kind === "opening" ? fromDayNumber(t.raw.openingDay) : (t.labels.get(q.key) ?? "");
-      if (label) items.push({ kind: "split", id: `split:${a.id}:${q.kind}:${q.key}`, cents: q.openCents, accountId: a.id, accountName: a.name, question: q.kind, key: q.key, label });
+      // the opening is never asked: it is everyone's until a member says otherwise (core `withOpeningDefault`)
+      const label = q.kind === "in" ? t.labels.get(q.key) : undefined;
+      if (label) items.push({ kind: "split", id: `split:${a.id}:in:${q.key}`, cents: q.openCents, accountId: a.id, accountName: a.name, question: "in", key: q.key, label });
     }
   }
   return items;

@@ -35,6 +35,13 @@ agreement in force by the month's end reads the rows of its account, from the da
 A split the app set is no word. Members, holder names, rules and categories carry no date. A row the month never held,
 booked after it was stored, is compared too, so its cost lands as a correction.
 
+The opening, the money on the account before its first row, counts as Yhteistä while no answer to it is stored, and it
+is not asked. That default is dated on the opening day, so it is no word for a closed month. An answer stored by a
+version that asked the opening replaces the default whole, so that household settles every month as before.
+
+Only the latest answer to a key is stored. When En tiedä replaces an answer, the first answer's day is lost, and a month
+closed under it moves back to unknown through a correction.
+
 A correction records what it moved by row (`byRow`), and a later one takes off only the rows it reads again, so no
 figure is counted twice and none is reversed by a word on other rows.
 

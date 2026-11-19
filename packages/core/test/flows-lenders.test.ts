@@ -205,6 +205,20 @@ describe("peer lending", () => {
   it("interest and dividends from anyone else stay investment income", () => {
     check(["NORDNET BANK AB", "OSINKO", 80, "investment_income", { income: 8000 }]);
     check(["S-PANKKI OYJ", "TALLETUSKORKO", 12, "investment_income", { income: 1200 }]);
+    check([null, "Koron pääomitus", 0.37, "investment_income", { income: 37 }]);
+    check(["KORKOJEN PÄÄOMITUS", "TILITYS", 0.37, "investment_income", { income: 37 }]);
+  });
+
+  it("reads the bank's words for interest added as income on a deposit only: on a card or a loan they give back interest charged", () => {
+    const card: Account = { id: "card", name: "Visa", iban: null, currency: "EUR", type: "credit_card" };
+    const loan: Account = { id: "loan", name: "Asuntolainatili", iban: null, currency: "EUR", type: "loan" };
+    // one text on three accounts in one run: the account's kind is part of what decides the row
+    // PÄÄOMITETTU KORKO holds KORKO as a word of its own, which names interest income on a deposit
+    const texts: [description: string, counterparty?: string][] = [["Koron pääomitus"], ["TILITYS", "KORKOJEN PÄÄOMITUS"], ["PÄÄOMITETTU KORKO"], ["KORKO"]];
+    const rows = ["chk", "card", "loan"].flatMap((id) => texts.map(([description, counterparty]) => row(id, "2026-09-30", 0.37, description, counterparty)));
+    const { final } = run(rows, [checking, card, loan]);
+    const income = final.map((t) => t.category === "investment_income");
+    expect(income).toEqual([true, true, true, true, ...Array(8).fill(false)]);
   });
 });
 

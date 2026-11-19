@@ -14,7 +14,8 @@ const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, curre
 const today = "2026-10-09";
 
 const shop = { merchant: "Verkkokauppa", category: "shopping" };
-const twice = (day: string, cents: number, partial: Partial<Transaction> = shop) => [tx({ ...partial, bookingDate: day, amountCents: cents }), tx({ ...partial, bookingDate: day, amountCents: cents })];
+/** A purchase at a card terminal: the merchant code is the business evidence a double charge needs. */
+const twice = (day: string, cents: number, partial: Partial<Transaction> = shop) => [tx({ mcc: "5732", ...partial, bookingDate: day, amountCents: cents }), tx({ mcc: "5732", ...partial, bookingDate: day, amountCents: cents })];
 const mark = (subject: string, kind: UserMark["mark"], day: string): UserMark => ({ subject, mark: kind, markedAt: `${day}T08:30:00.000Z` });
 const backOf = (txs: Transaction[], marks: UserMark[] = []) => moneyBackOf(createContext(txs, [checking], today), marks, today);
 
@@ -30,7 +31,7 @@ describe("a charge made twice", () => {
   });
 
   it("asks the extra charges of a charge made three times", () => {
-    const rows = [...twice("2026-09-20", -3000), tx({ ...shop, bookingDate: "2026-09-20", amountCents: -3000 })];
+    const rows = [...twice("2026-09-20", -3000), tx({ ...shop, mcc: "5732", bookingDate: "2026-09-20", amountCents: -3000 })];
     expect(backOf(rows).map((m) => m.cents)).toEqual([6000]);
   });
 
@@ -132,6 +133,15 @@ describe("a charge after Lopetettu and its answer", () => {
     const all = rows();
     const first = segmentOf(all[0]!);
     expect(backOf(all, [cancelled, mark(first.subject, "cancelled", "2026-10-02")])).toMatchObject([{ cents: 6200 }]);
+  });
+
+  it("is no double charge when the same sum went twice to a person or between the household's own accounts", () => {
+    const person = { merchant: "Matti Meikalainen", category: "other", mcc: null, counterparty: "Matti Meikalainen", counterpartyIban: "FI2112345600000785", description: "Tilisiirto" };
+    expect(backOf(twice("2026-09-20", -16743, person))).toEqual([]);
+    const own = { merchant: "Oma tili", category: "transfer", mcc: null, isTransfer: true, counterpartyIban: "FI2112345600000785" };
+    expect(backOf(twice("2026-09-20", -16743, own))).toEqual([]);
+    // the near miss: the same two rows paid at a card terminal are asked
+    expect(backOf(twice("2026-09-20", -16743))).toHaveLength(1);
   });
 
   it("is one question when the charge is also a double charge", () => {
