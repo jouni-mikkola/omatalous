@@ -7,7 +7,7 @@
 import { type Loan, loanUnknownSubject, notLoanMark } from "@banking/core";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { queryClient } from "../src/query-client.ts";
 import { CONNECT_BANK_HASH, SETTINGS_ANCHOR, settingsCardHash } from "../src/routes.ts";
 import { Review } from "../src/pages/Review.tsx";
@@ -296,13 +296,16 @@ describe("a card whose purchases are missing in the list", () => {
   });
 
   it("offers a connected card only its statement and En tiedä, and says no sum it does not know", async () => {
+    // the day of metaOf, so the date of this year is written without its year
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-09T12:00:00") });
+    onTestFinished(() => void vi.useRealTimers());
     queryClient.clear();
     const seen = stubApi({ "GET /api/loans": { loans: [], fixings: {} }, "PUT /api/marks": {} });
     show([listOf([connected])]);
     await screen.findByRole("link", { name: "Lisää tiliote" }, T);
     expect(answers(openRow(0))).toEqual(["Lisää tiliote", "En tiedä"]);
     const heading = plain(openRow(0).querySelector(".review-debt-name")!.textContent);
-    expect(heading).toMatch(/^Kolmaspankki Gold · ostot 1\.6\.( 2026)? alkaen$/);
+    expect(heading).toBe("Kolmaspankki Gold · ostot 1.6. alkaen");
     expect(heading).not.toMatch(/0,00|laskut|eräpäivä/);
     fireEvent.click(within(openRow(0)).getByRole("button", { name: "En tiedä" }));
     await waitFor(() => expect(seen.some((s) => s.path === "/api/marks")).toBe(true), T);
