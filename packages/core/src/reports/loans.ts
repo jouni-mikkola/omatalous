@@ -50,16 +50,22 @@ const loansWithoutRate = (interest: DebtFigure): number => interest.unknown.filt
 interface MonthlyPayments {
   /** The payments of the saved loans (`DebtPayments`) and of the unsaved rows that tell one. Null when none is known: an unknown sum is never 0. */
   cents: number | null;
-  /** Saved loans left out of the sum (`DebtPayments.unknown`) and unsaved rows with no monthly figure. */
+  /** Saved loans left out of the sum (`DebtPayments.unknown`), unsaved rows with no monthly figure and lenders paid only a few times (`UnsavedDebts.few`): a debt is never silently left out. */
   unknown: number;
 }
 
-/** The payments the page lists, saved or not, in one sum; the rows of unsaved debts tell the payment as `monthlyCents`, the viewer's part. */
-export function monthlyPayments(payments: DebtPayments, unsaved: readonly UnsavedRow[]): MonthlyPayments {
-  const known = unsaved.flatMap((row) => row.monthlyCents ?? []);
+/** The unsaved debts as `unsavedDebts` tells them: the sum of their payments, the rows and the count of lenders paid only a few times. */
+type UnsavedDebts = ReturnType<typeof unsavedDebts>;
+
+/**
+ * The payments the page lists, saved or not, in one sum: the saved loans' payments and the unsaved debts' sum
+ * (`UnsavedLoans.paymentCents`, the viewer's part). The rows are read only to count the debts that tell no payment.
+ */
+export function monthlyPayments(payments: DebtPayments, unsaved: UnsavedDebts): MonthlyPayments {
+  const known = unsaved.rows.filter((row) => row.monthlyCents !== null).length;
   return {
-    cents: payments.counted + known.length > 0 ? known.reduce((sum, cents) => sum + cents, payments.monthlyCents) : null,
-    unknown: payments.unknown + unsaved.length - known.length,
+    cents: payments.counted + known > 0 ? payments.monthlyCents + (unsaved.total?.paymentCents ?? 0) : null,
+    unknown: payments.unknown + unsaved.rows.length - known + unsaved.few,
   };
 }
 
@@ -265,7 +271,7 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
     plan: cost12.cents === null ? null : payoffPlan(debts.loans, day, 0, buffer, costOf),
     consolidation: cost12.cents === null ? null : consolidationBasis(debts.loans, day, costOf),
     payments,
-    monthly: monthlyPayments(payments, unsaved.rows),
+    monthly: monthlyPayments(payments, unsaved),
     path: debtPath(debts.loans, day, RATE_SHIFTS_BP),
     maybeTwice: maybeTwice(balances, debts),
     overdraftTwice: overdraftTwice(balances, debts),
