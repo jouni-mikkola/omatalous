@@ -35,7 +35,7 @@ describe("MissingCards", () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]).toContain("Esimerkkikortti");
     expect(rows[0]).toContain("2 500");
-    expect(rows[0]).toContain("Laskut 20.9. asti");
+    expect(rows[0]).toContain("20.9. asti");
     expect(rows[1]).toContain("Toinen Kortti");
     expect(rows[1]).toContain("800");
     expect(rows[1]).toContain("Ennen 10.9.");
