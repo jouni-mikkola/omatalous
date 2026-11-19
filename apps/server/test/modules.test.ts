@@ -336,6 +336,34 @@ describe("the code in Asetukset, then a start", () => {
     expect(await loadInstalledModule({ root, signersFile: signers, appVersion: APP_VERSION })).toEqual({ state: "none" });
   });
 
+  it("keeps serving the started version's web files after an update is installed, and the next start removes it", async () => {
+    const root = join(work, "data-8", "modules");
+    const bundles: Record<string, { packed: Buffer; signature: Buffer }> = { "1.3.0": realBundle("keep-running", { version: "1.3.0" }) };
+    const first = await setupApp({}, releaseService(bundles), { modules: { root, signersFile: signers, start: { state: "none" } } });
+    await first.admin.call("PUT", "/api/modules/code", { code: CODE, password: PASSWORD });
+    const start = await loadInstalledModule({ root, signersFile: signers, appVersion: APP_VERSION });
+    expect(start).toMatchObject({ state: "connected", id: "example", version: "1.3.0" });
+    const running = await setupApp({}, releaseService(bundles), { modules: { root, signersFile: signers, start } });
+    expect((await running.admin.call("GET", "/modules/example/1.3.0/web.mjs")).status).toBe(200);
+
+    // a newer release is installed while 1.3.0 runs: the running process still serves 1.3.0
+    bundles["1.3.1"] = realBundle("keep-running-next", { version: "1.3.1" });
+    await running.admin.call("PUT", "/api/modules/code", { code: CODE, password: PASSWORD });
+    expect(readActive(root)).toEqual({ id: "example", version: "1.3.1" });
+    expect((await running.admin.call("GET", "/modules/example/1.3.0/web.mjs")).status).toBe(200);
+    expect((await running.admin.call("GET", "/modules/example/1.3.0/web.css")).status).toBe(200);
+
+    // the next start loads 1.3.1 and removes 1.3.0, which nothing serves any more
+    EXTENSIONS.splice(0);
+    const next = await loadInstalledModule({ root, signersFile: signers, appVersion: APP_VERSION });
+    expect(next).toMatchObject({ state: "connected", id: "example", version: "1.3.1" });
+    expect(existsSync(join(root, "example", "1.3.0"))).toBe(false);
+    expect(existsSync(join(root, "example", "1.3.1", "files", "web.mjs"))).toBe(true);
+    const restarted = await setupApp({}, releaseService(bundles), { modules: { root, signersFile: signers, start: next } });
+    expect((await restarted.admin.call("GET", "/modules/example/1.3.1/web.mjs")).status).toBe(200);
+    expect((await restarted.admin.call("GET", "/modules/example/1.3.0/web.mjs")).status).toBe(404);
+  });
+
   it("refuses at start a kept bundle that was changed on disk, and runs nothing of it", async () => {
     const root = join(work, "data-2", "modules");
     const app = await setupApp({}, releaseService({ "1.2.0": realBundle("kept") }), { modules: { root, signersFile: signers, start: { state: "none" } } });
