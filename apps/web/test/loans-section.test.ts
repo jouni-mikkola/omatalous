@@ -315,6 +315,20 @@ describe("Raportit: Lainat", () => {
     expect(link(html(loans, context(report([row({ ...noRate, id: "account:acc-1" })], unknownCost))))).toEqual(["#/review?item=loan-terms"]);
   });
 
+  it("Täydennä lainat opens the drill of a rate-only own loan when every unsaved debt is one Tarkistettavat no longer asks of", () => {
+    const noRate = { rateBp: null, reference: null, interest: { cents: null, unknown: "rate" }, cost: { rateMilli: null, costClass: null, next12: null, leftCents: null, feePerPaymentCents: null, unknown: "rate" } } as const;
+    const unknownCost = { cost12: { cents: null, interestCents: null, feeCents: null } };
+    const link = (out: string) => [...out.matchAll(/<a href="([^"]*)">Täydennä lainat<\/a>/g)].map((m) => m[1]!.replaceAll("&amp;", "&"));
+    const asked = [
+      { name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false, asked: true as const },
+      { name: "Esimerkkikortti", monthlyCents: 20_000, card: true, asked: true as const },
+    ];
+    expect(link(html(loans, context(report([row(noRate)], { ...unknownCost, unsaved: asked }))))).toEqual([loanHash("home")]);
+    // one debt still asked of keeps the link on the list that asks it
+    const open = [...asked, { name: "Toinenrahoitus", monthlyCents: 5_000, card: false }];
+    expect(link(html(loans, context(report([row(noRate)], { ...unknownCost, unsaved: open }))))).toEqual(["#/review?item=loan-terms"]);
+  });
+
   it("the kind is left out under a name that is the kind", () => {
     expect(html(loans, context(report([row({ name: "Asuntolaina" })])))).toContain('<span class="loan-name">Asuntolaina</span><small class="loan-about">Esimerkkipankki</small>');
     expect(html(loans, context(report([row({ name: "asuntolaina", lender: null })])))).not.toContain("loan-about");

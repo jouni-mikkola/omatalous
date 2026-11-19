@@ -22,11 +22,11 @@ import { type AnalysisContext, type AnalysisTx, standingById } from "./analysis/
 import { accountCovers, coverage } from "./analysis/coverage.ts";
 import { completeYear } from "./analysis/data-quality.ts";
 import { cancelledSubjects, isCancelled } from "./commitments.ts";
-import { cardUnknownAsked } from "./loan-terms-answer.ts";
+import { cardUnknownAsked, unsavedDebtAnswered } from "./loan-terms-answer.ts";
 import { type LoanProposal, notLoanKey, paysSeries, takenSeries } from "./loan-detect.ts";
 import { loansOf, typedBill } from "./loans.ts";
 import { parseSeriesId, seriesId } from "./series-id.ts";
-import { isCut, type MonthlyProposal, paymentOf } from "./shared.ts";
+import { isCut, type MonthlyProposal } from "./shared.ts";
 import { namesCard } from "./transfers.ts";
 import type { IsoDate, Loan, UserInputs } from "./types.ts";
 import { withoutSwedishTwin } from "./wording-lenders.ts";
@@ -188,7 +188,7 @@ export function cardGaps(ctx: AnalysisContext, inputs: UserInputs): CardGap[] {
  */
 export function openCardRows(ctx: AnalysisContext, inputs: UserInputs): { cards: UnconnectedCard[]; gaps: CardGap[] } {
   return {
-    cards: unconnectedCards(ctx, inputs).filter((c) => !cardUnknownAsked(inputs.marks, c.key, paymentOf(c).part)),
+    cards: unconnectedCards(ctx, inputs).filter((c) => !unsavedDebtAnswered(inputs.marks, { card: c })),
     gaps: cardGaps(ctx, inputs).filter((g) => !cardUnknownAsked(inputs.marks, g.key, g.cents)),
   };
 }

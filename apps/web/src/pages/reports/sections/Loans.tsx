@@ -306,8 +306,9 @@ function Loans({ ctx }: SectionProps) {
   const limitOf = (l: LoanRow) => (l.accountType === "credit_card" && !belowWhole(l.part) ? cardLimitCents(ctx.meta.accounts.find((a) => `account:${a.id}` === l.id)?.creditLimitCents) : null);
   // the server's order, dearest first: the web never sorts the debts
   const entries: Entry[] = [...inCostOrder(r.loans).map((loan): Entry => ({ id: loan.id, loan })), ...r.unsaved.map((unsaved, i): Entry => ({ id: `unsaved ${i}`, unsaved }))];
-  // a saved loan the viewer can change whose cost waits for its rate is filled in its own drill; with an unsaved debt in the list Tarkistettavat asks for all of it
-  const rateLoan = r.unsaved.length > 0 ? undefined : r.loans.find((l) => changesLoan(l) && l.cost?.unknown === "rate");
+  // a saved loan the viewer can change whose cost waits for its rate is filled in its own drill; with an unsaved debt
+  // Tarkistettavat still asks of (not `asked`) the list there asks for all of it
+  const rateLoan = r.unsaved.some((u) => !u.asked) ? undefined : r.loans.find((l) => changesLoan(l) && l.cost?.unknown === "rate");
   // a total that leaves unsaved debts out says so, as Yhteenveto's does; the cost is unknown, never the known part, while a debt lacks its terms
   const total = {
     label: t(r.unsaved.length > 0 ? "holdings.debts_known" : "holdings.debts_total"),

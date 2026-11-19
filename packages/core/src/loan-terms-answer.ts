@@ -9,12 +9,13 @@
  */
 import { billCents } from "./account-use.ts";
 import { daysBetween } from "./dates.ts";
-import { paysSeries } from "./loan-detect.ts";
+import { type LoanProposal, paysSeries } from "./loan-detect.ts";
 import { STEADY_BAND } from "./returns.ts";
 import { endOf, intervalOf, planOf, typedPayment } from "./loan-plan.ts";
 import { payments } from "./loan-schedule.ts";
 import { hasReferenceRate } from "./loans.ts";
 import { parseSeriesId } from "./series-id.ts";
+import { hasMonthly, type MonthlyProposal, paymentOf } from "./shared.ts";
 import { type IsoDate, isRevolving, type Loan, type Transaction, type UserMark } from "./types.ts";
 
 /**
@@ -81,7 +82,7 @@ export function parseLoanUnknownSubject(subject: string): { monthlyCents: number
 }
 
 /** Whether the household said it does not know what the proposed loan of `key` owes while its monthly payment is `monthlyCents`. */
-export const loanUnknownAsked = (marks: readonly Pick<UserMark, "subject" | "mark">[], key: string, monthlyCents: number | null): boolean => marks.some((m) => m.mark === "in_use" && m.subject === loanUnknownSubject(monthlyCents, key));
+const loanUnknownAsked = (marks: readonly Pick<UserMark, "subject" | "mark">[], key: string, monthlyCents: number | null): boolean => marks.some((m) => m.mark === "in_use" && m.subject === loanUnknownSubject(monthlyCents, key));
 
 /**
  * Whether the household said "En tiedä" of the card of `key` (`loanUnknownSubject`, with the sum of that day) and `cents`
@@ -95,6 +96,21 @@ export function cardUnknownAsked(marks: readonly Pick<UserMark, "subject" | "mar
     if (said.monthlyCents === null) return cents === null;
     return cents === null || cents <= said.monthlyCents * (1 + STEADY_BAND);
   });
+}
+
+/**
+ * Whether the household answered a debt nobody saved, so Täydennä lainat no longer asks of it: a plan whose end was told,
+ * a loan the rows propose said "En tiedä" at its monthly payment, a card said "En tiedä" while its bill has not risen. The
+ * list of Tarkistettavat and the rows of `unsavedDebts` both read it, so a row the list leaves out never links there.
+ */
+export function unsavedDebtAnswered(
+  marks: readonly Pick<UserMark, "subject" | "mark">[],
+  debt: { proposal: Pick<LoanProposal, "key" | "plan" | "planAnswer" | "monthlyCents" | "paymentCents"> } | { card: MonthlyProposal<Pick<LoanProposal, "key" | "monthlyCents" | "paymentCents">> },
+): boolean {
+  if ("card" in debt) return cardUnknownAsked(marks, debt.card.key, paymentOf(debt.card).part);
+  const p = debt.proposal;
+  if (p.plan) return p.planAnswer !== null;
+  return loanUnknownAsked(marks, p.key, hasMonthly(p) ? paymentOf(p).part : null);
 }
 
 /** A bank row is the payment of a due date when it falls within this many days of it. */

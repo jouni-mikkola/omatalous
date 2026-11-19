@@ -51,13 +51,21 @@ const percentText = (bp: number): string => `${Math.floor(bp / 100)},${String(bp
 /** Whole euros as the Lainat row writes them, "9 801 €", as a pattern. */
 const wholeEuros = (cents: number): RegExp => new RegExp(`${String(Math.round(cents / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, "\\s")}\\s€`);
 
-/** What the server's report of Lainat says of a loan: the balance on the day (the schedule moves a typed balance forward) and the rate of the cost, in thousandths of a percent, null when it is not told. */
-async function reported(context: BrowserContext, name: string): Promise<{ balanceCents: number; rateMilli: number | null }> {
+/**
+ * What the server's report of Lainat says of a loan: the balance on the day (the schedule moves a typed balance forward),
+ * the typed rate in hundredths of a percent and the rate of the cost (Todellinen korko, the payments' yearly rate) in
+ * thousandths of a percent, each null when it is not told.
+ */
+async function reported(context: BrowserContext, name: string): Promise<{ balanceCents: number; rateBp: number | null; rateMilli: number | null }> {
   const { loans } = await (await context.request.get("/api/reports?reports=loans", { maxRetries: 1 })).json();
-  const row = (loans.loans as { name: string; balance: { cents: number }; cost: { rateMilli: number | null } | null }[]).find((l) => l.name === name);
+  const row = (loans.loans as { name: string; balance: { cents: number }; rateBp: number | null; cost: { rateMilli: number | null } | null }[]).find((l) => l.name === name);
   expect(row, `the report lists ${name}`).toBeDefined();
-  return { balanceCents: row!.balance.cents, rateMilli: row!.cost?.rateMilli ?? null };
+  return { balanceCents: row!.balance.cents, rateBp: row!.rateBp, rateMilli: row!.cost?.rateMilli ?? null };
 }
+/** The cell of Todellinen korko in a loan's row of Lainat. */
+const rateCellOf = (page: Page, name: string) => rowOf(page, name).locator('td[data-label="Todellinen korko"]');
+/** The rate the drill of an open loan tells, as typed, with three decimals. */
+const drillRate = (page: Page) => lainat(page).locator(".loan-wi-rate dd");
 
 const HOME = "/#/reports?q=saldot";
 const saldot = (page: Page) => page.locator("#saldot");
@@ -163,10 +171,17 @@ test("a loan is typed into the form, a missing kind holds Tallenna back, and the
   // what the row of Lainat shows is what the report says: the balance on the day in whole euros, and the rate of the cost
   const figures = await reported(context, "Asuntolaina, Esimerkkipankki Oyj");
   expect(figures.balanceCents, "the typed balance, moved forward by the plan").toBeLessThanOrEqual(12_000_000);
-  expect(figures.balanceCents).toBeGreaterThan(11_000_000);
+  // at most one payment of about 350 euros of amortisation has moved it since the first of the month
+  expect(figures.balanceCents).toBeGreaterThan(11_900_000);
   expect(figures.rateMilli, "the rate of the cost is told").not.toBeNull();
+  // the typed 3,39 % is kept, and the cost is its yearly rate paid monthly: (1 + 0,0339 / 12)^12 - 1 = 3,443 %
+  expect(figures.rateBp).toBe(339);
+  expect(figures.rateMilli).toBe(3443);
   await expect(rowOf(page, "Asuntolaina, Esimerkkipankki Oyj")).toContainText(wholeEuros(figures.balanceCents));
   await expect(rowOf(page, "Asuntolaina, Esimerkkipankki Oyj")).toContainText(new RegExp(`${(figures.rateMilli! / 1000).toFixed(2).replace(".", ",")}\\s%`));
+  await expect(rateCellOf(page, "Asuntolaina, Esimerkkipankki Oyj")).toHaveText(/^3,44\s%/);
+  await openLoan(page, "Asuntolaina, Esimerkkipankki Oyj");
+  await expect(drillRate(page)).toHaveText(/^3,390\s%/);
   const typedFigures = { Lainanantaja: "Esimerkkipankki Oyj", "Lainaa jäljellä (€)": "120 000,00", "Korko (%)": "3,39", "Kuukausierä (€)": "689,20", "Viimeinen eräpäivä": loan.endDate };
   await expectSaved(page, "Asuntolaina, Esimerkkipankki Oyj", typedFigures);
 
@@ -380,7 +395,14 @@ test("a member sees and changes only their own loans, and the page fits a phone"
     await form.getByRole("button", { name: "Tallenna" }).click();
     await said(page, "Laina tallennettu");
     await expect(rowOf(page, "Auton laina")).toBeVisible();
-    await expect(rowOf(page, "Auton laina")).toContainText(wholeEuros((await reported(context, "Auton laina")).balanceCents));
+    const car = await reported(context, "Auton laina");
+    await expect(rowOf(page, "Auton laina")).toContainText(wholeEuros(car.balanceCents));
+    // the typed rate is kept; with no repayment the payments tell no yearly rate, so the row has the dash, never 0 or a rate
+    expect(car.rateBp).toBe(525);
+    expect(car.rateMilli).toBeNull();
+    await expect(rateCellOf(page, "Auton laina")).toHaveText("–");
+    await openLoan(page, "Auton laina");
+    await expect(drillRate(page)).toHaveText(/^5,250\s%$/);
     expect(await overflow(page)).toBeLessThanOrEqual(1);
     // the phone shows the balance and the rate in the loan's editor
     const dialog = await editLoan(page, "Auton laina");
