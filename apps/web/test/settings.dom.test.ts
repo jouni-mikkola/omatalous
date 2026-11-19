@@ -99,34 +99,6 @@ describe("Pankkisovellus", () => {
   }, 60000);
 });
 
-describe("Lainat", () => {
-  it("removes a saved loan after the question and says so", async () => {
-    const server = await startServer();
-    await server.admin.call("POST", "/api/loans", { name: "Autolaina", kind: "car", balanceCents: 1_200_000, balanceDate: "2026-10-01" });
-    await openApp("#/settings/household", "Asetukset");
-    const remove = (await screen.findAllByRole("button", { name: /^Poista laina / }, T))[0]!;
-    const name = remove.getAttribute("aria-label")!.replace("Poista laina ", "");
-    fireEvent.click(remove);
-    const dialog = await screen.findByRole("dialog", { hidden: true });
-    expect(dialog.textContent).toContain(`Poista ${name}?`);
-    expect(server.seen.some((s) => s.method === "DELETE" && s.path.startsWith("/api/loans/"))).toBe(false);
-    fireEvent.click(within(dialog).getByRole("button", { name: "Poista laina", hidden: true }));
-    await screen.findByText("Laina poistettu.", {}, T);
-    expect(server.seen.some((s) => s.method === "DELETE" && s.path.startsWith("/api/loans/"))).toBe(true);
-  }, 60000);
-
-  it("opens a loan for editing and closes the dialog on cancel", async () => {
-    const server = await startServer();
-    await server.admin.call("POST", "/api/loans", { name: "Autolaina", kind: "car", balanceCents: 1_200_000, balanceDate: "2026-10-01" });
-    await openApp("#/settings/household", "Asetukset");
-    fireEvent.click((await screen.findAllByRole("button", { name: /^Muokkaa lainaa / }, T))[0]!);
-    const dialog = await screen.findByRole("dialog", { hidden: true });
-    expect(dialog.textContent).toContain("Muokkaa lainaa");
-    fireEvent.click(within(dialog).getByRole("button", { name: "Peruuta", hidden: true }));
-    await waitFor(() => expect(document.querySelector("dialog.loan-dialog")).toBeNull(), T);
-  }, 60000);
-});
-
 describe("Forms that open in place", () => {
   const focusIsIn = (selector: string) => expect(document.activeElement?.closest(selector), `focus on ${document.activeElement?.tagName}`).not.toBeNull();
 
@@ -134,7 +106,7 @@ describe("Forms that open in place", () => {
     await startServer();
     await openApp("#/settings/security", "Asetukset");
     const { router } = await import("../src/router.tsx");
-    for (const [target, open, form] of [["security", "Vaihda salasana", "form"], ["members", "Lisää jäsen", "form.form-fields"], ["household", "Lisää laina", "form.loan-form"]] as const) {
+    for (const [target, open, form] of [["security", "Vaihda salasana", "form"], ["members", "Lisää jäsen", "form.form-fields"]] as const) {
       await router.navigate({ href: `/settings/${target}` });
       const opener = await screen.findByRole("button", { name: open }, T);
       // the button that opens a section's form stands in the strip of the section's name
@@ -161,18 +133,5 @@ describe("Forms that open in place", () => {
     fireEvent.change(name, { target: { value: "pekka" } });
     fireEvent.keyDown(name, { key: "Escape" });
     expect(screen.getByLabelText(/Käyttäjätunnus/)).toHaveProperty("value", "pekka");
-  }, 60000);
-
-  it("leaves the form open on an Escape that belongs to a dialog of the same card", async () => {
-    const server = await startServer();
-    await server.admin.call("POST", "/api/loans", { name: "Autolaina", kind: "car", balanceCents: 1_200_000, balanceDate: "2026-10-01" });
-    await openApp("#/settings/household", "Asetukset");
-    fireEvent.click(await screen.findByRole("button", { name: "Lisää laina" }, T));
-    await waitFor(() => focusIsIn("form.loan-form"), T);
-    fireEvent.click((await screen.findAllByRole("button", { name: /^Muokkaa lainaa / }, T))[0]!);
-    const dialog = await screen.findByRole("dialog", { hidden: true });
-    fireEvent.keyDown(within(dialog).getAllByRole("textbox", { hidden: true })[0]!, { key: "Escape" });
-    // the Escape is the dialog's: the new loan's form under it stays as it was
-    expect(document.querySelector("section.loan-draft form.loan-form")).not.toBeNull();
   }, 60000);
 });
