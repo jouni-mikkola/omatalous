@@ -232,6 +232,14 @@ describe("a last due date", () => {
     expect(loanPayoffDate(year).date).toBe("2027-01-05");
   });
 
+  it("does not take off again the due date the balance is dated on", () => {
+    // 1 000,00 € told on 12.10.2026, the day a 100,00 € payment was due: the first one still to come is 12.11.
+    const today = loan({ balanceDate: "2026-10-12", repayment: "equal_principal", intervalMonths: 1, paymentCents: 10_000, endDate: "2027-10-12" });
+    expect(loanBalanceOn(today, "2026-10-12").cents).toBe(100_000);
+    expect(loanBalanceOn(today, "2026-11-11").cents).toBe(100_000);
+    expect(loanBalanceOn(today, "2026-11-12").cents).toBe(90_000);
+  });
+
   it("ends a loan that has no plan, and is ignored when it is not after the balance date", () => {
     const noPlan = loan({ endDate: "2026-12-31", rateBp: 365 });
     expect(loanBalanceOn(noPlan, "2026-12-30")).toEqual({ cents: 100_000, unknown: "repayment" });

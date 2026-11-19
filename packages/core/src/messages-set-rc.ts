@@ -48,7 +48,6 @@ export const FI_SET_RC = {
   "set.rc.lt_card_in_full": "Maksetaanko kortti kokonaan joka kuukausi?",
   "set.rc.lt_yes": "Kyllä",
   "set.rc.lt_no": "Ei",
-  "set.rc.lt_rate_pct": "Korko (%)",
   "set.rc.lt_rate": "korko {rate}",
   "set.rc.lt_ends": "viimeinen erä {date}",
   "set.rc.lt_interest": "korkoa jäljellä {amount}",

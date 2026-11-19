@@ -95,8 +95,8 @@ test("a payment that looks like a loan is asked in Tarkistettavat: saved as a lo
     const { loans } = await (await context.request.get("/api/loans")).json();
     expect(loans).toHaveLength(1);
     expect(loans[0]).toMatchObject({ kind: "car", lender: COMPANY, balanceCents: 640_050, rateBp: null, paymentCents: 28_900, intervalMonths: 1, repayment: "fixed_instalment" });
-    // the balance is dated on the last payment day the rows show
-    expect(loans[0].balanceDate).toMatch(/^\d{4}-\d{2}-05$/);
+    // the balance typed is the balance of today
+    expect(loans[0].balanceDate).toBe((await (await context.request.get("/api/meta")).json()).today);
     expect(loans[0].seriesKey).toMatch(/^out:.+:Nordea Rahoitus Suomi Oy#28900$/);
     expect((await (await context.request.get("/api/loans/proposals")).json()).proposals).toEqual([]);
     expect(await queued()).toEqual([]);

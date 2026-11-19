@@ -9,7 +9,7 @@ import { FIELD_LABEL, INTERVALS, intervalLabel, KIND_LABEL, type LoanFieldKey, r
 import { Button } from "../ui/Button.tsx";
 import { Notice } from "../ui/Notice.tsx";
 import "../../styles/loans.css";
-const UNIT: Partial<Record<LoanFieldKey, string>> = { balanceCents: "€", grantedCents: "€", limitCents: "€", paymentCents: "€", paymentFeeCents: "€", rateBp: "%", marginBp: "%", rateStepBp: "%" };
+export const UNIT: Partial<Record<LoanFieldKey, string>> = { balanceCents: "€", grantedCents: "€", limitCents: "€", paymentCents: "€", paymentFeeCents: "€", rateBp: "%", marginBp: "%", rateStepBp: "%" };
 
 /**
  * What the select "Sama velka pankin tilillä" offers from: the household's accounts and its saved loans (an account

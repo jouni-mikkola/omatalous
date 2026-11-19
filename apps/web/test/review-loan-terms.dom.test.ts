@@ -160,7 +160,7 @@ describe("Täydennä lainat", () => {
     fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
     await waitFor(() => expect(seen.some((s) => s.method === "POST" && s.path === "/api/loans")).toBe(true), T);
     // what the rows tell of its terms is saved with it: the reference rate and the cycle's review day
-    expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ kind: "mortgage", reference: "euribor_12", marginBp: null, rateReviewDate: "2027-03-14", rateBp: null, balanceCents: 10_000_000, balanceDate: "2026-10-05", seriesKey: "k" });
+    expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ kind: "mortgage", reference: "euribor_12", marginBp: null, rateReviewDate: "2027-03-14", rateBp: null, balanceCents: 10_000_000, balanceDate: "2026-10-12", seriesKey: "k" });
     // the saved loan's balance and its rate counted now (2,31 % on 13.3.2026 and the margin)
     await screen.findByText(/^Jäljellä 100\s000,00\s€ · korko 2,96/, {}, T);
     // the end: what was saved and how many lack a balance, no total of the page's own

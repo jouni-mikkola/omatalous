@@ -46,7 +46,6 @@ export const EN_SET_RC: Record<keyof typeof FI_SET_RC, string> = {
   "set.rc.lt_card_in_full": "Is the card paid in full every month?",
   "set.rc.lt_yes": "Yes",
   "set.rc.lt_no": "No",
-  "set.rc.lt_rate_pct": "Rate (%)",
   "set.rc.lt_rate": "rate {rate}",
   "set.rc.lt_ends": "last instalment {date}",
   "set.rc.lt_interest": "interest left {amount}",

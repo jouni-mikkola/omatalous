@@ -8,9 +8,9 @@
 import { type Fixings, type Loan, type LoanKind, loanTermsDismissible, type LoanTermsMissing, loanTermsResult, loanUnknownSubject, planSubject } from "@banking/core";
 import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { api, loanCalls } from "../api.ts";
-import { LoanEditor, LoanLinks } from "../components/loans/LoanEditor.tsx";
+import { LoanEditor, LoanLinks, UNIT } from "../components/loans/LoanEditor.tsx";
 import { formOfCard, formOfLoan, formOfProposal, LOAN_LINK_PARAM, type LoanBody, type LoanForm, readForm } from "../components/loans/form.ts";
-import { KIND_LABEL, type LoanFieldKey } from "../components/loans/labels.ts";
+import { FIELD_LABEL, KIND_LABEL, type LoanFieldKey } from "../components/loans/labels.ts";
 import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
 import { date, money, monthYear, percent } from "../format.ts";
@@ -345,7 +345,7 @@ function CardRow({ debt, meta, answer, busy, onSend, onSaved }: RowProps) {
     });
   if (asking) {
     return (
-      <FieldForm form={initial} field="rateBp" label={t("set.rc.lt_rate_pct")} fixings={answer.fixings} busy={busy} onSave={async (body) => onSaved((await save(body)).loan)}>
+      <FieldForm form={initial} field="rateBp" label={`${FIELD_LABEL.rateBp} (${UNIT.rateBp})`} fixings={answer.fixings} busy={busy} onSave={async (body) => onSaved((await save(body)).loan)}>
         <ChoiceButton busy={busy} onClick={() => setAsking(false)}>
           <span>{t("set.rc.cancel")}</span>
         </ChoiceButton>
@@ -370,8 +370,10 @@ function CardRow({ debt, meta, answer, busy, onSend, onSaved }: RowProps) {
 /** The form of a loan filled from a debt's rows and linked to its series. */
 function rowsForm(debt: LoanTermsDebt, kind: LoanKind, meta: Meta, answer: LoansAnswer, ownsAccount: boolean): LoanForm {
   const proposed = formOfProposal({ key: debt.key ?? "", payee: debt.name, paymentCents: debt.latestCents ?? 0, kind }, meta.today, ownsAccount ? meta.accounts : [], answer.loans, debt.terms);
+  // "Jäljellä nyt" is the balance of today; only a connected loan account gives it on the day the bank told it
+  const values = { ...proposed.values, balanceDate: proposed.accountId === "" ? meta.today : proposed.values.balanceDate };
   // a lender's few payments tell no monthly payment, and it is never saved as 0
-  return debt.latestCents === null ? { ...proposed, values: { ...proposed.values, paymentCents: "" } } : proposed;
+  return { ...proposed, values: debt.latestCents === null ? { ...values, paymentCents: "" } : values };
 }
 
 /**

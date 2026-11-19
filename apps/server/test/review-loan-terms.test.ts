@@ -405,6 +405,26 @@ describe("En tiedä on a loan the rows propose", () => {
   });
 });
 
+describe("a loan the rows guess to be the home loan", () => {
+  it("is saved from the review with the kind the rows guess, and its payments are then read as the mortgage", async () => {
+    const t = await setupApp();
+    await account(t, t.adminId, "chk", "checking", 100_000);
+    const repo = t.s.finance(t.adminId);
+    // a home owner (a housing company's charge) paying a lender 600 euros a month
+    const rows = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"].flatMap((m) => [raw(`${m}-02`, -60_000, "ESIMERKKIRAHOITUS OY", "LAINAN LYHENNYS"), raw(`${m}-03`, -31_000, "AS OY ESIMERKKITALO", "HOITOVASTIKE")]);
+    await ingestTransactions(repo, "chk", rows, "csv");
+    await reprocess(repo, t.s.settings);
+    const categories = async () => [...new Set((await repo.allTransactions()).filter((r) => r.description === "LAINAN LYHENNYS").map((r) => r.category))];
+    expect(await categories()).toEqual(["loans"]);
+    const list = ((await t.admin.call("GET", "/api/review")).body.items as Item[]).find((i) => i.kind === "loan_terms_list");
+    const [debt] = ((list?.debts ?? []) as { source: string; key: string; kind: string }[]).filter((d) => d.source === "proposal");
+    // the kind is the rows' guess, which the form saves as it stands
+    expect(debt).toMatchObject({ kind: "mortgage" });
+    expect((await t.admin.call("POST", "/api/loans", { ...BASE, kind: debt!.kind, paymentCents: 60_000, intervalMonths: 1, seriesKey: debt!.key })).status).toBe(200);
+    expect(await categories()).toEqual(["mortgage"]);
+  });
+});
+
 describe("Täydennä lainat", () => {
   const items = async (c: Caller) => (await c.call("GET", "/api/review")).body.items as Item[];
 

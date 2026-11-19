@@ -1,6 +1,6 @@
 /**
  * Tarkistettavat's questions about the member's own debts, from the view the queue read once (`OwnView`):
- * - `loan_terms_list`, Täydennä lainat: one item that lists every debt whose balance, rate or payment is not known, each
+ * - `loan_terms_list`, Täydennä lainat: one item that lists every debt whose balance or payment is not known, each
  *   once and the largest year of payments first (core `loanTermsList`). A debt is
  *   - a saved loan still owing whose plan lacks a fact the review asks (core `openLoanGaps`, kept to `ASKED_GAPS`: the
  *     interval, the payment, the last due date of a bullet loan): its own form answers it (PUT /api/loans/:id). A card
