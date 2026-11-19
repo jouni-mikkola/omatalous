@@ -160,7 +160,9 @@ export function balanceReport(ctx: AnalysisContext, range: DateRange, accounts: 
   // with no known day before the range the change starts at the first month end known, as the month table's first change does, not on the day the last account began
   const fromFirstDay = balanceChange(all, dailyFrom, toDay);
   const firstEnd = fromFirstDay?.basis === "firstDay" ? monthEnds.find((end) => end < toDay && end >= dayNumber(fromFirstDay.from) && totalOn(all, end) !== null) : undefined;
-  const moved = (firstEnd !== undefined && balanceChange(all, firstEnd + 1, toDay)) || fromFirstDay;
+  const fromEnd = firstEnd === undefined ? null : balanceChange(all, firstEnd + 1, toDay);
+  // the balance before the range is still not known: the basis stays `firstDay`
+  const moved = fromEnd ? { ...fromEnd, basis: "firstDay" as const } : fromFirstDay;
   const withChange = series.map((s) => ({ ...s, changeCents: moved?.byAccount.get(s.accountId) ?? null }));
   const change = moved && { from: moved.from, to: moved.to, cents: moved.cents, basis: moved.basis };
   // the difference of the totals shown, so an account that opens in between is in the change by its balance and the column reads as what it is
