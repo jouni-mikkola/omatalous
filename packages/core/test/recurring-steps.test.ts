@@ -95,7 +95,15 @@ describe("the typical amount of a series", () => {
 
   it("costs a year of a bill with a repayment of capital at its regular instalment", () => {
     const year = occurrences(prepaid);
-    expect(yearlyCostOf(year, monthlyCadence, "bill", typicalAmountOf(year), 12)).toBe(480000);
+    expect(yearlyCostOf(year, monthlyCadence, "bill", typicalAmountOf(year), 12, true)).toBe(480000);
+  });
+
+  it("counts a one-off of a bill that is no debt as one typical charge and keeps its other charges", () => {
+    const utility = [40000, 40000, 40000, 40000, 60000, 60000, 60000, 730000, 40000, 40000, 40000, 40000];
+    const year = occurrences(utility);
+    expect(typicalAmountOf(year)).toBe(40000);
+    // 8 x 400 + 3 x 600 + the 7 300 one-off as 400
+    expect(yearlyCostOf(year, monthlyCadence, "bill", 40000, 12, false)).toBe(540000);
   });
 
   it("leaves out a run of repayments that ends back at the instalment", () => {
@@ -112,6 +120,6 @@ describe("the typical amount of a series", () => {
     const year = occurrences(card);
     // the median of the latest three and the sum of the twelve, as before one-off charges were left out
     expect(typicalAmountOf(year)).toBe(66000);
-    expect(yearlyCostOf(year, monthlyCadence, "bill", 66000, 12)).toBe(card.reduce((a, b) => a + b, 0));
+    expect(yearlyCostOf(year, monthlyCadence, "bill", 66000, 12, false)).toBe(card.reduce((a, b) => a + b, 0));
   });
 });

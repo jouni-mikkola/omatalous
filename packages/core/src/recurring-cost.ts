@@ -153,13 +153,16 @@ export function typicalAmountOf(occ: readonly Occurrence[]): number {
  * What a series costs in a year. A bill that varies with the season
  * (electricity) is what its last twelve charges came to: the latest
  * summer bills times twelve would miss the winter. A year with a one-off
- * charge (`oneOffsOf`) costs the typical charge each time: the regular
- * instalment is the cost, and a repayment of capital is no cost a year
- * brings again.
+ * charge (`oneOffsOf`) of a loan or credit (`debt`) costs the typical charge
+ * each time: the regular instalment is the cost, and a repayment of capital
+ * is no cost a year brings again. Any other bill keeps its own charges and
+ * counts each one-off as one typical charge.
  */
-export function yearlyCostOf(occ: readonly Occurrence[], cadence: CadenceDef, kind: RecurringKind, typical: number, perYear: number): number {
+export function yearlyCostOf(occ: readonly Occurrence[], cadence: CadenceDef, kind: RecurringKind, typical: number, perYear: number, debt: boolean): number {
   const year = kind === "bill" ? lastTwelveMonths(occ, cadence) : null;
   if (!year || year.length < perYear) return Math.round(typical * perYear);
   const oneOffs = oneOffsOf(occ);
-  return year.some((o) => oneOffs.has(o)) ? Math.round(typical * perYear) : sum(year.slice(-perYear).map((o) => o.cents));
+  if (!year.some((o) => oneOffs.has(o))) return sum(year.slice(-perYear).map((o) => o.cents));
+  if (debt) return Math.round(typical * perYear);
+  return sum(year.slice(-perYear).map((o) => (oneOffs.has(o) ? typical : o.cents)));
 }
