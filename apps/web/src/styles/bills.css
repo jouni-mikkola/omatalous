@@ -27,8 +27,14 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .sub-facts dd { margin: 0; font-variant-numeric: tabular-nums; }
 
 /* the head of a month: its name opens and closes it, its sums stand on the right and wrap when the room is short */
-.bill-month { display: inline-flex; align-items: center; gap: var(--sp-8); padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; }
-@media (pointer: coarse) { .bill-month { min-block-size: 2.75rem; } }
+.bill-month, .bill-paid { display: inline-flex; align-items: center; gap: var(--sp-8); padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; }
+@media (pointer: coarse) { .bill-month, .bill-paid { min-block-size: 2.75rem; } }
+/* the toggle of a month's paid rows heads a group of rows inside the month, so it has no band of its own */
+.bill-table tr.rt-group:has(.bill-paid), .bill-table tr.rt-group:has(.bill-paid) > * { background: none; }
+.bill-paid { color: var(--text-2); }
+/* on a phone its row has no line of figures under the toggle. Its padding is the --reach-pad its button takes back, and below
+   it also the one the next month's opener takes back, whose head is padded less at a larger text: the two never overlap */
+.rt-wrap[data-block] .rt.bill-table tr.rt-group:has(.bill-paid) { padding-block: var(--sp-8) calc(2 * var(--sp-8)); }
 .bill-table tr.rt-group > td { white-space: normal; }
 .bill-sums { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0 var(--sp-16); font-weight: 400; font-variant-numeric: tabular-nums; }
 .bill-sums > span { white-space: nowrap; }
@@ -40,6 +46,8 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .rt-wrap[data-block] .bill-sums { justify-content: flex-start; }
 .rt-wrap[data-block] .bill-sums > span, .rt-wrap[data-block] .bill-kinds > span { white-space: normal; }
 .rt-wrap[data-block] .bill-sums > .bill-kinds { justify-content: flex-start; min-inline-size: 0; }
+/* a closed month on a phone is one line, its name and one figure; the opened month tells every figure */
+.rt-wrap[data-block] .bill-sums[data-closed] > :not(.bill-line) { display: none; }
 /* a row on a phone is two lines: the day and the sum, then the payee and the status, with no name of a column before them */
 .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td[data-label]::before { display: none; }
 .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(2) { display: block; grid-column: 1; grid-row: 2; padding-top: 0; }
@@ -58,7 +66,7 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
   .rt-wrap[data-block] .rt.bill-table tr.rt-group > td:not([data-label]) { grid-column: 2; grid-row: 1; text-align: right; }
   .rt-wrap[data-block] .bill-sums, .rt-wrap[data-block] .bill-kinds { flex-direction: column; align-items: flex-end; }
 }
-/* twelve months, two of them open, make a long list: with a mouse a row and a month's head are as high as their line, so the page keeps within two screens */
+/* twelve months, one of them open, make a long list: with a mouse a row and a month's head are as high as their line, so the page keeps within two screens */
 @media (pointer: fine) {
   .rt-wrap:not([data-block]) .rt.bill-table > tbody > tr:has(> th[scope="row"]) > :is(th, td) { padding-block: calc(var(--sp-4) / 2); }
   .rt-wrap:not([data-block]) .rt.bill-table .rt-drill { block-size: var(--avatar); margin-block: 0; }

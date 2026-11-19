@@ -8,6 +8,9 @@
  * `afterCents`) and, while the month is open, the bills by kind (`essentialCents`, `debtCents`, `contractCents`,
  * `optionalCents`); the page adds up nothing. In a month that holds a bill whose sum is not known the sum of what is left is a
  * status with the count of those bills, and the other months keep their figure.
+ * One month starts open: the running month while a bill of it is still to pay, otherwise the next one (`startOpenMonth`); the
+ * reader opens any other. On a phone a closed month's head is one line, its name and one figure (`bill-line`). An open month
+ * with two paid rows or more lists what is still to come and folds the paid rows under a toggle that names their count.
  * This month and the next list every row; the later months list the bills that come less often than monthly one by one
  * and fold the monthly ones into one row that opens to them, with the number and sum core gives. A row opens in place:
  * how often it comes and its earlier payments with their sum (DrillRows), and the one action of a subscription,
@@ -16,7 +19,7 @@
  * the list and of every sum of what is coming. Whether a service is still used is asked in Tarkistettavat.
  */
 import { type MarkKind, parseSeriesId, seriesOfMarkSubject, type UserMark, unknownBillsIn } from "@banking/core";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { api } from "../../api.ts";
 import { CADENCE_LABEL, dayMonth, date, money, monthLong, seriesName } from "../../format.ts";
 import { t, tn } from "../../text.ts";
@@ -29,7 +32,7 @@ import { type Column, Table } from "../table/Table.tsx";
 import { Button } from "../ui/Button.tsx";
 import { Notice } from "../ui/Notice.tsx";
 import { cadenceLabel } from "./BillForm.tsx";
-import { type CalBill, type Calendar, type CalGroup, type CalMonth, type CalRow, calendarGroups, ENDED_GROUP, nothingToCome, OPEN_MONTHS } from "./calendar-rows.ts";
+import { type CalBill, type Calendar, type CalGroup, type CalMonth, type CalRow, calendarGroups, ENDED_GROUP, nothingToCome, startOpenMonth } from "./calendar-rows.ts";
 import { type Item, type TypedBill, wrongBillSubject } from "./items.ts";
 
 /** What one subscription row can do next to the mark it already has. */
@@ -81,20 +84,23 @@ const KINDS = [
  * left to come. A bill whose sum or day
  * is not known is in no month's sum, so a month's head carries the count of the ones that leave its sum after the bills unknown
  * (`unknownBillsIn` of core, the rule that sets `afterCents` null, bills only), and a month with a figure carries none.
+ * A closed month on a phone shows one of these lines (`bill-line`, bills.css): the sum left after the bills, or the bills while
+ * that sum is not known or not told; the opened month shows them all.
  */
 function MonthSums({ month, unknownCount, open }: { month: CalMonth; unknownCount: number; open: boolean }) {
   const paid = month.paidCents > 0;
+  const afterKnown = !nothingToCome(month) && month.afterCents !== null;
   const pay = { sum: money(month.billsCents), estimate: money(month.estimateCents) };
   const bills = month.estimateCents > 0 ? (paid ? t("bills.sum_unpaid_estimate", pay) : t("bills.sum_bills_estimate", pay)) : paid ? t("bills.sum_unpaid", pay) : t("bills.sum_bills", pay);
   return (
-    <span className="bill-sums">
+    <span className="bill-sums" data-closed={open ? undefined : ""}>
       {/* the bills still to pay come first, as in the bills column of the front page: both read `billsCents` */}
-      <span>{bills}</span>
+      <span className={afterKnown ? undefined : "bill-line"}>{bills}</span>
       {paid && <span>{t("bills.sum_paid", { sum: money(month.paidCents) })}</span>}
       {open && <span className="bill-kinds">{KINDS.map(([code, field]) => month[field] > 0 && <span key={field}>{t(code, { sum: money(month[field]) })}</span>)}</span>}
       {unknownCount > 0 && <span>{tn(unknownCount, "bills.unknown_one", "bills.unknown_many")}</span>}
       {month.incomeCents > 0 && <span>{t("bills.sum_income", { sum: money(month.incomeCents) })}</span>}
-      {!nothingToCome(month) && <span>{month.afterCents === null ? t("bills.sum_after_unknown") : t("bills.sum_after", { sum: money(month.afterCents) })}</span>}
+      {!nothingToCome(month) && <span className={afterKnown ? "bill-line" : undefined}>{month.afterCents === null ? t("bills.sum_after_unknown") : t("bills.sum_after", { sum: money(month.afterCents) })}</span>}
     </span>
   );
 }
@@ -116,7 +122,7 @@ export function BillsTable({
   onRemoved: () => void;
 }) {
   const [open, setOpen] = useState<string | null>(null);
-  /** The groups the reader opened or closed; the others are open for this month and the next. */
+  /** The groups the reader opened or closed; of the others only `startOpenMonth`'s month is open. */
   const [toggled, setToggled] = useState<ReadonlyMap<string, boolean>>(new Map());
   const [removing, setRemoving] = useState<{ id: string; name: string } | null>(null);
   /** A found bill asked about: the series and the name the question says. */
@@ -124,10 +130,15 @@ export function BillsTable({
   const [error, setError] = useState<string | null>(null);
   const listed = items.flatMap((i) => (i.series ? [i.series.id] : []));
   const nameOf = (i: Item) => (i.series ? (seriesName(i.series.id, i.series.typicalAmountCents, listed) ?? i.name) : i.name);
-  const isOpen = (key: string) => toggled.get(key) ?? (key !== ENDED_GROUP && calendar.months.findIndex((m) => m.month === key) < OPEN_MONTHS);
+  const startOpen = startOpenMonth(calendar, items);
+  const isOpen = (key: string) => toggled.get(key) ?? key === startOpen;
   const toggle = (key: string) => setToggled((before) => new Map(before).set(key, !isOpen(key)));
   const typed = items.flatMap((i) => (i.typed ? [i.typed] : []));
   const groups = calendarGroups(calendar, items, typed, isOpen);
+  /** The id of a folded paid row, which its toggle's `aria-controls` names. */
+  const idBase = useId();
+  const paidRowId = (key: string) => `${idBase}-${key}`;
+  const paidRows = new Set(groups.flatMap((g) => g.paidKeys ?? []));
 
   const remove = async (id: string) => {
     setRemoving(null);
@@ -208,13 +219,26 @@ export function BillsTable({
     },
   ];
 
-  const head = (g: CalGroup) => (
-    <button type="button" className="bill-month" aria-expanded={isOpen(g.key)} onClick={() => toggle(g.key)}>
-      <span aria-hidden="true">{isOpen(g.key) ? "▾" : "▸"}</span>
-      {g.month ? capital(monthLong(g.month.month)) : `${t("bills.ended")} ${g.ended}`}
-    </button>
-  );
-  const rowGroups = groups.map((g) => ({ key: g.key, title: head(g), figure: g.month ? <MonthSums month={g.month} unknownCount={unknownBillsIn(calendar, [g.month.month])} open={isOpen(g.key)} /> : undefined, figureSpan: columns.length - 2, rows: g.rows }));
+  const head = (g: CalGroup) =>
+    g.paidKeys ? (
+      // the count of the rows, and no sum: the month's head has the sum of the paid bills
+      <button type="button" className="bill-paid" aria-expanded={isOpen(g.key)} aria-controls={g.paidKeys.map(paidRowId).join(" ")} onClick={() => toggle(g.key)}>
+        <span aria-hidden="true">{isOpen(g.key) ? "▾" : "▸"}</span>
+        {t("bills.paid_fold", { count: g.paidKeys.length })}
+      </button>
+    ) : (
+      <button type="button" className="bill-month" aria-expanded={isOpen(g.key)} onClick={() => toggle(g.key)}>
+        <span aria-hidden="true">{isOpen(g.key) ? "▾" : "▸"}</span>
+        {g.month ? capital(monthLong(g.month.month)) : `${t("bills.ended")} ${g.ended}`}
+      </button>
+    );
+  const rowGroups = groups.map((g) => ({
+    key: g.key,
+    title: head(g),
+    figure: g.month && !g.paidKeys ? <MonthSums month={g.month} unknownCount={unknownBillsIn(calendar, [g.month.month])} open={isOpen(g.key)} /> : undefined,
+    figureSpan: columns.length - 2,
+    rows: g.rows,
+  }));
   const rows = groups.flatMap((g) => g.rows);
 
   return (
@@ -236,6 +260,7 @@ export function BillsTable({
         columns={columns}
         groups={rowGroups}
         rowClassName={(r) => (r.kind === "ended" || (r.kind === "row" && r.bill.state === "paid") ? "sub-stopped" : undefined)}
+        rowProps={(r) => (paidRows.has(r.key) ? { id: paidRowId(r.key) } : {})}
         open={open}
         onOpen={setOpen}
         drill={(r) => <Drill r={r} name={rowName(r)} controls={marking} scope={scope} onRemove={(b) => setRemoving({ id: b.id, name: b.name })} onWrong={(series) => setWrong({ series, name: rowName(r) })} />}

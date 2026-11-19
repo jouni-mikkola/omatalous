@@ -218,7 +218,7 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.ln_wi_never": "The payment does not cover the interest.",
   "rpt.ln_wi_lower": "or a payment of {payment} with the same last day",
   "rpt.ln_wi_missing_payment": "The monthly payment is missing.",
-  "rpt.ln_wi_missing_rate": "The rate is missing.",
+  "rpt.ln_wi_missing_rate": "The rate is missing",
   "rpt.ln_wi_missing_repayment": "How the payment changes is missing.",
   "rpt.ln_wi_missing_interval": "The payment interval is missing.",
   "rpt.ln_wi_missing_end_date": "The last payment date is missing.",

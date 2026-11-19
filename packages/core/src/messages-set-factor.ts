@@ -23,7 +23,7 @@ export const FI_SET_FACTOR = {
   "set.fac.two_step_sign_in": "Kaksivaiheinen kirjautuminen",
   "set.fac.make_new_recovery_codes": "Luo uudet palautuskoodit",
   "set.fac.turn_off": "Poista käytöstä",
-  "set.fac.not_in_use": "Ei käytössä.",
+  "set.fac.not_in_use": "Ei käytössä",
   "set.fac.make_new_codes": "Luo uudet koodit",
   "set.fac.in_use_since": "Käytössä alkaen {date}",
   "set.fac.last_used": "viimeksi käytetty {time}",

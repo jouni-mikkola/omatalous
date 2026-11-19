@@ -32,7 +32,7 @@ async function seenFacts(context: BrowserContext) {
 /** A working application folds its card; the test opens it as a reader does. */
 async function unfold(page: Page) {
   const card = page.locator("#pankkisovellus");
-  await expect(card.locator(".card-sub")).toHaveText("Toimii.");
+  await expect(card.locator(".card-sub")).toHaveText("Toimii");
   if ((await card.getAttribute("open")) === null) await card.locator("summary").click();
   await expect(card).toHaveAttribute("open", "");
 }
@@ -117,7 +117,7 @@ test("the saved application shows no table of what each bank supports, and the o
   // the card is folded while the Application ID works, with the state under its name
   const card = page.locator("#pankkisovellus");
   await expect(card).not.toHaveAttribute("open", "");
-  await expect(card.locator(".card-sub")).toHaveText("Toimii.");
+  await expect(card.locator(".card-sub")).toHaveText("Toimii");
   await unfold(page);
   await expect(page.getByText("Suostumuksen pituus")).toHaveCount(0);
   await expect(page.getByText("ei vielä tiedossa")).toHaveCount(0);

@@ -412,7 +412,9 @@ test("sign out and back in", async ({ page }) => {
   expect(seen.problems.filter((p) => !/HTTP 401: POST .*\/api\/auth\/login/.test(p) && !/Failed to load resource.*401/.test(p))).toEqual([]);
 });
 
-test("the Laskut page fits a phone: the table of the months is inside the screen at 390 px, in at most 3000 px", async ({ browser }) => {
+// the demo household is a full year of bills: twelve months in the calendar, every one with its monthly bills, one of them open
+// with its paid rows folded
+test("the Laskut page fits a phone: the table of the months is inside the screen at 390 px, in at most 1800 px", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   const seen = watch(page);
@@ -423,7 +425,11 @@ test("the Laskut page fits a phone: the table of the months is inside the screen
   const clipped = await page.evaluate(() => Array.from(document.querySelectorAll(".rt-wrap")).filter((w) => w.scrollWidth > w.clientWidth + 1).length);
   expect(clipped, "tables that scroll sideways").toBe(0);
   await fitsScreen(page, "Laskut");
-  expect(await page.evaluate(() => document.documentElement.scrollHeight), "page height at 390 px").toBeLessThanOrEqual(3000);
+  const months = await page.locator("#laskut-taulukko .bill-month").filter({ hasText: /\d{4}$/ }).count();
+  expect(months, "months of the calendar").toBe(12);
+  const height = await page.evaluate(() => document.documentElement.scrollHeight);
+  console.log(`Laskut at 390 px: ${height} px, ${months} months`);
+  expect(height, "page height at 390 px").toBeLessThanOrEqual(1800);
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -437,7 +443,8 @@ test("the Laskut page at 1440 px is at most 1800 px tall and does not scroll sid
   await page.waitForLoadState("networkidle");
   expect(await page.evaluate(() => document.documentElement.scrollHeight), "page height at 1440 px").toBeLessThanOrEqual(1800);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
-  // the openers of the rows stand one under the other with no box over a neighbour's
+  // the openers of the rows stand one under the other with no box over a neighbour's, the folded paid rows opened too
+  for (const fold of await page.locator("#laskut-taulukko .bill-paid[aria-expanded=false]").all()) await fold.click();
   const drills = await page.locator("#laskut-taulukko .rt-drill").evaluateAll((els) =>
     els.map((el) => el.getBoundingClientRect()).filter((b) => b.width > 0).map((b) => ({ top: b.top, bottom: b.bottom })).sort((a, b) => a.top - b.top),
   );
@@ -476,6 +483,14 @@ test("an expected bill is added at the head of Tulossa, shows in its one table, 
 
   await expect(page.getByRole("dialog", { name: "Lisää lasku" })).toHaveCount(0);
   await expect(coming.getByText("Lasku E2E-ajoneuvovero lisätty.")).toBeVisible();
+  // one month starts open: the bill's month is opened from its head when it is another one
+  const FI_MONTHS = ["Tammikuu", "Helmikuu", "Maaliskuu", "Huhtikuu", "Toukokuu", "Kesäkuu", "Heinäkuu", "Elokuu", "Syyskuu", "Lokakuu", "Marraskuu", "Joulukuu"];
+  const dueMonth = (p: Page) => p.locator("#laskut-taulukko").getByRole("button", { name: `${FI_MONTHS[Number(due.slice(5, 7)) - 1]} ${due.slice(0, 4)}`, exact: true });
+  const showDueMonth = async (p: Page) => {
+    if ((await dueMonth(p).getAttribute("aria-expanded")) === "false") await dueMonth(p).click();
+    await expect(dueMonth(p)).toHaveAttribute("aria-expanded", "true");
+  };
+  await showDueMonth(page);
   await expect(table.locator("tbody tr").filter({ has: page.locator("button.rt-drill") }).filter({ hasText: "E2E-ajoneuvovero" })).toContainText("Tiedossa");
   const remove = (p: Page) => p.locator("#laskut-taulukko").getByRole("button", { name: "Poista lasku E2E-ajoneuvovero" });
   const open = (p: Page) => p.locator("#laskut-taulukko").getByRole("button", { name: "Tiedot: E2E-ajoneuvovero" });
@@ -483,6 +498,7 @@ test("an expected bill is added at the head of Tulossa, shows in its one table, 
   await expect(remove(page)).toBeVisible();
 
   await page.reload();
+  await showDueMonth(page);
   await expect(open(page)).toBeVisible();
 
   await open(page).click();

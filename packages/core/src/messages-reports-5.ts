@@ -221,7 +221,7 @@ export const FI_REPORTS_5 = {
   "rpt.ln_wi_never": "Maksu ei riitä korkoihin.",
   "rpt.ln_wi_lower": "tai erä {payment} samalla loppupäivällä",
   "rpt.ln_wi_missing_payment": "Kuukausierä puuttuu.",
-  "rpt.ln_wi_missing_rate": "Korko puuttuu.",
+  "rpt.ln_wi_missing_rate": "Korko puuttuu",
   "rpt.ln_wi_missing_repayment": "Erän muuttumistapa puuttuu.",
   "rpt.ln_wi_missing_interval": "Maksuväli puuttuu.",
   "rpt.ln_wi_missing_end_date": "Viimeinen maksupäivä puuttuu.",

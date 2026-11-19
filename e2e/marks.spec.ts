@@ -54,6 +54,12 @@ test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi t
       const head = subs.getByRole("button", { name: /^Päättyneet/ });
       if ((await head.getAttribute("aria-expanded")) === "false") await head.click();
     };
+    // the paid rows of the open month are folded, and the card's Apple rows paid this month are among them
+    const showPaid = async () => {
+      await expect(subs.locator(".bill-month").first()).toBeVisible();
+      for (const fold of await subs.locator(".bill-paid[aria-expanded=false]").all()) await fold.click();
+    };
+    await showPaid();
     // the month's fixed costs are the fixed costs report's figure, in whole euros
     const total = async () => {
       const { fixedCosts } = (await (await context.request.get("/api/reports?reports=fixedCosts")).json()) as { fixedCosts: { monthlyCents: number } };
@@ -79,12 +85,14 @@ test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi t
     // after a reload the same, and Tarkistettavat no longer asks about the one that was answered
     await page.reload();
     await unfold();
+    await showPaid();
     await expect(stopped.filter({ has: drill("12,99") })).toHaveCount(1);
     expect(await asked()).toEqual([]);
 
     // the rows and an open drill fit a phone
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/#/bills");
+    await showPaid();
     await drill("12,99").click();
     await expect(page.getByRole("button", { name: /^Kumoa: Apple 12,99\s€$/ })).toBeVisible();
     await page.waitForLoadState("networkidle");
@@ -102,6 +110,7 @@ test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi t
     expect((await context.request.put("/api/marks", { headers: FETCH, data: { subject: "merchant:Apple", mark: "cancelled" } })).status()).toBe(200);
     await page.reload();
     await unfold();
+    await showPaid();
     await expect(stopped.filter({ has: drill("12,99") })).toHaveCount(1);
     await expect(stopped.filter({ has: drill("0,99") })).toHaveCount(1);
     await drill("0,99").click();
@@ -121,6 +130,7 @@ test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi t
     expect((await context.request.put("/api/marks", { headers: FETCH, data: { subject: question!.subject, mark: "in_use" } })).status()).toBe(200);
     expect(await asked()).toEqual([]);
     await page.goto("/#/bills");
+    await showPaid();
     await expect(row("12,99").first()).toBeVisible();
     await expect(subs.getByRole("button", { name: /^Käytössä/ })).toHaveCount(0);
     await expect(stopped.filter({ hasText: "Apple" })).toHaveCount(0);
