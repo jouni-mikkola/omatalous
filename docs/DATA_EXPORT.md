@@ -262,6 +262,7 @@ Table `loans`, one object per row.
 | `rate_review_date` | string or null |  |
 | `rate_step_date` | string or null | the day the typed rate changes |
 | `rate_step_bp` | integer or null | the rate from that day on, in hundredths of a percent |
+| `payment_fee_cents` | integer or null | the fee each payment carries, as typed; 0 is a fee of nothing |
 
 ### loanPaymentParts
 

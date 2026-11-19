@@ -124,6 +124,7 @@ const LINES: readonly (readonly [string, string])[] = [
   ["Viimeisen erän lyhennyksen pitää olla vähintään 0 € ja enintään {1}.", "The principal of the last payment must be at least 0 € and at most {1}."],
   ["Viimeisen erän koron pitää olla vähintään 0 € ja enintään {1}.", "The interest of the last payment must be at least 0 € and at most {1}."],
   ["Viimeisen erän luottokulujen pitää olla vähintään 0 € ja enintään {1}.", "The credit costs of the last payment must be at least 0 € and at most {1}."],
+  ["Maksuerän kulun pitää olla vähintään 0 € ja enintään {1}.", "The fee of each payment must be at least 0 € and at most {1}."],
   ["Tuntematon viitekorko.", "Unknown reference rate."],
   ["Tuntematon lyhennystapa.", "Unknown repayment type."],
   ["Anna lainalle nimi, 1–{1} merkkiä.", "Give the loan a name of 1–{1} characters."],

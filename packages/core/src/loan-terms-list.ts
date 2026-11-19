@@ -7,6 +7,8 @@
  *
  * Decision: which debts the household still has to tell, so that every debt has a balance, a rate and a payment.
  */
+import { debtCost, type SeriesPayment } from "./debt-cost.ts";
+import type { Debt } from "./debt-part.ts";
 import { loanTermsDismissible, loanTermsGaps, type LoanTermsMissing } from "./loan-terms-answer.ts";
 import { intervalOf, typedPayment } from "./loan-plan.ts";
 import { loanRateLine, loanSchedule, ratePathOf } from "./loan-schedule.ts";
@@ -62,6 +64,13 @@ export function openLoanGaps(loan: Loan, owedCents: number, dismissed: boolean):
   return dismissed ? gaps.filter((gap) => !loanTermsDismissible(gap)) : gaps;
 }
 
+/**
+ * The fee of each payment, asked of a debt whose plan is at 0 % and whose fee no document, no typed answer and no row
+ * tells (`debtCost` is unknown by `fee`): `["fee"]`, else none. Until it is told the debt has no class and no cost.
+ * `rows` are the payments of the debt's linked series (`debtPayments`).
+ */
+export const loanFeeGaps = (debt: Debt, day: IsoDate, rows: readonly SeriesPayment[]): LoanTermsMissing[] => (debtCost(debt, day, rows)?.unknown === "fee" ? ["fee"] : []);
+
 /** The line a row of the list closes into once its loan is saved: what the loan owes, its rate on the day and its plan's end. */
 export interface LoanTermsResult {
   /** The balance saved. */
@@ -71,6 +80,8 @@ export interface LoanTermsResult {
   /** The plan's last due date and the interest left to pay; null for a card or credit line and where the plan does not resolve. */
   endDate: IsoDate | null;
   interestLeftCents: number | null;
+  /** The fee each payment carries as typed, 0 for none; null while none is typed. */
+  feeCents: number | null;
 }
 
 /** A saved loan's result line on `day`, its rate counted from the published fixings as `loansOf` counts it. */
@@ -78,5 +89,5 @@ export function loanTermsResult(loan: Loan, fixings: Fixings, day: IsoDate): Loa
   const rates = ratePathOf(loan, fixings);
   const counted = rates === null ? loan : { ...loan, ratePath: rates.path, rateFlatFrom: rates.flatFrom };
   const summary = isRevolving(loan.kind) ? null : loanSchedule(counted, day).summary;
-  return { owedCents: loan.balanceCents, rateMilli: loanRateLine(counted, day)?.rateMilli ?? null, endDate: summary?.endDate ?? null, interestLeftCents: summary?.interestLeftCents ?? null };
+  return { owedCents: loan.balanceCents, rateMilli: loanRateLine(counted, day)?.rateMilli ?? null, endDate: summary?.endDate ?? null, interestLeftCents: summary?.interestLeftCents ?? null, feeCents: loan.paymentFeeCents ?? null };
 }

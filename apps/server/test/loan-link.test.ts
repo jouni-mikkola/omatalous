@@ -212,8 +212,8 @@ describe("migration 0016 on a 0.8.7 database", () => {
     const { db } = await openDatabase(file);
     try {
       expect(await db.first("SELECT compat FROM _migrations WHERE name = '0016_loan_account.sql'")).toEqual({ compat: "0.8.0" });
-      // 0019 follows, and adds the review day of the rate, 0034 the step in it, which no loan of 0.8.7 has
-      expect(await db.all("SELECT * FROM loans ORDER BY id")).toEqual(before.map((row) => ({ ...row, account_id: null, rate_review_date: null, rate_step_date: null, rate_step_bp: null })));
+      // 0019 follows, and adds the review day of the rate, 0034 the step in it, 0035 the fee of a payment, which no loan of 0.8.7 has
+      expect(await db.all("SELECT * FROM loans ORDER BY id")).toEqual(before.map((row) => ({ ...row, account_id: null, rate_review_date: null, rate_step_date: null, rate_step_bp: null, payment_fee_cents: null })));
 
       const aino = new FinanceRepo(db, "u-aino");
       const loans = await aino.listLoans();

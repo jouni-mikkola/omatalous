@@ -34,7 +34,7 @@ const nullable = (check: (v: unknown) => unknown) => {
 };
 
 const camel = (k: string) => k.replace(/_([a-z])/g, (_m, c: string) => c.toUpperCase());
-const LOAN_COLUMNS = ["name", "lender", "kind", "granted_cents", "balance_cents", "balance_date", "rate_bp", "reference", "margin_bp", "repayment", "interval_months", "payment_cents", "end_date", "limit_cents", "series_key", "account_id", "rate_review_date", "rate_step_date", "rate_step_bp"];
+const LOAN_COLUMNS = ["name", "lender", "kind", "granted_cents", "balance_cents", "balance_date", "rate_bp", "reference", "margin_bp", "repayment", "interval_months", "payment_cents", "end_date", "limit_cents", "series_key", "account_id", "rate_review_date", "rate_step_date", "rate_step_bp", "payment_fee_cents"];
 
 interface Planned {
   plan: ImportPlan;

@@ -285,7 +285,7 @@ describe("0018 adds the table of who uses an account", () => {
     expect(before.accounts!.rows.find((r) => r.id === "a-5")).toMatchObject({ identity: "idn-5", holder: "MEIKALAINEN MATTI, KORHONEN ELISA" });
     const { db, applied } = await openDatabase(file);
     // 0019 to 0022 follow on the way to today's schema
-    expect(applied).toEqual(["0018_account_use.sql", "0019_loan_rate_review.sql", "0020_account_split.sql", "0021_household_stores.sql", "0022_settlement_closed.sql", "0023_account_bank_type.sql", "0024_service_tokens.sql", "0025_spending_goal.sql", "0026_category_goal.sql", "0027_password_argon2id.sql", "0028_user_language.sql", "0029_passkeys.sql", "0030_view_opens.sql", "0031_drop_unused_schema.sql", "0032_reference_rates.sql", "0033_loan_payment_parts.sql", "0034_loan_rate_step.sql"]);
+    expect(applied).toEqual(["0018_account_use.sql", "0019_loan_rate_review.sql", "0020_account_split.sql", "0021_household_stores.sql", "0022_settlement_closed.sql", "0023_account_bank_type.sql", "0024_service_tokens.sql", "0025_spending_goal.sql", "0026_category_goal.sql", "0027_password_argon2id.sql", "0028_user_language.sql", "0029_passkeys.sql", "0030_view_opens.sql", "0031_drop_unused_schema.sql", "0032_reference_rates.sql", "0033_loan_payment_parts.sql", "0034_loan_rate_step.sql", "0035_loan_payment_fee.sql"]);
     expect(await db.all("SELECT * FROM account_use")).toEqual([]);
     db.close();
     const after = dump(file);
@@ -342,12 +342,12 @@ describe("0019 adds the review day of a loan's rate", () => {
     expect(before.loans!.rows).toHaveLength(5);
     expect(before.loans!.columns).not.toContain("rate_review_date");
     const first = await openDatabase(file);
-    expect(first.applied).toEqual(["0019_loan_rate_review.sql", "0020_account_split.sql", "0021_household_stores.sql", "0022_settlement_closed.sql", "0023_account_bank_type.sql", "0024_service_tokens.sql", "0025_spending_goal.sql", "0026_category_goal.sql", "0027_password_argon2id.sql", "0028_user_language.sql", "0029_passkeys.sql", "0030_view_opens.sql", "0031_drop_unused_schema.sql", "0032_reference_rates.sql", "0033_loan_payment_parts.sql", "0034_loan_rate_step.sql"]);
+    expect(first.applied).toEqual(["0019_loan_rate_review.sql", "0020_account_split.sql", "0021_household_stores.sql", "0022_settlement_closed.sql", "0023_account_bank_type.sql", "0024_service_tokens.sql", "0025_spending_goal.sql", "0026_category_goal.sql", "0027_password_argon2id.sql", "0028_user_language.sql", "0029_passkeys.sql", "0030_view_opens.sql", "0031_drop_unused_schema.sql", "0032_reference_rates.sql", "0033_loan_payment_parts.sql", "0034_loan_rate_step.sql", "0035_loan_payment_fee.sql"]);
     first.db.close();
     const after = dump(file);
     expect(Object.keys(after)).toEqual([...Object.keys(before), "account_split", "owner_answer", "tx_part", "tx_part_state", ...TABLES_0021, ...TABLES_0022, ...TABLES_0024, ...TABLES_0025, ...TABLES_0026, ...TABLES_0032, ...TABLES_0033].sort());
-    // 0034 adds the two columns of a step in the typed rate, which no loan of 0.11.0 has
-    expect(after.loans!.columns).toEqual([...before.loans!.columns, "rate_review_date", "rate_step_date", "rate_step_bp"]);
+    // 0034 adds the two columns of a step in the typed rate and 0035 the fee of a payment, which no loan of 0.11.0 has
+    expect(after.loans!.columns).toEqual([...before.loans!.columns, "rate_review_date", "rate_step_date", "rate_step_bp", "payment_fee_cents"]);
     expect(after.loans!.rows.map((r) => r.rate_review_date)).toEqual([null, null, null, null, null]);
     expectAdditive(before, after, "0019_loan_rate_review.sql");
 
@@ -395,7 +395,7 @@ describe("0020 adds who paid a joint account", () => {
     const file = fromFixture("0.12.0.sql");
     const before = dump(file);
     const { applied, db } = await openDatabase(file);
-    expect(applied).toEqual(["0020_account_split.sql", "0021_household_stores.sql", "0022_settlement_closed.sql", "0023_account_bank_type.sql", "0024_service_tokens.sql", "0025_spending_goal.sql", "0026_category_goal.sql", "0027_password_argon2id.sql", "0028_user_language.sql", "0029_passkeys.sql", "0030_view_opens.sql", "0031_drop_unused_schema.sql", "0032_reference_rates.sql", "0033_loan_payment_parts.sql", "0034_loan_rate_step.sql"]);
+    expect(applied).toEqual(["0020_account_split.sql", "0021_household_stores.sql", "0022_settlement_closed.sql", "0023_account_bank_type.sql", "0024_service_tokens.sql", "0025_spending_goal.sql", "0026_category_goal.sql", "0027_password_argon2id.sql", "0028_user_language.sql", "0029_passkeys.sql", "0030_view_opens.sql", "0031_drop_unused_schema.sql", "0032_reference_rates.sql", "0033_loan_payment_parts.sql", "0034_loan_rate_step.sql", "0035_loan_payment_fee.sql"]);
     for (const table of ["account_split", "owner_answer", "tx_part", "tx_part_state"]) expect(await db.all(`SELECT * FROM ${table}`), table).toEqual([]);
     db.close();
     const after = dump(file);
@@ -410,6 +410,7 @@ describe("0020 adds who paid a joint account", () => {
       await expect(openDatabase(file, dir, undefined, { appVersion })).rejects.toThrow(/upgraded by a newer app version \(0020_account_split\.sql\)/);
     }
     // the build before 0020 knows no later file either
+    rmSync(join(dir, "0035_loan_payment_fee.sql"));
     rmSync(join(dir, "0034_loan_rate_step.sql"));
     rmSync(join(dir, "0033_loan_payment_parts.sql"));
     rmSync(join(dir, "0032_reference_rates.sql"));

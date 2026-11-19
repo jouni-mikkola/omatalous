@@ -3,7 +3,7 @@
  * never weighed as 0, and a saved loan that is complete leaves it. Made-up debts and sums.
  */
 import { describe, expect, it } from "vitest";
-import { loanTermsList, loanTermsListCents, loanTermsResult, openLoanGaps, savedLoanYearCents, type ListedDebt } from "../src/loan-terms-list.ts";
+import { loanFeeGaps, loanTermsList, loanTermsListCents, loanTermsResult, openLoanGaps, savedLoanYearCents, type ListedDebt } from "../src/loan-terms-list.ts";
 import type { Loan } from "../src/types.ts";
 
 const loan = (over: Partial<Loan> = {}): Loan => ({
@@ -54,7 +54,24 @@ describe("a saved loan in the list", () => {
     expect(result.endDate).not.toBeNull();
     expect(result.interestLeftCents).toBeGreaterThan(0);
     const card = loanTermsResult(loan({ kind: "card", balanceCents: 50_000, limitCents: 200_000, rateBp: null }), {}, "2026-10-01");
-    expect(card).toEqual({ owedCents: 50_000, rateMilli: null, endDate: null, interestLeftCents: null });
+    expect(card).toEqual({ owedCents: 50_000, rateMilli: null, endDate: null, interestLeftCents: null, feeCents: null });
+  });
+  it("asks the fee of a plan at 0 % that nothing tells it of, and no other debt", () => {
+    const free = loan({ kind: "instalment", balanceCents: 60_000, balanceDate: "2026-01-15", rateBp: 0, repayment: "fixed_instalment", intervalMonths: 1, paymentCents: 5_000 });
+    expect(loanFeeGaps(free, "2026-02-01", [])).toEqual(["fee"]);
+    // a fee of nothing and a typed fee are answers; the rows tell it too
+    expect(loanFeeGaps({ ...free, paymentFeeCents: 0 }, "2026-02-01", [])).toEqual([]);
+    expect(loanFeeGaps({ ...free, paymentFeeCents: 395 }, "2026-02-01", [])).toEqual([]);
+    expect(loanFeeGaps(free, "2026-02-01", ["2025-10-15", "2025-11-15", "2025-12-15"].map((date) => ({ date, cents: 5_395 })))).toEqual([]);
+    // a plan with interest costs its interest, and a plan that lacks a fact is asked that first
+    expect(loanFeeGaps({ ...free, rateBp: 400 }, "2026-02-01", [])).toEqual([]);
+    expect(loanFeeGaps({ ...free, paymentCents: null }, "2026-02-01", [])).toEqual([]);
+  });
+  it("closes into the fee typed, 0 € included, and none when none is typed", () => {
+    const plan = loan({ kind: "instalment", balanceCents: 60_000, balanceDate: "2026-01-15", rateBp: 0, repayment: "fixed_instalment", intervalMonths: 1, paymentCents: 5_000 });
+    expect(loanTermsResult(plan, {}, "2026-02-01").feeCents).toBeNull();
+    expect(loanTermsResult({ ...plan, paymentFeeCents: 0 }, {}, "2026-02-01").feeCents).toBe(0);
+    expect(loanTermsResult({ ...plan, paymentFeeCents: 395 }, {}, "2026-02-01").feeCents).toBe(395);
   });
   it("keeps asking the rate and the payment of a loan set aside, and nothing else", () => {
     expect(openLoanGaps(loan(), 15_000_000, true)).toEqual(["payment", "rate"]);

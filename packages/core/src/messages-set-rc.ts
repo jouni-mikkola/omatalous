@@ -45,5 +45,6 @@ export const FI_SET_RC = {
   "set.rc.lt_rate": "korko {rate}",
   "set.rc.lt_ends": "viimeinen erä {date}",
   "set.rc.lt_interest": "korkoa jäljellä {amount}",
-  "set.rc.lt_set_aside": "Ei muistuteta enää",
+  "set.rc.lt_fee": "kulu erää kohden {amount}",
+  "set.rc.lt_set_aside": "Ei muistutuksia",
 } as const;

@@ -281,7 +281,7 @@ export function loanSchedule(loan: Loan, from: IsoDate, change?: ScheduleChange)
   const plan = schedulePlan(loan);
   if (typeof plan === "string") return none(plan);
   const ahead = change === undefined ? [...payments(loan, plan)].filter((p) => p.date > from) : paymentsAfter(loan, plan, from, change, { keepPayment: false, lower: false });
-  const fee = [...(loan.paymentParts ?? [])].sort((a, b) => b.dueDate.localeCompare(a.dueDate))[0]?.feeCents ?? 0;
+  const fee = [...(loan.paymentParts ?? [])].sort((a, b) => b.dueDate.localeCompare(a.dueDate))[0]?.feeCents ?? loan.paymentFeeCents ?? 0;
   // an interval counts at the rate of its start: the first row's starts on the last due date on or before `from`
   let start = startAt(loan, plan, from).last;
   const rows = ahead.map((p): ScheduleRow => {

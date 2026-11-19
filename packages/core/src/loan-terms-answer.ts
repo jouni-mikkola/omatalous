@@ -15,8 +15,12 @@ import { payments } from "./loan-schedule.ts";
 import { hasReferenceRate } from "./loans.ts";
 import { type IsoDate, isRevolving, type Loan, type Transaction, type UserMark } from "./types.ts";
 
-/** The facts of a plan a loan can lack, named as the loan form names its fields. `margin` and `review_date` are asked of a loan on a reference rate. */
-export type LoanTermsMissing = "repayment" | "interval" | "payment" | "rate" | "end_date" | "margin" | "review_date";
+/**
+ * The facts of a plan a loan can lack, named as the loan form names its fields. `margin` and `review_date` are asked of a
+ * loan on a reference rate. `fee` is the fee of each payment of a plan at 0 % that no document, row or answer tells: it
+ * is told by the cost of the debt (`debtCost`), not by the loan alone, so `loanTermsGaps` never names it.
+ */
+export type LoanTermsMissing = "repayment" | "interval" | "payment" | "rate" | "end_date" | "margin" | "review_date" | "fee";
 
 /**
  * The one fact a loan still owing lacks before its payments can be placed, null when none is lacking. A card or a credit
@@ -48,8 +52,8 @@ export function loanTermsGaps(loan: Loan): LoanTermsMissing[] {
   return gaps;
 }
 
-/** Whether the household may set the question aside. A loan's rate and payment decide every figure of it, so those two keep asking. */
-export const loanTermsDismissible = (missing: LoanTermsMissing): boolean => missing !== "rate" && missing !== "payment";
+/** Whether the household may set the question aside. A loan's rate and payment decide every figure of it, and its fee the class, so those keep asking. */
+export const loanTermsDismissible = (missing: LoanTermsMissing): boolean => missing !== "rate" && missing !== "payment" && missing !== "fee";
 
 const LOAN_TERMS = "question:loan-terms:";
 const SUBJECT = /^question:loan-terms:((?:account:)?[^:,\p{Cc}]{1,64})$/u;

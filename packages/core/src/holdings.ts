@@ -211,7 +211,7 @@ const accountMask = (iban: string | null | undefined): string | null => {
 export const cardLimitCents = (cents: number | null | undefined): number | null => (cents != null && cents > 0 ? cents : null);
 
 /** The payments of a debt's linked series as the bank booked them, the whole sum that left the account: the rows that measure a fee a plan does not state and price a debt with no rate. */
-function paymentsOf(ctx: AnalysisContext, debt: Debt, keys: readonly string[]): SeriesPayment[] {
+export function debtPayments(ctx: AnalysisContext, debt: Debt, keys: readonly string[]): SeriesPayment[] {
   const key = debt.seriesKey;
   if (key === null) return [];
   return ctx.txs.filter((t) => splittable(t) && paysSeries(key, { accountId: t.accountId, merchant: t.merchant, amountCents: billCents(t) }, keys)).map((t) => ({ date: t.bookingDate, cents: -billCents(t) }));
@@ -237,7 +237,7 @@ export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceIn
   const day: IsoDate = ctx.today;
   const debts = debtsOf(ctx, balances, inputs);
   const keys = loansOf(inputs).flatMap((loan) => loan.seriesKey ?? []);
-  const costOf = (debt: Debt): DebtCost | null => debtCost(debt, day, paymentsOf(ctx, debt, keys));
+  const costOf = (debt: Debt): DebtCost | null => debtCost(debt, day, debtPayments(ctx, debt, keys));
 
   const numberOf = new Map(ctx.accounts.map((a) => [a.id, a.iban]));
   const accounts = balances.flatMap((b): Holdings["accounts"] =>

@@ -150,7 +150,7 @@ const IMPORT_STORES: readonly ImportStore[] = [
     cols: {
       id, user_id: id, name: text(200), lender: maybe(text(200, 0)), kind: word, granted_cents: maybe(whole(0, 1e13)), balance_cents: whole(0, 1e13), balance_date: day,
       rate_bp: maybe(whole(0, 1e6)), reference: maybe(word), margin_bp: maybe(whole(0, 1e6)), repayment: maybe(word), interval_months: maybe(whole(0, 1200)), payment_cents: maybe(whole(0, 1e13)),
-      end_date: maybe(day), limit_cents: maybe(whole(0, 1e13)), series_key: maybe(text(200)), created_at: at, updated_at: at, account_id: maybe(id), rate_review_date: maybe(day), rate_step_date: maybe(day), rate_step_bp: maybe(whole(0, 1e6)),
+      end_date: maybe(day), limit_cents: maybe(whole(0, 1e13)), series_key: maybe(text(200)), created_at: at, updated_at: at, account_id: maybe(id), rate_review_date: maybe(day), rate_step_date: maybe(day), rate_step_bp: maybe(whole(0, 1e6)), payment_fee_cents: maybe(whole(0, 1e13)),
     },
     max: 500,
     pk: ["user_id", "id"],

@@ -69,8 +69,8 @@ describe("every fact a loan lacks", () => {
 });
 
 describe("the facts that may be set aside", () => {
-  it("are all but the rate and the payment", () => {
-    expect(((["repayment", "interval", "payment", "rate", "end_date", "margin", "review_date"]) as const).filter(loanTermsDismissible)).toEqual(["repayment", "interval", "end_date", "margin", "review_date"]);
+  it("are all but the rate, the payment and the fee, which decide what the debt costs", () => {
+    expect((((["repayment", "interval", "payment", "rate", "end_date", "margin", "review_date", "fee"]) as const)).filter(loanTermsDismissible)).toEqual(["repayment", "interval", "end_date", "margin", "review_date"]);
   });
 });
 
