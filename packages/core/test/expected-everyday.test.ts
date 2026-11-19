@@ -99,4 +99,18 @@ describe("the everyday spending where a card's purchases are only a bill", () =>
     expect(e.cents).toBeGreaterThan(7 * 4000);
     expect(expectedEverydayPerDay(ctx, "2026-10")).toBeGreaterThan(4000);
   });
+
+  it("spreads a bill only in a month where the card it names has no rows: the card's rows are its purchases there", () => {
+    // the card was connected on 12.6., the checking account paid its bills before: the one of 9.7. pays purchases that are its rows from 12.6. on
+    const named: Account = { ...card, bank: "Esimerkkipankki" };
+    const rows = [...shopping(), ...shopping(2000, "card").filter((t) => t.bookingDate >= "2026-06-12")];
+    for (const m of ["2026-03", "2026-04", "2026-05", "2026-06", "2026-07"]) rows.push(tx({ accountId: "acc-1", bookingDate: `${m}-09`, amountCents: -billOf(m), merchant: "Esimerkkipankki", counterparty: "Esimerkkipankki", category: "card_bill" }));
+    const ctx = createContext(rows, [checking, named], TODAY);
+    const figure = expectedFor(ctx, "2026-10")!;
+    expect(figure.months).toContain("2026-07");
+    const e = expectedEveryday(ctx, "2026-10-10", "2026-10-16", (t) => t.category === "card_bill");
+    if (typeof e === "string") throw new Error(e);
+    const spread = figure.months.map((m) => (m < "2026-06" ? (7 * billOf(m)) / daysInMonth(m) : 0));
+    expect(Math.abs(e.cents - spread.reduce((n, v) => n + v, 0) / spread.length)).toBeLessThanOrEqual(1);
+  });
 });

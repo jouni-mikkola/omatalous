@@ -13,6 +13,11 @@
  * is told (`laterCents`) and taken off nothing. Besides those, what the counted accounts pay themselves (debit, cash,
  * a card they pay as it goes) is taken off.
  *
+ * A card that is not connected and shows only as its bills (category card_bill, spread over the days of the base months by
+ * `expectedEveryday`) is a card whose next bill is known: a bill of its series that falls before the payday is a payment
+ * of the window and holds the purchases up to its day, and the purchases after the last one wait for a bill after the
+ * payday. So the spread is never taken off here (`own` leaves the card bills out) and lands in `laterCents`.
+ *
  * The payday is the pay the window waits for (`cashAhead`). Without one the answer says why and does not guess.
  */
 import { addDays, daysBetween, monthOf } from "../dates.ts";
@@ -72,7 +77,7 @@ export function runwayOf(ctx: AnalysisContext, { ahead, direct, settling }: Pick
   const days = daysBetween(from, payday.date);
   const until = addDays(payday.date, -1);
   const all = expectedEveryday(ctx, from, until);
-  const own = expectedEveryday(ctx, from, until, (t) => direct.has(t.accountId));
+  const own = expectedEveryday(ctx, from, until, (t) => direct.has(t.accountId) && t.category !== "card_bill");
   if (typeof all === "string") return { known: false, reason: all };
   if (typeof own === "string") return { known: false, reason: own };
   // the purchases of a card that its coming bill holds: after today (what the card owes today holds the day's booked ones) to the day of the bill, when the window holds it

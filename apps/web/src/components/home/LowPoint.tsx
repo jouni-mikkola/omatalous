@@ -1,6 +1,6 @@
 // Decision: do the accounts dip below what the household can live with before the money after the next payday arrives
 import { answerMoney, dayMonth, language } from "../../format.ts";
-import { SETTINGS_ANCHOR, settingsHash } from "../../routes.ts";
+import { SETTINGS_ANCHOR, settingsCardHash, settingsHash } from "../../routes.ts";
 import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 
@@ -23,7 +23,7 @@ const FETCH_REASONS: readonly string[] = ["no-balance", "no-card-balance"];
 /** Where a reason is mended: a fetch of the balances, the statement of a card, or the bill that has no sum. Other reasons have no page. */
 function linkOf(reason: Extract<Low, { known: false }>["reason"]): string | undefined {
   if (FETCH_REASONS.includes(reason)) return settingsHash("banks");
-  if (reason === "cards") return settingsHash("banks", SETTINGS_ANCHOR.statement);
+  if (reason === "cards") return settingsCardHash(SETTINGS_ANCHOR.statement);
   if (reason === "bills") return "#/bills";
   return undefined;
 }

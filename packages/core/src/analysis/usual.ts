@@ -19,7 +19,7 @@ import type { DayRange } from "./period.ts";
 /** The accounts with a row in each month (`2026-09`), found once per context. */
 const rowAccounts = new WeakMap<AnalysisContext, Map<string, Set<string>>>();
 
-function accountsWithRows(ctx: AnalysisContext, month: string): ReadonlySet<string> {
+export function accountsWithRows(ctx: AnalysisContext, month: string): ReadonlySet<string> {
   let byMonth = rowAccounts.get(ctx);
   if (!byMonth) {
     rowAccounts.set(ctx, (byMonth = new Map()));

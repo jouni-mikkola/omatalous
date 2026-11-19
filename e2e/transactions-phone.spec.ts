@@ -347,7 +347,7 @@ test("1280 px: the bar is one line, the sums stand on one line and the histogram
   const strip = page.getByRole("region", { name: "Rajattujen tapahtumien summat" });
   await expect(strip.locator("dt").first()).toBeVisible();
   const cells = await strip.locator(".tx-totals-kv > div").evaluateAll((els) => els.map((el) => el.getBoundingClientRect()));
-  // Menot, Tulot and Erotus, what the rows move to or from savings and the Tulos it leaves: the demo data moves money to savings
+  // Menot, Tulot and Erotus, what the rows move to or from savings and the Käteen jäi it leaves: the demo data moves money to savings
   expect(cells.length).toBe(5);
   await expect(strip.locator("dt").nth(3)).toHaveText(/^(Säästöön siirretty|Otettu säästöistä)$/);
   await expect(strip.locator("dt").nth(4)).toHaveText("Käteen jäi");

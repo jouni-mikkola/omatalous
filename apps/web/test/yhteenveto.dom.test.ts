@@ -1,4 +1,4 @@
-/** Yhteenveto's month (Tulot, Menot, Tulos and the use of the income) and the sum left to the payday. */
+/** Yhteenveto's month (Tulot, Menot, Käteen jäi and the use of the income) and the sum left to the payday. */
 import { render } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -70,7 +70,7 @@ const figuresIn = (container: HTMLElement) =>
   }));
 
 describe("Yhteenveto's month", () => {
-  it("names the month once and tells Tulot, Menot and Tulos in that order, each with its comparison", () => {
+  it("names the month once and tells Tulot, Menot and Käteen jäi in that order, each with its comparison", () => {
     const pace = { month: "2026-11", day: 11, daysInMonth: 30, spentCents: 123400, expectedCents: 100000, diffCents: 23400, lowCents: 90000, highCents: 110000, position: "above", end: null, months: 6 };
     const container = summaryIn(data({ home: { paceGap: null, pace } } as never));
     expect(container.querySelector("h2")?.textContent).toBe("Marraskuu 2026");
@@ -87,8 +87,8 @@ describe("Yhteenveto's month", () => {
     expect(income(150000, 0)).toMatchObject({ figure: "1 500 €", lines: ["Viime kuussa samaan päivään 3 800 €", "Ansiotulot 0 €"] });
   });
 
-  // Tulot less Menot was 570 € above Tulos in a month with 200 € taken out of savings, and the page never showed the 200 €
-  it("Tulos names the terms between Menot and Tulos: money moved to or taken out of savings, credit drawn or paid back", () => {
+  // Tulot less Menot was 570 € above Käteen jäi in a month with 200 € taken out of savings, and the page never showed the 200 €
+  it("Käteen jäi names the terms between Menot and Käteen jäi: money moved to or taken out of savings, credit drawn or paid back", () => {
     const terms = (totals: { incomeCents: number; expenseCents: number; borrowedCents?: number; leftCents?: number }) => {
       const overview = { income: { cents: totals.incomeCents, earnedCents: totals.incomeCents }, months: [{ month: "2026-11", incomeCents: totals.incomeCents, spendCents: totals.expenseCents, fromSavingsCents: 0, complete: false }] };
       return [...summaryIn(data({ totals, overview } as never)).querySelectorAll("[data-fig=result] .home-fig-term")].map((el) => flat(el.textContent));
@@ -100,7 +100,7 @@ describe("Yhteenveto's month", () => {
     expect(terms(totalsOf(412000, 150000, 20000, 0))).toEqual([]);
   });
 
-  it("the terms are rounded with Tulot, Menot and Tulos, so the euros shown add up to the Tulos shown", () => {
+  it("the terms are rounded with Tulot, Menot and Käteen jäi, so the euros shown add up to the Käteen jäi shown", () => {
     // 4 120,40 less 1 700,40 less 300,40 moved to savings plus 150,60 drawn on credit is 2 270,20: shown 4 120, 1 700, 2 270
     const totals = { ...totalsOf(412040, 150020, 20020, 30040), borrowedCents: 15060, leftCents: 227020 };
     const overview = { income: { cents: 412040, earnedCents: 412040 }, months: [{ month: "2026-11", incomeCents: 412040, spendCents: 170040, fromSavingsCents: 0, complete: false }] };
@@ -115,7 +115,7 @@ describe("Yhteenveto's month", () => {
   });
 
   it("shows no term the rounding would turn to the other direction or to nothing", () => {
-    // 0,60 moved to savings, but the whole euros of Tulot, Menot and Tulos leave 0 between them
+    // 0,60 moved to savings, but the whole euros of Tulot, Menot and Käteen jäi leave 0 between them
     const totals = totalsOf(100049, 50051, 0, 60);
     const overview = { income: { cents: 100049, earnedCents: 100049 }, months: [{ month: "2026-11", incomeCents: 100049, spendCents: 50051, fromSavingsCents: 0, complete: false }] };
     const summary = summaryIn(data({ totals, overview } as never));
@@ -124,15 +124,15 @@ describe("Yhteenveto's month", () => {
     expect(summary.querySelector(".home-flow-list [data-part=saved]")).toBeNull();
   });
 
-  it("the figures hold no link or button: no list holds a month's Tulos", () => {
+  it("the figures hold no link or button: no list holds a month's Käteen jäi", () => {
     const container = summaryIn(data());
     expect(container.querySelectorAll(".home-figs a, .home-figs button").length).toBe(0);
   });
 
-  // the chart's words said it of a shorter month before; the figure said "to the same day" of the whole month. Tulot and Tulos
+  // the chart's words said it of a shorter month before; the figure said "to the same day" of the whole month. Tulot and Käteen jäi
   // said "to the same day" on 30.4., which reads all of March, while Menot said "all of last month"
   describe("the words of the month before", () => {
-    /** The month `today` is in, running, with the month before read the way the server reads it (Tulot, Tulos, Menot all from the data's own window). */
+    /** The month `today` is in, running, with the month before read the way the server reads it (Tulot, Käteen jäi, Menot all from the data's own window). */
     function onDay(today: string) {
       const [year, month] = today.slice(0, 7).split("-").map(Number) as [number, number];
       const last = new Date(Date.UTC(year, month, 0)).getUTCDate();
@@ -196,21 +196,21 @@ describe("Yhteenveto's month", () => {
   });
 
   // 1.0.0 showed the sum left as a plain figure when the bills took more than the balance
-  it("a negative Tulos is the problem colour", () => {
+  it("a negative Käteen jäi is the problem colour", () => {
     const container = summaryIn(data({ totals: totalsOf(100000, 150000, 20000, 0) } as never));
     expect(container.querySelector("[data-fig=result]")?.classList.contains("home-short")).toBe(true);
     expect(flat(container.querySelector("[data-fig=result] .fig")?.textContent)).toBe("−700 €");
     expect(container.querySelector("[data-fig=income]")?.classList.contains("home-short")).toBe(false);
   });
 
-  it("draws Tulot, Menot and Tulos on one scale, the longest sum the bars and their comparisons hold", () => {
+  it("draws Tulot, Menot and Käteen jäi on one scale, the longest sum the bars and their comparisons hold", () => {
     const container = summaryIn(data());
     expect(figuresIn(container).map((f) => size(fillOf(container, f.id!)))).toEqual(["100%", "36.4%", "51.5%"]);
-    // the same day of last month: Tulot 3 800 €, Tulos 1 900 €, on the scale of 4 120 €; Menot has none to draw
+    // the same day of last month: Tulot 3 800 €, Käteen jäi 1 900 €, on the scale of 4 120 €; Menot has none to draw
     expect(figuresIn(container).map((f) => markOf(container, f.id!)?.style.getPropertyValue("inset-inline-start") ?? null)).toEqual(["92.2%", null, "46.1%"]);
   });
 
-  it("the same sum kept and short are not the same bar: a negative Tulos fills from the far end in the problem tone", () => {
+  it("the same sum kept and short are not the same bar: a negative Käteen jäi fills from the far end in the problem tone", () => {
     const kept = summaryIn(data({ totals: totalsOf(190000, 100000, 20000, 0), comparable: false } as never));
     const short = summaryIn(data({ totals: totalsOf(100000, 150000, 20000, 0), comparable: false } as never));
     // +700 € and −700 € are the same length; the end they fill from and the tone tell them apart
@@ -222,7 +222,7 @@ describe("Yhteenveto's month", () => {
     expect(fillOf(short, "result").closest(".home-gauge")?.getAttribute("data-tone")).toBe("debt");
   });
 
-  it("draws the comparison of a negative Tulos from the same end, and leaves it out when last month was on the other side of zero", () => {
+  it("draws the comparison of a negative Käteen jäi from the same end, and leaves it out when last month was on the other side of zero", () => {
     const short = { overview: { income: { cents: 100000, earnedCents: 100000 }, months: [{ month: "2026-11", incomeCents: 100000, spendCents: 170000, fromSavingsCents: 0, complete: false }] }, totals: totalsOf(100000, 150000, 20000, 0) };
     // last month short by 500 €: both on the scale of Menot's 1 700 €
     const both = summaryIn(data({ ...short, previousTotals: totalsOf(100000, 130000, 20000, 0) } as never));
@@ -238,7 +238,7 @@ describe("Yhteenveto's month", () => {
   });
 
   it("tells where the income went as the bridge of Raportit does: each part with its sum", () => {
-    // the month's bar holds the same Menot as the totals (1 500 + 200), as it does in a real answer: the terms under Tulos and this list share one rounding
+    // the month's bar holds the same Menot as the totals (1 500 + 200), as it does in a real answer: the terms under Käteen jäi and this list share one rounding
     const overview = { income: { cents: 412000, earnedCents: 398000 }, months: [{ month: "2026-11", incomeCents: 412000, spendCents: 170000, fromSavingsCents: 0, complete: false }] };
     const container = summaryIn(data({ overview } as never));
     const parts = [...container.querySelectorAll(".home-flow-list > li")].map((li) => ({
@@ -295,7 +295,7 @@ describe("Yhteenveto's month", () => {
 
   // 1 928 € stayed of 3 428 € income and 200 € taken out of savings: the list names the 200 €, and the shares are of the 3 628 € together
   it("names what was taken out of savings and stayed, and the shares of the parts add up to 100", () => {
-    // Tulot 3 428, Menot 1 700 (the consumption and the debt), Tulos 1 928: the 200 € between them is the savings drawn
+    // Tulot 3 428, Menot 1 700 (the consumption and the debt), Käteen jäi 1 928: the 200 € between them is the savings drawn
     const overview = { income: { cents: 342800, earnedCents: 342800 }, months: [{ month: "2026-11", incomeCents: 342800, spendCents: 170000, fromSavingsCents: 0, complete: false }] };
     const container = summaryIn(data({ totals: totalsOf(342800, 150000, 20000, -20000), overview } as never));
     expect(rowsOf(container)).toEqual([["savings-left", "Otettu säästöistä", "200 €"], ["consumption", "Kulutus", "1 500 €"], ["debt", "Maksettu velanhoito", "200 €"], ["left", "Käteen jäi", "1 928 €"]]);
@@ -304,8 +304,8 @@ describe("Yhteenveto's month", () => {
   });
 
   // a part of the list is never a negative sum: money taken out of savings or paid back to credit stands as the part that names it, positive, and the saved and drawn parts of the other direction are no row
-  it("a negative saved term shows as money taken out of savings: the same euros under Tulos and in the list, and no negative row", () => {
-    // 200,40 taken out of savings: Tulot 3 428, Menot 1 700, Tulos 1 928 in whole euros, so 200 € stands between them
+  it("a negative saved term shows as money taken out of savings: the same euros under Käteen jäi and in the list, and no negative row", () => {
+    // 200,40 taken out of savings: Tulot 3 428, Menot 1 700, Käteen jäi 1 928 in whole euros, so 200 € stands between them
     const overview = { income: { cents: 342800, earnedCents: 342800 }, months: [{ month: "2026-11", incomeCents: 342800, spendCents: 170000, fromSavingsCents: 0, complete: false }] };
     const container = summaryIn(data({ totals: totalsOf(342800, 150000, 20000, -20040), overview } as never));
     expect([...container.querySelectorAll("[data-fig=result] .home-fig-term")].map((el) => flat(el.textContent))).toEqual(["Otettu säästöistä 200 €"]);
@@ -314,7 +314,7 @@ describe("Yhteenveto's month", () => {
     expect(flat(container.querySelector(".home-flow-list")?.textContent)).not.toContain("−");
   });
 
-  it("a negative credit term shows as credit paid back: the same euros under Tulos and in the list, and no row of credit drawn", () => {
+  it("a negative credit term shows as credit paid back: the same euros under Käteen jäi and in the list, and no row of credit drawn", () => {
     const overview = { income: { cents: 100000, earnedCents: 100000 }, months: [{ month: "2026-11", incomeCents: 100000, spendCents: 50000, fromSavingsCents: 0, complete: false }] };
     const container = summaryIn(data({ totals: { ...totalsOf(100000, 50000, 0, 0), borrowedCents: -40000, leftCents: 10000 }, overview } as never));
     expect([...container.querySelectorAll("[data-fig=result] .home-fig-term")].map((el) => flat(el.textContent))).toEqual(["Luottoa maksettu takaisin 400 €"]);
