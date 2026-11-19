@@ -39,7 +39,11 @@ export async function readKept(root: string, a: Active): Promise<{ packed: Buffe
   return { packed: await readFile(join(dir, BUNDLE)), signature: await readFile(join(dir, SIG)) };
 }
 
-/** Keeps the verified tar and its signature, names it in active.json and deletes every other version and module. */
+/**
+ * Keeps the verified tar and its signature and names it in active.json. It deletes no other version: the running
+ * process serves its web files from the folder of the version it started with until the next start, and `prune` at
+ * that start removes the versions nothing uses then.
+ */
 export async function install(root: string, checked: CheckedBundle, packed: Buffer, signature: Buffer): Promise<Active> {
   const a: Active = { id: checked.manifest.id, version: checked.manifest.version };
   await mkdir(join(root, a.id), { recursive: true, mode: 0o700 });
@@ -54,12 +58,24 @@ export async function install(root: string, checked: CheckedBundle, packed: Buff
   const next = join(root, `.active-${process.pid}.json`);
   await writeFile(next, JSON.stringify(a), { mode: 0o600 });
   await rename(next, activeFile(root));
+  return a;
+}
+
+/** True when active.json is not there at all. A file that is there but unreadable is not missing: nothing is deleted beside it. */
+export function activeMissing(root: string): boolean {
+  return !existsSync(activeFile(root));
+}
+
+/**
+ * Deletes every module, version and leftover temporary file but the active one, or all of them when there is none;
+ * run at start, before anything serves them.
+ */
+export async function prune(root: string, a: Active | null): Promise<void> {
   for (const id of await readdir(root)) {
     if (id === "active.json") continue;
-    if (id !== a.id) await rm(join(root, id), { recursive: true, force: true });
+    if (!a || id !== a.id) await rm(join(root, id), { recursive: true, force: true });
     else for (const v of await readdir(join(root, id))) if (v !== a.version) await rm(join(root, id, v), { recursive: true, force: true });
   }
-  return a;
 }
 
 /** Writes the checked files into `files/`, replacing what was there. */
@@ -75,7 +91,10 @@ export async function extract(root: string, a: Active, files: Map<string, Buffer
   return dir;
 }
 
-/** Deletes the module folder. The module's tables in the database stay. */
-export async function removeAll(root: string): Promise<void> {
-  await rm(root, { recursive: true, force: true });
+/**
+ * Names no module as installed, so the next start loads none and `prune` then deletes the files. They stay until then:
+ * the running process serves the module's web files from them. The module's tables in the database stay.
+ */
+export async function removeActive(root: string): Promise<void> {
+  await rm(activeFile(root), { force: true });
 }

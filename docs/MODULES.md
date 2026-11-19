@@ -107,20 +107,25 @@ never in the code, the bundle, the environment or the database.
    below it is refused with the same exception. Removing the code keeps that floor, so a new code does not bring an
    old bundle back either.
 2. **Install**: the verified tar and its signature go to `<DATA_DIR>/modules/<id>/<version>/`, and
-   `<DATA_DIR>/modules/active.json` names `{ "id", "version" }`. Older versions of the same id are deleted. The app
+   `<DATA_DIR>/modules/active.json` names `{ "id", "version" }`. No other version is deleted then: the running
+   process keeps serving the web files of the version it started with. The app
    restarts through the maintenance helper when one is linked; otherwise the status says that the module starts at the
    next restart.
 3. **Start**: before the database opens, the host reads `active.json`, verifies the kept tar's signature again, checks
    the manifest's host range against the running version, extracts the tar afresh into
    `<DATA_DIR>/modules/<id>/<version>/files/`, imports `server.mjs` and calls its `register(host)`. Then the database
-   opens with the module's migrations beside the shared ones. Any failure leaves the module out: the app starts without
+   opens with the module's migrations beside the shared ones. When `active.json` names a module, every other version
+   and module in `<DATA_DIR>/modules/` is deleted at this start, when nothing serves it. When `active.json` is missing
+   (after a removal), everything in the folder is deleted. A file that is there but not one this code wrote means no
+   module, and nothing beside it is deleted. Any failure leaves the module out: the app starts without
    it and the status says why in one line. A migration of the module that fails (`openWithModule` in
    `modules/load.ts`) leaves it out too: the database opens again without the module's files, the security log gets a
    `module_refused` event and the next start tries the module again. A failing shared migration stops the start as before.
-4. **Remove** (`DELETE /api/modules/code`): deletes the sealed code and `<DATA_DIR>/modules/`. The module's tables and
-   its version floor stay.
+4. **Remove** (`DELETE /api/modules/code`): deletes the sealed code and `<DATA_DIR>/modules/active.json`. The module's
+   tables and its version floor stay.
    Its migrations are additive with a compat floor (`-- migrate: compat X.Y.Z`), so the app opens that database
-   without them. The running process keeps the module until the next restart.
+   without them. The running process keeps the module, and its web files in `<DATA_DIR>/modules/`, until the next
+   restart. That start loads no module and deletes the files.
 
 The status the admin sees (`GET /api/modules`, admin only):
 

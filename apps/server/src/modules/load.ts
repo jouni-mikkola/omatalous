@@ -10,7 +10,7 @@ import { MigrationError } from "../db/migrate.ts";
 import { EXTENSIONS } from "../extensions.ts";
 import { BundleRefused, checkBundle, NotForThisVersion } from "./bundle.ts";
 import { HOST_KEY, moduleHost } from "./host.ts";
-import { extract, readActive, readKept } from "./store.ts";
+import { activeMissing, extract, prune, readActive, readKept } from "./store.ts";
 
 export type StartState =
   | { state: "none" }
@@ -48,7 +48,13 @@ export async function openWithModule<T>(start: StartState, open: () => Promise<T
 
 export async function loadInstalledModule(opts: { root: string; signersFile: string | null; appVersion: string }): Promise<StartState> {
   const active = readActive(opts.root);
-  if (!active) return { state: "none" };
+  if (!active) {
+    // removed (no active.json): nothing serves the files now. A file that is there but unreadable keeps everything beside it
+    if (activeMissing(opts.root)) await prune(opts.root, null).catch(() => undefined);
+    return { state: "none" };
+  }
+  // the versions an install kept beside the one the last process ran; a leftover the start cannot delete harms nothing
+  await prune(opts.root, active).catch(() => undefined);
   const refused = (reason: string): StartState => ({ state: "refused", ...active, reason });
   const kept = await readKept(opts.root, active);
   if (!kept) return refused("the installed bundle is missing");

@@ -4,7 +4,7 @@
  * Every broken bundle is refused before any of it runs, and the code shows up nowhere.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -329,11 +329,80 @@ describe("the code in Asetukset, then a start", () => {
       expect(text).not.toContain(REPO);
     }
 
-    // removal deletes the files; the running process keeps the module until a restart, and its line says none
+    // removal names no module; the running process keeps the module until a restart, and its line says none
     const removed = await second.admin.call("DELETE", "/api/modules/code", { password: PASSWORD });
     expect(removed.body).toEqual({ state: "none" });
-    expect(existsSync(root)).toBe(false);
+    expect(readActive(root)).toBeNull();
     expect(await loadInstalledModule({ root, signersFile: signers, appVersion: APP_VERSION })).toEqual({ state: "none" });
+    expect(existsSync(root)).toBe(true);
+    expect(readdirSync(root)).toEqual([]);
+  });
+
+  it("keeps serving the web files after the code is removed, and the next start loads no module and deletes the files", async () => {
+    const root = join(work, "data-9", "modules");
+    const bundles: Record<string, { packed: Buffer; signature: Buffer }> = { "1.3.0": realBundle("remove-later", { version: "1.3.0" }) };
+    const first = await setupApp({}, releaseService(bundles), { modules: { root, signersFile: signers, start: { state: "none" } } });
+    await first.admin.call("PUT", "/api/modules/code", { code: CODE, password: PASSWORD });
+    const start = await loadInstalledModule({ root, signersFile: signers, appVersion: APP_VERSION });
+    expect(start).toMatchObject({ state: "connected", id: "example", version: "1.3.0" });
+    const running = await setupApp({}, releaseService(bundles), { modules: { root, signersFile: signers, start } });
+    expect((await running.admin.call("GET", "/modules/example/1.3.0/web.mjs")).status).toBe(200);
+
+    expect((await running.admin.call("DELETE", "/api/modules/code", { password: PASSWORD })).body).toEqual({ state: "none" });
+    expect(readActive(root)).toBeNull();
+    expect(existsSync(join(root, "active.json"))).toBe(false);
+    // the open pages still load the module's files
+    expect((await running.admin.call("GET", "/modules/example/1.3.0/web.mjs")).status).toBe(200);
+    expect((await running.admin.call("GET", "/modules/example/1.3.0/web.css")).status).toBe(200);
+
+    // the next start loads nothing and removes the files, which nothing serves any more
+    EXTENSIONS.splice(0);
+    const before = marks.__addonRan;
+    expect(await loadInstalledModule({ root, signersFile: signers, appVersion: APP_VERSION })).toEqual({ state: "none" });
+    expect(marks.__addonRan).toBe(before);
+    expect(EXTENSIONS).toHaveLength(0);
+    expect(readdirSync(root)).toEqual([]);
+    const restarted = await setupApp({}, releaseService(bundles), { modules: { root, signersFile: signers, start: { state: "none" } } });
+    expect((await restarted.admin.call("GET", "/modules/example/1.3.0/web.mjs")).status).toBe(404);
+  });
+
+  it("deletes nothing at start when active.json exists but is not one this code wrote, and nothing when there is no folder", async () => {
+    const root = join(work, "data-10", "modules");
+    expect(await loadInstalledModule({ root, signersFile: signers, appVersion: APP_VERSION })).toEqual({ state: "none" });
+    const app = await setupApp({}, releaseService({ "1.2.0": realBundle("corrupt") }), { modules: { root, signersFile: signers, start: { state: "none" } } });
+    await app.admin.call("PUT", "/api/modules/code", { code: CODE, password: PASSWORD });
+    writeFileSync(join(root, "active.json"), "{ not json");
+    expect(await loadInstalledModule({ root, signersFile: signers, appVersion: APP_VERSION })).toEqual({ state: "none" });
+    expect(existsSync(join(root, "example", "1.2.0", "bundle.tar.gz"))).toBe(true);
+    expect(readFileSync(join(root, "active.json"), "utf8")).toBe("{ not json");
+  });
+
+  it("keeps serving the started version's web files after an update is installed, and the next start removes it", async () => {
+    const root = join(work, "data-8", "modules");
+    const bundles: Record<string, { packed: Buffer; signature: Buffer }> = { "1.3.0": realBundle("keep-running", { version: "1.3.0" }) };
+    const first = await setupApp({}, releaseService(bundles), { modules: { root, signersFile: signers, start: { state: "none" } } });
+    await first.admin.call("PUT", "/api/modules/code", { code: CODE, password: PASSWORD });
+    const start = await loadInstalledModule({ root, signersFile: signers, appVersion: APP_VERSION });
+    expect(start).toMatchObject({ state: "connected", id: "example", version: "1.3.0" });
+    const running = await setupApp({}, releaseService(bundles), { modules: { root, signersFile: signers, start } });
+    expect((await running.admin.call("GET", "/modules/example/1.3.0/web.mjs")).status).toBe(200);
+
+    // a newer release is installed while 1.3.0 runs: the running process still serves 1.3.0
+    bundles["1.3.1"] = realBundle("keep-running-next", { version: "1.3.1" });
+    await running.admin.call("PUT", "/api/modules/code", { code: CODE, password: PASSWORD });
+    expect(readActive(root)).toEqual({ id: "example", version: "1.3.1" });
+    expect((await running.admin.call("GET", "/modules/example/1.3.0/web.mjs")).status).toBe(200);
+    expect((await running.admin.call("GET", "/modules/example/1.3.0/web.css")).status).toBe(200);
+
+    // the next start loads 1.3.1 and removes 1.3.0, which nothing serves any more
+    EXTENSIONS.splice(0);
+    const next = await loadInstalledModule({ root, signersFile: signers, appVersion: APP_VERSION });
+    expect(next).toMatchObject({ state: "connected", id: "example", version: "1.3.1" });
+    expect(existsSync(join(root, "example", "1.3.0"))).toBe(false);
+    expect(existsSync(join(root, "example", "1.3.1", "files", "web.mjs"))).toBe(true);
+    const restarted = await setupApp({}, releaseService(bundles), { modules: { root, signersFile: signers, start: next } });
+    expect((await restarted.admin.call("GET", "/modules/example/1.3.1/web.mjs")).status).toBe(200);
+    expect((await restarted.admin.call("GET", "/modules/example/1.3.0/web.mjs")).status).toBe(404);
   });
 
   it("refuses at start a kept bundle that was changed on disk, and runs nothing of it", async () => {
@@ -389,7 +458,7 @@ describe("the code in Asetukset, then a start", () => {
     await app.admin.call("PUT", "/api/modules/code", { code: CODE, password: PASSWORD });
     expect(readActive(root)).toEqual({ id: "example", version: "1.3.0" });
     expect((await app.admin.call("DELETE", "/api/modules/code", { password: PASSWORD })).body).toEqual({ state: "none" });
-    expect(existsSync(root)).toBe(false);
+    expect(readActive(root)).toBeNull();
 
     // the release list lost 1.3.0: the code entered again finds only the older one and takes nothing
     delete bundles["1.3.0"];
