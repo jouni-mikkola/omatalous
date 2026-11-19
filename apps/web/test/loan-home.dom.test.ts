@@ -35,8 +35,12 @@ describe("Lainat in Varat ja velat", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Muokkaa lainaa Autolaina" }, T));
     const dialog = await screen.findByRole("dialog", { hidden: true });
     expect(dialog.textContent).toContain("Muokkaa lainaa");
+    // Escape in the dialog is the dialog's: the loan's row stays open with its buttons
+    fireEvent.keyDown(within(dialog).getByLabelText("Nimi"), { key: "Escape" });
+    expect(screen.getByRole("button", { name: "Muokkaa lainaa Autolaina" })).not.toBeNull();
     fireEvent.click(within(dialog).getByRole("button", { name: "Peruuta", hidden: true }));
     await waitFor(() => expect(document.querySelector("dialog.loan-dialog")).toBeNull(), T);
+    expect(screen.getByRole("button", { name: "Muokkaa lainaa Autolaina" })).not.toBeNull();
   }, 60000);
 
   it("gives a viewer with no account Varat ja velat alone, where a loan is added, listed in Lainat and removed", async () => {

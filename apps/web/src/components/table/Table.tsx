@@ -172,9 +172,9 @@ export function Table<R>({
     </button>
   );
 
-  /** Escape closes the open detail and the focus goes back to the button of its row, where the reader was. */
+  /** Escape closes the open detail and the focus goes back to its row's button; a dialog the detail opens keeps its own Escape. */
   const closeOnEscape = (e: KeyboardEvent, key: string) => {
-    if (e.key !== "Escape" || open !== key) return;
+    if (e.key !== "Escape" || open !== key || (e.target as Element).closest("dialog") !== (wrap.current?.closest("dialog") ?? null)) return;
     e.stopPropagation();
     setOpen(null);
     const back = [...(wrap.current?.querySelectorAll<HTMLElement>("[data-drill]") ?? [])].find((b) => b.dataset.drill === key);
