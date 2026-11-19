@@ -7,6 +7,7 @@ import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 import { LowPoint } from "../src/components/home/LowPoint.tsx";
 import { Now } from "../src/components/home/Now.tsx";
+import { SETTINGS_ANCHOR, settingsCardHash } from "../src/routes.ts";
 import type { DashboardData } from "../src/types.ts";
 
 type Low = DashboardData["home"]["lowPoint"];
@@ -49,7 +50,7 @@ describe("LowPoint", () => {
   });
 
   it.each([
-    ["cards", "#/settings/banks#tiliote", "Lisää kortin tiliote"],
+    ["cards", "#/review?item=loan-terms", "Lisää kortin tiliote"],
     ["bills", "#/bills", "Laskun summa puuttuu"],
   ] as const)("links the reason %s to where it is mended, in three words at most", (reason, href, text) => {
     const { container } = render(createElement(LowPoint, { lowPoint: { known: false, reason, days: 60 } }));
@@ -57,6 +58,13 @@ describe("LowPoint", () => {
     expect(link.getAttribute("href")).toBe(href);
     expect(flat(link.textContent)).toBe(text);
     expect(text.split(" ").length).toBeLessThanOrEqual(3);
+  });
+
+  it("links the reason cards to the review while a card row is open there, and to the statement upload once none is", () => {
+    const hrefOf = (cardRowOpen: boolean) => render(createElement(LowPoint, { lowPoint: { known: false, reason: "cards", days: 60, cardRowOpen } })).container.querySelector(".home-low-status a")?.getAttribute("href");
+    expect(hrefOf(true)).toBe("#/review?item=loan-terms");
+    expect(hrefOf(false)).toBe(settingsCardHash(SETTINGS_ANCHOR.statement));
+    expect(hrefOf(false)).toMatch(/^#\/settings\/banks/);
   });
 
   it.each(["no-payday", "late", "history"] as const)("leaves the reason %s as plain text", (reason) => {

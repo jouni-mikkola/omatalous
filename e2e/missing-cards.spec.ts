@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 import { join } from "node:path";
 import { makeMember, overflow, removeMember, watch } from "./helpers.ts";
 
-// Asetukset > Pankit ja tilit lists a card whose purchases are not in the data, with its sum, its period and the way to
-// bring them in. The data is the administrator's demo household, imported under a fresh member with one card bill added
+// Tarkistettavat > Täydennä lainat lists a card whose purchases are not in the data, with its sum and the ways to bring
+// them in. The data is the administrator's demo household, imported under a fresh member with one card bill added
 // and no card connected.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const FETCH = { "X-Requested-With": "fetch" };
@@ -17,7 +17,7 @@ test.beforeAll(async ({ browser }) => {
   const admin = await browser.newContext({ storageState: STATE });
   const res = await admin.request.post("/api/data/export", { headers: FETCH });
   expect(res.ok()).toBe(true);
-  const parsed = JSON.parse(await res.text()) as { accounts: Record<string, unknown>[]; transactions: Record<string, unknown>[] };
+  const parsed = JSON.parse(await res.text()) as { accounts: Record<string, unknown>[]; transactions: Record<string, unknown>[]; loans?: unknown[]; loanPaymentParts?: unknown[] };
   const adminName = String(parsed.transactions[0]!.owner_username);
   const checking = new Set(parsed.accounts.filter((a) => a.type === "checking").map((a) => a.id));
   const own = parsed.transactions.filter((t) => checking.has(t.account_id) && t.status === "booked");
@@ -45,6 +45,9 @@ test.beforeAll(async ({ browser }) => {
   const cards = new Set(parsed.accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
   parsed.accounts = parsed.accounts.filter((a) => !cards.has(a.id));
   parsed.transactions = parsed.transactions.filter((t) => !cards.has(t.account_id));
+  // a card loan another test saved for the administrator with no link would stand for the largest card that is not connected
+  parsed.loans = [];
+  parsed.loanPaymentParts = [];
   const file = JSON.stringify(parsed).split(`"${adminName}"`).join(`"e2e-puuttuvat-kortit"`);
   await admin.close();
 
@@ -59,19 +62,22 @@ test.beforeAll(async ({ browser }) => {
 });
 test.afterAll(async ({ browser }) => removeMember(browser, member.id));
 
-test("390 px: the missing card is listed with its sum and one 44 px action, and the page does not scroll sideways", async ({ browser }) => {
+test("390 px: the missing card is a row of Täydennä lainat with its sum and four 44 px answers, and the page does not scroll sideways", async ({ browser }) => {
   const context = await browser.newContext({ storageState: member.state, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/settings/banks#puuttuvat-kortit");
-  const card = page.locator("#puuttuvat-kortit");
-  await expect(card.getByRole("heading", { level: 2, name: "Kortit, joiden ostot puuttuvat" })).toBeVisible();
-  const row = card.locator("tbody tr", { hasText: CARD_NAME });
-  await expect(row).toContainText("456,78");
+  await page.goto("/#/review?item=loan-terms");
+  const card = page.locator(".review-item");
+  await expect(card.getByRole("heading", { level: 2 })).toContainText("Täydennä lainat");
+  const row = card.locator("li.review-debt", { has: page.locator(".review-debt-name", { hasText: CARD_NAME }) });
+  await expect(row.locator(".review-debt-name")).toContainText("456,78");
   const connect = row.getByRole("link", { name: /^Yhdistä/ });
   await expect(connect).toBeVisible();
-  const box = (await connect.boundingBox())!;
-  expect(box.height, "the action is at least 44 px high").toBeGreaterThanOrEqual(44);
+  const answers = [connect, row.getByRole("button", { name: "Lisää kortin velka" }), row.getByRole("link", { name: "Lisää tiliote" }), row.getByRole("button", { name: "En tiedä" })];
+  for (const answer of answers) {
+    const box = (await answer.boundingBox())!;
+    expect(box.height, "the action is at least 44 px high").toBeGreaterThanOrEqual(44);
+  }
   expect(await overflow(page)).toBeLessThanOrEqual(0);
   // the action goes to the bank list
   await connect.click();

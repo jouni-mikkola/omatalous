@@ -8,7 +8,6 @@ import { BankApp } from "./BankApp.tsx";
 import { Accounts } from "./Accounts.tsx";
 import { BankConnections, connectedMessage, connectError } from "./BankConnections.tsx";
 import { CardStack } from "./CardStack.tsx";
-import { MissingCards } from "./MissingCards.tsx";
 import type { SettingsPageProps } from "./SettingsPage.ts";
 import { StatementFile } from "./StatementFile.tsx";
 import { SyncRuns } from "./SyncRuns.tsx";
@@ -23,7 +22,7 @@ export function BanksPage({ meta, params, anchor, onChange }: SettingsPageProps)
     return error ? { tone: "warning", text: connectError(error) } : null;
   });
   const admin = meta.user.role === "admin";
-  const { shown, partLoaded } = useCardsShown({ expected: admin ? 3 : 2 });
+  const { shown, partLoaded } = useCardsShown({ expected: admin ? 2 : 1 });
   useCardScroll(anchor, `${params.toString()}#${anchor}`, shown);
 
   return (
@@ -48,7 +47,6 @@ export function BanksPage({ meta, params, anchor, onChange }: SettingsPageProps)
         {/* one place for the card, so saving the application does not mount it again */}
         <BankApp meta={meta} onChange={onChange} onLoaded={partLoaded} />
         <Accounts meta={meta} onChange={onChange} />
-        <MissingCards meta={meta} onLoaded={partLoaded} />
         <StatementFile meta={meta} onChange={onChange} />
         <SyncRuns meta={meta} onLoaded={partLoaded} />
       </CardStack>

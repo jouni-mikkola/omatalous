@@ -7,8 +7,9 @@
 import { type Loan, loanUnknownSubject, notLoanMark } from "@banking/core";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { queryClient } from "../src/query-client.ts";
+import { CONNECT_BANK_HASH, SETTINGS_ANCHOR, settingsCardHash } from "../src/routes.ts";
 import { Review } from "../src/pages/Review.tsx";
 import type { ReviewItem } from "../src/pages/review-items.ts";
 import type { LoanTermsDebt } from "../src/pages/review-loan-items.ts";
@@ -229,13 +230,15 @@ describe("a card in the list that is not connected", () => {
   const debt = debtOf({ id: "card_bill:out:chk:Esimerkkikortti", source: "card_bill", name: "Esimerkkikortti", key: "out:chk:Esimerkkikortti", kind: "card", monthlyCents: 46_000, latestCents: 46_000, lastDate: "2026-09-12" });
   const saved = (id: string, name: string): Loan => savedLoan({ id, name, kind: "card", balanceCents: 120_000, repayment: null, intervalMonths: null, paymentCents: null, limitCents: 300_000 });
 
-  it("offers to connect the card or to enter what it owes, and the second opens the loan form asking the balance", async () => {
+  it("offers to connect the card, add what it owes or its statement, or En tiedä, and adding the debt opens the loan form asking the balance", async () => {
     queryClient.clear();
     const seen = stubApi({ "GET /api/loans": { loans: [], fixings: {} } });
     show([listOf([debt])]);
     expect((await screen.findByRole("link", { name: "Yhdistä kortti" }, T)).getAttribute("href")).toContain("settings/banks");
+    expect(screen.getByRole("link", { name: "Lisää tiliote" }).getAttribute("href")).toBe(settingsCardHash(SETTINGS_ANCHOR.statement));
+    expect(within(openRow(0)).getByRole("button", { name: "En tiedä" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Kortti on jo kirjattu" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Kirjaa kortin velka" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lisää kortin velka" }));
     await screen.findByLabelText(/^Jäljellä/, {}, T);
     // nothing is saved until the form is
     expect(seen.map((s) => `${s.method} ${s.path}`)).toEqual(["GET /api/loans"]);
@@ -266,6 +269,47 @@ describe("a card in the list that is not connected", () => {
     fireEvent.click(screen.getByRole("button", { name: "Toinen kortti" }));
     await waitFor(() => expect(reloads).toBe(1), T);
     expect(seen.find((s) => s.method === "PUT")!.body).toMatchObject({ name: "Toinen kortti", seriesKey: debt.key });
+  });
+
+  it("sets the card aside with En tiedä at its monthly bill", async () => {
+    queryClient.clear();
+    const seen = stubApi({ "GET /api/loans": { loans: [], fixings: {} }, "PUT /api/marks": {} });
+    show([listOf([debt])]);
+    fireEvent.click(await within(openRow(0)).findByRole("button", { name: "En tiedä" }, T));
+    await waitFor(() => expect(seen.some((s) => s.path === "/api/marks")).toBe(true), T);
+    expect(seen.find((s) => s.path === "/api/marks")!.body).toEqual({ subject: loanUnknownSubject(46_000, debt.key!), mark: "in_use" });
+  });
+});
+
+describe("a card whose purchases are missing in the list", () => {
+  const loose = debtOf({ id: "card_gap:out:chk:Toinenkortti", source: "card_gap", name: "Toinenkortti", key: "out:chk:Toinenkortti", kind: "card", lastDate: "2026-08-12", missing: { cents: 30_000, since: null } });
+  const connected = debtOf({ id: "card_gap:out:kortti:kortti", source: "card_gap", name: "Kolmaspankki Gold", key: "out:kortti:kortti", accountId: "kortti", kind: "card", missing: { cents: null, since: "2026-06-01" } });
+  const answers = (row: HTMLElement) => [...row.querySelectorAll(".review-choices > a, .review-choices > button")].map((a) => plain(a.textContent).trim());
+
+  it("offers the four answers of a card that is not connected, headed by the sum of its bills and no due day", async () => {
+    queryClient.clear();
+    stubApi({ "GET /api/loans": { loans: [], fixings: {} } });
+    show([listOf([loose])]);
+    expect((await screen.findByRole("link", { name: "Yhdistä kortti" }, T)).getAttribute("href")).toBe(CONNECT_BANK_HASH);
+    expect(answers(openRow(0))).toEqual(["Yhdistä kortti", "Lisää kortin velka", "Lisää tiliote", "En tiedä"]);
+    expect(plain(openRow(0).querySelector(".review-debt-name")!.textContent)).toMatch(/^Toinenkortti · laskut 12 kuukaudelta 300,00 €$/);
+  });
+
+  it("offers a connected card only its statement and En tiedä, and says no sum it does not know", async () => {
+    // the day of metaOf, so the date of this year is written without its year
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-09T12:00:00") });
+    onTestFinished(() => void vi.useRealTimers());
+    queryClient.clear();
+    const seen = stubApi({ "GET /api/loans": { loans: [], fixings: {} }, "PUT /api/marks": {} });
+    show([listOf([connected])]);
+    await screen.findByRole("link", { name: "Lisää tiliote" }, T);
+    expect(answers(openRow(0))).toEqual(["Lisää tiliote", "En tiedä"]);
+    const heading = plain(openRow(0).querySelector(".review-debt-name")!.textContent);
+    expect(heading).toBe("Kolmaspankki Gold · ostot 1.6. alkaen");
+    expect(heading).not.toMatch(/0,00|laskut|eräpäivä/);
+    fireEvent.click(within(openRow(0)).getByRole("button", { name: "En tiedä" }));
+    await waitFor(() => expect(seen.some((s) => s.path === "/api/marks")).toBe(true), T);
+    expect(seen.find((s) => s.path === "/api/marks")!.body).toEqual({ subject: loanUnknownSubject(null, connected.key!), mark: "in_use" });
   });
 });
 

@@ -4,10 +4,14 @@
  * dismissed it. Made-up issuer and sums.
  */
 import { describe, expect, it } from "vitest";
+import { billIssuer, issuerCards, missingCards } from "../src/analysis/card-bills.ts";
 import { createContext } from "../src/analysis/context.ts";
+import { completeYear } from "../src/analysis/data-quality.ts";
+import { cardRowsMissingIn, paidCardBills } from "../src/analysis/usual.ts";
 import { buildHoldings, unsavedDebts } from "../src/holdings.ts";
 import { loanProposals, notLoanMark } from "../src/loan-detect.ts";
-import { unconnectedCards, unlinkedCardLoans } from "../src/unconnected-cards.ts";
+import { parseSeriesId } from "../src/series-id.ts";
+import { cardGaps, unconnectedCards, unlinkedCardLoans } from "../src/unconnected-cards.ts";
 import { type Account, type IsoDate, type Loan, NO_INPUTS, type Transaction, type UserInputs } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
@@ -84,11 +88,104 @@ describe("cards whose bills are paid and which are not connected", () => {
     expect(loanProposals(ctx, NO_INPUTS)).toEqual([]);
   });
 
+  it("is no card whose purchases are missing beside it: its question is the one of unconnectedCards", () => {
+    expect(cardGaps(ctx, NO_INPUTS)).toEqual([]);
+  });
+
   it("is listed beside the debts as a card with its monthly bill, and counted in the loans left out of the total", () => {
     const { total, rows } = unsavedDebts(ctx, NO_INPUTS);
     expect(rows).toEqual([{ name: "Esimerkkipankki Kortti", monthlyCents: card!.monthlyCents, card: true }]);
     expect(total).toMatchObject({ count: 1, names: ["Esimerkkipankki Kortti"] });
     expect(buildHoldings(ctx, [], NO_INPUTS).unsavedLoans).toMatchObject({ count: 1, rows });
     expect(buildHoldings(ctx, [], { ...NO_INPUTS, loans: [savedCard(card!.key)] }).unsavedLoans).toBeUndefined();
+  });
+});
+
+describe("cards whose purchases are missing and which are not paid each month (cardGaps)", () => {
+  const cardAccount = (id: string, name: string): Account => ({ id, name, iban: null, currency: "EUR", type: "credit_card" });
+  const bill = (merchant: string, day: string, cents: number): Transaction => tx({ accountId: "own", bookingDate: day as IsoDate, amountCents: -cents, merchant, category: "card_bill" });
+  const purchases = (accountId: string, from: string): Transaction[] => [0, 10, 20].map((d) => tx({ accountId, bookingDate: `${from}-${String(1 + d).padStart(2, "0")}` as IsoDate, amountCents: -2_000, merchant: "Esimerkkikauppa" }));
+  // a connected card paid before its rows begin, a connected card whose rows begin inside the twelve months with no bill,
+  // one bill of a card that is not connected, and a card paid each month that unconnectedCards asks about
+  const later = cardAccount("later", "Kolmaspankki Gold");
+  const late = cardAccount("late", "Neljaspankki Gold");
+  const rows = [
+    ...bills("Esimerkkipankki Kortti"),
+    bill("Toinenpankki Kortti", "2026-08-12", 30_000),
+    bill("Kolmaspankki Kortti", "2026-07-12", 20_000),
+    bill("Kolmaspankki Kortti", "2026-08-12", 20_000),
+    ...purchases("later", "2026-09"),
+    ...purchases("late", "2026-05"),
+  ];
+  const ctx = createContext(rows, [own, later, late], TODAY);
+  const gaps = cardGaps(ctx, NO_INPUTS);
+  const loose = gaps.find((g) => g.cardId === null)!;
+
+  it("lists the connected cards and the card with one bill, the largest bills first, a card with no bill last", () => {
+    expect(gaps.map((g) => [g.payee, g.cardId, g.cents, g.lastDate, g.since])).toEqual([
+      ["Kolmaspankki Gold", "later", 40_000, "2026-08-12", "2026-09-01"],
+      ["Toinenpankki Kortti", null, 30_000, "2026-08-12", null],
+      ["Neljaspankki Gold", "late", null, null, "2026-05-01"],
+    ]);
+    // a card that is not connected is saved as a loan by the key of its bill; a connected card's key names its account
+    expect(parseSeriesId(loose.key)).toMatchObject({ direction: "out", accountId: "own" });
+    expect(parseSeriesId(gaps[0]!.key)).toMatchObject({ direction: "out", accountId: "later" });
+    expect(unconnectedCards(ctx, NO_INPUTS).map((c) => c.payee)).toEqual(["Esimerkkipankki Kortti"]);
+  });
+
+  it("gives every card of the figure of missing card purchases one row with unconnectedCards, and nothing else but a connected card whose rows begin late", () => {
+    const missing = missingCards(ctx, completeYear(TODAY)).bills;
+    const cardOf = issuerCards(ctx);
+    const issuerOfGap = (g: (typeof gaps)[number]) => (g.cardId ? missing.find((m) => cardOf(m.issuer)?.id === g.cardId)?.issuer : billIssuer({ merchant: g.payee }));
+    const listed = [...unconnectedCards(ctx, NO_INPUTS).map((c) => billIssuer({ merchant: c.payee })), ...gaps.filter((g) => g.cents !== null).map(issuerOfGap)];
+    expect(listed.toSorted()).toEqual(missing.map((m) => m.issuer).toSorted());
+    expect(gaps.filter((g) => g.cents === null).map((g) => g.cardId)).toEqual(["late"]);
+  });
+
+  it("leaves out a bill a saved loan or Ei ole velan maksu names, and a connected card linked to a loan of another kind", () => {
+    const keys = (inputs: UserInputs) => cardGaps(ctx, inputs).map((g) => g.cardId ?? g.payee);
+    expect(keys({ ...NO_INPUTS, loans: [savedCard(loose.key)] })).toEqual(["later", "late"]);
+    expect(keys({ ...NO_INPUTS, marks: [{ ...notLoanMark(loose), markedAt: "2026-10-18T10:00:00Z" }] })).toEqual(["later", "late"]);
+    const linked = (kind: Loan["kind"]): UserInputs => ({ ...NO_INPUTS, loans: [{ ...savedCard(""), seriesKey: null, kind, accountId: "later" }] });
+    expect(keys(linked("consumer"))).toEqual(["Toinenpankki Kortti", "late"]);
+    expect(keys(linked("card"))).toEqual(["later", "Toinenpankki Kortti", "late"]);
+  });
+
+  it("lets a card loan saved with no link take the largest card that is not connected, after the cards paid each month", () => {
+    const two = createContext([bill("Toinenpankki Kortti", "2026-08-12", 30_000), bill("Viidespankki Kortti", "2026-06-12", 50_000)], [own], TODAY);
+    const unlinked: UserInputs = { ...NO_INPUTS, loans: [{ ...savedCard(""), seriesKey: null }] };
+    expect(cardGaps(two, NO_INPUTS).map((g) => g.payee)).toEqual(["Viidespankki Kortti", "Toinenpankki Kortti"]);
+    expect(cardGaps(two, unlinked).map((g) => g.payee)).toEqual(["Toinenpankki Kortti"]);
+    // the card paid each month takes the loan first
+    expect(cardGaps(ctx, unlinked).map((g) => g.cardId ?? g.payee)).toEqual(["later", "Toinenpankki Kortti", "late"]);
+  });
+
+  it("counts a bill that names a connected card with no rows yet as that card's", () => {
+    const fresh = cardAccount("fresh", "Toinenpankki Gold");
+    const named = createContext([bill("Toinenpankki Kortti", "2026-08-12", 30_000)], [own, fresh], TODAY);
+    expect(cardGaps(named, NO_INPUTS).map((g) => [g.cardId, g.cents])).toEqual([["fresh", 30_000]]);
+  });
+
+  it("has a row of Täydennä lainat wherever a month of the twelve lacks a card's purchases, the reason the first page links there", () => {
+    const months = Array.from({ length: 12 }, (_, i) => `${i < 3 ? 2025 : 2026}-${String(((i + 9) % 12) + 1).padStart(2, "0")}`);
+    const fixtures = [
+      ctx,
+      createContext(bills("Esimerkkipankki Kortti"), [own], TODAY),
+      createContext([bill("Toinenpankki Kortti", "2026-08-12", 30_000)], [own], TODAY),
+      createContext([bill("Kolmaspankki Kortti", "2026-08-12", 20_000), ...purchases("later", "2026-09")], [own, later], TODAY),
+      createContext(purchases("late", "2026-05"), [own, late], TODAY),
+    ];
+    for (const fixture of fixtures) {
+      expect(months.some((m) => paidCardBills(fixture, m) || cardRowsMissingIn(fixture, m))).toBe(true);
+      expect(unconnectedCards(fixture, NO_INPUTS).length + cardGaps(fixture, NO_INPUTS).length).toBeGreaterThan(0);
+    }
+    expect(months[0]).toBe(completeYear(TODAY).from.slice(0, 7));
+    expect(months[11]).toBe(completeYear(TODAY).to.slice(0, 7));
+  });
+
+  it("reads only card bills: a lender's payment with no word of a card is no card's row", () => {
+    const lender = createContext([tx({ accountId: "own", bookingDate: "2026-08-12", amountCents: -30_000, merchant: "Esimerkkirahoitus", category: "loans" })], [own], TODAY);
+    expect(cardGaps(lender, NO_INPUTS)).toEqual([]);
+    expect(unconnectedCards(lender, NO_INPUTS)).toEqual([]);
   });
 });

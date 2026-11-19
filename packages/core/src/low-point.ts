@@ -34,6 +34,7 @@ import { type Runway, runwayOf } from "./analysis/runway.ts";
 import { addDays, monthOf } from "./dates.ts";
 import { billCalendar, unknownPaymentBy } from "./reports/bill-calendar.ts";
 import { AHEAD_DAYS, LOW_POINT_DAYS } from "./thresholds.ts";
+import { openCardRows } from "./unconnected-cards.ts";
 import type { BalanceInput, IsoDate, UserInputs } from "./types.ts";
 
 export type LowPoint =
@@ -43,6 +44,8 @@ export type LowPoint =
       reason: Extract<Runway, { known: false }>["reason"] | "bills";
       /** The days the figure looks at, to say what it is the lowest balance of. */
       days: number;
+      /** Only with the reason "cards": whether a card row of Täydennä lainat is open to answer. False once En tiedä has set each aside, and then the statement is the way to mend it. */
+      cardRowOpen?: boolean;
     }
   | {
       known: true;
@@ -70,7 +73,11 @@ const plus = (a: Spent, b: Spent): Spent => ({ cents: a.cents + b.cents, lowCent
 export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" | "direct" | "settling">, balances: readonly BalanceInput[], inputs: UserInputs, days: number = LOW_POINT_DAYS): LowPoint {
   const { ahead, direct, settling } = basis;
   const runway = runwayOf(ctx, basis);
-  if (!runway.known) return { known: false, reason: runway.reason, days };
+  if (!runway.known) {
+    if (runway.reason !== "cards") return { known: false, reason: runway.reason, days };
+    const { cards, gaps } = openCardRows(ctx, inputs);
+    return { known: false, reason: runway.reason, days, cardRowOpen: cards.length + gaps.length > 0 };
+  }
   if (!direct || !ahead.balance) return { known: false, reason: "no-balance", days };
   const calendar = billCalendar(ctx, inputs, balances);
   const { from } = ahead;

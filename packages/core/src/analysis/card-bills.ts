@@ -18,7 +18,7 @@ import { type DateRange, toDayRange } from "./period.ts";
 export const isCardBill = (t: Pick<AnalysisTx, "category" | "spend">): boolean => t.category === "card_bill" && t.spend > 0;
 
 /** Whose card a bill is for: the issuer's one name, or the merchant's own name where it is no issuer of the list. */
-const billIssuer = (t: Pick<AnalysisTx, "merchant">): string => cardIssuerName(fold(t.merchant)) ?? t.merchant;
+export const billIssuer = (t: Pick<AnalysisTx, "merchant">): string => cardIssuerName(fold(t.merchant)) ?? t.merchant;
 
 export interface MissingCardPurchases {
   issuer: string;
@@ -49,6 +49,34 @@ function issuerOfAccount(a: Account): { listed: string | null; words: Set<string
   return { listed: cardIssuerOfAccountText(fold(texts.join(" "))), words: new Set(texts.flatMap(distinctWords)) };
 }
 
+type CardWithRows = ReturnType<typeof issuerOfAccount> & { since: IsoDate; account: Account };
+
+/** The connected cards that have rows, each with what it says of its issuer and the day its rows begin. */
+function cardsWithRows(ctx: AnalysisContext): CardWithRows[] {
+  const began = new Map<string, IsoDate>();
+  for (const t of ctx.txs) if (t.bookingDate < (began.get(t.accountId) ?? "9999-99-99")) began.set(t.accountId, t.bookingDate);
+  return ctx.accounts.filter((a) => a.type === "credit_card" && began.has(a.id)).map((a) => ({ ...issuerOfAccount(a), since: began.get(a.id)!, account: a }));
+}
+
+/**
+ * The card of `cards` an issuer's bills are of: the one whose rows begin first among those that match the issuer by the
+ * list's name, or for an issuer outside the list by a whole word of its name that the card's bank or names also hold.
+ */
+function cardOfIssuer(cards: readonly CardWithRows[], issuer: string): CardWithRows | undefined {
+  const listed = cardIssuerName(fold(issuer)) !== null;
+  const words = distinctWords(issuer);
+  return cards.filter((c) => (listed ? c.listed === issuer : words.some((w) => c.words.has(w)))).sort((a, b) => a.since.localeCompare(b.since))[0];
+}
+
+/** The connected card with rows that the bills of an issuer (`billIssuer`) are of, as `missingCardPurchases` tells them; null for none. The cards are read once. */
+export function issuerCards(ctx: AnalysisContext): (issuer: string) => Account | null {
+  const cards = cardsWithRows(ctx);
+  return (issuer) => cardOfIssuer(cards, issuer)?.account ?? null;
+}
+
+/** The card bills of a range that count as spending (`isCardBill`), at what the rows of a card left of them: the rows `missingCardPurchases` adds up. */
+export const missingCardBills = (ctx: AnalysisContext, range: DateRange): AnalysisTx[] => loweredRows(ctx, inDays(ctx, toDayRange(range))).filter(isCardBill);
+
 /**
  * The card bills of a range that count as spending, by issuer: what they sum to, how many, the last, and why the
  * purchases behind them are in no category. A bill dated before the day a connected card's rows begin, or within a
@@ -59,19 +87,13 @@ function issuerOfAccount(a: Account): { listed: string | null; words: Set<string
  * `balances` give the cards' numbers for the label of a row.
  */
 export function missingCardPurchases(ctx: AnalysisContext, range: DateRange, balances: readonly Pick<BalanceInput, "id" | "cardMask">[] = []): MissingCardPurchases[] {
-  const began = new Map<string, IsoDate>();
-  for (const t of ctx.txs) if (t.bookingDate < (began.get(t.accountId) ?? "9999-99-99")) began.set(t.accountId, t.bookingDate);
-  const cards = ctx.accounts.filter((a) => a.type === "credit_card" && began.has(a.id)).map((a) => ({ ...issuerOfAccount(a), since: began.get(a.id)!, account: a }));
+  const cards = cardsWithRows(ctx);
   const sinceOf = new Map<string, { since: IsoDate; card: Account } | null>();
   const bills = new Map<string, MissingCardPurchases>();
-  for (const t of loweredRows(ctx, inDays(ctx, toDayRange(range)))) {
-    if (!isCardBill(t)) continue;
+  for (const t of missingCardBills(ctx, range)) {
     const issuer = billIssuer(t);
     if (!sinceOf.has(issuer)) {
-      const listed = cardIssuerName(fold(issuer)) !== null;
-      const words = distinctWords(issuer);
-      const own = cards.filter((c) => (listed ? c.listed === issuer : words.some((w) => c.words.has(w))));
-      const first = own.sort((a, b) => a.since.localeCompare(b.since))[0];
+      const first = cardOfIssuer(cards, issuer);
       sinceOf.set(issuer, first ? { since: first.since, card: first.account } : null);
     }
     const since = sinceOf.get(issuer)?.since ?? null;

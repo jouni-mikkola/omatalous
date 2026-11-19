@@ -37,6 +37,8 @@ const USES_SPEND_ROWS = [
   "reports/pivot.ts",
   "reports/spending-months.ts",
   "reports/tax-year.ts",
+  // the card bills of `missingCardBills`, from loweredRows
+  "unconnected-cards.ts",
 ];
 
 /** Reads `spend` of the bill whole on purpose: the series, the returns, a change plan, a bill's own cost, a single-merchant list. */

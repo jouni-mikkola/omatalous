@@ -4,11 +4,12 @@ import type { Base } from "./review-items.ts";
 /**
  * One debt of Täydennä lainat, as the server tells it (services/review-loan-terms.ts): a saved loan that lacks a fact
  * (`loan`), a connected card with no rate (`card`), a loan its rows propose (`proposal`), an instalment plan whose end
- * nobody has said (`plan`), or a card whose bills the household pays and has not connected (`card_bill`).
+ * nobody has said (`plan`), a card whose bills the household pays and has not connected (`card_bill`), or a card whose
+ * purchases are missing (`card_gap`).
  */
 export interface LoanTermsDebt {
   id: string;
-  source: "loan" | "card" | "proposal" | "plan" | "card_bill";
+  source: "loan" | "card" | "proposal" | "plan" | "card_bill" | "card_gap";
   name: string;
   /** The saved loan, null for none. */
   loanId: string | null;
@@ -37,6 +38,8 @@ export interface LoanTermsDebt {
   terms: InferredLoanTerms | null;
   /** The loans saved with no link that the debt may be: card loans for a card that is not connected, card, credit line and consumer credit loans for a credit of unknown kind. */
   savedCards: { id: string; name: string }[];
+  /** A card whose purchases are missing: the sum of its bills that pay them (null: none) and the day a connected card's rows begin (null: before the twelve months). */
+  missing?: { cents: number | null; since: string | null };
 }
 
 /**

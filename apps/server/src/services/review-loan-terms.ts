@@ -17,7 +17,11 @@
  *     of unknown kind (`kindUnknown`) is saved as the card, credit line or consumer credit the household picks, or told
  *     as one of those saved already with no link (`savedCards`);
  *   - a card the household pays the bills of and has not connected (core `unconnectedCards`), saved as a loan of kind
- *     card with the series key, or told as a card loan saved already (`savedCards`).
+ *     card with the series key, or told as a card loan saved already (`savedCards`);
+ *   - a card whose purchases the twelve complete months lack (core `cardGaps`, `card_gap`): its statement brings them in,
+ *     and one that is not connected is connected or saved as a card loan as above. A connected card's debt is its
+ *     account's, so its row asks for nothing else.
+ *   "En tiedä" sets a card aside until its monthly bill, or the sum of its missing bills, rises (`cardUnknownAsked`).
  *   The figures at the top are the queue's own: what the household owes as the debt pages count it (`debtsOf`), null
  *   while a loan's balance is dated after the day, and how many debts of the list have no balance.
  * - `loan_drift`, a payment of a saved loan's series that the loan's plan did not expect (core `loanDrift`): the loan's
@@ -50,10 +54,10 @@ import {
   type LoanTermsMissing,
   loanTermsSubject,
   loanUnknownAsked,
+  openCardRows,
   openLoanGaps,
   paymentOf,
   savedLoanYearCents,
-  unconnectedCards,
   unlinkedCardLoans,
   unlinkedCreditLoans,
 } from "@banking/core";
@@ -64,7 +68,7 @@ import { proposalsOf } from "./request-inputs.ts";
 import type { OwnView } from "./review-own.ts";
 
 /** Where a debt of the list comes from, which says how its row is saved. */
-type LoanTermsSource = "loan" | "card" | "proposal" | "plan" | "card_bill";
+type LoanTermsSource = "loan" | "card" | "proposal" | "plan" | "card_bill" | "card_gap";
 
 /** One debt of Täydennä lainat, with what is known of it to fill its row. */
 interface LoanTermsDebt {
@@ -104,6 +108,8 @@ interface LoanTermsDebt {
    * credit line and consumer credit loans for a credit of unknown kind.
    */
   savedCards: { id: string; name: string }[];
+  /** A card whose purchases are missing (`card_gap`): the sum of its bills that pay them (null: none) and the day a connected card's rows begin (null: before the twelve months). Absent otherwise. */
+  missing?: { cents: number | null; since: string | null };
 }
 
 export interface LoanTermsListItem {
@@ -253,13 +259,35 @@ function proposedDebts({ ctx, inputs, stamp }: OwnView): Listed[] {
   });
 }
 
-/** The cards the household pays the bills of and has not connected. */
+/** The cards the household pays the bills of and has not connected, and the cards whose purchases are missing. */
 function unconnectedDebts({ ctx, inputs }: OwnView): Listed[] {
   const savedCards = unlinkedCardLoans(inputs).map((loan) => ({ id: loan.id, name: loan.name }));
-  return unconnectedCards(ctx, inputs).map((c) =>
-    debt({ id: `card_bill:${c.key}`, seriesId: c.seriesId, yearCents: 12 * paymentOf(c).part, source: "card_bill", name: c.payee, key: c.key, kind: "card", placed: true, monthlyCents: paymentOf(c).part, latestCents: paymentOf(c).whole, lastDate: c.lastDate, savedCards }),
-  );
+  const open = openCardRows(ctx, inputs);
+  const cards = open.cards.map((c) => debt({ id: `card_bill:${c.key}`, seriesId: c.seriesId, yearCents: 12 * paymentOf(c).part, source: "card_bill", name: c.payee, key: c.key, kind: "card", placed: true, monthlyCents: paymentOf(c).part, latestCents: paymentOf(c).whole, lastDate: c.lastDate, savedCards }));
+  // the sum of a card's missing bills is no year of payments: it asks in the order the sources told it, after the debts with a known year
+  const gaps = open.gaps.map((g) => debt({ id: `card_gap:${g.key}`, seriesId: null, yearCents: null, source: "card_gap", name: g.payee, accountId: g.cardId, key: g.key, kind: "card", placed: true, lastDate: g.lastDate, savedCards: g.cardId ? [] : savedCards, missing: { cents: g.cents, since: g.since } }));
+  return [...cards, ...gaps];
 }
+
+/**
+ * A connected card that owes at an unknown rate and whose purchases are missing is one row under its name: the row of its
+ * rate takes what the statement's row would tell (`missing`), and the statement's row is left out. Once the rate is
+ * answered the row of the statement stands alone.
+ */
+function oneRowPerCard(saved: readonly Listed[], unconnected: readonly Listed[]): { saved: Listed[]; unconnected: Listed[] } {
+  const gapOf = (s: Listed): Listed | undefined => (s.source === "card" ? unconnected.find((d) => d.source === "card_gap" && d.accountId === s.accountId) : undefined);
+  const taken = new Set(saved.flatMap((s) => gapOf(s)?.id ?? []));
+  return {
+    saved: saved.map((s) => {
+      const gap = gapOf(s);
+      return gap?.missing ? { ...s, missing: gap.missing } : s;
+    }),
+    unconnected: unconnected.filter((d) => !taken.has(d.id)),
+  };
+}
+
+/** A connected card whose purchases are missing: what it owes is its account's balance, which no row of the list lacks. */
+const connectedGap = (d: LoanTermsDebt): boolean => d.source === "card_gap" && d.accountId !== null;
 
 /**
  * Täydennä lainat, or nothing when no debt lacks a fact. Only the member's own loans and accounts are read: an account
@@ -267,11 +295,12 @@ function unconnectedDebts({ ctx, inputs }: OwnView): Listed[] {
  * listed. The list weighs the year of payments it holds, so it is asked before the questions of smaller sums.
  */
 export const loanTermsListItems = async (_s: Services, _userId: string, view: OwnView): Promise<LoanTermsListItem[]> => {
-  const listed = loanTermsList([...savedDebts(view), ...proposedDebts(view), ...unconnectedDebts(view)]);
+  const rows = oneRowPerCard(savedDebts(view), unconnectedDebts(view));
+  const listed = loanTermsList([...rows.saved, ...proposedDebts(view), ...rows.unconnected]);
   if (!listed.length) return [];
   const all = debtsOf(view.ctx, view.balances, view.inputs);
   const debts = listed.map(({ seriesId: _series, yearCents: _year, ...row }): LoanTermsDebt => row);
-  return [{ kind: "loan_terms_list", id: "loan-terms", cents: loanTermsListCents(listed) ?? 0, debts, debtsCents: all.totalKnown ? all.total.cents : null, noBalance: debts.filter((d) => d.owedCents === null).length }];
+  return [{ kind: "loan_terms_list", id: "loan-terms", cents: loanTermsListCents(listed) ?? 0, debts, debtsCents: all.totalKnown ? all.total.cents : null, noBalance: debts.filter((d) => d.owedCents === null && !connectedGap(d)).length }];
 };
 
 /**

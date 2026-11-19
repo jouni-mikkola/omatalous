@@ -1,6 +1,6 @@
 // Decision: do the accounts dip below what the household can live with before the money after the next payday arrives
 import { answerMoney, dayMonth, language } from "../../format.ts";
-import { SETTINGS_ANCHOR, settingsCardHash, settingsHash } from "../../routes.ts";
+import { LOAN_TERMS_HASH, SETTINGS_ANCHOR, settingsCardHash, settingsHash } from "../../routes.ts";
 import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 
@@ -20,10 +20,13 @@ function reasonText(reason: Extract<Low, { known: false }>["reason"]): string {
 /** The reasons that a fetch of the balances mends: Asetukset > Pankit ja tilit tells when each account was last fetched. */
 const FETCH_REASONS: readonly string[] = ["no-balance", "no-card-balance"];
 
-/** Where a reason is mended: a fetch of the balances, the statement of a card, or the bill that has no sum. Other reasons have no page. */
-function linkOf(reason: Extract<Low, { known: false }>["reason"]): string | undefined {
+/**
+ * Where a reason is mended: a fetch of the balances, the cards' rows of Täydennä lainat while one is open (core says so),
+ * else the statement's upload, or the bill that has no sum. Other reasons have no page.
+ */
+function linkOf({ reason, cardRowOpen }: Extract<Low, { known: false }>): string | undefined {
   if (FETCH_REASONS.includes(reason)) return settingsHash("banks");
-  if (reason === "cards") return settingsCardHash(SETTINGS_ANCHOR.statement);
+  if (reason === "cards") return cardRowOpen === false ? settingsCardHash(SETTINGS_ANCHOR.statement) : LOAN_TERMS_HASH;
   if (reason === "bills") return "#/bills";
   return undefined;
 }
@@ -50,7 +53,7 @@ export function LowPoint({ lowPoint }: { lowPoint: DashboardData["home"]["lowPoi
         <span className="home-low-label">{t("home.low_label", { days: String(lowPoint.days) })}</span>
         {" "}
         <span className="home-low-status">
-          {linkOf(lowPoint.reason) ? <a href={linkOf(lowPoint.reason)}>{reasonText(lowPoint.reason)}</a> : reasonText(lowPoint.reason)}
+          {linkOf(lowPoint) ? <a href={linkOf(lowPoint)}>{reasonText(lowPoint.reason)}</a> : reasonText(lowPoint.reason)}
         </span>
       </p>
     );

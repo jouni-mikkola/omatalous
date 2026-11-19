@@ -4,10 +4,13 @@ import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { runwayOf } from "../src/analysis/runway.ts";
 import { addDays, dateIn, daysBetween, daysInMonth, fromMonthIndex, monthIndex, weekdayOf } from "../src/dates.ts";
+import { loanUnknownSubject } from "../src/loan-terms-answer.ts";
 import { lowPoint } from "../src/low-point.ts";
 import { LOW_POINT_DAYS } from "../src/thresholds.ts";
 import { type Account, type BalanceInput, type ExpectedBill, type IsoDate, type Loan, NO_INPUTS, type Transaction, type UserInputs } from "../src/types.ts";
+import { cardGaps } from "../src/unconnected-cards.ts";
 import { tx } from "./helpers.ts";
+import { LATE_CARD_TODAY, lateCardContext } from "./late-card-household.ts";
 
 // The lowest balance of the next days, worked by hand. One household on one checking account, today 26.10.2026: the pay
 // lands on the 15th (13.11. when the 15th is a Sunday), the rent of 900 € on the 1st, and with everyday spending a purchase
@@ -314,5 +317,29 @@ describe("lowPoint in the dashboard answer", () => {
   it("is not told for a range that does not include today", () => {
     const ctx = createContext(rows, [own], TODAY);
     expect(buildDashboard(ctx, { from: "2026-09-01", to: "2026-09-30" }, [bal(900_000)], NO_INPUTS).home.lowPoint).toBeNull();
+  });
+});
+
+describe("lowPoint when the reason is a card's missing purchases", () => {
+  // the card's rows begin in September and nothing is billed before: the base of the usual spending is too short
+  const ctx = lateCardContext("2026-09", LATE_CARD_TODAY, false);
+  const at = `${LATE_CARD_TODAY}T06:00:00Z`;
+  const balances: BalanceInput[] = [
+    { id: "chk", name: "Käyttötili", type: "checking", balanceCents: 500_000, ownerName: null, balanceAt: at },
+    { id: "card", name: "Esimerkki Gold", type: "credit_card", balanceCents: -20_000, ownerName: null, balanceAt: at },
+  ];
+  const lowOf = (inputs: UserInputs) => lowPoint(ctx, aheadBasis(ctx, balances, inputs), balances, inputs);
+
+  it("tells that a card row of Täydennä lainat is open, until En tiedä sets the card aside", () => {
+    expect(lowOf(NO_INPUTS)).toEqual({ known: false, reason: "cards", days: LOW_POINT_DAYS, cardRowOpen: true });
+    const [gap] = cardGaps(ctx, NO_INPUTS);
+    expect(gap).toMatchObject({ cardId: "card", cents: null });
+    const marked: UserInputs = { ...NO_INPUTS, marks: [{ subject: loanUnknownSubject(null, gap!.key), mark: "in_use", markedAt: "2026-10-09T10:00:00Z" }] };
+    expect(lowOf(marked)).toEqual({ known: false, reason: "cards", days: LOW_POINT_DAYS, cardRowOpen: false });
+  });
+
+  it("says nothing of card rows for the other reasons", () => {
+    const { point } = walk(rents(), [bal(50_000)]);
+    expect(point).toEqual({ known: false, reason: "no-payday", days: LOW_POINT_DAYS });
   });
 });
