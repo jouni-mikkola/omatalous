@@ -49,6 +49,7 @@ describe("Lainat in Varat ja velat", () => {
     const form = (await screen.findByRole("region", { name: "Uusi laina" }, T)) as HTMLElement;
     fireEvent.change(within(form).getByLabelText("Nimi"), { target: { value: "Autolaina" } });
     fireEvent.change(within(form).getByLabelText("Laji"), { target: { value: "car" } });
+    fireEvent.change(within(form).getByLabelText("Lainaa jäljellä (€)"), { target: { value: "12 000" } });
     fireEvent.click(within(form).getByRole("button", { name: "Tallenna" }));
     await said("Laina tallennettu.");
     await screen.findByRole("heading", { name: "Lainat", level: 2 }, T);
