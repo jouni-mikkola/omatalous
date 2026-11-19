@@ -16,7 +16,8 @@ describe("rule 35 detection: a path names a settings tab", () => {
     expect(wrongTabsIn("Muuta se kohdassa Asetukset > Palvelin ja ylläpito.")).toEqual([]);
     expect(wrongTabsIn("Muuta päivitystä kohdassa Asetukset > Palvelin ja ylläpito > Päivitys.")).toEqual([]);
     expect(wrongTabsIn("Lisää saldo kohdassa Asetukset > Pankit ja tilit, niin puskuri näkyy.")).toEqual([]);
-    expect(wrongTabsIn("kohdassa Asetukset > Talous > Lainat")).toEqual([]);
+    expect(wrongTabsIn("kohdassa Asetukset > Turvallisuus > Salasana")).toEqual([]);
+    expect(wrongTabsIn("kohdassa Asetukset > Talous > Lainat")).toEqual(["Asetukset > Talous"]);
     expect(wrongTabsIn("See Settings > Server and maintenance > Updates.")).toEqual([]);
     expect(wrongTabsIn("Asetukset ovat tallessa. Settings are saved.")).toEqual([]);
   });

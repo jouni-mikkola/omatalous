@@ -6,6 +6,7 @@ import { emptyForm, formOfLoan } from "../src/components/loans/form.ts";
 import { LoanEditor, LoanLinks } from "../src/components/loans/LoanEditor.tsx";
 import { section as loans } from "../src/pages/reports/sections/Loans.tsx";
 import type { ReportContext } from "../src/pages/reports/types.ts";
+import { loanEditHash } from "../src/routes.ts";
 import type { Account } from "../src/types.ts";
 
 const day = "2026-10-12";
@@ -62,7 +63,7 @@ describe("the Lainat report offers the link", () => {
 
   it("ends the sentence with a link to the loan's editor with the account chosen", () => {
     const out = html(report({ loans: [{ id: "home", name: "Kodin laina" }], accounts: [{ id: "card", name: "Esimerkkikortti" }] }), ["card"]);
-    expect(out).toContain("Jos kyse on samasta velasta, laskemme sen vain kerran, kun liität lainan tiliin. <a href=\"#/settings/household?linkLoan=home&linkAccount=card#lainat\">Liitä Kodin laina tiliin Esimerkkikortti</a></li>");
+    expect(out).toContain(`Jos kyse on samasta velasta, laskemme sen vain kerran, kun liität lainan tiliin. <a href="${loanEditHash("home", "card")}">Liitä Kodin laina tiliin Esimerkkikortti</a></li>`);
   });
 
   it("offers each loan beside each own account, and none for an account that is not the household's own", () => {
@@ -70,12 +71,13 @@ describe("the Lainat report offers the link", () => {
     expect(out).toContain("Liitä Laina A tiliin Kortti 1");
     expect(out).toContain("Liitä Laina B tiliin Kortti 1");
     expect(out).not.toContain("Puolison kortti</a>");
-    expect(out.match(/<a href="#\/settings\/household\?linkLoan/g)).toHaveLength(2);
+    expect(out.match(/<a href="#\/reports\?q=saldot&drill=[^"]*&linkLoan=/g)).toHaveLength(2);
+    expect(out).toContain(`<a href="${loanEditHash("a", "c1")}">`);
   });
 
   it("with no account of its own to link to, the sentence keeps the way of removing the saved loan", () => {
     const out = html(report({ loans: [{ id: "home", name: "Kodin laina" }], accounts: [{ id: "partner", name: "Puolison kortti" }] }), [], "household");
-    expect(out).toContain("Jos kyse on samasta velasta, poista tallennettu laina kohdassa Asetukset > Talous > Lainat, niin laskemme sen vain kerran.");
+    expect(out).toContain("Jos kyse on samasta velasta, poista tallennettu laina kohdassa Varat ja velat > Lainat, niin laskemme sen vain kerran.");
     expect(out).not.toContain("linkLoan");
   });
 });

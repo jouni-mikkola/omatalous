@@ -35,10 +35,10 @@ describe("Asetukset without an add-on module", () => {
 });
 
 describe("Asetukset with an add-on module that has a settings card", () => {
-  it("offers Lisäosa after the six to an admin and after the four to a member", () => {
+  it("offers Lisäosa after the five to an admin and after the three to a member", () => {
     WEB_EXTENSIONS.push(withCard);
-    expect(settingsTargets("admin").map((t) => t.label)).toEqual(["Pankit ja tilit", "Talous", "Jäsenet", "Turvallisuus", "Tiedot", "Palvelin ja ylläpito", "Lisäosa"]);
-    expect(settingsTargets("member").map((t) => t.label)).toEqual(["Pankit ja tilit", "Talous", "Turvallisuus", "Tiedot", "Lisäosa"]);
+    expect(settingsTargets("admin").map((t) => t.label)).toEqual(["Pankit ja tilit", "Jäsenet", "Turvallisuus", "Tiedot", "Palvelin ja ylläpito", "Lisäosa"]);
+    expect(settingsTargets("member").map((t) => t.label)).toEqual(["Pankit ja tilit", "Turvallisuus", "Tiedot", "Lisäosa"]);
   });
 
   it("names Lisäosa as the target of the module's card and of the code card", () => {
@@ -48,7 +48,7 @@ describe("Asetukset with an add-on module that has a settings card", () => {
     for (const role of ["admin", "member"] as const) expect(redirectRoute(parseHash("#/settings/addon#esimerkki"), role)).toBeNull();
   });
 
-  it("moves the addresses from before: the module's card on Talous and the code card on Palvelin ja ylläpito", () => {
+  it("moves the addresses from before: the module's card on the old loans target and the code card on Palvelin ja ylläpito", () => {
     WEB_EXTENSIONS.push(withCard);
     for (const role of ["admin", "member"] as const) expect(lands("#/settings/household#esimerkki", role)).toBe("#/settings/addon#esimerkki");
     expect(lands("#/settings/server#lisaosa", "admin")).toBe("#/settings/addon#lisaosa");

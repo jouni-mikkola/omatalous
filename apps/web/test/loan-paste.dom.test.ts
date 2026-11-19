@@ -45,7 +45,7 @@ afterEach(() => {
   reader.picture.mockReset();
 });
 
-describe("Asetukset > Talous: the box that reads a loan", () => {
+describe("Lisää laina: the box that reads a loan", () => {
   it("reads pasted text into the form and marks each field as sure or to check, with the line it came from", () => {
     open();
     expect((button("Lue lainan tiedot") as HTMLButtonElement).disabled).toBe(true);

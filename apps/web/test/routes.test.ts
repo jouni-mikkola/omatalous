@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hashOf, parseHash, redirectRoute, type Route, settingsCardHash, settingsHash, settingsTargets, withParams } from "../src/routes.ts";
+import { hashOf, loanEditHash, loanHash, loansRoute, parseHash, redirectRoute, type Route, settingsCardHash, settingsHash, settingsTargets, withParams } from "../src/routes.ts";
 
 const route = (page: string, query = "", anchor?: string): Route => ({ page, params: new URLSearchParams(query), ...(anchor ? { anchor } : {}) });
 /** Where an address ends up: the redirect when there is one, else itself. */
@@ -138,7 +138,7 @@ describe("Asetukset: the target and the card every address lands on", () => {
 
   it("a card of a section that is named on its target is left alone", () => {
     for (const role of both) {
-      for (const hash of ["#/settings/banks", "#/settings/household#lainat", "#/settings/security#salasana", "#/settings/security", "#/settings/data"]) {
+      for (const hash of ["#/settings/banks", "#/settings/security#salasana", "#/settings/security", "#/settings/data"]) {
         expect(redirectRoute(parseHash(hash), role), hash).toBeNull();
       }
     }
@@ -173,6 +173,17 @@ describe("Asetukset: the target and the card every address lands on", () => {
     expect(lands("#/settings/household#jasenet-ilman-tunnusta", "member")).toBe("#/settings/banks");
   });
 
+  it("the loans that were Asetukset > Talous open Varat ja velat, and a link to a loan's editor opens that loan's row with it", () => {
+    for (const role of both) {
+      expect(lands("#/settings/household", role)).toBe("#/reports?q=saldot");
+      expect(lands("#/settings/household#lainat", role)).toBe("#/reports?q=saldot");
+      expect(lands("#/settings#lainat", role)).toBe("#/reports?q=saldot");
+      expect(lands("#/settings/banks#lainat", role)).toBe("#/reports?q=saldot");
+      expect(lands("#/settings/household?linkLoan=home&linkAccount=card#lainat", role)).toBe(loanEditHash("home", "card"));
+      expect(lands("#/settings?linkLoan=home#lainat", role)).toBe(loanEditHash("home"));
+    }
+  });
+
   it("an address under settings that names no target opens the first one", () => {
     expect(lands("#/settings/nonsense", "admin")).toBe("#/settings/banks");
   });
@@ -182,10 +193,27 @@ describe("Asetukset: the target and the card every address lands on", () => {
   });
 });
 
+describe("the addresses of the loans in Varat ja velat", () => {
+  it("open Varat ja velat, a loan's row in Lainat, and that row with its editor and the account chosen for its link", () => {
+    expect(hashOf(loansRoute())).toBe("#/reports?q=saldot");
+    expect(loanHash("home")).toBe("#/reports?q=saldot&drill=velat-kalleimmasta-halvimpaan%3Ahome#lainat");
+    expect(loanEditHash("home")).toBe("#/reports?q=saldot&drill=velat-kalleimmasta-halvimpaan%3Ahome&linkLoan=home#lainat");
+    expect(loanEditHash("home", "card")).toBe("#/reports?q=saldot&drill=velat-kalleimmasta-halvimpaan%3Ahome&linkLoan=home&linkAccount=card#lainat");
+    // the id of an account's own loan has a colon, which the table's state escapes so the address still reads back
+    expect(new URLSearchParams(parseHash(loanHash("account:a1")).params).get("drill")).toBe("velat-kalleimmasta-halvimpaan:account%3Aa1");
+  });
+
+  it("are left alone", () => {
+    for (const role of ["admin", "member"] as const) {
+      for (const hash of [loanHash("home"), loanEditHash("home", "card"), hashOf(loansRoute())]) expect(redirectRoute(parseHash(hash), role), hash).toBeNull();
+    }
+  });
+});
+
 describe("the targets of Asetukset", () => {
-  it("are the six of 1.0.0 for an admin and four for a member, without the admin's", () => {
-    expect(settingsTargets("admin").map((t) => t.label)).toEqual(["Pankit ja tilit", "Talous", "Jäsenet", "Turvallisuus", "Tiedot", "Palvelin ja ylläpito"]);
-    expect(settingsTargets("member").map((t) => t.id)).toEqual(["banks", "household", "security", "data"]);
+  it("are five for an admin and three for a member, without the admin's", () => {
+    expect(settingsTargets("admin").map((t) => t.label)).toEqual(["Pankit ja tilit", "Jäsenet", "Turvallisuus", "Tiedot", "Palvelin ja ylläpito"]);
+    expect(settingsTargets("member").map((t) => t.id)).toEqual(["banks", "security", "data"]);
   });
 
   it("have an address, and a card's address names its target", () => {
@@ -193,7 +221,6 @@ describe("the targets of Asetukset", () => {
     expect(settingsCardHash("kirjautuminen")).toBe("#/settings/security#kirjautuminen");
     expect(settingsCardHash("turvallisuusloki")).toBe("#/settings/security#turvallisuusloki");
     expect(settingsCardHash("esimerkkitiedot")).toBe("#/settings/data#esimerkkitiedot");
-    expect(settingsCardHash("lainat")).toBe("#/settings/household#lainat");
     expect(settingsCardHash("etakaytto", new URLSearchParams("a=1"))).toBe("#/settings/server?a=1#etakaytto");
   });
 });

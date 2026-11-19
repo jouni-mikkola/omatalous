@@ -149,8 +149,11 @@ flowchart LR
   holds only while the account's balance is at or below zero and is not older than the balance typed for the loan
   (`balanceDayOf`). Otherwise, and in the months of Saldot before the account's first known balance, the saved loan
   counts as typed, still once. The loan form reads the household's accounts and loans from the context `LoanLinks`
-  (`components/loans/LoanEditor.tsx`), and `#/settings?linkLoan=<loan id>&linkAccount=<account id>#lainat` opens a
-  loan's form with that account chosen, once.
+  (`components/loans/LoanEditor.tsx`), and `#/reports?q=saldot&linkLoan=<loan id>&linkAccount=<account id>` (`loanEditHash`)
+  opens a loan's form with that account chosen, once. The loans are kept in Raportit > Varat ja velat: Lisää laina in
+  the head of Saldot (`components/loans/AddLoan.tsx`) and a loan's row in Lainat with Muokkaa, Poista laina and the box
+  that reads the loan's text (`components/loans/LoanChanges.tsx`). An old address of the loans (`#/settings/household`,
+  `#lainat`) opens Varat ja velat.
   The new-loan form has one input box (`components/loans/LoanSource.tsx`) that reads a pasted text, a text file, a PDF or a picture
   in the browser (`read-source.ts`: pdf.js and Tesseract, each loaded on first use and served from the app's own `/assets`, ADR 0029) and
   core's `loan-intake/` turns the lines into a draft with a mark on each field, all of them *Tarkista* for a picture (`form.ts`); the server sees only what the

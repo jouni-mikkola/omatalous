@@ -7,6 +7,7 @@ import { netLabelOf } from "../src/components/net-label.ts";
 import { Holdings } from "../src/pages/reports/holdings/Holdings.tsx";
 import { money } from "../src/format.ts";
 import { partText } from "../src/part.ts";
+import { loanHash } from "../src/routes.ts";
 import type { DashboardData, Meta } from "../src/types.ts";
 
 type Answer = DashboardData["holdings"];
@@ -29,6 +30,8 @@ const undated = (markup: string) => text(markup).replace(/ Saldo päivältä \d+
 const headings = (markup: string, tag: "h2" | "h3") => [...markup.matchAll(new RegExp(`<${tag}[^>]*>(.*?)</${tag}>`, "g"))].map((m) => m[1]);
 const headingDate = (markup: string) => markup.match(/<span class="holding-date">([^<]*)<\/span>/)?.[1];
 const links = (markup: string) => [...markup.matchAll(/<a href="([^"]*)"/g)].map((m) => m[1]);
+/** The address of a loan's row in Varat ja velat as the markup writes it. */
+const loanLink = (id: string) => loanHash(id).replace(/&/g, "&amp;");
 
 describe("Holdings look", () => {
   it("leaves the sum of a total plain, as the rows around it are", () => {
@@ -74,7 +77,7 @@ describe("Holdings", () => {
       expect(text(debts)).toContain("Esimerkkirahoitus 100,00 €/kk · saldo puuttuu");
       expect(text(debts)).toContain("Esimerkkikauppa · Luottokortti 200,00 €/kk · saldo puuttuu");
       expect(links(debts)).toEqual(["#/review?item=loan-terms", "#/review?item=loan-terms"]);
-      expect(links(unsaved)).not.toContain("#/settings/household#lainat");
+      expect(links(unsaved).filter((h) => h!.startsWith("#/reports"))).toEqual([]);
     });
 
     it("says only that the balance is missing for an unsaved debt with no monthly figure", () => {
@@ -228,7 +231,7 @@ describe("Holdings", () => {
       expect(markup).toContain('<span class="st-sub">Lisännyt Aino</span>');
       expect(text(markup.slice(0, markup.indexOf("Autolaina")))).not.toContain("Lisännyt");
       // the row is told and nothing on it changes the loan: the name leads to the report, whose figures open their calculations, so the block has no button
-      expect(links(markup)).toEqual(["#/reports#lainat", "#/reports#lainat"]);
+      expect(links(markup)).toEqual([loanLink("l1"), loanLink("l2")]);
       expect([...markup.matchAll(/<button[^>]*aria-label="([^"]*)"/g)].map((m) => m[1]!.replace(/[\u00a0\u202f]/g, " "))).toEqual([]);
     });
 
@@ -327,7 +330,7 @@ describe("Holdings", () => {
 
     it("makes the name of an account and of a card a link to its rows in Tapahtumat and a loan's the report Lainat, and no total a link", () => {
       const markup = html({ ...three, accounts: [account("a b", "Käyttötili", 100_000)] });
-      expect(links(markup)).toEqual(["#/transactions?accountId=a+b", "#/reports#lainat", "#/transactions?accountId=k1"]);
+      expect(links(markup)).toEqual(["#/transactions?accountId=a+b", loanLink("l1"), "#/transactions?accountId=k1"]);
       const names = [...markup.matchAll(/<a href="[^"]*">(.*?)<\/a>/g)].map((m) => m[1]);
       expect(names).toEqual(["Käyttötili", "Kodin laina", "Esimerkkikortti"]);
     });
