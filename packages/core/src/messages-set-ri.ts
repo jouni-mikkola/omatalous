@@ -20,6 +20,7 @@ export const FI_SET_RI = {
   "set.ri.loans_and_cards": "Lainat ja kortit",
   "set.ri.complete_the_loans": "Täydennä lainat",
   "set.ri.credit_card": "Luottokortti",
+  "set.ri.credit_kind_not_known": "Luotto, laji ei tiedossa",
   "set.ri.instalment_plan": "Osamaksu",
   "set.ri.joint_account_account": "Yhteinen tili {account}",
   "set.ri.subscription": "Tilaus",

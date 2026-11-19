@@ -11,14 +11,26 @@
  * in one reach the nearest in size is taken, so another loan of the same lender stays as it was, and a row another saved
  * loan's key names is never taken. Every step reads the rows of one payee, so a run of a single merchant
  * (`enrichIsland`) agrees with the full run.
+ *
+ * A saved loan of kind card likewise names the series of its bills: a bank that issues cards and lends otherwise is paid
+ * by its name alone, which the lender rule reads as a credit of unknown kind (`loans`), and the household's answer makes
+ * those rows the card's bills (`card_bill`). A card's bill changes every month, so its key holds no amount and every
+ * row of the payee on the account that the rule left as `loans` and that names no loan moves.
  */
 import { daysBetween } from "./dates.ts";
+import { fold } from "./merchant.ts";
 import { paysSeries } from "./loan-detect.ts";
 import type { Loan, Transaction } from "./types.ts";
+import { isLoanText } from "./wording.ts";
 
 /** The series keys of the saved loans that are the home loan, in a fixed order so two lists compare. */
 export function mortgageSeriesKeys(loans: readonly Loan[]): string[] {
   return loans.flatMap((loan) => (loan.kind === "mortgage" && loan.seriesKey ? [loan.seriesKey] : [])).sort();
+}
+
+/** The series keys of the saved card loans, in a fixed order so two lists compare. */
+export function cardSeriesKeys(loans: readonly Loan[]): string[] {
+  return loans.flatMap((loan) => (loan.kind === "card" && loan.seriesKey ? [loan.seriesKey] : [])).sort();
 }
 
 const SETTLED = new Set(["user", "transfer", "match", "payer"]);
@@ -51,6 +63,19 @@ function walk(rows: readonly Transaction[], seeds: ReadonlySet<string>, taken: S
       last = rows[best]!;
       lastAt = best;
     }
+  }
+}
+
+/** Reads the rows of the saved card loans' series as `card_bill`. Changes `next` in place; no such loan, no change. */
+export function applyDeclaredCards(next: readonly Transaction[], locked: ReadonlySet<string>, loans: readonly Loan[] | undefined): void {
+  if (!loans?.length) return;
+  const keys = cardSeriesKeys(loans);
+  if (!keys.length) return;
+  const others = loans.flatMap((loan) => loan.seriesKey ?? []);
+  for (const t of next) {
+    if (t.amountCents >= 0 || t.isTransfer || t.category !== "loans" || locked.has(t.id) || SETTLED.has(t.categorySource)) continue;
+    if (isLoanText(fold([t.merchant, t.counterparty, t.description].filter(Boolean).join(" ")))) continue;
+    if (keys.some((key) => paysSeries(key, t, others))) Object.assign(t, { category: "card_bill", categorySource: "rule" });
   }
 }
 

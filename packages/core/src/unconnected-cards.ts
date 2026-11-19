@@ -30,6 +30,12 @@ type UnconnectedCard = MonthlyProposal<Pick<LoanProposal, "key" | "seriesId" | "
 /** The card loans the household saved with no link to a series or an account: each may be a card whose bills are paid from another account. */
 export const unlinkedCardLoans = (inputs: UserInputs): Loan[] => loansOf(inputs).filter((loan) => loan.kind === "card" && !loan.seriesKey && !loan.accountId);
 
+/** The kinds a credit of unknown kind (`LoanProposal.kindUnknown`) may be. */
+const CREDIT_KINDS: ReadonlySet<string> = new Set(["card", "credit_line", "consumer"]);
+
+/** The card, credit line and consumer credit loans saved with no link to a series or an account: a credit of unknown kind may be one of them. */
+export const unlinkedCreditLoans = (inputs: UserInputs): Loan[] => loansOf(inputs).filter((loan) => CREDIT_KINDS.has(loan.kind) && !loan.seriesKey && !loan.accountId);
+
 /**
  * The cards to ask about today, the largest monthly bill first. One the household saved as a loan, marked "Ei ole laina" or
  * cancelled is left out, and so is one of the issuer of a connected card account, at once and not after the bills have

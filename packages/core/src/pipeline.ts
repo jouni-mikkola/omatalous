@@ -1,4 +1,4 @@
-import { applyDeclaredMortgages } from "./declared-loans.ts";
+import { applyDeclaredCards, applyDeclaredMortgages } from "./declared-loans.ts";
 import { loanPaymentAccounts } from "./loan-payment.ts";
 import { getCategory } from "./categories.ts";
 import { isInstalments, isLenderPayout, referenceOf, settleTransfers, varyingRows } from "./card-channel.ts";
@@ -32,7 +32,7 @@ import { isCardIssuerBankText, isCardIssuerText, isLoanText } from "./wording.ts
  * Money that comes back (see matchReturns) takes its payment's category. Last, the member's payer roles (`payers`)
  * move the rows of the payers they name (`applyPayerRoles`). `household` holds the IBANs of the accounts of the
  * household's other members: money to or from one of them is a transfer in every view, though the rows of the
- * other account are not among these. `loans` are the member's saved loans: the rows of a series a home loan is linked to are the mortgage.
+ * other account are not among these. `loans` are the member's saved loans: the rows of a series a home loan is linked to are the mortgage, those of a card's the card's bills.
  */
 export function enrichTransactions(
   txs: readonly Transaction[],
@@ -262,6 +262,7 @@ function* enrichSteps(
   // a person paid back whole is one pair: the payment stays with its return, whatever role the person has
   applyPayerRoles(next, locked, payers);
   applyDeclaredMortgages(next, locked, loans);
+  applyDeclaredCards(next, locked, loans);
   return changedRows(next, txs);
 }
 
@@ -350,6 +351,7 @@ export function enrichIsland(input: IslandInput): IslandResult {
     applyPayerConsistency(next, locked);
     applyPayerRoles(next, locked, input.payers, history);
     applyDeclaredMortgages(next, locked, input.loans);
+    applyDeclaredCards(next, locked, input.loans);
     return next;
   };
   // Whether a ledger (an account's rows of one source) carries payee accounts is known from the island's rows as far

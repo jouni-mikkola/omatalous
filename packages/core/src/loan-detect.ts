@@ -444,8 +444,9 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
     const steady = steadyBy(charges, () => "series").size > 0;
     // a known lender's payment of about one sum month after month is a loan with no question: the kind stays a guess for the form
     const lender = steady && (isKnownLender(payee, text) || issuer);
-    const home = !placing.placed && drawn === null && owner && paymentCents > MORTGAGE_PAYMENT_CENTS;
-    const kindUnknown = issuer && !steady && told === null && drawn === null && !home && !placing.placed && !plan;
+    // an issuer's changing sum is no mortgage however large: a card's bill of a home owner is as large
+    const kindUnknown = issuer && !steady && told === null && drawn === null && !placing.placed && !plan;
+    const home = !kindUnknown && !placing.placed && drawn === null && owner && paymentCents > MORTGAGE_PAYMENT_CENTS;
     const owed = isFew ? fewOwed : (owedAtLeast(txs, draws, s.merchant, ctx.today)?.cents ?? null);
     out.push({
       // a sum that changes is no product: the key names every series of the payee on the account, as a card's does (unconnected-cards.ts)
