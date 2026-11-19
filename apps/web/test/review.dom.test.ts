@@ -92,7 +92,7 @@ describe("Tarkistettavat", () => {
     expect(document.querySelector(".review-item")!.textContent).toContain("Onko lainan maksuerä muuttunut?");
     expect(choices().map((b) => b.textContent?.trim())).toEqual(["Päivitä lainan maksuerä"]);
     fireEvent.click(screen.getByRole("button", { name: "Päivitä lainan maksuerä" }));
-    expect(((await screen.findByLabelText(/^Maksuerä/, {}, T)) as HTMLInputElement).value).toMatch(/^950/);
+    expect(((await screen.findByLabelText(/^Kuukausierä/, {}, T)) as HTMLInputElement).value).toMatch(/^950/);
     expect((screen.getByLabelText(/^Koron tarkistuspäivä/) as HTMLInputElement).value).toBe("2026-11-05");
     expect(screen.queryByLabelText(/^Lainaa jäljellä/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));

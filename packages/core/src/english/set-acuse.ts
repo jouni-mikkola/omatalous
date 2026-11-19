@@ -5,7 +5,7 @@ export const EN_SET_ACUSE: Record<keyof typeof FI_SET_ACUSE, string> = {
   "set.acuse.me": "Me",
   "set.acuse.saved": "Saved.",
   "set.acuse.reset_to_the_bank_s": "Reset to the bank's data",
-  "set.acuse.by_who_has_paid_into": "By who has paid into the account",
+  "set.acuse.by_who_has_paid_into": "Who paid into the account",
   "set.acuse.save": "Save",
   "set.acuse.answers": "Answers",
   "set.acuse.share_account": "Share account",

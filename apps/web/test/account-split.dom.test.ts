@@ -57,7 +57,7 @@ describe("the split of a joint account", () => {
     const group = await split();
     expect(screen.getAllByRole("group", { name: /jako$/ })).toHaveLength(1);
     expect(within(within(group).getByRole("group", { name: "Jakotapa" })).getAllByRole("button").map((b) => b.textContent)).toEqual([
-      "Sen mukaan, kuka tilille on maksanut",
+      "Kuka maksoi tilille",
       "Tasan",
       "Osuuksien mukaan",
       "Tulojen suhteessa",
@@ -73,7 +73,7 @@ describe("the split of a joint account", () => {
     const seen = open([income]);
     const group = await split();
     await waitFor(() => expect(pressed(group)).toEqual(["Tulojen suhteessa"]));
-    expect(within(group).queryByRole("button", { name: "Sen mukaan, kuka tilille on maksanut" })).toBeNull();
+    expect(within(group).queryByRole("button", { name: "Kuka maksoi tilille" })).toBeNull();
     fireEvent.click(within(group).getByRole("button", { name: "Tasan" }));
     const form = within(group).getByRole("form", { name: "Muuta tilin Yhteistili jakoa" });
     fireEvent.change(within(form).getByLabelText("Voimassa alkaen"), { target: { value: "2026-11-01" } });

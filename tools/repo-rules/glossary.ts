@@ -50,6 +50,8 @@ export const REMOVED: readonly Removed[] = [
   { name: "Näin heading", re: /^\s*Näin\s+\p{L}+(aan|ään)(?!\p{L})/u, fix: 'say what the reader gets or does: "Laskuihin riittää", not "Näin katetaan"' },
   { name: "Katetaan", re: /(?<!\p{L})katetaan(?!\p{L})/iu, fix: 'write the reader as the subject: "Laskuihin riittää", "Laskusi on katettu"' },
   // a passive finite verb anywhere in a text; a loading line ("Ladataan…", "Haetaan tapahtumia…") is the one place it stays
+  // the loan form says Lainan määrä, Miten erä muuttuu and Lue lainan tiedot; a choice left open is En tiedä
+  { name: "Loan form words", re: /(?<!\p{L})(myönnetty\s+määrä|lyhennystap\p{L}*|sen\s+mukaan,\s+kuka\s+tilille)(?!\p{L})|^\s*Lue\s+tiedot\s*$/iu, fix: 'write "Lainan määrä", "Miten erä muuttuu", "Lue lainan tiedot", "Kuka maksoi tilille"' },
   { name: "Passive verb", re: /^(?!\s*\p{Lu}\p{L}*(taan|tään|daan|dään)(\s+\p{L}+){0,2}\s*…?\s*$)[\s\S]*?(?<!\p{L})(?!(enintään|vähintään|itsestään|aikaisintaan|portaan|vastaan|ainakaan)(?!\p{L}))\p{L}{2,}(?:[aeiouyäö](taan|tään)|[aeiouyäöh](daan|dään))(?!\p{L})/u, pending: /(^|\/)ops-english\./, fix: 'say who does it: "Haemme tapahtumat", "Laskemme summan", "Voit hakea"; only a loading line may be passive ("Ladataan…")' },
   { name: "Question heading", re: /^\s*(Mihin|Miten|Mistä|Mitkä|Milloin|Kuinka|Paljonko|Kestääkö|Kasvavatko|Kasvoiko|Riittävätkö|Pysyykö|Mitä|Missä|Minä|Mikä|Kenen|Tuleeko|Tuottivatko|Nousivatko)(?!\p{L})[^.!?]{0,80}\?$/u, fix: 'a heading is a short noun: "Rahankäyttö", "Kuukauden tilanne", not "Mihin raha menee?"', pending: ASKS },
 ];

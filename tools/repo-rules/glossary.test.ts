@@ -67,6 +67,10 @@ const CASES: Record<string, { bad: string[]; ok: string[] }> = {
     bad: ["Laskut katetaan.", "Katetaan"],
     ok: ["Laskuihin riittää.", "Laskusi on katettu."],
   },
+  "Loan form words": {
+    bad: ["Myönnetty määrä", "Myönnetty määrä (€)", "Lyhennystapa", "Lyhennystapa puuttuu.", "Sen mukaan, kuka tilille on maksanut", "Lue tiedot"],
+    ok: ["Lainan määrä", "Miten erä muuttuu", "Lue lainan tiedot", "Kuka maksoi tilille", "Lainan tiedot", "Lue tiedot sivulta"],
+  },
   "Passive verb": {
     bad: ["Luetaan kuvaa, kun se on valittu", "Tapahtumat haetaan pankin palvelusta.", "Summa lasketaan kerran.", "Se tehdään vasta myöhemmin"],
     ok: ["Luemme kuvaa…", "Testaa yhteys", "Ladataan…", "Testataan yhteyttä", "Kenttä ei kuulu tähän valintaan.", "Lisää kohtaan Päätetyt.", "Haetaan tapahtumia pankista…", "Tallennetaan…", "Laskettu summa", "Päivässä voi kuluttaa enintään 40 €.", "Katso viimeistään perjantaina.", "Maksoit osan omista rahoistasi.", "Kuuluu rahoistaan maksavalle."],

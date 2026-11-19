@@ -5,7 +5,7 @@
  */
 export const FI_SET_LOAN_INTAKE = {
   "set.ln.box_label": "Lainan tiedot",
-  "set.ln.read_the_loan_details": "Lue tiedot",
+  "set.ln.read_the_loan_details": "Lue lainan tiedot",
   "set.ln.choose_a_picture_or_pdf": "Valitse kuva tai PDF",
   "set.ln.reading_the_pdf": "Luemme PDF-tiedostoa…",
   "set.ln.loading_the_picture_reader": "Valmistelemme kuvan lukijaa…",

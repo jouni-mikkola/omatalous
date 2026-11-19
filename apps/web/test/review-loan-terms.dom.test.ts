@@ -83,7 +83,7 @@ describe("Täydennä lainat", () => {
     const view = show([listOf(debts, 30_000_000, 0)], metaOf(), () => void reloads++);
     const rate = await within(openRow(0)).findByLabelText(/^Korko/, {}, T);
     // the missing fact alone is asked; the rest of the form is behind one button
-    expect(screen.queryAllByLabelText(/^Maksuerä/)).toHaveLength(0);
+    expect(screen.queryAllByLabelText(/^Kuukausierä/)).toHaveLength(0);
     expect(screen.queryAllByLabelText("Nimi")).toHaveLength(0);
     expect(within(openRow(1)).getByLabelText(/^Viimeinen eräpäivä/)).toBeTruthy();
     // the rate and the payment keep asking: no dismissal on that row, one on the row that lacks its end

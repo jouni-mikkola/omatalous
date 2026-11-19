@@ -7,7 +7,7 @@ export const FI_SET_ACUSE = {
   "set.acuse.me": "Minä",
   "set.acuse.saved": "Tallennettu.",
   "set.acuse.reset_to_the_bank_s": "Palauta pankin tiedoista",
-  "set.acuse.by_who_has_paid_into": "Sen mukaan, kuka tilille on maksanut",
+  "set.acuse.by_who_has_paid_into": "Kuka maksoi tilille",
   "set.acuse.save": "Tallenna",
   "set.acuse.answers": "Vastaukset",
   "set.acuse.share_account": "Jaa tili",

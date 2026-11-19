@@ -170,19 +170,19 @@ describe("loans", () => {
     const { admin } = await setupApp();
     const error = async (payload: Record<string, unknown>) => (await admin.call("POST", "/api/loans", payload)).body.error;
     expect(await error({ ...mortgage, balanceCents: -1 })).toBe("Lainaa jäljellä pitää olla vähintään 0 € ja enintään 10 000 000 €.");
-    expect(await error({ ...mortgage, paymentCents: 0 })).toBe("Maksuerän pitää olla vähintään 0,01 € ja enintään 10 000 000 €.");
+    expect(await error({ ...mortgage, paymentCents: 0 })).toBe("Kuukausierän pitää olla vähintään 0,01 € ja enintään 10 000 000 €.");
     expect(await error({ ...mortgage, rateBp: 5001 })).toBe("Koron pitää olla 0–50 %, enintään kahden desimaalin tarkkuudella.");
     expect(await error({ ...mortgage, balanceDate: "2026-10-10" })).toMatch(/^Saldon päivä/);
     expect(await error({ ...mortgage, endDate: "2076-10-10" })).toMatch(/^Viimeinen eräpäivä/);
     expect(await error({ ...mortgage, rateReviewDate: "2027-02-30" })).toBe("Koron tarkistuspäivä voi olla enintään 40 vuotta sitten ja 50 vuoden päässä.");
-    expect(await error({ ...mortgage, paymentCents: 43_162 })).toMatch(/^Maksuerä on pienempi kuin lyhennysvälin korko/);
+    expect(await error({ ...mortgage, paymentCents: 43_162 })).toMatch(/^Kuukausierä on pienempi kuin lyhennysvälin korko/);
     // a payment holiday is such a loan with every field right, so the message names the way to save it
-    expect(await error({ ...mortgage, paymentCents: 43_162 })).toMatch(/jätä maksuerä tyhjäksi/);
+    expect(await error({ ...mortgage, paymentCents: 43_162 })).toMatch(/jätä kuukausierä tyhjäksi/);
     expect(await error({ ...mortgage, repayment: "bullet" })).toMatch(/^Kertalyhenteisellä/);
-    expect(await error({ ...creditLine, repayment: "annuity" })).toBe("Luottokortilla ja joustoluotolla ei ole lyhennystapaa. Jätä se tyhjäksi.");
+    expect(await error({ ...creditLine, repayment: "annuity" })).toBe("Luottokortilla ja joustoluotolla ei ole kohtaa Miten erä muuttuu. Jätä se tyhjäksi.");
     expect(await error({ ...creditLine, kind: "card", repayment: "annuity" })).toMatch(/^Luottokortilla ja joustoluotolla/);
     expect(await error({ ...mortgage, kind: "boat" })).toBe("Tuntematon laji.");
-    expect(await error({ ...mortgage, paymentCents: 43_162 })).toMatch(/jätä maksuerä tyhjäksi, jos maksat vain korkoa\.$/);
+    expect(await error({ ...mortgage, paymentCents: 43_162 })).toMatch(/jätä kuukausierä tyhjäksi, jos maksat vain korkoa\.$/);
   });
 
   it("takes the first and last value of each range", async () => {
