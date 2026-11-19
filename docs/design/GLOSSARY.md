@@ -21,7 +21,7 @@ Each row: the thing, the Finnish term, the English term. Only the first term in 
 | The balance of accounts and cards together | *Tilien ja korttien saldo* | *Balance of accounts and cards* |
 | A checking account | *Käyttötili* | *Checking account* |
 | A savings account | *Säästötili* | *Savings account* |
-| Income less spending of a month | *Tulos*; in the reports *Käteen jäi* | *Result* |
+| What a period left on the accounts | *Käteen jäi* | *Result* |
 | Income, spending and their difference as labels | *Tulot*, *Menot*, *Erotus* | *Income*, *Spending*, *Difference* |
 | The pays of a month on Laskut less its bills and its regular saving | *Laskujen jälkeen* | *After bills* |
 | The consumption flow | *Kulutus* | *Consumption* |

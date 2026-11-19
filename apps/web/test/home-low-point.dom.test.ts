@@ -35,8 +35,8 @@ describe("LowPoint", () => {
     ["no-balance", "Alin saldo 60 pv: Käyttötilin saldo puuttuu"],
     ["no-card-balance", "Alin saldo 60 pv: Kortin saldo puuttuu"],
     ["history", "Alin saldo 60 pv: Liian lyhyt historia"],
-    ["cards", "Alin saldo 60 pv: Kortin ostot eivät näy historiassa"],
-    ["bills", "Alin saldo 60 pv: Laskun summa tai päivä ei ole tiedossa"],
+    ["cards", "Alin saldo 60 pv: Lisää kortin tiliote"],
+    ["bills", "Alin saldo 60 pv: Laskun summa puuttuu"],
   ] as const)("says the reason %s and no figure", (reason, text) => {
     const { container } = render(createElement(LowPoint, { lowPoint: { known: false, reason, days: 60 } }));
     expect(flat(container.textContent)).toBe(text);
@@ -48,7 +48,18 @@ describe("LowPoint", () => {
     expect(container.querySelector(".home-low-status a")?.getAttribute("href")).toBe("#/settings/banks");
   });
 
-  it.each(["no-payday", "late", "history", "bills"] as const)("leaves the reason %s as plain text", (reason) => {
+  it.each([
+    ["cards", "#/settings/banks#tiliote", "Lisää kortin tiliote"],
+    ["bills", "#/bills", "Laskun summa puuttuu"],
+  ] as const)("links the reason %s to where it is mended, in three words at most", (reason, href, text) => {
+    const { container } = render(createElement(LowPoint, { lowPoint: { known: false, reason, days: 60 } }));
+    const link = container.querySelector(".home-low-status a")!;
+    expect(link.getAttribute("href")).toBe(href);
+    expect(flat(link.textContent)).toBe(text);
+    expect(text.split(" ").length).toBeLessThanOrEqual(3);
+  });
+
+  it.each(["no-payday", "late", "history"] as const)("leaves the reason %s as plain text", (reason) => {
     const { container } = render(createElement(LowPoint, { lowPoint: { known: false, reason, days: 60 } }));
     expect(container.querySelector(".home-low-status a")).toBeNull();
   });

@@ -37,7 +37,10 @@ The method, for a month:
    and the categories are read only where `covered` holds every base month (`coversCategories`): a bill puts a month's
    purchases on one day. The same rule keeps `rowsComplete` from cutting the base at a card whose earlier purchases
    were paid as a bill. A running month's change report by days waits for the same months. A card's series is put back
-   into an earlier base month only where that card's own rows exist: another card's gap leaves it as it is.
+   into an earlier base month only where that card's own rows exist: another card's gap leaves it as it is. The
+   everyday spending of a span of days (`expectedEveryday`) spreads such a bill's sum evenly over the days of its month,
+   unless the card the bill names has rows in that month: those rows are its purchases there. The payday runway takes
+   the spread of a card that is not connected off nothing, as its bills hold it, before the payday or after it.
 
 Expected income is the mean of the earned income (`earnedIncome`) of the same base months.
 

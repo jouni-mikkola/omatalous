@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { cents, overflow, OVERVIEW_TILES, plain, watch } from "./helpers.ts";
 
 // Yhteenveto has four blocks (docs/design/README.md section 1.1): Nyt (what is left before payday), the month (Tulot,
-// Menot and Tulos, and under them where the income went), the coming months and the accounts. The demo household of the administrator (e2e/run.mjs
+// Menot and Käteen jäi, and under them where the income went), the coming months and the accounts. The demo household of the administrator (e2e/run.mjs
 // made it) has pay, rent and everyday spending, so every figure is there. Core's tests hold the figures
 // (packages/core/test/nyt.test.ts, overview.test.ts); this spec holds what a household sees of them: each figure is the
 // one the server gives, the three fit the first screen of a phone, the blocks under them are the ones of the page, and
@@ -52,7 +52,7 @@ for (const width of [390, 1440] as const) {
     const whole = (c: number) => Math.round(c / 100) * 100;
     expect(await monthFigure(page, "income"), "the month's income").toBe(whole(overview.income.cents));
     expect(await monthFigure(page, "spent"), "the month's spending").toBe(whole(home.pace?.spentCents ?? nyt.pace.spentCents));
-    expect(await monthFigure(page, "result"), "Tulos").toBe(whole(totals.leftCents));
+    expect(await monthFigure(page, "result"), "Käteen jäi").toBe(whole(totals.leftCents));
     expect(cents(await page.locator("[data-tile=left] .fig").innerText()), "what is left before payday").toBe(whole(left.leftCents));
     if (left.days > 0) expect(sums(await page.locator("[data-tile=left] .home-fig-line").innerText())[0]).toBe(whole(left.perDayCents));
     // the lowest balance of the next days under it: core's day and range, or core's reason. It is no link
@@ -106,20 +106,20 @@ for (const width of [390, 1440] as const) {
   });
 }
 
-test("at 390 px Tulot and Menot stand side by side, Tulos under them, and Tulos is on the first screen", async ({ browser }) => {
+test("at 390 px Tulot and Menot stand side by side, Käteen jäi under them, and Käteen jäi is on the first screen", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await open(context);
   const boxes = await Promise.all((await page.locator(".home-figs > li").all()).map(async (item) => (await item.boundingBox())!));
   expect(boxes).toHaveLength(3);
   expect(boxes[1]!.y, "Menot beside Tulot").toBe(boxes[0]!.y);
   expect(boxes[1]!.x, "Menot after Tulot").toBeGreaterThan(boxes[0]!.x);
-  expect(boxes[2]!.y, "Tulos under them").toBeGreaterThan(boxes[1]!.y);
+  expect(boxes[2]!.y, "Käteen jäi under them").toBeGreaterThan(boxes[1]!.y);
   const result = boxes[2]!;
-  expect(result.y + result.height, "Tulos ends on the first screen").toBeLessThanOrEqual(844);
+  expect(result.y + result.height, "Käteen jäi ends on the first screen").toBeLessThanOrEqual(844);
   await context.close();
 });
 
-test("at 1440 px Tulot, Menot and Tulos stand on one row with Tulos the last and the largest", async ({ browser }) => {
+test("at 1440 px Tulot, Menot and Käteen jäi stand on one row with Käteen jäi the last and the largest", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
   const page = await open(context);
   const boxes = await Promise.all((await page.locator(".home-figs > li").all()).map(async (item) => (await item.boundingBox())!));
@@ -128,7 +128,7 @@ test("at 1440 px Tulot, Menot and Tulos stand on one row with Tulos the last and
   expect(boxes[0]!.x).toBeLessThan(boxes[1]!.x);
   expect(boxes[1]!.x).toBeLessThan(boxes[2]!.x);
   const size = (id: string) => page.locator(`[data-fig=${id}] .fig`).evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
-  expect(await size("result"), "Tulos is the largest figure").toBeGreaterThan(await size("income"));
+  expect(await size("result"), "Käteen jäi is the largest figure").toBeGreaterThan(await size("income"));
   await context.close();
 });
 
