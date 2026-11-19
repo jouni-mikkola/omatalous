@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { addDays, dateIn, weekdayOf } from "../src/dates.ts";
-import { loanTermsMissing } from "../src/loan-terms-answer.ts";
+import { loanTermsGaps } from "../src/loan-terms-answer.ts";
 import { billCalendar } from "../src/reports/bill-calendar.ts";
 import { type Account, type Fixings, type Loan, type Transaction, type UserInputs } from "../src/types.ts";
 import { tx } from "./helpers.ts";
@@ -89,8 +89,8 @@ describe("a loan's payments after its review day in the bill calendar", () => {
       expect(rows.map((r) => [r.cents, r.state])).toEqual(Array(11).fill([121_500, "known"]));
       expect(cal.unknownCount).toBe(0);
     }
-    expect(loanTermsMissing(noMargin)).toBe("margin");
-    expect(loanTermsMissing(noReview)).toBe("review_date");
+    expect(loanTermsGaps(noMargin)[0]).toBe("margin");
+    expect(loanTermsGaps(noReview)[0]).toBe("review_date");
   });
 
   it("stays at the typed payment, all known, while no fixing is published", () => {

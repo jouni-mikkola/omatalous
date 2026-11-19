@@ -57,7 +57,17 @@ describe("Täydennä lainat", () => {
     const names = [...document.querySelectorAll(".review-debt-name")].map((h) => plain(h.textContent));
     expect(names).toEqual([plain("Esimerkkipankki · Asuntolaina · 861,41 €/kk · eräpäivä 16."), plain("Autolaina · Jäljellä 12 000,00 €")]);
     // the total is unknown while a debt has no balance: a dash, never a sum the page adds itself
-    expect(totals()).toBe(plain("Velat yhteensä –Ilman saldoa 1"));
+    expect(totals()).toBe(plain("Velat yhteensä, tiedossa –Ilman saldoa 1"));
+  });
+
+  it("words the total as the front page does: known only while a debt has no balance", () => {
+    queryClient.clear();
+    stubApi({ "GET /api/loans": { loans: [], fixings: {} } });
+    const debts = [debtOf({ id: "loan-8", source: "loan", name: "Autolaina", loanId: "loan-8", kind: "car", owedCents: 1_200_000, gaps: ["rate"] })];
+    const view = show([listOf(debts, 12_000_000, 1)]);
+    expect(totals()).toBe(plain("Velat yhteensä, tiedossa 120 000,00 €Ilman saldoa 1"));
+    view.rerender(createElement(Review, { meta: metaOf(), queue: { data: { items: [listOf(debts, 12_000_000, 0)] }, error: null, reload: () => {} } }));
+    expect(totals()).toBe(plain("Velat yhteensä 120 000,00 €Ilman saldoa 0"));
   });
 
   it("asks a saved loan only the fact it lacks, saves the loan's own form, closes the row into its result line and reads the queue again", async () => {

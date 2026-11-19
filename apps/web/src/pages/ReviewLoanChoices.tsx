@@ -153,7 +153,7 @@ export function LoanTermsChoices({ item, meta, busy, onAnswer, onHold, onReload 
       <p className="review-debt-totals" aria-live="polite">
         {!done && (
           <span>
-            {t("holdings.debts_total")} {item.debtsCents === null ? "–" : money(item.debtsCents)}
+            {t(item.noBalance > 0 ? "holdings.debts_known" : "holdings.debts_total")} {item.debtsCents === null ? "–" : money(item.debtsCents)}
           </span>
         )}
         <span>{t("set.rc.lt_no_balance", { count: done ? 0 : item.noBalance })}</span>

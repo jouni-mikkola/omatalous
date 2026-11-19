@@ -3,7 +3,7 @@
  * and the mark that sets it aside. Made-up loans and sums.
  */
 import { describe, expect, it } from "vitest";
-import { loanDrift, loanTermsDismissed, loanTermsDismissible, loanTermsGaps, loanTermsMissing, loanTermsSubject, parseLoanTermsSubject } from "../src/loan-terms-answer.ts";
+import { loanDrift, loanTermsDismissed, loanTermsDismissible, loanTermsGaps, loanTermsSubject, parseLoanTermsSubject } from "../src/loan-terms-answer.ts";
 import { seriesId } from "../src/series-id.ts";
 import type { Loan } from "../src/types.ts";
 
@@ -13,37 +13,40 @@ const loan = (over: Partial<Loan> = {}): Loan => ({
   ...over,
 });
 
+/** The first fact a loan lacks, the one asked first. */
+const first = (l: Loan) => loanTermsGaps(l)[0] ?? null;
+
 describe("the fact a loan lacks", () => {
   it("is the first the plan needs", () => {
-    expect(loanTermsMissing(loan())).toBe("repayment");
-    expect(loanTermsMissing(loan({ repayment: "bullet" }))).toBe("end_date");
-    expect(loanTermsMissing(loan({ repayment: "annuity" }))).toBe("interval");
-    expect(loanTermsMissing(loan({ repayment: "annuity", intervalMonths: 1 }))).toBe("payment");
-    expect(loanTermsMissing(loan({ repayment: "annuity", intervalMonths: 1, paymentCents: 90_000 }))).toBe("rate");
+    expect(first(loan())).toBe("repayment");
+    expect(first(loan({ repayment: "bullet" }))).toBe("end_date");
+    expect(first(loan({ repayment: "annuity" }))).toBe("interval");
+    expect(first(loan({ repayment: "annuity", intervalMonths: 1 }))).toBe("payment");
+    expect(first(loan({ repayment: "annuity", intervalMonths: 1, paymentCents: 90_000 }))).toBe("rate");
   });
   it("is none for a plan that resolves, and a loan with an equal principal needs no rate", () => {
-    expect(loanTermsMissing(loan({ repayment: "annuity", intervalMonths: 1, paymentCents: 90_000, rateBp: 350 }))).toBeNull();
-    expect(loanTermsMissing(loan({ repayment: "equal_principal", intervalMonths: 1, paymentCents: 90_000 }))).toBeNull();
-    expect(loanTermsMissing(loan({ repayment: "bullet", endDate: "2030-01-01" }))).toBeNull();
+    expect(first(loan({ repayment: "annuity", intervalMonths: 1, paymentCents: 90_000, rateBp: 350 }))).toBeNull();
+    expect(first(loan({ repayment: "equal_principal", intervalMonths: 1, paymentCents: 90_000 }))).toBeNull();
+    expect(first(loan({ repayment: "bullet", endDate: "2030-01-01" }))).toBeNull();
   });
   it("is none for a loan that owes nothing, a card and a credit line", () => {
-    expect(loanTermsMissing(loan({ balanceCents: 0 }))).toBeNull();
-    expect(loanTermsMissing(loan({ kind: "card", limitCents: 200_000 }))).toBeNull();
-    expect(loanTermsMissing(loan({ kind: "credit_line", limitCents: 200_000 }))).toBeNull();
+    expect(first(loan({ balanceCents: 0 }))).toBeNull();
+    expect(first(loan({ kind: "card", limitCents: 200_000 }))).toBeNull();
+    expect(first(loan({ kind: "credit_line", limitCents: 200_000 }))).toBeNull();
   });
 });
 
 describe("the facts of a loan on a reference rate", () => {
   const euribor = { repayment: "annuity", intervalMonths: 1, paymentCents: 90_000, rateBp: 350, reference: "euribor_12" } as const;
   it("asks the margin, then the day the rate is reviewed, once the plan resolves", () => {
-    expect(loanTermsMissing(loan(euribor))).toBe("margin");
-    expect(loanTermsMissing(loan({ ...euribor, marginBp: 80 }))).toBe("review_date");
-    expect(loanTermsMissing(loan({ ...euribor, marginBp: 80, rateReviewDate: "2027-01-05" }))).toBeNull();
+    expect(first(loan(euribor))).toBe("margin");
+    expect(first(loan({ ...euribor, marginBp: 80 }))).toBe("review_date");
+    expect(first(loan({ ...euribor, marginBp: 80, rateReviewDate: "2027-01-05" }))).toBeNull();
   });
   it("asks the fact of the plan first, and nothing of a fixed rate or a loan with no reference", () => {
-    expect(loanTermsMissing(loan({ ...euribor, paymentCents: null }))).toBe("payment");
-    expect(loanTermsMissing(loan({ ...euribor, reference: "fixed" }))).toBeNull();
-    expect(loanTermsMissing(loan({ ...euribor, reference: null }))).toBeNull();
+    expect(first(loan({ ...euribor, paymentCents: null }))).toBe("payment");
+    expect(first(loan({ ...euribor, reference: "fixed" }))).toBeNull();
+    expect(first(loan({ ...euribor, reference: null }))).toBeNull();
   });
 });
 
@@ -63,7 +66,6 @@ describe("every fact a loan lacks", () => {
     ];
     for (const [over, gaps] of cases) {
       expect(loanTermsGaps(loan(over)), JSON.stringify(over)).toEqual(gaps);
-      expect(loanTermsMissing(loan(over)), JSON.stringify(over)).toBe(gaps[0] ?? null);
     }
   });
 });

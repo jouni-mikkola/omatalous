@@ -23,14 +23,8 @@ import { type IsoDate, isRevolving, type Loan, type Transaction, type UserMark }
 export type LoanTermsMissing = "repayment" | "interval" | "payment" | "rate" | "end_date" | "margin" | "review_date" | "fee";
 
 /**
- * The one fact a loan still owing lacks before its payments can be placed, null when none is lacking. A card or a credit
- * line has no plan to ask for, and a loan with nothing owed needs none. A loan on a reference rate whose plan resolves is
- * asked its margin, then the day its rate is reviewed.
- */
-export const loanTermsMissing = (loan: Loan): LoanTermsMissing | null => loanTermsGaps(loan)[0] ?? null;
-
-/**
- * Every fact a loan still owing lacks, in the order `loanTermsMissing` asks them, so one form can ask them all at once:
+ * Every fact a loan still owing lacks before its payments can be placed, in the order they are asked, so one form can ask
+ * them all at once. A card or a credit line has no plan to ask for, and a loan with nothing owed needs none. The order:
  * the way of paying back, then for a bullet its last due date, for any other loan its interval, payment and rate (an
  * equal principal loan is placed without a rate), and for a loan on a reference rate its margin and review day.
  */
