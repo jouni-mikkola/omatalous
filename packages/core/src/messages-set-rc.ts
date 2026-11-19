@@ -37,7 +37,7 @@ export const FI_SET_RC = {
   "set.rc.not_a_loan": "Ei ole velan maksu",
   "set.rc.complete_the_loan": "Täydennä laina",
   "set.rc.complete_the_card_terms": "Täydennä kortin ehdot",
-  "set.rc.update_the_loan_payment": "Päivitä lainan maksuerä",
+  "set.rc.update_the_loan_payment": "Päivitä lainan kuukausierä",
   "set.rc.ask_for_a_refund": "Pyydän hyvityksen",
   "set.rc.the_charge_is_right": "Veloitus on oikein",
   "set.rc.why": "Miksi ehdotamme tätä: {why}.",

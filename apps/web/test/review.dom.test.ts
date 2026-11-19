@@ -90,8 +90,8 @@ describe("Tarkistettavat", () => {
     const meta = { accounts: [], sharedAccounts: [], bank: { banks: [] }, today: "2026-11-18" } as unknown as Meta;
     render(createElement(Review, { meta, queue: { data: { items: [item] }, error: null, reload: () => {} } }));
     expect(document.querySelector(".review-item")!.textContent).toContain("Onko lainan kuukausierä muuttunut?");
-    expect(choices().map((b) => b.textContent?.trim())).toEqual(["Päivitä lainan maksuerä"]);
-    fireEvent.click(screen.getByRole("button", { name: "Päivitä lainan maksuerä" }));
+    expect(choices().map((b) => b.textContent?.trim())).toEqual(["Päivitä lainan kuukausierä"]);
+    fireEvent.click(screen.getByRole("button", { name: "Päivitä lainan kuukausierä" }));
     expect(((await screen.findByLabelText(/^Kuukausierä/, {}, T)) as HTMLInputElement).value).toMatch(/^950/);
     expect((screen.getByLabelText(/^Koron tarkistuspäivä/) as HTMLInputElement).value).toBe("2026-11-05");
     expect(screen.queryByLabelText(/^Lainaa jäljellä/)).toBeNull();

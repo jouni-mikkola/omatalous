@@ -185,7 +185,7 @@ describe("Täydennä lainat", () => {
     // the kind is the guess, read from the heading and changed at the loan's home: it is not asked
     expect(within(openRow(0)).queryByRole("group", { name: "Laji" })).toBeNull();
     expect(plain(openRow(0).querySelector(".review-debt-name")!.textContent)).toBe(plain("Esimerkkirahoitus · Kulutusluotto · 250,00 €/kk"));
-    expect(within(openRow(0)).queryAllByLabelText(/^Korko|^Maksuerä|^Alkuperäinen/)).toHaveLength(0);
+    expect(within(openRow(0)).queryAllByLabelText(/^Korko|^Maksuerä|^Kuukausierä|^Alkuperäinen/)).toHaveLength(0);
     fireEvent.change(field, { target: { value: "2 000" } });
     fireEvent.click(within(openRow(0)).getByRole("button", { name: "Tallenna" }));
     await waitFor(() => expect(seen.some((s) => s.method === "POST" && s.path === "/api/loans")).toBe(true), T);

@@ -107,7 +107,7 @@ test("each kind is asked in its own words and answered through its own route, th
   // one field and three answers, and no kind to pick
   await expect(row.getByRole("group", { name: "Laji" })).toHaveCount(0);
   await expect(row.getByLabel("Jäljellä nyt (€)")).toBeVisible();
-  await expect(row.getByLabel(/Korko|Viitekorko|Marginaali|Maksuerä|Alkuperäinen/)).toHaveCount(0);
+  await expect(row.getByLabel(/Korko|Viitekorko|Marginaali|Maksuerä|Kuukausierä|Alkuperäinen/)).toHaveCount(0);
   await expect(row.getByRole("button", { name: "Tallenna", exact: true })).toBeVisible();
   await expect(row.getByRole("button", { name: "En tiedä", exact: true })).toBeVisible();
   const notLoan = row.getByRole("button", { name: "Ei ole velan maksu", exact: true });
