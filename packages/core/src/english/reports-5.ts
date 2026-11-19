@@ -68,7 +68,6 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.ln_path_now": "Debt is now {debt}, with {interest} more interest to come.",
   "rpt.ln_path_up": "If the reference rate rises by a percentage point, interest is about {amount} higher.",
   "rpt.ln_no_payments": "no payments",
-  "rpt.ln_total": "Total debt",
   "rpt.ln_payments_month": "Payments a month",
   "rpt.ln_q_path": "Debt path",
   "rpt.ln_kind_mortgage": "Mortgage",

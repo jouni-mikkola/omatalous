@@ -95,7 +95,7 @@ describe("Raportit: Lainat", () => {
   it("a balance dated ahead has no total, a dash and never a zero", () => {
     const ahead = report([row()], { total: { cents: 0, unknown: [{ loanId: "home", unknown: "before_balance_date", counted: false }] }, totalKnown: false });
     const out = html(loans, context(ahead));
-    expect(words(out)).toContain("Velkaa yhteensä –");
+    expect(words(out)).toContain("Velat yhteensä –");
     expect(out).not.toContain("puuttuu");
   });
 
@@ -103,12 +103,12 @@ describe("Raportit: Lainat", () => {
     const out = html(loans, context(report([row({ cost: null })], { cost12: { cents: null, interestCents: null, feeCents: null } })));
     expect(out).toContain('<a href="#/review?item=loan-terms">Täydennä lainat</a>');
     expect(out.split("Täydennä lainat").length - 1).toBe(1);
-    expect(words(out)).toMatch(/Velkaa yhteensä 120 000 € – Täydennä lainat/);
+    expect(words(out)).toMatch(/Velat yhteensä 120 000 € – Täydennä lainat/);
     expect(out).not.toContain("3 800");
     // the terms known: the figure and no link
     const known = html(loans, context(report([row()])));
     expect(known).not.toContain("loan-terms");
-    expect(words(known)).toContain("Velkaa yhteensä 120 000 € 3 800 €");
+    expect(words(known)).toContain("Velat yhteensä 120 000 € 3 800 €");
   });
 
   it("a bullet has no payment to tell, in its drill, after a move of the rate or in the payments of a month", () => {
@@ -158,7 +158,7 @@ describe("Raportit: Lainat", () => {
     // a range that ends before today shows no such figure, and no sentence about it
     const earlier = html(loans, context(over, "own", balanceData, "2026-11"));
     expect(earlier).not.toContain("Tilit miinus velat");
-    expect(earlier).toContain("Velkaa yhteensä");
+    expect(earlier).toContain("Velat yhteensä");
     const two = report([row()], { overdraftTwice: [{ loans: [{ id: "cl", name: "Tililuotto" }], accounts: [{ id: "a", name: "Käyttötili" }, { id: "b", name: "Yhteinen tili" }] }] });
     // two accounts below zero are still one figure, so one sentence
     expect(html(loans, context(two)).split("se on luvussa").length - 1).toBe(1);

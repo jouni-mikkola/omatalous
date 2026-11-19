@@ -7,18 +7,16 @@
  * figure of a loan is `loans.ts`'s (ADR 0004). This file lays the figures side by side, with the debts that may be
  * in a figure twice because no link says they are one (`maybeTwice` and `overdraftTwice` of `household-debts.ts`).
  */
-import { billCents } from "../account-use.ts";
 import { bufferCash } from "../analysis/buffer-cash.ts";
 import { debtsOf } from "../analysis/card-settled.ts";
 import type { AnalysisContext } from "../analysis/context.ts";
-import { type DebtCost, debtCost, type SeriesPayment } from "../debt-cost.ts";
+import { type DebtCost, debtCost } from "../debt-cost.ts";
 import type { Debt } from "../debt-part.ts";
 import { type ConsolidationBasis, consolidationBasis, payoffPlan, type PayoffPlan } from "../debt-plan.ts";
-import { paysSeries } from "../loan-detect.ts";
 import { type DebtPath, debtPath } from "../loan-path.ts";
 import { typedRateBpOn } from "../loan-schedule.ts";
 import { type MaybeTwice, maybeTwice, overdraftTwice } from "../household-debts.ts";
-import { type UnsavedRow, unsavedDebts } from "../holdings.ts";
+import { debtPayments, type UnsavedRow, unsavedDebts } from "../holdings.ts";
 import {
   type DebtFigure,
   type DebtPayments,
@@ -187,19 +185,6 @@ export function inCostOrder(rows: readonly LoanRow[]): LoanRow[] {
   return [...rows].sort((a, b) => part(a) - part(b) || byDescending(rate(a), rate(b)) || byDescending(dearness(a), dearness(b)) || byDescending(year(a), year(b)));
 }
 
-/**
- * The payments of a saved loan's linked series up to the day, as the bank booked them: the whole sum that left the
- * account (`billCents`), whoever's part the viewer sees. They measure a fee a plan does not state and price a loan with
- * no rate (`debtCost`).
- */
-function paymentsOf(ctx: AnalysisContext, loans: readonly Loan[], loan: Loan, day: IsoDate): SeriesPayment[] {
-  if (loan.seriesKey === null) return [];
-  const keys = loans.flatMap((l) => l.seriesKey ?? []);
-  return ctx.txs
-    .filter((t) => t.amountCents < 0 && !t.isTransfer && t.bookingDate <= day && paysSeries(loan.seriesKey!, { accountId: t.accountId, merchant: t.merchant, amountCents: billCents(t) }, keys))
-    .map((t) => ({ date: t.bookingDate, cents: -billCents(t) }));
-}
-
 /** The household's debts on the context's today, each with its figures from `loans.ts`. */
 export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs): LoansReport {
   const debts = debtsOf(ctx, balances, inputs);
@@ -207,7 +192,9 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
   const accountOf = new Map(balances.map((b) => [b.id, b]));
   const sourceOf = new Map(debts.sources.map((s) => [s.loanId, s]));
   const unsaved = unsavedDebts(ctx, inputs);
-  const rowsOf = (debt: Debt) => paymentsOf(ctx, debts.loans, debt, day);
+  // the same rows the front page and Tarkistettavat price each debt from, so a debt costs the same on every page
+  const keys = debts.loans.flatMap((l) => l.seriesKey ?? []);
+  const rowsOf = (debt: Debt) => debtPayments(ctx, debt, keys);
   const loans = debts.loans.map((loan): LoanRow => {
     const balance = loanBalanceOn(loan, day);
     const moves = hasReferenceRate(loan) && loan.rateBp !== null && (balance.cents ?? 0) > 0;

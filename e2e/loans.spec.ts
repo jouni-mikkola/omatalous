@@ -362,7 +362,7 @@ test("a member sees and changes only their own loans, and the page fits a phone"
 const demoCard = async (context: BrowserContext) => ((await (await context.request.get("/api/meta")).json()).accounts as { id: string; name: string; type: string }[]).find((a) => a.type === "credit_card");
 const cardLoan = (name: string, day: string) => ({ name, kind: "card", lender: "ESIMERKKIRAHOITUS OY", grantedCents: null, balanceCents: 100_000, balanceDate: day, rateBp: null, reference: null, marginBp: null, repayment: null, intervalMonths: null, paymentCents: null, endDate: null, limitCents: 300_000, seriesKey: null });
 /** The debt total of the Lainat report in whole euros: the demo's loan nobody saved makes it the known total. */
-const owed = async (section: Locator) => Number(/(\d[\d\s]*?)\s*€/.exec(await section.locator("table.rt tfoot tr").filter({ hasText: /Velkaa yhteensä|Velat yhteensä, tiedossa/ }).innerText())![1]!.replace(/\D/g, ""));
+const owed = async (section: Locator) => Number(/(\d[\d\s]*?)\s*€/.exec(await section.locator("table.rt tfoot tr").filter({ hasText: /Velat yhteensä/ }).innerText())![1]!.replace(/\D/g, ""));
 
 test("the Lainat report offers to link a saved card to the card account, and the saved link takes the sentence and the typed balance out of the total", async ({ browser }) => {
   const context = await administrator(browser);
