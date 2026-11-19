@@ -90,9 +90,17 @@ describe("the question of the kind", () => {
     expect(p!.kindUnknown).toBeUndefined();
   });
 
-  it("a finance company by its name alone keeps its loan guess", () => {
-    const finance = contextOf([...pay, ...payments(CHANGING, "VIITE 1234 5678", "NORDEA RAHOITUS SUOMI OY")]);
-    expect(loanProposals(finance, NO_INPUTS).every((p) => p.kindUnknown === undefined)).toBe(true);
+  it("a finance company that lends for cars and issues cards is asked too when the sum changes, and keeps its loan guess for one sum", () => {
+    const finance = (euros: readonly number[] | number) => payments(euros, "VIITE 1234 5678", "NORDEA RAHOITUS SUOMI OY");
+    const changing = finance(CHANGING);
+    expect(new Set(enriched([...pay, ...changing]).filter((t) => t.amountCents < 0).map((t) => t.category))).toEqual(new Set(["loans"]));
+    expect(loanProposals(contextOf([...pay, ...changing]), NO_INPUTS)).toEqual([expect.objectContaining({ kindUnknown: true, placed: false })]);
+    const fixed = loanProposals(contextOf([...pay, ...finance(150)]), NO_INPUTS);
+    expect(fixed.map((p) => p.kindUnknown)).toEqual([undefined]);
+    // its connected card named in the payment makes the changing sums the card's bills
+    const gold: Account = { id: "gold", name: "Nordea Gold", iban: null, currency: "EUR", type: "credit_card" };
+    const ids = new Set(changing.map((t) => t.id));
+    expect(enriched([...pay, ...changing], [checking, gold]).filter((t) => ids.has(t.id)).every((t) => t.category === "card_bill" || t.isTransfer)).toBe(true);
   });
 
   it("is listed beside the debts as a credit of unknown kind with its monthly payment and no balance", () => {

@@ -12,7 +12,7 @@
  * loan's key names is never taken. Every step reads the rows of one payee, so a run of a single merchant
  * (`enrichIsland`) agrees with the full run.
  *
- * A saved loan of kind card likewise names the series of its bills: a bank that issues cards and lends otherwise is paid
+ * A saved loan of kind card likewise names the series of its bills: a lender that issues cards and lends otherwise is paid
  * by its name alone, which the lender rule reads as a credit of unknown kind (`loans`), and the household's answer makes
  * those rows the card's bills (`card_bill`). A card's bill changes every month, so its key holds no amount and every
  * row of the payee on the account that the rule left as `loans`, that names no loan and that no other saved loan's key

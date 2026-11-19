@@ -1,7 +1,8 @@
 import { applyDeclaredCards, applyDeclaredMortgages } from "./declared-loans.ts";
 import { loanPaymentAccounts } from "./loan-payment.ts";
 import { getCategory } from "./categories.ts";
-import { isInstalments, isLenderPayout, referenceOf, settleTransfers, varyingRows } from "./card-channel.ts";
+import { applyCardBills } from "./card-bills.ts";
+import { isLenderPayout, referenceOf, settleTransfers } from "./card-channel.ts";
 import { type CategorizeResult, compileRules } from "./categorize.ts";
 import { categorizeInDirection } from "./categorize-direction.ts";
 import { dealerCategory } from "./wording-car.ts";
@@ -10,16 +11,14 @@ import { holdersOf, isUserName, noCard } from "./categorize-people.ts";
 import { businessMerchants, CAR_HIRE, hireCategory, isBusinessRow, isMobilePay, ledgerOf, ledgersWithPayeeAccounts } from "./industry.ts";
 import { lexiconCategory } from "./lexicon.ts";
 import { isSharedPurchase, SHARE_DAYS } from "./mobilepay.ts";
-import { fold, UNKNOWN_MERCHANT } from "./merchant.ts";
+import { UNKNOWN_MERCHANT } from "./merchant.ts";
 import { dayNumber } from "./dates.ts";
 import { applyPayerConsistency } from "./payer-consistency.ts";
 import { answeredWalletRows, applyPayerRoles, payerHistoryOf, WALLET_PAYER_KEY } from "./payer-role.ts";
-import { median } from "./stats.ts";
 import { matchReturns, monthlyRunRows, partyKey, returnClassOf, SHARE_WINDOW_DAYS, steadyParties } from "./returns.ts";
 import { mayBeTransferLeg } from "./pairing.ts";
-import { namesCard, normalizeIban } from "./transfers.ts";
+import { normalizeIban } from "./transfers.ts";
 import type { Account, CategoryRule, IsoDate, Loan, PayerInput, Transaction } from "./types.ts";
-import { isCardIssuerBankText, isCardIssuerText, isLoanText } from "./wording.ts";
 
 /**
  * Re-derives category and transfer flags for every transaction. Categories
@@ -131,29 +130,6 @@ const HOLD_CATEGORY = "hold";
  */
 const isHold = (t: Transaction): boolean =>
   t.status === "pending" && t.amountCents < 0 && t.merchant === UNKNOWN_MERCHANT && !t.counterparty?.trim() && !t.description?.trim() && !t.mcc?.trim() && !t.counterpartyIban?.trim() && !t.bankTxnCode?.trim();
-
-/**
- * Before transfer detection: a card bill pairs with the connected card's payment row. An issuer that also lends is paid
- * a card bill only where the payment names a connected card of the issuer: its name alone, or a sum that changes, tells
- * no card, and such a payment stays a credit of unknown kind (loans), whose kind Tarkistettavat asks.
- */
-function applyCardBills(next: readonly Transaction[], byUserRule: ReadonlySet<string>, accounts: readonly Account[]): void {
-  const cards = accounts.filter((a) => a.type === "credit_card");
-  if (!cards.length) return;
-  const rows = next.filter((t) => !byUserRule.has(t.id));
-  for (const t of [...cardBillsByAmount(rows), ...issuerBills(rows)]) {
-    const payee = [t.merchant, t.counterparty].filter(Boolean).join(" ");
-    if (cards.some((card) => namesCard(payee, card))) t.category = "card_bill";
-  }
-}
-
-/** Payments to a bank that issues cards and lends, by its name alone: a card bill where a connected card of it is named, at any sum. */
-const issuerBills = (txs: readonly Transaction[]): Transaction[] =>
-  txs.filter((t) => {
-    if (t.category !== "loans" || t.categorySource !== "rule" || t.amountCents >= 0) return false;
-    const text = fold([t.merchant, t.counterparty, t.description].filter(Boolean).join(" | "));
-    return isCardIssuerBankText(text) && !isLoanText(text);
-  });
 
 /** Money out that the people rules read as a person by the shape of a credit transfer alone: no reference, no card and no word of the bank's for a payment between people (categorize-people.ts, `unreferenced`). */
 const isGuessedPerson = (t: Transaction): boolean => t.category === "p2p" && t.categorySource === "rule" && !!t.counterpartyIban?.trim() && referenceOf(t) === "" && !isMobilePay(t);
@@ -439,58 +415,6 @@ const transferKey = (t: Transaction): string => {
 
 /** What returns look at in a row's state (the rest of what they read is in the bank's fields, which a change does not touch). */
 const returnKey = (t: Transaction, ownIbans: ReadonlySet<string>, locked: boolean) => returnClassOf(t, ownIbans, locked);
-
-/**
- * Payments to a card issuer that a rule called "loans" but whose amounts
- * jump from month to month: a card's bill, not an instalment, where a connected
- * card of the issuer is named (`applyCardBills`). An amount paid
- * three times or more is an instalment and stays a loan, so a car loan and a
- * card bill from the same issuer are told apart.
- *
- * One reference is one contract, so the payments under it share the answer: where at least half of them are equal
- * instalments, an extra payment and an instalment that changed are the same loan's, and where most vary, the equal
- * ones are that card's bills too. A reference seen once or twice is an invoice's own number and says nothing: its
- * rows are judged with the ones that have none, each by its amount as before.
- */
-function cardBillsByAmount(txs: readonly Transaction[]): Transaction[] {
-  const groups = new Map<string, Transaction[]>();
-  for (const t of txs) {
-    if (t.category !== "loans" || t.categorySource !== "rule" || t.amountCents >= 0) continue;
-    const text = fold([t.merchant, t.counterparty, t.description].filter(Boolean).join(" | "));
-    if (!isCardIssuerText(text) || isLoanText(text)) continue;
-    const key = `${t.accountId}|${t.merchant}`;
-    const group = groups.get(key);
-    if (group) group.push(t);
-    else groups.set(key, [t]);
-  }
-  const bills: Transaction[] = [];
-  for (const rows of groups.values()) {
-    const byReference = new Map<string, Transaction[]>();
-    for (const t of rows) {
-      const reference = referenceOf(t);
-      const same = byReference.get(reference);
-      if (same) same.push(t);
-      else byReference.set(reference, [t]);
-    }
-    const rest: Transaction[] = [];
-    for (const [reference, same] of byReference) {
-      if (reference === "" || same.length < 3) rest.push(...same);
-      else bills.push(...billsAmong(same, true));
-    }
-    bills.push(...billsAmong(rest, false));
-  }
-  return bills;
-}
-
-/** The card bills among one payee's rows: all or none of a contract's, and otherwise the ones whose amount varies. */
-function billsAmong(rows: readonly Transaction[], contract: boolean): readonly Transaction[] {
-  const varying = varyingRows(rows).sort((a, b) => a.bookingDate.localeCompare(b.bookingDate));
-  if (varying.length < 3 || (contract && isInstalments(rows))) return [];
-  // month-to-month change, not the overall range: a slowly shrinking instalment is not a card bill
-  const changes = varying.slice(1).map((t, i) => Math.abs(t.amountCents - varying[i]!.amountCents) / Math.abs(varying[i]!.amountCents));
-  if (median(changes) <= 0.1) return [];
-  return contract ? rows : varying;
-}
 
 /** Categories whose rows say nothing about what a merchant sells. */
 const NO_VOTE = new Set(["p2p", "p2p_in", "card_bill", "cash", "fees"]);

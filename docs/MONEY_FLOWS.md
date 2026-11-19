@@ -169,7 +169,7 @@ back has rows only, every one signed and the last *Tulos*, and nothing is told a
 | Same, card account not connected | debt service ("Luottokortin lasku", group Velanhoito) | the bill pays the card's credit; its purchases are unknown, so no purchase category gets them |
 | Bill of another card of the same issuer (Platinum while only Gold is connected), or of another issuer's Gold | card bill (debt service) | only the connected card's purchases are counted on its account |
 | Bill for a card that is not connected (e.g. Amex) while another card is | card bill (debt service) | only the connected card's bill is a transfer |
-| Payment to a card issuer such as Nordea Rahoitus or Bank Norwegian | card bill if the text has a card word, or if it names a connected card and the amount changes every month; otherwise debt ("Kulutusluotot") | an instalment repeats, a card bill follows the purchases. A text with a loan word (*osamaksu*, *laina*) stays a loan, and one payment reference is one contract (see *Card bills*). A bank that issues cards and lends otherwise, paid in changing sums by its name alone, is a credit of unknown kind until the household tells its kind |
+| Payment to a card issuer such as Nordea Rahoitus or Bank Norwegian | card bill if the text has a card word or names a connected card of the issuer (see *Card bills*); otherwise debt ("Kulutusluotot") | an instalment repeats, a card bill follows the purchases. A text with a loan word (*osamaksu*, *laina*) stays a loan, and one payment reference is one contract (see *Card bills*). A lender that issues cards and lends otherwise, paid in changing sums by its name alone, is a credit of unknown kind until the household tells its kind |
 | A credit of unknown kind | debt ("Kulutusluotot"), mandatory debt service | Tarkistettavat asks whether it is a card, a credit account or a consumer credit. Until then it is listed as a debt with its monthly payment and no balance. A saved card loan linked to the series makes its payments card bills ("Luottokortin lasku"); saving, changing or deleting such a loan runs the categories again |
 | Money into the card account ("Maksu, kiitos", prepaying) | transfer | money into a card is a payment, not income |
 | Credit moved from a card to the current account | transfer if both are connected, otherwise borrowing | borrowed money is not income |
@@ -242,12 +242,13 @@ card's own, or a statement's.
 
 - **The wording and the amount.** A payee named like a card issuer (Nordea Rahoitus, Bank Norwegian) is a loan payment.
   A card word in the text (*kortti*, *card*, a card brand or product) makes it a card bill at once. The name alone is
-  no card: a bank that issues cards and lends otherwise is paid in changing sums for a card, a credit account or a
-  loan alike. Such a payment is a card bill only when its text names a connected card of the issuer. Then, of one
-  issuer's payments on one account, a sum that comes three times or more is an instalment and stays a loan. The others
-  are card bills when there are at least three of them and they change by more than a tenth from one payment to the
-  next (the median change). With no connected card named, a monthly series of changing sums to such a bank is a credit
-  of unknown kind (*Kulutusluotot*), and Tarkistettavat asks its kind. A saved card loan linked to the series makes its
+  no card: a lender that issues cards and lends otherwise is paid in changing sums for a card, a credit account, a
+  flexible car credit or a loan alike. Such a payment is a card bill only when it names a connected card of the
+  issuer. A bank among the issuers (Bank Norwegian) is then paid the card's bill at any sum. Of the other issuers'
+  payments on one account, a sum that comes three times or more is an instalment and stays a loan, and the others are
+  card bills when there are at least three of them and they change by more than a tenth from one payment to the next
+  (the median change). With no connected card named, a monthly series of changing sums to such a lender is a credit of
+  unknown kind (*Kulutusluotot*), and Tarkistettavat asks its kind. A saved card loan linked to the series makes its
   payments card bills; a credit account or a consumer credit keeps them as *Kulutusluotot*. A series of one fixed sum
   is an instalment and stays a loan.
 - **One reference is one contract.** A payment reference on three or more payments of one account and one payee names

@@ -26,7 +26,7 @@ const row = (id: string, accountId: string, bookingDate: string, amountCents: nu
 /** A year of food and of the bills of a card: its purchases are on the card from September on, so the bills before are missing ones. */
 const rows = [
   ...MONTHS.map((m, i) => row(`food-${i}`, "chk", `${m}-05`, -50_000, "PRISMA ESIMERKKI")),
-  ...MONTHS.map((m, i) => row(`morrow-${i}`, "chk", `${m}-20`, -12_000, "MORROW BANK ASA", "LASKU")),
+  ...MONTHS.map((m, i) => row(`morrow-${i}`, "chk", `${m}-20`, -12_000, "MORROW BANK ASA", "KORTTILASKU")),
   row("buy", "morrow", "2026-09-01", -1_000, "K-MARKET ESIMERKKI"),
 ];
 

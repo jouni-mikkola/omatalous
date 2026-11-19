@@ -245,7 +245,7 @@ export const LATE_FEE_WORDS = alternation("LATE_FEE_WORDS");
 export const INSTALMENT_SERVICE_WORDS = alternation("INSTALMENT_SERVICE_WORDS");
 /**
  * Resurs is an issuer by its whole name only: RESURS alone is also in an employer's name (Resurs Bemanning). It also
- * lends, so its fixed instalments stay loans (pipeline.ts).
+ * lends, so its fixed instalments stay loans (card-bills.ts).
  */
 export const RESURS_WORDS = alternation("RESURS_WORDS");
 const LENDERS = new RegExp(`${INSTALMENT_SERVICE_WORDS}|${RESURS_WORDS}`);
@@ -254,16 +254,19 @@ export const isLenderName = (folded: string) => LENDERS.test(folded);
 
 /**
  * Card issuers whose bills come as plain e-invoices, as regex alternations. Their names stand here once: the card
- * bill, credit_draw and loans rules of categorize.ts and `isCardIssuerText` (pipeline.ts) all read these.
+ * bill, credit_draw and loans rules of categorize.ts and `isCardIssuerText` (card-bills.ts) all read these.
  * The banks among them also lend and take deposits, so their name alone tells no card: with a card word it is a card
- * bill, with a connected card of theirs too (pipeline.ts), and otherwise a credit of a kind the household is asked
+ * bill, with a connected card of theirs too (card-bills.ts), and otherwise a credit of a kind the household is asked
  * (`isCreditIssuerText`). Komplett Bank has been Morrow Bank since 2023.
  * SEB Kort issues Eurocard and the co-branded cards.
  */
 export const CARD_ISSUER_BANK_WORDS = alternation("CARD_ISSUER_BANK_WORDS");
 /** Names that stand for a card and nothing else. */
 export const CARD_BRAND_WORDS = alternation("CARD_BRAND_WORDS");
-/** Nordea's finance company lends for cars and issues the bank's cards: its name with a card word is a card bill, alone a loan. */
+/**
+ * Nordea's finance company lends for cars, runs flexible credits and issues the bank's cards: its name with a card word is
+ * a card bill, alone a loan in one sum and a credit of unknown kind in sums that change (`isCreditIssuerText`).
+ */
 export const NORDEA_FINANCE_WORDS = alternation("NORDEA_FINANCE_WORDS");
 /** A bank that lends mortgages (a text of Nordea's finance company is not one). The list is data: wordlists.json. */
 const MORTGAGE_BANK = words(String.raw`(?!${NORDEA_FINANCE_WORDS})(?:${alternation("MORTGAGE_BANK_WORDS")})`);
@@ -277,8 +280,11 @@ export const isCardIssuerText = (folded: string) => CARD_ISSUER.test(folded);
 const CARD_ISSUER_BANK = words(CARD_ISSUER_BANK_WORDS);
 /** A card issuer that is a bank (`CARD_ISSUER_BANK_WORDS`) by its name. */
 export const isCardIssuerBankText = (folded: string) => CARD_ISSUER_BANK.test(folded);
-const CREDIT_ISSUER = words(`${CARD_ISSUER_BANK_WORDS}|${RESURS_WORDS}`);
-/** A bank that issues cards and lends otherwise too: a payment that names it and no loan or card is a credit of unknown kind. */
+const CREDIT_ISSUER = words(`${CARD_ISSUER_BANK_WORDS}|${RESURS_WORDS}|${NORDEA_FINANCE_WORDS}`);
+/**
+ * A lender that issues cards and lends otherwise too (credit accounts, flexible car credits, loans): a payment that names
+ * it and no loan or card, in sums that change, is a credit of unknown kind.
+ */
 export const isCreditIssuerText = (folded: string) => CREDIT_ISSUER.test(folded);
 /** A word for a card beside an issuer's name ("MORROW KORTTI LASKU"), and no loan. KORT alone is a word of an issuer's own name. */
 const ISSUER_CARD_WORD = words(String.raw`[A-Z]*KORTTI[A-Z]*|KORTIN|CARD|MASTERCARD|VISA`);

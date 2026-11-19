@@ -75,7 +75,7 @@ export interface LoanProposal {
   /** A first choice for the form, from the category and the payee's words. The household decides. */
   kind: LoanKind;
   /**
-   * The payee is a bank that issues cards and lends otherwise, named alone, and the sum changes (`isCreditIssuerText`):
+   * The payee is a lender that issues cards and lends otherwise, named alone, and the sum changes (`isCreditIssuerText`):
    * a card, a credit account or a loan, which the rows do not tell. `kind` is then no guess, and Tarkistettavat asks the
    * kind among those three. Absent where the rows place a kind or suggest one.
    */
@@ -419,7 +419,7 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
     // an instalment service is a plan only for the same sum in three months running, or two that say so; its other payments are purchases
     const plan = INSTALMENT_SERVICE.test(text);
     if (plan && planRuns(charges).length === 0) continue;
-    // a bank that issues cards and lends otherwise, by its name alone: one sum month after month is an instalment, a sum
+    // a lender that issues cards and lends otherwise, by its name alone: one sum month after month is an instalment, a sum
     // that changes may be a card's bill, a credit account's or a loan's, which only the household tells
     const issuer = isCreditIssuerText(text) && !isLoanText(text);
     const invoicedLoan = isLenderPayment(payee, text) || hasLoanText(payee) || issuer;

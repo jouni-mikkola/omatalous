@@ -83,8 +83,7 @@ const PURPOSE_RULES: readonly BuiltinRule[] = [
   { category: "income", direction: "in", re: w(String.raw`VUOKRA(?:T|TULO[A-Z]*|TILITYS|NMAKSU)?`) },
 
   // ── credit cards: the bill is a transfer when the card account is connected (transfers.ts) ──
-  // The issuers that are banks also lend and take deposits: LAINA in the text is a loan payment (loans, below), SÄÄSTÖTILI is saving,
-  // a card word the card's bill, and their name alone a credit of unknown kind (loans, below)
+  // issuer banks lend and take deposits: SÄÄSTÖTILI is saving, a card word a card's bill, LAINA or the name alone loans (below)
   { category: "savings", re: w(CARD_ISSUER_BANK_WORDS), when: isSavingsAccountText },
   { category: "card_bill", direction: "out", re: w(CARD_ISSUER_BANK_WORDS), when: namesIssuerCard },
   {
