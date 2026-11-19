@@ -12,7 +12,7 @@ import "../styles/settings.css";
  * targets that the signed-in role is offered, and the outlet where the router puts the open one. An address from before
  * the targets (`?section=`, a bare `#/settings`, an anchor such as `#lainat`) is rewritten to its target in `redirectRoute`.
  * `?add=1` opens Pankit ja tilit at the bank picker, and an address anchor scrolls to its card. The row of
- * tabs scrolls sideways where it does not fit, with the open target brought into sight.
+ * tabs wraps under 600 px so every target is in sight, and scrolls sideways where it still does not fit, with the open target brought into sight.
  */
 export function Settings({ meta }: { meta: Meta }) {
   return (

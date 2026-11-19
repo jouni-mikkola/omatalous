@@ -8,6 +8,8 @@
 /* settings: the bare h3 and p (no class) of every tab (the browser gives 17,55 px and 15 px margins) take the body size and the spacing steps */
 :where(.stack:has(> .tabs)) h3:not([class]) { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; margin: var(--sp-16) 0 var(--sp-8); }
 :where(.stack:has(> .tabs)) p:not([class]) { font-size: var(--fs-body); margin: 0 0 var(--sp-8); }
+/* settings: the targets are six or seven, more than a phone's width holds: the row wraps there so each one is in sight, where wider rooms scroll it with a fade */
+@media (max-width: 600px) { .stack > .tabs { flex-wrap: wrap; overflow: visible; mask-image: none; } }
 /* settings: an account's own edit row */
 .edit-row td { background: var(--surface-2); }
 @media (max-width: 600px) { .account-form label { max-width: none; } }
