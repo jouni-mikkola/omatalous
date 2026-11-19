@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { debtPaymentsPerMonth, debtTotalOn, loanBalanceOn, loanInterestNext12Months, loanNextPayment, loanRateScenario } from "../src/loans.ts";
 import type { BalanceInput } from "../src/reports/balances.ts";
+import { monthlyPayments } from "../src/reports/loans.ts";
 import { buildReports } from "../src/reports/index.ts";
 import type { Account, Loan } from "../src/types.ts";
 import { tx } from "./helpers.ts";
@@ -253,6 +254,39 @@ describe("a move of the rate that has nothing to tell, and a loan whose balance 
     expect(run([annuity({ id: "now", balanceCents: 1000000, paymentCents: 20000 })]).loans).toMatchObject({ totalKnown: true, interestKnown: true });
     // beside it a card that owes and has no rate, and one that owes nothing
     expect(run([later, loan({ id: "card", kind: "card", balanceCents: 124000 }), loan({ id: "undrawn", kind: "card", balanceCents: 0 })]).loans.withoutRate).toBe(1);
+  });
+});
+
+describe("the payments of a month over every debt the page lists", () => {
+  const none = { monthlyCents: 0, counted: 0, unknown: 0, bullets: 0 };
+  const row = (monthlyCents: number | null) => ({ name: "Esimerkkirahoitus", monthlyCents, card: false });
+  /** The unsaved debts as `unsavedDebts` tells them: the rows and the lenders paid only a few times. */
+  const unsaved = (rows: ReturnType<typeof row>[], few = 0) => ({ rows, few });
+
+  it("adds the saved loans' payments and the unsaved rows' known ones, and counts the debts that tell none", () => {
+    // four unsaved rows with a figure and one without, beside a saved loan with no payment: 1 382,24 € and two unknown
+    const rows = [row(50_000), row(40_000), row(30_000), row(18_224), row(null)];
+    expect(monthlyPayments({ ...none, unknown: 1 }, unsaved(rows))).toEqual({ cents: 138_224, unknown: 2 });
+    // a saved loan paid 1 000 € and a saved card with no payment, beside one lender's payment nobody saved: 1 289 € and one unknown
+    expect(monthlyPayments({ monthlyCents: 100_000, counted: 1, unknown: 1, bullets: 0 }, unsaved([row(28_900)]))).toEqual({ cents: 128_900, unknown: 1 });
+    // a saved loan's payment is added to theirs
+    expect(monthlyPayments({ monthlyCents: 20_000, counted: 1, unknown: 0, bullets: 0 }, unsaved([row(10_000)]))).toEqual({ cents: 30_000, unknown: 0 });
+  });
+
+  it("counts a lender paid only a few times as one more unknown debt, with no figure of its own", () => {
+    expect(monthlyPayments({ monthlyCents: 20_000, counted: 1, unknown: 0, bullets: 0 }, unsaved([row(10_000)], 2))).toEqual({ cents: 30_000, unknown: 2 });
+    expect(monthlyPayments(none, unsaved([], 1))).toEqual({ cents: null, unknown: 1 });
+  });
+
+  it("is null, never 0, while no payment is known", () => {
+    expect(monthlyPayments({ ...none, unknown: 1 }, unsaved([row(null)]))).toEqual({ cents: null, unknown: 2 });
+    expect(monthlyPayments(none, unsaved([]))).toEqual({ cents: null, unknown: 0 });
+    expect(monthlyPayments({ ...none, bullets: 1 }, unsaved([]))).toEqual({ cents: null, unknown: 0 });
+  });
+
+  it("is the saved loans' payments when nothing is unsaved", () => {
+    const r = run([annuity({ id: "a", balanceCents: 1000000, paymentCents: 20000 })]).loans;
+    expect(r.monthly).toEqual({ cents: r.payments.monthlyCents, unknown: 0 });
   });
 });
 

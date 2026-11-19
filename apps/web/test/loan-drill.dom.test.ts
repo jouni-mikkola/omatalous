@@ -272,7 +272,7 @@ function openDrill(row: LoanRow) {
   const data = {
     loans: {
       day: DAY, saved: 1, loans: [row], unsaved: [], total: { cents: 12_000_000, unknown: [] }, totalKnown: true, interest: { cents: 380_000, unknown: [] }, interestKnown: true, withoutRate: 0,
-      cost12: { cents: 380_000, interestCents: 380_000, feeCents: 0 }, plan: null, consolidation: null, payments: { monthlyCents: 100_000, counted: 1, unknown: 0, bullets: 0 }, path: null, maybeTwice: [], overdraftTwice: [],
+      cost12: { cents: 380_000, interestCents: 380_000, feeCents: 0 }, plan: null, consolidation: null, payments: { monthlyCents: 100_000, counted: 1, unknown: 0, bullets: 0 }, monthly: { cents: 100_000, unknown: 0 }, path: null, maybeTwice: [], overdraftTwice: [],
     },
     balances: { months: ["2026-10"], total: [0], monthChange: [null], missing: [], accountsLessDebt: [null], lowest: null, accounts: [], holdings: { accounts: [], cards: [], loans: [], debtCents: 0, unsavedLoans: null, netCents: null } },
   };

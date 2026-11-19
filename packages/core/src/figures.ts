@@ -279,7 +279,7 @@ export const FIGURES = {
   },
   balanceChange: {
     name: "Saldomuutos",
-    definition: "How far the total of the account balances moved from the close of the day before the range starts to the close of its last known day, so the rows of the first day are in it. Without a known balance the day before, it starts from the first day the balances are known on, and the answer names that day.",
+    definition: "How far the total of the account balances moved from the close of the day before the range starts to the close of its last known day, so the rows of the first day are in it. Without a known balance the day before, it starts from the close of the first month end at which every account is known (the first known day when no month end in the range is known), and the answer names that day.",
     source: { file: "reports/balances.ts", fn: "balanceReport", field: "change" },
     unit: "cents",
     scope: "own",
