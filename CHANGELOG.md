@@ -3,6 +3,50 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.6.4
+
+- Loans live in Raportit > Varat ja velat: add, edit and remove them there, also before linking a bank.
+- Täydennä lainat asks one thing of each debt, and every card whose purchases are missing is asked there.
+- Laskut shows the running month's paid and unpaid bills.
+- Pages are quieter: hint lines are gone and fewer small payments are asked about.
+
+Money and reports
+
+- The running month in Laskut shows paid and unpaid bills, and the front page says maksamatta.
+- Every card whose purchases are missing is a row of Tarkistettavat > Täydennä lainat.
+- An unconnected card offers Yhdistä kortti, Lisää kortin velka, Lisää tiliote and En tiedä.
+- A connected card whose purchases are missing offers Lisää tiliote and En tiedä.
+- The list of missing cards in Asetukset > Pankit ja tilit is gone.
+- On Yhteenveto, Lisää kortin tiliote opens the card's row in Tarkistettavat.
+- A lender's name alone makes no card bill: Tarkistettavat asks if it is a card, credit or loan.
+- The front page and Tapahtumat call what the month left "Käteen jäi", as the reports do.
+- The lowest balance and Jää palkkapäivänä have a figure when a card's purchases are only in its bill.
+- Loans are added, edited and removed in Raportit > Varat ja velat. Asetukset has no Talous tab.
+- Lisää laina stands in the head of Saldot, also before any bank account is linked.
+- Lisää asuntolaina in Tarkistettavat opens the form of a home loan on the same page.
+- Laskut offers no removal of a payment that a saved loan or credit line names.
+- Old addresses of the loans open Varat ja velat.
+- Täydennä lainat asks one thing of each debt: what is left now.
+- A card asks only if it is paid in full every month; the rest is edited at the loan.
+- The loan list's debt total says "tiedossa" while a debt has no balance, and card periods read "20.9. asti".
+- Lainat names the field of a new loan's offer that cannot be read.
+- Tarkistettavat no longer asks about a single small payment to an unknown payee.
+- Koron pääomitus and similar interest credits on a deposit account count as Osingot ja korot.
+- A charge made twice is asked about only when it went to a business.
+- The opening balance of a joint account counts as Yhteistä and is not asked.
+- Täydennä lainat links only to a form that has something left to answer.
+- Varat ja velat starts its balance change at the first month end known, as its month table does.
+- Lainat adds the payments of unsaved debts to Maksut kuussa and counts the ones with no figure.
+- A loan's monthly payment is its regular instalment; an extra repayment is no monthly cost.
+- A payee's Swedish word beside the Finnish one is left out of the name in Laskut and Tapahtumat.
+
+Look
+
+- Opening a row or changing the period keeps the page where it is, and all Asetukset tabs show on a phone.
+- Pages no longer explain themselves: hint lines under fields, questions and rows are gone.
+- The loan form uses plain words: Lainan määrä, Kuukausierä, Miten erä muuttuu and En tiedä.
+- The shared account choice reads Kuka maksoi tilille.
+
 ## 1.6.3
 
 - Lainat ranks every debt by its real rate, says Kallis or Erittäin kallis, and opens each one to its cost and payoff plan.
