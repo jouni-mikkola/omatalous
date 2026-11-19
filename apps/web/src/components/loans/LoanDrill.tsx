@@ -131,6 +131,8 @@ function Body({ id, today }: { id: string; today: string }) {
         ))}
       </dl>
       <Rate loan={loan} day={from} />
+      {/* a debt with no rate says so even where its plan lacks another field too, a card's payment among them */}
+      {loanRateLine(loan, from) === null && schedule.unknown !== "rate" && <p className="loan-wi-status">{missing("rate")}</p>}
       {schedule.unknown !== null && <p className="loan-wi-status">{missing(schedule.unknown)}</p>}
       {shown && (
         <div className="loan-fields">
