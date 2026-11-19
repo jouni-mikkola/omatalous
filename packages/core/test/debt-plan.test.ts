@@ -144,6 +144,7 @@ describe("consolidation", () => {
     const offer = consolidationCost(basis, START, { rateBp: 600, months: 60, feeCents: 500 })!;
     expect(offer.nowCents).toBe(basis.nowCents);
     expect(offer.newCents).toBeGreaterThan(30_000);
+    expect(offer.savedCents).toBe(offer.nowCents - offer.newCents);
     // at 0 % the new loan costs its fees alone
     expect(consolidationCost(consolidationBasis([card, credit], START)!, START, { rateBp: 0, months: 60, feeCents: 500 })!.newCents).toBe(30_000);
   });

@@ -221,7 +221,7 @@ function Consolidation({ basis, names, today }: { basis: Basis; names: readonly 
   const id = useId();
   const offer = offerOf(rate, months, fee);
   const cost = offer === null ? null : consolidationCost(basis, today, offer);
-  const gap = cost === null ? 0 : basis.nowCents - cost.newCents;
+  const gap = cost?.savedCents ?? 0;
   const field = (key: string, label: string, value: string, set: (v: string) => void) => (
     <div className="loan-field">
       <label className="field-label" htmlFor={`${id}-${key}`}>

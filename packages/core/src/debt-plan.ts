@@ -274,6 +274,8 @@ interface Consolidation {
   nowCents: number;
   /** The interest and fees of the new loan's payments. */
   newCents: number;
+  /** What the new loan saves: `nowCents` less `newCents`, negative when it costs more. */
+  savedCents: number;
 }
 
 /**
@@ -322,5 +324,6 @@ export function consolidationCost(basis: ConsolidationBasis, day: IsoDate, offer
   };
   const interest = loanSchedule(loan, day).summary?.interestLeftCents;
   if (interest === undefined || interest === null) return null;
-  return { nowCents: basis.nowCents, newCents: interest + offer.feeCents * offer.months };
+  const newCents = interest + offer.feeCents * offer.months;
+  return { nowCents: basis.nowCents, newCents, savedCents: basis.nowCents - newCents };
 }

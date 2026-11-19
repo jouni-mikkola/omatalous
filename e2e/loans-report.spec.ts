@@ -87,7 +87,7 @@ const texts = async (page: Page, selector: string) => (await page.locator(select
 /** "1 058,40 €" → 105840 */
 const cents = (s: string) => Math.round(Number(s.replace(/[ €]/g, "").replace(",", ".")) * 100);
 /** The rows of the debts, not the drills opened under them. */
-const ROWS = "#lainat table.rt tbody tr:not(.rt-detail):not(.rt-subrow):not(.rt-group):not(.rt-spacer)";
+const ROWS = "table.rt tbody tr:not(.rt-detail):not(.rt-subrow):not(.rt-group):not(.rt-spacer)";
 
 async function open(browser: Browser, width: number): Promise<{ page: Page; seen: { problems: string[] }; context: BrowserContext }> {
   const context = await browser.newContext({ storageState: MEMBER, viewport: { width, height: 844 } });
@@ -197,7 +197,7 @@ test("Raportit has none of the paragraphs the figures replaced, and its balances
 
 test("Lainat fits a phone: each debt is a block, its drill opens and the page does not scroll sideways", async ({ browser }) => {
   const { page, seen, context } = await open(browser, 390);
-  const rows = page.locator(ROWS);
+  const rows = page.locator(`#lainat ${ROWS}`);
   await expect(rows).toHaveCount(3);
   // the debt with a cost comes first and the one with none follows, as at a desktop's width; the loan nobody saved is last
   await expect(page.locator("#lainat .loan-name")).toHaveText([/^Kodin laina/, /^Kaupan kortti/, /./]);
