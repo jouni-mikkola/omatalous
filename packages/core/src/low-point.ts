@@ -14,10 +14,11 @@
  * a card's purchases once its next bill falls. A card's purchases after that bill, or with no bill to come, have no row
  * to leave the account with, so they are taken off the day they are made: the later bill's day is not known, and the
  * figure answers how low the money can go. A card that is not connected and shows only as its bills (a card_bill series
- * of the counted accounts) is walked the same way: its bills of `ahead.upcoming` are rows of the walk, as Käytettävissä
- * takes them, and hold its purchases up to their day, so the bill's sum spread over the base months' days
- * (`expectedEveryday`) is taken off only after the last of them. With none of the spending, inside the payday window the
- * lowest point is the one `aheadBasis` finds (`shortOn`, `shortCents`).
+ * of the counted accounts) is walked the same way: its bills of the payday window and of Laskut's 30 days (`ahead.rows`,
+ * `ahead.upcoming`) are rows of the walk, as Käytettävissä takes them, and hold its purchases up to their day, so its
+ * bills' sums spread over the base months' days (`expectedEveryday`, every card_bill row of its name on the counted
+ * accounts, as the runway leaves out every card_bill row) are taken off only after the last of them. With none of the
+ * spending, inside the payday window the lowest point is the one `aheadBasis` finds (`shortOn`, `shortCents`).
  *
  * The lowest day is the one of the expected everyday spending. The range is the lowest balance when the base months
  * with the most everyday spending repeat to when the ones with the least do, so `lowCents <= cents <= highCents`.
@@ -32,8 +33,7 @@ import { expectedEveryday } from "./analysis/expected.ts";
 import { type Runway, runwayOf } from "./analysis/runway.ts";
 import { addDays, monthOf } from "./dates.ts";
 import { billCalendar, unknownPaymentBy } from "./reports/bill-calendar.ts";
-import { parseSeriesId } from "./series-id.ts";
-import { LOW_POINT_DAYS } from "./thresholds.ts";
+import { AHEAD_DAYS, LOW_POINT_DAYS } from "./thresholds.ts";
 import type { BalanceInput, IsoDate, UserInputs } from "./types.ts";
 
 export type LowPoint =
@@ -81,15 +81,16 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
   const rows = calendar.months
     .flatMap((m) => m.rows)
     .filter((r) => r.state !== "paid" && !r.onCard && r.date >= from && r.date <= last && !(r.seriesId === null && r.kind === "bill" && heldByDebt.has(`${r.date}|${r.payee}|${r.cents}`)));
-  // the bills of a card shown only by them, which the bill calendar leaves out: by payee, the day of the last one walked and the rows of its series
-  const cardBills = ahead.upcoming.filter((r) => r.source === "recurring" && r.category === "card_bill" && !r.onCard && !r.outside && r.cents && r.date >= from && r.date <= last);
-  const billOnly = new Map<string, { last: IsoDate; ids: ReadonlySet<string> }>();
-  for (const r of cardBills) {
-    const had = billOnly.get(r.name);
-    if (had) had.last = r.date > had.last ? r.date : had.last;
-    else billOnly.set(r.name, { last: r.date, ids: new Set(ctx.recurring.flatMap((s) => (s.category === "card_bill" && s.merchant === r.name && direct.has(parseSeriesId(s.id)?.accountId ?? "") ? s.transactionIds : []))) });
-  }
-  const heldByBills = new Set([...billOnly.values()].flatMap((b) => [...b.ids]));
+  // the bills of a card shown only by them, which the bill calendar leaves out. `upcoming` reaches Laskut's 30 days and
+  // `rows` the payday window, which can be longer: the window's rows after the 30 days complete the list, none twice
+  const thirty = addDays(from, AHEAD_DAYS);
+  const cardBills = [...ahead.upcoming, ...ahead.rows.filter((r) => r.date > thirty)].filter((r) => r.source === "recurring" && r.category === "card_bill" && !r.onCard && !r.outside && r.cents && r.date >= from && r.date <= last);
+  // by payee, the day of the last one walked
+  const billOnly = new Map<string, IsoDate>();
+  for (const r of cardBills) if ((billOnly.get(r.name) ?? r.date) <= r.date) billOnly.set(r.name, r.date);
+  // a card_bill row of a counted account paid that card's purchases, whether its series holds it or not
+  const paysBillOnly = (t: AnalysisTx, name: string) => t.category === "card_bill" && t.merchant === name && direct.has(t.accountId);
+  const heldByBills = (t: AnalysisTx) => billOnly.has(t.merchant) && paysBillOnly(t, t.merchant);
   const income = rows.filter((r) => r.kind === "income");
   const payments: { date: IsoDate; cents: number }[] = [...rows.filter((r) => r.kind !== "income"), ...cardBills.map((r) => ({ date: r.date, cents: Math.abs(r.cents!) }))];
 
@@ -109,7 +110,7 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
   const billDay = new Map(settling.map((s) => [s.cardId, s.date] as const));
   // what has gone on everyday spending by the start of `day`, whose own days are not spent yet
   const spentBefore = (day: IsoDate): Spent => {
-    let spent = cost(from, addDays(day, -1), (t) => direct.has(t.accountId) && !heldByBills.has(t.id));
+    let spent = cost(from, addDays(day, -1), (t) => direct.has(t.accountId) && !heldByBills(t));
     for (const { id } of cards) {
       const bill = billDay.get(id);
       const mine = (t: AnalysisTx) => t.accountId === id;
@@ -119,7 +120,7 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
       } else spent = plus(spent, cost(addDays(from, 1), addDays(day, -1), mine));
     }
     // a card shown only by its bills: its bills hold its purchases to the last one's day, after it they go day by day
-    for (const { last: bill, ids } of billOnly.values()) spent = plus(spent, cost(addDays(bill, 1), addDays(day, -1), (t) => ids.has(t.id)));
+    for (const [name, bill] of billOnly) spent = plus(spent, cost(addDays(bill, 1), addDays(day, -1), (t) => paysBillOnly(t, name)));
     return spent;
   };
 

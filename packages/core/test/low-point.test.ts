@@ -143,6 +143,46 @@ describe("lowPoint with everyday spending", () => {
         expect(point.cents).toBeLessThanOrEqual(point.highCents);
       }
     });
+
+    it("walks a bill of a payday window longer than Laskut's 30 days on its day", () => {
+      // the pay of 3 000 € comes every second month on the 9th (on 7.8. for a Sunday): the payday is 9.12., 44 days away.
+      // The card's bills fall on the 29th, the same sums as above: the next two, 380 € each, on 29.10. and on 29.11., the 35th day
+      const bimonthly = pays("2026-04", "2026-10", 9).filter((t) => Number(t.bookingDate.slice(5, 7)) % 2 === 0);
+      const onThe29th = ["2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"].map((m) =>
+        tx({ accountId: own.id, bookingDate: `${m}-29`, amountCents: -billOf(m), merchant: "Esimerkkipankki", counterparty: "Esimerkkipankki", category: "card_bill" }),
+      );
+      const { basis, point, runway } = walk([...bimonthly, ...rents(), ...shopping("2026-03-01", 4000), ...onThe29th], [bal(900_000)], 44);
+      if (!point.known || !runway.known) throw new Error("no lowest balance");
+      expect([basis.ahead.to, runway.payday.date]).toEqual(["2026-12-08", "2026-12-09"]);
+      // 9 000 € less two rents of 900 € and two bills of 380 €, less 44 days of 40 €
+      expect(runway.freeCents).toBe(644_000);
+      expect(runway.leftCents).toBe(468_000);
+      // 8.12. starts with 6 440 € less the 43 days of 40 € before it and the card's purchases of 30.11.-7.12., the days after its last bill
+      expect(point.date).toBe("2026-12-08");
+      expect(Math.abs(point.cents - (472_000 - 8 * perDay))).toBeLessThanOrEqual(1);
+      expect(point.highCents).toBeLessThanOrEqual(runway.leftCents);
+      expect(point.lowCents).toBeLessThanOrEqual(point.cents);
+      expect(point.cents).toBeLessThanOrEqual(point.highCents);
+    });
+
+    it("holds back a payment of the card that its series does not hold, as the runway leaves out every card bill", () => {
+      // the card's bill is 350 € on the 9th, and on 20.6. the household paid 200 € more to it: a row of no series
+      const fixed = ["2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"].map((m) =>
+        tx({ accountId: own.id, bookingDate: `${m}-09`, amountCents: -35_000, merchant: "Esimerkkipankki", counterparty: "Esimerkkipankki", category: "card_bill" }),
+      );
+      const extra = tx({ accountId: own.id, bookingDate: "2026-06-20", amountCents: -20_000, merchant: "Esimerkkipankki", counterparty: "Esimerkkipankki", category: "card_bill" });
+      const { ctx, point, runway } = walk([...pays(), ...rents(), ...shopping("2026-03-01", 4000), ...fixed, extra], [bal(900_000)], 19);
+      if (!point.known || !runway.known) throw new Error("no lowest balance");
+      expect(ctx.recurring.some((s) => s.transactionIds.includes(extra.id))).toBe(false);
+      // 9 000 € less the rent and the bill of 350 € on 9.11., less 18 days of 40 €
+      expect(runway.leftCents).toBe(703_000);
+      // the card's purchases of a day: each base month's payments over its days, June's 550 € with the extra one
+      const withExtra = ["2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"].reduce((n, m) => n + (m === "2026-06" ? 55_000 : 35_000) / daysInMonth(m), 0) / 6;
+      // 13.11. starts with 7 030 € less the card's purchases of 10.-12.11.: the extra payment waits for the bill like the others
+      expect(point.date).toBe("2026-11-13");
+      expect(Math.abs(point.cents - (703_000 - 3 * withExtra))).toBeLessThanOrEqual(1);
+      expect(point.highCents).toBeLessThanOrEqual(runway.leftCents);
+    });
   });
 
   it("keeps the low end of the range at or under the figure and the figure at or under the high end", () => {
