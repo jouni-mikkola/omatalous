@@ -41,7 +41,7 @@ describe("cards whose bills are paid and which are not connected", () => {
     expect(unconnectedCards(createContext(bills("Esimerkkipankki Kortti").map((t) => ({ ...t, category: "transfer", isTransfer: true })), [own], TODAY), NO_INPUTS)).toEqual([]);
   });
 
-  it("leaves the card out once it is saved as a loan linked to its bills, or marked Ei ole laina", () => {
+  it("leaves the card out once it is saved as a loan linked to its bills, or marked Ei ole velan maksu", () => {
     expect(unconnectedCards(ctx, { ...NO_INPUTS, loans: [savedCard(card!.key)] })).toEqual([]);
     const marked: UserInputs = { ...NO_INPUTS, marks: [{ ...notLoanMark(card!), markedAt: "2026-10-18T10:00:00Z" }] };
     expect(unconnectedCards(ctx, marked)).toEqual([]);

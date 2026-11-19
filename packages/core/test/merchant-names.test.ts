@@ -236,6 +236,17 @@ describe("a marketplace keeps its own name", () => {
   });
 });
 
+describe("a bank's Swedish word beside the Finnish one", () => {
+  it("leaves the Swedish twin out of the payee, as the loan's name does", () => {
+    expect(normalizeMerchant("ESIMERKKI LAINAT LÅN", null)).toBe("Esimerkki Lainat");
+    expect(name("ESIMERKKI LUOTTO KREDIT")).toBe("Esimerkki Luotto");
+  });
+
+  it("keeps a Swedish word that stands alone", () => {
+    expect(normalizeMerchant("ESIMERKKI LÅN", null)).toBe("Esimerkki Lån");
+  });
+});
+
 describe("the trade register", () => {
   const card: Account = { id: "card", name: "Luottokortti", iban: null, currency: "EUR", type: "credit_card" };
   const candidates = (text: string) =>

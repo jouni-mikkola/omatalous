@@ -208,7 +208,12 @@ describe("categorize", () => {
     ["SUOMEN URHEILUOPISTO", null, "other"],
     ["BANK NORWEGIAN", "KORTTILASKU 09/2026", "card_bill"],
     ["BANK NORWEGIAN", "LAINAN LYHENNYS", "loans"],
-    ["MORROW BANK ASA", "LASKU 09/2026", "card_bill"],
+    // the name of a bank that issues cards and lends tells no card: a credit of unknown kind, a card word makes it the card's bill
+    ["MORROW BANK ASA", "LASKU 09/2026", "loans"],
+    ["BANK NORWEGIAN", null, "loans"],
+    ["KOMPLETT BANK", "LUOTTOKORTTI 09/2026", "card_bill"],
+    ["KOMPLETT BANK", "MASTERCARD", "card_bill"],
+    ["BANK NORWEGIAN", "KORTIN LASKU", "card_bill"],
     ["MORROW BANK ASA", "LAINAN LYHENNYS", "loans"],
     ["KOMPLETT BANK", "LAINA 1234", "loans"],
     // one list of the issuers that are banks (ADR 0008): a loan named inside a longer word is a loan at each of them

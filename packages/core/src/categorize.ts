@@ -12,7 +12,7 @@ import { CARD_CASH_WORDS, OWN_ACCOUNT_TRANSFER_WORDS, TAX_REFUND_WORDS } from ".
 import { GAMBLING_NAME, isGamblingMcc, isGamblingOperator } from "./wording-gambling.ts";
 import { dealerCategory, isCarBrandDealer, isCarBrandName, isCarDealerName, isCarTradeName } from "./wording-car.ts";
 import { HOME_LOAN_WORDS, STUDENT_LOAN_WORDS } from "./wording-loan-pages.ts";
-import { CARD_BRAND_WORDS, CARD_ISSUER_BANK_WORDS, CARD_ISSUER_WORDS, CONSUMER_LENDER_WORDS, CREDIT_WORDS, DAYCARE_WORDS, declinedWords, ELECTRICITY_NETWORK_WORDS, ELECTRICITY_SELLER_WORDS, FINANCE_LENDER_WORDS, hasPayeeForm, INSTALMENT_SERVICE_WORDS, INSURER_WORDS, isBusinessPaymentText, isCashWithdrawalCode, isHousingCompanyName, isInstalmentPlanText, isMortgageBankText, isNoCreditText, isOwnTransferCode, isRefundText, isReimbursementText, isSalaryCode, isSavingsAccountText, LANDLORD_WORDS, LOAN_WORDS, MOBILEPAY_WORDS, namesLoanOrCredit, NORDEA_CARD_WORDS, NORDEA_FINANCE_WORDS, OTHER_TAX_WORDS, PEER_LENDING_WORDS, PENSION_PAYER_WORDS, REIMBURSEMENT_WORDS, RESIDUAL_TAX_WORDS, RESURS_WORDS, SWEDISH_BANK_FEE_WORDS, SWEDISH_SALARY_FIELD, words } from "./wording.ts";
+import { CARD_BRAND_WORDS, CARD_ISSUER_BANK_WORDS, CARD_ISSUER_WORDS, CONSUMER_LENDER_WORDS, CREDIT_WORDS, DAYCARE_WORDS, declinedWords, ELECTRICITY_NETWORK_WORDS, ELECTRICITY_SELLER_WORDS, FINANCE_LENDER_WORDS, hasPayeeForm, INSTALMENT_SERVICE_WORDS, INSURER_WORDS, isBusinessPaymentText, isCashWithdrawalCode, isHousingCompanyName, isInstalmentPlanText, isLoanText, isMortgageBankText, isNoCreditText, isOwnTransferCode, isRefundText, isReimbursementText, isSalaryCode, isSavingsAccountText, LANDLORD_WORDS, LOAN_WORDS, MOBILEPAY_WORDS, namesIssuerCard, namesLoanOrCredit, NORDEA_CARD_WORDS, NORDEA_FINANCE_WORDS, OTHER_TAX_WORDS, PEER_LENDING_WORDS, PENSION_PAYER_WORDS, REIMBURSEMENT_WORDS, RESIDUAL_TAX_WORDS, RESURS_WORDS, SWEDISH_BANK_FEE_WORDS, SWEDISH_SALARY_FIELD, words } from "./wording.ts";
 
 export interface CategorizeInput {
   merchant: string;
@@ -83,14 +83,14 @@ const PURPOSE_RULES: readonly BuiltinRule[] = [
   { category: "income", direction: "in", re: w(String.raw`VUOKRA(?:T|TULO[A-Z]*|TILITYS|NMAKSU)?`) },
 
   // ── credit cards: the bill is a transfer when the card account is connected (transfers.ts) ──
-  // The issuers that are banks also lend and take deposits: LAINA in the text is a loan payment (loans, below), SÄÄSTÖTILI is saving
-  { category: "savings", re: w(CARD_ISSUER_BANK_WORDS), when: isSavingsAccountText },
+  // issuer banks lend and take deposits: SÄÄSTÖTILI is saving, a card word a card's bill, LAINA or the name alone loans; a card brand alone a card's bill, with a loan word a loan's
+  { category: "savings", re: w(`${CARD_ISSUER_BANK_WORDS}|${CARD_BRAND_WORDS}`), when: isSavingsAccountText },
+  { category: "card_bill", direction: "out", re: w(CARD_ISSUER_BANK_WORDS), when: namesIssuerCard },
+  { category: "card_bill", direction: "out", re: w(CARD_BRAND_WORDS), when: (text) => !isLoanText(text) },
   {
     category: "card_bill",
     direction: "out",
-    re: w(
-      String.raw`LUOTTOKORT[A-Z]*|KORTTILASKU|KORTIN LASKU|${NORDEA_CARD_WORDS}|(?:GOLD|PLATINUM)-?KORTTI|NORDEA (?:MASTERCARD|VISA)|OP[- ]?KORTTI(?:YHTIO)?|KORTTIYHTIO|AKTIA (?:VISA|MASTERCARD|KORTTI)|(?:${NORDEA_FINANCE_WORDS})[A-Z ]*(?:KORTTI|GOLD|PLATINUM|MASTERCARD|CREDIT)[A-Z]*|(?:MASTERCARD|VISA|AMEX)[A-Z ]*LASKU|AMERICAN EXPRESS|CREDIT CARD (?:PAYMENT|BILL)|OP[- ]?(?:VISA|MASTERCARD)|S-?ETUKORTTI VISA|(?:${CARD_ISSUER_BANK_WORDS})(?!.*LAINA)|${CARD_BRAND_WORDS}`,
-    ),
+    re: w(String.raw`LUOTTOKORT[A-Z]*|KORTTILASKU|KORTIN LASKU|${NORDEA_CARD_WORDS}|(?:GOLD|PLATINUM)-?KORTTI|NORDEA (?:MASTERCARD|VISA)|OP[- ]?KORTTI(?:YHTIO)?|KORTTIYHTIO|AKTIA (?:VISA|MASTERCARD|KORTTI)|(?:${NORDEA_FINANCE_WORDS})[A-Z ]*(?:KORTTI|GOLD|PLATINUM|MASTERCARD|CREDIT)[A-Z]*|(?:MASTERCARD|VISA|AMEX)[A-Z ]*LASKU|AMERICAN EXPRESS|CREDIT CARD (?:PAYMENT|BILL)|OP[- ]?(?:VISA|MASTERCARD)|S-?ETUKORTTI VISA`),
   },
   // money in from a credit line (a card's "luoton siirto omalle tilille", financing payouts, a card issuer)
   {

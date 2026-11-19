@@ -109,12 +109,12 @@ test("each kind is asked in its own words and answered through its own route, th
   // the guess is framed, not filled: nothing reads as already chosen
   await expect(kinds.first()).toHaveClass(/is-guess/);
   await expect(card(page).locator(".review-choice.btn-primary")).toHaveCount(0);
-  await expect(kinds.last()).toHaveText("Ei ole laina");
+  await expect(kinds.last()).toHaveText("Ei ole velan maksu");
   if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-loan-1280.png"), fullPage: true });
   await kinds.last().click();
   await expect.poll(() => stub.posted.at(-1)).toEqual({ path: "/api/marks", method: "PUT", body: { subject: `loan-proposal:${LOAN_KEY}`, mark: "dismissed" } });
   // the row closes into its answer, and Seuraava moves on once no row is left
-  await expect(row.locator(".review-debt-result")).toHaveText("Ei ole laina");
+  await expect(row.locator(".review-debt-result")).toHaveText("Ei ole velan maksu");
   await card(page).getByRole("button", { name: "Seuraava" }).click();
   await expect(card(page).locator(".review-name")).toHaveText("Esimerkki Kauppa Oy");
   await expect(question(page)).toBeFocused();

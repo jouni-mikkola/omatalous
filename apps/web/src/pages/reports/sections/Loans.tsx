@@ -157,7 +157,7 @@ const columns = (): Column<Entry>[] => [
     kind: "text",
     rowHead: true,
     cell: (e) => {
-      const sub = e.loan ? about(e.loan) : [e.unsaved.card ? t("set.ri.credit_card") : null, e.unsaved.monthlyCents === null ? null : t("rpt.ln_per_month", { amount: money(e.unsaved.monthlyCents) })].filter(Boolean).join(" · ");
+      const sub = e.loan ? about(e.loan) : [e.unsaved.card ? t("set.ri.credit_card") : e.unsaved.kindUnknown ? t("set.ri.credit_kind_not_known") : null, e.unsaved.monthlyCents === null ? null : t("rpt.ln_per_month", { amount: money(e.unsaved.monthlyCents) })].filter(Boolean).join(" · ");
       return (
         <>
           <span className="loan-name">{e.loan ? e.loan.name : e.unsaved.name}</span>

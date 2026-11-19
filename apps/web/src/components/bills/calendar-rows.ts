@@ -31,6 +31,12 @@ export interface CalGroup {
   ended: number;
 }
 
+/**
+ * A month with nothing left to come: no bill to pay, no pay, no saving, and so nothing after the bills to tell. A month with a sum
+ * that is not known (`afterCents` null) is not this: it says so.
+ */
+export const nothingToCome = (m: CalMonth) => m.afterCents === 0 && m.billsCents === 0 && m.incomeCents === 0 && m.savingCents === 0;
+
 const sameName = (a: string, b: string) => a.trim().toLocaleLowerCase("fi") === b.trim().toLocaleLowerCase("fi");
 
 /** A monthly bill or loan payment still to pay that no card pays: what core's `monthlyBillsCents` adds up. */

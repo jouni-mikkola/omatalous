@@ -9,7 +9,9 @@
  *     loan linked to the card answers it, or the linked loan that saved no rate. A card the rows show paid in full each
  *     month costs no interest (`debtsOf`), and a saved rate of 0 is a rate, so neither is listed;
  *   - a loan the rows show and nobody saved (core `loanProposals`), saved with its series key (POST /api/loans), or
- *     marked "Ei ole laina"; an instalment plan of two or more payments, answered by its end (`planSubject`);
+ *     marked "Ei ole velan maksu"; an instalment plan of two or more payments, answered by its end (`planSubject`). A credit
+ *     of unknown kind (`kindUnknown`) is saved as the card, credit line or consumer credit the household picks, or told
+ *     as one of those saved already with no link (`savedCards`);
  *   - a card the household pays the bills of and has not connected (core `unconnectedCards`), saved as a loan of kind
  *     card with the series key, or told as a card loan saved already (`savedCards`).
  *   The figures at the top are the queue's own: what the household owes as the debt pages count it (`debtsOf`), null
@@ -48,6 +50,7 @@ import {
   savedLoanYearCents,
   unconnectedCards,
   unlinkedCardLoans,
+  unlinkedCreditLoans,
 } from "@banking/core";
 import { todayIn } from "../platform/config.ts";
 import type { Services } from "./context.ts";
@@ -74,6 +77,8 @@ interface LoanTermsDebt {
   kind: LoanKind;
   /** Whether the kind is known: one the rows only suggest is asked. */
   placed: boolean;
+  /** A credit whose kind the rows do not tell (core `LoanProposal.kindUnknown`): `kind` is no guess, and the row asks card, credit line or consumer credit. Absent otherwise. */
+  kindUnknown?: true;
   /** The member's part of a month of payments, null when no monthly payment is known. */
   monthlyCents: number | null;
   /** The latest payment as the bank took it, filled in as the payment; null when the rows tell no monthly one. */
@@ -89,7 +94,10 @@ interface LoanTermsDebt {
   subject: string | null;
   /** What the rows tell of a loan's terms, null where they tell nothing. */
   terms: InferredLoanTerms | null;
-  /** The card loans saved with no link to their bills, for a card that is not connected: it may be one of them. */
+  /**
+   * The loans saved with no link that the debt may be: the card loans for a card that is not connected, and the card,
+   * credit line and consumer credit loans for a credit of unknown kind.
+   */
   savedCards: { id: string; name: string }[];
 }
 
@@ -216,7 +224,7 @@ function proposedDebts({ ctx, inputs, stamp }: OwnView): Listed[] {
   const series = memoOn(ctx, "review:loan-series", null, () => new Map([...ctx.recurring, ...lenderInstalments(ctx)].map((r) => [r.id, r.transactionIds])));
   const byId = memoOn(ctx, "review:rows-by-id", null, () => new Map(ctx.txs.map((t) => [t.id, t])));
   return proposalsOf(ctx, { inputs, stamp }).flatMap((p): Listed[] => {
-    // a plan is asked its end once; a loan until it is saved or marked "Ei ole laina"
+    // a plan is asked its end once; a loan until it is saved or marked "Ei ole velan maksu"
     if (p.plan && p.planAnswer !== null) return [];
     const monthly = hasMonthly(p) ? paymentOf(p) : null;
     const common = { seriesId: p.seriesId, yearCents: monthly === null ? null : 12 * monthly.part, name: p.payee, key: p.key, monthlyCents: monthly?.part ?? null, latestCents: monthly?.whole ?? null, lastDate: p.lastDate };
@@ -224,6 +232,10 @@ function proposedDebts({ ctx, inputs, stamp }: OwnView): Listed[] {
     // a lender's few payments are no series: the proposal holds its rows, at the bank's whole charge as the payment is
     const rowIds = series.get(p.seriesId) ?? [...(p.rowIds ?? [])];
     const terms = inferLoanTerms(rowIds.flatMap((id) => byId.get(id) ?? []).map((t) => ({ date: t.bookingDate, cents: Math.abs(billCents(t)) })));
+    if (p.kindUnknown) {
+      const savedCards = unlinkedCreditLoans(inputs).map((loan) => ({ id: loan.id, name: loan.name }));
+      return [debt({ ...common, id: `proposal:${p.key}`, source: "proposal", kind: p.kind, placed: p.placed, kindUnknown: true, terms, savedCards })];
+    }
     return [debt({ ...common, id: `proposal:${p.key}`, source: "proposal", kind: p.kind, placed: p.placed, terms })];
   });
 }

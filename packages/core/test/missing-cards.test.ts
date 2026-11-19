@@ -26,7 +26,7 @@ const row = (id: string, accountId: string, bookingDate: string, amountCents: nu
 /** A year of food and of the bills of a card: its purchases are on the card from September on, so the bills before are missing ones. */
 const rows = [
   ...MONTHS.map((m, i) => row(`food-${i}`, "chk", `${m}-05`, -50_000, "PRISMA ESIMERKKI")),
-  ...MONTHS.map((m, i) => row(`morrow-${i}`, "chk", `${m}-20`, -12_000, "MORROW BANK ASA", "LASKU")),
+  ...MONTHS.map((m, i) => row(`morrow-${i}`, "chk", `${m}-20`, -12_000, "MORROW BANK ASA", "KORTTILASKU")),
   row("buy", "morrow", "2026-09-01", -1_000, "K-MARKET ESIMERKKI"),
 ];
 
@@ -64,6 +64,16 @@ describe("missing card purchases", () => {
       expect(dashboard).not.toHaveProperty("connectNotice");
     });
   }
+
+  it("counts the same when the bills say LASKU alone: the connected card the payee names makes them its bills", () => {
+    const plain = rows.map((t) => (t.id.startsWith("morrow-") ? { ...t, description: "LASKU", merchant: normalizeMerchant(t.counterparty, "LASKU") } : t));
+    const ctx = createContext(enrichTransactions(plain, [checking, morrowCard], []), [checking, morrowCard], today);
+    expect(ctx.txs.filter((t) => t.id.startsWith("morrow-")).every((t) => t.category === "card_bill" || t.isTransfer)).toBe(true);
+    const range = { from: "2026-04-01", to: "2026-09-30" };
+    const cards = missingCards(ctx, range);
+    expect(cards.cents).toBeGreaterThan(0);
+    expect(cards.cents).toBe(missingCards(later(), range).cents);
+  });
 });
 
 describe("a bill near the first row of a connected card", () => {

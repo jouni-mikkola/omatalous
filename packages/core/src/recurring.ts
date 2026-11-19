@@ -130,7 +130,7 @@ function buildSeries(
       ? Math.round(sum(occ.slice(-4).map((o) => o.cents)) / Math.min(4, occ.length))
       : typicalAmountOf(occ);
   const perYear = chargesPerYear(occ, cadence, others);
-  const yearly = yearlyCostOf(occ, cadence, kind, typical, perYear);
+  const yearly = yearlyCostOf(occ, cadence, kind, typical, perYear, getCategory(category).kind === "debt");
   const nextDate = nextDateOf(occ, cadence);
   const active = isActiveAt(cadence, last.date, today);
   return {

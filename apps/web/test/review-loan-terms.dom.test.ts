@@ -169,7 +169,7 @@ describe("Täydennä lainat", () => {
     await waitFor(() => expect(heading().textContent).toContain("Kysymys 2 / 2"), T);
   });
 
-  it("asks a proposed loan its kind, the rows' guess picked, and saves the kind picked with the loan; Ei ole laina keeps the series from asking", async () => {
+  it("asks a proposed loan its kind, the rows' guess picked, and saves the kind picked with the loan; Ei ole velan maksu keeps the series from asking", async () => {
     queryClient.clear();
     const seen = stubApi({ "GET /api/loans": { loans: [], fixings: {} }, "POST /api/loans": { loan: savedLoan({ id: "loan-2", kind: "car", balanceCents: 200_000, paymentCents: 25_000, seriesKey: "k" }) }, "PUT /api/marks": {} });
     const debt = debtOf({ id: "proposal:k", source: "proposal", name: "Esimerkkirahoitus", key: "k", kind: "consumer", placed: false, monthlyCents: 25_000, latestCents: 25_000, lastDate: "2026-09-05" });
@@ -183,7 +183,7 @@ describe("Täydennä lainat", () => {
     expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ kind: "car", seriesKey: "k", balanceCents: 200_000 });
     expect(seen.some((s) => s.path === "/api/marks")).toBe(false);
     await screen.findByText(/^Jäljellä 2\s000,00\s€/, {}, T);
-    fireEvent.click(within(openRow(0)).getByRole("button", { name: "Ei ole laina" }));
+    fireEvent.click(within(openRow(0)).getByRole("button", { name: "Ei ole velan maksu" }));
     await waitFor(() => expect(seen.some((s) => s.path === "/api/marks")).toBe(true), T);
     expect(seen.find((s) => s.path === "/api/marks")!.body).toEqual(notLoanMark({ key: "j" }));
   });
@@ -253,6 +253,60 @@ describe("a card in the list that is not connected", () => {
     fireEvent.click(screen.getByRole("button", { name: "Toinen kortti" }));
     await waitFor(() => expect(reloads).toBe(1), T);
     expect(seen.find((s) => s.method === "PUT")!.body).toMatchObject({ name: "Toinen kortti", seriesKey: debt.key });
+  });
+});
+
+describe("a credit of unknown kind in the list", () => {
+  const debt = debtOf({ id: "proposal:out:chk:Esimerkkipankki", source: "proposal", name: "Esimerkkipankki", key: "out:chk:Esimerkkipankki", kind: "consumer", placed: false, kindUnknown: true, monthlyCents: 33_000, latestCents: 41_000, lastDate: "2026-09-12" });
+  const kindButtons = (group: HTMLElement) => [...group.querySelectorAll("button")].map((b) => plain(b.textContent).trim());
+
+  it("asks card, credit line or consumer credit with none picked and no guess, and opens the form of the kind picked only", async () => {
+    queryClient.clear();
+    const credit = savedLoan({ id: "loan-3", name: "Esimerkkipankki", kind: "credit_line", balanceCents: 240_000, repayment: null, intervalMonths: null, paymentCents: null, limitCents: 500_000, seriesKey: debt.key });
+    const seen = stubApi({ "GET /api/loans": { loans: [], fixings: {} }, "POST /api/loans": { loan: credit } });
+    show([listOf([debt])]);
+    const kinds = await within(openRow(0)).findByRole("group", { name: "Laji" }, T);
+    expect(kindButtons(kinds)).toEqual(["Luottokortti", "Joustoluotto", "Kulutusluotto", "Ei ole velan maksu"]);
+    expect(kinds.querySelector("button[aria-pressed='true']")).toBeNull();
+    expect(openRow(0).textContent).not.toContain("Ehdotus");
+    // nothing to fill in until the kind is told
+    expect(within(openRow(0)).queryByLabelText(/^Jäljellä/)).toBeNull();
+    expect(within(openRow(0)).queryByRole("button", { name: "Tallenna" })).toBeNull();
+    fireEvent.click(within(kinds).getByRole("button", { name: "Joustoluotto" }));
+    expect(kinds.querySelector("button[aria-pressed='true']")!.textContent).toMatch(/^Joustoluotto/);
+    await within(openRow(0)).findByLabelText(/^Luottoraja/, {}, T);
+    fireEvent.change(within(openRow(0)).getByLabelText(/^Jäljellä/), { target: { value: "2 400" } });
+    fireEvent.change(within(openRow(0)).getByLabelText(/^Luottoraja/), { target: { value: "5 000" } });
+    fireEvent.click(within(openRow(0)).getByRole("button", { name: "Tallenna" }));
+    await waitFor(() => expect(seen.some((s) => s.method === "POST" && s.path === "/api/loans")).toBe(true), T);
+    expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ kind: "credit_line", seriesKey: debt.key, balanceCents: 240_000, limitCents: 500_000 });
+    expect(seen.some((s) => s.path === "/api/marks")).toBe(false);
+  });
+
+  it("a card picked asks the card's limit, and Ei ole velan maksu marks the series", async () => {
+    queryClient.clear();
+    const seen = stubApi({ "GET /api/loans": { loans: [], fixings: {} }, "PUT /api/marks": {} });
+    show([listOf([debt])]);
+    const kinds = await within(openRow(0)).findByRole("group", { name: "Laji" }, T);
+    fireEvent.click(within(kinds).getByRole("button", { name: "Luottokortti" }));
+    await within(openRow(0)).findByLabelText(/^Luottoraja/, {}, T);
+    fireEvent.click(within(kinds).getByRole("button", { name: "Ei ole velan maksu" }));
+    await waitFor(() => expect(seen.some((s) => s.path === "/api/marks")).toBe(true), T);
+    expect(seen.find((s) => s.path === "/api/marks")!.body).toEqual(notLoanMark({ key: debt.key! }));
+  });
+
+  it("links a credit saved with no link to the series, in words that fit a card, a credit line and a loan alike", async () => {
+    queryClient.clear();
+    const credit = savedLoan({ id: "l1", name: "Esimerkkiluotto", kind: "credit_line", balanceCents: 240_000, repayment: null, intervalMonths: null, paymentCents: null, limitCents: 500_000 });
+    const seen = stubApi({ "GET /api/loans": { loans: [credit], fixings: {} }, "PUT /api/loans/l1": { loan: { ...credit, seriesKey: debt.key } } });
+    let reloads = 0;
+    show([listOf([{ ...debt, savedCards: [{ id: "l1", name: "Esimerkkiluotto" }] }])], metaOf(), () => void reloads++);
+    expect((await screen.findByRole("link", { name: "Avaa kirjattu luotto" }, T)).getAttribute("href")).toContain("linkLoan=l1");
+    expect(openRow(0).textContent).not.toMatch(/Kortti on jo|kirjattu kortti/);
+    fireEvent.click(screen.getByRole("button", { name: "Luotto on jo kirjattu" }));
+    await waitFor(() => expect(reloads).toBe(1), T);
+    expect(seen.find((s) => s.method === "PUT" && s.path === "/api/loans/l1")!.body).toMatchObject({ name: "Esimerkkiluotto", kind: "credit_line", seriesKey: debt.key });
+    expect(seen.some((s) => s.path === "/api/marks")).toBe(false);
   });
 });
 

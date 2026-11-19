@@ -329,7 +329,7 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), b
           )}
           {unsaved.map((u, i) => (
             <div className="st-row" key={i}>
-              <dt className="st-name">{u.card ? `${u.name} · ${t("set.ri.credit_card")}` : u.name}</dt>
+              <dt className="st-name">{u.card ? `${u.name} · ${t("set.ri.credit_card")}` : u.kindUnknown ? `${u.name} · ${t("set.ri.credit_kind_not_known")}` : u.name}</dt>
               <dd className="st-num">
                 {u.monthlyCents === null ? null : `${t("rpt.ln_per_month", { amount: money(u.monthlyCents) })} · `}
                 {/* the missing balance is typed in Tarkistettavat, the list of debts that lack one */}

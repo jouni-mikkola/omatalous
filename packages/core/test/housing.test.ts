@@ -121,7 +121,7 @@ describe("the home loans of Asuminen", () => {
     expect(linked.housing!.totalMonthlyCents).toBe(91_240);
     expect(loanProposals(linked.ctx, linked.inputs)).toEqual([]);
 
-    // "Ei ole laina" of the proposal: the payments are no home loan
+    // "Ei ole velan maksu" of the proposal: the payments are no home loan
     const refused = page(rows, [], [{ subject: `loan-proposal:${proposals[0]!.key}`, mark: "dismissed", markedAt: "2026-10-01T08:00:00.000Z" }]);
     expect(refused.housing).toMatchObject({ loans: [], ask: true });
   });
