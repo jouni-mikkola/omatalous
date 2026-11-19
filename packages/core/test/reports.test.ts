@@ -21,6 +21,8 @@ import { pivotReport } from "../src/reports/pivot.ts";
 import { expectedLevel } from "../src/analysis/expected.ts";
 import { LATE_CARD_TODAY, lateCardContext } from "./late-card-household.ts";
 import { paysHouseholdCreditWork } from "../src/household-credit.ts";
+import { buildHoldings, debtPayments } from "../src/holdings.ts";
+import { loanFeeGaps } from "../src/loan-terms-list.ts";
 import { industryCandidates, type RegisterAnswer } from "../src/industry.ts";
 
 // test helpers put every transaction on account "acc-1"
@@ -603,6 +605,24 @@ describe("loans: the Lainat report and net worth", () => {
     const without = at([], [home, car]);
     expect(without.unsaved).toEqual([]);
     expect(without.cost12.cents).toBeGreaterThan(0);
+  });
+
+  it("a 0 % plan whose rows stay in the shop's category costs the same on the front page, in Lainat and in Tarkistettavat", () => {
+    const description = "OSAMAKSU 778899";
+    const merchant = normalizeMerchant("ESIMERKKI OSAMAKSU OY", description);
+    // three payments of the plan's 50 €, booked in no debt category: the rows tell the plan takes no fee
+    const rows = ["2026-08-05", "2026-09-05", "2026-10-05"].map((bookingDate) => tx({ accountId: "acc-1", bookingDate, amountCents: -5_000, counterparty: "ESIMERKKI OSAMAKSU OY", description, merchant }));
+    const plan = loan({ id: "plan", kind: "consumer", balanceCents: 30_000, rateBp: 0, reference: "fixed", repayment: "fixed_instalment", intervalMonths: 1, paymentCents: 5_000, seriesKey: `out:acc-1:${merchant}` });
+    const ctx = createContext(enrichTransactions(rows, [checking], []), [checking], today);
+    const inputs = { marks: [], expectedBills: [], loans: [plan] };
+    const balances = [given(checking, 200000)];
+    const keys = [plan.seriesKey!];
+    expect(debtPayments(ctx, plan, keys)).toHaveLength(3);
+    const lainat = buildReports({ ctx, range: { from: "2026-08-01", to: today }, balances, inputs }).loans.loans.find((l) => l.id === "plan")!;
+    const front = buildHoldings(ctx, balances, inputs).loans.find((l) => l.id === "plan")!;
+    expect(lainat.cost).toMatchObject({ costClass: "free", feePerPaymentCents: 0, unknown: null });
+    expect(front.costClass).toBe("free");
+    expect(loanFeeGaps(plan, today, debtPayments(ctx, plan, keys))).toEqual([]);
   });
 
   it("the plan and the consolidation basis are told only while every debt's cost is known, as Korot ja kulut 12 kk is", () => {

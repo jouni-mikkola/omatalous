@@ -71,7 +71,6 @@ export const FI_REPORTS_5 = {
   "rpt.ln_path_now": "Velkaa on nyt {debt}, ja korkoa tulee sen päälle vielä {interest}.",
   "rpt.ln_path_up": "Jos viitekorko nousee prosenttiyksikön, korkoa tulee arviolta {amount} enemmän.",
   "rpt.ln_no_payments": "ei maksuja",
-  "rpt.ln_total": "Velkaa yhteensä",
   "rpt.ln_payments_month": "Maksut kuussa",
   "rpt.ln_q_path": "Velkapolku",
   "rpt.ln_kind_mortgage": "Asuntolaina",

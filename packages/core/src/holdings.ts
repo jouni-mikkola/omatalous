@@ -16,7 +16,6 @@ import { billCents, isUntold } from "./account-use.ts";
 import { balanceWalk } from "./analysis/balance-walk.ts";
 import { debtsOf } from "./analysis/card-settled.ts";
 import type { AnalysisContext } from "./analysis/context.ts";
-import { splittable } from "./analysis/debt-split.ts";
 import { debtCost, type DebtClass, type DebtCost, type SeriesPayment } from "./debt-cost.ts";
 import type { Debt } from "./debt-part.ts";
 import { belowWhole, cardDebtOf, householdDebts, maybeTwice, paidFrom, type UnsavedLoans, unsavedLoans } from "./household-debts.ts";
@@ -210,11 +209,18 @@ const accountMask = (iban: string | null | undefined): string | null => {
 /** A card has a limit when the bank gave one above zero. The one place that decides it: the cards here and Asetukset > Tilit both ask. */
 export const cardLimitCents = (cents: number | null | undefined): number | null => (cents != null && cents > 0 ? cents : null);
 
-/** The payments of a debt's linked series as the bank booked them, the whole sum that left the account: the rows that measure a fee a plan does not state and price a debt with no rate. */
+/**
+ * The payments of a debt's linked series up to today as the bank booked them, the whole sum that left the account
+ * (`billCents`), whoever's part the viewer sees: the rows that measure a fee a plan does not state and price a debt with
+ * no rate (`debtCost`). Every page that prices a debt reads these, whatever category the rows sit in: a 0 % plan's rows
+ * often stay in the shop's category.
+ */
 export function debtPayments(ctx: AnalysisContext, debt: Debt, keys: readonly string[]): SeriesPayment[] {
   const key = debt.seriesKey;
   if (key === null) return [];
-  return ctx.txs.filter((t) => splittable(t) && paysSeries(key, { accountId: t.accountId, merchant: t.merchant, amountCents: billCents(t) }, keys)).map((t) => ({ date: t.bookingDate, cents: -billCents(t) }));
+  return ctx.txs
+    .filter((t) => t.amountCents < 0 && !t.isTransfer && t.bookingDate <= ctx.today && paysSeries(key, { accountId: t.accountId, merchant: t.merchant, amountCents: billCents(t) }, keys))
+    .map((t) => ({ date: t.bookingDate, cents: -billCents(t) }));
 }
 
 /**

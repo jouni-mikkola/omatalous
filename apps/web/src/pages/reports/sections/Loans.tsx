@@ -298,7 +298,7 @@ function Loans({ ctx }: SectionProps) {
   const entries: Entry[] = [...inCostOrder(r.loans).map((loan): Entry => ({ id: loan.id, loan })), ...r.unsaved.map((unsaved, i): Entry => ({ id: `unsaved ${i}`, unsaved }))];
   // a total that leaves unsaved debts out says so, as Yhteenveto's does; the cost is unknown, never the known part, while a debt lacks its terms
   const total = {
-    label: t(r.unsaved.length > 0 ? "holdings.debts_known" : "rpt.ln_total"),
+    label: t(r.unsaved.length > 0 ? "holdings.debts_known" : "holdings.debts_total"),
     cells: {
       balance: r.totalKnown ? money(r.total.cents, false) : <Unknown />,
       cost:
