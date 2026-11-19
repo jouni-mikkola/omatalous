@@ -113,15 +113,15 @@
       "alternatives": [
         "BANK NORWEGIAN",
         "KOMPLETT BANK",
-        "MORROW BANK",
-        "SEB KORT"
+        "MORROW BANK"
       ]
     },
     "CARD_BRAND_WORDS": {
       "about": "Card brands that name an issuer.",
       "alternatives": [
         "ENTERCARD",
-        "RE:?MEMBER"
+        "RE:?MEMBER",
+        "SEB KORT"
       ]
     },
     "NORDEA_FINANCE_WORDS": {

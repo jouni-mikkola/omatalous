@@ -189,6 +189,20 @@ describe("the answer of the kind", () => {
     expect(out.filter((t) => kept.has(t.id) || worded.has(t.id)).every((t) => t.category === "loans")).toBe(true);
     expect(out.filter((t) => t.counterparty === ISSUER && !kept.has(t.id) && !worded.has(t.id)).every((t) => t.category === "card_bill")).toBe(true);
   });
+
+  it("a card's key moves no fixed instalment of the same bank nobody saved: it stays a loan and is still proposed", () => {
+    const instalment = payments(289, "VIITE 9999 0000", ISSUER, 25);
+    const ids = new Set(instalment.map((t) => t.id));
+    const inputs = withLoans(saved("card", KEY));
+    const ctx = contextOf([...rows, ...instalment], [checking], inputs.loans);
+    expect(categoriesOf(ctx.txs.filter((t) => ids.has(t.id)))).toEqual(["loans"]);
+    expect(categoriesOf(ctx.txs.filter((t) => !ids.has(t.id)))).toEqual(["card_bill"]);
+    const proposals = loanProposals(ctx, inputs);
+    expect(proposals).toEqual([expect.objectContaining({ payee: "Bank Norwegian", paymentCents: 28900, placed: true })]);
+    expect(proposals[0]!.kindUnknown).toBeUndefined();
+    expect(unsavedDebts(ctx, inputs).rows).toEqual([expect.objectContaining({ name: "Bank Norwegian", card: false })]);
+    expect(buildDashboard(ctx, RANGE).totals.debtCents).toBe(buildDashboard(contextOf([...rows, ...instalment]), RANGE).totals.debtCents);
+  });
 });
 
 describe("a saved credit with no link beside the credit of unknown kind", () => {
@@ -196,21 +210,49 @@ describe("a saved credit with no link beside the credit of unknown kind", () => 
   /** The same household with no payment to the bank: what the saved credit alone makes of each figure. */
   const alone = contextOf(pay);
 
-  it.each(["card", "credit_line", "consumer"] as const)("a saved %s and the row both show, and no figure counts the same money twice", (kind) => {
+  it.each(["card", "credit_line", "consumer"] as const)("a saved %s is taken as the credit of unknown kind: no row beside it, the totals known, the link still offered", (kind) => {
     const inputs = withLoans(saved(kind, null));
-    expect(unsavedDebts(ctx, inputs).rows).toEqual([expect.objectContaining({ kindUnknown: true })]);
+    expect(unsavedDebts(ctx, inputs)).toMatchObject({ rows: [], few: 0 });
     expect(unconnectedCards(ctx, inputs)).toEqual([]);
+    // Tarkistettavat still asks the series, so the household can link it to the saved credit
+    expect(loanProposals(ctx, inputs)).toEqual([expect.objectContaining({ key: KEY, kindUnknown: true })]);
     const [report, base] = [loansReport(ctx, [], inputs), loansReport(alone, [], inputs)];
-    // Velat yhteensä: the saved credit's balance once, and the row adds none
+    // Velat yhteensä: the saved credit's balance once, named the total and not the known part
+    expect(report.unsaved).toEqual([]);
+    expect(report.totalKnown).toBe(true);
     expect(report.total.cents).toBe(base.total.cents);
     expect(report.total.cents).toBeGreaterThan(0);
     expect(buildHoldings(ctx, [], inputs).debtCents).toBe(buildHoldings(alone, [], inputs).debtCents);
-    // the monthly debt payments of the saved loans: the row's payment is in none of them
+    expect(buildHoldings(ctx, [], inputs).unsavedLoans?.rows ?? []).toEqual([]);
+    // the monthly debt payments of the saved loans and the year's cost read the saved credit alone
     expect(report.payments).toEqual(base.payments);
-    // the year's cost: a debt with no terms leaves it unknown, never a sum that counts the row's money again
-    expect(report.cost12).toEqual({ cents: null, interestCents: null, feeCents: null });
+    expect(report.cost12).toEqual(base.cost12);
     // the payments are debt service once, whatever is saved
     expect(buildDashboard(ctx, RANGE, [], inputs).totals.debtCents).toBe(buildDashboard(ctx, RANGE).totals.debtCents);
+  });
+
+  it("a card paid in full saved with no link leaves the year's cost whole: no row of unknown kind makes it partial", () => {
+    const inputs = withLoans(saved("card", null, { repayment: "bullet" }));
+    expect(unsavedDebts(ctx, inputs).rows).toEqual([]);
+    expect(loansReport(ctx, [], inputs).cost12).toEqual({ cents: 0, interestCents: 0, feeCents: 0 });
+    // with nothing saved the row stays and the cost is partial
+    expect(loansReport(ctx, [], NO_INPUTS).cost12).toEqual({ cents: null, interestCents: null, feeCents: null });
+  });
+
+  it("one saved credit takes one series of unknown kind, the largest payment first, and a card loan takes a card nobody connected first", () => {
+    const other = payments(CHANGING.map((e) => e / 2), "VIITE 2222 3333", "MORROW BANK ASA", 20);
+    const two = contextOf([...rows, ...other]);
+    const proposals = loanProposals(two, NO_INPUTS);
+    expect(proposals.map((p) => p.kindUnknown)).toEqual([true, true]);
+    expect(unsavedDebts(two, withLoans(saved("consumer", null))).rows).toEqual([expect.objectContaining({ name: proposals[1]!.payee, kindUnknown: true })]);
+    expect(unsavedDebts(two, withLoans(saved("consumer", null), saved("credit_line", null))).rows).toEqual([]);
+
+    // a card's bills nobody connected: a saved card loan is that card, and the credit of unknown kind still shows
+    const cardBills = payments(CHANGING.map((e) => e + 15), "KORTTILASKU", "ENTERCARD", 5);
+    const withCard = contextOf([...rows, ...cardBills]);
+    expect(unconnectedCards(withCard, NO_INPUTS)).toHaveLength(1);
+    expect(unsavedDebts(withCard, withLoans(saved("card", null))).rows).toEqual([expect.objectContaining({ name: "Bank Norwegian", kindUnknown: true })]);
+    expect(unsavedDebts(withCard, withLoans(saved("card", null), saved("consumer", null))).rows).toEqual([]);
   });
 
   it("the credits the row may be are the cards, credit lines and consumer credits saved with no series and no account", () => {

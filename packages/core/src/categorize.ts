@@ -83,14 +83,14 @@ const PURPOSE_RULES: readonly BuiltinRule[] = [
   { category: "income", direction: "in", re: w(String.raw`VUOKRA(?:T|TULO[A-Z]*|TILITYS|NMAKSU)?`) },
 
   // ── credit cards: the bill is a transfer when the card account is connected (transfers.ts) ──
-  // issuer banks lend and take deposits: SÄÄSTÖTILI is saving, a card word a card's bill, LAINA or the name alone loans (below)
-  { category: "savings", re: w(CARD_ISSUER_BANK_WORDS), when: isSavingsAccountText },
+  // issuer banks lend and take deposits: SÄÄSTÖTILI is saving, a card word a card's bill, LAINA or the name alone loans; a card brand alone a card's bill
+  { category: "savings", re: w(`${CARD_ISSUER_BANK_WORDS}|${CARD_BRAND_WORDS}`), when: isSavingsAccountText },
   { category: "card_bill", direction: "out", re: w(CARD_ISSUER_BANK_WORDS), when: namesIssuerCard },
   {
     category: "card_bill",
     direction: "out",
     re: w(
-      String.raw`LUOTTOKORT[A-Z]*|KORTTILASKU|KORTIN LASKU|${NORDEA_CARD_WORDS}|(?:GOLD|PLATINUM)-?KORTTI|NORDEA (?:MASTERCARD|VISA)|OP[- ]?KORTTI(?:YHTIO)?|KORTTIYHTIO|AKTIA (?:VISA|MASTERCARD|KORTTI)|(?:${NORDEA_FINANCE_WORDS})[A-Z ]*(?:KORTTI|GOLD|PLATINUM|MASTERCARD|CREDIT)[A-Z]*|(?:MASTERCARD|VISA|AMEX)[A-Z ]*LASKU|AMERICAN EXPRESS|CREDIT CARD (?:PAYMENT|BILL)|OP[- ]?(?:VISA|MASTERCARD)|S-?ETUKORTTI VISA|${CARD_BRAND_WORDS}`,
+      String.raw`LUOTTOKORT[A-Z]*|KORTTILASKU|KORTIN LASKU|${NORDEA_CARD_WORDS}|(?:GOLD|PLATINUM)-?KORTTI|NORDEA (?:MASTERCARD|VISA)|OP[- ]?KORTTI(?:YHTIO)?|KORTTIYHTIO|AKTIA (?:VISA|MASTERCARD|KORTTI)|(?:${NORDEA_FINANCE_WORDS})[A-Z ]*(?:KORTTI|GOLD|PLATINUM|MASTERCARD|CREDIT)[A-Z]*|(?:MASTERCARD|VISA|AMEX)[A-Z ]*LASKU|AMERICAN EXPRESS|CREDIT CARD (?:PAYMENT|BILL)|OP[- ]?(?:VISA|MASTERCARD)|S-?ETUKORTTI VISA|(?:${CARD_BRAND_WORDS})(?!.*LAINA)`,
     ),
   },
   // money in from a credit line (a card's "luoton siirto omalle tilille", financing payouts, a card issuer)

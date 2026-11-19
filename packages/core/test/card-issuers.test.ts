@@ -59,12 +59,18 @@ describe("one display name per card issuer", () => {
       const merchant = name(counterparty);
       return categorize({ merchant, counterparty, description, mcc: null, amountCents: -45000 }, compileRules([])).category;
     };
-    for (const bank of ["MORROW", "Morrow Bank Ab", "SEB Kort Bank Ab", "SEB KORT"]) {
-      // the bank's name alone is a credit of unknown kind; a card word makes it the card's bill
+    for (const bank of ["MORROW", "Morrow Bank Ab"]) {
+      // a bank that lends otherwise too: its name alone is a credit of unknown kind; a card word makes it the card's bill
       expect(category(bank, "LASKU 09/2026"), bank).toBe("loans");
       expect(category(bank, "KORTTILASKU 09/2026"), bank).toBe("card_bill");
       expect(category(bank, "LAINAN LYHENNYS"), bank).toBe("loans");
       expect(category(bank, "SAASTOTILI"), bank).toBe("savings");
+    }
+    // an issuer of cards alone: its name is a card's bill, and a loan or a savings account it names is still that
+    for (const brand of ["SEB Kort Bank Ab", "SEB KORT", "ENTERCARD", "Re:member"]) {
+      expect(category(brand, "LASKU 09/2026"), brand).toBe("card_bill");
+      expect(category(brand, "LAINAN LYHENNYS"), brand).toBe("loans");
+      expect(category(brand, "SAASTOTILI"), brand).toBe("savings");
     }
     expect(category("MORROW OY", "LASKU 1234")).not.toBe("card_bill");
     // the shop and the airline are neither

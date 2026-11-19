@@ -41,7 +41,25 @@ export const unlinkedCreditLoans = (inputs: UserInputs): Loan[] => loansOf(input
  * cancelled is left out, and so is one of the issuer of a connected card account, at once and not after the bills have
  * become transfers.
  */
-export function unconnectedCards(ctx: Pick<AnalysisContext, "txs" | "recurring" | "standing" | "accounts">, inputs: UserInputs): UnconnectedCard[] {
+export function unconnectedCards(ctx: CardsContext, inputs: UserInputs): UnconnectedCard[] {
+  return unconnectedCardsAndCredits(ctx, inputs).cards;
+}
+
+type CardsContext = Pick<AnalysisContext, "txs" | "recurring" | "standing" | "accounts">;
+
+/**
+ * `unconnectedCards`, and how many of the credits saved with no link (`unlinkedCreditLoans`) are left once each card
+ * loan among them has taken a card: each of those is one of the credits of unknown kind (`LoanProposal.kindUnknown`).
+ */
+export function unconnectedCardsAndCredits(ctx: CardsContext, inputs: UserInputs): { cards: UnconnectedCard[]; creditsLeft: number } {
+  const once = cardsOnce(ctx, inputs);
+  // a card loan saved with no link is one of these cards, which one is not told: the largest bills are taken first
+  const cardLoans = unlinkedCardLoans(inputs).length;
+  return { cards: once.slice(cardLoans), creditsLeft: unlinkedCreditLoans(inputs).length - Math.min(cardLoans, once.length) };
+}
+
+/** Each card with a bill series nobody connected, saved, dismissed or cancelled, once, the largest monthly bill first. */
+function cardsOnce(ctx: CardsContext, inputs: UserInputs): UnconnectedCard[] {
   const series = ctx.recurring.filter((s) => s.active && s.category === "card_bill" && s.cadence === "monthly");
   if (!series.length) return [];
   const byId = standingById(ctx);
@@ -60,7 +78,5 @@ export function unconnectedCards(ctx: Pick<AnalysisContext, "txs" | "recurring" 
     })
     .sort((a, b) => b.monthlyCents - a.monthlyCents || (a.key < b.key ? -1 : 1));
   // the key names every series of the payee on the account, so one card is one item
-  const once = cards.filter((c, i) => cards.findIndex((o) => o.key === c.key) === i);
-  // a card loan saved with no link is one of these cards, which one is not told: the largest bills are taken first
-  return once.slice(unlinkedCardLoans(inputs).length);
+  return cards.filter((c, i) => cards.findIndex((o) => o.key === c.key) === i);
 }

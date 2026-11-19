@@ -341,15 +341,17 @@ function answeredPlan(inputs: UserInputs): (s: RecurringSeries, charges: Charges
  * Whether a series is spoken for, asked of the series and its charges: a saved loan is linked to it (`Loan.seriesKey`),
  * or the household said "Ei ole velan maksu" of it. A key holds the payment as it was in the view that saved it, so the part
  * and the bank's amount of every charge are asked. The proposals and the home loans of the first page read the one
- * answer (`housing.ts`).
+ * answer (`housing.ts`). With `amountOnly` a key with no amount, which names every series of the payee, takes none.
  */
-export function takenSeries(inputs: UserInputs): (s: RecurringSeries, charges: Charges) => boolean {
+export function takenSeries(inputs: UserInputs): (s: RecurringSeries, charges: Charges, amountOnly?: boolean) => boolean {
   const keys = [...loansOf(inputs).map((loan) => loan.seriesKey), ...inputs.marks.filter((m) => m.mark === "dismissed").map((m) => notLoanKey(m.subject))].filter((key): key is string => !!key);
+  const withAmount = keys.filter((key) => typeof parseSeriesId(key)?.product === "number");
   const loanKeys = loansOf(inputs).flatMap((loan) => loan.seriesKey ?? []);
-  return (s, charges) => {
-    if (!keys.length) return false;
+  return (s, charges, amountOnly = false) => {
+    const asked = amountOnly ? withAmount : keys;
+    if (!asked.length) return false;
     const amounts = amountsOf(s, charges);
-    return keys.some((key) => names(key, s, amounts, loanKeys));
+    return asked.some((key) => names(key, s, amounts, loanKeys));
   };
 }
 
@@ -385,6 +387,14 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
   const byId = standingById(ctx);
   const draws = creditDraws(txs, ctx.today);
   const taken = takenSeries(inputs);
+  const steadyOf = (rows: readonly AnalysisTx[]) => steadyBy(rows, () => "series").size > 0;
+  // a payee paid sums that change on the account: a key with no amount is their answer, and a fixed sum beside them an
+  // instalment of the same lender, asked on its own (declared-loans.ts leaves its rows loans too)
+  const changingBeside = (accountId: string, merchant: string) =>
+    ctx.recurring.some((o) => {
+      const p = parseSeriesId(o.id);
+      return o.active && p?.direction === "out" && p.accountId === accountId && p.merchant === merchant && !steadyOf(o.transactionIds.flatMap((id) => byId.get(id) ?? []));
+    });
   // a saved loan with a typed payment and no series linked takes one series it fits, as in Asuminen (housing.ts)
   const unlinked = loansOf(inputs).flatMap((loan) => (loan.seriesKey ? [] : [typedBill(loan, ctx.today)].filter((c): c is number => c !== null)));
   const cancelled = cancelledSubjects(inputs);
@@ -429,7 +439,8 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
     // Laina is a first name too: a person so named is a lender only when the payment text names the loan
     if (isNamedLaina(payee) && !hasPayeeForm(payee) && !isLoanText(fold(last.description ?? ""))) continue;
     if (isCancelled(cancelled, s)) continue;
-    if (taken(s, charges)) continue;
+    const steady = steadyOf(charges);
+    if (taken(s, charges) && (!steady || taken(s, charges, true) || !changingBeside(parts.accountId, parts.merchant))) continue;
     const fits = unlinked.findIndex((bill) => fitsPayment(bill, s, charges));
     if (fits >= 0) {
       unlinked.splice(fits, 1);
@@ -441,7 +452,6 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
     const placing = kindOf(s.category, text);
     // the credit the payee paid in may name its kind ("Joustoluotot"), and a credit line is no mortgage whatever its payment
     const drawn = placing.placed ? null : drawnKind(draws, s.merchant);
-    const steady = steadyBy(charges, () => "series").size > 0;
     // a known lender's payment of about one sum month after month is a loan with no question: the kind stays a guess for the form
     const lender = steady && (isKnownLender(payee, text) || issuer);
     // an issuer's changing sum is no mortgage however large: a card's bill of a home owner is as large

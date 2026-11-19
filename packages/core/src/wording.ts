@@ -258,10 +258,12 @@ export const isLenderName = (folded: string) => LENDERS.test(folded);
  * The banks among them also lend and take deposits, so their name alone tells no card: with a card word it is a card
  * bill, with a connected card of theirs too (card-bills.ts), and otherwise a credit of a kind the household is asked
  * (`isCreditIssuerText`). Komplett Bank has been Morrow Bank since 2023.
- * SEB Kort issues Eurocard and the co-branded cards.
  */
 export const CARD_ISSUER_BANK_WORDS = alternation("CARD_ISSUER_BANK_WORDS");
-/** Names that stand for a card and nothing else. */
+/**
+ * Names that stand for a card and nothing else: their name alone is a card's bill. SEB Kort issues Eurocard and the
+ * co-branded cards and lends no other way. A text of theirs that names a loan or a savings account is still that.
+ */
 export const CARD_BRAND_WORDS = alternation("CARD_BRAND_WORDS");
 /**
  * Nordea's finance company lends for cars, runs flexible credits and issues the bank's cards: its name with a card word is
