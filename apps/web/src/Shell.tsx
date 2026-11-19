@@ -264,7 +264,8 @@ export function Shell() {
   // the state a component keeps in the address (the order of a table): a change replaces the entry, it adds no step to Back
   const address: PageAddress = {
     search,
-    change: (patch) => void navigateTo({ to: ".", search: (prev: Record<string, string | undefined>) => ({ ...prev, ...patch }), hash: true, replace: true }),
+    // the page stays where the reader is: the router puts every navigation at the top unless it is told not to
+    change: (patch) => void navigateTo({ to: ".", search: (prev: Record<string, string | undefined>) => ({ ...prev, ...patch }), hash: true, replace: true, resetScroll: false }),
   };
 
   // only a confirmed logout ends the session: the cookie is HttpOnly, so a failed request would leave it alive
@@ -436,7 +437,7 @@ export function Shell() {
               label={t("shell.period")}
               value={period}
               options={presets.map((p) => ({ value: p.id, label: p.label }))}
-              onChange={(id) => navigate(page, { period: id }, true)}
+              onChange={(id) => void navigateTo({ to: ".", search: (prev: Record<string, string | undefined>) => ({ ...prev, period: id }), resetScroll: false })}
             />
             <span className="range-label">
               {dateRange(range.from, range.to)}
