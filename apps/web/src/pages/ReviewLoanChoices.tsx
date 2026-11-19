@@ -74,13 +74,13 @@ function factsOf(debt: LoanTermsDebt): string[] {
 }
 
 /**
- * Links a card loan saved with no link to the series of the card's bills: the loan counts as that card, so its debt is
+ * Links a loan saved with no link to the series of its payments: the loan counts as that card or credit, so its debt is
  * not saved twice and the series is no longer asked about. The loan goes back whole, as the loan form saves it.
  */
-async function linkSavedCard(loanId: string, seriesKey: string): Promise<Loan> {
+async function linkSavedLoan(loanId: string, seriesKey: string, gone: string): Promise<Loan> {
   const { loans, fixings } = await api<LoansAnswer>("/api/loans");
   const loan = loans.find((l) => l.id === loanId);
-  if (!loan) throw new Error(t("set.rc.saved_card_gone"));
+  if (!loan) throw new Error(gone);
   const { body, errors } = readForm({ ...formOfLoan(loan), seriesKey }, fixings);
   if (!body) throw new Error(Object.values(errors)[0]);
   return (await loanCalls.replace(loanId, body)).loan;
@@ -294,12 +294,13 @@ function rowsForm(debt: LoanTermsDebt, kind: LoanKind, meta: Meta, answer: Loans
 
 /**
  * A loan the rows show and nobody saved. A kind the rows only suggest is asked first, the guess picked; the form follows
- * with that kind and saves the loan linked to its series. Ei ole laina keeps the series from being asked again.
+ * with that kind and saves the loan linked to its series. A credit whose kind the rows do not tell picks none: the form
+ * opens with the kind the household picks, or the household tells it as a card or credit saved already with no link.
+ * Ei ole laina keeps the series from being asked again.
  */
 function ProposalRow({ debt, meta, answer, busy, onSend, onSaved, ownsAccount }: RowProps) {
-  const [kind, setKind] = useState<LoanKind>(debt.kind);
+  const [kind, setKind] = useState<LoanKind | null>(debt.kindUnknown ? null : debt.kind);
   const [key, setKey] = useState(0);
-  const { initial, ask } = rowsForm(debt, kind, meta, answer, ownsAccount);
   const notLoan = (
     <ChoiceButton busy={busy} onClick={() => onSend(() => loanCalls.notLoan(debt.key ?? "").then(() => t("set.rc.not_a_loan")))}>
       <span>{t("set.rc.not_a_loan")}</span>
@@ -317,8 +318,42 @@ function ProposalRow({ debt, meta, answer, busy, onSend, onSaved, ownsAccount }:
           {notLoan}
         </div>
       )}
-      <RowForm key={`${kind}:${key}`} initial={initial} ask={ask} answer={answer} meta={meta} cancelLabel={t("set.rc.cancel")} onSave={async (body) => onSaved((await loanCalls.add(body)).loan)} onCancel={() => setKey((k) => k + 1)} />
+      {debt.kindUnknown && debt.savedCards.length > 0 && (
+        <div className="review-choices">
+          <SavedLoanChoice debt={debt} answer={answer} meta={meta} busy={busy} onSend={onSend} already={t("set.rc.credit_already_saved")} open={t("set.rc.open_the_saved_credit")} gone={t("set.rc.saved_credit_gone")} />
+        </div>
+      )}
+      {kind !== null && <RowForm key={`${kind}:${key}`} {...rowsForm(debt, kind, meta, answer, ownsAccount)} answer={answer} meta={meta} cancelLabel={t("set.rc.cancel")} onSave={async (body) => onSaved((await loanCalls.add(body)).loan)} onCancel={() => setKey((k) => k + 1)} />}
       {debt.placed && <div className="review-choices">{notLoan}</div>}
+    </>
+  );
+}
+
+/**
+ * The loans saved with no link that a debt may be (`savedCards`): the household tells which one by linking it to the
+ * series, so its debt is not saved twice. With one such loan the choice links it and a link opens it; with several the
+ * household picks one.
+ */
+function SavedLoanChoice({ debt, answer, meta, busy, onSend, already, open, gone }: Pick<RowProps, "debt" | "answer" | "meta" | "busy" | "onSend"> & { already: string; open: string; gone: string }) {
+  const [picking, setPicking] = useState(false);
+  const link = (id: string) => onSend(async () => resultLine(await linkSavedLoan(id, debt.key ?? "", gone), answer.fixings, meta.today));
+  const [only] = debt.savedCards.length === 1 ? debt.savedCards : [];
+  return (
+    <>
+      <ChoiceButton busy={busy} onClick={() => (only ? link(only.id) : setPicking(true))}>
+        {already}
+      </ChoiceButton>
+      {picking &&
+        debt.savedCards.map((loan) => (
+          <ChoiceButton key={loan.id} busy={busy} onClick={() => link(loan.id)}>
+            {loan.name}
+          </ChoiceButton>
+        ))}
+      {only && (
+        <Button className="review-choice" href={settingsCardHash(SETTINGS_ANCHOR.loans, new URLSearchParams({ [LOAN_LINK_PARAM.loan]: only.id }))}>
+          {open}
+        </Button>
+      )}
     </>
   );
 }
@@ -330,13 +365,10 @@ function ProposalRow({ debt, meta, answer, busy, onSend, onSaved, ownsAccount }:
  */
 function CardBillRow({ debt, meta, answer, busy, onSend, onSaved, ownsAccount }: RowProps) {
   const [saving, setSaving] = useState(false);
-  const [picking, setPicking] = useState(false);
   if (saving) {
     const { initial, ask } = rowsForm(debt, "card", meta, answer, ownsAccount);
     return <RowForm initial={initial} ask={ask} answer={answer} meta={meta} cancelLabel={t("set.rc.cancel")} onSave={async (body) => onSaved((await loanCalls.add(body)).loan)} onCancel={() => setSaving(false)} />;
   }
-  const link = (id: string) => onSend(async () => resultLine(await linkSavedCard(id, debt.key ?? ""), answer.fixings, meta.today));
-  const [only] = debt.savedCards.length === 1 ? debt.savedCards : [];
   return (
     <div className="review-choices">
       <Button className="review-choice" href={settingsHash("banks")}>
@@ -345,22 +377,7 @@ function CardBillRow({ debt, meta, answer, busy, onSend, onSaved, ownsAccount }:
       <ChoiceButton busy={busy} onClick={() => setSaving(true)}>
         {t("set.rc.enter_the_card_debt")}
       </ChoiceButton>
-      {debt.savedCards.length > 0 && (
-        <ChoiceButton busy={busy} onClick={() => (only ? link(only.id) : setPicking(true))}>
-          {t("set.rc.card_already_saved")}
-        </ChoiceButton>
-      )}
-      {picking &&
-        debt.savedCards.map((card) => (
-          <ChoiceButton key={card.id} busy={busy} onClick={() => link(card.id)}>
-            {card.name}
-          </ChoiceButton>
-        ))}
-      {only && (
-        <Button className="review-choice" href={settingsCardHash(SETTINGS_ANCHOR.loans, new URLSearchParams({ [LOAN_LINK_PARAM.loan]: only.id }))}>
-          {t("set.rc.open_the_saved_card")}
-        </Button>
-      )}
+      {debt.savedCards.length > 0 && <SavedLoanChoice debt={debt} answer={answer} meta={meta} busy={busy} onSend={onSend} already={t("set.rc.card_already_saved")} open={t("set.rc.open_the_saved_card")} gone={t("set.rc.saved_card_gone")} />}
     </div>
   );
 }

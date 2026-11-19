@@ -389,6 +389,9 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
   }
 }
 
+/** The kinds a credit of unknown kind is asked as. */
+const CREDIT_KINDS: readonly LoanKind[] = ["card", "credit_line", "consumer"];
+
 /** A choice of a button: its label, and whether it is the app's guess (drawn first, marked Ehdotus). */
 export interface Choice<T> {
   value: T;
@@ -408,7 +411,9 @@ export function payerChoices(item: PayerItem): Choice<PayerRole>[] {
  * The kinds of a loan, one question for every loan: the kind its rows suggest first and named (for a loan saved with
  * its form also one the plain answers lack, such as Osamaksu), then the rest. "Muu laina" is no guess worth marking.
  */
-export function loanKindChoices(debt: Pick<LoanTermsDebt, "kind" | "placed">): Choice<LoanKind>[] {
+export function loanKindChoices(debt: Pick<LoanTermsDebt, "kind" | "placed" | "kindUnknown">): Choice<LoanKind>[] {
+  // a credit the rows tell no kind of is one of three, none of them a guess; a credit line is the account the credit is drawn from
+  if (debt.kindUnknown) return CREDIT_KINDS.map((kind) => ({ value: kind, label: kind === "credit_line" ? t("set.rc.credit_account") : KIND_LABEL[kind], guess: false }));
   // a kind the plain answers lack is offered only where it is saved with the loan's form, not stored as an answer
   const kinds: LoanKind[] = !debt.placed || (LOAN_KIND_ANSWERS as readonly LoanKind[]).includes(debt.kind) ? [...LOAN_KIND_ANSWERS] : [debt.kind, ...LOAN_KIND_ANSWERS];
   return guessFirst(kinds.map((kind) => ({ value: kind, label: KIND_LABEL[kind], guess: kind === debt.kind && kind !== "other" })));

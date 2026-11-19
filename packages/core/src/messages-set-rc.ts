@@ -18,6 +18,7 @@ export const FI_SET_RC = {
   "set.rc.saved_card_gone": "Kirjattua korttia ei löydy enää.",
   "set.rc.credit_account": "Luottotili",
   "set.rc.credit_already_saved": "Luotto on jo kirjattu",
+  "set.rc.open_the_saved_credit": "Avaa kirjattu luotto",
   "set.rc.saved_credit_gone": "Kirjattua luottoa ei löydy enää.",
   "set.rc.do_not_remind_of_this": "Älä muistuta tästä enää",
   "set.rc.add_a_home_loan": "Lisää asuntolaina",
