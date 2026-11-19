@@ -6,7 +6,7 @@
  * within a lifetime of today, and no plan can make the balance grow. So a balance on any day is a whole number of
  * cents between zero and the stated balance.
  */
-import { addMonthsToDate, DEBT_ACCOUNT_TYPES, euriborRateBp, type Fixings, hasReferenceRate, isRevolving, LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, loanPeriodInterest, MAX_LOAN_INTERVAL_MONTHS, mortgageSeriesKeys, type PaymentParts } from "@banking/core";
+import { addMonthsToDate, DEBT_ACCOUNT_TYPES, dueDates, euriborRateBp, type Fixings, hasReferenceRate, isRevolving, LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, loanPeriodInterest, MAX_LOAN_INTERVAL_MONTHS, mortgageSeriesKeys, type PaymentParts } from "@banking/core";
 import { Hono } from "hono";
 import { NotFound, UserError } from "../platform/errors.ts";
 import { randomToken } from "../platform/ids.ts";
@@ -204,19 +204,39 @@ export async function parseLoan(raw: unknown, today: string, accounts: OwnAccoun
     const day = date(stepDate, oldest, latest, `Koron muutoksen päivä voi olla enintään ${YEARS_BACK} vuotta sitten ja ${YEARS_AHEAD} vuoden päässä.`);
     const stepRate = rate(stepBp, "Uuden koron");
     if (!hasReferenceRate(loan)) {
-      if (loan.rateBp === null) throw new UserError("Koron muutokselle pitää antaa myös nykyinen korko.");
+      if (loan.rateBp === null) throw new UserError("Koron muutokselle pitää antaa myös korko ennen muutosta.");
       loan.rateStepDate = day;
       loan.rateStepBp = stepRate;
     }
   }
   // The one way a balance could grow: a payment that holds the interest and is smaller than it. The interest only
-  // shrinks with the balance, so a payment that covers the first interval covers every later one.
+  // shrinks with the balance, so a payment that covers the first interval covers every later one, until the rate steps up.
   const holdsInterest = loan.repayment === "annuity" || loan.repayment === "fixed_instalment";
-  if (holdsInterest && loan.paymentCents !== null && loan.rateBp !== null && loan.intervalMonths !== null) {
-    if (loan.paymentCents < loanPeriodInterest(loan.balanceCents, loan.rateBp, loan.intervalMonths)) {
+  const instalment = loan.paymentCents;
+  if (holdsInterest && instalment !== null && loan.rateBp !== null && loan.intervalMonths !== null) {
+    if (instalment < loanPeriodInterest(loan.balanceCents, loan.rateBp, loan.intervalMonths)) {
       throw new UserError(
         "Maksuerä on pienempi kuin lyhennysvälin korko, joten laina ei lyhenisi. Tarkista luvut tai jätä maksuerä tyhjäksi, jos maksat vain korkoa.",
       );
+    }
+    // After a step the interest is the step rate's on what is left of the balance then. The least that can be left is the
+    // balance less the payments before the first interval at the step rate (no interest in them). An annuity with a last
+    // due date sets its payment again at the step, so it needs no check.
+    const { rateStepDate, rateStepBp } = loan;
+    if (rateStepDate && rateStepBp != null && !(loan.repayment === "annuity" && loan.endDate !== null)) {
+      // an interval counts at the rate in force on the day it starts (`payments` in loan-schedule.ts), so the first one at
+      // the step rate starts on the first due date on or after the step day: that payment and every one before it are paid
+      let paid = 0;
+      // the loan has no id yet; its due dates read the other fields only
+      if (rateStepDate > loan.balanceDate)
+        for (const due of dueDates({ ...loan, id: "" }, loan.intervalMonths)) {
+          paid++;
+          if (due >= rateStepDate) break;
+        }
+      const left = Math.max(0, loan.balanceCents - paid * instalment);
+      if (left > 0 && instalment < loanPeriodInterest(left, rateStepBp, loan.intervalMonths)) {
+        throw new UserError("Maksuerä on pienempi kuin koron muutoksen jälkeinen lyhennysvälin korko, joten laina ei lyhenisi muutoksen jälkeen. Tarkista luvut tai jätä maksuerä tyhjäksi, jos maksat vain korkoa.");
+      }
     }
   }
   // Read last, so a body that fails a cheaper check costs no query. A loan with no link has no field: it is saved and

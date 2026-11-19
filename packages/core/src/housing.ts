@@ -34,6 +34,7 @@ import type { Debt } from "./debt-part.ts";
 import { heldLoans } from "./holdings.ts";
 import { belowWhole, householdDebts } from "./household-debts.ts";
 import { fitsPayment, loanProposals, takenSeries } from "./loan-detect.ts";
+import { typedRateBpOn } from "./loan-schedule.ts";
 import { endOf, hasReferenceRate, loanNextPayment, loansOf, type NextPayment, typedBill } from "./loans.ts";
 import { fold } from "./merchant.ts";
 import { parseSeriesId, type RecurringSeries } from "./recurring.ts";
@@ -123,7 +124,9 @@ function rowsOf(ctx: AnalysisContext, s: RecurringSeries, from: IsoDate): Analys
 }
 
 function loanTerms(loan: Loan, today: IsoDate): Pick<HousingLoan, "rateBp" | "reference" | "marginBp" | "referenceBp" | "reviewDate" | "reviewPassed"> {
-  const { rateBp, reference, marginBp } = loan;
+  const { reference, marginBp } = loan;
+  // the rate in force today: after the day of a step in a typed rate it is the step's
+  const rateBp = typedRateBpOn(loan, today);
   const referenceBp = hasReferenceRate(loan) && rateBp !== null && marginBp !== null && rateBp >= marginBp ? rateBp - marginBp : null;
   // a day saved before the form hid the field of a fixed rate says nothing of a rate that is not set again
   const reviewDate = reference === "fixed" ? null : (loan.rateReviewDate ?? null);

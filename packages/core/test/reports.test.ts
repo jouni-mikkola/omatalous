@@ -9,7 +9,9 @@ import { expectedDates, fixedMonthlyCents, fixedSplit, isContract, isSavingsPlan
 import type { BalanceInput } from "../src/reports/balances.ts";
 import { buildReports, inCostOrder, isReportId, REPORTS } from "../src/reports/index.ts";
 import { fullMonths } from "../src/reports/shared.ts";
-import { addDays, monthIndex } from "../src/dates.ts";
+import { addDays, addMonths, monthIndex } from "../src/dates.ts";
+import { normalizeMerchant } from "../src/merchant.ts";
+import { enrichTransactions } from "../src/pipeline.ts";
 import { debtInterestNext12Months, loanBalanceOn, loanInterestNext12Months, loanPayoffDate } from "../src/loans.ts";
 import type { Account, ExpectedCadence, Loan, Transaction } from "../src/types.ts";
 import { series, tx } from "./helpers.ts";
@@ -561,16 +563,66 @@ describe("loans: the Lainat report and net worth", () => {
     expect(debtInterestNext12Months([home], today).cents).toBe(named.loans.interest.cents);
   });
 
-  it("the Lainat list is in cost order: the rate, highest first, ties by the year's interest, a debt with no rate last, and no figure moves", () => {
+  it("Korot ja kulut 12 kk is the sum of the rows' 12 months, and a debt whose cost is not known is never counted as 0", () => {
+    const alone = (loans: Loan[], accounts: Account[], rows: BalanceInput[]) =>
+      buildReports({ ctx: createContext(monthlyOn("2026-08", 3, 3, () => -50000, { accountId: "acc-1" }), accounts, today), range: { from: "2026-08-01", to: today }, balances: rows, inputs: { marks: [], expectedBills: [], loans } }).loans;
+    const known = alone([home, car], [checking], [given(checking, 200000)]);
+    const costs = known.loans.map((l) => l.cost);
+    expect(costs.every((c) => c !== null && c.next12 !== null && c.rateMilli !== null)).toBe(true);
+    const parts = costs.map((c) => c!.next12!);
+    expect(known.cost12).toEqual({ cents: parts.reduce((s, p) => s + p.cents, 0), interestCents: parts.reduce((s, p) => s + p.interestCents!, 0), feeCents: parts.reduce((s, p) => s + p.feeCents!, 0) });
+    expect(known.cost12.cents).toBe(known.cost12.interestCents! + known.cost12.feeCents!);
+    // neither loan carries a fee
+    expect(known.cost12.feeCents).toBe(0);
+    // a debt that owes nothing adds nothing
+    const paid = alone([home, car, loan({ id: "paid", kind: "consumer", balanceCents: 0 })], [checking], [given(checking, 200000)]);
+    expect(paid.loans.find((l) => l.id === "paid")!.cost).toBeNull();
+    expect(paid.cost12).toEqual(known.cost12);
+    // a card with no rate and no payment owes and costs unknown: the total is unknown, not the sum of the others
+    const some = run([home, car, typedCard]).loans;
+    expect(some.loans.find((l) => l.id === "typed")!.cost).toMatchObject({ rateMilli: null, costClass: null, next12: null });
+    expect(some.cost12).toEqual({ cents: null, interestCents: null, feeCents: null });
+  });
+
+  it("Korot ja kulut 12 kk is unknown, never 0, while a loan the rows show is not saved", () => {
+    // ten monthly payments to a lender nobody saved a loan of: it costs money and has no terms to price
+    const lender = Array.from({ length: 10 }, (_, i) => {
+      const description = "LAINANLYHENNYS 1234567";
+      return tx({ accountId: "acc-1", bookingDate: `${addMonths("2026-10", i - 9)}-05`, amountCents: -30_000, counterparty: "NORDEA BANK ABP", description, merchant: normalizeMerchant("NORDEA BANK ABP", description) });
+    });
+    const at = (rows: Transaction[], loans: Loan[]) =>
+      buildReports({ ctx: createContext(enrichTransactions(rows, [checking], []), [checking], today), range: { from: "2026-08-01", to: today }, balances: [given(checking, 200000)], inputs: { marks: [], expectedBills: [], loans } }).loans;
+    const nothing = { cents: null, interestCents: null, feeCents: null };
+    const withUnsaved = at(lender, [home, car]);
+    expect(withUnsaved.unsaved.length).toBeGreaterThan(0);
+    // every saved loan is priced, so it is the unsaved one alone that leaves the total unknown
+    expect(withUnsaved.loans.every((l) => l.cost?.next12 != null)).toBe(true);
+    expect(withUnsaved.cost12).toEqual(nothing);
+    expect(at(lender, []).cost12).toEqual(nothing);
+    // the same loans with no unsaved payments add up
+    const without = at([], [home, car]);
+    expect(without.unsaved).toEqual([]);
+    expect(without.cost12.cents).toBeGreaterThan(0);
+  });
+
+  it("a row shows and ranks by the rate in force on the day: after a step the step's rate", () => {
+    const promo = loan({ id: "promo", kind: "instalment", balanceCents: 120_000, rateBp: 0, repayment: "fixed_instalment", intervalMonths: 1, paymentCents: 20_000, endDate: "2027-04-01" });
+    const at = (loans: Loan[]) => buildReports({ ctx: createContext(monthlyOn("2026-08", 3, 3, () => -50000, { accountId: "acc-1" }), [checking], today), range: { from: "2026-08-01", to: today }, balances: [given(checking, 200000)], inputs: { marks: [], expectedBills: [], loans } }).loans.loans[0]!;
+    expect(at([{ ...promo, rateStepDate: "2026-12-01", rateStepBp: 1990 }]).rateBp).toBe(0);
+    expect(at([{ ...promo, rateStepDate: "2026-10-01", rateStepBp: 1990 }]).rateBp).toBe(1990);
+    expect(at([{ ...promo, rateStepDate: "2026-10-09", rateStepBp: 1990 }]).rateBp).toBe(1990);
+  });
+
+  it("the Lainat list is in cost order: Todellinen korko, highest first, then the class and the year's cost, a debt with no cost last, and no figure moves", () => {
     const card2: Account = { id: "card2", name: "Toinen kortti", iban: null, currency: "EUR", type: "credit_card" };
-    // no plan and no end date: the year's interest is the balance times the rate, so every figure below is one multiplication
-    const mortgage = loan({ id: "mortgage", kind: "mortgage", balanceCents: 10_000_000, rateBp: 350 }); // 100 000 € at 3,5 %: 3 500 €
-    const line = loan({ id: "line", kind: "credit_line", balanceCents: 200_000, rateBp: 1200 }); // 2 000 € at 12 %: 240 €
-    const small = loan({ id: "small", kind: "consumer", balanceCents: 50_000, rateBp: 1200 }); // 500 € at 12 %: 60 €
-    const [b, a] = [loan({ id: "b", kind: "consumer", balanceCents: 100_000, rateBp: 600 }), loan({ id: "a", kind: "consumer", balanceCents: 100_000, rateBp: 600 })]; // 1 000 € at 6 %: 60 € each
+    // every debt with a rate has a plan to its end, so its cost is known; the rates differ by more than the monthly compounding
+    const mortgage = loan({ id: "mortgage", kind: "mortgage", balanceCents: 10_000_000, rateBp: 350, repayment: "annuity", intervalMonths: 1, paymentCents: 50_000 });
+    const line = loan({ id: "line", kind: "credit_line", balanceCents: 200_000, rateBp: 1200, paymentCents: 10_000, intervalMonths: 1 });
+    const small = loan({ id: "small", kind: "consumer", balanceCents: 50_000, rateBp: 1100, repayment: "annuity", intervalMonths: 1, paymentCents: 5_000 });
+    const [b, a] = [loan({ id: "b", kind: "consumer", balanceCents: 100_000, rateBp: 600, repayment: "annuity", intervalMonths: 1, paymentCents: 10_000 }), loan({ id: "a", kind: "consumer", balanceCents: 100_000, rateBp: 600, repayment: "annuity", intervalMonths: 1, paymentCents: 10_000 })];
     const undrawn = loan({ id: "undrawn", kind: "credit_line", balanceCents: 0, limitCents: 500_000 });
-    // a saved card linked to the connected card, which owes 800 € at 20 %: 160 €
-    const terms = loan({ id: "terms", name: "Kortti", kind: "card", balanceCents: 90_000, rateBp: 2000, accountId: "card" });
+    // a saved card linked to the connected card, which owes 800 € at 20 %
+    const terms = loan({ id: "terms", name: "Kortti", kind: "card", balanceCents: 90_000, rateBp: 2000, paymentCents: 5_000, intervalMonths: 1, accountId: "card" });
     const r = buildReports({
       ctx: createContext(monthlyOn("2026-08", 3, 3, () => -50000, { accountId: "acc-1" }), [checking, card, card2], today),
       range: { from: "2026-08-01", to: today },
@@ -579,17 +631,33 @@ describe("loans: the Lainat report and net worth", () => {
     }).loans;
     const rows = inCostOrder(r.loans);
     expect(rows.map((l) => l.id)).toEqual(["terms", "line", "small", "b", "a", "mortgage", "undrawn", "account:card2"]);
-    expect(rows.map((l) => l.rateBp)).toEqual([2000, 1200, 1200, 600, 600, 350, null, null]);
-    // the card with terms is a row and its interest is the loan's own; the debt with no rate has none, never zero
-    expect(rows.map((l) => l.interest.cents)).toEqual([16_000, 24_000, 6_000, 6_000, 6_000, 350_000, 0, null]);
-    expect(rows[0]!.interest).toEqual(loanInterestNext12Months({ ...terms, balanceCents: 80_000 }, today));
+    expect(rows.map((l) => l.rateBp)).toEqual([2000, 1200, 1100, 600, 600, 350, null, null]);
+    expect(rows.map((l) => l.cost?.costClass ?? null)).toEqual(["very_dear", "dear", "dear", "cheap", "cheap", "cheap", null, null]);
+    const known = rows.slice(0, 6).map((l) => l.cost!.rateMilli!);
+    expect(known).toEqual([...known].sort((x, y) => y - x));
+    // the debt that owes nothing has no cost; the connected card with no rate owes, and its cost is unknown with the field named, never zero
+    expect(rows[6]!.cost).toBeNull();
+    expect(rows[7]!.cost).toEqual({ rateMilli: null, costClass: null, next12: null, leftCents: null, feePerPaymentCents: null, unknown: "rate" });
     expect(rows[7]!.interest).toEqual({ cents: null, unknown: "rate" });
-    // the order is a view: the report keeps its rows and every sum, and the unknown interest is not added as zero
+    // the order is a view: the report keeps its rows and every sum, and the unknown cost is not added as zero
     expect(r.loans.map((l) => l.id)).toEqual(["b", "a", "line", "small", "mortgage", "undrawn", "terms", "account:card2"]);
     expect(r.total.cents).toBe(80_000 + 30_000 + 10_000_000 + 200_000 + 50_000 + 100_000 + 100_000);
     expect(r.total.cents).toBe(rows.reduce((sum, l) => sum + l.balance.cents!, 0));
-    expect(r.interest.cents).toBe(16_000 + 24_000 + 6_000 + 6_000 + 6_000 + 350_000);
+    expect(r.cost12).toEqual({ cents: null, interestCents: null, feeCents: null });
     expect(r.interestKnown).toBe(false);
+  });
+
+  it("rows that cost something go by Todellinen korko, class and the cost of the year; rows with no cost keep their order after them, and a free row is last", () => {
+    const base = buildReports({ ctx: createContext([], [checking], today), range: { from: "2026-08-01", to: today }, balances: [given(checking, 0)], inputs: { marks: [], expectedBills: [], loans: [loan({ id: "x", kind: "consumer", balanceCents: 100_000, rateBp: 600, repayment: "annuity", intervalMonths: 1, paymentCents: 10_000 })] } }).loans.loans[0]!;
+    const row = (id: string, rateMilli: number | null, costClass: "free" | "cheap" | "dear" | null, cents: number | null) => ({
+      ...base,
+      id,
+      cost: { rateMilli, costClass, next12: cents === null ? null : { cents, interestCents: cents, feeCents: 0 }, leftCents: null, feePerPaymentCents: null, unknown: rateMilli === null ? ("rate" as const) : null },
+    });
+    const rows = [row("none", null, null, null), row("small", 7_000, "dear", 100), row("big", 7_000, "dear", 900), row("free", 7_000, "free", 5_000), row("rate", 9_000, "dear", 1), row("none2", null, null, null)];
+    expect(inCostOrder(rows).map((l) => l.id)).toEqual(["rate", "big", "small", "none", "none2", "free"]);
+    // a free row is last whatever the cost of its year, and a row that costs a little still comes before it
+    expect(inCostOrder([row("free", 0, "free", 0), row("cheap", 1_000, "cheap", 10), row("none", null, null, null)]).map((l) => l.id)).toEqual(["cheap", "none", "free"]);
   });
 });
 
