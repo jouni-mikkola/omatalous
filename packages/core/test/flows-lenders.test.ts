@@ -205,6 +205,8 @@ describe("peer lending", () => {
   it("interest and dividends from anyone else stay investment income", () => {
     check(["NORDNET BANK AB", "OSINKO", 80, "investment_income", { income: 8000 }]);
     check(["S-PANKKI OYJ", "TALLETUSKORKO", 12, "investment_income", { income: 1200 }]);
+    check([null, "Koron pääomitus", 0.37, "investment_income", { income: 37 }]);
+    check(["KORKOJEN PÄÄOMITUS", "TILITYS", 0.37, "investment_income", { income: 37 }]);
   });
 
   it("reads the bank's words for interest added as income on a deposit only: on a card or a loan they give back interest charged", () => {
