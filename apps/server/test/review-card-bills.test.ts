@@ -3,7 +3,7 @@
  * one row for the card with a month of its bills, gone once the debt is saved as a loan of kind card, linked to the bills or
  * not, or the household says Ei ole velan maksu. Made-up issuer and sums; the test clock is 9.10.2026.
  */
-import { notLoanMark, type RawTransaction } from "@banking/core";
+import { loanUnknownSubject, notLoanMark, type RawTransaction } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { reprocess } from "../src/services/enrich.ts";
 import { ingestTransactions } from "../src/services/ingest.ts";
@@ -90,5 +90,62 @@ describe("the question of a card that is not connected", () => {
     const t = await household();
     const maija = await t.member("maija", "Maija");
     expect(listed((await maija.call("GET", "/api/review")).body.items as Item[])).toEqual([]);
+  });
+
+  it("goes with En tiedä at its monthly bill, and comes back once the bill rises by more than a tenth", async () => {
+    const t = await household();
+    const [card] = await t.cards();
+    const said = Math.round((card!.monthlyCents as number) / 2);
+    expect((await t.admin.call("PUT", "/api/marks", { subject: loanUnknownSubject(card!.monthlyCents as number, card!.key!), mark: "in_use" })).status).toBe(200);
+    expect(await t.cards()).toEqual([]);
+    const u = await household();
+    expect((await u.admin.call("PUT", "/api/marks", { subject: loanUnknownSubject(said, card!.key!), mark: "in_use" })).status).toBe(200);
+    expect(await u.cards()).toHaveLength(1);
+  });
+});
+
+/**
+ * Beside the card paid each month: one bill of a card that is not connected, and a connected card whose rows begin inside
+ * the twelve complete months, with no bill.
+ */
+async function withGaps() {
+  const t = await household();
+  const repo = t.s.finance(t.adminId);
+  await ingestTransactions(repo, "chk", [raw("2026-08-12", -30_000, "TOINENPANKKI KORTTI")], "csv");
+  await t.db.run("UPDATE transactions SET category = 'card_bill', category_source = 'user'");
+  await repo.upsertAccount({ id: "kortti", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Kolmaspankki Gold", iban: null, currency: "EUR", type: "credit_card" });
+  await ingestTransactions(repo, "kortti", ["2026-06-01", "2026-06-11", "2026-06-21"].map((d) => raw(d, -2_000, "ESIMERKKIKAUPPA")), "csv");
+  await reprocess(repo, t.s.settings);
+  const gaps = async () => listed((await t.admin.call("GET", "/api/review")).body.items as Item[]).filter((d) => d.source === "card_gap");
+  return { ...t, gaps };
+}
+
+describe("the question of a card whose purchases are missing", () => {
+  it("lists the card with one bill and the connected card beside the card paid each month, each once", async () => {
+    const t = await withGaps();
+    expect(await t.cards()).toHaveLength(1);
+    const gaps = await t.gaps();
+    expect(gaps.map((g) => g.name)).toEqual(["Toinenpankki Kortti", "Kolmaspankki Gold"]);
+    const [loose, connected] = gaps;
+    // a card that is not connected is connected, saved as a card loan by its bill's key, or its statement added
+    expect(loose).toMatchObject({ id: `card_gap:${loose!.key}`, kind: "card", accountId: null, monthlyCents: null, owedCents: null, lastDate: "2026-08-12", missing: { cents: 30_000, since: null } });
+    expect(loose!.key).toMatch(/^out:chk:/);
+    // a connected card's debt is its account's: only its statement is asked, and its balance is not counted missing
+    expect(connected).toMatchObject({ accountId: "kortti", monthlyCents: null, lastDate: null, missing: { cents: null, since: "2026-06-01" }, savedCards: [] });
+    const item = ((await t.admin.call("GET", "/api/review")).body.items as Item[]).find((i) => i.kind === "loan_terms_list")!;
+    expect(item.noBalance).toBe(2);
+  });
+
+  it("goes with En tiedä at its sum, and the card with one bill with a saved loan linked to it", async () => {
+    const t = await withGaps();
+    const [loose, connected] = await t.gaps();
+    expect((await t.admin.call("PUT", "/api/marks", { subject: loanUnknownSubject(null, connected!.key!), mark: "in_use" })).status).toBe(200);
+    expect((await t.gaps()).map((g) => g.name)).toEqual(["Toinenpankki Kortti"]);
+    const saved = await t.admin.call("POST", "/api/loans", { name: "Toinenkortti", kind: "card", balanceCents: 50_000, limitCents: 200_000, balanceDate: "2026-10-01", seriesKey: loose!.key });
+    expect(saved.status).toBe(200);
+    expect(await t.gaps()).toEqual([]);
+    const u = await withGaps();
+    expect((await u.admin.call("PUT", "/api/marks", { subject: loanUnknownSubject(30_000, loose!.key!), mark: "in_use" })).status).toBe(200);
+    expect((await u.gaps()).map((g) => g.name)).toEqual(["Kolmaspankki Gold"]);
   });
 });

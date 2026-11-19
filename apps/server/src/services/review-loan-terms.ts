@@ -277,6 +277,9 @@ function unconnectedDebts({ ctx, inputs }: OwnView): Listed[] {
   return [...cards, ...gaps];
 }
 
+/** A connected card whose purchases are missing: what it owes is its account's balance, which no row of the list lacks. */
+const connectedGap = (d: LoanTermsDebt): boolean => d.source === "card_gap" && d.accountId !== null;
+
 /**
  * Täydennä lainat, or nothing when no debt lacks a fact. Only the member's own loans and accounts are read: an account
  * another member shared is left out of the debts before they are worked out, so another member's loan or card is never
@@ -287,7 +290,7 @@ export const loanTermsListItems = async (_s: Services, _userId: string, view: Ow
   if (!listed.length) return [];
   const all = debtsOf(view.ctx, view.balances, view.inputs);
   const debts = listed.map(({ seriesId: _series, yearCents: _year, ...row }): LoanTermsDebt => row);
-  return [{ kind: "loan_terms_list", id: "loan-terms", cents: loanTermsListCents(listed) ?? 0, debts, debtsCents: all.totalKnown ? all.total.cents : null, noBalance: debts.filter((d) => d.owedCents === null).length }];
+  return [{ kind: "loan_terms_list", id: "loan-terms", cents: loanTermsListCents(listed) ?? 0, debts, debtsCents: all.totalKnown ? all.total.cents : null, noBalance: debts.filter((d) => d.owedCents === null && !connectedGap(d)).length }];
 };
 
 /**

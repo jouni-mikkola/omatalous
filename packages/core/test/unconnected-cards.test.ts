@@ -5,8 +5,9 @@
  */
 import { describe, expect, it } from "vitest";
 import { billIssuer, issuerCards, missingCards } from "../src/analysis/card-bills.ts";
-import { type AnalysisContext, createContext } from "../src/analysis/context.ts";
+import { createContext } from "../src/analysis/context.ts";
 import { completeYear } from "../src/analysis/data-quality.ts";
+import { cardRowsMissingIn, paidCardBills } from "../src/analysis/usual.ts";
 import { buildHoldings, unsavedDebts } from "../src/holdings.ts";
 import { loanProposals, notLoanMark } from "../src/loan-detect.ts";
 import { parseSeriesId } from "../src/series-id.ts";
@@ -134,7 +135,7 @@ describe("cards whose purchases are missing and which are not paid each month (c
 
   it("gives every card of the figure of missing card purchases one row with unconnectedCards, and nothing else but a connected card whose rows begin late", () => {
     const missing = missingCards(ctx, completeYear(TODAY)).bills;
-    const cardOf = issuerCards(ctx as AnalysisContext);
+    const cardOf = issuerCards(ctx);
     const issuerOfGap = (g: (typeof gaps)[number]) => (g.cardId ? missing.find((m) => cardOf(m.issuer)?.id === g.cardId)?.issuer : billIssuer({ merchant: g.payee }));
     const listed = [...unconnectedCards(ctx, NO_INPUTS).map((c) => billIssuer({ merchant: c.payee })), ...gaps.filter((g) => g.cents !== null).map(issuerOfGap)];
     expect(listed.toSorted()).toEqual(missing.map((m) => m.issuer).toSorted());
@@ -163,6 +164,23 @@ describe("cards whose purchases are missing and which are not paid each month (c
     const fresh = cardAccount("fresh", "Toinenpankki Gold");
     const named = createContext([bill("Toinenpankki Kortti", "2026-08-12", 30_000)], [own, fresh], TODAY);
     expect(cardGaps(named, NO_INPUTS).map((g) => [g.cardId, g.cents])).toEqual([["fresh", 30_000]]);
+  });
+
+  it("has a row of Täydennä lainat wherever a month of the twelve lacks a card's purchases, the reason the first page links there", () => {
+    const months = Array.from({ length: 12 }, (_, i) => `${i < 3 ? 2025 : 2026}-${String(((i + 9) % 12) + 1).padStart(2, "0")}`);
+    const fixtures = [
+      ctx,
+      createContext(bills("Esimerkkipankki Kortti"), [own], TODAY),
+      createContext([bill("Toinenpankki Kortti", "2026-08-12", 30_000)], [own], TODAY),
+      createContext([bill("Kolmaspankki Kortti", "2026-08-12", 20_000), ...purchases("later", "2026-09")], [own, later], TODAY),
+      createContext(purchases("late", "2026-05"), [own, late], TODAY),
+    ];
+    for (const fixture of fixtures) {
+      expect(months.some((m) => paidCardBills(fixture, m) || cardRowsMissingIn(fixture, m))).toBe(true);
+      expect(unconnectedCards(fixture, NO_INPUTS).length + cardGaps(fixture, NO_INPUTS).length).toBeGreaterThan(0);
+    }
+    expect(months[0]).toBe(completeYear(TODAY).from.slice(0, 7));
+    expect(months[11]).toBe(completeYear(TODAY).to.slice(0, 7));
   });
 
   it("reads only card bills: a lender's payment with no word of a card is no card's row", () => {
