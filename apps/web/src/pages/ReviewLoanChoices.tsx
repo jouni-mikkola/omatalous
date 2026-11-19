@@ -366,6 +366,11 @@ function CardRow({ debt, meta, answer, busy, onSend, onSaved }: RowProps) {
         <ChoiceButton busy={busy} onClick={() => setAsking(true)}>
           <span>{t("set.rc.lt_no")}</span>
         </ChoiceButton>
+        {debt.missing && (
+          <Button className="review-choice" href={settingsCardHash(SETTINGS_ANCHOR.statement)}>
+            {t("set.rc.add_the_statement")}
+          </Button>
+        )}
       </div>
     </>
   );

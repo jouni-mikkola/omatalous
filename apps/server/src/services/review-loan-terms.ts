@@ -34,8 +34,6 @@
 import {
   balanceDayOf,
   billCents,
-  cardGaps,
-  cardUnknownAsked,
   debtPayments,
   debtsOf,
   hasMonthly,
@@ -56,10 +54,10 @@ import {
   type LoanTermsMissing,
   loanTermsSubject,
   loanUnknownAsked,
+  openCardRows,
   openLoanGaps,
   paymentOf,
   savedLoanYearCents,
-  unconnectedCards,
   unlinkedCardLoans,
   unlinkedCreditLoans,
 } from "@banking/core";
@@ -264,17 +262,28 @@ function proposedDebts({ ctx, inputs, stamp }: OwnView): Listed[] {
 /** The cards the household pays the bills of and has not connected, and the cards whose purchases are missing. */
 function unconnectedDebts({ ctx, inputs }: OwnView): Listed[] {
   const savedCards = unlinkedCardLoans(inputs).map((loan) => ({ id: loan.id, name: loan.name }));
-  const cards = unconnectedCards(ctx, inputs).flatMap((c) =>
-    cardUnknownAsked(inputs.marks, c.key, paymentOf(c).part)
-      ? []
-      : [debt({ id: `card_bill:${c.key}`, seriesId: c.seriesId, yearCents: 12 * paymentOf(c).part, source: "card_bill", name: c.payee, key: c.key, kind: "card", placed: true, monthlyCents: paymentOf(c).part, latestCents: paymentOf(c).whole, lastDate: c.lastDate, savedCards })],
-  );
-  const gaps = cardGaps(ctx, inputs).flatMap((g) =>
-    cardUnknownAsked(inputs.marks, g.key, g.cents)
-      ? []
-      : [debt({ id: `card_gap:${g.key}`, seriesId: null, yearCents: g.cents, source: "card_gap", name: g.payee, accountId: g.cardId, key: g.key, kind: "card", placed: true, lastDate: g.lastDate, savedCards: g.cardId ? [] : savedCards, missing: { cents: g.cents, since: g.since } })],
-  );
+  const open = openCardRows(ctx, inputs);
+  const cards = open.cards.map((c) => debt({ id: `card_bill:${c.key}`, seriesId: c.seriesId, yearCents: 12 * paymentOf(c).part, source: "card_bill", name: c.payee, key: c.key, kind: "card", placed: true, monthlyCents: paymentOf(c).part, latestCents: paymentOf(c).whole, lastDate: c.lastDate, savedCards }));
+  // the sum of a card's missing bills is no year of payments: it asks in the order the sources told it, after the debts with a known year
+  const gaps = open.gaps.map((g) => debt({ id: `card_gap:${g.key}`, seriesId: null, yearCents: null, source: "card_gap", name: g.payee, accountId: g.cardId, key: g.key, kind: "card", placed: true, lastDate: g.lastDate, savedCards: g.cardId ? [] : savedCards, missing: { cents: g.cents, since: g.since } }));
   return [...cards, ...gaps];
+}
+
+/**
+ * A connected card that owes at an unknown rate and whose purchases are missing is one row under its name: the row of its
+ * rate takes what the statement's row would tell (`missing`), and the statement's row is left out. Once the rate is
+ * answered the row of the statement stands alone.
+ */
+function oneRowPerCard(saved: readonly Listed[], unconnected: readonly Listed[]): { saved: Listed[]; unconnected: Listed[] } {
+  const gapOf = (s: Listed): Listed | undefined => (s.source === "card" ? unconnected.find((d) => d.source === "card_gap" && d.accountId === s.accountId) : undefined);
+  const taken = new Set(saved.flatMap((s) => gapOf(s)?.id ?? []));
+  return {
+    saved: saved.map((s) => {
+      const gap = gapOf(s);
+      return gap?.missing ? { ...s, missing: gap.missing } : s;
+    }),
+    unconnected: unconnected.filter((d) => !taken.has(d.id)),
+  };
 }
 
 /** A connected card whose purchases are missing: what it owes is its account's balance, which no row of the list lacks. */
@@ -286,7 +295,8 @@ const connectedGap = (d: LoanTermsDebt): boolean => d.source === "card_gap" && d
  * listed. The list weighs the year of payments it holds, so it is asked before the questions of smaller sums.
  */
 export const loanTermsListItems = async (_s: Services, _userId: string, view: OwnView): Promise<LoanTermsListItem[]> => {
-  const listed = loanTermsList([...savedDebts(view), ...proposedDebts(view), ...unconnectedDebts(view)]);
+  const rows = oneRowPerCard(savedDebts(view), unconnectedDebts(view));
+  const listed = loanTermsList([...rows.saved, ...proposedDebts(view), ...rows.unconnected]);
   if (!listed.length) return [];
   const all = debtsOf(view.ctx, view.balances, view.inputs);
   const debts = listed.map(({ seriesId: _series, yearCents: _year, ...row }): LoanTermsDebt => row);

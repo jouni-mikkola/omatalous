@@ -136,6 +136,25 @@ describe("the question of a card whose purchases are missing", () => {
     expect(item.noBalance).toBe(2);
   });
 
+  it("lists a connected card that owes at an unknown rate and starts late once: the row of its rate holds the statement's facts", async () => {
+    const t = await withGaps();
+    const repo = t.s.finance(t.adminId);
+    await repo.setAccountBalance("kortti", -50_000, "2026-10-09T06:00:00.000Z");
+    await reprocess(repo, t.s.settings);
+    const debts = async () => listed((await t.admin.call("GET", "/api/review")).body.items as Item[]);
+    const rows = (await debts()).filter((d) => d.name === "Kolmaspankki Gold");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ id: "card:kortti", source: "card", accountId: "kortti", owedCents: 50_000, gaps: ["rate"], missing: { cents: null, since: "2026-06-01" } });
+    // the card that is not connected keeps its own row of the statement
+    expect((await debts()).filter((d) => d.source === "card_gap").map((d) => d.name)).toEqual(["Toinenpankki Kortti"]);
+    // once the rate is told the statement's row stands alone, still one row under the name
+    const saved = await t.admin.call("POST", "/api/loans", { name: "Kolmaspankki Gold", kind: "card", balanceCents: 50_000, limitCents: 200_000, balanceDate: "2026-10-09", rateBp: 1_900, accountId: "kortti" });
+    expect(saved.status).toBe(200);
+    const after = (await debts()).filter((d) => d.name === "Kolmaspankki Gold");
+    expect(after).toHaveLength(1);
+    expect(after[0]).toMatchObject({ source: "card_gap", accountId: "kortti", missing: { cents: null, since: "2026-06-01" } });
+  });
+
   it("goes with En tiedä at its sum, and the card with one bill with a saved loan linked to it", async () => {
     const t = await withGaps();
     const [loose, connected] = await t.gaps();
