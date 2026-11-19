@@ -270,7 +270,7 @@ export interface UnsavedLoans {
 
 /**
  * The debts the total cannot hold: a lender paid every month whose loan was not saved has no balance, so the total
- * leaves it out and says so beside it. Null when every loan the rows show is saved or marked "Ei ole laina". The sum is
+ * leaves it out and says so beside it. Null when every loan the rows show is saved or marked "Ei ole velan maksu". The sum is
  * of one side of the payments (`side`): the viewer's part by default. Where the split of a joint account is said the members' totals add up to the household's; with an unknown split each member counts the account whole (ADR 0017).
  */
 export function unsavedLoans(proposals: readonly MonthlyProposal<Pick<LoanProposal, "payee" | "monthlyCents" | "paymentCents">>[], side: Side = "part"): UnsavedLoans | null {

@@ -185,7 +185,7 @@ export async function parseLoan(raw: unknown, today: string, accounts: OwnAccoun
   if (loan.reference === "fixed") delete loan.rateReviewDate;
   // a card or a credit line is drawn and paid as its holder likes: it has a limit and no plan
   if (isRevolving(loan.kind) && loan.repayment !== null) {
-    throw new UserError("Luottokortilla ja luottolimiitillä ei ole lyhennystapaa. Jätä se tyhjäksi.");
+    throw new UserError("Luottokortilla ja joustoluotolla ei ole lyhennystapaa. Jätä se tyhjäksi.");
   }
   if (loan.repayment === "bullet" && loan.paymentCents !== null) throw new UserError("Kertalyhenteisellä lainalla ei ole maksuerää. Jätä maksuerä tyhjäksi.");
   // A loan on a euribor sent with its margin alone is saved at the rate in force on its balance date: the fixing of the
@@ -285,7 +285,7 @@ export function loanRoutes(s: Services) {
   /**
    * The loans the bank rows show and the household has not answered (`loanProposals`). Worked out for each request
    * from the viewer's own rows and marks and the saved loans of the own view (`loansInView`: a loan another user of a
-   * joint account saved is not proposed again), outside the cached context: "Ei ole laina" or a saved loan takes effect
+   * joint account saved is not proposed again), outside the cached context: "Ei ole velan maksu" or a saved loan takes effect
    * at once and moves no data version. A row id, the account and the payment reference stay on the server.
    */
   app.get("/loans/proposals", async (c) => {

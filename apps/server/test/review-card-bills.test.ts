@@ -1,7 +1,7 @@
 /**
  * A card the household pays the bills of and has not connected, as a row of Täydennä lainat (services/review-loan-terms.ts):
  * one row for the card with a month of its bills, gone once the debt is saved as a loan of kind card, linked to the bills or
- * not, or the household says Ei ole laina. Made-up issuer and sums; the test clock is 9.10.2026.
+ * not, or the household says Ei ole velan maksu. Made-up issuer and sums; the test clock is 9.10.2026.
  */
 import { notLoanMark, type RawTransaction } from "@banking/core";
 import { describe, expect, it } from "vitest";
@@ -46,7 +46,7 @@ describe("the question of a card that is not connected", () => {
     expect(items[0]).toMatchObject({ kind: "loan_terms_list", id: "loan-terms", noBalance: 1 });
   });
 
-  it("goes with a card saved as a loan linked to its bills, and with Ei ole laina", async () => {
+  it("goes with a card saved as a loan linked to its bills, and with Ei ole velan maksu", async () => {
     const t = await household();
     const [card] = await t.cards();
     const saved = await t.admin.call("POST", "/api/loans", { name: "Esimerkkikortti", kind: "card", balanceCents: 120_000, limitCents: 300_000, balanceDate: "2026-10-01", seriesKey: card!.key });

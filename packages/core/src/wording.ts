@@ -282,7 +282,7 @@ const CARD_ISSUER_BANK = words(CARD_ISSUER_BANK_WORDS);
 export const isCardIssuerBankText = (folded: string) => CARD_ISSUER_BANK.test(folded);
 const CREDIT_ISSUER = words(`${CARD_ISSUER_BANK_WORDS}|${RESURS_WORDS}|${NORDEA_FINANCE_WORDS}`);
 /**
- * A lender that issues cards and lends otherwise too (credit accounts, flexible car credits, loans): a payment that names
+ * A lender that issues cards and lends otherwise too (credit lines, flexible car credits, loans): a payment that names
  * it and no loan or card, in sums that change, is a credit of unknown kind.
  */
 export const isCreditIssuerText = (folded: string) => CREDIT_ISSUER.test(folded);

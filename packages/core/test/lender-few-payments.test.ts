@@ -54,7 +54,7 @@ describe("a lender paid twice", () => {
     expect(holdings.unsavedFewPayments).toBe(1);
   });
 
-  it("is set aside by Ei ole laina", () => {
+  it("is set aside by Ei ole velan maksu", () => {
     const [p] = proposed(rows);
     expect(proposed(rows, { ...NO_INPUTS, marks: [{ ...notLoanMark(p!), markedAt: "2026-10-18T10:00:00Z" }] })).toEqual([]);
   });

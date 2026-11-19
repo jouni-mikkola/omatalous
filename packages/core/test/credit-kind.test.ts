@@ -2,7 +2,7 @@
  * A bank that issues cards and lends otherwise, paid by its name alone in changing sums: the rows tell no card, so the
  * payments are a credit of unknown kind (loans), counted once as debt service and asked in Tarkistettavat. A card word or
  * a connected card of the bank makes them the card's bills, one fixed sum is an instalment, and the household's answer
- * (a saved card, credit account or consumer credit linked to the series) settles the kind. Sums are made up.
+ * (a saved card, credit line or consumer credit linked to the series) settles the kind. Sums are made up.
  */
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
@@ -135,7 +135,7 @@ describe("what the household already answered stays answered", () => {
     expect(loanProposals(contextOf(rows), inputs)).toEqual([]);
   });
 
-  it("Ei ole laina made of such a series holds, and so does a series marked as ended", () => {
+  it("Ei ole velan maksu made of such a series holds, and so does a series marked as ended", () => {
     const ctx = contextOf(rows);
     const [p] = loanProposals(ctx, NO_INPUTS);
     expect(loanProposals(ctx, { ...NO_INPUTS, marks: [{ ...notLoanMark(p!), markedAt: "2026-10-10T09:00:00" }] })).toEqual([]);
@@ -213,7 +213,7 @@ describe("a saved credit with no link beside the credit of unknown kind", () => 
     expect(buildDashboard(ctx, RANGE, [], inputs).totals.debtCents).toBe(buildDashboard(ctx, RANGE).totals.debtCents);
   });
 
-  it("the credits the row may be are the cards, credit accounts and consumer credits saved with no series and no account", () => {
+  it("the credits the row may be are the cards, credit lines and consumer credits saved with no series and no account", () => {
     const loans = [saved("card", null), saved("credit_line", null), saved("consumer", null), saved("mortgage", null), saved("car", null), { ...saved("card", KEY), id: "linked" }, { ...saved("credit_line", null), id: "own-account", accountId: "acc" }];
     expect(unlinkedCreditLoans(withLoans(...loans)).map((l) => l.id)).toEqual(["l-card", "l-credit_line", "l-consumer"]);
   });

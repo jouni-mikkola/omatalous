@@ -296,7 +296,7 @@ function rowsForm(debt: LoanTermsDebt, kind: LoanKind, meta: Meta, answer: Loans
  * A loan the rows show and nobody saved. A kind the rows only suggest is asked first, the guess picked; the form follows
  * with that kind and saves the loan linked to its series. A credit whose kind the rows do not tell picks none: the form
  * opens with the kind the household picks, or the household tells it as a card or credit saved already with no link.
- * Ei ole laina keeps the series from being asked again.
+ * Ei ole velan maksu keeps the series from being asked again.
  */
 function ProposalRow({ debt, meta, answer, busy, onSend, onSaved, ownsAccount }: RowProps) {
   const [kind, setKind] = useState<LoanKind | null>(debt.kindUnknown ? null : debt.kind);

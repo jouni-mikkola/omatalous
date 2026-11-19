@@ -176,7 +176,7 @@ export interface UnsavedRow {
   name: string;
   monthlyCents: number | null;
   card: boolean;
-  /** A credit whose kind the rows do not tell (`LoanProposal.kindUnknown`): a card, a credit account or a loan. Absent otherwise. */
+  /** A credit whose kind the rows do not tell (`LoanProposal.kindUnknown`): a card, a credit line or a loan. Absent otherwise. */
   kindUnknown?: true;
 }
 

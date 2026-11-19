@@ -9,7 +9,7 @@
  *     loan linked to the card answers it, or the linked loan that saved no rate. A card the rows show paid in full each
  *     month costs no interest (`debtsOf`), and a saved rate of 0 is a rate, so neither is listed;
  *   - a loan the rows show and nobody saved (core `loanProposals`), saved with its series key (POST /api/loans), or
- *     marked "Ei ole laina"; an instalment plan of two or more payments, answered by its end (`planSubject`). A credit
+ *     marked "Ei ole velan maksu"; an instalment plan of two or more payments, answered by its end (`planSubject`). A credit
  *     of unknown kind (`kindUnknown`) is saved as the card, credit line or consumer credit the household picks, or told
  *     as one of those saved already with no link (`savedCards`);
  *   - a card the household pays the bills of and has not connected (core `unconnectedCards`), saved as a loan of kind
@@ -224,7 +224,7 @@ function proposedDebts({ ctx, inputs, stamp }: OwnView): Listed[] {
   const series = memoOn(ctx, "review:loan-series", null, () => new Map([...ctx.recurring, ...lenderInstalments(ctx)].map((r) => [r.id, r.transactionIds])));
   const byId = memoOn(ctx, "review:rows-by-id", null, () => new Map(ctx.txs.map((t) => [t.id, t])));
   return proposalsOf(ctx, { inputs, stamp }).flatMap((p): Listed[] => {
-    // a plan is asked its end once; a loan until it is saved or marked "Ei ole laina"
+    // a plan is asked its end once; a loan until it is saved or marked "Ei ole velan maksu"
     if (p.plan && p.planAnswer !== null) return [];
     const monthly = hasMonthly(p) ? paymentOf(p) : null;
     const common = { seriesId: p.seriesId, yearCents: monthly === null ? null : 12 * monthly.part, name: p.payee, key: p.key, monthlyCents: monthly?.part ?? null, latestCents: monthly?.whole ?? null, lastDate: p.lastDate };
