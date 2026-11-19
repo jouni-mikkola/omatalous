@@ -44,7 +44,8 @@ const debtsOf = async (seriesKey: string | null, proposals: LoanProposal[]) => {
   await repo.upsertAccount({ id: "chk", connectionId: null, provider: "csv", externalId: null, identity: null, name: "chk", iban: null, currency: "EUR", type: "checking" });
   await repo.setAccountBalance("chk", 100_000, "2026-10-09T06:00:00.000Z");
   await reprocess(repo, t.s.settings);
-  const body = { name: "Asuntolaina", kind: "mortgage", balanceCents: 15_000_000, balanceDate: "2026-10-01", repayment: "annuity", intervalMonths: 1, paymentCents: 90_000, seriesKey };
+  // a bullet loan with no last due date lacks a fact the review asks, so it is listed (a loan that lacks only its rate is not)
+  const body = { name: "Asuntolaina", kind: "mortgage", balanceCents: 15_000_000, balanceDate: "2026-10-01", repayment: "bullet", intervalMonths: 1, paymentCents: 90_000, seriesKey };
   const id = (await t.admin.call("POST", "/api/loans", body)).body.loan.id as string;
   const list = ((await t.admin.call("GET", "/api/review")).body.items as Item[]).find((i) => i.kind === "loan_terms_list");
   return { id, debts: list?.debts ?? [] };
