@@ -78,5 +78,7 @@ dialog.loan-dialog .loan-form .form-row { justify-content: flex-start; margin: 0
 .loan-wi .loan-fields { max-width: 32rem; }
 .loan-wi-status, .loan-wi-result { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); }
 .loan-wi-result { font-weight: 600; }
+/* a debt's opener is a finger's size each way on a touch screen: the names of debts are short enough to give it the room */
+@media (pointer: coarse) { .rt-wrap[data-block] .rt.loan-table .rt-drill { inline-size: var(--tap-min); } }
 
 }

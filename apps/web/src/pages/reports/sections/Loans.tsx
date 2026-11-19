@@ -356,6 +356,7 @@ function Loans({ ctx }: SectionProps) {
       <PlanDrill plan={r.plan} basis={r.consolidation} loans={r.loans} today={ctx.meta.today} />
       <Table<Entry>
         caption={t("rpt.ln_caption")}
+        className="loan-table"
         rows={entries}
         rowKey={(e) => e.id}
         columns={columns()}
