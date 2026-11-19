@@ -33,8 +33,8 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .bill-table tr.rt-group:has(.bill-paid), .bill-table tr.rt-group:has(.bill-paid) > * { background: none; }
 .bill-paid { color: var(--text-2); }
 /* on a phone its row has no line of figures under the toggle. Its padding is the --reach-pad its button takes back, and below
-   it also what the next month's opener, in a head of 8 px padding, takes back beyond those 8 px: the two never overlap at a larger text */
-.rt-wrap[data-block] .rt.bill-table tr.rt-group:has(.bill-paid) { padding-block: var(--sp-8) calc(2 * var(--sp-8) - 8px); }
+   it also the one the next month's opener takes back, whose head is padded less at a larger text: the two never overlap */
+.rt-wrap[data-block] .rt.bill-table tr.rt-group:has(.bill-paid) { padding-block: var(--sp-8) calc(2 * var(--sp-8)); }
 .bill-table tr.rt-group > td { white-space: normal; }
 .bill-sums { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0 var(--sp-16); font-weight: 400; font-variant-numeric: tabular-nums; }
 .bill-sums > span { white-space: nowrap; }
