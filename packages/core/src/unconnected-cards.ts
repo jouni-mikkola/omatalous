@@ -95,7 +95,7 @@ function cardsOnce(ctx: CardsContext, inputs: UserInputs): UnconnectedCard[] {
 }
 
 /** A card whose purchases the twelve complete months lack and that `unconnectedCards` does not ask about. */
-export interface CardGap {
+interface CardGap {
   /**
    * The series key its answers name: for a card that is not connected the one of its latest bill, which a loan saved of
    * it is linked by; for a connected card one named by the card account alone, so a new name of the card keeps the answer.
