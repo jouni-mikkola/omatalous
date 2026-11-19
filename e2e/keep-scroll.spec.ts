@@ -20,8 +20,10 @@ for (const width of [1440, 390]) {
     await page.goto("/#/reports?q=tulot");
     const table = page.getByRole("table", { name: "Tulolajit" });
     await expect(table).toBeVisible();
-    const button = table.locator('button.rt-drill[aria-expanded="false"]:visible').first();
-    await expect(button).toBeVisible();
+    const first = table.locator('button.rt-drill[aria-expanded="false"]:visible').first();
+    await expect(first).toBeVisible();
+    // the same row once it is open: the first closed one is another row then
+    const button = table.locator(`button.rt-drill[data-drill="${await first.getAttribute("data-drill")}"]`);
     // the row a little under the top of the window, far below the first screen
     await button.evaluate((el) => window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 250));
     const before = await scrollY(page);
