@@ -197,6 +197,11 @@
    "iban:da802848b949a567ffe535b864f459ac21ea57d2caab52c8b4541590cec177eb",
    "word:36a79f067e046dc4f62f0f44442ba1d2e975bcab1bcb1542fd3702b77c13812d"
   ],
+  "apps/server/test/fixtures/db/1.6.3.sql": [
+   "iban:0fcc5567a40e9ac39ef4aeca818a9bde161a36d819ad49ceeee37c6b1432440a",
+   "iban:da802848b949a567ffe535b864f459ac21ea57d2caab52c8b4541590cec177eb",
+   "word:36a79f067e046dc4f62f0f44442ba1d2e975bcab1bcb1542fd3702b77c13812d"
+  ],
   "apps/server/test/fixtures/db/seeds/0.10.0/accounts.sql": [
    "iban:da802848b949a567ffe535b864f459ac21ea57d2caab52c8b4541590cec177eb"
   ],
