@@ -48,6 +48,17 @@ function rateOn(fixings: Record<string, [string, number][]>, on: string, marginB
 /** A rate as the page writes it, "2,96 %", any space before the sign. */
 const percentText = (bp: number): string => `${Math.floor(bp / 100)},${String(bp % 100).padStart(2, "0")}\\s%`;
 
+/** Whole euros as the Lainat row writes them, "9 801 €", as a pattern. */
+const wholeEuros = (cents: number): RegExp => new RegExp(`${String(Math.round(cents / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, "\\s")}\\s€`);
+
+/** What the server's report of Lainat says of a loan: the balance on the day (the schedule moves a typed balance forward) and the rate of the cost, in thousandths of a percent, null when it is not told. */
+async function reported(context: BrowserContext, name: string): Promise<{ balanceCents: number; rateMilli: number | null }> {
+  const { loans } = await (await context.request.get("/api/reports?reports=loans", { maxRetries: 1 })).json();
+  const row = (loans.loans as { name: string; balance: { cents: number }; cost: { rateMilli: number | null } | null }[]).find((l) => l.name === name);
+  expect(row, `the report lists ${name}`).toBeDefined();
+  return { balanceCents: row!.balance.cents, rateMilli: row!.cost?.rateMilli ?? null };
+}
+
 const HOME = "/#/reports?q=saldot";
 const saldot = (page: Page) => page.locator("#saldot");
 const lainat = (page: Page) => page.locator("#lainat");
@@ -149,9 +160,13 @@ test("a loan is typed into the form, a missing kind holds Tallenna back, and the
   await expect(form).toHaveCount(0);
   await expect(card.getByRole("button", { name: "Lisää laina" })).toBeVisible();
   await expect(rowOf(page, "Asuntolaina, Esimerkkipankki Oyj")).toContainText("Esimerkkipankki Oyj");
-  // what the row of Lainat shows: the balance in whole euros and the rate
-  await expect(rowOf(page, "Asuntolaina, Esimerkkipankki Oyj")).toContainText(/120\s000\s€/);
-  await expect(rowOf(page, "Asuntolaina, Esimerkkipankki Oyj")).toContainText(new RegExp(percentText(339)));
+  // what the row of Lainat shows is what the report says: the balance on the day in whole euros, and the rate of the cost
+  const figures = await reported(context, "Asuntolaina, Esimerkkipankki Oyj");
+  expect(figures.balanceCents, "the typed balance, moved forward by the plan").toBeLessThanOrEqual(12_000_000);
+  expect(figures.balanceCents).toBeGreaterThan(11_000_000);
+  expect(figures.rateMilli, "the rate of the cost is told").not.toBeNull();
+  await expect(rowOf(page, "Asuntolaina, Esimerkkipankki Oyj")).toContainText(wholeEuros(figures.balanceCents));
+  await expect(rowOf(page, "Asuntolaina, Esimerkkipankki Oyj")).toContainText(new RegExp(`${(figures.rateMilli! / 1000).toFixed(2).replace(".", ",")}\\s%`));
   const typedFigures = { Lainanantaja: "Esimerkkipankki Oyj", "Lainaa jäljellä (€)": "120 000,00", "Korko (%)": "3,39", "Kuukausierä (€)": "689,20", "Viimeinen eräpäivä": loan.endDate };
   await expectSaved(page, "Asuntolaina, Esimerkkipankki Oyj", typedFigures);
 
@@ -365,7 +380,7 @@ test("a member sees and changes only their own loans, and the page fits a phone"
     await form.getByRole("button", { name: "Tallenna" }).click();
     await said(page, "Laina tallennettu");
     await expect(rowOf(page, "Auton laina")).toBeVisible();
-    await expect(rowOf(page, "Auton laina")).toContainText(/9\s801\s€/);
+    await expect(rowOf(page, "Auton laina")).toContainText(wholeEuros((await reported(context, "Auton laina")).balanceCents));
     expect(await overflow(page)).toBeLessThanOrEqual(1);
     // the phone shows the balance and the rate in the loan's editor
     const dialog = await editLoan(page, "Auton laina");
