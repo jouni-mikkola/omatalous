@@ -2414,6 +2414,10 @@
    "unknown": 0,
    "bullets": 1
   },
+  "monthly": {
+   "cents": 61240,
+   "unknown": 0
+  },
   "path": {
    "days": [
     "2026-10-15",

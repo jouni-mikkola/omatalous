@@ -3248,6 +3248,10 @@
    "unknown": 0,
    "bullets": 1
   },
+  "monthly": {
+   "cents": 28900,
+   "unknown": 0
+  },
   "path": {
    "days": [
     "2026-10-09",
