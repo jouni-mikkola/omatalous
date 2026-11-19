@@ -47,7 +47,7 @@ test("the question after a link, the parts of the joint account, the bank's answ
   await cancel();
   // the split is one control: the ways of the use and the two only an agreement says
   const parts = tilit.getByRole("group", { name: "Tilin Yhteistili jako" }).getByRole("group", { name: "Jakotapa" });
-  await expect(parts.getByRole("button")).toHaveText(["Sen mukaan, kuka tilille on maksanut", "Tasan", "Osuuksien mukaan", "Tulojen suhteessa", "Kiinteä summa"]);
+  await expect(parts.getByRole("button")).toHaveText(["Kuka maksoi tilille", "Tasan", "Osuuksien mukaan", "Tulojen suhteessa", "Kiinteä summa"]);
   await expect(parts.getByRole("button", { pressed: true })).toHaveCount(1);
   // an own account has the same select in its form, with nothing under it
   await edit("Käyttötili");
@@ -95,9 +95,9 @@ test("the question after a link, the parts of the joint account, the bank's answ
   await expect(save).toBeDisabled();
 
   // who paid is pressed at once, and the bank's answer comes back
-  await press(parts.getByRole("button", { name: "Sen mukaan, kuka tilille on maksanut" }));
+  await press(parts.getByRole("button", { name: "Kuka maksoi tilille" }));
   await page.reload();
-  await expect(parts.getByRole("button", { name: "Sen mukaan, kuka tilille on maksanut" })).toHaveAttribute("aria-pressed", "true");
+  await expect(parts.getByRole("button", { name: "Kuka maksoi tilille" })).toHaveAttribute("aria-pressed", "true");
   await parts.getByRole("button", { name: "Osuuksien mukaan" }).click();
   await mine.fill("70");
   await press(save);

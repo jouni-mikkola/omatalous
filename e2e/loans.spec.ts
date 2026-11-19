@@ -95,16 +95,16 @@ test("a loan is typed into the form, a missing kind holds Tallenna back, and the
   await form.getByLabel("Lainanantaja", { exact: true }).fill("Esimerkkipankki Oyj");
   await form.getByLabel("Lainaa jäljellä (€)").fill("120 000,00");
   await form.getByLabel("Saldon päivä", { exact: true }).fill(loan.balanceDate);
-  await form.getByLabel("Myönnetty määrä (€)").fill("150 000,00");
+  await form.getByLabel("Lainan määrä (€)").fill("150 000,00");
   await form.getByLabel("Korko (%)").fill("3,39");
   await form.getByLabel("Viitekorko", { exact: true }).selectOption("euribor_12");
   await form.getByLabel("Marginaali (%)").fill("0,65");
   // a euribor with no review day keeps the typed rate: the fixing in force is not known without it
   await expect(form.getByLabel("Korko (%)")).toHaveValue("3,39");
   await expect(form.locator(".loan-rate-now")).toHaveCount(0);
-  await form.getByLabel("Lyhennystapa", { exact: true }).selectOption("annuity");
+  await form.getByLabel("Miten erä muuttuu", { exact: true }).selectOption("annuity");
   await form.getByLabel("Lyhennysväli", { exact: true }).selectOption("1");
-  await form.getByLabel("Maksuerä (€)").fill("689,20");
+  await form.getByLabel("Kuukausierä (€)").fill("689,20");
   await form.getByLabel("Viimeinen eräpäivä", { exact: true }).fill(loan.endDate);
   // the labels speak for themselves: no line of help under a field
   await expect(form.locator(".field-help")).toHaveCount(0);
@@ -157,12 +157,12 @@ test("a saved loan is edited in a dialog and removed after a question", async ({
   await dialog.getByLabel("Nimi").fill("Kodin laina");
   await dialog.getByLabel("Lainaa jäljellä (€)").fill("119 500");
   // a payment under the interval's interest: told before saving, with the way out
-  await dialog.getByLabel("Maksuerä (€)").fill("300");
-  await expect(dialog.getByText(/Maksuerä on pienempi kuin korko \(337,59\s€\)/)).toBeVisible();
+  await dialog.getByLabel("Kuukausierä (€)").fill("300");
+  await expect(dialog.getByText(/Kuukausierä on pienempi kuin korko \(337,59\s€\)/)).toBeVisible();
   await dialog.getByRole("button", { name: "Tallenna" }).click();
-  await expect(dialog.getByRole("alert")).toContainText("Maksuerä on pienempi kuin korko.");
-  await dialog.getByRole("button", { name: "Tyhjennä maksuerä" }).click();
-  await expect(dialog.getByLabel("Maksuerä (€)")).toHaveValue("");
+  await expect(dialog.getByRole("alert")).toContainText("Kuukausierä on pienempi kuin korko.");
+  await dialog.getByRole("button", { name: "Tyhjennä kuukausierä" }).click();
+  await expect(dialog.getByLabel("Kuukausierä (€)")).toHaveValue("");
   // with its review day the euribor's rate is counted from the fixing of the last review day and the margin
   const { fixings } = (await (await context.request.get("/api/loans", RESEND)).json()) as { fixings: Record<string, [string, number][]> };
   const balanceDate = `${(await today(context)).slice(0, 8)}01`;

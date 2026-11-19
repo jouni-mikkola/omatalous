@@ -3,7 +3,7 @@ import type { FI_SET_LOAN_INTAKE } from "../messages-set-loan-intake.ts";
 
 export const EN_SET_LOAN_INTAKE: Record<keyof typeof FI_SET_LOAN_INTAKE, string> = {
   "set.ln.box_label": "Loan details",
-  "set.ln.read_the_loan_details": "Read the details",
+  "set.ln.read_the_loan_details": "Read the loan details",
   "set.ln.choose_a_picture_or_pdf": "Choose a picture or PDF",
   "set.ln.reading_the_pdf": "Reading the PDF…",
   "set.ln.loading_the_picture_reader": "Preparing the picture reader…",

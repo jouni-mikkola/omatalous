@@ -64,12 +64,12 @@ test("pasted text fills the form, marks what it read, holds the save until the f
   const page = await context.newPage();
   const seen = watch(page);
   const form = await openNewLoan(page);
-  await expect(form.getByRole("button", { name: "Lue tiedot" })).toBeDisabled();
+  await expect(form.getByRole("button", { name: "Lue lainan tiedot" })).toBeDisabled();
 
   await pasteText(form.getByLabel("Lainan tiedot"), ONE.join("\n"));
   await expect(form.getByLabel("Lainaa jäljellä (€)")).toHaveValue("120 000,00");
-  await expect(form.getByLabel("Maksuerä (€)")).toHaveValue("689,20");
-  await expect(form.getByLabel("Myönnetty määrä (€)")).toHaveValue("150 000,00");
+  await expect(form.getByLabel("Kuukausierä (€)")).toHaveValue("689,20");
+  await expect(form.getByLabel("Lainan määrä (€)")).toHaveValue("150 000,00");
   await expect(form.getByLabel("Lainanantaja", { exact: true })).toHaveValue("Esimerkkipankki Oyj");
   // a field to check shows the line it came from; a value read with confidence carries no badge and no line; a field the text does not give is empty and says so
   await expect(form.getByText("Tekstissä: Esimerkkipankki Oyj")).toBeVisible();
@@ -111,8 +111,8 @@ test("a PDF is read in the browser into the same form, and a PDF with a password
 
   await pick.setInputFiles({ name: "lainat.pdf", mimeType: "application/pdf", buffer: textPdf(STATEMENT) });
   await expect(form.getByLabel("Lainaa jäljellä (€)")).toHaveValue("120 000,00");
-  await expect(form.getByLabel("Maksuerä (€)")).toHaveValue("689,20");
-  await expect(form.getByLabel("Lyhennystapa", { exact: true })).toHaveValue("annuity");
+  await expect(form.getByLabel("Kuukausierä (€)")).toHaveValue("689,20");
+  await expect(form.getByLabel("Miten erä muuttuu", { exact: true })).toHaveValue("annuity");
   await expect(form.getByLabel("Lainanantaja", { exact: true })).toHaveValue("Esimerkkipankki Oyj");
   // the reader and its worker came from the app's own address, and the file itself went nowhere
   expect(requests.some((path) => /\/assets\/pdf\.worker\.min-[\w-]+\.mjs$/.test(path))).toBe(true);

@@ -77,9 +77,9 @@ test("a payment that looks like a loan is asked in Tarkistettavat: saved as a lo
     await expect(balance).toHaveValue("");
     await expect(form.getByLabel("Korko (%)")).toHaveValue("");
     await expect(form.getByLabel("Viitekorko", { exact: true })).toHaveValue("");
-    await expect(form.getByLabel("Myönnetty määrä (€)")).toHaveValue("");
+    await expect(form.getByLabel("Lainan määrä (€)")).toHaveValue("");
     // the same payment for over a year: a fixed instalment
-    await expect(form.getByLabel("Lyhennystapa")).toHaveValue("fixed_instalment");
+    await expect(form.getByLabel("Miten erä muuttuu")).toHaveValue("fixed_instalment");
     expect(await overflow(page)).toBeLessThanOrEqual(1);
 
     // the balance is the household's to type: without it nothing is saved
