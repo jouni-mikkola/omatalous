@@ -70,6 +70,7 @@ describe("one display name per card issuer", () => {
     for (const brand of ["SEB Kort Bank Ab", "SEB KORT", "ENTERCARD", "Re:member"]) {
       expect(category(brand, "LASKU 09/2026"), brand).toBe("card_bill");
       expect(category(brand, "LAINAN LYHENNYS"), brand).toBe("loans");
+      expect(category(brand, "OSAMAKSU"), brand).toBe("loans");
       expect(category(brand, "SAASTOTILI"), brand).toBe("savings");
     }
     expect(category("MORROW OY", "LASKU 1234")).not.toBe("card_bill");

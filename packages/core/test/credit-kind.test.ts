@@ -142,6 +142,27 @@ describe("what the household already answered stays answered", () => {
     const series = ctx.recurring.find((s) => s.id === p!.seriesId)!;
     expect(loanProposals(ctx, { ...NO_INPUTS, marks: [{ subject: seriesMarkSubject(series), mark: "cancelled", markedAt: "2026-10-10T09:00:00" }] })).toEqual([]);
   });
+
+  describe("a credit whose sum changed and is now one fixed sum, one payment a month", () => {
+    const later = [...pay, ...payments([...CHANGING, ...Array.from({ length: 9 }, () => 150)], "VIITE 1234 5678")];
+
+    it("is proposed when nothing is saved", () => {
+      expect(loanProposals(contextOf(later), NO_INPUTS)).toEqual([expect.objectContaining({ payee: "Bank Norwegian" })]);
+    });
+
+    it("saved from the question of the kind, is not asked again nor listed beside the saved credit", () => {
+      const inputs = withLoans(saved("credit_line", KEY));
+      const ctx = contextOf(later, [checking], inputs.loans);
+      expect(loanProposals(ctx, inputs)).toEqual([]);
+      expect(unsavedDebts(ctx, inputs).rows).toEqual([]);
+    });
+
+    it("Ei ole velan maksu made while the sum changed still hides it", () => {
+      const [p] = loanProposals(contextOf(rows), NO_INPUTS);
+      expect(p).toMatchObject({ key: KEY, kindUnknown: true });
+      expect(loanProposals(contextOf(later), { ...NO_INPUTS, marks: [{ ...notLoanMark(p!), markedAt: "2026-10-10T09:00:00" }] })).toEqual([]);
+    });
+  });
 });
 
 describe("the answer of the kind", () => {
@@ -253,6 +274,19 @@ describe("a saved credit with no link beside the credit of unknown kind", () => 
     expect(unconnectedCards(withCard, NO_INPUTS)).toHaveLength(1);
     expect(unsavedDebts(withCard, withLoans(saved("card", null))).rows).toEqual([expect.objectContaining({ name: "Bank Norwegian", kindUnknown: true })]);
     expect(unsavedDebts(withCard, withLoans(saved("card", null), saved("consumer", null))).rows).toEqual([]);
+  });
+
+  it("a saved credit with a typed payment takes the instalment it fits and leaves the credit of unknown kind listed", () => {
+    const instalment = payments(150, "VIITE 2222 3333", "MORROW BANK ASA", 20);
+    const both = contextOf([...rows, ...instalment]);
+    expect(loanProposals(both, NO_INPUTS).map((p) => [p.payee, p.kindUnknown])).toEqual([
+      ["Bank Norwegian", true],
+      [expect.any(String), undefined],
+    ]);
+    const inputs = withLoans(saved("consumer", null, { paymentCents: 15_000 }));
+    expect(loanProposals(both, inputs)).toEqual([expect.objectContaining({ payee: "Bank Norwegian", kindUnknown: true })]);
+    expect(unsavedDebts(both, inputs).rows).toEqual([expect.objectContaining({ name: "Bank Norwegian", kindUnknown: true })]);
+    expect(loansReport(both, [], inputs).totalKnown).toBe(false);
   });
 
   it("the credits the row may be are the cards, credit lines and consumer credits saved with no series and no account", () => {

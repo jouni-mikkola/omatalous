@@ -17,7 +17,7 @@ import { billCents } from "./account-use.ts";
 import { type AnalysisContext, type AnalysisTx, standingById } from "./analysis/context.ts";
 import { cancelledSubjects, isCancelled } from "./commitments.ts";
 import { type LoanProposal, takenSeries } from "./loan-detect.ts";
-import { loansOf } from "./loans.ts";
+import { loansOf, typedBill } from "./loans.ts";
 import { parseSeriesId, seriesId } from "./series-id.ts";
 import { isCut, type MonthlyProposal } from "./shared.ts";
 import { namesCard } from "./transfers.ts";
@@ -45,17 +45,21 @@ export function unconnectedCards(ctx: CardsContext, inputs: UserInputs): Unconne
   return unconnectedCardsAndCredits(ctx, inputs).cards;
 }
 
-type CardsContext = Pick<AnalysisContext, "txs" | "recurring" | "standing" | "accounts">;
+type CardsContext = Pick<AnalysisContext, "txs" | "recurring" | "standing" | "accounts" | "today">;
 
 /**
- * `unconnectedCards`, and how many of the credits saved with no link (`unlinkedCreditLoans`) are left once each card
- * loan among them has taken a card: each of those is one of the credits of unknown kind (`LoanProposal.kindUnknown`).
+ * `unconnectedCards`, and how many of the credits saved with no link and no typed payment (`unlinkedCreditLoans`) are
+ * left once each card loan among them has taken a card: each of those is one of the credits of unknown kind
+ * (`LoanProposal.kindUnknown`). A credit with a typed payment takes the series it fits in `loanProposals` instead.
  */
 export function unconnectedCardsAndCredits(ctx: CardsContext, inputs: UserInputs): { cards: UnconnectedCard[]; creditsLeft: number } {
   const once = cardsOnce(ctx, inputs);
   // a card loan saved with no link is one of these cards, which one is not told: the largest bills are taken first
   const cardLoans = unlinkedCardLoans(inputs).length;
-  return { cards: once.slice(cardLoans), creditsLeft: unlinkedCreditLoans(inputs).length - Math.min(cardLoans, once.length) };
+  const untyped = unlinkedCreditLoans(inputs).filter((loan) => typedBill(loan, ctx.today) === null);
+  // the card loans with no typed payment are counted as the ones that took the cards, so fewer credits are left to hide
+  const untypedCards = untyped.filter((loan) => loan.kind === "card").length;
+  return { cards: once.slice(cardLoans), creditsLeft: untyped.length - Math.min(untypedCards, once.length) };
 }
 
 /** Each card with a bill series nobody connected, saved, dismissed or cancelled, once, the largest monthly bill first. */

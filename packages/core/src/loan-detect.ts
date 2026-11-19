@@ -387,9 +387,10 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
   const byId = standingById(ctx);
   const draws = creditDraws(txs, ctx.today);
   const taken = takenSeries(inputs);
-  // a payee paid sums that change on the account: a key with no amount is their answer, and one sum beside them an
-  // instalment of the same lender, asked on its own (declared-loans.ts leaves its rows loans too). The changing sums
-  // may be in the instalment's own series, which holds the lender's rows no product holds (recurring.ts).
+  // a payee paid sums that change on the account: a key with no amount is their answer, and one sum paid in the same
+  // months as them (three or more, as `steadyBesideChanging` of declared-loans.ts reads) an instalment of the same
+  // lender, asked on its own. The changing sums may be in the instalment's own series, which holds the lender's rows no
+  // product holds (recurring.ts). A single credit pays one row a month, so its sum changing over time is no such month.
   const changingBeside = (s: RecurringSeries, charges: readonly AnalysisTx[], typical: number) => {
     const { accountId, merchant } = parseSeriesId(s.id)!;
     const beside = ctx.recurring.filter((o) => {
@@ -397,7 +398,9 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
       return o.active && o.id !== s.id && p?.direction === "out" && p.accountId === accountId && p.merchant === merchant;
     });
     const rows = [...charges, ...beside.flatMap((o) => o.transactionIds.flatMap((id) => byId.get(id) ?? []))];
-    return new Set(rows.filter((t) => Math.abs(t.amountCents - typical) > Math.abs(typical) * STEADY_BAND).map((t) => monthOf(t.bookingDate))).size >= 3;
+    const near = (t: AnalysisTx) => Math.abs(t.amountCents - typical) <= Math.abs(typical) * STEADY_BAND;
+    const changing = new Set(rows.filter((t) => !near(t)).map((t) => monthOf(t.bookingDate)));
+    return [...new Set(rows.filter(near).map((t) => monthOf(t.bookingDate)))].filter((m) => changing.has(m)).length >= 3;
   };
   // a saved loan with a typed payment and no series linked takes one series it fits, as in Asuminen (housing.ts)
   const unlinked = loansOf(inputs).flatMap((loan) => (loan.seriesKey ? [] : [typedBill(loan, ctx.today)].filter((c): c is number => c !== null)));
