@@ -57,7 +57,7 @@ for (const [name, path, ready] of [
 
 // 0.69: the pages of the round's UI5, at the desktop and the phone width. Tarkistettavat is looked at with
 // a question on it and with the queue empty.
-// The list of debts: a loan whose kind the rows only suggest, so the kinds are asked, and one whose kind they tell.
+// The list of debts: a loan whose kind the rows only suggest, and one whose kind they tell; each asks what is left.
 const debtOf = (n: number, placed: boolean) => ({
   id: `proposal:a11y-${n}`, source: "proposal", name: `Pankki ${n} Oyj`, loanId: null, accountId: null, key: `a11y-${n}`, kind: placed ? "mortgage" : "consumer", placed,
   monthlyCents: 10_000, latestCents: 10_000, lastDate: "2025-12-02", owedCents: null, balanceDate: null, gaps: [], subject: null, terms: null, savedCards: [],

@@ -177,7 +177,7 @@ export function matchedLoan(form: LoanForm, loans: readonly Loan[]): Loan | null
   return same.length === 1 ? same[0]! : null;
 }
 
-export const isCredit = (kind: LoanKind | "") => kind !== "" && isRevolving(kind);
+const isCredit = (kind: LoanKind | "") => kind !== "" && isRevolving(kind);
 
 /** The form's euribor, margin and review day as core reads them, with `margin` in place of the typed one. */
 const euriborOf = (form: LoanForm, margin: number | null) => ({ reference: (form.values.reference || null) as Loan["reference"], marginBp: margin, rateReviewDate: form.values.rateReviewDate || null });

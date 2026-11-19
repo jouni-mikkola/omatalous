@@ -1,11 +1,12 @@
 /**
  * A saved loan whose payments cannot be placed, as a row of Täydennä lainat (services/review-loan-terms.ts): the row names
- * the facts the loan lacks (`missing` below is the first of them), goes when the loan's form is saved with it, and is set aside with a mark `dismissed`. A loan
+ * the facts the loan lacks (`missing` below is the first of them), goes when the loan's form is saved with it, and is set aside with a mark `dismissed`.
+ * Its rate, reference rate, margin, review day and way of paying back are edited at the loan and list nothing. A loan
  * linked to a connected account owes what the account says. A connected card that owes is asked for its rate until a rate
  * is saved for it, whether a loan is linked to it or not. Only the member's own loans and cards are asked. Made-up names and sums; the test clock is 9.10.2026.
  */
 import type { AccountType } from "@banking/core";
-import { loanTermsSubject } from "@banking/core";
+import { loanTermsSubject, loanUnknownSubject } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { reprocess } from "../src/services/enrich.ts";
 import { ingestTransactions } from "../src/services/ingest.ts";
@@ -30,10 +31,10 @@ describe("the question of a loan whose payments cannot be placed", () => {
   it("names the loan and the one fact it lacks", async () => {
     const t = await setupApp();
     const id = await save(t.admin, BASE);
-    expect(await queue(t.admin)).toEqual([expect.objectContaining({ id: `loan:${id}`, loanId: id, name: "Asuntolaina", owedCents: 15_000_000, balanceDate: "2026-10-01", missing: "repayment", subject: loanTermsSubject(id) })]);
+    expect(await queue(t.admin)).toEqual([expect.objectContaining({ id: `loan:${id}`, loanId: id, name: "Asuntolaina", owedCents: 15_000_000, balanceDate: "2026-10-01", missing: "interval", subject: loanTermsSubject(id) })]);
   });
 
-  it("asks for each fact in turn, as the plan needs them", async () => {
+  it("asks for each fact in turn, as the plan needs them, and never the rate or the way of paying back", async () => {
     const t = await setupApp();
     const missing = async (body: object) => {
       const id = await save(t.admin, body);
@@ -44,21 +45,23 @@ describe("the question of a loan whose payments cannot be placed", () => {
     expect(await missing({ ...BASE, repayment: "bullet" })).toBe("end_date");
     expect(await missing({ ...BASE, repayment: "annuity", rateBp: 350 })).toBe("interval");
     expect(await missing({ ...BASE, repayment: "annuity", intervalMonths: 1, rateBp: 350 })).toBe("payment");
-    expect(await missing({ ...BASE, repayment: "annuity", intervalMonths: 1, paymentCents: 90_000 })).toBe("rate");
+    // a loan that lacks only its rate, or its way of paying back, is not listed
+    expect(await missing({ ...BASE, repayment: "annuity", intervalMonths: 1, paymentCents: 90_000 })).toBeUndefined();
+    expect(await missing({ ...BASE, intervalMonths: 1, paymentCents: 90_000, rateBp: 350 })).toBeUndefined();
     expect(await missing({ ...BASE, repayment: "bullet", endDate: "2030-01-01" })).toBeUndefined();
   });
 
   it("keeps asking while a saved loan still lacks the fact", async () => {
     const t = await setupApp();
-    const id = await save(t.admin, { ...BASE, repayment: "annuity", intervalMonths: 1, paymentCents: 90_000 });
-    expect((await t.admin.call("PUT", `/api/loans/${id}`, { ...BASE, name: "Uusi nimi", repayment: "annuity", intervalMonths: 1, paymentCents: 90_000 })).status).toBe(200);
-    expect(await queue(t.admin)).toEqual([expect.objectContaining({ loanId: id, name: "Uusi nimi", missing: "rate" })]);
+    const id = await save(t.admin, { ...BASE, repayment: "annuity", intervalMonths: 1, rateBp: 350 });
+    expect((await t.admin.call("PUT", `/api/loans/${id}`, { ...BASE, name: "Uusi nimi", repayment: "annuity", intervalMonths: 1, rateBp: 350 })).status).toBe(200);
+    expect(await queue(t.admin)).toEqual([expect.objectContaining({ loanId: id, name: "Uusi nimi", missing: "payment" })]);
   });
 
   it("goes once the loan is saved with the fact", async () => {
     const t = await setupApp();
-    const id = await save(t.admin, { ...BASE, repayment: "annuity", intervalMonths: 1, paymentCents: 90_000 });
-    expect(await queue(t.admin)).toEqual([expect.objectContaining({ missing: "rate" })]);
+    const id = await save(t.admin, { ...BASE, repayment: "annuity", intervalMonths: 1, rateBp: 350 });
+    expect(await queue(t.admin)).toEqual([expect.objectContaining({ missing: "payment" })]);
     expect((await t.admin.call("PUT", `/api/loans/${id}`, FULL)).status).toBe(200);
     expect(await queue(t.admin)).toEqual([]);
   });
@@ -71,13 +74,13 @@ describe("the question of a loan whose payments cannot be placed", () => {
     expect(await queue(t.admin)).toEqual([]);
   });
 
-  it("asks the rate of a card or credit line saved by hand that owes and has no account linked and no rate", async () => {
+  it("asks the rate of a card saved by hand that owes and has no account linked and no rate, and nothing of a credit line", async () => {
     const t = await setupApp();
     const card = await save(t.admin, { name: "Kortti", kind: "card", balanceCents: 50_000, balanceDate: "2026-10-01", limitCents: 200_000 });
-    const line = await save(t.admin, { name: "Luottoraja", kind: "credit_line", balanceCents: 80_000, balanceDate: "2026-10-01", limitCents: 300_000 });
-    expect((await queue(t.admin)).map((d) => [d.loanId, d.gaps]).sort()).toEqual([[card, ["rate"]], [line, ["rate"]]].sort());
+    await save(t.admin, { name: "Luottoraja", kind: "credit_line", balanceCents: 80_000, balanceDate: "2026-10-01", limitCents: 300_000 });
+    expect((await queue(t.admin)).map((d) => [d.loanId, d.gaps])).toEqual([[card, ["rate"]]]);
     expect((await t.admin.call("PUT", `/api/loans/${card}`, { name: "Kortti", kind: "card", balanceCents: 50_000, balanceDate: "2026-10-01", limitCents: 200_000, rateBp: 1_900 })).status).toBe(200);
-    expect((await queue(t.admin)).map((d) => d.loanId)).toEqual([line]);
+    expect(await queue(t.admin)).toEqual([]);
   });
 
   it("asks the rate once of a card saved by hand with no link beside a connected card that owes at an unknown rate: the two may be one card", async () => {
@@ -128,13 +131,14 @@ describe("the question of a loan whose payments cannot be placed", () => {
     expect((await queue(t.admin)).map((i) => i.loanId)).toEqual([other]);
   });
 
-  it("keeps asking for the rate and the payment of a loan whose mark says dismissed, and honours it for the rest", async () => {
+  it("keeps asking for the payment of a loan whose mark says dismissed, and honours it for the rest", async () => {
     const t = await setupApp();
     const noRate = await save(t.admin, { ...BASE, repayment: "annuity", intervalMonths: 1, paymentCents: 90_000 });
     const noPayment = await save(t.admin, { ...BASE, name: "Toinen laina", repayment: "annuity", intervalMonths: 1, rateBp: 350 });
     const noInterval = await save(t.admin, { ...BASE, name: "Kolmas laina", repayment: "annuity", paymentCents: 90_000, rateBp: 350 });
     for (const id of [noRate, noPayment, noInterval]) expect((await t.admin.call("PUT", "/api/marks", { subject: loanTermsSubject(id), mark: "dismissed" })).status).toBe(200);
-    expect((await queue(t.admin)).map((i) => [i.loanId, i.missing]).sort()).toEqual([[noRate, "rate"], [noPayment, "payment"]].sort());
+    // the loan that lacks only its rate is not listed at all
+    expect((await queue(t.admin)).map((i) => [i.loanId, i.missing])).toEqual([[noPayment, "payment"]]);
   });
 
   it("is a member's own: another member's loan, paid from an account shared with the first user, is not asked of them", async () => {
@@ -185,24 +189,21 @@ const paidInFullCard = async (t: Awaited<ReturnType<typeof setupApp>>) => {
 
 describe("the question of a loan on a reference rate", () => {
   const EURIBOR = { ...FULL, reference: "euribor_12" };
-  it("asks the margin, then the day the rate is reviewed, and goes once the loan has both", async () => {
+  it("asks neither the margin nor the day the rate is reviewed: they are edited at the loan", async () => {
     const t = await setupApp();
     const id = await save(t.admin, EURIBOR);
-    expect(await queue(t.admin)).toEqual([expect.objectContaining({ loanId: id, missing: "margin" })]);
-    expect((await t.admin.call("PUT", `/api/loans/${id}`, { ...EURIBOR, marginBp: 80 })).status).toBe(200);
-    expect(await queue(t.admin)).toEqual([expect.objectContaining({ loanId: id, missing: "review_date" })]);
-    expect((await t.admin.call("PUT", `/api/loans/${id}`, { ...EURIBOR, marginBp: 80, rateReviewDate: "2027-01-05" })).status).toBe(200);
     expect(await queue(t.admin)).toEqual([]);
+    expect((await t.admin.call("PUT", `/api/loans/${id}`, { ...EURIBOR, marginBp: 80 })).status).toBe(200);
+    expect(await queue(t.admin)).toEqual([]);
+  });
+  it("asks the payment of a loan on a reference rate as of any other", async () => {
+    const t = await setupApp();
+    const id = await save(t.admin, { ...EURIBOR, paymentCents: null });
+    expect(await queue(t.admin)).toEqual([expect.objectContaining({ loanId: id, missing: "payment" })]);
   });
   it("asks nothing more of a loan with a fixed rate", async () => {
     const t = await setupApp();
     await save(t.admin, { ...FULL, reference: "fixed" });
-    expect(await queue(t.admin)).toEqual([]);
-  });
-  it("may be set aside with the mark of the loan", async () => {
-    const t = await setupApp();
-    const id = await save(t.admin, EURIBOR);
-    expect((await t.admin.call("PUT", "/api/marks", { subject: loanTermsSubject(id), mark: "dismissed" })).status).toBe(200);
     expect(await queue(t.admin)).toEqual([]);
   });
 });
@@ -212,7 +213,7 @@ describe("the question of a loan linked to a connected account", () => {
     const t = await setupApp();
     await account(t, t.adminId, "mortgage", "loan", -12_000_000);
     const id = await save(t.admin, { ...BASE, balanceCents: 0, accountId: "mortgage" });
-    expect(await queue(t.admin)).toEqual([expect.objectContaining({ loanId: id, owedCents: 12_000_000, balanceDate: "2026-10-09", missing: "repayment" })]);
+    expect(await queue(t.admin)).toEqual([expect.objectContaining({ loanId: id, owedCents: 12_000_000, balanceDate: "2026-10-09", missing: "interval" })]);
   });
 
   it("asks nothing when the bank shows the loan paid off, whatever the typed balance says", async () => {
@@ -359,13 +360,13 @@ describe("the question of a payment the loan's plan did not expect", () => {
   });
 
   it("leaves the loan's terms first: a loan that lacks a fact has no drift question", async () => {
-    const { t, id } = await household([payment("2026-09-02", 90_000), payment("2026-10-02", 95_000)], { ...LOAN, reference: "euribor_12" });
-    expect(await queue(t.admin)).toEqual([expect.objectContaining({ loanId: id, missing: "margin" })]);
+    const { t, id } = await household([payment("2026-09-02", 90_000), payment("2026-10-02", 95_000)], { ...LOAN, paymentCents: null });
+    expect(await queue(t.admin)).toEqual([expect.objectContaining({ loanId: id, missing: "payment" })]);
     expect(await drift(t.admin)).toEqual([]);
   });
 
   it("lists a saved loan once with the rows of its series, and no proposal of that series beside it", async () => {
-    const { t, id } = await household([payment("2026-08-02", 90_000), payment("2026-09-02", 90_000), payment("2026-10-02", 90_000)], { ...LOAN, reference: "euribor_12" });
+    const { t, id } = await household([payment("2026-08-02", 90_000), payment("2026-09-02", 90_000), payment("2026-10-02", 90_000)], { ...LOAN, paymentCents: null });
     const list = ((await t.admin.call("GET", "/api/review")).body.items as Item[]).find((i) => i.kind === "loan_terms_list");
     expect((list?.debts as { source: string; loanId: string | null; key: string | null }[]).map((d) => [d.source, d.loanId])).toEqual([["loan", id]]);
   });
@@ -376,14 +377,64 @@ describe("the question of a payment the loan's plan did not expect", () => {
   });
 });
 
+describe("En tiedä on a loan the rows propose", () => {
+  const proposals = async (c: Caller) => {
+    const list = ((await c.call("GET", "/api/review")).body.items as Item[]).find((i) => i.kind === "loan_terms_list");
+    return ((list?.debts ?? []) as { source: string; key: string; monthlyCents: number | null }[]).filter((d) => d.source === "proposal");
+  };
+  const household = async () => {
+    const t = await setupApp();
+    await account(t, t.adminId, "chk", "checking", 100_000);
+    const repo = t.s.finance(t.adminId);
+    const rows = ["2026-05-02", "2026-06-02", "2026-07-02", "2026-08-02", "2026-09-02", "2026-10-02"].map((d) => raw(d, -25_000, "ESIMERKKIRAHOITUS OY", "LAINAN LYHENNYS"));
+    await ingestTransactions(repo, "chk", rows, "csv");
+    await reprocess(repo, t.s.settings);
+    return t;
+  };
+
+  it("keeps the loan away while its monthly payment is what it was said at, and lists it again when the payment differs", async () => {
+    const t = await household();
+    const [loan] = await proposals(t.admin);
+    expect(loan).toMatchObject({ monthlyCents: 25_000 });
+    const subject = (cents: number | null) => loanUnknownSubject(cents, loan!.key);
+    expect((await t.admin.call("PUT", "/api/marks", { subject: subject(20_000), mark: "in_use" })).status).toBe(200);
+    expect(await proposals(t.admin)).toHaveLength(1);
+    expect((await t.admin.call("PUT", "/api/marks", { subject: subject(25_000), mark: "in_use" })).status).toBe(200);
+    expect(await proposals(t.admin)).toEqual([]);
+    expect((await t.admin.call("GET", "/api/loans/proposals")).body.proposals).toHaveLength(1);
+  });
+});
+
+describe("a loan the rows guess to be the home loan", () => {
+  it("is saved from the review with the kind the rows guess, and its payments are then read as the mortgage", async () => {
+    const t = await setupApp();
+    await account(t, t.adminId, "chk", "checking", 100_000);
+    const repo = t.s.finance(t.adminId);
+    // a home owner (a housing company's charge) paying a lender 600 euros a month
+    const rows = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"].flatMap((m) => [raw(`${m}-02`, -60_000, "ESIMERKKIRAHOITUS OY", "LAINAN LYHENNYS"), raw(`${m}-03`, -31_000, "AS OY ESIMERKKITALO", "HOITOVASTIKE")]);
+    await ingestTransactions(repo, "chk", rows, "csv");
+    await reprocess(repo, t.s.settings);
+    const categories = async () => [...new Set((await repo.allTransactions()).filter((r) => r.description === "LAINAN LYHENNYS").map((r) => r.category))];
+    expect(await categories()).toEqual(["loans"]);
+    const list = ((await t.admin.call("GET", "/api/review")).body.items as Item[]).find((i) => i.kind === "loan_terms_list");
+    const [debt] = ((list?.debts ?? []) as { source: string; key: string; kind: string }[]).filter((d) => d.source === "proposal");
+    // the kind is the rows' guess, which the form saves as it stands
+    expect(debt).toMatchObject({ kind: "mortgage" });
+    expect((await t.admin.call("POST", "/api/loans", { ...BASE, kind: debt!.kind, paymentCents: 60_000, intervalMonths: 1, seriesKey: debt!.key })).status).toBe(200);
+    expect(await categories()).toEqual(["mortgage"]);
+  });
+});
+
 describe("Täydennä lainat", () => {
   const items = async (c: Caller) => (await c.call("GET", "/api/review")).body.items as Item[];
 
   it("is one item, first in the queue, its debts the largest year of payments first and the ones of no known payment last", async () => {
     const t = await setupApp();
     const bare = await save(t.admin, { ...BASE, name: "Ei maksua" });
-    const small = await save(t.admin, { ...BASE, name: "Pieni", repayment: "annuity", intervalMonths: 1, paymentCents: 20_000 });
-    const large = await save(t.admin, { ...BASE, name: "Suuri", repayment: "annuity", intervalMonths: 1, paymentCents: 90_000 });
+    // plans at 0 % whose fee nothing tells keep asking with their payments known
+    const PLAN = { kind: "instalment", balanceCents: 600_000, balanceDate: "2026-10-01", rateBp: 0, repayment: "fixed_instalment", intervalMonths: 1 };
+    const small = await save(t.admin, { ...PLAN, name: "Pieni", paymentCents: 20_000 });
+    const large = await save(t.admin, { ...PLAN, name: "Suuri", paymentCents: 90_000 });
     const [first, ...rest] = await items(t.admin);
     expect(first).toMatchObject({ kind: "loan_terms_list", id: "loan-terms", cents: 12 * 110_000 });
     expect(rest.filter((i) => i.kind === "loan_terms_list")).toEqual([]);
@@ -402,7 +453,7 @@ describe("Täydennä lainat", () => {
 
   it("leaves the queue once no debt lacks a fact", async () => {
     const t = await setupApp();
-    const id = await save(t.admin, { ...BASE, repayment: "annuity", intervalMonths: 1, paymentCents: 90_000 });
+    const id = await save(t.admin, { ...BASE, repayment: "annuity", intervalMonths: 1, rateBp: 350 });
     expect((await items(t.admin)).map((i) => i.kind)).toContain("loan_terms_list");
     expect((await t.admin.call("PUT", `/api/loans/${id}`, FULL)).status).toBe(200);
     expect((await items(t.admin)).map((i) => i.kind)).not.toContain("loan_terms_list");

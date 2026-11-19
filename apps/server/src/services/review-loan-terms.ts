@@ -1,15 +1,19 @@
 /**
  * Tarkistettavat's questions about the member's own debts, from the view the queue read once (`OwnView`):
- * - `loan_terms_list`, Täydennä lainat: one item that lists every debt whose balance, rate or payment is not known, each
+ * - `loan_terms_list`, Täydennä lainat: one item that lists every debt whose balance or payment is not known, each
  *   once and the largest year of payments first (core `loanTermsList`). A debt is
- *   - a saved loan still owing whose plan lacks a fact (core `openLoanGaps`): its own form answers it (PUT /api/loans/:id).
- *     A card or credit line saved by hand with no account linked and no rate lacks its rate, and a plan at 0 % whose
- *     fee nothing tells (`debtCost` is unknown by `fee`) lacks the fee of each payment, which "0 €" answers;
- *   - a connected card that owes while its rate is unknown: the bank tells the balance and nothing of its terms. A new
- *     loan linked to the card answers it, or the linked loan that saved no rate. A card the rows show paid in full each
- *     month costs no interest (`debtsOf`), and a saved rate of 0 is a rate, so neither is listed;
- *   - a loan the rows show and nobody saved (core `loanProposals`), saved with its series key (POST /api/loans), or
- *     marked "Ei ole velan maksu"; an instalment plan of two or more payments, answered by its end (`planSubject`). A credit
+ *   - a saved loan still owing whose plan lacks a fact the review asks (core `openLoanGaps`, kept to `ASKED_GAPS`: the
+ *     interval, the payment, the last due date of a bullet loan): its own form answers it (PUT /api/loans/:id). A card
+ *     saved by hand with no account linked and no rate lacks its rate, answered as a connected card's is (below). A plan
+ *     at 0 % whose fee nothing tells (`debtCost` is unknown by `fee`) lacks the fee of each payment, which "0 €"
+ *     answers. A loan that lacks only its rate, reference rate, margin, review day or way of paying back is not listed;
+ *   - a connected card that owes while its rate is unknown: the bank tells the balance and nothing of its terms. Whether
+ *     the household pays the card in full each month answers it: yes saves a rate of 0, no asks the rate, on a new loan
+ *     linked to the card or on the linked loan that saved no rate. A card the rows show paid in full each month costs
+ *     no interest (`debtsOf`), and a saved rate of 0 is a rate, so neither is listed;
+ *   - a loan the rows show and nobody saved (core `loanProposals`), whose one question is what it owes now: saved with
+ *     its series key (POST /api/loans), set aside with "En tiedä" while its monthly payment stays what it was
+ *     (`loanUnknownSubject`), or marked "Ei ole velan maksu"; an instalment plan of two or more payments, answered by its end (`planSubject`). A credit
  *     of unknown kind (`kindUnknown`) is saved as the card, credit line or consumer credit the household picks, or told
  *     as one of those saved already with no link (`savedCards`);
  *   - a card the household pays the bills of and has not connected (core `unconnectedCards`), saved as a loan of kind
@@ -45,6 +49,7 @@ import {
   loanTermsListCents,
   type LoanTermsMissing,
   loanTermsSubject,
+  loanUnknownAsked,
   openLoanGaps,
   paymentOf,
   savedLoanYearCents,
@@ -156,14 +161,20 @@ const debt = (fields: Omit<Listed, "loanId" | "accountId" | "key" | "monthlyCent
   ...fields,
 });
 
-/** The saved loans that lack a fact and the connected cards whose rate is unknown. */
+/**
+ * The facts of a saved loan's plan the review asks. The rate with its reference rate, margin and review day, and the way
+ * of paying back, are edited at the loan: a loan that lacks only those is not listed.
+ */
+const ASKED_GAPS: readonly LoanTermsMissing[] = ["interval", "payment", "end_date", "fee"];
+
+/** The saved loans that lack a fact the review asks and the connected cards whose rate is unknown. */
 function savedDebts(view: OwnView): Listed[] {
   const { ctx, balances, inputs } = view;
   const saved = ownLoans(view);
   const own = balances.filter((b) => b.ownerName === null);
   const debts = debtsOf(ctx, own, { ...inputs, loans: saved });
   const seriesKeys = saved.flatMap((loan) => loan.seriesKey ?? []);
-  // a connected card that owes at an unknown rate and no saved loan holds may be the very card saved by hand: its row asks the rate once
+  // a connected card that owes at an unknown rate and no saved loan holds may be the very card saved by hand: its row asks once
   const looseCard = debts.sources.some((src, at) => !src.linked && own.some((b) => b.id === src.accountId && b.type === "credit_card") && debts.connected[at]!.balanceCents > 0 && debts.connected[at]!.rateBp === null);
   const loans = saved.flatMap((loan): Listed[] => {
     // a loan linked to its account owes what the account says, unless the typed balance is the newer word of the two
@@ -171,9 +182,9 @@ function savedDebts(view: OwnView): Listed[] {
     const account = at < 0 ? undefined : own.find((b) => b.id === debts.sources[at]!.accountId);
     const told = account !== undefined && balanceDayOf(account.balanceAt, debts.day) >= loan.balanceDate;
     const owedCents = told ? debts.connected[at]!.balanceCents : loan.balanceCents;
-    const planGaps = openLoanGaps(loan, owedCents, loanTermsDismissed(inputs.marks, loan.id));
-    // a card or credit line saved by hand with no link to an account and no rate has no plan to ask, and its rate is the one fact (a linked one is the card's, below)
-    const bareRate = at < 0 && !looseCard && isRevolving(loan.kind) && owedCents > 0 && loan.rateBp === null && !hasReferenceRate(loan);
+    const planGaps = openLoanGaps(loan, owedCents, loanTermsDismissed(inputs.marks, loan.id)).filter((gap) => ASKED_GAPS.includes(gap));
+    // a card saved by hand with no link to an account and no rate has no plan to ask: whether it is paid in full each month is the one question (a linked one is the card's, below)
+    const bareRate = at < 0 && !looseCard && loan.kind === "card" && owedCents > 0 && loan.rateBp === null && !hasReferenceRate(loan);
     // a plan at 0 % that nothing tells the fee of has no cost: its fee is asked when the plan has no other gap
     const gaps = planGaps.length ? planGaps : bareRate ? (["rate"] satisfies LoanTermsMissing[]) : isRevolving(loan.kind) ? [] : loanFeeGaps({ ...loan, balanceCents: owedCents }, debts.day, debtPayments(ctx, loan, seriesKeys));
     if (!gaps.length) return [];
@@ -227,6 +238,8 @@ function proposedDebts({ ctx, inputs, stamp }: OwnView): Listed[] {
     // a plan is asked its end once; a loan until it is saved or marked "Ei ole velan maksu"
     if (p.plan && p.planAnswer !== null) return [];
     const monthly = hasMonthly(p) ? paymentOf(p) : null;
+    // "En tiedä" holds while the monthly payment is the one it was said at
+    if (!p.plan && loanUnknownAsked(inputs.marks, p.key, monthly?.part ?? null)) return [];
     const common = { seriesId: p.seriesId, yearCents: monthly === null ? null : 12 * monthly.part, name: p.payee, key: p.key, monthlyCents: monthly?.part ?? null, latestCents: monthly?.whole ?? null, lastDate: p.lastDate };
     if (p.plan) return [debt({ ...common, id: `plan:${p.key}`, source: "plan", kind: "instalment", placed: true })];
     // a lender's few payments are no series: the proposal holds its rows, at the bank's whole charge as the payment is

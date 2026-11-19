@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
 // A loan proposal in Tarkistettavat: the demo household pays a car financing instalment every month, and the list of
-// debts asks about it in a row of its own. It is saved as a loan, with the balance typed in; removing the loan in
-// Asetukset > Lainat asks again, and then it is answered "Ei ole velan maksu". The rows are the demo data of a household member made here and removed at the end, so the demo household of the other
+// debts asks about it in a row of its own, with one field, what is left now. It is saved as a loan, with the balance typed in; removing the loan in
+// Asetukset > Lainat asks again, and then it is answered "En tiedä" (which keeps it away while the payment is the same) and "Ei ole velan maksu". The rows are the demo data of a household member made here and removed at the end, so the demo household of the other
 // specs stays as it was. Every payee and sum here is made up.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const FETCH = { "X-Requested-With": "fetch" };
@@ -61,54 +61,42 @@ test("a payment that looks like a loan is asked in Tarkistettavat: saved as a lo
     expect(await queued()).toHaveLength(1);
     await reach();
     // a car financing by its words: the kind is known and not asked
-    await expect(row.locator(".review-debt-name")).toHaveText(/^Nordea Rahoitus Suomi Oy · Autolaina · 289,00\s€\/kk · eräpäivä 5\.$/);
+    await expect(row.locator(".review-debt-name")).toHaveText(/^Nordea Rahoitus Suomi Oy · Autolaina · 289,00\s€\/kk$/);
     await expect(row.getByRole("group", { name: "Laji" })).toHaveCount(0);
     expect(await overflow(page)).toBeLessThanOrEqual(1);
     if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-proposal-390.png"), fullPage: true });
 
-    // the form is in the row with what the rows show, and asks for the rest
-    const form = row.locator(".review-loan");
-    // the rows gave the lender, the payment, the interval and the way of paying back: only the rest is asked, with no line of help
-    await expect(form.locator(".loan-field")).toHaveCount(5);
-    await expect(form.locator(".review-note, .field-help")).toHaveCount(0);
-    await expect(form.getByLabel("Lainanantaja", { exact: true })).toHaveCount(0);
-    // the balance is asked as of the last payment day the rows show
-    const balance = form.getByLabel(/^Jäljellä \d{1,2}\.\d{1,2}\.(\d{4})? \(€\)$/);
+    // the row asks one thing, what is left now, with three answers and no line of help
+    const form = row.locator(".review-field");
+    await expect(row.locator(".loan-field")).toHaveCount(1);
+    await expect(row.locator(".review-note, .field-help")).toHaveCount(0);
+    const balance = form.getByLabel("Jäljellä nyt (€)");
     await expect(balance).toHaveValue("");
-    await expect(form.getByLabel("Korko (%)")).toHaveValue("");
-    await expect(form.getByLabel("Viitekorko", { exact: true })).toHaveValue("");
-    await expect(form.getByLabel("Lainan määrä (€)")).toHaveValue("");
-    // the same payment for over a year: a fixed instalment
-    await expect(form.getByLabel("Miten erä muuttuu")).toHaveValue("fixed_instalment");
+    for (const label of ["Korko (%)", "Viitekorko", "Marginaali (%)", "Miten erä muuttuu", "Lainan määrä (€)", "Lainanantaja"]) await expect(row.getByLabel(label, { exact: true })).toHaveCount(0);
+    await expect(row.getByRole("button", { name: "En tiedä", exact: true })).toBeVisible();
+    await expect(row.getByRole("button", { name: "Ei ole velan maksu", exact: true })).toBeVisible();
     expect(await overflow(page)).toBeLessThanOrEqual(1);
 
     // the balance is the household's to type: without it nothing is saved
     await form.getByRole("button", { name: "Tallenna", exact: true }).click();
-    await expect(form.getByRole("alert")).toHaveText("Korjaa merkityt kentät.");
-    await expect(form.getByText("Anna, paljonko lainaa on jäljellä.")).toBeVisible();
+    await expect(form.getByRole("alert")).toHaveText("Anna, paljonko lainaa on jäljellä.");
     expect((await (await context.request.get("/api/loans")).json()).loans).toEqual([]);
-    // Peruuta empties what was typed and the row asks the same again
-    await form.getByLabel("Korko (%)").fill("5");
-    await form.getByRole("button", { name: "Peruuta" }).click();
-    await expect(form.getByLabel("Korko (%)")).toHaveValue("");
-    await expect(row).toBeVisible();
 
     // the same row at the width of a desktop, saved with the balance typed: the loan is linked to its payments and the row
     // closes into what was saved, with the list still shown
     await page.setViewportSize({ width: 1280, height: 900 });
     expect(await overflow(page)).toBeLessThanOrEqual(1);
     await balance.fill("6 400,50");
-    await form.getByLabel("Korko (%)").fill("7,90");
     if (SHOTS) await page.screenshot({ path: join(SHOTS, "tr1-proposal-form-1280.png"), fullPage: true });
     await form.getByRole("button", { name: "Tallenna", exact: true }).click();
-    await expect(answered.locator(".review-debt-result")).toHaveText(/^Jäljellä 6\s400,50\s€ · korko 7,90\s%/);
+    await expect(answered.locator(".review-debt-result")).toHaveText(/^Jäljellä 6\s400,50\s€/);
     await expect(row).toHaveCount(0);
     await expect(item.getByRole("heading", { level: 2 })).toContainText("Täydennä lainat");
     const { loans } = await (await context.request.get("/api/loans")).json();
     expect(loans).toHaveLength(1);
-    expect(loans[0]).toMatchObject({ kind: "car", lender: COMPANY, balanceCents: 640_050, rateBp: 790, paymentCents: 28_900, intervalMonths: 1, repayment: "fixed_instalment" });
-    // the balance is dated on the last payment day the rows show
-    expect(loans[0].balanceDate).toMatch(/^\d{4}-\d{2}-05$/);
+    expect(loans[0]).toMatchObject({ kind: "car", lender: COMPANY, balanceCents: 640_050, rateBp: null, paymentCents: 28_900, intervalMonths: 1, repayment: "fixed_instalment" });
+    // the balance typed is the balance of today
+    expect(loans[0].balanceDate).toBe((await (await context.request.get("/api/meta")).json()).today);
     expect(loans[0].seriesKey).toMatch(/^out:.+:Nordea Rahoitus Suomi Oy#28900$/);
     expect((await (await context.request.get("/api/loans/proposals")).json()).proposals).toEqual([]);
     expect(await queued()).toEqual([]);
@@ -125,6 +113,17 @@ test("a payment that looks like a loan is asked in Tarkistettavat: saved as a lo
     await expect(card.getByRole("heading", { name: "Tunnistettu, saldo puuttuu" })).toHaveCount(0);
     await expect(card.getByText(COMPANY)).toHaveCount(0);
     await expect(card.getByText("Ei lainoja.")).toBeVisible();
+    expect(await queued()).toHaveLength(1);
+
+    // En tiedä: the row closes at once and stays away while the payment is the same
+    await reach();
+    await row.getByRole("button", { name: "En tiedä", exact: true }).click();
+    await expect(answered.locator(".review-debt-result")).toHaveText("En tiedä");
+    expect(await queued()).toEqual([]);
+    const unknown = ((await (await context.request.get("/api/recurring")).json()).marks as { subject: string; mark: string }[]).filter((m) => m.subject.startsWith("question:loan-unknown:"));
+    expect(unknown.map((m) => [m.subject.replace(/:out:[^:]+:/, ":out:<account>:"), m.mark])).toEqual([["question:loan-unknown:28900:out:<account>:Nordea Rahoitus Suomi Oy#28900", "in_use"]]);
+    // taken back, it asks again
+    expect((await context.request.put("/api/marks", { headers: FETCH, data: { subject: unknown[0]!.subject, mark: null } })).ok()).toBe(true);
     expect(await queued()).toHaveLength(1);
 
     // Ei ole velan maksu: the row closes at once, and the mark is stored under the subject of its own

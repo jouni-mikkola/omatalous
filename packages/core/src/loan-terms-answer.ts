@@ -13,6 +13,7 @@ import { paysSeries } from "./loan-detect.ts";
 import { endOf, intervalOf, planOf, typedPayment } from "./loan-plan.ts";
 import { payments } from "./loan-schedule.ts";
 import { hasReferenceRate } from "./loans.ts";
+import { parseSeriesId } from "./series-id.ts";
 import { type IsoDate, isRevolving, type Loan, type Transaction, type UserMark } from "./types.ts";
 
 /**
@@ -60,6 +61,26 @@ export const parseLoanTermsSubject = (subject: string): string | null => SUBJECT
 
 /** Whether the loan's question is set aside. */
 export const loanTermsDismissed = (marks: readonly Pick<UserMark, "subject" | "mark">[], loanId: string): boolean => marks.some((m) => m.mark === "dismissed" && m.subject === loanTermsSubject(loanId));
+
+const LOAN_UNKNOWN = "question:loan-unknown:";
+const UNKNOWN_SUBJECT = /^question:loan-unknown:(\d{1,9}|none):(.+)$/u;
+
+/**
+ * The subject of "En tiedä" on a loan the rows propose: the household does not know what it owes. The subject names the
+ * series key and the monthly payment of that day (`none` when the rows tell none), so the question stays away while the
+ * payment is the same and asks again when it changes. The mark is `in_use`, as a plan's answer is.
+ */
+export const loanUnknownSubject = (monthlyCents: number | null, key: string): string => `${LOAN_UNKNOWN}${monthlyCents ?? "none"}:${key}`;
+
+/** The monthly payment (null: none was known) and series key an "En tiedä" subject names, or null for any other subject and for a key no series has. */
+export function parseLoanUnknownSubject(subject: string): { monthlyCents: number | null; key: string } | null {
+  const [, payment, key] = UNKNOWN_SUBJECT.exec(subject) ?? [];
+  if (payment === undefined || key === undefined || !parseSeriesId(key)?.accountId) return null;
+  return { monthlyCents: payment === "none" ? null : Number(payment), key };
+}
+
+/** Whether the household said it does not know what the proposed loan of `key` owes while its monthly payment is `monthlyCents`. */
+export const loanUnknownAsked = (marks: readonly Pick<UserMark, "subject" | "mark">[], key: string, monthlyCents: number | null): boolean => marks.some((m) => m.mark === "in_use" && m.subject === loanUnknownSubject(monthlyCents, key));
 
 /** A bank row is the payment of a due date when it falls within this many days of it. */
 const DUE_DAYS = 7;

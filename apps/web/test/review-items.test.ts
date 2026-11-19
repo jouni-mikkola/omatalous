@@ -1,7 +1,7 @@
 /** Tarkistettavat's sitting and words: at most 25 items, the guess first, a split asked with no guess (owner rule L5). */
 import { describe, expect, it } from "vitest";
 import "./fixed-clock.ts";
-import { eyebrow, figureOf, groupCategories, leftText, linkedFirst, offeredCategories, loanKindChoices, nameOf, NEW_SITTING, openItems, payerChoices, planEnd, questionOf, readableText, type ReviewItem, SITTING, sittingView, withFetch } from "../src/pages/review-items.ts";
+import { eyebrow, figureOf, groupCategories, leftText, linkedFirst, offeredCategories, creditKindChoices, nameOf, NEW_SITTING, openItems, payerChoices, planEnd, questionOf, readableText, type ReviewItem, SITTING, sittingView, withFetch } from "../src/pages/review-items.ts";
 
 const payee = (n: number): ReviewItem => ({ kind: "payee_out", id: `payee_out:Kauppa ${n}`, cents: 100_000 - n, merchant: `Kauppa ${n}`, count: 3, lastDate: "2026-09-20", picks: [] });
 const queue = (n: number) => Array.from({ length: n }, (_, i) => payee(i));
@@ -73,10 +73,6 @@ describe("the choices", () => {
   it("put the app's guess first", () => {
     const payer: ReviewItem = { kind: "payer", id: "payer:k", cents: 90_000, key: "name:X", merchant: "Esimerkki Ville", count: 3, lastDate: "2026-09-03", options: ["cost_share", "sales", "own_money", "gift", "pay"], proposal: "pay" };
     expect(payerChoices(payer).map((c) => [c.value, c.guess])).toEqual([["pay", true], ["cost_share", false], ["sales", false], ["own_money", false], ["gift", false]]);
-    const debt = { kind: "car", placed: false } as const;
-    expect(loanKindChoices(debt)[0]).toMatchObject({ value: "car", guess: true });
-    // "Muu laina" is no guess worth marking
-    expect(loanKindChoices({ ...debt, kind: "other" }).some((c) => c.guess)).toBe(false);
   });
 
   it("ask a split with no guess", () => {
@@ -129,14 +125,8 @@ describe("the choices", () => {
     expect(groupCategories(cats, "xyz")).toEqual([]);
   });
 
-  it("ask every loan its kind, the kind the rows suggest first, and a placed loan may be the kind the plain answers lack", () => {
-    const debt = { kind: "card", placed: true } as const;
-    expect(loanKindChoices(debt).map((c) => [c.value, c.guess])[0]).toEqual(["card", true]);
-    // an answer stored as a mark has only the plain kinds
-    expect(loanKindChoices({ ...debt, placed: false }).map((c) => c.value)).not.toContain("card");
-    // a credit line and an instalment plan are plain answers, the guess first
-    expect(loanKindChoices({ kind: "credit_line", placed: false }).map((c) => [c.value, c.guess])[0]).toEqual(["credit_line", true]);
-    expect(loanKindChoices({ kind: "instalment", placed: false }).map((c) => c.value)).toContain("instalment");
+  it("ask a credit of unknown kind one of three kinds, none of them a guess", () => {
+    expect(creditKindChoices().map((c) => [c.value, c.guess])).toEqual([["card", false], ["credit_line", false], ["consumer", false]]);
   });
 
   it("call a sum of the last year's rows yhteensä: a payee's, a payer's and a consent's", () => {

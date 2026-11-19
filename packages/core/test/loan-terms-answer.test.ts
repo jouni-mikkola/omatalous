@@ -3,7 +3,7 @@
  * and the mark that sets it aside. Made-up loans and sums.
  */
 import { describe, expect, it } from "vitest";
-import { loanDrift, loanTermsDismissed, loanTermsDismissible, loanTermsGaps, loanTermsSubject, parseLoanTermsSubject } from "../src/loan-terms-answer.ts";
+import { loanDrift, loanTermsDismissed, loanTermsDismissible, loanTermsGaps, loanTermsSubject, loanUnknownAsked, loanUnknownSubject, parseLoanTermsSubject, parseLoanUnknownSubject } from "../src/loan-terms-answer.ts";
 import { seriesId } from "../src/series-id.ts";
 import type { Loan } from "../src/types.ts";
 
@@ -123,6 +123,25 @@ describe("a payment the plan did not expect", () => {
   });
   it("proposes the due date it moved on as the review day of a loan on a reference rate", () => {
     expect(drift({ reference: "euribor_12", marginBp: 80 }, [row("2026-11-03", 95_000)])).toMatchObject({ newPaymentCents: 95_000, reviewDate: "2026-11-01" });
+  });
+});
+
+describe("the mark of \"En tiedä\" on a proposed loan", () => {
+  const KEY = "out:acc-1:Esimerkkirahoitus";
+  it("names the monthly payment and the series key, and reads them back", () => {
+    expect(parseLoanUnknownSubject(loanUnknownSubject(25_000, KEY))).toEqual({ monthlyCents: 25_000, key: KEY });
+    expect(parseLoanUnknownSubject(loanUnknownSubject(null, KEY))).toEqual({ monthlyCents: null, key: KEY });
+    expect(parseLoanUnknownSubject(`question:loan-unknown:25000:Esimerkkirahoitus`)).toBeNull();
+    expect(parseLoanUnknownSubject(`question:loan-unknown:${KEY}`)).toBeNull();
+    expect(parseLoanUnknownSubject("question:loan-terms:loan-1")).toBeNull();
+  });
+  it("holds while the payment is the one said at and asks again when it changes", () => {
+    const marks = [{ subject: loanUnknownSubject(25_000, KEY), mark: "in_use" as const }];
+    expect(loanUnknownAsked(marks, KEY, 25_000)).toBe(true);
+    expect(loanUnknownAsked(marks, KEY, 26_000)).toBe(false);
+    expect(loanUnknownAsked(marks, KEY, null)).toBe(false);
+    expect(loanUnknownAsked(marks, "out:acc-1:Muu", 25_000)).toBe(false);
+    expect(loanUnknownAsked([{ subject: loanUnknownSubject(null, KEY), mark: "in_use" as const }], KEY, null)).toBe(true);
   });
 });
 
