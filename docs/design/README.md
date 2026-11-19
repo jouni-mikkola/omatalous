@@ -20,22 +20,24 @@ Ranked by how often asked. Four tabs: Yhteenveto, Laskut, Tapahtumat, Raportit. 
 
 ### 1.1 Yhteenveto: how much can we still spend before payday?
 Direction, 11.11.2026: an overview on one screen at 1440 px.
-- The month: one heading with the month and the days it has run, then Tulot, Menot and Tulos in the order the money
-  moves, Tulos the largest. Three across the page, one under the other on a phone. Each has a label, one figure, a bar on
+- The month: one heading with the month and the days it has run, then Tulot, Menot and Käteen jäi in the order the money
+  moves, Käteen jäi the largest. Three across the page, one under the other on a phone. Each has a label, one figure, a bar on
   the scale it shares with its comparison and one line that says the comparison. None of them opens a page.
   - Tulot: the month's income, the figure of the income report's month table, with the earned part (*Ansiotulot*) under it
     when that differs (`overview.income`). The mark on its bar is the same day of last month (`previousTotals`).
   - Menot: spent so far against the usual level to the same day (`home.pace`, drawn as a band on the bar), else last month
     to the same day.
-  - Tulos: income less spending and what moved to savings (`totals.leftCents`), against the same day of last month.
+  - Käteen jäi: income less spending and what moved to savings (`totals.leftCents`), against the same day of last month.
   - Tulojen käyttö under them: the bar of the income by where it went, as `bridgeView` gives it, each part with its share
     and its sum. No bar without income, or with a part below zero (ADR 0014); the parts then stand as a list.
 - Nyt, the first block: what is left after the bills before payday (`nyt.left`, *Käytettävissä palkkapäivään*) with
   the sum a day and the payday. The figure links to the bills table of Laskut, which lists what it takes off. Under it
   stands one line, the lowest balance of the next 60 days (`home.lowPoint`): *Alin saldo 60 pv: 13.12., arviolta
   120–480 €*; a range that starts below zero has spaces round its dash (*−250 – 50 €*). With no figure the line says why,
-  as core gives it: the reasons of the figure above, *Liian lyhyt historia*, *Kortin ostot eivät näy historiassa* or
-  *Laskun summa tai päivä ei ole tiedossa* (a bill with no sum within the 60 days, or with no day).
+  as core gives it: the reasons of the figure above, *Liian lyhyt historia*, *Lisää kortin tiliote* (links to the
+  statement of a card) or *Laskun summa puuttuu* (links to Laskut; a bill with no sum within the 60 days, or with no
+  day). A card paid by a bill that holds its purchases in no category is no reason: the bill's sum is spread over the
+  month's days and the line has its figure.
 - Tulevat kuukaudet, the third block: this month and the two after it, a row each with the bills (and the estimated
   part of them), the pays expected and what is left after the bills. Each figure is a field of the month in
   `billCalendar` (`billsCents`, `estimateCents`, `incomeCents`, `afterCents`), the answer Laskut's month heads read, so
@@ -61,13 +63,13 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
  25.11. asti, 310 € päivässä                 Marraskuu 2026      1 500 €  3 000 €  1 400 €
                                              Joulukuu 2026         800 €        –      −800 €
  Marraskuu 2026          1.–11.11.           Tammikuu 2027         900 €  3 100 €  Ei tiedossa
- Tulot            Menot                       Tulos
+ Tulot            Menot                       Käteen jäi
  3 900 €          2 018 €                     1 482 €
  ▇▇▇▇▇▇▇▇▇▇▇▇     ▇▇▇▇▇▇▇▇ ░░░░░░░░           ▇▇▇▇▇▇▇▇
  Ansiotulot       90 € yli tavallisen         Viime kuussa samaan
  3 500 €          tähän päivään               päivään 1 390 €
  Tulojen käyttö   ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇
- Kulutus 52 %  Maksettu velanhoito 6 %  Säästöön siirretty 4 %  Tulos 38 %
+ Kulutus 52 %  Maksettu velanhoito 6 %  Säästöön siirretty 4 %  Käteen jäi 38 %
 
  Varat ja velat
  Käyttötilit   4 905 €   Luottokortit

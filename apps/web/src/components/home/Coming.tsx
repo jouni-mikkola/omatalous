@@ -5,6 +5,7 @@ import { money, monthLong } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
 import { t, tn } from "../../text.ts";
 import type { ReportsData, Scope } from "../../types.ts";
+import { nothingToCome } from "../bills/calendar-rows.ts";
 import { Notice } from "../ui/Notice.tsx";
 import { Table } from "../table/Table.tsx";
 
@@ -16,11 +17,17 @@ const COMING_MONTHS = 3;
 
 const capital = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slice(1);
 
-/** The bills of a month, with the estimated part when there is one: the figure Laskut's month head gives. */
-const billsText = (m: Month) => (m.estimateCents > 0 ? t("home.coming_estimate", { sum: money(m.billsCents), estimate: money(m.estimateCents) }) : money(m.billsCents));
+/**
+ * The bills of a month, with the estimated part when there is one: the figure Laskut's month head gives. A month with bills
+ * already paid (the running one) says the sum is what is unpaid, as its head does, so the column never reads 0 for paid bills.
+ */
+const billsText = (m: Month) => {
+  const sum = m.estimateCents > 0 ? t("home.coming_estimate", { sum: money(m.billsCents), estimate: money(m.estimateCents) }) : money(m.billsCents);
+  return m.paidCents > 0 ? t("home.coming_unpaid", { sum }) : sum;
+};
 
 /** What is left of the pays after the bills, as Laskut's month head tells it: below 0 in a month with no pay, and a status in a month a bill with no known sum falls in, never 0. */
-const afterText = (m: Month) => (m.afterCents === null ? t("home.coming_after_unknown") : money(m.afterCents));
+const afterText = (m: Month) => (m.afterCents === null ? t("home.coming_after_unknown") : nothingToCome(m) ? "–" : money(m.afterCents));
 
 /**
  * Tulevat kuukaudet: this month and the two after it, each with the bills (and the estimated part of them), the pays

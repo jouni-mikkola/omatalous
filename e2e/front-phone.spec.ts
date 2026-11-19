@@ -54,7 +54,7 @@ for (const width of [320, 360, 390]) {
       expect(box.x, "starts on the screen").toBeGreaterThanOrEqual(0);
       expect(box.x + box.width, "ends on the screen").toBeLessThanOrEqual(width);
     }
-    // the terms under Tulos do not push the month's figures off the first screen: Tulot, Menot, Tulos and the terms end above its foot
+    // the terms under Käteen jäi do not push the month's figures off the first screen: Tulot, Menot, Käteen jäi and the terms end above its foot
     for (const part of await page.locator(".home-figs .fig, .home-fig-term").all()) {
       const box = (await part.boundingBox())!;
       expect(box.y + box.height, "the figure is on the first screen").toBeLessThanOrEqual(800);

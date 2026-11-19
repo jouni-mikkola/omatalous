@@ -71,11 +71,11 @@ describe("MissingCards", () => {
 });
 
 describe("LowPoint, the reason of the cards", () => {
-  it("links the reason to the list of the missing cards", () => {
+  it("links the reason to the place a card's statement is added", () => {
     const { container } = render(createElement(LowPoint, { lowPoint: { known: false, reason: "cards", days: 60 } }));
     const link = container.querySelector("a")!;
-    expect(flat(link.textContent)).toBe("Kortin ostot eivät näy historiassa");
-    expect(link.getAttribute("href")).toBe(settingsCardHash(SETTINGS_ANCHOR.missingCards));
+    expect(flat(link.textContent)).toBe("Lisää kortin tiliote");
+    expect(link.getAttribute("href")).toBe(settingsCardHash(SETTINGS_ANCHOR.statement));
   });
 
   it("links no other reason", () => {

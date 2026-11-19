@@ -18,6 +18,7 @@ export const EN_SET_RI: Record<keyof typeof FI_SET_RI, string> = {
   "set.ri.loans_and_cards": "Loans and cards",
   "set.ri.complete_the_loans": "Complete the loans",
   "set.ri.credit_card": "Credit card",
+  "set.ri.credit_kind_not_known": "Credit, kind not known",
   "set.ri.instalment_plan": "Instalment plan",
   "set.ri.joint_account_account": "Joint account {account}",
   "set.ri.subscription": "Subscription",

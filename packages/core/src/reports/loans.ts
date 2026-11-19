@@ -46,6 +46,26 @@ const RATE_SHIFTS_BP = [-100, 100] as const;
  */
 const loansWithoutRate = (interest: DebtFigure): number => interest.unknown.filter((u) => !u.counted && u.unknown === "rate").length;
 
+/** What the debts take a month: the known payments added once, and how many debts have no payment figure. */
+interface MonthlyPayments {
+  /** The payments of the saved loans (`DebtPayments`) and of the unsaved rows that tell one. Null when none is known: an unknown sum is never 0. */
+  cents: number | null;
+  /** Saved loans left out of the sum (`DebtPayments.unknown`), unsaved rows with no monthly figure and lenders paid only a few times (`UnsavedDebts.few`): a debt is never silently left out. */
+  unknown: number;
+}
+
+/**
+ * The payments the page lists, saved or not, in one sum: the saved loans' payments and the payments of the unsaved rows
+ * (`UnsavedRow.monthlyCents`, the viewer's part), with the debts that tell none counted, a lender paid only a few times (`few`) among them.
+ */
+export function monthlyPayments(payments: DebtPayments, unsaved: Pick<ReturnType<typeof unsavedDebts>, "rows" | "few">): MonthlyPayments {
+  const known = unsaved.rows.flatMap((row) => row.monthlyCents ?? []);
+  return {
+    cents: payments.counted + known.length > 0 ? known.reduce((sum, cents) => sum + cents, payments.monthlyCents) : null,
+    unknown: payments.unknown + unsaved.rows.length - known.length + unsaved.few,
+  };
+}
+
 /** One debt and its figures on the report's day. */
 export interface LoanRow {
   /** The saved loan's id, or `account:<account id>` for a connected account. */
@@ -126,8 +146,10 @@ export interface LoansReport {
   plan: PayoffPlan | null;
   /** The dear debts a new loan could take over (`consolidationBasis`), with what they cost from here. Null when none qualify and while `cost12` is null. */
   consolidation: ConsolidationBasis | null;
-  /** The payments of a month (`debtPaymentsPerMonth`). */
+  /** The payments of a month of the saved loans (`debtPaymentsPerMonth`). */
   payments: DebtPayments;
+  /** The payments of a month of every debt the page lists, the unsaved rows too (`monthlyPayments`). */
+  monthly: MonthlyPayments;
   /**
    * The loans from the day to the day they are paid (`debtPath`): what is owed and the interest still to come, with a
    * line for each move of `RATE_SHIFTS_BP`. The Lainat chart draws it. Null when a debt that owes cannot be projected:
@@ -224,6 +246,7 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
       scenarios: moves ? RATE_SHIFTS_BP.map((shift) => loanRateScenario(loan, day, shift)).filter((s) => s.movedBp !== 0 && (s.paymentCents !== null || s.interestCents !== null)) : [],
     };
   });
+  const payments = debtPaymentsPerMonth(debts.loans, day);
   const cost12 = cost12Of(
     loans.map((l) => l.cost),
     unsaved.rows.length > 0 || unsaved.few > 0,
@@ -244,7 +267,8 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
     cost12,
     plan: cost12.cents === null ? null : payoffPlan(debts.loans, day, 0, buffer, costOf),
     consolidation: cost12.cents === null ? null : consolidationBasis(debts.loans, day, costOf),
-    payments: debtPaymentsPerMonth(debts.loans, day),
+    payments,
+    monthly: monthlyPayments(payments, unsaved),
     path: debtPath(debts.loans, day, RATE_SHIFTS_BP),
     maybeTwice: maybeTwice(balances, debts),
     overdraftTwice: overdraftTwice(balances, debts),

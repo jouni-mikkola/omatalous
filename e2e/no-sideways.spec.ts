@@ -7,23 +7,23 @@ import { overflow } from "./helpers.ts";
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const PAGES = ["overview", "transactions", "bills", "reports", "review"];
 
-// A row of tabs never wraps: it scrolls inside itself, the page does not, and the open tab is in sight, the first and the last of the row alike.
+// The tabs of Asetukset wrap on a phone, so every tab is whole in sight and the page does not scroll sideways, the first and the last of the row alike.
 for (const tab of ["banks", "server"]) {
-  test(`the tabs of Asetukset stay one row at 390 px with the open tab in sight: ${tab}`, async ({ browser }) => {
+  test(`the tabs of Asetukset are all in sight at 390 px: ${tab}`, async ({ browser }) => {
     const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 900 } });
     const page = await context.newPage();
     await page.goto(`/#/settings/${tab}`);
     const row = page.locator("main .tabs").first();
     await expect(row).toBeVisible();
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
-    const tops = await row.getByRole("link").evaluateAll((els) => els.map((e) => Math.round(e.getBoundingClientRect().top)));
-    expect(new Set(tops).size, "one line of tabs").toBe(1);
-    // the tab is brought into sight as the row is drawn, so the row is read once it has settled
-    await expect.poll(async () => {
-      const open = (await row.locator("[aria-current]").boundingBox())!;
-      const view = (await row.boundingBox())!;
-      return open.x >= view.x - 1 && open.x + open.width <= view.x + view.width + 1;
-    }).toBe(true);
+    const links = row.getByRole("link");
+    expect(await links.count()).toBeGreaterThanOrEqual(5);
+    const view = (await row.boundingBox())!;
+    for (const box of await links.evaluateAll((els) => els.map((e) => e.getBoundingClientRect().toJSON() as { x: number; width: number }))) {
+      expect(box.x, "a tab starts inside the row").toBeGreaterThanOrEqual(view.x - 1);
+      expect(box.x + box.width, "a tab ends inside the row").toBeLessThanOrEqual(view.x + view.width + 1);
+    }
+    expect(await row.evaluate((el) => el.scrollWidth - el.clientWidth), "nothing of the row lies beyond its edge").toBeLessThanOrEqual(0);
     await context.close();
   });
 }

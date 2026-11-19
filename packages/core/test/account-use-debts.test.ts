@@ -84,12 +84,12 @@ describe("a debt's part", () => {
       return [
         r.balance.cents, r.payment.cents, r.payment.interestCents, r.payment.amortisationCents, r.interest.cents,
         ...r.scenarios.flatMap((s) => [s.paymentCents, s.interestCents]),
-        v.loans.total.cents, v.loans.interest.cents, v.loans.payments.monthlyCents,
+        v.loans.total.cents, v.loans.interest.cents, v.loans.payments.monthlyCents, v.loans.monthly.cents,
         v.report.debt.cents, v.report.debt.savedCents, v.report.accountsLessDebt.at(-1)!, v.holdings.debtCents, v.holdings.loans[0]!.leftCents, v.holdings.loans[0]!.monthlyPaymentCents,
       ];
     };
     const [a, h, e] = [figures(all), figures(hers), figures(his)];
-    expect(a).toHaveLength(18);
+    expect(a).toHaveLength(19);
     expect(a.every((cents) => cents !== null && cents !== 0)).toBe(true);
     expect(h.map((cents, i) => cents! + e[i]!)).toEqual(a);
     // a row adds up within a view too, and used plus left is the debt total

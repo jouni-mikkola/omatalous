@@ -5,7 +5,7 @@ import { overflow, watch } from "./helpers.ts";
 
 // A loan proposal in Tarkistettavat: the demo household pays a car financing instalment every month, and the list of
 // debts asks about it in a row of its own. It is saved as a loan, with the balance typed in; removing the loan in
-// Asetukset > Lainat asks again, and then it is answered "Ei ole laina". The rows are the demo data of a household member made here and removed at the end, so the demo household of the other
+// Asetukset > Lainat asks again, and then it is answered "Ei ole velan maksu". The rows are the demo data of a household member made here and removed at the end, so the demo household of the other
 // specs stays as it was. Every payee and sum here is made up.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const FETCH = { "X-Requested-With": "fetch" };
@@ -26,7 +26,7 @@ async function administrator(browser: Browser): Promise<BrowserContext> {
   return context;
 }
 
-test("a payment that looks like a loan is asked in Tarkistettavat: saved as a loan with the balance typed in, and after the loan is removed answered Ei ole laina", async ({ browser }) => {
+test("a payment that looks like a loan is asked in Tarkistettavat: saved as a loan with the balance typed in, and after the loan is removed answered Ei ole velan maksu", async ({ browser }) => {
   const admin = await administrator(browser);
   const created = await admin.request.post("/api/users", { headers: FETCH, data: { username: "ehdotus", displayName: "Ehdotus" } });
   expect(created.ok(), await created.text()).toBe(true);
@@ -127,10 +127,10 @@ test("a payment that looks like a loan is asked in Tarkistettavat: saved as a lo
     await expect(card.getByText("Ei lainoja.")).toBeVisible();
     expect(await queued()).toHaveLength(1);
 
-    // Ei ole laina: the row closes at once, and the mark is stored under the subject of its own
+    // Ei ole velan maksu: the row closes at once, and the mark is stored under the subject of its own
     await reach();
-    await row.getByRole("button", { name: "Ei ole laina" }).click();
-    await expect(answered.locator(".review-debt-result")).toHaveText("Ei ole laina");
+    await row.getByRole("button", { name: "Ei ole velan maksu" }).click();
+    await expect(answered.locator(".review-debt-result")).toHaveText("Ei ole velan maksu");
     const { marks } = await (await context.request.get("/api/recurring")).json();
     expect(marks.map((m: { subject: string; mark: string }) => [m.subject.replace(/^(loan-proposal:out:)[^:]+:/, "$1<account>:"), m.mark])).toContainEqual(["loan-proposal:out:<account>:Nordea Rahoitus Suomi Oy#28900", "dismissed"]);
     expect(await queued()).toEqual([]);

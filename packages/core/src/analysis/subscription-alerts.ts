@@ -57,7 +57,7 @@ export function seriesOfMarkSubject(subject: string): SeriesIdParts | null {
 /**
  * A mark's subject after merchants got new names (old name to new), or null when it names none of them. A subject
  * follows when it names a merchant, or a series after its prefix: `series:<id>`, and the `loan-proposal:<id>` that
- * loan-detect.ts stores for "Ei ole laina". An alert's subject stays: its id is not a merchant's name.
+ * loan-detect.ts stores for "Ei ole velan maksu". An alert's subject stays: its id is not a merchant's name.
  */
 export function renamedMarkSubject(subject: string, renames: ReadonlyMap<string, string>): string | null {
   if (subject.startsWith(MERCHANT_SUBJECT)) {

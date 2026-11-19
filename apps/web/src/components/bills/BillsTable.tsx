@@ -29,7 +29,7 @@ import { type Column, Table } from "../table/Table.tsx";
 import { Button } from "../ui/Button.tsx";
 import { Notice } from "../ui/Notice.tsx";
 import { cadenceLabel } from "./BillForm.tsx";
-import { type CalBill, type Calendar, type CalGroup, type CalMonth, type CalRow, calendarGroups, ENDED_GROUP, OPEN_MONTHS } from "./calendar-rows.ts";
+import { type CalBill, type Calendar, type CalGroup, type CalMonth, type CalRow, calendarGroups, ENDED_GROUP, nothingToCome, OPEN_MONTHS } from "./calendar-rows.ts";
 import { type Item, type TypedBill, wrongBillSubject } from "./items.ts";
 
 /** What one subscription row can do next to the mark it already has. */
@@ -75,18 +75,26 @@ const KINDS = [
 
 /**
  * The sums of a month's head, all core's: bills (with the estimated part), pays and what is left after the bills and the saving.
- * The sum left is always there, below 0 when no pay comes; it is a status while a bill's sum is not known. A bill whose sum or day
+ * "Laskut" is the bills still to pay. A month with charges already made (the running one) names what it adds up instead: the
+ * paid bills (`paidCents`) and the unpaid ones, so one label never stands for two sums. The sum left is there while something is
+ * still to come, below 0 when no pay comes; it is a status while a bill's sum is not known, and nothing in a month with nothing
+ * left to come. A bill whose sum or day
  * is not known is in no month's sum, so a month's head carries the count of the ones that leave its sum after the bills unknown
  * (`unknownBillsIn` of core, the rule that sets `afterCents` null, bills only), and a month with a figure carries none.
  */
 function MonthSums({ month, unknownCount, open }: { month: CalMonth; unknownCount: number; open: boolean }) {
+  const paid = month.paidCents > 0;
+  const pay = { sum: money(month.billsCents), estimate: money(month.estimateCents) };
+  const bills = month.estimateCents > 0 ? (paid ? t("bills.sum_unpaid_estimate", pay) : t("bills.sum_bills_estimate", pay)) : paid ? t("bills.sum_unpaid", pay) : t("bills.sum_bills", pay);
   return (
     <span className="bill-sums">
-      <span>{month.estimateCents > 0 ? t("bills.sum_bills_estimate", { sum: money(month.billsCents), estimate: money(month.estimateCents) }) : t("bills.sum_bills", { sum: money(month.billsCents) })}</span>
+      {/* the bills still to pay come first, as in the bills column of the front page: both read `billsCents` */}
+      <span>{bills}</span>
+      {paid && <span>{t("bills.sum_paid", { sum: money(month.paidCents) })}</span>}
       {open && <span className="bill-kinds">{KINDS.map(([code, field]) => month[field] > 0 && <span key={field}>{t(code, { sum: money(month[field]) })}</span>)}</span>}
       {unknownCount > 0 && <span>{tn(unknownCount, "bills.unknown_one", "bills.unknown_many")}</span>}
       {month.incomeCents > 0 && <span>{t("bills.sum_income", { sum: money(month.incomeCents) })}</span>}
-      <span>{month.afterCents === null ? t("bills.sum_after_unknown") : t("bills.sum_after", { sum: money(month.afterCents) })}</span>
+      {!nothingToCome(month) && <span>{month.afterCents === null ? t("bills.sum_after_unknown") : t("bills.sum_after", { sum: money(month.afterCents) })}</span>}
     </span>
   );
 }

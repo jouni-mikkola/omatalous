@@ -78,6 +78,8 @@ export const THRESHOLDS = {
   cheapDebtBelowPoints: threshold(7, "points", "A judgement: a home or student loan at a euribor of 2 to 3 % and its margin costs less than 7 % a year, consumer credit rarely does. The kind of a debt never sets its class, its cost does."),
   dearDebtBelowPoints: threshold(15, "points", "A judgement: consumer credit and a car loan cost 7 to 15 % a year; a card or a flexible credit at interest, or a small plan with a fee on each payment, costs more."),
   debtPlanBufferMonths: threshold(1, "months", "A judgement: a month of usual spending in the accounts before any extra money goes to a debt, so the next surprise is paid from the buffer and not with new credit."),
+  oneOffTimes: threshold(2, "times", "A judgement: an instalment or a price moves by far less than double from one charge to the next (a rate change moves an annuity by tens of percent, a plan step is under 30 %). A charge over twice a series' median, or a run of them, after which the series is back at or under that, is a repayment of capital or another one-off: it sets no expected charge, and in a year (`yearlyCostOf`) a loan or credit costs the typical charge for each of its charges while any other bill counts the one-off as one typical charge, as a lender's row over the instalment on its due day fills that month as one instalment (`chargesPerYear`)."),
+  regularLevelShare: threshold(0.5, "share", "A judgement: a series has a regular level when at least half of its charges are at its median. A card bill or an electricity bill, whose sum moves every month, has none, so it never loses a large month as a one-off."),
   snowballGapCents: threshold(5000, "cents", "A judgement: paying the smallest debt first costs this much more interest than the dearest first before it is worth a line; the gap is usually a few euros."),
   quietPaymentCents: threshold(5000, "cents", "A judgement: one payment under 50 € to a payee nothing recognised stays in Muut menot and is not asked about, since the answer moves too little to be worth a question. A second payment or one of 50 € or more asks it."),
 } as const;
@@ -138,6 +140,8 @@ export const REFUND_WAIT_DAYS = THRESHOLDS.refundWaitDays.value;
 export const YEAR_MONTHS = THRESHOLDS.yearMonths.value;
 export const MIN_RARE_BILL_CENTS = THRESHOLDS.minRareBillCents.value;
 export const LOAN_ROW_DAYS = THRESHOLDS.loanRowDays.value;
+export const ONE_OFF_TIMES = THRESHOLDS.oneOffTimes.value;
+export const REGULAR_LEVEL_SHARE = THRESHOLDS.regularLevelShare.value;
 export const LOAN_ROW_TOLERANCE_CENTS = THRESHOLDS.loanRowToleranceCents.value;
 export const LOAN_ROW_TOLERANCE_SHARE = THRESHOLDS.loanRowToleranceShare.value;
 export const QUIET_PAYMENT_CENTS = THRESHOLDS.quietPaymentCents.value;

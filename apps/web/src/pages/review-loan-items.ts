@@ -19,6 +19,8 @@ export interface LoanTermsDebt {
   kind: LoanKind;
   /** Whether the kind is known; one the rows only suggest is asked. */
   placed: boolean;
+  /** A credit whose kind the rows do not tell: the row asks card, credit line or consumer credit, with no guess. */
+  kindUnknown?: true;
   /** A month of payments, null when the rows tell no monthly payment. */
   monthlyCents: number | null;
   /** The latest payment as the bank took it, null when the rows tell no monthly one. */
@@ -33,7 +35,7 @@ export interface LoanTermsDebt {
   /** The mark "Älä muistuta tästä enää" goes on, for a saved loan. */
   subject: string | null;
   terms: InferredLoanTerms | null;
-  /** The card loans saved with no link to their bills, for a card that is not connected. */
+  /** The loans saved with no link that the debt may be: card loans for a card that is not connected, card, credit line and consumer credit loans for a credit of unknown kind. */
   savedCards: { id: string; name: string }[];
 }
 

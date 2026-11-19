@@ -134,7 +134,7 @@ export const loanCalls = {
   add: (body: Omit<Loan, "id">) => api<{ loan: Loan }>("/api/loans", { method: "POST", body }),
   replace: (id: string, body: Omit<Loan, "id">) => api<{ loan: Loan }>(`/api/loans/${encodeURIComponent(id)}`, { method: "PUT", body }),
   remove: (id: string) => api<{ ok: true }>(`/api/loans/${encodeURIComponent(id)}`, { method: "DELETE" }),
-  /** "Ei ole laina" on a proposal (`GET /api/loans/proposals`): the mark that keeps the series from being proposed again. */
+  /** "Ei ole velan maksu" on a proposal (`GET /api/loans/proposals`): the mark that keeps the series from being proposed again. */
   notLoan: (key: string) => api<unknown>("/api/marks", { method: "PUT", body: notLoanMark({ key }) }),
 };
 

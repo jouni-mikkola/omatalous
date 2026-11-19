@@ -380,16 +380,18 @@ describe("card bills told from loans by their amounts", () => {
   const bills = (amounts: number[], description = "E-LASKU", day = 10, payee = issuer) =>
     amounts.map((euros, i) => row("chk", `2026-${String(i + 3).padStart(2, "0")}-${day}`, -euros, `${description} ${i + 1}`, payee));
 
-  it("Resurs issues cards too: its varying bills are card bills, its fixed instalment stays a loan", () => {
+  it("Resurs issues cards too: by its name alone its varying bills are a credit of unknown kind, its fixed instalment a loan", () => {
     const resurs = (amounts: number[]) => run(bills(amounts, "E-LASKU", 10, "RESURS BANK AB"), [checking]).final.map((t) => t.category);
-    expect(resurs([412.3, 655.1, 389, 702.45])).toEqual(Array(4).fill("card_bill"));
+    expect(resurs([412.3, 655.1, 389, 702.45])).toEqual(Array(4).fill("loans"));
     expect(resurs([289, 289, 289, 289])).toEqual(Array(4).fill("loans"));
   });
 
-  it("payments to the card issuer that change every month are card bills, counted as debt service", () => {
-    const { final, totals } = run(bills([412.3, 655.1, 389, 702.45, 530.2]), [checking]);
-    expect(final.map((t) => t.category)).toEqual(Array(5).fill("card_bill"));
-    expect(totals).toMatchObject({ consumptionCents: 0, debtCents: 268905 });
+  it("payments to the issuer that change every month are a card's bills only by a card word, else a credit of unknown kind; both debt service", () => {
+    // the issuer runs flexible credits and loans too, and their payments change as much as a card's bill
+    for (const [text, category] of [["KORTTILASKU", "card_bill"], ["E-LASKU", "loans"]]) {
+      const { final, totals } = run(bills([412.3, 655.1, 389, 702.45, 530.2], text), [checking]);
+      expect([final.map((t) => t.category), totals]).toMatchObject([Array(5).fill(category), { consumptionCents: 0, debtCents: 268905 }]);
+    }
   });
 
   it("a fixed instalment to the same issuer stays a loan", () => {
@@ -408,10 +410,10 @@ describe("card bills told from loans by their amounts", () => {
     expect(final.every((t) => t.category === "loans")).toBe(true);
   });
 
-  it("a car loan and the card bill from the same issuer are told apart", () => {
+  it("a car loan and the card bill from the same issuer are told apart where the issuer's card is connected", () => {
     const rows = [...bills([250, 250, 250, 250], "E-LASKU", 5), ...bills([412.3, 655.1, 389, 702.45], "E-LASKU", 12)];
-    const { final } = run(rows, [checking]);
-    expect(final.map((t) => t.category)).toEqual([...Array(4).fill("loans"), ...Array(4).fill("card_bill")]);
+    expect(run(rows, [checking]).final.map((t) => t.category)).toEqual(Array(8).fill("loans"));
+    expect(run(rows, [checking, gold]).final.filter((t) => t.accountId === "chk").map((t) => (t.isTransfer ? "card_bill" : t.category))).toEqual([...Array(4).fill("loans"), ...Array(4).fill("card_bill")]);
   });
 
   it("a text that names the loan keeps it a loan", () => {

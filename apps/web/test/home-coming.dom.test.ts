@@ -110,6 +110,24 @@ describe("Tulevat kuukaudet", () => {
     expect(after).toMatch(/^[−-]800,00 €$/);
   });
 
+  it("says a running month's sum is what is unpaid when its bills are paid, and shows no sum after the bills when nothing is left to come", () => {
+    const cal = calendar([month("2026-11", rows("2026-11"), { paidCents: 154204 }), month("2026-12", rows("2026-12"), { knownCents: 80000, billsCents: 80000, afterCents: -80000 })]);
+    const { container } = render(createElement(ComingMonths, { calendar: cal }));
+    const trs = [...container.querySelectorAll("tbody tr")];
+    expect(cells(trs[0]!)).toEqual(["Marraskuu 2026", "0,00 € maksamatta", "–", "–"]);
+    expect(cells(trs[1]!)[1]).toBe("800,00 €");
+    // the head of the same month in Laskut tells the same: what is paid and what is unpaid
+    const head = laskutHeads(cal)[0]!;
+    expect(head).toContain("Maksetut laskut 1 542,04 €");
+    expect(head).toContain("Maksamatta 0,00 €");
+    expect(head).not.toContain("Laskujen jälkeen");
+  });
+
+  it("keeps the heading of the block as the only one drawn", () => {
+    const { container } = render(createElement(ComingMonths, { calendar: answer() }));
+    expect(container.querySelector("caption")?.className).toBe("sr-only");
+  });
+
   type Unknown = ReportsData["billCalendar"]["unknowns"][number];
   const noteOf = (unknowns: Unknown[]) => {
     const { container } = render(createElement(ComingMonths, { calendar: { ...answer(), unknownCount: unknowns.length, unknowns } }));

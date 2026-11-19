@@ -6,7 +6,7 @@
  * within a lifetime of today, and no plan can make the balance grow. So a balance on any day is a whole number of
  * cents between zero and the stated balance.
  */
-import { addMonthsToDate, DEBT_ACCOUNT_TYPES, dueDates, euriborRateBp, type Fixings, hasReferenceRate, isRevolving, LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, loanPeriodInterest, MAX_LOAN_INTERVAL_MONTHS, mortgageSeriesKeys, type PaymentParts } from "@banking/core";
+import { addMonthsToDate, cardSeriesKeys, DEBT_ACCOUNT_TYPES, dueDates, euriborRateBp, type Fixings, hasReferenceRate, isRevolving, LOAN_KINDS, LOAN_REFERENCES, LOAN_REPAYMENTS, type Loan, loanPeriodInterest, MAX_LOAN_INTERVAL_MONTHS, mortgageSeriesKeys, type PaymentParts } from "@banking/core";
 import { Hono } from "hono";
 import { NotFound, UserError } from "../platform/errors.ts";
 import { randomToken } from "../platform/ids.ts";
@@ -185,7 +185,7 @@ export async function parseLoan(raw: unknown, today: string, accounts: OwnAccoun
   if (loan.reference === "fixed") delete loan.rateReviewDate;
   // a card or a credit line is drawn and paid as its holder likes: it has a limit and no plan
   if (isRevolving(loan.kind) && loan.repayment !== null) {
-    throw new UserError("Luottokortilla ja luottolimiitillä ei ole lyhennystapaa. Jätä se tyhjäksi.");
+    throw new UserError("Luottokortilla ja joustoluotolla ei ole lyhennystapaa. Jätä se tyhjäksi.");
   }
   if (loan.repayment === "bullet" && loan.paymentCents !== null) throw new UserError("Kertalyhenteisellä lainalla ei ole maksuerää. Jätä maksuerä tyhjäksi.");
   // A loan on a euribor sent with its margin alone is saved at the rate in force on its balance date: the fixing of the
@@ -252,15 +252,15 @@ export function loanRoutes(s: Services) {
   const app = new Hono<AppEnv>();
 
   /**
-   * The home loans' series are the household's word for which payments are the mortgage, and the categories of those rows
-   * follow it (core `applyDeclaredMortgages`), which also reads every saved loan's key to keep another loan's rows out. So
-   * while a home loan is saved a change of any key reprocesses; any other change of a loan moves no category and is read
-   * per request.
+   * The home loans' and the cards' series are the household's word for which payments are the mortgage and which a card's
+   * bills, and the categories of those rows follow it (core `applyDeclaredMortgages`, `applyDeclaredCards`), which also
+   * read every saved loan's key to keep another loan's rows out. So while a home loan or a card with a key is saved a
+   * change of any key reprocesses; any other change of a loan moves no category and is read per request.
    */
   const mortgageSeries = async (userId: string) => {
     const loans = await s.finance(userId).listLoans();
-    const mortgages = mortgageSeriesKeys(loans);
-    return mortgages.length ? JSON.stringify([mortgages, loans.flatMap((loan) => loan.seriesKey ?? []).sort()]) : "";
+    const declared = [mortgageSeriesKeys(loans), cardSeriesKeys(loans)];
+    return declared.some((keys) => keys.length) ? JSON.stringify([...declared, loans.flatMap((loan) => loan.seriesKey ?? []).sort()]) : "";
   };
   /** The loan as it is answered: with the payment parts it holds, which a save keeps or adds to. */
   const withParts = async (repo: ReturnType<Services["finance"]>, loan: Loan): Promise<Loan> => {
@@ -285,7 +285,7 @@ export function loanRoutes(s: Services) {
   /**
    * The loans the bank rows show and the household has not answered (`loanProposals`). Worked out for each request
    * from the viewer's own rows and marks and the saved loans of the own view (`loansInView`: a loan another user of a
-   * joint account saved is not proposed again), outside the cached context: "Ei ole laina" or a saved loan takes effect
+   * joint account saved is not proposed again), outside the cached context: "Ei ole velan maksu" or a saved loan takes effect
    * at once and moves no data version. A row id, the account and the payment reference stay on the server.
    */
   app.get("/loans/proposals", async (c) => {

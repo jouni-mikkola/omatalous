@@ -85,6 +85,17 @@ describe("the edges of the change", () => {
     expect(change).toEqual({ from: "2026-10-06", to: "2026-10-09", cents: -2_000, basis: "firstDay" });
   });
 
+  it("starts at the first month end known, as the month table does, when nothing is known before the range", () => {
+    // the account's first row is on 20.9., inside the range: the change does not start on that day but at the close of 30.9.
+    const later = "2026-11-09";
+    const ctx = createContext([row("a", "2026-09-20", -1_000), row("b", "2026-09-25", -4_000), row("c", "2026-10-15", -2_000), row("d", "2026-11-05", -3_000)], [account], later);
+    const r = balanceReport(ctx, { from: "2026-09-01", to: later }, [{ ...balance, balanceAt: "2026-11-09T08:00:00.000Z" }]);
+    expect(r.change).toEqual({ from: "2026-09-30", to: "2026-11-09", cents: -5_000, basis: "firstDay" });
+    // the month table beside it adds up to the same figure, and the account's part is the total's
+    expect(r.monthChange.slice(1).reduce((s, c) => s! + c!, 0)).toBe(r.change!.cents);
+    expect(r.accounts[0]!.changeCents).toBe(r.change!.cents);
+  });
+
   it("tells the change of a single day, and none for an account without a balance or one that starts that day", () => {
     const day = { from: "2026-10-09", to: "2026-10-09" };
     const known = createContext([row("a", "2026-10-08", -1_000), row("b", "2026-10-09", -5_000)], [account], today);

@@ -32,7 +32,7 @@ function rows(): Transaction[] {
     ...months.slice(6).map((m, i) => row(`paid-${i}`, "card", `${m}-14`, 30_000, "SUORITUS", "SUORITUS")),
     ...months.slice(6).map((m, i) => row(`buy-${i}`, "card", `${m}-0${i + 1}`, -4_200, "K-MARKET ESIMERKKI")),
     // a card of another issuer that is never connected
-    ...months.map((m, i) => row(`morrow-${i}`, "chk", `${m}-20`, -12_000, "MORROW BANK ASA", "LASKU")),
+    ...months.map((m, i) => row(`morrow-${i}`, "chk", `${m}-20`, -12_000, "MORROW BANK ASA", "KORTTILASKU")),
     ...months.map((m, i) => row(`food-${i}`, "chk", `${m}-05`, -50_000, "PRISMA ESIMERKKI")),
   ];
 }

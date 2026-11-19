@@ -175,7 +175,7 @@ describe("the review queue", () => {
     expect(await ids(v.admin)).not.toContain("mortgage");
   });
 
-  it("a loan goes with Ei ole laina, and with a loan saved for its series", async () => {
+  it("a loan goes with Ei ole velan maksu, and with a loan saved for its series", async () => {
     const t = await household();
     const [loan] = listed(await queue(t.admin));
     expect((await t.admin.call("PUT", "/api/marks", notLoanMark({ key: loan!.key as string }))).status).toBe(200);
