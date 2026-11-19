@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { watch } from "./helpers.ts";
 
-// Asetukset > Lainat: the box of a new loan reads a picture in the browser. The picture is drawn here, by the test's own
+// Lisää laina of Varat ja velat: the box of a new loan reads a picture in the browser. The picture is drawn here, by the test's own
 // browser, from lines of made-up text in a plain layout of the test's own: no bank's page. The loans this spec saves
 // are removed again.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
@@ -51,8 +51,8 @@ async function draw(browser: Browser, lines: string[]): Promise<Buffer> {
 }
 
 async function openNewLoan(page: Page): Promise<Locator> {
-  await page.goto("/#/settings/household");
-  const card = page.locator("#lainat");
+  await page.goto("/#/reports?q=saldot");
+  const card = page.locator("#saldot");
   await card.getByRole("button", { name: "Lisää laina" }).click();
   const form = card.getByRole("region", { name: "Uusi laina" });
   await expect(form.getByLabel("Lainan tiedot")).toBeVisible();

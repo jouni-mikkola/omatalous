@@ -35,7 +35,7 @@ test.afterAll(async ({ browser }) => {
   for (const member of members) await removeMember(browser, member.id);
 });
 
-const addLink = (block: Locator) => block.getByRole("link", { name: "Lisää asuntolaina", exact: true });
+const addLink = (block: Locator) => block.getByRole("button", { name: "Lisää asuntolaina", exact: true });
 const answerButton = (block: Locator) => block.getByRole("button", { name: "Ei asuntolainaa", exact: true });
 
 const ANSWER = { subject: "question:mortgage", mark: "dismissed" };
@@ -63,13 +63,13 @@ async function openQuestion(browser: Browser, state: string, width = 1280) {
   return { context, page, seen, card: page.locator(".review-item") };
 }
 
-test("Tarkistettavat asks it: Onko taloudessa asuntolaina? with the link to the card Lainat of Asetukset; at 390 px nothing scrolls sideways", async ({ browser }) => {
+test("Tarkistettavat asks it: Onko taloudessa asuntolaina? with Lisää asuntolaina, which opens the form of a home loan in place; at 390 px nothing scrolls sideways", async ({ browser }) => {
   for (const width of [1280, 390]) {
     const { context, page, seen, card } = await openQuestion(browser, members[0]!.state, width);
     // the heading says the place first (Kysymys 1 / 1) and then the question
     await expect(card.getByRole("heading", { level: 2 })).toHaveText(/^Kysymys \d+ \/ \d+ Onko taloudessa asuntolaina\?$/);
     await expect(card.locator(".review-kind")).toHaveText("Asuminen");
-    await expect(addLink(card)).toHaveAttribute("href", "#/settings/household#lainat");
+    await expect(addLink(card)).toBeEnabled();
     await expect(answerButton(card)).toBeEnabled();
     expect(await overflow(page), `Tarkistettavat scrolls sideways at ${width} px`).toBeLessThanOrEqual(1);
     const box = (await card.boundingBox())!;
@@ -79,8 +79,12 @@ test("Tarkistettavat asks it: Onko taloudessa asuntolaina? with the link to the 
     }
     if (width === 1280) {
       await addLink(card).click();
-      await expect(page).toHaveURL(/#\/settings\/household#lainat$/);
-      await expect(page.locator("#lainat").getByRole("heading", { name: "Lainat", exact: true })).toBeVisible();
+      await expect(page).toHaveURL(/#\/review/);
+      const form = card.getByRole("region", { name: "Uusi laina" });
+      await expect(form.getByLabel("Laji")).toHaveValue("mortgage");
+      expect(await form.evaluate((el) => el.contains(document.activeElement)), "the focus is in the form").toBe(true);
+      await form.getByRole("button", { name: "Peruuta" }).click();
+      await expect(addLink(card)).toBeVisible();
     }
     expect(seen.problems).toEqual([]);
     await context.close();

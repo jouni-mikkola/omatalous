@@ -164,7 +164,6 @@ const ROUTES = [
   "/#/reports?q=yhteiset",
   "/#/review",
   "/#/settings/banks",
-  "/#/settings/household",
   "/#/settings/members",
   "/#/settings/security",
   "/#/settings/data",

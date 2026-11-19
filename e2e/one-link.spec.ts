@@ -19,7 +19,6 @@ const ROUTES = [
   "/#/reports?q=saldot",
   "/#/review",
   "/#/settings/banks",
-  "/#/settings/household",
   "/#/settings/members",
   "/#/settings/security",
   "/#/settings/data",

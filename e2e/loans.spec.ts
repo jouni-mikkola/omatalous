@@ -3,7 +3,8 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
-// Asetukset > Lainat: a loan typed into the form, saved, edited and removed. Every lender, figure and date here is made up.
+// Raportit > Varat ja velat, where the loans are kept: a loan typed into the form of Lisää laina in the head of Saldot,
+// saved, edited in its row of Lainat and removed. Every lender, figure and date here is made up.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const FETCH = { "X-Requested-With": "fetch" };
 const PASSWORD = "laina-testin-salasana-1";
@@ -27,9 +28,8 @@ async function administrator(browser: Browser): Promise<BrowserContext> {
 const today = async (context: BrowserContext): Promise<string> => (await (await context.request.get("/api/meta")).json()).today;
 
 /** The days of a made-up loan: owed on the first of this month, ends in twenty years. */
-function typed(day: string): { balanceDate: string; endDate: string; end: string } {
-  const [y, m, d] = day.split("-").map(Number) as [number, number, number];
-  return { balanceDate: `${day.slice(0, 8)}01`, endDate: `${y + 20}${day.slice(4)}`, end: `${d}.${m}.${y + 20}` };
+function typed(day: string): { balanceDate: string; endDate: string } {
+  return { balanceDate: `${day.slice(0, 8)}01`, endDate: `${Number(day.slice(0, 4)) + 20}${day.slice(4)}` };
 }
 
 /** The same day a year later; the days used here are firsts of a month, which every month has. */
@@ -48,14 +48,34 @@ function rateOn(fixings: Record<string, [string, number][]>, on: string, marginB
 /** A rate as the page writes it, "2,96 %", any space before the sign. */
 const percentText = (bp: number): string => `${Math.floor(bp / 100)},${String(bp % 100).padStart(2, "0")}\\s%`;
 
+const HOME = "/#/reports?q=saldot";
+const saldot = (page: Page) => page.locator("#saldot");
 const lainat = (page: Page) => page.locator("#lainat");
-/** The message line of the card (Loans.tsx). */
-const said = (card: Locator, text: string) => expect(card.getByRole("status").filter({ hasText: text })).toHaveText(text);
-/** No saved loan: the list is empty, and the card says so. */
-const noSavedLoans = async (card: Locator) => {
-  await expect(card.getByText("Ei lainoja.")).toBeVisible();
-  await expect(card.getByRole("table", { name: "Lainat", exact: true })).toHaveCount(0);
-};
+/** The line under the head of Saldot that tells what a change of a loan did (More.tsx). */
+const said = (page: Page, text: string) => expect(saldot(page).getByRole("status").filter({ hasText: text })).toHaveText(text);
+/** A loan's row in Lainat. */
+const rowOf = (page: Page, name: string) => lainat(page).getByRole("row").filter({ hasText: name });
+/** No saved loan of that name: Lainat has no row of it. */
+const noRow = (page: Page, name: string) => expect(rowOf(page, name)).toHaveCount(0);
+/** Opens the drill of a saved loan's row, where Muokkaa and Poista laina are; a drill the address keeps open stays open. */
+async function openLoan(page: Page, name: string): Promise<void> {
+  const button = lainat(page).getByRole("button", { name, exact: true });
+  if ((await button.getAttribute("aria-expanded")) !== "true") await button.click();
+  await expect(button).toHaveAttribute("aria-expanded", "true");
+}
+/** Opens a saved loan's editor from its row in Lainat. */
+async function editLoan(page: Page, name: string): Promise<Locator> {
+  await openLoan(page, name);
+  await lainat(page).getByRole("button", { name: `Muokkaa lainaa ${name}` }).click();
+  return page.getByRole("dialog", { name: "Muokkaa lainaa" });
+}
+/** The figures of a saved loan as its editor holds them: the row of Lainat shows the report's figures, not the typed ones. */
+async function expectSaved(page: Page, name: string, fields: Record<string, string>): Promise<void> {
+  const dialog = await editLoan(page, name);
+  for (const [label, value] of Object.entries(fields)) await expect(dialog.getByLabel(label, { exact: true })).toHaveValue(value);
+  await dialog.getByRole("button", { name: "Peruuta" }).click();
+  await expect(dialog).toHaveCount(0);
+}
 const loanWrites = (page: Page): string[] => {
   const seen: string[] = [];
   page.on("request", (r) => {
@@ -82,9 +102,9 @@ test("a loan is typed into the form, a missing kind holds Tallenna back, and the
   const seen = watch(page);
   const writes = loanWrites(page);
   const loan = typed(await today(context));
-  await page.goto("/#/settings/household");
-  const card = lainat(page);
-  await noSavedLoans(card);
+  await page.goto(HOME);
+  const card = saldot(page);
+  await noRow(page, "Asuntolaina, Esimerkkipankki Oyj");
   // the box that reads pasted text or a PDF is part of the new-loan form only
   await expect(card.locator("textarea, input[type=file]")).toHaveCount(0);
 
@@ -124,21 +144,22 @@ test("a loan is typed into the form, a missing kind holds Tallenna back, and the
   await expect(form.getByLabel("Luottoraja (€)")).toHaveCount(0);
   await form.getByRole("button", { name: "Tallenna" }).click();
 
-  await said(card, "Asuntolaina, Esimerkkipankki Oyj tallennettu.");
+  await said(page, "Laina tallennettu.");
   expect(writes).toEqual(["POST"]);
   await expect(form).toHaveCount(0);
   await expect(card.getByRole("button", { name: "Lisää laina" })).toBeVisible();
-  const row = card.getByRole("row").filter({ hasText: "Asuntolaina, Esimerkkipankki Oyj" });
-  for (const text of ["Esimerkkipankki Oyj", /120\s000,00\s€/, "3,39 %", /689,20\s€/, loan.end]) await expect(row).toContainText(text);
+  await expect(rowOf(page, "Asuntolaina, Esimerkkipankki Oyj")).toContainText("Esimerkkipankki Oyj");
+  const typedFigures = { Lainanantaja: "Esimerkkipankki Oyj", "Lainaa jäljellä (€)": "120 000,00", "Korko (%)": "3,39", "Kuukausierä (€)": "689,20", "Viimeinen eräpäivä": loan.endDate };
+  await expectSaved(page, "Asuntolaina, Esimerkkipankki Oyj", typedFigures);
 
   // it is in the database, not only on the page
   await page.reload();
-  await expect(lainat(page).getByRole("row").filter({ hasText: "Asuntolaina, Esimerkkipankki Oyj" })).toContainText(/120\s000,00\s€/);
+  await expectSaved(page, "Asuntolaina, Esimerkkipankki Oyj", typedFigures);
 
   // Peruuta closes the form and saves nothing
-  await lainat(page).getByRole("button", { name: "Lisää laina" }).click();
-  await lainat(page).getByRole("region", { name: "Uusi laina" }).getByRole("button", { name: "Peruuta" }).click();
-  await expect(lainat(page).getByRole("region", { name: "Uusi laina" })).toHaveCount(0);
+  await saldot(page).getByRole("button", { name: "Lisää laina" }).click();
+  await saldot(page).getByRole("region", { name: "Uusi laina" }).getByRole("button", { name: "Peruuta" }).click();
+  await expect(saldot(page).getByRole("region", { name: "Uusi laina" })).toHaveCount(0);
   expect(writes).toEqual(["POST"]);
   expect(seen.problems).toEqual([]);
   await context.close();
@@ -148,10 +169,9 @@ test("a saved loan is edited in a dialog and removed after a question", async ({
   const context = await administrator(browser);
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/settings/household");
+  await page.goto(HOME);
   const card = lainat(page);
-  await card.getByRole("button", { name: "Muokkaa lainaa Asuntolaina, Esimerkkipankki Oyj" }).click();
-  const dialog = page.getByRole("dialog", { name: "Muokkaa lainaa" });
+  const dialog = await editLoan(page, "Asuntolaina, Esimerkkipankki Oyj");
   await expect(dialog.getByLabel("Nimi")).toHaveValue("Asuntolaina, Esimerkkipankki Oyj");
   await expect(dialog.getByLabel("Lainaa jäljellä (€)")).toHaveValue("120 000,00");
   await dialog.getByLabel("Nimi").fill("Kodin laina");
@@ -173,23 +193,27 @@ test("a saved loan is edited in a dialog and removed after a question", async ({
   await expect(dialog.locator(".loan-rate-now")).toHaveText(new RegExp(`^Korko nyt ${percentText(rateBp)}$`));
   await dialog.getByRole("button", { name: "Tallenna" }).click();
   await expect(dialog).toHaveCount(0);
-  await said(card, "Muutokset tallennettu.");
-  const row = card.getByRole("row").filter({ hasText: "Kodin laina" });
-  await expect(row).toContainText(/119\s500,00\s€/);
-  await expect(row).toContainText(new RegExp(percentText(rateBp)));
+  await said(page, "Muutokset tallennettu.");
+  const row = rowOf(page, "Kodin laina");
+  await expect(row).toBeVisible();
+  await editLoan(page, "Kodin laina");
+  await expect(dialog.getByLabel("Lainaa jäljellä (€)")).toHaveValue("119 500,00");
+  await expect(dialog.locator(".loan-rate-now")).toHaveText(new RegExp(`^Korko nyt ${percentText(rateBp)}$`));
+  await dialog.getByRole("button", { name: "Peruuta" }).click();
   // the fields the form did not touch went back as they were, and the rate is the one counted
   const { loans } = await (await context.request.get("/api/loans", RESEND)).json();
   expect(loans).toHaveLength(1);
   expect(loans[0]).toMatchObject({ name: "Kodin laina", kind: "mortgage", lender: "Esimerkkipankki Oyj", balanceCents: 11_950_000, grantedCents: 15_000_000, rateBp, reference: "euribor_12", marginBp: 65, rateReviewDate: nextYear(balanceDate), repayment: "annuity", intervalMonths: 1, paymentCents: null, limitCents: null, seriesKey: null });
 
+  await openLoan(page, "Kodin laina");
   await card.getByRole("button", { name: "Poista laina Kodin laina" }).click();
   const question = page.getByRole("dialog", { name: "Poista Kodin laina?" });
   await question.getByRole("button", { name: "Peruuta" }).click();
   await expect(row).toBeVisible();
   await card.getByRole("button", { name: "Poista laina Kodin laina" }).click();
   await question.getByRole("button", { name: "Poista laina" }).click();
-  await said(card, "Laina poistettu.");
-  await noSavedLoans(card);
+  await said(page, "Laina poistettu.");
+  await noRow(page, "Kodin laina");
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -200,10 +224,9 @@ test("the day the rate is reviewed is typed in the form and kept, a fixed rate h
   const page = await context.newPage();
   const seen = watch(page);
   const loans = async () => (await (await context.request.get("/api/loans", RESEND)).json()).loans as { name: string; reference: string | null; rateReviewDate?: string | null }[];
-  await page.goto("/#/settings/household");
-  const card = lainat(page);
-  await card.getByRole("button", { name: "Lisää laina" }).click();
-  const form = card.getByRole("region", { name: "Uusi laina" });
+  await page.goto(HOME);
+  await saldot(page).getByRole("button", { name: "Lisää laina" }).click();
+  const form = saldot(page).getByRole("region", { name: "Uusi laina" });
   await form.getByLabel("Laji").selectOption("mortgage");
   await form.getByLabel("Nimi").fill("Kotilaina");
   await form.getByLabel("Lainaa jäljellä (€)").fill("120 000");
@@ -225,13 +248,12 @@ test("the day the rate is reviewed is typed in the form and kept, a fixed rate h
   await form.getByLabel("Viitekorko", { exact: true }).selectOption("euribor_12");
   await expect(day).toHaveValue("2027-03-14");
   await form.getByRole("button", { name: "Tallenna" }).click();
-  await said(card, "Kotilaina tallennettu.");
+  await said(page, "Laina tallennettu.");
   expect(await loans()).toMatchObject([{ name: "Kotilaina", reference: "euribor_12", rateReviewDate: "2027-03-14" }]);
 
   // the day is kept: it is in the editor after a reload
   await page.reload();
-  await card.getByRole("button", { name: "Muokkaa lainaa Kotilaina" }).click();
-  const dialog = page.getByRole("dialog", { name: "Muokkaa lainaa" });
+  const dialog = await editLoan(page, "Kotilaina");
   await expect(dialog.getByLabel("Koron tarkistuspäivä", { exact: true })).toHaveValue("2027-03-14");
   // on a phone neither the page nor the form scrolls sideways
   await page.setViewportSize({ width: 390, height: 844 });
@@ -243,11 +265,11 @@ test("the day the rate is reviewed is typed in the form and kept, a fixed rate h
   await dialog.getByLabel("Viitekorko", { exact: true }).selectOption("fixed");
   await expect(dialog.getByLabel("Koron tarkistuspäivä", { exact: true })).toHaveCount(0);
   await dialog.getByRole("button", { name: "Tallenna" }).click();
-  await said(card, "Muutokset tallennettu.");
+  await said(page, "Muutokset tallennettu.");
   expect(await loans()).toMatchObject([{ name: "Kotilaina", reference: "fixed" }]);
   expect((await loans())[0]!.rateReviewDate ?? null).toBeNull();
   // and its editor has no field either
-  await card.getByRole("button", { name: "Muokkaa lainaa Kotilaina" }).click();
+  await editLoan(page, "Kotilaina");
   await expect(dialog.getByLabel("Koron tarkistuspäivä", { exact: true })).toHaveCount(0);
   await dialog.getByRole("button", { name: "Peruuta" }).click();
   expect(seen.problems).toEqual([]);
@@ -255,7 +277,7 @@ test("the day the rate is reviewed is typed in the form and kept, a fixed rate h
   await context.close();
 });
 
-test("on a phone a loan on a euribor is typed with its margin alone, the form shows the rate now, and the list shows the saved rate", async ({ browser }) => {
+test("on a phone a loan on a euribor is typed with its margin alone, the form shows the rate now, and its editor shows the saved rate", async ({ browser }) => {
   const context = await administrator(browser);
   await clearLoans(context);
   const day = await today(context);
@@ -267,15 +289,14 @@ test("on a phone a loan on a euribor is typed with its margin alone, the form sh
   const page = await context.newPage();
   await page.setViewportSize({ width: 390, height: 844 });
   const seen = watch(page);
-  await page.goto("/#/settings/household");
-  const card = lainat(page);
-  await card.getByRole("button", { name: "Lisää laina" }).click();
-  const form = card.getByRole("region", { name: "Uusi laina" });
+  await page.goto(HOME);
+  await saldot(page).getByRole("button", { name: "Lisää laina" }).click();
+  const form = saldot(page).getByRole("region", { name: "Uusi laina" });
   await form.getByLabel("Laji").selectOption("mortgage");
   await form.getByLabel("Nimi").fill("Marginaalilaina");
   await form.getByLabel("Lainaa jäljellä (€)").fill("80 000");
 
-  // the dates are the browser's own date fields, whole on a phone; the saved one shows in the list as d.m.yyyy
+  // the dates are the browser's own date fields, whole on a phone
   const balanceDay = form.getByLabel("Saldon päivä", { exact: true });
   await expect(balanceDay).toHaveAttribute("type", "date");
   await expect(balanceDay).toHaveValue(day);
@@ -295,13 +316,15 @@ test("on a phone a loan on a euribor is typed with its margin alone, the form sh
   expect(await overflow(page)).toBeLessThanOrEqual(1);
 
   await form.getByRole("button", { name: "Tallenna" }).click();
-  await said(card, "Marginaalilaina tallennettu.");
+  await said(page, "Laina tallennettu.");
   const { loans } = await (await context.request.get("/api/loans", RESEND)).json();
   expect(loans).toMatchObject([{ name: "Marginaalilaina", reference: "euribor_12", marginBp: 65, rateReviewDate: reviewDay, rateBp, balanceDate: day }]);
-  // the saved rate is the figure the form showed, and the balance day before it, of this year, reads d.m. with no year
-  const saved = card.getByRole("row").filter({ hasText: "Marginaalilaina" });
-  const [, m, d] = day.split("-").map(Number) as [number, number, number];
-  await expect(saved).toContainText(new RegExp(`€${d}\\.${m}\\.${rate.source}`));
+  // the saved rate is the figure the form showed, with the balance day
+  const saved = await editLoan(page, "Marginaalilaina");
+  await expect(saved.locator(".loan-rate-now")).toHaveText(new RegExp(`^Korko nyt ${rate.source}$`));
+  await expect(saved.getByLabel("Saldon päivä", { exact: true })).toHaveValue(day);
+  expect(await overflow(page)).toBeLessThanOrEqual(1);
+  await saved.getByRole("button", { name: "Peruuta" }).click();
   expect(seen.problems).toEqual([]);
   await clearLoans(context);
   await context.close();
@@ -322,31 +345,35 @@ test("a member sees and changes only their own loans, and the page fits a phone"
     expect((await context.request.post("/api/auth/first-password", { headers: FETCH, data: { next: PASSWORD } })).status()).toBe(200);
     const page = await context.newPage();
     const seen = watch(page);
-    await page.goto("/#/settings/household");
-    const card = lainat(page);
-    // the administrator's card is not the member's
-    await expect(card.getByText("Ei lainoja.")).toBeVisible();
-    await expect(card.getByText("Mallirahoitus")).toHaveCount(0);
+    await page.goto(HOME);
+    // the administrator's card is not the member's: the member has no loan, so no Lainat
+    await expect(saldot(page).getByRole("button", { name: "Lisää laina" })).toBeVisible();
+    await expect(lainat(page)).toHaveCount(0);
+    await expect(page.getByText("Mallirahoitus")).toHaveCount(0);
 
     // a loan typed in by hand, on a phone
-    await card.getByRole("button", { name: "Lisää laina" }).click();
-    const form = card.getByRole("region", { name: "Uusi laina" });
+    await saldot(page).getByRole("button", { name: "Lisää laina" }).click();
+    const form = saldot(page).getByRole("region", { name: "Uusi laina" });
     await form.getByLabel("Laji").selectOption("car");
     await form.getByLabel("Nimi").fill("Auton laina");
     await form.getByLabel("Lainaa jäljellä (€)").fill("9 800,50");
     await form.getByLabel("Korko (%)").fill("5,25");
     expect(await overflow(page)).toBeLessThanOrEqual(1);
     await form.getByRole("button", { name: "Tallenna" }).click();
-    await said(card, "Auton laina tallennettu.");
-    await expect(card.getByRole("row").filter({ hasText: "Auton laina" })).toContainText(/9\s800,50\s€/);
-    // the phone shows the rate in the row's block
-    await expect(card.getByRole("row").filter({ hasText: "Auton laina" })).toContainText("5,25 %");
+    await said(page, "Laina tallennettu.");
+    await expect(rowOf(page, "Auton laina")).toBeVisible();
     expect(await overflow(page)).toBeLessThanOrEqual(1);
+    // the phone shows the balance and the rate in the loan's editor
+    const dialog = await editLoan(page, "Auton laina");
+    await expect(dialog.getByLabel("Lainaa jäljellä (€)")).toHaveValue("9 800,50");
+    await expect(dialog.getByLabel("Korko (%)")).toHaveValue("5,25");
+    expect(await overflow(page)).toBeLessThanOrEqual(1);
+    await dialog.getByRole("button", { name: "Peruuta" }).click();
 
     // the administrator's list has the card and not the member's car loan
     const adminPage = await admin.newPage();
-    await adminPage.goto("/#/settings/household");
-    await expect(lainat(adminPage).getByRole("row").filter({ hasText: "Luottokortti, Mallirahoitus Bank AB" })).toBeVisible();
+    await adminPage.goto(HOME);
+    await expect(rowOf(adminPage, "Luottokortti, Mallirahoitus Bank AB")).toBeVisible();
     await expect(lainat(adminPage).getByText("Auton laina")).toHaveCount(0);
     expect(seen.problems).toEqual([]);
   } finally {
@@ -387,16 +414,18 @@ test("the Lainat report offers to link a saved card to the card account, and the
   const dialog = page.getByRole("dialog", { name: "Muokkaa lainaa" });
   await expect(dialog.getByLabel("Nimi")).toHaveValue("Esimerkkikortti");
   await expect(dialog.getByLabel("Sama velka pankin tilillä")).toHaveValue(account!.id);
-  await expect(page).toHaveURL(/#\/settings\/household#lainat$/);
+  // the loan's row is open in Varat ja velat, and the address forgets the link, so a reload does not open the editor again
+  await expect(page).toHaveURL(/#\/reports\?q=saldot&drill=[^#]*#lainat$/);
+  await expect(page).not.toHaveURL(/linkLoan|linkAccount/);
   await dialog.getByRole("button", { name: "Tallenna" }).click();
   await expect(dialog).toHaveCount(0);
-  const card = lainat(page);
-  await said(card, "Muutokset tallennettu.");
-  // the row says which account it is linked to
-  await expect(card.getByRole("row").filter({ hasText: "Esimerkkikortti" })).toContainText("Liitetty tiliin Nordea Gold (esimerkki)");
+  await said(page, "Muutokset tallennettu.");
+  // the editor keeps the account it is linked to
+  const linked = await editLoan(page, "Esimerkkikortti");
+  await expect(linked.getByLabel("Sama velka pankin tilillä")).toHaveValue(account!.id);
+  await linked.getByRole("button", { name: "Peruuta" }).click();
 
-  // back at the report, with no reload by hand: the sentence is gone and the total fell by the typed balance
-  await page.goBack();
+  // on the same report, with no reload by hand: the sentence is gone and the total fell by the typed balance
   await expect(report.getByText("Esimerkkikortti").first()).toBeVisible();
   await expect(report.locator('li.notice[data-tone="warning"]').filter({ hasText: "Sama velka voi olla summassa kahdesti" })).toHaveCount(0);
   expect(before - (await owed(report))).toBe(1000);
@@ -415,10 +444,8 @@ test("a refusal of the server stands in the form where its other errors are, and
   for (const name of ["Esimerkkikortti A", "Esimerkkikortti B"]) expect((await context.request.post("/api/loans", { headers: FETCH, data: cardLoan(name, day) })).status()).toBe(200);
   const page = await context.newPage();
   const seen = watch(page);
-  await page.goto("/#/settings/household");
-  const card = lainat(page);
-  await card.getByRole("button", { name: "Muokkaa lainaa Esimerkkikortti B" }).click();
-  const dialog = page.getByRole("dialog", { name: "Muokkaa lainaa" });
+  await page.goto(HOME);
+  const dialog = await editLoan(page, "Esimerkkikortti B");
   await dialog.getByLabel("Sama velka pankin tilillä").selectOption(account!.id);
 
   // meanwhile the card is linked to the other loan: the form still offers it, and the server says no
@@ -432,7 +459,7 @@ test("a refusal of the server stands in the form where its other errors are, and
   // with the list read again, the form does not offer the card the other loan holds, and the select is not there at all
   await dialog.getByRole("button", { name: "Peruuta" }).click();
   await page.reload();
-  await card.getByRole("button", { name: "Muokkaa lainaa Esimerkkikortti B" }).click();
+  await editLoan(page, "Esimerkkikortti B");
   await expect(page.getByRole("dialog", { name: "Muokkaa lainaa" }).getByLabel("Sama velka pankin tilillä")).toHaveCount(0);
   // the refusal is the one 400 of the page
   expect(seen.problems.filter((p) => !/HTTP 400: PUT .*\/api\/loans\//.test(p) && !/Failed to load resource.*400/.test(p))).toEqual([]);

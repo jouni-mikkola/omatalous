@@ -1,4 +1,4 @@
-/** The Finnish names of a loan's fields and choices, shared by the list and the form of Asetukset > Lainat. */
+/** The Finnish names of a loan's fields and choices, shared by the list and the form of the loans. */
 import { MAX_LOAN_INTERVAL_MONTHS } from "@banking/core";
 import type { Loan, LoanKind } from "@banking/core";
 import { t } from "../../text.ts";

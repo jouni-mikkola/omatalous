@@ -189,7 +189,7 @@ const sides = (twin: MaybeTwice) =>
     accounts: t(twin.accounts.length === 1 ? "rpt.ln_acct_one" : "rpt.ln_acct_many", { names: listed(twin.accounts.map((a) => a.name), and()) }),
   });
 
-/** A link that ends a sentence: it opens an editor in Asetukset > Lainat. */
+/** A link that ends a sentence: it opens a loan's editor in its row of Lainat. */
 interface Offer {
   label: string;
   href: string;
