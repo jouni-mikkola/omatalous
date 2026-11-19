@@ -550,7 +550,9 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   interval starts on or after the loan's next review day is an estimate too: the loan's schedule counts it at the newest
   published fixing and the margin, and with a fixing and margin that leave the rate as it is, the payment stays as it
   was. A loan with no margin or review day keeps its typed payment. A charge made this
-  month is *paid* and no part of what is still to come; a loan a series paid this month has that charge as its row of the
+  month is *paid* and no part of what is still to come; the month's `paidCents` adds those bills and loan payments up (a
+  card's left out), so the head of the running month tells *Maksetut laskut* and *Maksamatta* instead of a *Laskut* that
+  would read 0 over paid bills, and a month with nothing left to come has no *Laskujen jälkeen*; a loan a series paid this month has that charge as its row of the
   month and no payment of its plan besides. A loan with one payment at its last day has a row on that day for what is
   owed. A bill typed in under the name of a rare bill the history found counts once, as the found one. A loan a series
   pays is the series' row. A pay that is late, money from people and a settlement between members are no income row. A

@@ -90,6 +90,7 @@ export const FI_OVERVIEW = {
   "home.coming_after": "Laskujen jälkeen",
   "home.coming_after_unknown": "Ei tiedossa",
   "home.coming_estimate": "{sum} (arviota {estimate})",
+  "home.coming_unpaid": "{sum} maksamatta",
   "home.low": "Alin saldo {days} pv: {date}, arviolta {range}",
   "home.low_label": "Alin saldo {days} pv:",
   "home.low_bills": "Laskun summa tai päivä ei ole tiedossa",
