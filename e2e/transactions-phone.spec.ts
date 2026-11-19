@@ -350,7 +350,7 @@ test("1280 px: the bar is one line, the sums stand on one line and the histogram
   // Menot, Tulot and Erotus, what the rows move to or from savings and the Tulos it leaves: the demo data moves money to savings
   expect(cells.length).toBe(5);
   await expect(strip.locator("dt").nth(3)).toHaveText(/^(Säästöön siirretty|Otettu säästöistä)$/);
-  await expect(strip.locator("dt").nth(4)).toHaveText("Tulos");
+  await expect(strip.locator("dt").nth(4)).toHaveText("Käteen jäi");
   const tops = cells.map((c) => Math.round(c.top));
   expect(Math.max(...tops) - Math.min(...tops), "the sums share a line").toBeLessThanOrEqual(1);
   expect(cells[1]!.left, "side by side").toBeGreaterThan(cells[0]!.right - 1);

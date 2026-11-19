@@ -24,7 +24,7 @@ import { type EverydayGap, expectedEveryday } from "./expected.ts";
 /**
  * Why there is no runway. "no-payday": no regular pay to wait for within the days looked at, or one behind its day with
  * no next one. "late": the largest regular income is late. "no-balance": a counted checking account has no balance. "no-card-balance": a card in view has none.
- * "history": under three complete months to expect everyday spending from. "cards": a linked card's purchases are missing from them.
+ * "history": under three complete months to expect everyday spending from. "cards": the months start at a card connected later, so its earlier purchases are missing.
  */
 type RunwayGap = "no-payday" | "late" | "no-balance" | "no-card-balance" | EverydayGap;
 

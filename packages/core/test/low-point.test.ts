@@ -107,6 +107,22 @@ describe("lowPoint with everyday spending", () => {
     expect(runway.known && [runway.leftCents, runway.lowCents, runway.highCents]).toEqual([702_000, 666_000, 738_000]);
   });
 
+  it("is known where a card's purchases are only a bill: the month's total pace is taken off, so the figure is lower than without the card", () => {
+    // a card never connected pays by a bill of 300 to 400 € on the 9th, which holds its purchases in no category and on no day
+    const bills = ["2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"].map((m) =>
+      tx({ accountId: own.id, bookingDate: `${m}-09`, amountCents: -(30_000 + 1000 * Number(m.slice(5, 7))), merchant: "Esimerkkipankki", counterparty: "Esimerkkipankki", category: "card_bill" }),
+    );
+    const base = [...pays(), ...rents(), ...shopping("2026-03-01", 4000)];
+    const without = walk(base, [bal(900_000)], 30).point;
+    const { point, runway } = walk([...base, ...bills], [bal(900_000)], 30);
+    if (!point.known || !without.known) throw new Error("no lowest balance");
+    expect(runway.known).toBe(true);
+    // the bills average about 12 € a day over the 18 days to the payday: at least 150 € under the figure without the card
+    expect(point.cents).toBeLessThan(without.cents - 15_000);
+    expect(point.lowCents).toBeLessThanOrEqual(point.cents);
+    expect(point.cents).toBeLessThanOrEqual(point.highCents);
+  });
+
   it("keeps the low end of the range at or under the figure and the figure at or under the high end", () => {
     const rows = [...pays(), ...rents(), ...shopping("2026-03-01", 4000, ["2026-07", "2026-08", "2026-09"])];
     for (const days of [1, 7, 19, 45, 60]) {

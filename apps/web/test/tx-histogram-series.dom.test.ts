@@ -38,7 +38,7 @@ describe("the figures of the strip", () => {
 
   it("names what was taken out of savings and shows its amount with no sign, then Tulos", () => {
     strip({ savedCents: -200_00, leftCents: 1030_00 });
-    expect(terms().map(([word]) => word)).toEqual(["Menot", "Tulot", "Erotus", "Otettu säästöistä", "Tulos"]);
+    expect(terms().map(([word]) => word)).toEqual(["Menot", "Tulot", "Erotus", "Otettu säästöistä", "Käteen jäi"]);
     expect(terms()[3]![1]).toMatch(/^200\s€$/);
     expect(terms()[3]![1]).not.toMatch(/[-−+]/);
     expect(terms()[4]![1]).toMatch(/^\+1\s030\s€$/);

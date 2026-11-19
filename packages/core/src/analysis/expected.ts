@@ -365,7 +365,7 @@ interface ExpectedEveryday {
   months: number;
 }
 
-/** Why there is no expected everyday spending: under `MIN_COMPARE_MONTHS` complete months, or a linked card's purchases are missing from them. */
+/** Why there is no expected everyday spending: under `MIN_COMPARE_MONTHS` complete months, or the base starts at a card connected later. */
 export type EverydayGap = "history" | "cards";
 
 /**
@@ -376,16 +376,27 @@ export type EverydayGap = "history" | "cards";
  * a day a base month does not have (the 31st) adds that month's mean day (its spending over its
  * length). `keep` limits it to the rows of some accounts: the
  * payday runway asks for the ones the counted accounts pay themselves. `month` is the month whose base months it reads (`from`'s by default): a span that starts in the next month (the day after the month's last day) still reads this one's, since the next one has no complete month yet. The day-by-day rate of the first page and the
- * runway read this, so everyday spending has one definition.
+ * runway read this, so everyday spending has one definition. A base month that holds a card's purchases only as a bill
+ * (outside `covered`) has no days for them: the bill's sum is spread evenly over the month's days, so the total pace of
+ * the month is whole and the spans that read it still have a figure. Only a base too short, or one that starts at a card
+ * connected later, leaves it without.
  */
 export function expectedEveryday(ctx: AnalysisContext, from: IsoDate, until: IsoDate, keep: (t: AnalysisTx) => boolean = () => true, month: string = monthOf(from)): ExpectedEveryday | EverydayGap {
   const figure = expectedFor(ctx, month);
   // the reason Yhteenveto's month gives, so the runway's cannot say "history" beside their "cards"
-  if (!figure || !coversCategories(figure)) return usualGap(ctx, month) ?? "history";
+  if (!figure) return usualGap(ctx, month) ?? "history";
   const struck = expectedOneOffs(ctx, [...figure.months, figure.month]);
   const perDay = figure.months.map((m) => {
     const days = new Array<number>(31).fill(0);
-    for (const t of rowsOf(ctx, m)) if (t.spend !== 0 && !ctx.fixedIds.has(t.id) && t.category !== "card_bill" && !struck.has(t.id) && keep(t)) days[dayOf(t) - 1]! += t.spend;
+    const bridged = !figure.covered.includes(m);
+    const length = daysInMonth(m);
+    for (const t of rowsOf(ctx, m)) {
+      if (t.spend === 0 || struck.has(t.id) || !keep(t)) continue;
+      // the only record of a card's purchases in a month the feed does not cover: its sum, with no day of its own
+      if (t.category === "card_bill") {
+        if (bridged) for (let d = 0; d < length; d++) days[d]! += t.spend / length;
+      } else if (!ctx.fixedIds.has(t.id)) days[dayOf(t) - 1]! += t.spend;
+    }
     return days;
   });
   const totals = figure.months.map(() => 0);

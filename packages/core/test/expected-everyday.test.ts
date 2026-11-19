@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
-import { expectedEveryday, expectedEverydayPerDay } from "../src/analysis/expected.ts";
-import { addDays } from "../src/dates.ts";
+import { coversCategories, expectedEveryday, expectedEverydayPerDay, expectedFor, usualGap } from "../src/analysis/expected.ts";
+import { addDays, daysInMonth } from "../src/dates.ts";
 import type { Account, IsoDate, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
@@ -73,5 +73,30 @@ describe("the expected everyday spending of a span of days", () => {
     const rows = [...shopping()].filter((t) => t.bookingDate >= "2026-08-01");
     expect(expectedEveryday(ctxOf(rows), "2026-10-10", "2026-10-16")).toBe("history");
     expect(expectedEverydayPerDay(ctxOf(rows), "2026-10")).toBe(0);
+  });
+});
+
+describe("the everyday spending where a card's purchases are only a bill", () => {
+  /** A card never connected: its bill of each month, a sum that differs every month so no fixed amount, is paid from the checking account on the 9th. */
+  const billOf = (month: string) => 30_000 + 1000 * Number(month.slice(5, 7));
+  const billed = (): Transaction[] => [
+    ...shopping(),
+    ...["2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"].map((m) =>
+      tx({ accountId: "acc-1", bookingDate: `${m}-09`, amountCents: -billOf(m), merchant: "Esimerkkipankki", counterparty: "Esimerkkipankki", category: "card_bill" }),
+    ),
+  ];
+
+  it("has a figure from the month's total: each bill is spread over the days of its month, and the shop's days stay as they were", () => {
+    const ctx = ctxOf(billed());
+    const figure = expectedFor(ctx, "2026-10")!;
+    expect(coversCategories(figure)).toBe(false);
+    expect(usualGap(ctx, "2026-10")).toBe("cards");
+    const e = expectedEveryday(ctx, "2026-10-10", "2026-10-16");
+    if (typeof e === "string") throw new Error(e);
+    const perMonth = figure.months.map((m) => 7 * 4000 + (7 * billOf(m)) / daysInMonth(m));
+    const mean = perMonth.reduce((n, v) => n + v, 0) / perMonth.length;
+    expect(Math.abs(e.cents - mean)).toBeLessThanOrEqual(1);
+    expect(e.cents).toBeGreaterThan(7 * 4000);
+    expect(expectedEverydayPerDay(ctx, "2026-10")).toBeGreaterThan(4000);
   });
 });
