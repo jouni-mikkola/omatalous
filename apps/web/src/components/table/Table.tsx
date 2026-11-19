@@ -205,7 +205,7 @@ export function Table<R>({
         >
           {columns.map((c, i) => {
             const lead =
-              i === 0 && drill && drillButton ? (
+              i === 0 && detail !== null && drillButton ? (
                 <DrillButton
                   open={isOpen}
                   onToggle={() => setOpen(isOpen ? null : key)}
