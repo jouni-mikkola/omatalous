@@ -153,7 +153,14 @@ test("the coming months tell the figures the month heads of Laskut tell", async 
   await page.goto("/#/bills");
   await expect(page.locator(".bill-sums").first()).toBeVisible({ timeout: 15_000 });
   const heads = (await page.locator(".bill-sums").allInnerTexts()).slice(0, 3);
-  for (const [i, month] of billCalendar.months.slice(0, 3).entries()) expect(sums(heads[i]!)[0], `${month.month}: Laskut' head`).toBe(month.billsCents);
+  for (const [i, month] of billCalendar.months.slice(0, 3).entries()) {
+    // a month with bills paid names them first (Maksetut laskut), then what is unpaid (Maksamatta)
+    const [first, second] = sums(heads[i]!);
+    if (month.paidCents > 0) {
+      expect(first, `${month.month}: Laskut' head, the paid bills`).toBe(month.paidCents);
+      expect(second, `${month.month}: Laskut' head, the unpaid bills`).toBe(month.billsCents);
+    } else expect(first, `${month.month}: Laskut' head`).toBe(month.billsCents);
+  }
   await context.close();
 });
 
