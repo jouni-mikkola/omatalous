@@ -283,8 +283,8 @@ reads the list in `householdDebts`, and no view adds loans and accounts up itsel
    the Lainat report, the accounts less the debts in Saldot, the loan area of Säästövinkit and `buildHoldings` for the
    first page. A debt that may still be counted twice is named by `maybeTwice` in `reports/loans.ts`.
 4. In the web, `LoanLinks` (`components/loans/LoanEditor.tsx`) gives the form the household's accounts and loans, and the
-   Lainat report links to a loan's form with an account chosen by `#/settings?linkLoan=<loan id>&linkAccount=<account id>`
-   (`LOAN_LINK_PARAM` in `components/loans/form.ts`).
+   Lainat report opens a loan's form in its row with an account chosen by `loanEditHash` (`routes.ts`), whose
+   `linkLoan=<loan id>&linkAccount=<account id>` are `LOAN_LINK_PARAM` in `components/loans/form.ts`.
 5. Tests to extend: `packages/core/test/household-debts.test.ts` (the list and its three readers, with and without a
    link), `owners.test.ts` (the readers agree), `balances-holdings.test.ts` (cards' use and loans' balance add up to the
    debt total), `apps/server/test/loan-link.test.ts` (own account only, one loan to an account, the link goes with the

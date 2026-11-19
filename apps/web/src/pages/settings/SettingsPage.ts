@@ -4,7 +4,7 @@ import type { Meta } from "../../types.ts";
 export interface SettingsPageProps {
   meta: Meta;
   params: URLSearchParams;
-  /** The card the address names (`#lainat`): the target scrolls to it once its cards have their data. */
+  /** The card the address names (`#salasana`): the target scrolls to it once its cards have their data. */
   anchor?: string;
   onChange: () => void;
 }

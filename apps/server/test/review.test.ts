@@ -180,7 +180,7 @@ describe("the review queue", () => {
     const [loan] = listed(await queue(t.admin));
     expect((await t.admin.call("PUT", "/api/marks", notLoanMark({ key: loan!.key as string }))).status).toBe(200);
     expect(await debtIds(t.admin)).not.toContain(loan!.id);
-    // the proposals of Asetukset > Lainat read the same: nothing left there either
+    // the proposals of GET /api/loans/proposals read the same: nothing left there either
     expect((await t.admin.call("GET", "/api/loans/proposals")).body.proposals).toEqual([]);
 
     const u = await household();

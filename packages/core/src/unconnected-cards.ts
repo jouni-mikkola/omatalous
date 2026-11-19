@@ -9,7 +9,7 @@
  * Its key is the series id without a product, which `Loan.seriesKey` takes when the household saves the card as a loan.
  * A card's bill differs from month to month, so the key holds no amount and names every series of the payee on the account.
  *
- * A card the household saved in Asetukset > Lainat has no key (only a loan made from a proposal gets one), so each saved
+ * A card the household saved by hand (Lisää laina) has no key (only a loan made from a proposal gets one), so each saved
  * card loan with no key and no connected account takes one series, and a card of the issuer of a connected card account
  * is no question: its bills are that account's.
  *
