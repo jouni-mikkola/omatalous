@@ -1,4 +1,4 @@
-/* Asetukset > Lainat: the saved loans and the form of a loan. */
+/* Varat ja velat > Lainat: the form of a loan, its editor and the report. */
 
 @layer pages {
 .loans-wait { visibility: hidden; }
