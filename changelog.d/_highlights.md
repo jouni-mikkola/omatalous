@@ -1,0 +1,5 @@
+- Lainat ranks every debt by its real rate, says Kallis or Erittäin kallis, and opens each one to its cost and payoff plan.
+- Täydennä lainat asks every debt that lacks a balance, rate, payment or fee in one list.
+- Short loans, credit lines and instalment plans of payment services are found in the bank rows as unsaved loans.
+- Cards whose purchases are missing are listed under Asetukset, and a card statement never counts a purchase twice.
+- A loan can have a rate change on a set day, for an offer such as 0 % until March, then 19,9 %.
