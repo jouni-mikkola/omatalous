@@ -8,6 +8,7 @@ import { BANK_FIGURES } from "./bank-figures.ts";
 import { COUNTRY_CODES, dropCardEnvelope, isCurrencyCode } from "./card-text.ts";
 import { PAYMENT_SERVICES } from "./payment-services.ts";
 import { companyForms, hasPayeeForm, isPersonShaped, MOBILEPAY_SHOP_PREFIX } from "./wording.ts";
+import { withoutSwedishTwin } from "./wording-lenders.ts";
 
 /** A folded service name as a pattern: a space is one or more spaces. */
 const spelled = (name: string) => name.replace(/ /g, String.raw`\s+`);
@@ -482,7 +483,8 @@ export function normalizeMerchant(counterparty: string | null, description: stri
     // the company from the person, and the guard before the trade register reads it.
     // The chains of the car trade are listed with their form ("LAAKKONEN OY"): that form stays too.
     while (all.length > 1 && COMPANY_FORMS.has(fold(all[all.length - 1]!)) && !formTellsApart(all)) all.pop();
-    const words = all.slice(0, 4);
+    // the bank's Swedish word beside the Finnish one it repeats ("LAINAT LÅN") is no part of the name, as in a loan's name
+    const words = withoutSwedishTwin(all.join(" ")).split(" ").filter(Boolean).slice(0, 4);
     // whole words up to 40 characters
     while (words.length > 1 && words.join(" ").length > 40) words.pop();
     if (words.length) return titleCase(words.join(" ")).slice(0, 40);
