@@ -79,6 +79,7 @@ export const THRESHOLDS = {
   dearDebtBelowPoints: threshold(15, "points", "A judgement: consumer credit and a car loan cost 7 to 15 % a year; a card or a flexible credit at interest, or a small plan with a fee on each payment, costs more."),
   debtPlanBufferMonths: threshold(1, "months", "A judgement: a month of usual spending in the accounts before any extra money goes to a debt, so the next surprise is paid from the buffer and not with new credit."),
   snowballGapCents: threshold(5000, "cents", "A judgement: paying the smallest debt first costs this much more interest than the dearest first before it is worth a line; the gap is usually a few euros."),
+  quietPaymentCents: threshold(5000, "cents", "A judgement: one payment under 50 € to a payee nothing recognised stays in Muut menot and is not asked about, since the answer moves too little to be worth a question. A second payment or one of 50 € or more asks it."),
 } as const;
 
 export const USUAL_MONTHS = THRESHOLDS.usualMonths.value;
@@ -139,3 +140,4 @@ export const MIN_RARE_BILL_CENTS = THRESHOLDS.minRareBillCents.value;
 export const LOAN_ROW_DAYS = THRESHOLDS.loanRowDays.value;
 export const LOAN_ROW_TOLERANCE_CENTS = THRESHOLDS.loanRowToleranceCents.value;
 export const LOAN_ROW_TOLERANCE_SHARE = THRESHOLDS.loanRowToleranceShare.value;
+export const QUIET_PAYMENT_CENTS = THRESHOLDS.quietPaymentCents.value;

@@ -285,6 +285,17 @@
         "SKATTEATERBETALNING"
       ]
     },
+    "INTEREST_CREDIT_WORDS": {
+      "about": "The bank's own words for interest it adds to the account or pays into it, which KORKO alone misses because the text names the posting (Koron pääomitus).",
+      "alternatives": [
+        "KORON PAAOMITUS",
+        "KORKOJEN PAAOMITUS",
+        "PAAOMITETTU KORKO",
+        "KORON HYVITYS",
+        "KORKOJEN HYVITYS",
+        "KORON TILITYS"
+      ]
+    },
     "OWN_ACCOUNT_TRANSFER_WORDS": {
       "about": "The bank's own words for a move between the household's accounts when it gives no account number.",
       "alternatives": [

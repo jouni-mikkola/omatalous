@@ -48,24 +48,29 @@ const MORTGAGE = (date: string): R => [date, -1104.37, "ESIMERKKI PANKKI"];
 /** The spec's first household: an opening of 3 120,45 and one member who funds the pool. */
 const T1: R[] = [fromAino("2026-07-01", 1150), MORTGAGE("2026-07-03"), ["2026-07-05", -45.63, "ESIMERKKIMAKSUT OY"], MORTGAGE("2026-08-03"), fromAino("2026-09-01", 1150), MORTGAGE("2026-09-03")];
 
-describe("one member funds the pool and the opening has no owner", () => {
+describe("one member funds the pool and nobody has said whose the opening was", () => {
   it("cuts each row by who paid, takes the opening only when the money is short, and ends where the walked balance does", async () => {
     const w = await world(one(T1, 312045, { said: true }));
     const t = (await settledTrace(w.s, KEY))!;
     expect(ownerCents(t, "2026-07-03", -1104.37, A(w))).toBe(110437);
     expect(ownerCents(t, "2026-07-05", -45.63, A(w))).toBe(4563);
-    // August: Aino's money is gone, so the mortgage takes the opening, whose owner nobody has said
-    expect(rowAt(t, "2026-08-03", -1104.37).parts).toEqual([{ owner: "o", kind: "opening", cents: 110437 }]);
+    // August: Aino's money is gone, so the mortgage takes the opening, which is everyone's (Yhteistä) until somebody says otherwise
+    expect(rowAt(t, "2026-08-03", -1104.37).parts).toEqual([
+      { owner: A(w), kind: "opening", cents: 55219 },
+      { owner: V(w), kind: "opening", cents: 55218 },
+    ]);
     expect(ownerCents(t, "2026-09-03", -1104.37, A(w))).toBe(110437);
-    expect(t.questions).toMatchObject([{ kind: "opening", key: "o", cents: 312045, openCents: 110437 }]);
-    // lots = the walked balance
+    // the opening is not asked
+    expect(t.questions).toEqual([]);
+    // lots = the walked balance; the raw trace still holds the opening as nobody's money, the settled one holds none of it
     expect(t.trace.lots.reduce((n, l) => n + l.cents, 0)).toBe(312045 + cents(T1));
-    expect(t.trace.lots.filter((l) => l.owner === "o").reduce((n, l) => n + l.cents, 0)).toBe(201608);
+    expect(t.raw.lots.filter((l) => l.owner === "o").reduce((n, l) => n + l.cents, 0)).toBe(201608);
+    expect(t.trace.lots.filter((l) => l.owner === "o")).toEqual([]);
     const stored = await dump(w, "pool-a");
-    expect(dumpOf(stored, "2026-08-03", -1104.37)).toEqual(["?|opening|o|110437|0"]);
-    // Aino's own view of August: her half of what nobody owns, all of it open
+    expect(dumpOf(stored, "2026-08-03", -1104.37)).toEqual(["A|opening||55219|0", "V|opening||55218|0"]);
+    // Aino's own view of August: her half of the opening, none of it open
     const her = await sharesFor(w, t, w.aino);
-    expect(shareAt(t, her.shares, "2026-08-03", -1104.37)).toEqual({ cents: -partCents(110437, her.part), openCents: -partCents(110437, her.part), transfer: false });
+    expect(shareAt(t, her.shares, "2026-08-03", -1104.37)).toEqual({ cents: -partCents(110437, her.part), openCents: 0, transfer: false });
     expect(partCents(110437, her.part)).toBe(55219);
   });
 
@@ -88,8 +93,8 @@ describe("one member funds the pool and the opening has no owner", () => {
       await takeBackAnswer(w.s, KEY, "opening", "o");
       expect(await dump(w, "pool-a"), owner).toEqual(before);
     }
-    // the question stands again, and a said answer is no question
-    expect((await settledTrace(w.s, KEY))!.questions).toHaveLength(1);
+    // no answer and every answer leave the opening unasked
+    expect((await settledTrace(w.s, KEY))!.questions).toHaveLength(0);
     await sayAnswer(w.s, KEY, { kind: "opening", key: "o", owner: "none" }, w.aino);
     expect((await settledTrace(w.s, KEY))!.questions).toHaveLength(0);
   });
@@ -253,14 +258,14 @@ describe("the pool is cut by who paid, set by the app once", () => {
     expect(await splits(w)).toEqual([{ account_key: KEY, mode: "source", set_by: null }]);
   });
 
-  it("is not set while the opening takes a cost (C4) or after an answer (C5), and then offers the traced split", async () => {
+  it("is not set while a cost took the opening (C5), an answer or the default, and then offers the traced split", async () => {
     const w = await world(one(T1, 312045));
     expect(await ensureTrace(w.s, KEY)).toMatchObject({ hasTrace: true, traced: false });
-    // a failed C4 writes nothing: no split, no answer, and the opening is asked about
+    // the opening is everyone's by default and a part that got its owner so is no payment: C5 fails, nothing is written, and nothing is asked
     expect(await w.db.all("SELECT * FROM account_split")).toEqual([]);
     const t = (await settledTrace(w.s, KEY))!;
-    expect(t.questions.map((q) => q.kind)).toEqual(["opening"]);
-    expect(t.offer).toBeNull();
+    expect(t.questions).toEqual([]);
+    expect(t.offer).toEqual([{ userId: w.aino, percent: 84 }, { userId: w.ville, percent: 16 }]);
     await sayAnswer(w.s, KEY, { kind: "opening", key: "o", owner: A(w) }, w.aino);
     expect(await ensureTrace(w.s, KEY)).toMatchObject({ traced: false });
     expect(await w.db.all("SELECT * FROM account_split")).toEqual([]);

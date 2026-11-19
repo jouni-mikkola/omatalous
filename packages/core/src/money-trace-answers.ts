@@ -47,6 +47,16 @@ function usersPart(users: readonly TraceUser[]): { owner: Owner; part: Part }[] 
   });
 }
 
+/**
+ * The answers with the opening's default added: money an account had before its history began is everyone's (Yhteistä)
+ * until somebody says otherwise. Any answer to the opening wins over it, "none" (nobody knows) too, and the opening is
+ * never asked.
+ */
+export function withOpeningDefault(t: Trace, answers: readonly Answer[]): Answer[] {
+  const says = answers.some((a) => a.kind === "opening");
+  return t.openingTaken && !says ? [...answers, { kind: "opening", key: "o", owner: "all" }] : [...answers];
+}
+
 /** What the answers say, by the owner they relabel; "none" says nothing. */
 function answered(answers: readonly Answer[]): Map<Owner, Owner | "all"> {
   const map = new Map<Owner, Owner | "all">();

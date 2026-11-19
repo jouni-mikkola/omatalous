@@ -34,7 +34,8 @@ const load = async (t: App, userId: string, id: string, rows: ReturnType<typeof 
   await reprocess(repo, t.s.settings);
 };
 
-const twice = (day: string, cents: number, name: string) => [raw(day, cents, name, 1), raw(day, cents, name, 2)];
+/** Card purchases: the bank's card text is the business evidence a double charge needs. */
+const twice = (day: string, cents: number, name: string) => [1, 2].map((n) => ({ ...raw(day, cents, name, n), description: "KORTTIOSTO" }));
 
 describe("the question of money a merchant may owe back", () => {
   it("asks of a charge made twice, what the merchant owes and the rows of both", async () => {
@@ -45,6 +46,13 @@ describe("the question of money a merchant may owe back", () => {
     expect(item).toMatchObject({ kind: "money_back", cents: 16_743, merchant: "Verkkokauppa", reason: "double", count: 2, lastDate: "2026-09-20", askedOn: null, rowCount: 2 });
     expect(item!.subject).toBe(`alert:${String(item!.id).replace(/^money_back:/, "")}`);
     expect((item!.rows as unknown[]).length).toBe(2);
+  });
+
+  it("asks nothing of the same sum sent twice to a person", async () => {
+    const t = await setupApp();
+    const sent = [1, 2].map((n) => ({ ...raw("2026-09-20", -16_743, "Matti Meikalainen", n), description: "Tilisiirto", counterpartyIban: "FI2112345600000785" }));
+    await load(t, t.adminId, "chk", sent);
+    expect(await queue(t.admin)).toEqual([]);
   });
 
   it("asks nothing of a pair under 20 euros or of a merchant that does it routinely", async () => {

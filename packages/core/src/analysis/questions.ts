@@ -7,6 +7,7 @@ import { serviceNamed } from "../payment-services.ts";
 import { nameOf, userNameOf } from "../person-names.ts";
 import { steadyBy } from "../returns.ts";
 import { proposalWeight } from "../shared.ts";
+import { QUIET_PAYMENT_CENTS } from "../thresholds.ts";
 import { normalizeIban } from "../transfers.ts";
 import type { IsoDate, PayerInput, PayerRole, UserInputs } from "../types.ts";
 import { type AnalysisContext, type AnalysisTx, netSpend, spendRows } from "./context.ts";
@@ -27,6 +28,12 @@ const WALLET_ROLES: readonly PayerRole[] = ["cost_share", "sales", "gift"];
 const MAX_ITEMS = 5;
 /** With payer roles in the inputs a visit asks at most this many questions, of every kind together. */
 const MAX_ITEMS_WITH_PAYERS = 3;
+
+/**
+ * A payee of Muut menot with one payment of the window under `QUIET_PAYMENT_CENTS` is not asked about: the money stays
+ * in Muut menot and counts once in the spending. A second payment or one of the limit asks it.
+ */
+const isQuietPayment = (g: Group): boolean => g.count === 1 && g.cents < QUIET_PAYMENT_CENTS;
 
 /** A payee whose money nothing classified: the household picks it a category, or sets it aside. */
 interface PayeeQuestion {
@@ -246,7 +253,7 @@ export function buildQuestions(ctx: AnalysisContext, range: DateRange, inputs: U
   const asked = inputs.payers ? payerQuestions(ctx, rows, inputs.payers, dismissed) : { items: [], covered: new Set<string>() };
   const items: FrontQuestion[] = [...asked.items];
   for (const [kind, groups] of [["payee_out", out], ["payee_in", inn]] as const) {
-    for (const [merchant, g] of groups) if (g.cents > 0 && !dismissed.has(merchant) && !(kind === "payee_in" && asked.covered.has(merchant))) items.push({ kind, merchant, cents: g.cents, count: g.count, rowIds: g.rowIds, lastDate: g.lastDate, ...(kind === "payee_out" && serviceNamed(merchant) ? { service: serviceNamed(merchant)! } : {}) });
+    for (const [merchant, g] of groups) if (g.cents > 0 && !dismissed.has(merchant) && !(kind === "payee_in" && asked.covered.has(merchant)) && !(kind === "payee_out" && isQuietPayment(g))) items.push({ kind, merchant, cents: g.cents, count: g.count, rowIds: g.rowIds, lastDate: g.lastDate, ...(kind === "payee_out" && serviceNamed(merchant) ? { service: serviceNamed(merchant)! } : {}) });
   }
   for (const p of proposals) {
     const asked = { key: p.key, payee: p.payee, paymentCents: p.paymentCents, cents: proposalWeight(p) };

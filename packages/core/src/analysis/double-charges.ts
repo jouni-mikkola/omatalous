@@ -2,9 +2,12 @@
  * Charges made twice: the same charge on one account and day, and a monthly bill charged again within days. One
  * definition for the alert (alerts.ts) and for Tarkistettavat's money-back question (money-back.ts), so both name the
  * same charges. A charge the merchant has paid back is no finding, and neither is a merchant that does it routinely.
+ * Only rows that pay a business count (`isBusinessRow`): money sent to a person or between the household's own accounts
+ * twice is no charge a merchant can give back.
  * Decision: the household asks a merchant for money back when a charge came twice.
  */
 import { BILL_DOUBLE_DAYS, DOUBLE_MIN_CENTS } from "../thresholds.ts";
+import { businessMerchants, isBusinessRow } from "../industry.ts";
 import { UNKNOWN_MERCHANT } from "../merchant.ts";
 import type { RecurringSeries } from "../recurring.ts";
 import type { IsoDate } from "../types.ts";
@@ -14,6 +17,19 @@ import { type DateRange, toDayRange } from "./period.ts";
 /** A booked purchase from a known merchant: money that left and may come back. */
 export const isCharge = (t: AnalysisTx) =>
   t.status === "booked" && !t.isTransfer && t.amountCents < 0 && t.kind !== "transfer" && t.merchant !== UNKNOWN_MERCHANT;
+
+const businessCache = new WeakMap<AnalysisContext, (t: AnalysisTx) => boolean>();
+
+/** Whether a row pays a business, by the evidence of the whole context: its card accounts and the shops its other rows show. */
+function businessOf(ctx: AnalysisContext): (t: AnalysisTx) => boolean {
+  const hit = businessCache.get(ctx);
+  if (hit) return hit;
+  const cards = new Set(ctx.accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
+  const shops = businessMerchants(ctx.txs);
+  const business = (t: AnalysisTx) => isBusinessRow(t, cards, shops);
+  businessCache.set(ctx, business);
+  return business;
+}
 
 /** One charge made `count` times: `dates` is its one day, or the two days of a bill charged again. */
 interface DoubleCharge {
@@ -41,8 +57,9 @@ function sameDayCharges(ctx: AnalysisContext) {
   const hit = sameDayCache.get(ctx);
   if (hit) return hit;
   const sameDay = new Map<string, AnalysisTx[]>();
+  const business = businessOf(ctx);
   for (const t of ctx.txs) {
-    if (!isCharge(t)) continue;
+    if (!isCharge(t) || !business(t)) continue;
     const key = `${t.accountId}|${t.merchant}|${t.amountCents}|${t.bookingDate}`;
     const group = sameDay.get(key);
     if (group) group.push(t);
@@ -80,13 +97,14 @@ export function findDoubleCharges(ctx: AnalysisContext, current: readonly Analys
   // a monthly bill paid twice a few days apart (an e-invoice and a reminder of it)
   const inRange = new Map(current.map((t) => [t.id, t]));
   const byId = new Map<string, AnalysisTx>();
+  const business = businessOf(ctx);
   for (const s of recurring) {
     if (s.cadence !== "monthly" || (s.kind !== "subscription" && s.kind !== "bill")) continue;
     if (!s.transactionIds.some((id) => inRange.has(id))) continue;
     if (!byId.size) for (const t of ctx.txs) byId.set(t.id, t);
     const rows = s.transactionIds
       .map((id) => byId.get(id))
-      .filter((t): t is AnalysisTx => !!t && isCharge(t))
+      .filter((t): t is AnalysisTx => !!t && isCharge(t) && business(t))
       .sort((a, b) => a.day - b.day);
     for (let i = 1; i < rows.length; i++) {
       const [a, b] = [rows[i - 1]!, rows[i]!];

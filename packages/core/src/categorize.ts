@@ -8,7 +8,7 @@ import { fold, namesUnknownMerchant } from "./merchant.ts";
 import { payeeRules } from "./payees.ts";
 import { tradeWordCategory } from "./trade-words.ts";
 import type { Account, CategoryRule, CategorySource, RuleField } from "./types.ts";
-import { CARD_CASH_WORDS, OWN_ACCOUNT_TRANSFER_WORDS, TAX_REFUND_WORDS } from "./wording-moves.ts";
+import { CARD_CASH_WORDS, INTEREST_CREDIT_WORDS, OWN_ACCOUNT_TRANSFER_WORDS, TAX_REFUND_WORDS } from "./wording-moves.ts";
 import { GAMBLING_NAME, isGamblingMcc, isGamblingOperator } from "./wording-gambling.ts";
 import { dealerCategory, isCarBrandDealer, isCarBrandName, isCarDealerName, isCarTradeName } from "./wording-car.ts";
 import { HOME_LOAN_WORDS, STUDENT_LOAN_WORDS } from "./wording-loan-pages.ts";
@@ -69,7 +69,7 @@ const PURPOSE_RULES: readonly BuiltinRule[] = [
   { category: "salary", direction: "in", re: SWEDISH_SALARY_FIELD },
   // a peer-lending service pays back the loan given, interest and all: money that was saved comes home
   { category: "investments", direction: "in", re: w(PEER_LENDING_WORDS), when: (text) => !namesLoanOrCredit(text) },
-  { category: "investment_income", direction: "in", re: w(String.raw`OSINKO|OSINGOT|OSINGONMAKSU|DIVIDEND|DIVIDENDI|KORKOTULO|TALLETUSKORKO|HYVITYSKORKO|KORKO|KORKOHYVITYS`) },
+  { category: "investment_income", direction: "in", re: w(String.raw`OSINKO|OSINGOT|OSINGONMAKSU|DIVIDEND|DIVIDENDI|KORKOTULO|TALLETUSKORKO|HYVITYSKORKO|KORKO|KORKOHYVITYS|${INTEREST_CREDIT_WORDS}`) },
   { category: "tax_refund", direction: "in", re: w(TAX_REFUND_WORDS) },
   {
     category: "benefits",

@@ -69,11 +69,11 @@ describe("the payment service in a row", () => {
   it("no shop found: the row stays with the service under one merchant, and is asked once per service", () => {
     const rows = run([
       ...[1, 2, 3].map((d) => tx({ bookingDate: `2026-09-0${d}`, amountCents: -eur(40), merchant: normalizeMerchant("TRUSTLY GROUP AB", `Viite 1234${d}`), counterparty: "TRUSTLY GROUP AB", description: `Viite 1234${d}` })),
-      tx({ bookingDate: "2026-09-04", amountCents: -eur(20), merchant: "PayPal", counterparty: "PAYPAL" }),
+      tx({ bookingDate: "2026-09-04", amountCents: -eur(60), merchant: "PayPal", counterparty: "PAYPAL" }),
     ]);
     expect(new Set(rows.map((t) => t.merchant))).toEqual(new Set(["Trustly", "PayPal"]));
     const items = buildQuestions(createContext(rows, [checking], "2026-10-09"), { from: "2026-09-01", to: "2026-10-09" }, NO_INPUTS).items;
-    expect(items.map((i) => (i.kind === "payee_out" ? [i.service, i.count, i.cents] : null))).toEqual([["Trustly", 3, 12000], ["PayPal", 1, 2000]]);
+    expect(items.map((i) => (i.kind === "payee_out" ? [i.service, i.count, i.cents] : null))).toEqual([["Trustly", 3, 12000], ["PayPal", 1, 6000]]);
   });
 
   it("MobilePay to a person is a transfer to a person, to a company the normal chain", () => {

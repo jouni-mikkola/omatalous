@@ -280,7 +280,8 @@ describe("the review queue", () => {
   });
 
   it("a shared account's question is asked of the member who linked it, with no guess, and an answer takes it away", async () => {
-    const rows: R[] = [fromAino("2026-07-01", 1150), ["2026-07-03", -1104.37, "ESIMERKKI PANKKI"], ["2026-09-03", -1104.37, "ESIMERKKI PANKKI"]];
+    // the opening is everyone's by default and is not asked, so the question here is a payer nobody named
+    const rows: R[] = [fromAino("2026-07-01", 1150), ["2026-07-02", 300, "Esimerkki Kaveri"], ["2026-07-03", -1104.37, "ESIMERKKI PANKKI"], ["2026-09-03", -1104.37, "ESIMERKKI PANKKI"]];
     const w = await world(one(rows, 312045, {
       extra: async (x) => {
         expect(await x.s.household.share(x.aino, "pool-a", x.ville)).toBe(true);
@@ -288,10 +289,10 @@ describe("the review queue", () => {
       },
     }));
     const items = (await queue(w.as(w.aino))).filter((i) => i.kind === "split");
-    expect(items).toEqual([expect.objectContaining({ accountId: "pool-a", question: "opening", key: "o", label: "2026-07-01" })]);
+    expect(items).toEqual([expect.objectContaining({ accountId: "pool-a", question: "in", label: "Esimerkki Kaveri" })]);
     expect(items[0]).not.toHaveProperty("guess");
     expect((await queue(w.as(w.ville))).filter((i) => i.kind === "split")).toEqual([]);
-    expect((await w.as(w.aino).call("PUT", "/api/accounts/pool-a/answers", { kind: "opening", key: "o", owner: `u:${w.aino}` })).body).toEqual({ ok: true });
+    expect((await w.as(w.aino).call("PUT", "/api/accounts/pool-a/answers", { kind: "in", key: items[0]!.key, owner: `u:${w.aino}` })).body).toEqual({ ok: true });
     expect((await queue(w.as(w.aino))).filter((i) => i.kind === "split")).toEqual([]);
   });
 });

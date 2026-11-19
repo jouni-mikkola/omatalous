@@ -7,6 +7,9 @@ import { alternation } from "./wordlists.ts";
 /** Money in from the tax office: a refund of tax paid too much, a category of its own and no benefit. */
 export const TAX_REFUND_WORDS = alternation("TAX_REFUND_WORDS");
 
+/** Interest the bank adds to an account or pays into it ("Koron pääomitus"): money in that is investment income, Osingot ja korot. */
+export const INTEREST_CREDIT_WORDS = alternation("INTEREST_CREDIT_WORDS");
+
 /**
  * The bank's own words for a move between the household's accounts that the bank gives no account number for ("Siirto
  * tililtä", "Siirto omalle tilille"): neither income nor saving. A savings account named in the text is saving
