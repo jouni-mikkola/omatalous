@@ -1,4 +1,3 @@
-import { LOAN_LINK_PARAM } from "./components/loans/form.ts";
 import { WEB_EXTENSIONS } from "./extensions.ts";
 import { pageOfPeriod } from "./period.ts";
 import { DRILL_PARAM, tableId, writeTableState } from "./table-state.ts";
@@ -154,6 +153,12 @@ function merchantsView(route: Route): Route {
 
 /** The card of Raportit that tells the loans, as the anchor of its section. */
 export const LOANS_REPORT_ANCHOR = "lainat";
+
+/**
+ * The parameters of the address that opens a saved loan's editor (`loansRoute` with `edit`): that loan's editor opens
+ * with that account chosen. Kept here, apart from the loan form, so the entry does not load the form.
+ */
+export const LOAN_LINK_PARAM = { loan: "linkLoan", account: "linkAccount" } as const;
 
 /** The page of Raportit where the loans are kept: Varat ja velat. */
 const LOANS_QUESTION = "saldot";
