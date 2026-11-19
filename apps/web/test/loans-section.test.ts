@@ -27,7 +27,7 @@ const row = (over: Partial<LoanRow> = {}): LoanRow =>
 const NO_PATH: NonNullable<LoansReport["path"]> = { days: [day], balanceCents: [0], interestCents: [0], tops: [0], payoff: null, moves: [] };
 const report = (rows: LoanRow[], over: Partial<LoansReport> = {}) => ({
   day, saved: rows.length, loans: rows, unsaved: [], total: { cents: 12_000_000, unknown: [] }, totalKnown: true, interest: { cents: 380_000, unknown: [] }, interestKnown: true,
-  withoutRate: 0, cost12: { cents: 380_000, interestCents: 380_000, feeCents: 0 }, plan: null, consolidation: null, payments: { monthlyCents: 100_000, counted: 1, unknown: 0, bullets: 0 }, path: NO_PATH, maybeTwice: [], overdraftTwice: [], ...over,
+  withoutRate: 0, cost12: { cents: 380_000, interestCents: 380_000, feeCents: 0 }, plan: null, consolidation: null, payments: { monthlyCents: 100_000, counted: 1, unknown: 0, bullets: 0 }, monthly: { cents: 100_000, unknown: 0 }, path: NO_PATH, maybeTwice: [], overdraftTwice: [], ...over,
 });
 const balanceData = {
   months: ["2026-09", "2026-10"], total: [100_000, 120_000], monthChange: [null, 20_000], missing: [], accountsLessDebt: [null, -11_880_000], lowest: null,
@@ -113,7 +113,7 @@ describe("Raportit: Lainat", () => {
 
   it("a bullet has no payment to tell, in its drill, after a move of the rate or in the payments of a month", () => {
     const bullet = row({ repayment: "bullet", payment: { cents: null, interestCents: null, amortisationCents: null, intervalMonths: null, date: null, unknown: null }, scenarios: [{ shiftBp: 100, movedBp: 100, rateBp: 425, paymentCents: null, interestCents: 510_000, unknown: null }] });
-    const out = opened("home", context(report([bullet], { payments: { monthlyCents: 0, counted: 0, unknown: 0, bullets: 1 } })));
+    const out = opened("home", context(report([bullet], { payments: { monthlyCents: 0, counted: 0, unknown: 0, bullets: 1 }, monthly: { cents: null, unknown: 0 } })));
     expect(out).toContain("<dd>Kertalyhennys<small>maksat kerralla lopussa</small></dd>");
     expect(out).toContain("Jos viitekorko nousee prosenttiyksikön: korot 12 kuukaudessa 5 100 €.");
     expect(out).toContain(`${tile("Maksut kuussa", "ei maksuja")}`);
@@ -122,7 +122,7 @@ describe("Raportit: Lainat", () => {
 
   it("a fall shorter than a point is told as far as it goes in the drill, and a sum nothing is known of is not zero", () => {
     const near = row({ scenarios: [{ shiftBp: -100, movedBp: -50, rateBp: 275, paymentCents: 97_000, interestCents: 320_000, unknown: null }] });
-    const out = opened("home", context(report([near], { interestKnown: false, payments: { monthlyCents: 0, counted: 0, unknown: 1, bullets: 0 } })));
+    const out = opened("home", context(report([near], { interestKnown: false, payments: { monthlyCents: 0, counted: 0, unknown: 1, bullets: 0 }, monthly: { cents: null, unknown: 1 } })));
     expect(out).toContain("Jos viitekorko laskee 0,5 prosenttiyksikköä: maksu 970,00 €, korot 12 kuukaudessa 3 200 €.");
     expect(out).toContain(`${tile("Maksut kuussa", "–")}`);
     expect(out).not.toContain("ei tiedossa");
@@ -193,7 +193,7 @@ describe("Raportit: Lainat", () => {
 
   it("a figure nothing is known of is a dash in the totals, and no sentence says which loans a total leaves out for it", () => {
     const later = { cents: 0, unknown: [{ loanId: "home", unknown: "before_balance_date", counted: false }] } as const;
-    const out = html(loans, context(report([row()], { interest: later, interestKnown: false, payments: { monthlyCents: 0, counted: 0, unknown: 1, bullets: 0 } })));
+    const out = html(loans, context(report([row()], { interest: later, interestKnown: false, payments: { monthlyCents: 0, counted: 0, unknown: 1, bullets: 0 }, monthly: { cents: null, unknown: 1 } })));
     expect(out).toContain(`${tile("Maksut kuussa", "–")}`);
     expect(html(loans, context(report([row()], { withoutRate: 2 })))).not.toContain("puuttuu");
   });
@@ -249,6 +249,18 @@ describe("Raportit: Lainat", () => {
     expect(out).not.toContain("loan-about");
     expect(out).not.toContain("/kk");
     expect(out).toContain("saldo puuttuu");
+  });
+
+  it("adds the payments the unsaved rows tell to the payments of a month, and counts the debts that tell none", () => {
+    const unsaved = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }, { name: "Esimerkkierä", monthlyCents: null, card: false }];
+    const known = { monthlyCents: 0, counted: 0, unknown: 1, bullets: 0 };
+    // 1 382,24 € known and one debt with no figure: the sum and its count, never the sum alone or a dash
+    const some = html(loans, context(report([row()], { unsaved, payments: known, monthly: { cents: 138_224, unknown: 2 } })));
+    expect(some).toContain(`${tile("Maksut kuussa", "1 382 € + 2 ei tiedossa")}`);
+    // every debt tells its payment: the sum alone
+    expect(html(loans, context(report([row()], { monthly: { cents: 138_224, unknown: 0 } })))).toContain(`${tile("Maksut kuussa", "1 382 €")}`);
+    // none known: a dash
+    expect(html(loans, context(report([row()], { unsaved, monthly: { cents: null, unknown: 2 } })))).toContain(`${tile("Maksut kuussa", "–")}`);
   });
 
   it("names the total of saved loans as the known one while a debt has no balance", () => {

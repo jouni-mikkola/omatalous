@@ -19,7 +19,8 @@ export interface BalanceChange {
   /**
    * `dayBefore`: `from` is the day before the range starts, so every row of the range is in the change.
    * `firstDay`: the balance before the start is not known (an account has no row before it, or a row in another currency
-   * hides it), so `from` is the first day it is known on, and that day's own rows are not in the change.
+   * hides it), so `from` is the first day it is known on, and that day's own rows are not in the change. Saldot moves it to the
+   * first month end known after that day (`balanceReport`), the close its month table starts from too.
    */
   basis: "dayBefore" | "firstDay";
 }

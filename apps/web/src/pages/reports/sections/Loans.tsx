@@ -284,9 +284,19 @@ function Loans({ ctx }: SectionProps) {
   // the accounts less the debts are told for today only, as the debts are: a range that ends before today has no point for them
   const last = b.months.length - 1;
   const less = last >= 0 && b.months[last] === ctx.running ? b.accountsLessDebt[last] : undefined;
-  const p = r.payments;
-  // only bullets owe: there is no payment to add up, and a zero would hide the interest they pay
-  const monthly = p.counted > 0 ? money(p.monthlyCents, false) : p.unknown > 0 ? DASH : p.bullets > 0 ? t("rpt.ln_no_payments") : money(0, false);
+  const m = r.monthly;
+  // the known payments of every debt listed, with how many have no figure; with none known a dash, never 0.
+  // Only bullets owe: there is no payment to add up, and a zero would hide the interest they pay
+  const monthly =
+    m.cents !== null
+      ? m.unknown > 0
+        ? t("rpt.ln_payments_unknown", { amount: money(m.cents, false), count: m.unknown })
+        : money(m.cents, false)
+      : m.unknown > 0
+        ? DASH
+        : r.payments.bullets > 0
+          ? t("rpt.ln_no_payments")
+          : money(0, false);
   const items: [label: string, value: string, sub?: string][] = [
     [t("rpt.ln_payments_month"), monthly],
     ...(less === undefined ? [] : [[accountsLessDebt().label, less === null ? DASH : money(less, false), accountsLessDebt().sub] as [string, string, string]]),

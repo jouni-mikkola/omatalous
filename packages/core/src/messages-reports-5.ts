@@ -72,6 +72,7 @@ export const FI_REPORTS_5 = {
   "rpt.ln_path_up": "Jos viitekorko nousee prosenttiyksikön, korkoa tulee arviolta {amount} enemmän.",
   "rpt.ln_no_payments": "ei maksuja",
   "rpt.ln_payments_month": "Maksut kuussa",
+  "rpt.ln_payments_unknown": "{amount} + {count} ei tiedossa",
   "rpt.ln_q_path": "Velkapolku",
   "rpt.ln_kind_mortgage": "Asuntolaina",
   "rpt.ln_kind_consumer": "Kulutusluotto",
