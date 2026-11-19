@@ -98,7 +98,6 @@ export const FI_REPORTS_3 = {
   "rpt.cg_field": "{label}, tavoite kuussa, €",
   "rpt.same_debt_twice": "Sama velka voi olla summassa kahdesti",
   "rpt.accounts_less_debt": "Tilit miinus velat",
-  "rpt.accounts_less_debt_sub": "Asunnon ja sijoitusten arvo ei ole mukana.",
   "rpt.u_month": "kuukausi",
   "rpt.u_months": "kuukautta",
   "rpt.u_account": "tili",

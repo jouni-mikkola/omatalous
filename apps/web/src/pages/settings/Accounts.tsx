@@ -132,8 +132,6 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
       )
     );
   };
-  // what the bank says the account is, so a wrong guess of the type can be seen when it is changed; the product only when the name does not already say it
-  const bankSaysOf = (a: Account) => [a.bankTypeCode, a.bankProduct !== a.bankName && a.bankProduct !== a.name ? a.bankProduct : null].filter(Boolean).join(", ");
   const nameCell = (a: Account) => {
     // the holder is a line of its own unless the name already says it
     const holder = a.holder && a.holder !== a.name && a.holder !== a.bankName ? a.holder : null;
@@ -224,7 +222,6 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
                       meta={meta}
                       type={typeOf(a)}
                       use={showUse && optionsOf(a, meta).length > 1 ? usersOf(a) : null}
-                      bankSays={bankSaysOf(a)}
                       onChange={onChange}
                       busy={busy !== null}
                       removing={busy === a.id}
@@ -286,7 +283,6 @@ function AccountForm({
   meta,
   type,
   use,
-  bankSays,
   onChange,
   busy,
   removing,
@@ -300,8 +296,6 @@ function AccountForm({
   /** The selects of the type and of who uses the account; each saves at once. `use` is null when there is no choice to make. */
   type: ReactNode;
   use: ReactNode;
-  /** What the bank says the account is; empty when it says nothing. */
-  bankSays: string;
   /** The shares save at once, so the page reads the answer again. */
   onChange: () => void;
   busy: boolean;
@@ -348,12 +342,10 @@ function AccountForm({
         <span className="field-label">{t("set.acc.account_name")}</span>
         {/* the form opens in place of the Muokkaa that was pressed, so the focus moves into it */}
         <input type="text" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder={account.bankName} autoFocus />
-        <span className="field-help">{t("set.acc.name_empty", { name: account.bankName })}</span>
       </label>
       <label>
         <span className="field-label">{t("set.acc.type")}</span>
         {type}
-        {bankSays && <span className="field-help">{t("set.acc.bank_type", { type: bankSays })}</span>}
       </label>
       {use && (
         <label>

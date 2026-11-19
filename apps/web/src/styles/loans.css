@@ -42,7 +42,6 @@ dialog.loan-dialog .loan-form .form-row { justify-content: flex-start; margin: 0
 
 /* Reports > Lainat: the totals (.kv), what they leave out (.notice with the warning tone), the plan line, the debts in the shared table and what a drill holds. */
 
-.loans-tile-sub { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); margin-top: var(--sp-4); }
 .loans-notes { list-style: none; margin: 0 0 var(--sp-16); padding: 0; font-size: var(--fs-body); line-height: var(--lh-body); }
 .loans-notes li + li { margin-top: var(--sp-8); }
 .loans-notes li.notice { margin-bottom: 0; }

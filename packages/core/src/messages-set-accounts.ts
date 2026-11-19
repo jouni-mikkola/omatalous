@@ -30,8 +30,6 @@ export const FI_SET_ACCOUNTS = {
   "set.acc.credit_limit": "Luottoraja {limit}",
   "set.acc.credit_used": ", käytössä {used}",
   "set.acc.bank_name": "Pankin nimi: {name}",
-  "set.acc.bank_type": "Pankin tilityyppi: {type}",
-  "set.acc.name_empty": "Tyhjänä näkyy {name}.",
   "set.acc.account_name": "Tilin nimi",
   "set.acc.accounts_appear_here": "Tilit tulevat tähän, kun yhdistät pankin tai tuot tiliotteen tiedostosta.",
   "set.acc.try_sample_data": "Kokeile esimerkkitiedoilla.",

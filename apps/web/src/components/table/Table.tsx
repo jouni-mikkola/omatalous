@@ -149,7 +149,7 @@ export function Table<R>({
     return [first, other].map((dir) => ({ key: c.key, text: textOf(c), dir: dir as "ascending" | "descending", phrase: sortPhrase(textOf(c), dir as "ascending" | "descending", c.kind === "text") }));
   });
   const count = shown.rows.length;
-  const note = !filtered ? undefined : count === 0 ? t("table.no_match") : `${t("table.shown", { count, total: shown.total })}${totals.length > 0 ? t("table.total_all") : ""}`;
+  const note = !filtered ? undefined : count === 0 ? t("table.no_match") : t("table.shown", { count, total: shown.total });
   // the file keeps the order the table draws: the reader's groups, else the page's groups with their rows ranked by the sort
   const drawn: Section<R>[] | null = pickedSections ?? (groups ? ordered.map((g) => ({ key: g.key, title: typeof g.title === "string" ? g.title : (g.csv ?? ""), rows: [...order(g.rows)] })) : null);
   const download = () => saveCsv(caption, tableCsv(columns, drawn ? drawn.flatMap((g) => g.rows) : only(shown.rows), drawn && drawn.some((g) => g.title !== "") ? drawn : null));

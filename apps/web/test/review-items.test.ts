@@ -182,7 +182,7 @@ describe("the debts that lack a balance, a rate or a payment", () => {
 describe("a payment of a saved loan that its plan did not expect", () => {
   const drift = { kind: "loan_drift", id: "loan_drift:l1", cents: 0, loanId: "l1", name: "Asuntolaina", date: "2026-11-05", paidCents: 95_000, expectedCents: 90_000, newPaymentCents: 95_000, reviewDate: null } as unknown as ReviewItem;
   it("is named by the loan and asks whether the payment changed", () => {
-    expect([eyebrow(drift), nameOf(drift), questionOf(drift)]).toEqual(["Laina", "Asuntolaina", "Onko lainan maksuerä muuttunut?"]);
+    expect([eyebrow(drift), nameOf(drift), questionOf(drift)]).toEqual(["Laina", "Asuntolaina", "Onko lainan kuukausierä muuttunut?"]);
   });
   it("shows what the bank took and what the plan expected", () => {
     const f = figureOf(drift);

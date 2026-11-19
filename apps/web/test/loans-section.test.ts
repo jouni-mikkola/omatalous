@@ -198,9 +198,10 @@ describe("Raportit: Lainat", () => {
     expect(html(loans, context(report([row()], { withoutRate: 2 })))).not.toContain("puuttuu");
   });
 
-  it("the accounts less the debts are called what they are, say what they leave out where the figure is, and are not net worth", () => {
+  it("the accounts less the debts are called what they are, with no sentence beside the figure, and are not net worth", () => {
     const own = html(loans, context(report([row()]))) + html(balances, context(report([row()])));
-    expect(own).toContain(`${tile("Tilit miinus velat", "-118 800 €")}<div class="loans-tile-sub">Asunnon ja sijoitusten arvo ei ole mukana.</div>`);
+    expect(own).toContain(tile("Tilit miinus velat", "-118 800 €"));
+    expect(own).not.toContain("loans-tile-sub");
     // Saldot holds the three figures as rows and no sentence
     const saldot = html(balances, context(report([row()])));
     expect(rowsOf(saldot)).toEqual(["Tilien ja korttien saldo 1 200,00 €", "Tallennetut lainat 120 000,00 €", "Tilit miinus velat -118 800,00 €"]);
