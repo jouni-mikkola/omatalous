@@ -85,7 +85,7 @@ function whole(value: unknown, min: number, max: number, message: string): numbe
   return value || 0;
 }
 
-/** `subject` is the field as the sentence needs it ("Maksuerän"), in the words of the loan form. */
+/** `subject` is the field as the sentence needs it ("Kuukausierän"), in the words of the loan form. */
 const cents = (value: unknown, min: 0 | 1, subject: string) => whole(value, min, MAX_CENTS, `${subject} pitää olla vähintään ${min === 0 ? "0" : "0,01"} € ja enintään ${MAX_EUROS}.`);
 
 const rate = (value: unknown, subject: string) => whole(value, 0, MAX_RATE_BP, `${subject} pitää olla 0–${MAX_RATE_BP / 100} %, enintään kahden desimaalin tarkkuudella.`);
@@ -171,9 +171,9 @@ export async function parseLoan(raw: unknown, today: string, accounts: OwnAccoun
     rateBp: orNull(input.rateBp, (v) => rate(v, "Koron")),
     reference: orNull(input.reference, (v) => oneOf(v, LOAN_REFERENCES, "Tuntematon viitekorko.")),
     marginBp: orNull(input.marginBp, (v) => rate(v, "Marginaalin")),
-    repayment: orNull(input.repayment, (v) => oneOf(v, LOAN_REPAYMENTS, "Tuntematon lyhennystapa.")),
+    repayment: orNull(input.repayment, (v) => oneOf(v, LOAN_REPAYMENTS, "Tuntematon tapa, jolla erä muuttuu.")),
     intervalMonths: orNull(input.intervalMonths, (v) => whole(v, 1, MAX_LOAN_INTERVAL_MONTHS, `Lyhennysvälin pitää olla 1–${MAX_LOAN_INTERVAL_MONTHS} kuukautta.`)),
-    paymentCents: orNull(input.paymentCents, (v) => cents(v, 1, "Maksuerän")),
+    paymentCents: orNull(input.paymentCents, (v) => cents(v, 1, "Kuukausierän")),
     // one that has passed is kept: core reads it as no last due date
     endDate: orNull(input.endDate, (v) => date(v, oldest, latest, `Viimeinen eräpäivä voi olla enintään ${YEARS_BACK} vuotta sitten ja ${YEARS_AHEAD} vuoden päässä.`)),
     limitCents: orNull(input.limitCents, (v) => cents(v, 1, "Luottorajan")),
@@ -185,9 +185,9 @@ export async function parseLoan(raw: unknown, today: string, accounts: OwnAccoun
   if (loan.reference === "fixed") delete loan.rateReviewDate;
   // a card or a credit line is drawn and paid as its holder likes: it has a limit and no plan
   if (isRevolving(loan.kind) && loan.repayment !== null) {
-    throw new UserError("Luottokortilla ja joustoluotolla ei ole lyhennystapaa. Jätä se tyhjäksi.");
+    throw new UserError("Luottokortilla ja joustoluotolla ei ole kohtaa Miten erä muuttuu. Jätä se tyhjäksi.");
   }
-  if (loan.repayment === "bullet" && loan.paymentCents !== null) throw new UserError("Kertalyhenteisellä lainalla ei ole maksuerää. Jätä maksuerä tyhjäksi.");
+  if (loan.repayment === "bullet" && loan.paymentCents !== null) throw new UserError("Kertalyhenteisellä lainalla ei ole kuukausierää. Jätä kuukausierä tyhjäksi.");
   // A loan on a euribor sent with its margin alone is saved at the rate in force on its balance date: the fixing of the
   // review day before it and the margin. With no review day, or no fixing stored that early, its rate stays unknown, as
   // one sent with none.
@@ -211,7 +211,7 @@ export async function parseLoan(raw: unknown, today: string, accounts: OwnAccoun
     }
   }
   // The fee each payment carries, typed for a plan whose fee nothing else tells. 0 is a fee of nothing; a loan with none typed has no field, as with the link.
-  if (!absent(input.paymentFeeCents)) loan.paymentFeeCents = cents(input.paymentFeeCents, 0, "Maksuerän kulun");
+  if (!absent(input.paymentFeeCents)) loan.paymentFeeCents = cents(input.paymentFeeCents, 0, "Erän kulun");
   // The one way a balance could grow: a payment that holds the interest and is smaller than it. The interest only
   // shrinks with the balance, so a payment that covers the first interval covers every later one, until the rate steps up.
   const holdsInterest = loan.repayment === "annuity" || loan.repayment === "fixed_instalment";
@@ -219,7 +219,7 @@ export async function parseLoan(raw: unknown, today: string, accounts: OwnAccoun
   if (holdsInterest && instalment !== null && loan.rateBp !== null && loan.intervalMonths !== null) {
     if (instalment < loanPeriodInterest(loan.balanceCents, loan.rateBp, loan.intervalMonths)) {
       throw new UserError(
-        "Maksuerä on pienempi kuin lyhennysvälin korko, joten laina ei lyhenisi. Tarkista luvut tai jätä maksuerä tyhjäksi, jos maksat vain korkoa.",
+        "Kuukausierä on pienempi kuin lyhennysvälin korko, joten laina ei lyhenisi. Tarkista luvut tai jätä kuukausierä tyhjäksi, jos maksat vain korkoa.",
       );
     }
     // After a step the interest is the step rate's on what is left of the balance then. The least that can be left is the
@@ -238,7 +238,7 @@ export async function parseLoan(raw: unknown, today: string, accounts: OwnAccoun
         }
       const left = Math.max(0, loan.balanceCents - paid * instalment);
       if (left > 0 && instalment < loanPeriodInterest(left, rateStepBp, loan.intervalMonths)) {
-        throw new UserError("Maksuerä on pienempi kuin koron muutoksen jälkeinen lyhennysvälin korko, joten laina ei lyhenisi muutoksen jälkeen. Tarkista luvut tai jätä maksuerä tyhjäksi, jos maksat vain korkoa.");
+        throw new UserError("Kuukausierä on pienempi kuin koron muutoksen jälkeinen lyhennysvälin korko, joten laina ei lyhenisi muutoksen jälkeen. Tarkista luvut tai jätä kuukausierä tyhjäksi, jos maksat vain korkoa.");
       }
     }
   }

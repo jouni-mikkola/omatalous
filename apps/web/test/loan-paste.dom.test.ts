@@ -48,10 +48,10 @@ afterEach(() => {
 describe("Asetukset > Talous: the box that reads a loan", () => {
   it("reads pasted text into the form and marks each field as sure or to check, with the line it came from", () => {
     open();
-    expect((button("Lue tiedot") as HTMLButtonElement).disabled).toBe(true);
+    expect((button("Lue lainan tiedot") as HTMLButtonElement).disabled).toBe(true);
     paste(ONE);
-    expect((screen.getByLabelText("Myönnetty määrä (€)") as HTMLInputElement).value).toBe("150 000,00");
-    expect((screen.getByLabelText("Maksuerä (€)") as HTMLInputElement).value).toBe("689,20");
+    expect((screen.getByLabelText("Lainan määrä (€)") as HTMLInputElement).value).toBe("150 000,00");
+    expect((screen.getByLabelText("Kuukausierä (€)") as HTMLInputElement).value).toBe("689,20");
     // the lender's name is read from a line of its own: to check, with the line it came from, until the household confirms it
     expect(screen.getAllByText("Tarkista").length).toBeGreaterThan(0);
     expect(screen.getByText("Tekstissä: Esimerkkipankki Oyj")).toBeTruthy();
@@ -63,14 +63,14 @@ describe("Asetukset > Talous: the box that reads a loan", () => {
     expect(screen.getByText("Tekstissä: Esimerkkipankki Oyj")).toBeTruthy();
   });
 
-  it("reads text typed in the box with Lue tiedot, and leaves a paste into typed text alone", () => {
+  it("reads text typed in the box with Lue lainan tiedot, and leaves a paste into typed text alone", () => {
     open();
     fireEvent.change(box(), { target: { value: "jotain" } });
     paste(ONE);
-    expect((screen.getByLabelText("Maksuerä (€)") as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText("Kuukausierä (€)") as HTMLInputElement).value).toBe("");
     fireEvent.change(box(), { target: { value: ONE } });
-    fireEvent.click(button("Lue tiedot"));
-    expect((screen.getByLabelText("Maksuerä (€)") as HTMLInputElement).value).toBe("689,20");
+    fireEvent.click(button("Lue lainan tiedot"));
+    expect((screen.getByLabelText("Kuukausierä (€)") as HTMLInputElement).value).toBe("689,20");
   });
 
   it("will not save while a field is to check, and names it", async () => {
@@ -95,7 +95,7 @@ describe("Asetukset > Talous: the box that reads a loan", () => {
   it("leaves a field the text does not give empty and marks it not found, never a zero", () => {
     open();
     paste("Luoton saldo: 120 000,00 €");
-    expect((screen.getByLabelText("Myönnetty määrä (€)") as HTMLInputElement).value).toBe("");
+    expect((screen.getByLabelText("Lainan määrä (€)") as HTMLInputElement).value).toBe("");
     expect((screen.getByLabelText("Marginaali (%)") as HTMLInputElement).value).toBe("");
     expect(screen.getAllByText("Ei löytynyt").length).toBeGreaterThan(0);
   });
@@ -117,7 +117,7 @@ describe("Asetukset > Talous: the box that reads a loan", () => {
   it("says so when the text holds no loan, and keeps the form for typing", () => {
     open();
     fireEvent.change(box(), { target: { value: "Tervehdys vain" } });
-    fireEvent.click(button("Lue tiedot"));
+    fireEvent.click(button("Lue lainan tiedot"));
     expect(screen.getByRole("alert").textContent).toMatch(/Emme löytäneet tekstistä lainan tietoja/);
     expect(screen.getByLabelText("Lainaa jäljellä (€)")).toBeTruthy();
   });
@@ -138,7 +138,7 @@ describe("Asetukset > Talous: the box that reads a loan", () => {
   it("reads a text file and refuses a file that is neither a picture, a PDF nor text", async () => {
     open();
     pick(new File([ONE], "laina.txt", { type: "text/plain" }));
-    await waitFor(() => expect((screen.getByLabelText("Myönnetty määrä (€)") as HTMLInputElement).value).toBe("150 000,00"));
+    await waitFor(() => expect((screen.getByLabelText("Lainan määrä (€)") as HTMLInputElement).value).toBe("150 000,00"));
     pick(new File(["x"], "laina.zip", { type: "application/zip" }));
     expect((await screen.findByRole("alert")).textContent).toMatch(/ei ole kuva, PDF eikä teksti/);
   });
@@ -156,7 +156,7 @@ describe("Asetukset > Talous: the box that reads a loan", () => {
     reader.pdf.mockResolvedValue(ONE);
     open();
     pick(new File(["%PDF"], "laina.pdf", { type: "application/pdf" }));
-    await waitFor(() => expect((screen.getByLabelText("Maksuerä (€)") as HTMLInputElement).value).toBe("689,20"));
+    await waitFor(() => expect((screen.getByLabelText("Kuukausierä (€)") as HTMLInputElement).value).toBe("689,20"));
   });
 
   it("can end a PDF read with Keskeytä and says nothing of it", async () => {
@@ -192,9 +192,9 @@ describe("Asetukset > Talous: the box that reads a loan", () => {
     act(() => reading());
     expect(screen.getByRole("status").textContent).toMatch(/^Luemme kuvaa… 40 %/);
     loaded();
-    await waitFor(() => expect((screen.getByLabelText("Maksuerä (€)") as HTMLInputElement).value).toBe("689,20"));
+    await waitFor(() => expect((screen.getByLabelText("Kuukausierä (€)") as HTMLInputElement).value).toBe("689,20"));
     // read from a picture, a figure that a text gives with confidence is to check too
-    const payment = screen.getByLabelText("Maksuerä (€)").closest(".loan-field") as HTMLElement;
+    const payment = screen.getByLabelText("Kuukausierä (€)").closest(".loan-field") as HTMLElement;
     expect(payment.classList.contains("to-check")).toBe(true);
     expect(reader.picture.mock.calls[0]![0]).toBeInstanceOf(File);
   });

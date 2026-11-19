@@ -62,7 +62,7 @@ describe("loan intake: cross-checks", () => {
 
     const off = paying("68,92 €");
     expect(read(off)).toEqual({ balanceCents: "12000000 check", rateBp: "339 check", endDate: "2046-10-31 check", instalmentCents: "6892 check" });
-    expect(off.warnings).toEqual([{ id: "payment_annuity", text: "Maksuerä ei vastaa jäljellä olevaa lainaa, korkoa ja viimeistä eräpäivää. Tarkista luvut.", fields: ["instalmentCents", "balanceCents", "rateBp", "endDate"] }]);
+    expect(off.warnings).toEqual([{ id: "payment_annuity", text: "Kuukausierä ei vastaa jäljellä olevaa lainaa, korkoa ja viimeistä eräpäivää. Tarkista luvut.", fields: ["instalmentCents", "balanceCents", "rateBp", "endDate"] }]);
     for (const wrong of ["6 892,00 €", "500,00 €", "1 000,00 €"]) expect(warned(paying(wrong)), wrong).toEqual(["payment_annuity"]);
   });
 
@@ -111,7 +111,7 @@ describe("loan intake: the payment of an equal-principal loan", () => {
     const draft = one(["Lyhennystapa: Tasalyhennys", "Kuukausierä: 839,00 €"]);
     expect(read(draft)).toEqual({ repayment: "equal_principal sure", instalmentCents: "83900 check" });
     expect(draft.warnings).toEqual([
-      { id: "payment_whole", text: "Kirjaa tasalyhennyslainan maksueräksi pelkkä lyhennys. Tekstin maksuerässä on korko mukana. Tarkista maksuerä.", fields: ["instalmentCents"] },
+      { id: "payment_whole", text: "Kirjaa kuukausieräksi pelkkä lyhennys, kun erä pienenee. Tekstin erässä on korko mukana. Tarkista kuukausierä.", fields: ["instalmentCents"] },
     ]);
   });
 

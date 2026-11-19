@@ -85,11 +85,11 @@ test("a picture is read in the browser, marks every field it read to check, and 
 
   await form.getByLabel("Valitse kuva tai PDF").setInputFiles({ name: "kuvakaappaus.png", mimeType: "image/png", buffer: png });
   await expect(form.getByLabel("Lainaa jäljellä (€)")).toHaveValue("120 000,00", { timeout: READING_MS });
-  await expect(form.getByLabel("Maksuerä (€)")).toHaveValue("689,20");
-  await expect(form.getByLabel("Myönnetty määrä (€)")).toHaveValue("150 000,00");
+  await expect(form.getByLabel("Kuukausierä (€)")).toHaveValue("689,20");
+  await expect(form.getByLabel("Lainan määrä (€)")).toHaveValue("150 000,00");
 
   // each field the picture gave is marked to check, with the Tarkista badge, and none is shown as sure
-  for (const label of ["Lainaa jäljellä (€)", "Maksuerä (€)", "Myönnetty määrä (€)"]) {
+  for (const label of ["Lainaa jäljellä (€)", "Kuukausierä (€)", "Lainan määrä (€)"]) {
     const field = form.locator(".loan-field").filter({ has: page.getByLabel(label, { exact: true }) });
     await expect(field, label).toHaveClass(/to-check/);
     await expect(field.getByText("Tarkista", { exact: true }), label).toBeVisible();
