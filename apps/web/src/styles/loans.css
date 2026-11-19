@@ -40,40 +40,43 @@ dialog.loan-dialog h2 { margin-bottom: 16px; }
 dialog.loan-dialog .loan-form p { color: inherit; }
 dialog.loan-dialog .loan-form .form-row { justify-content: flex-start; margin: 0; }
 
-/* Reports > Lainat: the totals (.kv), what they leave out (.notice with the warning tone), each debt with its figures side by side, and a move of the reference rate. */
+/* Reports > Lainat: the totals (.kv), what they leave out (.notice with the warning tone), the plan line, the debts in the shared table and what a drill holds. */
 
-.loans-tile-sub { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); margin-top: 2px; }
+.loans-tile-sub { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); margin-top: var(--sp-4); }
 .loans-notes { list-style: none; margin: 0 0 var(--sp-16); padding: 0; font-size: var(--fs-body); line-height: var(--lh-body); }
 .loans-notes li + li { margin-top: var(--sp-8); }
 .loans-notes li.notice { margin-bottom: 0; }
 
-.loan-list { list-style: none; margin: 0; padding: 0; }
-.loan-list > li + li { margin-top: var(--sp-16); }
-.loan-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; padding-bottom: 8px; margin-bottom: var(--sp-8); border-bottom: 1px solid var(--border); }
-.loan-head strong { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; }
-.loan-head span { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
+/* a debt's name with what it is under it, its rate with the word of a dear one, and a figure it has none of */
+.loan-name { font-weight: 600; }
+.loan-about { display: block; color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
+.loan-class { margin-inline-start: var(--sp-8); font-weight: 600; }
+.loan-unknown { color: var(--muted); }
 
-/* the same five columns on every loan, so a figure can be read down the list */
-.loan-figures { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px 16px; margin: 0; }
+/* the plan line: the date the debts end and what it saves, opening to the order and the offer */
+.loan-plan { margin: 0 0 var(--sp-16); }
+.loan-plan > summary { display: flex; align-items: center; min-height: var(--tap-min); cursor: pointer; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; }
+.loan-plan-head { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; }
+.loan-plan-list { margin: 0; padding-inline-start: var(--sp-24); font-size: var(--fs-body); line-height: var(--lh-body); }
+
+/* the figures of a drill side by side, as many as fit */
+.loan-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--sp-8) var(--sp-16); margin: 0; }
 .loan-figures dt { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
-.loan-figures dd { margin: 2px 0 0; font-size: var(--fs-body); line-height: var(--lh-body); font-variant-numeric: tabular-nums lining-nums; overflow-wrap: anywhere; }
+.loan-figures dd { margin: var(--sp-4) 0 0; font-size: var(--fs-body); line-height: var(--lh-body); font-variant-numeric: tabular-nums lining-nums; overflow-wrap: anywhere; }
 .loan-figures dd small { display: block; color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
 .loan-figures dd.unknown { color: var(--muted); }
 /* the parts a figure is made of: label at the left, value at the right, in the body size */
-.loan-figures .loan-parts { margin: 4px 0 0; }
-.loan-figures .loan-parts > div { display: flex; justify-content: space-between; gap: 8px; }
+.loan-figures .loan-parts { margin: var(--sp-4) 0 0; }
+.loan-figures .loan-parts > div { display: flex; justify-content: space-between; gap: var(--sp-8); }
 .loan-figures .loan-parts dt { color: inherit; font-size: inherit; line-height: inherit; }
 .loan-figures .loan-parts dd { margin: 0; }
-.loan-scenario { margin: 8px 0 0; color: var(--text-2); font-size: var(--fs-body); line-height: var(--lh-body); }
+.loan-scenario { margin: var(--sp-8) 0 0; color: var(--text-2); font-size: var(--fs-body); line-height: var(--lh-body); }
 
-/* the drill of a loan: its figures, rate, the two inputs and the one line they answer */
-.loan-drill { margin-top: var(--sp-8); }
-.loan-drill > summary { display: flex; align-items: center; min-height: var(--tap-min); cursor: pointer; color: var(--text-2); font-size: var(--fs-body); line-height: var(--lh-body); }
+/* the drill of a loan: what it costs, its figures, rate, the two inputs and the one line they answer */
 .loan-wi { display: flex; flex-direction: column; gap: var(--sp-16); padding-top: var(--sp-8); }
 .loan-wi .loan-figures.loan-wi-rate { grid-template-columns: minmax(0, 1fr); }
 .loan-wi .loan-fields { max-width: 32rem; }
 .loan-wi-status, .loan-wi-result { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); }
 .loan-wi-result { font-weight: 600; }
 
-@media (max-width: 700px) { .loan-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 }

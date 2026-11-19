@@ -2,12 +2,12 @@
  * The drill of a loan in Raportit > Lainat: what is left, the rate, and the one line a new payment or an extra repayment
  * answers with. Every expected figure is counted by hand in cents from the loan's own terms. Loans are made up.
  */
-import type { Loan } from "@banking/core";
+import type { Loan, LoanRow, LoansReport } from "@banking/core";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 import "./fixed-clock.ts";
-import { LoanDrill } from "../src/components/loans/LoanDrill.tsx";
+import { LoanDrill, PlanDrill } from "../src/components/loans/LoanDrill.tsx";
 import { queryClient } from "../src/query-client.ts";
 import { stubApi } from "./dom-kit.ts";
 
@@ -30,8 +30,7 @@ const flat = (s: string | null | undefined) => (s ?? "").replace(/[  ]/g, " "
 
 async function open(l: Loan, today = START, fixings: object = {}) {
   stubApi({ "GET /api/loans": { loans: [l], fixings } });
-  render(createElement(LoanDrill, { id: l.id, today }));
-  fireEvent.click(screen.getByText("Erittely"));
+  render(createElement(LoanDrill, { l: { id: l.id, cost: null } as LoanRow, today, whatIf: true }));
   await screen.findByText("Jäljellä");
 }
 const figures = () => [...document.querySelectorAll(".loan-figures > div")].map((d) => `${flat(d.querySelector("dt")?.textContent)} ${flat(d.querySelector("dd")?.textContent)}`);
@@ -142,5 +141,70 @@ describe("the drill of a loan", () => {
     expect(screen.getByText("Kuukausierä puuttuu.")).toBeTruthy();
     expect(screen.queryByLabelText("Kuukausierä")).toBeNull();
     expect(screen.queryByLabelText("Kertalyhennys")).toBeNull();
+  });
+
+  it("splits the next 12 months into interest and fees, and tells nothing of a split the rows do not give", () => {
+    const row = (next12: object | null, unknown: string | null = null) => ({ id: "account:c1", cost: { next12, unknown } }) as unknown as LoanRow;
+    const { unmount } = render(createElement(LoanDrill, { l: row({ cents: 24_000, interestCents: 20_000, feeCents: 4_000 }), today: START, whatIf: false }));
+    expect(figures()).toEqual(["Korot 12 kk 200 €", "Kulut 12 kk 40 €"]);
+    unmount();
+    render(createElement(LoanDrill, { l: row({ cents: 24_000, interestCents: null, feeCents: null }), today: START, whatIf: false }));
+    expect(figures()).toEqual([]);
+  });
+
+  it("says what a debt without a cost waits for, where the what-if cannot", () => {
+    render(createElement(LoanDrill, { l: { id: "account:c1", cost: { next12: null, unknown: "rate" } } as unknown as LoanRow, today: START, whatIf: false }));
+    expect(screen.getByText("Korko puuttuu.")).toBeTruthy();
+  });
+});
+
+/** The plan of a household with two dear debts: one ends in March 2029, the other earlier. */
+const PLAN: NonNullable<LoansReport["plan"]> = {
+  debtFreeDate: "2029-03-01", baseDebtFreeDate: "2030-01-01", savedCents: 41_000, bufferCents: 0, bufferFullDate: null, snowballExtraCents: 0,
+  debts: [{ id: "card", order: 1, endDate: "2027-06-01", baseEndDate: "2027-06-01" }, { id: "credit", order: 2, endDate: "2029-03-01", baseEndDate: "2030-01-01" }],
+};
+const BASIS: NonNullable<LoansReport["consolidation"]> = { debtIds: ["card", "credit"], owedCents: 100_000, nowCents: 50_000 };
+const DEBTS = [{ id: "card", name: "Kaupan kortti" }, { id: "credit", name: "Kulutusluotto" }] as unknown as LoanRow[];
+const plan = (over: Partial<NonNullable<LoansReport["plan"]>> = {}, basis: LoansReport["consolidation"] = null) =>
+  render(createElement(PlanDrill, { plan: { ...PLAN, ...over }, basis, loans: DEBTS, today: START }));
+
+describe("the drill of the plan line", () => {
+  it("tells the month the debts end and what it saves, and the month each debt ends in, with its own payments' month where the extra money moves it", () => {
+    plan();
+    expect(flat(document.querySelector(".loan-plan > summary")?.textContent)).toBe("Velaton 3/2029 · säästät 410 €");
+    expect([...document.querySelectorAll(".loan-plan-list li")].map((li) => li.textContent)).toEqual(["Kaupan kortti: 6/2027", "Kulutusluotto: 3/2029, omilla maksuilla 1/2030"]);
+  });
+
+  it("has no line when the plan is not known, and no saving when it saves nothing", () => {
+    const { container } = render(createElement(PlanDrill, { plan: null, basis: BASIS, loans: DEBTS, today: START }));
+    expect(container.innerHTML).toBe("");
+    plan({ savedCents: 0 });
+    expect(flat(document.querySelector(".loan-plan > summary")?.textContent)).toBe("Velaton 3/2029");
+  });
+
+  it("tells the smallest debt first only from the 50 euro gap on", () => {
+    const { unmount } = render(createElement(PlanDrill, { plan: { ...PLAN, snowballExtraCents: 4_999 }, basis: null, loans: DEBTS, today: START }));
+    expect(document.body.textContent).not.toContain("Pienin velka ensin");
+    unmount();
+    plan({ snowballExtraCents: 5_000 });
+    expect(flat(document.body.textContent)).toContain("Pienin velka ensin maksaisi 50 € enemmän korkoja ja kuluja.");
+  });
+
+  it("prices a loan for the dear debts only once its rate and term are typed", () => {
+    plan({}, BASIS);
+    expect(flat(document.body.textContent)).toContain("Kaupan kortti, Kulutusluotto");
+    expect(result()).toBe("");
+    type("Uuden lainan korko, %", "0");
+    expect(result()).toBe("");
+    type("Laina-aika, kuukautta", "60");
+    // 0 % and 60 payments of a 5 euro fee: 300 euros against the 500 the debts have left
+    type("Kulu kuukausierässä", "5");
+    expect(result()).toBe("Uusi laina maksaisi korkoina ja kuluina 300 € · 200 € vähemmän");
+    // a rate over what a loan may carry, or a term of nothing, is no offer
+    type("Uuden lainan korko, %", "60");
+    expect(result()).toBe("");
+    type("Uuden lainan korko, %", "0");
+    type("Laina-aika, kuukautta", "0");
+    expect(result()).toBe("");
   });
 });

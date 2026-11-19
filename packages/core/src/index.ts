@@ -53,7 +53,7 @@ export * from "./loans.ts";
 export { loanPaymentAfter, loanRateLine, loanSchedule, loanWhatIf } from "./loan-schedule.ts";
 export * from "./household-debts.ts";
 export { debtCost } from "./debt-cost.ts";
-export { type ConsolidationBasis, consolidationBasis, consolidationCost, payoffPlan } from "./debt-plan.ts";
+export { consolidationCost } from "./debt-plan.ts";
 export { debtsOf } from "./analysis/card-settled.ts";
 export { cardLimitCents } from "./holdings.ts";
 export { buildHousing, MORTGAGE_QUESTION } from "./housing.ts";

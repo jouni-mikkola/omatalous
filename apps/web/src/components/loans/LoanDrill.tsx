@@ -1,11 +1,13 @@
 /**
- * The drill of a loan in Raportit > Lainat: what is left of it, its rate, and what a new payment or an extra repayment
- * does to its end and its interest. Every figure is core's (`loanSchedule`, `loanWhatIf`, `loanRateLine`) on the saved
- * loan and the published fixings; nothing is worked out here.
+ * The drill of a loan in Raportit > Lainat: what its next 12 months cost, what is left of it, its rate, and what a new
+ * payment or an extra repayment does to its end and its interest. And the drill of the plan line: the order the debts
+ * are paid in, and what one new loan for the dear debts would cost. Every figure is core's (`loanSchedule`,
+ * `loanWhatIf`, `loanRateLine`, `consolidationCost`, the report's `plan`) on the saved loan and the published fixings;
+ * nothing is worked out here.
  */
-import { type Loan, loanBalanceOn, loanPaymentAfter, loanRateLine, loanSchedule, loansOf, loanWhatIf, type LoanUnknown, NO_INPUTS } from "@banking/core";
+import { belowWhole, consolidationCost, type Loan, loanBalanceOn, loanPaymentAfter, loanRateLine, type LoanRow, loanSchedule, type LoansReport, loansOf, loanWhatIf, type LoanUnknown, NO_INPUTS, THRESHOLDS } from "@banking/core";
 import { useId, useMemo, useState } from "react";
-import { date, eurosText, money, parseEuros, percent, plainNumber } from "../../format.ts";
+import { date, eurosText, money, parseEuros, parseRate, percent, plainNumber } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
 import { t } from "../../text.ts";
 import type { LoansAnswer } from "../../types.ts";
@@ -14,7 +16,7 @@ import type { LoansAnswer } from "../../types.ts";
 const MAX_PAYMENT_TIMES = 10;
 
 /** What the figures wait for, said as the field that is missing. */
-function missing(field: LoanUnknown): string {
+function missing(field: LoanUnknown | "fee"): string {
   switch (field) {
     case "payment":
       return t("rpt.ln_wi_missing_payment");
@@ -119,7 +121,7 @@ function Body({ id, today }: { id: string; today: string }) {
     [t("rpt.ln_wi_last"), summary !== null ? date(summary.endDate) : schedule.never ? t("rpt.ln_wi_never") : null],
   ];
   return (
-    <div className="loan-wi">
+    <>
       <dl className="loan-figures">
         {figures.map(([label, value]) => (
           <div key={label}>
@@ -160,24 +162,125 @@ function Body({ id, today }: { id: string; today: string }) {
       <p className="loan-wi-result" role="status">
         {result}
       </p>
+    </>
+  );
+}
+
+/**
+ * What a debt's next 12 months cost, split into interest and fees where the evidence splits a payment, and for a loan the
+ * viewer typed in whole the figures and what-if of its plan. The drill opens with its row, so the loans and fixings are
+ * asked for only then.
+ */
+export function LoanDrill({ l, today, whatIf }: { l: LoanRow; today: string; whatIf: boolean }) {
+  const next = l.cost?.next12 ?? null;
+  const parts: [label: string, cents: number][] = next === null || next.interestCents === null || next.feeCents === null ? [] : [[t("rpt.ln_cost12_interest"), next.interestCents], [t("rpt.ln_cost12_fees"), next.feeCents]];
+  const unknown = l.cost?.unknown ?? null;
+  return (
+    <div className="loan-wi">
+      {parts.length > 0 && (
+        <dl className="loan-figures loan-wi-cost">
+          {parts.map(([label, cents]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{money(cents, false)}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {unknown !== null && (unknown === "fee" || !whatIf) && <p className="loan-wi-status">{missing(unknown)}</p>}
+      {whatIf && <Body id={l.id} today={today} />}
     </div>
   );
 }
 
-/** A fold under the figures of a loan. It asks the server for the loans and fixings only once it is opened. */
-export function LoanDrill({ id, today }: { id: string; today: string }) {
-  const [open, setOpen] = useState(false);
+/** Whether a loan's what-if can be worked out here: a loan the viewer typed in whole, which `GET /api/loans` sends. */
+export const hasWhatIf = (l: LoanRow): boolean => !l.id.startsWith("account:") && !l.typedBy && !belowWhole(l.part);
+
+type Plan = NonNullable<LoansReport["plan"]>;
+type Basis = NonNullable<LoansReport["consolidation"]>;
+
+/** The bounds of a saved loan (`routes/loans.ts`): fifty years, 50 % a year; a fee of a thousand euros a payment is a slip of the finger. */
+const MAX_OFFER_MONTHS = 600;
+const MAX_OFFER_RATE_BP = 5000;
+const MAX_OFFER_FEE_CENTS = 100_000;
+
+/** What the typed offer says, or null until a rate and a term that make a loan are typed. The fee may stay empty: it is then 0. */
+function offerOf(rateText: string, monthsText: string, feeText: string): { rateBp: number; months: number; feeCents: number } | null {
+  const rateBp = parseRate(rateText.trim());
+  const months = /^\d{1,4}$/.test(monthsText.trim()) ? Number(monthsText.trim()) : null;
+  const feeCents = feeText.trim() === "" ? 0 : parseEuros(feeText);
+  if (rateBp === null || rateBp > MAX_OFFER_RATE_BP || months === null || months < 1 || months > MAX_OFFER_MONTHS || feeCents === null || feeCents < 0 || feeCents > MAX_OFFER_FEE_CENTS) return null;
+  return { rateBp, months, feeCents };
+}
+
+/** The fields of an offer and its one line. */
+function Consolidation({ basis, names, today }: { basis: Basis; names: readonly string[]; today: string }) {
+  const [rate, setRate] = useState("");
+  const [months, setMonths] = useState("");
+  const [fee, setFee] = useState("");
+  const id = useId();
+  const offer = offerOf(rate, months, fee);
+  const cost = offer === null ? null : consolidationCost(basis, today, offer);
+  const gap = cost === null ? 0 : basis.nowCents - cost.newCents;
+  const field = (key: string, label: string, value: string, set: (v: string) => void) => (
+    <div className="loan-field">
+      <label className="field-label" htmlFor={`${id}-${key}`}>
+        {label}
+      </label>
+      <input id={`${id}-${key}`} type="text" inputMode="decimal" autoComplete="off" value={value} onChange={(e) => set(e.target.value)} />
+    </div>
+  );
   return (
-    <details className="loan-drill" open={open}>
-      <summary
-        onClick={(e) => {
-          e.preventDefault();
-          setOpen(!open);
-        }}
-      >
-        {t("rpt.ln_wi_drill")}
-      </summary>
-      {open && <Body id={id} today={today} />}
+    <div className="loan-wi">
+      <h4 className="loan-plan-head">{t("rpt.ln_consol")}</h4>
+      <dl className="loan-figures loan-wi-cost">
+        <div>
+          <dt>{t("rpt.ln_consol_debts")}</dt>
+          <dd>{names.join(", ")}</dd>
+        </div>
+        <div>
+          <dt>{t("rpt.ln_consol_owed")}</dt>
+          <dd>{money(basis.owedCents, false)}</dd>
+        </div>
+        <div>
+          <dt>{t("rpt.ln_consol_now")}</dt>
+          <dd>{money(basis.nowCents, false)}</dd>
+        </div>
+      </dl>
+      <div className="loan-fields">
+        {field("rate", t("rpt.ln_consol_rate"), rate, setRate)}
+        {field("months", t("rpt.ln_consol_months"), months, setMonths)}
+        {field("fee", t("rpt.ln_consol_fee"), fee, setFee)}
+      </div>
+      <p className="loan-wi-result" role="status">
+        {cost === null ? null : [t("rpt.ln_consol_new", { amount: money(cost.newCents, false) }), gap === 0 ? t("rpt.ln_consol_same") : t(gap > 0 ? "rpt.ln_consol_less" : "rpt.ln_consol_more", { amount: money(Math.abs(gap), false) })].join(" · ")}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The plan line above the list, "Velaton 3/2029 · säästät 410 €", and under it: the debts in the order the money from a
+ * paid-off debt goes to the next, the cost of paying the smallest debt first when it is at least `snowballGapCents`
+ * more, and the offer of one loan for the dear debts. Null when the plan is not known (`plan` is null).
+ */
+export function PlanDrill({ plan, basis, loans, today }: { plan: Plan | null; basis: Basis | null; loans: readonly LoanRow[]; today: string }) {
+  if (plan === null) return null;
+  const name = (id: string) => loans.find((l) => l.id === id)?.name ?? id;
+  const line = [t("rpt.ln_free_by", { month: monthYear(plan.debtFreeDate) }), ...(plan.savedCents > 0 ? [t("rpt.ln_saves", { amount: money(plan.savedCents, false) })] : [])].join(" · ");
+  return (
+    <details className="loan-plan">
+      <summary>{line}</summary>
+      <div className="loan-wi">
+        <h4 className="loan-plan-head">{t("rpt.ln_plan_order")}</h4>
+        <ol className="loan-plan-list">
+          {plan.debts.map((d) => (
+            <li key={d.id}>{d.endDate === d.baseEndDate ? t("rpt.ln_plan_end", { name: name(d.id), month: monthYear(d.endDate) }) : t("rpt.ln_plan_own", { name: name(d.id), month: monthYear(d.endDate), own: monthYear(d.baseEndDate) })}</li>
+          ))}
+        </ol>
+        {plan.snowballExtraCents >= THRESHOLDS.snowballGapCents.value && <p className="loan-wi-status">{t("rpt.ln_snowball", { amount: money(plan.snowballExtraCents, false) })}</p>}
+      </div>
+      {basis !== null && <Consolidation basis={basis} names={basis.debtIds.map(name)} today={today} />}
     </details>
   );
 }
