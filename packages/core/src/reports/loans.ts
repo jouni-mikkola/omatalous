@@ -194,7 +194,9 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
   const unsaved = unsavedDebts(ctx, inputs);
   // the same rows the front page and Tarkistettavat price each debt from, so a debt costs the same on every page
   const keys = debts.loans.flatMap((l) => l.seriesKey ?? []);
-  const rowsOf = (debt: Debt) => debtPayments(ctx, debt, keys);
+  // each debt's rows are filtered and its cost worked out once; the list, the plan and the offer's basis share it
+  const costs = new Map(debts.loans.map((debt) => [debt.id, debtCost(debt, day, debtPayments(ctx, debt, keys))]));
+  const costOf = (debt: Debt) => costs.get(debt.id) ?? null;
   const loans = debts.loans.map((loan): LoanRow => {
     const balance = loanBalanceOn(loan, day);
     const moves = hasReferenceRate(loan) && loan.rateBp !== null && (balance.cents ?? 0) > 0;
@@ -217,7 +219,7 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
       repayment: loan.repayment,
       payment: loanNextPayment(loan, day),
       interest: loanInterestNext12Months(loan, day),
-      cost: debtCost(loan, day, rowsOf(loan)),
+      cost: costOf(loan),
       payoff: loanPayoffDate(loan),
       scenarios: moves ? RATE_SHIFTS_BP.map((shift) => loanRateScenario(loan, day, shift)).filter((s) => s.movedBp !== 0 && (s.paymentCents !== null || s.interestCents !== null)) : [],
     };
@@ -240,8 +242,8 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
     interestKnown: debts.interestKnown,
     withoutRate: loansWithoutRate(debts.interest),
     cost12,
-    plan: cost12.cents === null ? null : payoffPlan(debts.loans, day, 0, buffer, rowsOf),
-    consolidation: cost12.cents === null ? null : consolidationBasis(debts.loans, day, rowsOf),
+    plan: cost12.cents === null ? null : payoffPlan(debts.loans, day, 0, buffer, costOf),
+    consolidation: cost12.cents === null ? null : consolidationBasis(debts.loans, day, costOf),
     payments: debtPaymentsPerMonth(debts.loans, day),
     path: debtPath(debts.loans, day, RATE_SHIFTS_BP),
     maybeTwice: maybeTwice(balances, debts),

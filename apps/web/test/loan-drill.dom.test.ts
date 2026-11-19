@@ -8,7 +8,12 @@ import { createElement } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 import "./fixed-clock.ts";
 import { LoanDrill, PlanDrill } from "../src/components/loans/LoanDrill.tsx";
+import { PageAddressContext } from "../src/page-address.ts";
+import { section as loansSection } from "../src/pages/reports/sections/Loans.tsx";
+import type { ReportContext } from "../src/pages/reports/types.ts";
 import { queryClient } from "../src/query-client.ts";
+import { DRILL_PARAM, tableId, writeTableState } from "../src/table-state.ts";
+import { t } from "../src/text.ts";
 import { stubApi } from "./dom-kit.ts";
 
 const START = "2026-01-15";
@@ -212,5 +217,106 @@ describe("the drill of the plan line", () => {
     type("Uuden lainan korko, %", "0");
     type("Laina-aika, kuukautta", "0");
     expect(result()).toBe("");
+  });
+
+  it("names the field whose text is no offer, and clears the error when the text is mended", () => {
+    plan({}, BASIS);
+    const errorOf = (label: string) => {
+      const input = screen.getByLabelText(label);
+      const id = input.getAttribute("aria-describedby");
+      return { invalid: input.getAttribute("aria-invalid") === "true", text: id === null ? null : flat(document.getElementById(id)?.textContent) };
+    };
+    // nothing typed is no mistake yet
+    expect(document.querySelectorAll(".field-error").length).toBe(0);
+    type("Uuden lainan korko, %", "60");
+    expect(errorOf("Uuden lainan korko, %")).toEqual({ invalid: true, text: "Anna korko prosentteina, enintään 50 %." });
+    // a term still to be typed is not wrong
+    expect(errorOf("Laina-aika, kuukautta")).toEqual({ invalid: false, text: null });
+    type("Uuden lainan korko, %", "abc");
+    expect(errorOf("Uuden lainan korko, %").invalid).toBe(true);
+    type("Uuden lainan korko, %", "4");
+    expect(errorOf("Uuden lainan korko, %")).toEqual({ invalid: false, text: null });
+    type("Laina-aika, kuukautta", "0");
+    expect(errorOf("Laina-aika, kuukautta")).toEqual({ invalid: true, text: "Anna laina-aika kokonaisina kuukausina, enintään 600." });
+    type("Laina-aika, kuukautta", "601");
+    expect(errorOf("Laina-aika, kuukautta").invalid).toBe(true);
+    type("Laina-aika, kuukautta", "6,5");
+    expect(errorOf("Laina-aika, kuukautta").invalid).toBe(true);
+    type("Laina-aika, kuukautta", "60");
+    expect(errorOf("Laina-aika, kuukautta")).toEqual({ invalid: false, text: null });
+    // rate and term are right and the fee is empty, which is 0: the offer is complete
+    expect(result()).not.toBe("");
+    type("Kulu kuukausierässä", "5000");
+    expect(errorOf("Kulu kuukausierässä")).toEqual({ invalid: true, text: "Anna kulu euroina, enintään 1 000 €." });
+    expect(result()).toBe("");
+    type("Kulu kuukausierässä", "-5");
+    expect(errorOf("Kulu kuukausierässä").invalid).toBe(true);
+    type("Kulu kuukausierässä", "");
+    expect(errorOf("Kulu kuukausierässä")).toEqual({ invalid: false, text: null });
+    expect(result()).not.toBe("");
+  });
+});
+
+const DAY = "2026-10-11";
+/** A saved loan of another member, so its drill has no what-if and shows what the row tells. Made up. */
+const theirs = (over: Partial<LoanRow> = {}): LoanRow =>
+  ({
+    id: "theirs", name: "Kodin laina", lender: "Esimerkkipankki", kind: "mortgage", accountType: null, linkedAccount: null, typedBy: "Aino",
+    balance: { cents: 12_000_000, unknown: null }, balanceDate: DAY, rateBp: 325, reference: "euribor_12", repayment: "annuity",
+    payment: { cents: 100_000, interestCents: 32_500, amortisationCents: 67_500, intervalMonths: 1, date: null, unknown: null },
+    interest: { cents: 380_000, unknown: null }, cost: null, payoff: { date: "2040-02-01", unknown: null, never: false }, scenarios: [], ...over,
+  }) as LoanRow;
+
+/** Lainat with the drill of the one row open, as a reader who pressed its chevron sees it. */
+function openDrill(row: LoanRow) {
+  const data = {
+    loans: {
+      day: DAY, saved: 1, loans: [row], unsaved: [], total: { cents: 12_000_000, unknown: [] }, totalKnown: true, interest: { cents: 380_000, unknown: [] }, interestKnown: true, withoutRate: 0,
+      cost12: { cents: 380_000, interestCents: 380_000, feeCents: 0 }, plan: null, consolidation: null, payments: { monthlyCents: 100_000, counted: 1, unknown: 0, bullets: 0 }, path: null, maybeTwice: [], overdraftTwice: [],
+    },
+    balances: { months: ["2026-10"], total: [0], monthChange: [null], missing: [], accountsLessDebt: [null], lowest: null, accounts: [], holdings: { accounts: [], cards: [], loans: [], debtCents: 0, unsavedLoans: null, netCents: null } },
+  };
+  const ctx = { data, meta: { today: DAY, accounts: [] }, running: "2026-10", scope: "own", exportHref: () => "" } as unknown as ReportContext;
+  const search = { [DRILL_PARAM]: writeTableState(undefined, tableId(t("rpt.ln_caption")), row.id) };
+  return render(createElement(PageAddressContext.Provider, { value: { search, change: () => {} } }, createElement(loansSection.Component, { ctx })));
+}
+
+/** What a figure's value holds, its small text and its parts each as a word group of their own. */
+const valueWords = (dd: Element | null) =>
+  [...(dd?.childNodes ?? [])].flatMap((n) => (n instanceof Element && n.classList.contains("loan-parts") ? [...n.children].map((p) => flat(p.textContent && `${p.querySelector("dt")?.textContent} ${p.querySelector("dd")?.textContent}`)) : [flat(n.textContent)]));
+
+/** The open drill's figures: label and value of each, in order. */
+const drillFigures = () => [...document.querySelectorAll(".rt-detail .loan-figures > div")].map((d) => [flat(d.querySelector("dt")?.textContent), ...valueWords(d.querySelector("dd"))].join(" "));
+
+describe("the open drill of a debt in Lainat", () => {
+  it("tells a payment with no interval without one, and never with the word null", () => {
+    openDrill(theirs({ payment: { cents: 20_000, interestCents: null, amortisationCents: null, intervalMonths: null, date: null, unknown: "interval" } }));
+    expect(drillFigures()).toContain("Maksu 200,00 €");
+    expect(document.body.textContent).not.toContain("null");
+  });
+
+  it("shows the interest and the principal of a payment as parts of its figure, not as a clause", () => {
+    openDrill(theirs());
+    expect(drillFigures()).toContain("Maksu 1 000,00 €/kk Korko 325,00 € Lyhennys 675,00 €");
+    expect(drillFigures()).toContain("Viimeinen maksupäivä 1.2.2040");
+    expect(document.body.textContent).not.toMatch(/korkoa 325|lyhennystä/);
+  });
+
+  it("shows a dash for the payment and the last payment of a debt that owes nothing", () => {
+    const none = { cents: null, interestCents: null, amortisationCents: null, intervalMonths: 1, date: null, unknown: null };
+    openDrill(theirs({ balance: { cents: 0, unknown: null }, payment: none, interest: { cents: 0, unknown: null }, payoff: { date: null, unknown: null, never: false } }));
+    expect(drillFigures()).toContain("Maksu –");
+    expect(drillFigures()).toContain("Viimeinen maksupäivä –");
+    expect(document.body.textContent).not.toContain("Maksettu");
+  });
+
+  it("tells the day of a balance no plan moved forward", () => {
+    openDrill(theirs({ balance: { cents: 124_000, unknown: "repayment" }, balanceDate: "2026-03-01" }));
+    expect(drillFigures()).toContain("Velkaa 1 240,00 € jäljellä 1.3.");
+  });
+
+  it("tells a known rate and its reference where no what-if opens", () => {
+    openDrill(theirs());
+    expect(drillFigures()).toContain("Korko 3,25 % 12 kuukauden Euribor");
   });
 });
