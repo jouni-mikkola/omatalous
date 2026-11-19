@@ -41,6 +41,4 @@ export const EN_SET_LOAN_INTAKE: Record<keyof typeof FI_SET_LOAN_INTAKE, string>
   "set.ln.same_loan_twice": "Two rows update the same loan. Choose a new loan for one of them.",
   "set.ln.save_one": "Save loan",
   "set.ln.save_many": "Save {count} loans",
-  "set.ln.saved_one": "We saved the loan.",
-  "set.ln.saved_many": "We saved {count} loans.",
 };
