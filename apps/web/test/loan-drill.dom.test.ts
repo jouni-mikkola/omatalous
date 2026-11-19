@@ -156,6 +156,12 @@ describe("the drill of a loan", () => {
     render(createElement(LoanDrill, { l: { id: "account:c1", cost: { next12: null, unknown: "rate" } } as unknown as LoanRow, today: START, whatIf: false }));
     expect(screen.getByText("Korko puuttuu.")).toBeTruthy();
   });
+
+  it("names the fee a 0 % plan waits for, never a gap in general", () => {
+    render(createElement(LoanDrill, { l: { id: "account:c1", cost: { next12: null, unknown: "fee" } } as unknown as LoanRow, today: START, whatIf: false }));
+    expect(screen.getByText("Kulu erää kohden puuttuu.")).toBeTruthy();
+    expect(screen.queryByText("Lainan tiedoissa on aukko.")).toBeNull();
+  });
 });
 
 /** The plan of a household with two dear debts: one ends in March 2029, the other earlier. */

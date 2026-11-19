@@ -219,6 +219,7 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.ln_wi_missing_repayment": "The repayment type is missing.",
   "rpt.ln_wi_missing_interval": "The payment interval is missing.",
   "rpt.ln_wi_missing_end_date": "The last payment date is missing.",
+  "rpt.ln_wi_missing_fee": "The fee per payment is missing.",
   "rpt.ln_wi_missing_other": "The loan's details have a gap.",
   "rpt.ln_wi_rate_margin": "{rate} (margin {margin})",
   "rpt.ln_wi_principal": "Monthly principal",

@@ -3,7 +3,7 @@ import { belowWhole, cardLimitCents, inCostOrder, type LoanRow, type LoansReport
 import { Fragment } from "react";
 import { LOAN_LINK_PARAM } from "../../../components/loans/form.ts";
 import { hasWhatIf, LoanDrill, PlanDrill } from "../../../components/loans/LoanDrill.tsx";
-import { intervalLabel, KIND_LABEL } from "../../../components/loans/labels.ts";
+import { intervalLabel, KIND_LABEL, referenceName } from "../../../components/loans/labels.ts";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { Figure } from "../../../components/Figure.tsx";
 import { DebtPath, DebtPathTable } from "../../../charts/forms/DebtPath.tsx";
@@ -114,6 +114,8 @@ function LoanFacts({ l, limitCents, whatIf }: { l: LoanRow; limitCents: number |
     // a balance no plan moved forward is the one that was told, with its day
     ...(!card && l.balance.cents !== null && l.balance.unknown ? [{ label: t("rpt.ln_debt"), value: money(l.balance.cents), sub: t("rpt.ln_left_on", { date: date(l.balanceDate) }) }] : []),
     ...(card ? (limitCents !== null ? [{ label: t("rpt.ln_limit"), value: money(limitCents) }] : []) : [{ label: t("rpt.ln_payment"), ...payment(l) }, ...(whatIf ? [] : [{ label: t("rpt.ln_last_due"), value: lastPayment(l) }])]),
+    // a rate that is known and that no what-if line below tells: the nominal rate and the reference it follows
+    ...(!whatIf && l.rateBp !== null ? [{ label: t("rpt.ln_rate"), value: percent(l.rateBp / 10_000, 2), sub: l.reference ? referenceName(l.reference) : null }] : []),
     ...(belowWhole(l.part) ? [{ label: t("rpt.ln_your_share"), value: percent((l.part.to - l.part.from) / l.part.of) }] : []),
   ];
   return (

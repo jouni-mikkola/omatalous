@@ -283,6 +283,8 @@ describe("Raportit: Lainat", () => {
     expect(out).toContain(figure("Osuutesi", "40 %"));
     expect(out.split("Osuutesi").length - 1).toBe(1);
     expect(out).not.toContain("osuutesi");
+    // the loan no what-if opens for tells its known rate and reference in its drill
+    expect(out).toContain("<dt>Korko</dt><dd>3,25 %<small>12 kuukauden Euribor</small></dd>");
   });
 
   it("the kind is left out under a name that is the kind", () => {

@@ -28,6 +28,8 @@ function missing(field: LoanUnknown | "fee"): string {
       return t("rpt.ln_wi_missing_interval");
     case "end_date":
       return t("rpt.ln_wi_missing_end_date");
+    case "fee":
+      return t("rpt.ln_wi_missing_fee");
     default:
       return t("rpt.ln_wi_missing_other");
   }
