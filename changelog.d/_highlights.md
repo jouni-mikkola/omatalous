@@ -1,0 +1,4 @@
+- Loans live in Raportit > Varat ja velat: add, edit and remove them there, also before linking a bank.
+- Täydennä lainat asks one thing of each debt, and every card whose purchases are missing is asked there.
+- Laskut shows the running month's paid and unpaid bills.
+- Pages are quieter: hint lines are gone and fewer small payments are asked about.
