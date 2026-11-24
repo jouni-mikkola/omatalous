@@ -387,12 +387,12 @@ export async function checkModuleNow(s: Services, user: User): Promise<{ view: M
   const last = lastManualCheck.get(s);
   if (last !== undefined && nowMs >= last && nowMs - last < MANUAL_CHECK_GAP_MS) throw new TooManyAttempts("Odota hetki ennen seuraavaa tarkistusta.", Math.ceil((MANUAL_CHECK_GAP_MS - (nowMs - last)) / 1000));
   lastManualCheck.set(s, nowMs);
-  const before = (await readStatus(s))?.at;
+  const before = await readStatus(s);
   await checkForModule(s, user.id);
   const status = await readStatus(s);
   const start = startState(s);
-  // a check that failed leaves the status of an installed module as it was, and then it found nothing
+  // a check that failed leaves the status of an installed module as it was, and then it found nothing (the time alone cannot tell, a clock that has not moved writes the same one)
   const checked: CheckedModule =
-    status?.state === "installed" && status.id && status.version && status.at !== before ? { version: status.version, restart: !(start.state === "connected" && start.id === status.id && start.version === status.version) } : null;
+    status?.state === "installed" && status.id && status.version && (status.at !== before?.at || status.version !== before.version) ? { version: status.version, restart: !(start.state === "connected" && start.id === status.id && start.version === status.version) } : null;
   return { view: await moduleView(s), checked };
 }
