@@ -94,6 +94,10 @@ for (const width of [390, 1440] as const) {
     if (bufferMonths === null) {
       const reasons: Record<string, string> = { "no-balance": "Ei saldoa", history: "Liian lyhyt historia", "no-spending": "Ei menoja" };
       expect(plain(await buffer.innerText())).toBe(`Puskuri ${reasons[bufferGap as string]}`);
+    } else if (bufferNetCents !== null && bufferNetCents < 0) {
+      // no buffer: the line says so and holds no sum, the shortfall is the figure Nyt leads with
+      expect(plain(await buffer.innerText())).toBe("Ei puskuria");
+      await expect(buffer.locator("summary")).toHaveCount(0);
     } else {
       const months = bufferMonths.toLocaleString("fi-FI", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
       await expect(buffer.locator("summary")).toHaveText(`Puskuri ${months} kk`);
@@ -141,9 +145,12 @@ test("the coming months tell the figures the month heads of Laskut tell", async 
   const response = await context.request.get("/api/reports?scope=own&reports=billCalendar");
   expect(response.ok()).toBe(true);
   const { billCalendar } = await response.json();
+  // the block starts at the first month with something to come: a running month with everything paid has no row
+  const empty = (m: { afterCents: number | null; billsCents: number; incomeCents: number; savingCents: number }) => m.afterCents === 0 && m.billsCents === 0 && m.incomeCents === 0 && m.savingCents === 0;
+  const shown = billCalendar.months.slice(Math.max(0, billCalendar.months.findIndex((m: Parameters<typeof empty>[0]) => !empty(m)))).slice(0, 3);
   const rows = page.locator(".home-coming tbody tr");
   await expect(rows).toHaveCount(3);
-  for (const [i, month] of billCalendar.months.slice(0, 3).entries()) {
+  for (const [i, month] of shown.entries()) {
     const [, bills, income, after] = await rows.nth(i).locator("th, td").allInnerTexts();
     expect(sums(bills!)[0], `${month.month}: the bills`).toBe(month.billsCents);
     if (month.estimateCents > 0) expect(sums(bills!)[1], `${month.month}: their estimated part`).toBe(month.estimateCents);
@@ -155,8 +162,8 @@ test("the coming months tell the figures the month heads of Laskut tell", async 
   // the same three months on Laskut's own heads
   await page.goto("/#/bills");
   await expect(page.locator(".bill-sums").first()).toBeVisible({ timeout: 15_000 });
-  const heads = (await page.locator(".bill-sums").allInnerTexts()).slice(0, 3);
-  for (const [i, month] of billCalendar.months.slice(0, 3).entries()) expect(sums(heads[i]!)[0], `${month.month}: Laskut' head`).toBe(month.billsCents);
+  const allHeads = await page.locator(".bill-sums").allInnerTexts();
+  for (const month of shown) expect(sums(allHeads[billCalendar.months.indexOf(month)]!)[0], `${month.month}: Laskut' head`).toBe(month.billsCents);
   await context.close();
 });
 

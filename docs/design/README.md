@@ -29,7 +29,11 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
     to the same day.
   - Käteen jäi: income less spending and what moved to savings (`totals.leftCents`), against the same day of last month.
   - Tulojen käyttö under them: the bar of the income by where it went, as `bridgeView` gives it, each part with its share
-    and its sum. No bar without income, or with a part below zero (ADR 0014); the parts then stand as a list.
+    and its sum. No bar without income, or with a part below zero (ADR 0014); the parts then stand as a list. When the
+    spending was over the income, the money that paid the gap (credit, savings, the accounts) is one sentence under the
+    list, not rows with shares that would add to more than 100 %. A term between Menot and Käteen jäi (*Otettu
+    säästöistä*) is its own sum to the euro, the same under Käteen jäi and in the list; it may differ from the rounded
+    figures by a euro.
 - Nyt, the first block: what is left on the payday (`home.runway.leftOnPayday`, *Jää palkkapäivänä*): the accounts less the
   bills and own transfers before it, the card debt and the everyday spending of the days to it, with the payday. While
   the everyday spending cannot be expected (`leftOnPayday` has no figure) it is what is left after the bills alone
@@ -40,7 +44,8 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
   statement of a card) or *Laskun summa puuttuu* (links to Laskut; a bill with no sum within the 60 days, or with no
   day). A card paid by a bill that holds its purchases in no category is no reason: the bill's sum is spread over the
   month's days and the line has its figure.
-- Tulevat kuukaudet, the third block: this month and the two after it, a row each with the bills (and the estimated
+- Tulevat kuukaudet, the third block: this month and the two after it (the running month is left out, and the block
+  starts at the next, once its bills are all paid and nothing else is to come), a row each with the bills (and the estimated
   part of them), the pays expected and what is left after the bills. Each figure is a field of the month in
   `billCalendar` (`billsCents`, `estimateCents`, `incomeCents`, `afterCents`), the answer Laskut's month heads read, so
   both places tell the same sums. A sum that is not known is "Ei tiedossa", never 0, in the months the unknown bill

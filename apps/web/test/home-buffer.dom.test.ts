@@ -31,17 +31,14 @@ describe("Buffer", () => {
     ]);
   });
 
-  it("says there is no buffer when the money does not cover what is owed, and keeps its two sums", () => {
+  it("says there is no buffer when the money does not cover what is owed, and draws no sum: the shortfall is the figure Nyt leads with", () => {
     const net = -150_000;
     const spend = 300_000;
     const { container } = render(createElement(Buffer, { direction: direction({ bufferMonths: net / spend, bufferNetCents: net, bufferSpendCents: spend }) }));
-    const summary = screen.getByText("Ei puskuria");
-    fireEvent.click(summary);
-    const terms = [...container.querySelectorAll(".st-row")].map((row) => [...row.children].map((c) => flat(c.textContent)));
-    expect(terms).toEqual([
-      ["Raha laskujen ja korttivelan jälkeen", "−1 500,00 €"],
-      ["Menot ja lainanmaksut kuukaudessa", "3 000,00 €"],
-    ]);
+    expect(flat(container.textContent)).toBe("Ei puskuria");
+    expect(container.querySelector("details")).toBeNull();
+    expect(container.querySelector(".st-row")).toBeNull();
+    expect(container.textContent).not.toMatch(/\d/);
   });
 
   it("says Ei menoja when core's reason is that the expected month has no spending", () => {
