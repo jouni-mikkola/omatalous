@@ -2,7 +2,7 @@
 import "../../../styles/report-balances.css";
 import "../../../styles/report-debts.css";
 import type { ReportPage } from "../types.ts";
-import { section as Balances } from "../sections/Balances.tsx";
+import { BalancesLead, section as Balances } from "../sections/Balances.tsx";
 import { section as Loans } from "../sections/Loans.tsx";
 import { t } from "../../../text.ts";
 
@@ -11,5 +11,6 @@ export const page: ReportPage = {
   get title() {
     return t("rpt.page_balances");
   },
+  Lead: BalancesLead,
   sections: [Balances, Loans],
 };

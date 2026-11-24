@@ -107,7 +107,6 @@ export const EN_REPORTS_2: Record<keyof typeof FI_REPORTS_2, string> = {
   "rpt.q_twins_once_many": "They are counted once.",
   "rpt.q_account_line": "{name}: {parts}",
   "rpt.and": " and ",
-  "rpt.borrowed_link": "Show draws",
   "rpt.pivot_none": "There are not yet enough complete months to compare months.",
   "rpt.pivot_flat": "No category's spending rose clearly above what you would expect.",
   "rpt.pivot_jump": "{label}: {month} had <b>{amount}</b>, expected {expected}.",

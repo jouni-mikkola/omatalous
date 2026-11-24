@@ -4,17 +4,18 @@ import type { Settlement, SettlementLine } from "@banking/core";
 import { useState } from "react";
 import { MemberBars } from "../../../charts/forms/MemberBars.tsx";
 import { Section } from "../../../components/Section.tsx";
-import { date, money, monthLong } from "../../../format.ts";
+import { answerMoney, date, money, monthLong } from "../../../format.ts";
 import { useApi } from "../../../hooks.ts";
 import type { Meta } from "../../../types.ts";
 import { isJoint } from "../../settings/account-use.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { addMonths, isSharedCredit, monthRange, NETTED_SOURCE, settlementSums } from "@banking/core";
+import { Lead } from "../Lead.tsx";
 import { hasNothing, holderNameOf } from "./settlement-text.ts";
 import { Notice } from "../../../components/ui/Notice.tsx";
 import { Empty } from "../../../components/ui/Empty.tsx";
 import { t } from "../../../text.ts";
-interface Answer {
+export interface Answer {
   month: string;
   pools: { accountId: string; name: string; firstMonth: string | null; names: Record<string, string>; removed: string[]; labels: Record<string, string>; settlement: Settlement }[];
 }
@@ -34,6 +35,11 @@ function unknownName(owner: string, labels: Record<string, string>, holder: stri
   if (owner === NETTED_SOURCE) return t("rpt.se_unknown_payer");
   if (owner === "c" || isSharedCredit(owner)) return t("rpt.se_credit");
   return labels[owner] ?? t("rpt.se_unknown_payer");
+}
+
+/** The name of a payer or member of a pool: the pool's own name for them, else what an unknown source is called. */
+export function ownerNameOf(pool: Answer["pools"][number], owner: string, holder: string | null): string {
+  return owner === "u:" ? unknownName(owner, pool.labels, holder) : (pool.names[owner] ?? (pool.removed.includes(owner) ? t("rpt.se_removed") : owner));
 }
 
 /** The line of a member who paid more or less than the share; nothing when it came out even. */
@@ -74,7 +80,7 @@ function Pool({ pool, month, holder }: { pool: Answer["pools"][number]; month: s
     ...s.unknownOwedBy.map((e) => ({ label: t("rpt.se_share_of", { name: unknownName(e.owner, pool.labels, holder) }), cents: e.cents })),
     ...(heldBack > 0 ? [{ label: t("rpt.se_card_holder"), cents: heldBack }] : []),
   ].filter((u) => u.cents !== 0);
-  const nameOf = (owner: string): string => (owner === "u:" ? unknownName(owner, pool.labels, holder) : (pool.names[owner] ?? (pool.removed.includes(owner) ? t("rpt.se_removed") : owner)));
+  const nameOf = (owner: string): string => ownerNameOf(pool, owner, holder);
   // no split told: every member reads 0,00 paid and 0,00 share, so the block of the untold sum is all there is to say
   const noSplit = untold !== 0 && s.members.every((m) => m.paid === 0 && m.owed === 0);
   const even = credits === 0 && debts === 0 && unknown.length === 0 && untold === 0;
@@ -164,6 +170,19 @@ function Month({ month, meta }: { month: string; meta: Meta }) {
       ))}
     </>
   );
+}
+
+/** What this month's joint spending asks of the household: one payment named, or how many payments settle it. Nothing when nobody pays anybody. */
+export function SettlementLead({ ctx }: SectionProps) {
+  const { data } = useApi<Answer>(`/api/settlement?month=${ctx.meta.today.slice(0, 7)}`);
+  if (!data) return null;
+  const moves = data.pools.flatMap((p) => {
+    const holder = holderNameOf([...ctx.meta.accounts, ...ctx.meta.sharedAccounts].find((a) => a.id === p.accountId)?.use);
+    return settlementSums(p.settlement).transfers.map((x) => ({ from: ownerNameOf(p, x.from, holder), to: ownerNameOf(p, x.to, holder), cents: x.cents }));
+  });
+  if (moves.length === 0) return null;
+  const [only] = moves;
+  return <Lead>{moves.length === 1 ? t("rpt.lead_shared_pay", { from: only!.from, to: only!.to, sum: answerMoney(only!.cents) }) : t("rpt.lead_shared_many", { count: moves.length, sum: answerMoney(moves.reduce((sum, x) => sum + x.cents, 0)) })}</Lead>;
 }
 
 function Settlements({ ctx }: SectionProps) {

@@ -2,7 +2,7 @@
 import "../../../styles/report-income.css";
 import type { ReportPage } from "../types.ts";
 import { section as Income } from "../sections/Income.tsx";
-import { section as Months } from "../sections/Months.tsx";
+import { CashflowLead, section as Months } from "../sections/Months.tsx";
 import { section as TaxYear } from "../sections/TaxYear.tsx";
 import { t } from "../../../text.ts";
 
@@ -11,5 +11,6 @@ export const page: ReportPage = {
   get title() {
     return t("rpt.page_income");
   },
+  Lead: CashflowLead,
   sections: [Months, Income, TaxYear],
 };

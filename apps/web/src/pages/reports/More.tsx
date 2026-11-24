@@ -90,7 +90,7 @@ export function More({ meta, range, scope, params, anchor, noData = false, onQue
 
   return (
     <div className={loading ? "loading" : undefined}>
-      <Frame current={page.id} title={page.title} pages={questions.map(reportPage)} params={open}>
+      <Frame current={page.id} title={page.title} lead={<page.Lead ctx={ctx} />} pages={questions.map(reportPage)} params={open}>
         {sections.map((s) =>
           page.fold ? (
             <FoldContext.Provider key={s.id} value={{ open: !!s.open || s.id === anchor }}>

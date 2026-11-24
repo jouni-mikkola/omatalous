@@ -68,6 +68,8 @@ export interface ReportPage {
   id: QuestionId;
   /** The short name of the question where the list has no room for the question itself. */
   title: string;
+  /** The sentence the page leads with, large, under its name and above its sections: what the page's figures come to. Nothing while its answer is not there or has nothing to say. */
+  Lead: (props: SectionProps) => ReactNode;
   /** The sections shut under their name and summary figure, each opened by the reader (a page with more than the reader looks at in one visit). */
   fold?: boolean;
   /** The sections it shows, in `order`; each names the core reports it reads. */

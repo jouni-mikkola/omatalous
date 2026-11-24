@@ -31,8 +31,8 @@ function QuestionList({ pages, current, params }: { pages: readonly Listed[]; cu
   );
 }
 
-/** The frame of every report page: the list of reports and the open report beside it, its name as the heading. */
-export function Frame({ current, title, pages, params, children }: { current: QuestionId; title: string; pages: readonly Listed[]; params: URLSearchParams; children: ReactNode }) {
+/** The frame of every report page: the list of reports and the open report beside it, its name as the heading and its lead sentence under it. */
+export function Frame({ current, title, lead, pages, params, children }: { current: QuestionId; title: string; lead?: ReactNode; pages: readonly Listed[]; params: URLSearchParams; children: ReactNode }) {
   return (
     <div className="q-frame">
       <QuestionList pages={pages} current={current} params={params} />
@@ -40,6 +40,7 @@ export function Frame({ current, title, pages, params, children }: { current: Qu
         <header className="q-head">
           <h2 className="q-title">{title}</h2>
         </header>
+        {lead}
         {children}
       </div>
     </div>
