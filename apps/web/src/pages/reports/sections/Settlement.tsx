@@ -174,9 +174,9 @@ function Month({ month, meta }: { month: string; meta: Meta }) {
 
 /** What this month's joint spending asks of the household: one payment named, or how many payments settle it. Nothing when nobody pays anybody. */
 export function SettlementLead({ ctx }: SectionProps) {
-  const { data } = useApi<Answer>(`/api/settlement?month=${ctx.meta.today.slice(0, 7)}`);
-  if (!data) return null;
-  const moves = data.pools.flatMap((p) => {
+  const { data: answer } = useApi<Answer>(`/api/settlement?month=${ctx.meta.today.slice(0, 7)}`);
+  if (!answer) return null;
+  const moves = answer.pools.flatMap((p) => {
     const holder = holderNameOf([...ctx.meta.accounts, ...ctx.meta.sharedAccounts].find((a) => a.id === p.accountId)?.use);
     return settlementSums(p.settlement).transfers.map((x) => ({ from: ownerNameOf(p, x.from, holder), to: ownerNameOf(p, x.to, holder), cents: x.cents }));
   });
