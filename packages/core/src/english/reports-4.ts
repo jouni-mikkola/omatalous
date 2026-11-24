@@ -23,8 +23,6 @@ export const EN_REPORTS_4: Record<keyof typeof FI_REPORTS_4, string> = {
   "rpt.bal_total_est": "Balance at month end (estimate)",
   "rpt.bal_month_change": "Change from previous month",
   "rpt.bal_by_month": "Balances by month",
-  "rpt.bal_datum": "Balance of accounts and cards {date} {amount}",
-  "rpt.bal_change_since": "{amount} since {date}",
   "rpt.bal_row": "Balance of accounts and cards",
   "rpt.bal_twice_see": "{text}: see Loans.",
   "rpt.bal_q_trend": "Balances over time",

@@ -38,7 +38,7 @@ function unknownName(owner: string, labels: Record<string, string>, holder: stri
 }
 
 /** The name of a payer or member of a pool: the pool's own name for them, else what an unknown source is called. */
-export function ownerNameOf(pool: Answer["pools"][number], owner: string, holder: string | null): string {
+function ownerNameOf(pool: Answer["pools"][number], owner: string, holder: string | null): string {
   return owner === "u:" ? unknownName(owner, pool.labels, holder) : (pool.names[owner] ?? (pool.removed.includes(owner) ? t("rpt.se_removed") : owner));
 }
 

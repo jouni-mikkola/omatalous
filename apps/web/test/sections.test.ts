@@ -13,11 +13,24 @@ const html = (s: ReportSection, ctx: ReportContext) => renderToStaticMarkup(crea
 const SECTION_IDS = ["kategoriat", "lainat", "nostettu-luotto", "osittain", "saldot", "tulot", "tulot-ja-menot", "verovuosi", "vuodet", "yhteiset-menot"];
 const plain = (out: string) => out.replace(/[\u00a0\u202f]/g, " ");
 
-describe("Raportit: Nostettu luotto", () => {
-  it("tells the credit drawn and is quiet without a draw", () => {
-    const flow = (creditDrawnCents: number) => ({ categories: { creditDrawnCents } });
-    expect(plain(html(borrowed, context(flow(50_000))))).toContain("Näytä nostot");
-    expect(borrowed.visible?.(context(flow(0)))).toBe(false);
+describe("Raportit: Velka ja kulut", () => {
+  const flow = (debtPaidCents: number, creditDrawnCents: number, feesCents: number) => ({ categories: { debtPaidCents, creditDrawnCents, feesCents } });
+
+  it("has a row for each of the debt paid, the credit drawn and the fees that is above zero, the draw a link to its rows", () => {
+    const all = html(borrowed, context(flow(120_000, 50_000, 4_550)));
+    expect(plain(all)).toContain("Velkaa maksettu");
+    expect(plain(all)).toContain("Uutta luottoa otettu");
+    expect(plain(all)).toContain("Korot ja kulut");
+    expect(all).toContain('href="#/transactions?category=credit_draw&amp;from=2026-08-01&amp;to=2026-08-31"');
+    const feesOnly = plain(html(borrowed, context(flow(0, 0, 4_550))));
+    expect(feesOnly).toContain("Korot ja kulut");
+    expect(feesOnly).not.toContain("Velkaa maksettu");
+    expect(feesOnly).not.toContain("Uutta luottoa otettu");
+  });
+
+  it("is quiet with no debt paid, no draw and no fees", () => {
+    expect(borrowed.visible?.(context(flow(0, 0, 0)))).toBe(false);
+    expect(borrowed.visible?.(context(flow(0, 1, 0)))).toBe(true);
   });
 });
 
