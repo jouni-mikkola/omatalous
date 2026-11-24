@@ -16,7 +16,7 @@ test("Kumoa returns every row to its category and the message names the rule", a
     await page.goto("/#/transactions?period=all");
     const rows = page.locator("tbody tr:not(.rt-group):not(.rt-detail):not(.rt-spacer)");
     await expect(rows.first()).toBeVisible();
-    const row = rows.filter({ hasNot: page.locator(".tx-chip-manual") }).filter({ hasNotText: /Omat siirrot|Luottokortin lasku|Luotonnostot/ }).first();
+    const row = rows.filter({ hasNot: page.locator(".tx-chip-manual") }).filter({ hasNotText: /Omat siirrot|Luottokortin lasku|Luotonnostot|Palkka/ }).first();
     const merchant = (await row.locator(".tx-name").innerText()).trim();
     const before = (await row.locator(".tx-category .tx-chip-label").innerText()).trim();
     const categories = async () => {
