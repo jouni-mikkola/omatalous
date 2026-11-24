@@ -5,7 +5,7 @@
  * payment fact its plan lacks. Each answer goes through its source's route. A saved row closes into its result line and the queue is read again, so the
  * figures at the top are the server's. When every row is answered the list shows what was saved and Seuraava moves on.
  */
-import { type Fixings, type Loan, type LoanKind, loanTermsDismissible, type LoanTermsMissing, loanTermsResult, loanUnknownSubject, planSubject } from "@banking/core";
+import { creditPaidSubject, type Fixings, type Loan, type LoanKind, loanTermsDismissible, type LoanTermsMissing, loanTermsResult, loanUnknownSubject, planSubject } from "@banking/core";
 import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { api, loanCalls } from "../api.ts";
 import { LoanEditor, LoanLinks, UNIT } from "../components/loans/LoanEditor.tsx";
@@ -57,8 +57,8 @@ function resultLine(loan: Loan, fixings: Fixings, today: string): string {
  */
 function factsOf(debt: LoanTermsDebt): string[] {
   const proposed = debt.source === "proposal";
-  // a card's missing bills tell no due day
-  const due = debt.source === "card_gap" ? null : (debt.terms?.dueDate ?? debt.lastDate);
+  // a card's missing bills and payments that stopped tell no due day
+  const due = debt.source === "card_gap" || debt.source === "ended" ? null : (debt.terms?.dueDate ?? debt.lastDate);
   const kindKnown = proposed ? debt.kindUnknown !== true : debt.placed && debt.source !== "card_bill" && debt.source !== "card_gap";
   return [
     kindKnown && KIND_LABEL[debt.kind] !== debt.name ? KIND_LABEL[debt.kind] : null,
@@ -116,7 +116,7 @@ export function LoanTermsChoices({ item, meta, busy, onAnswer, onHold, onReload 
   const open = item.debts.filter((d) => !closed.some((c) => c.id === d.id));
   const done = open.length === 0;
   // forms filled from rows share the connected loan accounts: with two of them in the list, neither takes one by itself
-  const fromRows = (debts: readonly LoanTermsDebt[]) => debts.filter((d) => d.source === "proposal" || d.source === "card_bill" || (d.source === "card_gap" && d.accountId === null)).length;
+  const fromRows = (debts: readonly LoanTermsDebt[]) => debts.filter((d) => d.source === "proposal" || d.source === "ended" || d.source === "card_bill" || (d.source === "card_gap" && d.accountId === null)).length;
   const [oneAtOpen] = useState(() => fromRows(item.debts) <= 1);
   const ownsAccount = oneAtOpen && fromRows(open) <= 1;
 
@@ -211,6 +211,8 @@ function DebtRow(props: RowProps) {
       return props.debt.gaps.includes("rate") ? <CardRow {...props} /> : <SavedRow {...props} />;
     case "proposal":
       return <ProposalRow {...props} />;
+    case "ended":
+      return <EndedRow {...props} />;
     case "plan":
       return <PlanChoices lastDate={props.debt.lastDate ?? props.meta.today} busy={props.busy} onEnd={(end) => props.onSend(() => mark(planSubject(end, props.debt.key ?? ""), "in_use")().then(() => (end === null ? t("set.rc.i_don_t_know") : t("set.rc.lt_ends", { date: monthYear(end) }))))} />;
     case "card_bill":
@@ -431,6 +433,32 @@ function ProposalRow({ debt, meta, answer, busy, onSend, onSaved, ownsAccount }:
           {notLoan}
         </FieldForm>
       )}
+    </>
+  );
+}
+
+/**
+ * Payments to a lender that stopped (`ended`): were they a credit that is paid off, a card or credit still owed (the form
+ * of a credit of unknown kind, `ProposalRow`), or no debt payment. Maksettu pois stops the question for good.
+ */
+function EndedRow(props: RowProps) {
+  const { debt, meta, busy, onSend } = props;
+  const [owed, setOwed] = useState(false);
+  if (owed) return <ProposalRow {...props} />;
+  return (
+    <>
+      <p className="review-debt-ask">{t("set.rc.lt_ended", { name: debt.name, date: date(debt.lastDate ?? meta.today, meta.today) })}</p>
+      <div className="review-choices">
+        <ChoiceButton busy={busy} onClick={() => onSend(() => mark(creditPaidSubject(debt.key ?? ""), "in_use")().then(() => t("set.rc.lt_paid_off")))}>
+          <span>{t("set.rc.lt_paid_off")}</span>
+        </ChoiceButton>
+        <ChoiceButton busy={busy} onClick={() => setOwed(true)}>
+          <span>{t("set.rc.lt_still_owed")}</span>
+        </ChoiceButton>
+        <ChoiceButton busy={busy} onClick={() => onSend(() => loanCalls.notLoan(debt.key ?? "").then(() => t("set.rc.not_a_loan")))}>
+          <span>{t("set.rc.not_a_loan")}</span>
+        </ChoiceButton>
+      </div>
     </>
   );
 }
