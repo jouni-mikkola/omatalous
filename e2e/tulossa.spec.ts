@@ -1,7 +1,7 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { join } from "node:path";
 import { parseSeriesId } from "../packages/core/src/recurring.ts";
-import { cents, watch } from "./helpers.ts";
+import { cents, openBillFolds, watch } from "./helpers.ts";
 
 // Tulossa (docs/design/README.md 1.3) on the demo household of the administrator that e2e/run.mjs made: a bill the
 // history cannot know is added by hand, is a row of the one list and is in the payments Nyt takes off the balance;
@@ -23,7 +23,7 @@ const dashboardOf = async (context: BrowserContext): Promise<Dashboard> => (awai
 /** Opens the folded rows of the open month on Laskut: the paid ones, where a bill paid this month stands, and a card's. */
 async function showPaid(page: Page): Promise<void> {
   await expect(page.locator("#laskut-taulukko .bill-month").first()).toBeVisible();
-  for (const fold of await page.locator("#laskut-taulukko .bill-fold[aria-expanded=false]").all()) await fold.click();
+  await openBillFolds(page.locator("#laskut-taulukko"));
 }
 
 interface Series {

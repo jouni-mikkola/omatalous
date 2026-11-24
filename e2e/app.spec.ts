@@ -1,6 +1,6 @@
 import { expect, type BrowserContext, type Page, test as base } from "@playwright/test";
 import { join } from "node:path";
-import { openCategoryPicker, overflow, unfold, watch } from "./helpers.ts";
+import { openBillFolds, openCategoryPicker, overflow, unfold, watch } from "./helpers.ts";
 import { startServer } from "./server.mjs";
 
 const ADMIN = { username: "e2e-admin", displayName: "E2E Admin", password: "e2e-salasana-123456" };
@@ -387,15 +387,6 @@ test("Menot kuukausittain is a table under its name, the categories keep the CSV
   await context.close();
 });
 
-/** The page is no wider than the screen, and no table sticks out of it or scrolls sideways inside its card. */
-async function fitsScreen(page: Page, what: string): Promise<void> {
-  expect(await overflow(page), `${what} scrolls sideways`).toBeLessThanOrEqual(1);
-  const wide = await page.evaluate(() => Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > window.innerWidth + 1).length);
-  expect(wide, `${what} has a table wider than the screen`).toBe(0);
-  const clipped = await page.evaluate(() => Array.from(document.querySelectorAll(".rt-wrap")).filter((w) => w.scrollWidth > w.clientWidth + 1).length);
-  expect(clipped, `${what} has a table that scrolls sideways in its card`).toBe(0);
-}
-
 test("sign out and back in", async ({ page }) => {
   const seen = watch(page);
   await page.goto("/");
@@ -422,7 +413,7 @@ test("the Laskut page at 1440 px is at most 1800 px tall and does not scroll sid
   expect(await page.evaluate(() => document.documentElement.scrollHeight), "page height at 1440 px").toBeLessThanOrEqual(1800);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   // the openers of the rows stand one under the other with no box over a neighbour's, the folded rows opened too
-  for (const fold of await page.locator("#laskut-taulukko .bill-fold[aria-expanded=false]").all()) await fold.click();
+  await openBillFolds(page.locator("#laskut-taulukko"));
   const drills = await page.locator("#laskut-taulukko .rt-drill").evaluateAll((els) =>
     els.map((el) => el.getBoundingClientRect()).filter((b) => b.width > 0).map((b) => ({ top: b.top, bottom: b.bottom })).sort((a, b) => a.top - b.top),
   );

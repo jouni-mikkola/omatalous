@@ -1,4 +1,4 @@
-import { type Browser, type BrowserContext, expect, type Page } from "@playwright/test";
+import { type Browser, type BrowserContext, expect, type Locator, type Page } from "@playwright/test";
 import { join } from "node:path";
 
 const FETCH = { "X-Requested-With": "fetch" };
@@ -191,6 +191,15 @@ export const cents = (s: string) => Math.round(Number(plain(s).replace(/[ €≈
 export async function openCategoryPicker(page: Page, merchant: string, now: string): Promise<void> {
   await page.getByRole("button", { name: `Muuta: ${merchant}` }).first().click();
   await page.getByRole("menuitem", { name: `Kategoria: ${merchant}, nyt ${now}` }).click();
+}
+
+/**
+ * Laskut folds rows of its open months under toggles (a card's rows, the paid ones): opens every closed one in `table`. The
+ * first closed one each time, as an opened one leaves the list the locator matches.
+ */
+export async function openBillFolds(table: Locator): Promise<void> {
+  const closed = table.locator(".bill-fold[aria-expanded=false]");
+  while ((await closed.count()) > 0) await closed.first().click();
 }
 
 /** Menot kategorioittain folds its sections under their names: opens the ones with these ids that the page has. */

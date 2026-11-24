@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { join } from "node:path";
-import { watch } from "./helpers.ts";
+import { openBillFolds, watch } from "./helpers.ts";
 
 // The demo's two Apple subscriptions (12,99 € and 0,99 €) are told apart by the same words on every page that lists
 // series on Laskut. With E2E_SHOTS set the page is saved as a picture at both widths.
@@ -20,7 +20,7 @@ for (const width of [390, 1440]) {
     const bills = page.locator("#laskut-taulukko .sub-merchant");
     await expect(bills.first()).toBeVisible();
     // the paid rows of the open month are folded; the series paid this month are among them
-    for (const fold of await page.locator("#laskut-taulukko .bill-fold[aria-expanded=false]").all()) await fold.click();
+    await openBillFolds(page.locator("#laskut-taulukko"));
     const onBills = (await bills.allTextContents()).map((s) => s.replace(/\s+/g, " ").trim());
     if (SHOTS) {
       await page.locator("#laskut-taulukko").scrollIntoViewIfNeeded();

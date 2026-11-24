@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { join } from "node:path";
-import { overflow, watch } from "./helpers.ts";
+import { openBillFolds, overflow, watch } from "./helpers.ts";
 
 // Laskut on a phone: the days of the rows start at one x whatever a row carries beside its day (a status, "Kortilla"), and nothing
 // a finger taps stands closer than 12 px to the screen edge. Runs on the demo household that e2e/run.mjs makes.
@@ -51,7 +51,7 @@ for (const { width, scale } of [{ width: 390, scale: 100 }, { width: 390, scale:
     await page.locator("#laskut-taulukko .bill-month[aria-expanded=false]").first().click();
     await expect(page.locator("#laskut-taulukko .bill-month[aria-expanded=true]")).toHaveCount(2);
     // and their folded rows opened, so the rows a card pays ("Kortilla") and the paid ones are among them
-    for (const fold of await page.locator("#laskut-taulukko .bill-fold[aria-expanded=false]").all()) await fold.click();
+    await openBillFolds(page.locator("#laskut-taulukko"));
     // the sums of a month's head stay inside the page, wrapped when the room is short
     await expect(page.locator(".bill-sums").first()).toBeVisible();
     const sums = await page.locator(".bill-sums > span").evaluateAll((els) => els.map((el) => ({ text: el.textContent?.trim() ?? "", right: el.getBoundingClientRect().right })));
