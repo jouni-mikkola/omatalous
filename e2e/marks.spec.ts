@@ -1,7 +1,7 @@
 import { type Browser, type BrowserContext, expect, test } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { overflow, watch } from "./helpers.ts";
+import { openBillFolds, overflow, watch } from "./helpers.ts";
 
 // A mark belongs to one subscription: a merchant with two of them has a row and a mark for each. The demo household
 // has two from one merchant on its card, Apple at 12,99 and at 0,99 a month. The rows are the demo data of a household
@@ -57,7 +57,7 @@ test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi t
     // the paid rows of the open month are folded, and the card's Apple rows paid this month are among them
     const showPaid = async () => {
       await expect(subs.locator(".bill-month").first()).toBeVisible();
-      for (const fold of await subs.locator(".bill-paid[aria-expanded=false]").all()) await fold.click();
+      await openBillFolds(subs);
     };
     await showPaid();
     // the month's fixed costs are the fixed costs report's figure, in whole euros

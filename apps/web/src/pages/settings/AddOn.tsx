@@ -3,7 +3,8 @@
  * ylläpito before (AddOnPage.tsx, ServerPage.tsx).
  * Decision: whether the household connects an add-on module, and whether it keeps it. One field takes the code; the
  * server seals it and never sends it back, so the card shows only where the add-on stands, once, in its head. While the
- * server holds a code the field and Tallenna koodi are not drawn: the card then only removes the add-on.
+ * server holds a code the field and Tallenna koodi are not drawn: the card then only removes the add-on. Tarkista päivitys
+ * looks for a newer release at once, with no password, and says which version it found and whether a restart brings it in.
  */
 import { type FormEvent, useState } from "react";
 import { api } from "../../api.ts";
@@ -16,7 +17,30 @@ import "../../styles/settings.css";
 import { t } from "../../text.ts";
 import { addOnLine, type AddOnView } from "./addon-line.ts";
 
-type Busy = "save" | "remove" | null;
+type Busy = "save" | "remove" | "check" | null;
+
+/** `checked` of POST /api/modules/check: the version the check installed, null when it installed none (services/modules.ts). */
+export type FoundVersion = { version: string; restart: boolean } | null;
+
+/** Whether the server holds a code, which a check needs. */
+const canCheck = (view: AddOnView) => view.state !== "none" && !(view.state === "connected" && view.noCode);
+
+/** Tarkista päivitys and what the last check found. `found` is undefined until a check has been made on this page. */
+export function AddOnCheck({ view, busy, found, onCheck }: { view: AddOnView; busy: Busy; found: FoundVersion | undefined; onCheck: () => void }) {
+  if (!canCheck(view)) return null;
+  return (
+    <div className="form-row">
+      <Button onClick={onCheck} busy={busy === "check"} disabled={busy !== null}>
+        {busy === "check" ? t("set.addon.checking") : t("set.addon.check")}
+      </Button>
+      {found !== undefined && (
+        <Notice tone="info" role="status">
+          {found === null ? t("set.addon.found_none") : found.restart ? t("set.addon.found_restart", { version: found.version }) : t("set.addon.found_running", { version: found.version })}
+        </Notice>
+      )}
+    </div>
+  );
+}
 
 /** The fields and buttons. A module that runs with no code stored (noCode) still takes one; a connected or downloaded one has its code. */
 export function AddOnForm({ view, busy, error, onSend }: { view: AddOnView; busy: Busy; error: string | null; onSend: (what: "save" | "remove", code: string, password: string) => Promise<boolean> }) {
@@ -68,6 +92,22 @@ export function AddOn() {
   const view = state ?? loaded.data;
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<Busy>(null);
+  const [found, setFound] = useState<FoundVersion | undefined>(undefined);
+
+  const check = async () => {
+    if (busy) return;
+    setBusy("check");
+    setError(null);
+    try {
+      const r = await api<{ view: AddOnView; checked: FoundVersion }>("/api/modules/check", { method: "POST" });
+      setState(r.view);
+      setFound(r.checked);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
 
   /** Whether the call went through, so that the fields are emptied only then. */
   const send = async (what: "save" | "remove", code: string, password: string): Promise<boolean> => {
@@ -78,6 +118,7 @@ export function AddOn() {
     }
     setBusy(what);
     setError(null);
+    setFound(undefined);
     try {
       setState(
         what === "save"
@@ -96,6 +137,7 @@ export function AddOn() {
   return (
     <FoldCard id={SETTINGS_ANCHOR.addOn} title={t("set.addon.title")} sub={view ? addOnLine(view) : undefined} folded={!view || view.state === "none"}>
       {loaded.error && <Notice tone="warning">{loaded.error}</Notice>}
+      {view && <AddOnCheck view={view} busy={busy} found={found} onCheck={() => void check()} />}
       {view && <AddOnForm view={view} busy={busy} error={error} onSend={send} />}
     </FoldCard>
   );
