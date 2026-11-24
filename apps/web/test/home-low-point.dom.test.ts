@@ -1,5 +1,5 @@
 /**
- * The lowest-balance line of Yhteenveto's Nyt block: core's day and range, and the reason core gives while there is no
+ * The lowest-balance line of Yhteenveto's Nyt block: core's day and sum, and the reason core gives while there is no
  * figure. The web adds up nothing.
  */
 import { render } from "@testing-library/react";
@@ -17,17 +17,9 @@ const known = (over: Partial<Extract<NonNullable<Low>, { known: true }>> = {}): 
 const lineOf = (lowPoint: Low) => flat(render(createElement(LowPoint, { lowPoint })).container.textContent);
 
 describe("LowPoint", () => {
-  it("says the day and the range with the euro sign once, after the range", () => {
-    expect(lineOf(known())).toBe("Alin saldo 60 pv: 13.12., arviolta 120–480 €");
-  });
-
-  it("spaces the dash of a range that starts below zero, mixed or all below it, so the minus is not read as the dash", () => {
-    expect(lineOf(known({ lowCents: -25_000, highCents: 5_000 }))).toBe("Alin saldo 60 pv: 13.12., arviolta −250 – 50 €");
-    expect(lineOf(known({ cents: -30_000, lowCents: -48_000, highCents: -12_000 }))).toBe("Alin saldo 60 pv: 13.12., arviolta −480 – −120 €");
-  });
-
-  it("keeps the dash of a range that stays above zero tight", () => {
-    expect(lineOf(known({ lowCents: 0, highCents: 5_000 }))).toBe("Alin saldo 60 pv: 13.12., arviolta 0–50 €");
+  it("says the day and the sum of the lowest balance, the range stays in the answer", () => {
+    expect(lineOf(known())).toBe("Alin saldo 60 pv: 13.12., arviolta 300 €");
+    expect(lineOf(known({ cents: -30_000, lowCents: -48_000, highCents: -12_000 }))).toBe("Alin saldo 60 pv: 13.12., arviolta −300 €");
   });
 
   it.each([
@@ -78,13 +70,26 @@ describe("LowPoint", () => {
 });
 
 describe("Now", () => {
-  it("stands the line under the sum left to the payday, outside its link", () => {
-    const data = { nyt: { left: { known: false, reason: "no-payday" } }, home: { lowPoint: known() } } as unknown as DashboardData & { nyt: NonNullable<DashboardData["nyt"]> };
-    const { container } = render(createElement(Now, { data }));
-    const section = container.querySelector("section.home-now")!;
+  const runway = { known: true, from: "2026-12-01", payday: { date: "2026-12-10", name: "Työnantaja" }, days: 9, balanceCents: 500_000, freeCents: 400_000, everydayCents: 40_000, billedCents: 0, laterCents: 0, leftCents: 360_000, lowCents: 340_000, highCents: 380_000, months: 6 };
+  const nowOf = (lowPoint: Low, leftOnPayday: unknown = { known: false, reason: "no-payday" }) => {
+    const data = { nyt: { left: { known: false, reason: "no-payday" } }, home: { lowPoint, runway: { leftOnPayday } } } as unknown as DashboardData & { nyt: NonNullable<DashboardData["nyt"]> };
+    return render(createElement(Now, { data })).container.querySelector("section.home-now")!;
+  };
+
+  it("stands the line under the sum left on the payday, outside its link", () => {
+    const section = nowOf(known());
     const line = section.querySelector("p.home-low")!;
-    expect(flat(line.textContent)).toBe("Alin saldo 60 pv: 13.12., arviolta 120–480 €");
+    expect(flat(line.textContent)).toBe("Alin saldo 60 pv: 13.12., arviolta 300 €");
     expect(line.previousElementSibling?.matches('a[data-tile="left"]')).toBe(true);
     expect(line.closest("a")).toBeNull();
+  });
+
+  it("leaves the line out when the lowest balance falls before the payday: it is the sum above it", () => {
+    expect(nowOf(known({ date: "2026-12-09" }), runway).querySelector("p.home-low")).toBeNull();
+  });
+
+  it("keeps the line when the lowest balance falls on the payday or after it", () => {
+    expect(nowOf(known({ date: "2026-12-10" }), runway).querySelector("p.home-low")).not.toBeNull();
+    expect(nowOf(known({ date: "2027-01-22" }), runway).querySelector("p.home-low")).not.toBeNull();
   });
 });

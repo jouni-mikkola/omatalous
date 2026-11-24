@@ -47,28 +47,31 @@ for (const width of [390, 1440] as const) {
     const dashboard = await answerOf(context);
     const { nyt, overview, home, totals } = dashboard;
     expect(nyt?.left.known, "the demo household has a payday and a balance").toBe(true);
-    const { left } = nyt;
+    const { leftOnPayday } = home.runway;
+    expect(leftOnPayday.known, "and three complete months to expect its everyday spending from").toBe(true);
     // every figure in whole euros, as the server gives it
     const whole = (c: number) => Math.round(c / 100) * 100;
     expect(await monthFigure(page, "income"), "the month's income").toBe(whole(overview.income.cents));
     expect(await monthFigure(page, "spent"), "the month's spending").toBe(whole(home.pace?.spentCents ?? nyt.pace.spentCents));
     expect(await monthFigure(page, "result"), "Käteen jäi").toBe(whole(totals.leftCents));
-    expect(cents(await page.locator("[data-tile=left] .fig").innerText()), "what is left before payday").toBe(whole(left.leftCents));
-    if (left.days > 0) expect(sums(await page.locator("[data-tile=left] .home-fig-line").innerText())[0]).toBe(whole(left.perDayCents));
-    // the lowest balance of the next days under it: core's day and range, or core's reason. It is no link
-    const low = page.locator(".home-now .home-low");
-    await expect(low).toHaveCount(1);
+    expect(cents(await page.locator("[data-tile=left] .fig").innerText()), "what is left on payday").toBe(whole(leftOnPayday.leftCents));
+    const [, paydayMonth, paydayDay] = leftOnPayday.payday.date.split("-").map(Number);
+    expect(plain(await page.locator("[data-tile=left] .home-fig-line").innerText())).toBe(leftOnPayday.days > 0 ? `palkkapäivä ${paydayDay}.${paydayMonth}.` : "Palkkapäivä tänään");
+    // the lowest balance of the next days under it, when it falls on the payday or after it: core's day and sum, or core's reason. It is no link
     const { lowPoint } = home;
-    if (lowPoint.known) {
-      const text = plain(await low.innerText());
-      const [lowest, highest] = text.split("arviolta ")[1]!.split(/ ?– ?/).map(cents);
-      expect(lowest, "the low end of the lowest balance").toBe(whole(lowPoint.lowCents));
-      expect(highest, "the high end of the lowest balance").toBe(whole(lowPoint.highCents));
-      const [, month, day] = lowPoint.date.split("-").map(Number);
-      expect(text).toContain(`Alin saldo ${lowPoint.days} pv: ${day}.${month}.,`);
+    const low = page.locator(".home-now .home-low");
+    if (lowPoint.known && lowPoint.date < leftOnPayday.payday.date) {
+      await expect(low).toHaveCount(0);
     } else {
+      await expect(low).toHaveCount(1);
       const text = plain(await low.innerText());
-      expect(text).toMatch(new RegExp(`^Alin saldo ${lowPoint.days} pv: \\D+$`));
+      if (lowPoint.known) {
+        expect(cents(text.split("arviolta ")[1]!), "the lowest balance").toBe(whole(lowPoint.cents));
+        const [, month, day] = lowPoint.date.split("-").map(Number);
+        expect(text).toContain(`Alin saldo ${lowPoint.days} pv: ${day}.${month}.,`);
+      } else {
+        expect(text).toMatch(new RegExp(`^Alin saldo ${lowPoint.days} pv: \\D+$`));
+      }
     }
     await expect(low.locator("a")).toHaveCount(0);
     // the month's figures are no list's sum, so they lead nowhere; the one link of Nyt is the figure's, to Laskut' table

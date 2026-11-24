@@ -324,7 +324,7 @@ async function desk(/** @type {Film} */ film) {
   await film.read();
   film.marks = [];
 
-  // 4. Yhteenveto: what is left until payday after the bills before it
+  // 4. Yhteenveto: what is left on payday after the bills and the everyday spending before it
   await film.click(tab(page, "Yhteenveto"));
   const answer = page.locator('[data-tile="left"]');
   await answer.waitFor({ state: "visible" });
@@ -332,7 +332,7 @@ async function desk(/** @type {Film} */ film) {
   const payday = /palkkapäivä (\d{1,2}\.\d{1,2}\.)/.exec(plain(await answer.locator(".home-fig-line").textContent()))?.[1];
   if (!payday) throw new Error("Yhteenveto names no payday");
   film.marks = [await film.box(answer)];
-  await film.say(`Yhteenveto: ${euros(cents(left))} is left until payday, ${englishDate(payday)}, after the bills before it.`);
+  await film.say(`Yhteenveto: ${euros(cents(left))} is left on payday, ${englishDate(payday)}, after the bills and the everyday spending before it.`);
   await film.glide(film.beside(await film.box(answer.locator(".fig"))));
   await film.read({ poster: true });
 

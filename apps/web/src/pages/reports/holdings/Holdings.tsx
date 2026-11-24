@@ -3,8 +3,8 @@
  * with what is used of its limit and its next bill, each loan with what is left, and a total at the foot of each group.
  * The loans and the cards stand in the order core gives, the dearest by yearly cost first; a debt that is dear (Kallis,
  * Erittäin kallis) says so in a word among the lines under its name, and no other class and no unknown cost says anything.
- * Yhteenveto shows it under the heading Varat ja velat, Raportit > Varat ja velat with no heading of its own and with
- * the loans left to the report Lainat; the next bill of
+ * Yhteenveto shows it under the heading Varat ja velat and without the net figure at its head (`net`: its headline is
+ * the sum left on the payday), Raportit > Varat ja velat with no heading of its own and with the loans left to the report Lainat; the next bill of
  * a card shows where the page gives the coming bills (`ahead`), which only Yhteenveto loads. The accounts
  * stand in their types (checking, savings, other) when there are two types or more, a type of two accounts or more with its total. The
  * first group's heading says the day most balances are from; a row says its own day only when it differs, and names its bank only when
@@ -282,7 +282,7 @@ function Loans({ holdings, known }: { holdings: Answer; known: boolean }) {
  * (null) on a page whose own title says it; `buffer`: the line Yhteenveto adds at the foot; `loansListed`: the page lists the
  * loans in the report Lainat, so the block leaves out the Lainat group and the debts total (Lainat gives the same sum).
  */
-export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), buffer, loansListed = false }: { holdings: Answer; meta: Meta; ahead?: Ahead | null; title?: string | null; buffer?: ReactNode; loansListed?: boolean }) {
+export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), buffer, loansListed = false, net = true }: { holdings: Answer; meta: Meta; ahead?: Ahead | null; title?: string | null; buffer?: ReactNode; loansListed?: boolean; net?: boolean }) {
   const { accounts, accountsCents, cards, debtCents, unsavedLoans, netCents } = holdings;
   const loans = loansListed ? [] : holdings.loans;
   const groups = [accounts.length, cards.length, loans.length].filter((n) => n > 0).length;
@@ -305,7 +305,7 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), b
       <div className="card-head tb">
         <div className="card-name">{title !== null && <h2 id="holdings-h">{title}</h2>}</div>
         {/* what the household has net, the accounts less the debts (core's netCents): a dash while the debt total is unknown */}
-        {(netCents !== null || (accountsCents !== null && debtCents === null)) && (
+        {net && (netCents !== null || (accountsCents !== null && debtCents === null)) && (
           <div className="card-datum">
             {netLabel && <span className="datum-label">{netLabel}</span>}
             <Figure text={netCents === null ? "–" : money(netCents, false)} size="s" />

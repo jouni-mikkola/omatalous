@@ -12,7 +12,7 @@ deletion below is confirmed when its step becomes an issue.
 
 Sure opens on eight dashboard sections or an AI chat ([pages_controller.rb](https://github.com/we-promise/sure/blob/0cb32845216cf087401c37e512a8b9cdaee3eb3e/app/controllers/pages_controller.rb)),
 Actual on an envelope budget to fill each month ([docs](https://actualbudget.org/docs/budgeting/)). Omatalous opens on
-one sum: what is left until payday after the bills due before it. No peer has payday or the household's usual built in.
+one sum: what is left on payday after the bills and the everyday spending before it. No peer has payday or the household's usual built in.
 
 ## 1. Questions and views
 
@@ -30,10 +30,12 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
   - Käteen jäi: income less spending and what moved to savings (`totals.leftCents`), against the same day of last month.
   - Tulojen käyttö under them: the bar of the income by where it went, as `bridgeView` gives it, each part with its share
     and its sum. No bar without income, or with a part below zero (ADR 0014); the parts then stand as a list.
-- Nyt, the first block: what is left after the bills before payday (`nyt.left`, *Käytettävissä palkkapäivään*) with
-  the sum a day and the payday. The figure links to the bills table of Laskut, which lists what it takes off. Under it
-  stands one line, the lowest balance of the next 60 days (`home.lowPoint`): *Alin saldo 60 pv: 13.12., arviolta
-  120–480 €*; a range that starts below zero has spaces round its dash (*−250 – 50 €*). With no figure the line says why,
+- Nyt, the first block: what is left on the payday (`home.runway.leftOnPayday`, *Jää palkkapäivänä*): the accounts less the
+  bills and own transfers before it, the card debt and the everyday spending of the days to it, with the payday. While
+  the everyday spending cannot be expected (`leftOnPayday` has no figure) it is what is left after the bills alone
+  (`nyt.left`, *Käytettävissä palkkapäivään*) with the sum a day. The figure links to the bills table of Laskut, which
+  lists what it takes off. Under it stands one line, the lowest balance of the next 60 days (`home.lowPoint`), only when
+  it falls on the payday or after it: *Alin saldo 60 pv: 13.12., arviolta 300 €*. With no figure the line says why,
   as core gives it: the reasons of the figure above, *Liian lyhyt historia*, *Lisää kortin tiliote* (links to the
   statement of a card) or *Laskun summa puuttuu* (links to Laskut; a bill with no sum within the 60 days, or with no
   day). A card paid by a bill that holds its purchases in no category is no reason: the bill's sum is spread over the
@@ -59,8 +61,8 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
 - Not shown: notices (a dot on the user menu leads to Asetukset > Turvallisuus), questions (Tarkistettavat, the
   header's link), explaining sentences, goals.
 ```
- Käytettävissä palkkapäivään 3 100 €        Tulevat kuukaudet   Laskut     Tulot    Jälkeen
- 25.11. asti, 310 € päivässä                 Marraskuu 2026      1 500 €  3 000 €  1 400 €
+ Jää palkkapäivänä 2 710 €                 Tulevat kuukaudet   Laskut     Tulot    Jälkeen
+ palkkapäivä 25.11.                         Marraskuu 2026      1 500 €  3 000 €  1 400 €
                                              Joulukuu 2026         800 €        –      −800 €
  Marraskuu 2026          1.–11.11.           Tammikuu 2027         900 €  3 100 €  Ei tiedossa
  Tulot            Menot                       Käteen jäi

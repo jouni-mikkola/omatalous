@@ -67,6 +67,11 @@ describe("Holdings", () => {
       expect(text(html(answer({ ...base, netCents: 100_000 })))).not.toContain("Varat velkojen jälkeen");
     });
 
+    it("is left out of the block on Yhteenveto, whose headline is the sum left on the payday", () => {
+      const h = answer({ ...base, loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000, netCents: -11_900_000 });
+      expect(text(renderToStaticMarkup(createElement(Holdings, { holdings: h, meta, net: false })))).not.toContain("Varat velkojen jälkeen");
+    });
+
     const rows = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }, { name: "Esimerkkikauppa", monthlyCents: 20_000, card: true }];
     const unsavedLoans = { count: 2, names: [], paymentCents: 30_000, rows };
 

@@ -45,7 +45,7 @@ function data(more: Partial<DashboardData> = {}): Data {
     previousTotals: totalsOf(380000, 140000, 20000, 30000),
     pace: { month: "2026-11", daysInMonth: 30, current: [], expected: null, projection: null, previous: null, largest: null, payDays: [] },
     ahead: { from: "2026-11-11", to: "2026-11-24", rows: [], upcoming: [], outside: [] },
-    home: { paceGap: null, pace: null },
+    home: { paceGap: null, pace: null, lowPoint: null, runway: { leftOnPayday: { known: false, reason: "history" } } },
     holdings: { accounts: [], cards: [], loans: [], accountsCents: 1300000, debtCents: 60000, netCents: 1240000 },
     overview: { income: { cents: 412000, earnedCents: 398000 }, months: [{ month: "2026-11", incomeCents: 412000, spendCents: 150000, fromSavingsCents: 0, complete: false }] },
   } as unknown as DashboardData;
@@ -341,6 +341,32 @@ describe("Yhteenveto's sum left to the payday", () => {
     expect(el.querySelector(".home-fig-label")?.textContent).toBe("Käytettävissä palkkapäivään");
     expect(flat(el.querySelector(".fig")?.textContent)).toBe("3 100 €");
     expect(flat(el.querySelector(".home-fig-line")?.textContent)).toBe("221 € päivässä, palkkapäivä 25.11.");
+  });
+
+  describe("with the everyday spending expected", () => {
+    type Runway = Extract<NonNullable<DashboardData["home"]["runway"]>["leftOnPayday"], { known: true }>;
+    const runway = (over: Partial<Runway> = {}): Runway => ({ known: true, from: "2026-11-11", payday: { date: "2026-11-25", name: "Työnantaja" }, days: 14, balanceCents: 500000, freeCents: 310046, everydayCents: 38900, billedCents: 0, laterCents: 0, leftCents: 271146, lowCents: 250000, highCents: 290000, months: 6, ...over });
+    const withRunway = (r: Runway, nyt: NytData = nytOf(true)) => left({ ...data(), nyt, home: { ...data().home, runway: { leftOnPayday: r } } as never });
+
+    it("is the sum left on the payday after the everyday spending, with the payday and no sum a day", () => {
+      const el = withRunway(runway());
+      expect(el.getAttribute("href")).toBe("#/bills#laskut-taulukko");
+      expect(el.querySelector(".home-fig-label")?.textContent).toBe("Jää palkkapäivänä");
+      expect(flat(el.querySelector(".fig")?.textContent)).toBe("2 711 €");
+      expect(flat(el.querySelector(".home-fig-line")?.textContent)).toBe("palkkapäivä 25.11.");
+      expect(el.classList.contains("home-short")).toBe(false);
+    });
+
+    it("below zero is the problem colour and says no more than the figure", () => {
+      const el = withRunway(runway({ leftCents: -213761 }));
+      expect(el.classList.contains("home-short")).toBe(true);
+      expect(flat(el.querySelector(".fig")?.textContent)).toBe("−2 138 €");
+      expect(flat(el.querySelector(".home-fig-line")?.textContent)).toBe("palkkapäivä 25.11.");
+    });
+
+    it("on the payday says so", () => {
+      expect(flat(withRunway(runway({ days: 0 })).querySelector(".home-fig-line")?.textContent)).toBe("Palkkapäivä tänään");
+    });
   });
 
   it("on the payday says so, not the whole sum as a day's", () => {
