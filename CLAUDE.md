@@ -110,7 +110,8 @@ The entry points; `pnpm where` finds the rest and `docs/ARCHITECTURE.md` has the
 - A service token (`Authorization: Bearer omt_…`, `services/service-tokens.ts`) is made only by the CLI, stored as its
   SHA-256, reads as its user with a member's role and reaches only the GET routes `READABLE` names and the GETs of an
   extension that sets `tokenReads`. A new route is shut to tokens until it is added there, and only a route that writes
-  nothing may be.
+  nothing may be. A bearer token of an extension's own prefix (`deviceTokens`) reaches only `/api/<id>/device/` and
+  below of that extension, and only such a request skips the `Origin` part of the CSRF check.
 - `UserError` = safe 400 message, `UpstreamError` = 502 for a failing outside service; other errors become a generic 500.
 - Core stays pure (no `Date.now()`, env or I/O) so it runs on Node and in the browser (the web app imports it).
 - Schema changes = new `apps/server/migrations/NNNN_name.sql`; never edit an applied one (checksummed, startup
