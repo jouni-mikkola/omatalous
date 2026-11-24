@@ -5,11 +5,12 @@ import type { Base } from "./review-items.ts";
  * One debt of Täydennä lainat, as the server tells it (services/review-loan-terms.ts): a saved loan that lacks a fact
  * (`loan`), a connected card with no rate (`card`), a loan its rows propose (`proposal`), an instalment plan whose end
  * nobody has said (`plan`), a card whose bills the household pays and has not connected (`card_bill`), or a card whose
- * purchases are missing (`card_gap`).
+ * purchases are missing (`card_gap`), or payments to a lender that stopped inside the twelve months and may be a
+ * credit that is paid off or still owed (`ended`).
  */
 export interface LoanTermsDebt {
   id: string;
-  source: "loan" | "card" | "proposal" | "plan" | "card_bill" | "card_gap";
+  source: "loan" | "card" | "proposal" | "plan" | "card_bill" | "card_gap" | "ended";
   name: string;
   /** The saved loan, null for none. */
   loanId: string | null;

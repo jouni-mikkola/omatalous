@@ -118,7 +118,7 @@ interface CardGap {
  * `takenSeries` of a bill that is in no series: whether a saved loan's key or an "Ei ole velan maksu" mark names the
  * series the bill pays (`paysSeries`).
  */
-function takenBill(inputs: UserInputs): (t: Pick<AnalysisTx, "accountId" | "merchant" | "amountCents">) => boolean {
+export function takenBill(inputs: UserInputs): (t: Pick<AnalysisTx, "accountId" | "merchant" | "amountCents">) => boolean {
   const loanKeys = loansOf(inputs).flatMap((loan) => loan.seriesKey ?? []);
   const keys = [...loanKeys, ...inputs.marks.flatMap((m) => (m.mark === "dismissed" ? (notLoanKey(m.subject) ?? []) : []))];
   return (t) => keys.some((key) => paysSeries(key, t, loanKeys));
