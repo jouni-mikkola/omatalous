@@ -26,6 +26,15 @@ describe("the debt paid and the fees of the category report", () => {
     expect(out.feesCents).toBe(13_500);
   });
 
+  it("leaves out a bill paid together with its collection fee: that row pays the bill too", () => {
+    const out = report([
+      tx({ bookingDate: "2026-10-01", amountCents: 300_000, merchant: "Acme Oy", category: "salary" }),
+      tx({ bookingDate: "2026-10-08", amountCents: -45_000, merchant: "Esimerkkilaskutus", description: "LASKU 4471 JA PERINTAKULU", category: "other" }),
+      tx({ bookingDate: "2026-10-09", amountCents: -1_000, merchant: "Esimerkkilaskutus", description: "Muistutusmaksu", category: "other" }),
+    ]);
+    expect(out.feesCents).toBe(1_000);
+  });
+
   it("is zero for a household with neither", () => {
     const out = report([
       tx({ bookingDate: "2026-10-01", amountCents: 300_000, merchant: "Acme Oy", category: "salary" }),

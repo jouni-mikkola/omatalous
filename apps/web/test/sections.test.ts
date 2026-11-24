@@ -18,13 +18,13 @@ describe("Raportit: Velka ja kulut", () => {
 
   it("has a row for each of the debt paid, the credit drawn and the fees that is above zero, the draw a link to its rows", () => {
     const all = html(borrowed, context(flow(120_000, 50_000, 4_550)));
-    expect(plain(all)).toContain("Velkaa maksettu");
+    expect(plain(all)).toContain("Velanhoito, korot mukaan lukien");
     expect(plain(all)).toContain("Uutta luottoa otettu");
     expect(plain(all)).toContain("Korot ja kulut");
     expect(all).toContain('href="#/transactions?category=credit_draw&amp;from=2026-08-01&amp;to=2026-08-31"');
     const feesOnly = plain(html(borrowed, context(flow(0, 0, 4_550))));
     expect(feesOnly).toContain("Korot ja kulut");
-    expect(feesOnly).not.toContain("Velkaa maksettu");
+    expect(feesOnly).not.toContain("Velanhoito");
     expect(feesOnly).not.toContain("Uutta luottoa otettu");
   });
 

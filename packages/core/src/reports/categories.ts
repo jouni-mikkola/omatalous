@@ -4,7 +4,7 @@ import type { AnalysisContext, AnalysisTx } from "../analysis/context.ts";
 import { comparableWith } from "../analysis/coverage.ts";
 import { spendOf, spendSelect, sumOf } from "../analysis/counted.ts";
 import { spendingBase } from "../analysis/data-quality.ts";
-import { isBankFee, isLateFee } from "../analysis/fees.ts";
+import { isBankFee, isLateFeeAlone } from "../analysis/fees.ts";
 import { roundedShares } from "../analysis/bridge-view.ts";
 import { printedParts } from "../analysis/printed.ts";
 import { CATEGORY_COICOP, type PriceSplit, priceSplit } from "../analysis/prices.ts";
@@ -108,9 +108,9 @@ interface CategoryReport {
   incomeCents: number;
   /** Credit drawn in the range, as `coverOf` reads it from the range's flows. */
   creditDrawnCents: number;
-  /** Debt service paid in the range (`PeriodTotals.debtCents`): the debt part of the spending `totalCents` counts. */
+  /** Debt service paid in the range (`PeriodTotals.debtCents`): repayments and interest. Debt paid from a savings account is not in it, though `totalCents` counts it. */
   debtPaidCents: number;
-  /** What bank prices, interest and late fees cost in the range (`isBankFee`, `isLateFee`): rows the category sums count. */
+  /** What bank prices, interest and late fees cost in the range (`isBankFee`, `isLateFeeAlone`): a late fee paid together with its bill is not in it. Interest is also in `debtPaidCents`. */
   feesCents: number;
   groups: GroupStat[];
 }
@@ -176,7 +176,7 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange, lang: Lan
   const base = spendingBase(current);
   const flowTotals = totalsOf(current.map((t) => t.flows));
   const income = flowTotals.incomeCents;
-  const feesCents = sumOf(counted.filter((t) => t.spend > 0 && (isBankFee(t) || isLateFee(t))), spendOf);
+  const feesCents = sumOf(counted.filter((t) => t.spend > 0 && (isBankFee(t) || isLateFeeAlone(t))), spendOf);
   const ofIncome = (cents: number) => (income > 0 ? cents / income : null);
   // a category spent on in the previous period only is a row too, at 0 now, so the changes add up to the total change
   const spent = new Set([...perCategory].filter(([, e]) => e.total !== 0).map(([key]) => key));
