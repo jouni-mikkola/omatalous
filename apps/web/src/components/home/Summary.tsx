@@ -158,18 +158,24 @@ const COVER_KEYS: readonly string[] = ["credit", "savings", "accounts"];
 
 /**
  * The spending over the income and what paid it, in one sentence (the words of Raportit's `rpt.gap_*`), or null when the income
- * paid everything. The gap and its parts are `cover` of the bridge: the sums of the sources bar.
+ * paid everything. The gap and its parts are `cover` of the bridge: the sums of the sources bar. The page tells one sum for
+ * what was taken out of savings or drawn on credit, the one under Käteen jäi (`shown`): when savings alone covered the gap the
+ * sentence names no sum for them, and otherwise it names that sum, not the part of it that went to the gap.
  */
-function gapSentence(view: BridgeView): string | null {
+function gapSentence(view: BridgeView, shown: { saved: number; credit: number }): string | null {
   const { cover } = view;
   if (cover.gapCents < 50) return null;
+  const savingsOnly = cover.savingsCents >= 50 && cover.creditCents < 50 && cover.accountsCents < 50;
+  const drawnSavings = shown.saved < 0 ? -shown.saved : cover.savingsCents;
+  const drawnCredit = shown.credit > 0 ? shown.credit : cover.creditCents;
   const parts = [
-    cover.creditCents >= 50 ? t("rpt.gap_credit", { sum: answerMoney(cover.creditCents) }) : null,
-    cover.savingsCents >= 50 ? t("rpt.gap_savings", { sum: answerMoney(cover.savingsCents) }) : null,
+    cover.creditCents >= 50 ? t("rpt.gap_credit", { sum: answerMoney(drawnCredit) }) : null,
+    cover.savingsCents >= 50 && !savingsOnly ? t("rpt.gap_savings", { sum: answerMoney(drawnSavings) }) : null,
     cover.accountsCents >= 50 ? t("rpt.gap_accounts", { sum: answerMoney(cover.accountsCents) }) : null,
   ].filter((p): p is string => p !== null);
   // money moved to savings or credit paid back is no spending: the lead then says transfers too
   const lead = t(view.totals.savedCents > 0 || cover.creditRepaidCents > 0 ? "home.gap_lead_transfers" : "home.gap_lead", { sum: answerMoney(cover.gapCents) });
+  if (savingsOnly) return `${lead} ${t("home.gap_from_savings")}`;
   return parts.length === 0 ? lead : `${lead} ${t("rpt.gap_cover", { parts: new Intl.ListFormat(localeOf(language()), { type: "conjunction" }).format(parts) })}`;
 }
 
@@ -197,7 +203,7 @@ function flowLabel(key: string, split: boolean): string {
  * as the three figures above, the one calculation of the bridge on Raportit, so the parts add up to the figures. When
  * the spending was more than the income, a second bar above the first draws what paid for it: the income, then the credit,
  * the savings and the accounts that covered the rest, told in one sentence under the list: the spending over the income and
- * what paid it, so the shares of the list, which add to more than 100 %, are not read as an error. With no income, or a part
+ * what paid it; the list then has no share column, as its shares of the income alone would add to more than 100 %. With no income, or a part
  * below zero, no bar is drawn and the parts stand as a list alone.
  */
 function Flow({ view, shown }: { view: BridgeView; shown: { saved: number; credit: number } }) {
@@ -206,7 +212,8 @@ function Flow({ view, shown }: { view: BridgeView; shown: { saved: number; credi
   const rows = view.figures
     .filter((f) => f.key !== "income" && !COVER_KEYS.includes(f.key) && f.cents !== 0 && (!(f.key in euros) || euros[f.key]! > 0))
     .map((f) => ({ ...f, cents: f.key in euros ? euros[f.key]! : f.cents }));
-  const gap = gapSentence(view);
+  const gap = gapSentence(view, shown);
+  const sharesShown = view.cover.gapCents < 50;
   return (
     <section className="home-flow" aria-labelledby="home-flow-h">
       <h3 id="home-flow-h">{t("home.bridge_where")}</h3>
@@ -229,7 +236,7 @@ function Flow({ view, shown }: { view: BridgeView; shown: { saved: number; credi
           <li key={f.key} data-part={f.key}>
             <span className="home-flow-swatch" data-tone={FLOW_TONE[f.key] ?? "neutral"} aria-hidden="true" />
             <span className="home-flow-name">{flowLabel(f.key, view.debtSplit)}</span>
-            <span className="home-flow-share num">{f.incomeUnits !== null ? percent(f.incomeUnits / 100) : ""}</span>
+            <span className="home-flow-share num">{sharesShown && f.incomeUnits !== null ? percent(f.incomeUnits / 100) : ""}</span>
             <span className="home-flow-sum num">{answerMoney(f.cents)}</span>
           </li>
         ))}

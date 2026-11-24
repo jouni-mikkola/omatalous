@@ -121,7 +121,26 @@ describe("Yhteenveto's month", () => {
     const overview = { income: { cents: 396600, earnedCents: 396600 }, months: [{ month: "2026-11", incomeCents: 396600, spendCents: 410783, fromSavingsCents: 0, complete: false }] };
     const summary = summaryIn(data({ totals, overview } as never));
     expect([...summary.querySelectorAll("[data-fig=result] .home-fig-term")].map((el) => flat(el.textContent))).toEqual(["Otettu säästöistä 150 €"]);
-    expect(flat(summary.querySelector("[data-part=gap]")?.textContent)).toBe("Menot ylittivät tulot 142 €. Rahat tulivat säästöistä 142 €.");
+    // the page tells one sum for it: the 150 € under Käteen jäi, and the gap sentence names no second one
+    expect(flat(summary.querySelector("[data-part=gap]")?.textContent)).toBe("Menot ylittivät tulot 142 €. Ero otettiin säästöistä.");
+    expect(summary.textContent).not.toMatch(/säästöistä 142/);
+    // and no share is told: of the income alone the shares of this month add to more than 100 %
+    expect([...summary.querySelectorAll(".home-flow-share")].map((el) => flat(el.textContent)).filter((s) => s !== "")).toEqual([]);
+  });
+
+  it("names the sum taken out of savings as under Käteen jäi when something else covered the gap too", () => {
+    // 1 500 € out of 1 000 € income: 200 € out of savings (all of it in the gap), 300 € from the accounts
+    const container = summaryIn(data({ totals: totalsOf(100000, 150000, 0, -20000) } as never));
+    expect(flat(container.querySelector("[data-part=gap]")?.textContent)).toContain("säästöistä 200 €");
+    expect(flat(container.querySelector("[data-fig=result] .home-fig-term")?.textContent)).toBe("Otettu säästöistä 200 €");
+  });
+
+  it("shown shares never add to more than 100 %: with a gap there is no share column", () => {
+    for (const totals of [totalsOf(396600, 272500, 138283, -15000), totalsOf(100000, 150000, 0, -20000), totalsOf(342800, 150000, 20000, -20000)]) {
+      const container = summaryIn(data({ totals } as never));
+      const shares = [...container.querySelectorAll(".home-flow-share")].map((el) => Number.parseInt(flat(el.textContent), 10)).filter((n) => !Number.isNaN(n));
+      expect(shares.reduce((sum, n) => sum + n, 0)).toBeLessThanOrEqual(100);
+    }
   });
 
   it("shows no term of under 50 cents", () => {
