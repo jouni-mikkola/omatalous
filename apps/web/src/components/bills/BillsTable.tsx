@@ -10,7 +10,8 @@
  * status with the count of those bills, and the other months keep their figure.
  * One month starts open: the running month while a bill of it is still to pay, otherwise the next one (`startOpenMonth`); the
  * reader opens any other. On a phone a closed month's head is one line, its name and one figure (`bill-line`). An open month
- * with two paid rows or more lists what is still to come and folds the paid rows under a toggle that names their count.
+ * lists what is still to come; two rows or more of it that a card pays, and two paid rows or more, fold under a toggle each
+ * that names their count.
  * This month and the next list every row; the later months list the bills that come less often than monthly one by one
  * and fold the monthly ones into one row that opens to them, with the number and sum core gives. A row opens in place:
  * how often it comes and its earlier payments with their sum (DrillRows), and the one action of a subscription,
@@ -135,10 +136,10 @@ export function BillsTable({
   const toggle = (key: string) => setToggled((before) => new Map(before).set(key, !isOpen(key)));
   const typed = items.flatMap((i) => (i.typed ? [i.typed] : []));
   const groups = calendarGroups(calendar, items, typed, isOpen);
-  /** The id of a folded paid row, which its toggle's `aria-controls` names. */
+  /** The id of a folded row, which its toggle's `aria-controls` names. */
   const idBase = useId();
-  const paidRowId = (key: string) => `${idBase}-${key}`;
-  const paidRows = new Set(groups.flatMap((g) => g.paidKeys ?? []));
+  const foldedRowId = (key: string) => `${idBase}-${key}`;
+  const foldedRows = new Set(groups.flatMap((g) => g.fold?.keys ?? []));
 
   const remove = async (id: string) => {
     setRemoving(null);
@@ -220,11 +221,11 @@ export function BillsTable({
   ];
 
   const head = (g: CalGroup) =>
-    g.paidKeys ? (
-      // the count of the rows, and no sum: the month's head has the sum of the paid bills
-      <button type="button" className="bill-paid" aria-expanded={isOpen(g.key)} aria-controls={g.paidKeys.map(paidRowId).join(" ")} onClick={() => toggle(g.key)}>
+    g.fold ? (
+      // the count of the rows, and no sum: the month's head has the sum of the paid bills, and a card's rows are in no sum
+      <button type="button" className="bill-subfold" aria-expanded={isOpen(g.key)} aria-controls={g.fold.keys.map(foldedRowId).join(" ")} onClick={() => toggle(g.key)}>
         <span aria-hidden="true">{isOpen(g.key) ? "▾" : "▸"}</span>
-        {t("bills.paid_fold", { count: g.paidKeys.length })}
+        {t(g.fold.kind === "card" ? "bills.card_fold" : "bills.paid_fold", { count: g.fold.keys.length })}
       </button>
     ) : (
       <button type="button" className="bill-month" aria-expanded={isOpen(g.key)} onClick={() => toggle(g.key)}>
@@ -235,7 +236,7 @@ export function BillsTable({
   const rowGroups = groups.map((g) => ({
     key: g.key,
     title: head(g),
-    figure: g.month && !g.paidKeys ? <MonthSums month={g.month} unknownCount={unknownBillsIn(calendar, [g.month.month])} open={isOpen(g.key)} /> : undefined,
+    figure: g.month && !g.fold ? <MonthSums month={g.month} unknownCount={unknownBillsIn(calendar, [g.month.month])} open={isOpen(g.key)} /> : undefined,
     figureSpan: columns.length - 2,
     rows: g.rows,
   }));
@@ -260,7 +261,7 @@ export function BillsTable({
         columns={columns}
         groups={rowGroups}
         rowClassName={(r) => (r.kind === "ended" || (r.kind === "row" && r.bill.state === "paid") ? "sub-stopped" : undefined)}
-        rowProps={(r) => (paidRows.has(r.key) ? { id: paidRowId(r.key) } : {})}
+        rowProps={(r) => (foldedRows.has(r.key) ? { id: foldedRowId(r.key) } : {})}
         open={open}
         onOpen={setOpen}
         drill={(r) => <Drill r={r} name={rowName(r)} controls={marking} scope={scope} onRemove={(b) => setRemoving({ id: b.id, name: b.name })} onWrong={(series) => setWrong({ series, name: rowName(r) })} />}
