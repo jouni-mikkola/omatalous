@@ -81,6 +81,17 @@ export function parseLoanUnknownSubject(subject: string): { monthlyCents: number
   return { monthlyCents: payment === "none" ? null : Number(payment), key };
 }
 
+const CREDIT_PAID = "question:credit-paid:";
+
+/** The subject of "Maksettu pois" on the ended payments of `key` (`endedCredits`): the credit was paid off. The mark is `in_use`, and it holds for good. */
+export const creditPaidSubject = (key: string): string => `${CREDIT_PAID}${key}`;
+
+/** The series key a "Maksettu pois" subject names, or null for any other subject and for a key no series has. */
+export function parseCreditPaidSubject(subject: string): string | null {
+  const key = subject.startsWith(CREDIT_PAID) ? subject.slice(CREDIT_PAID.length) : "";
+  return parseSeriesId(key)?.accountId ? key : null;
+}
+
 /** Whether the household said it does not know what the proposed loan of `key` owes while its monthly payment is `monthlyCents`. */
 const loanUnknownAsked = (marks: readonly Pick<UserMark, "subject" | "mark">[], key: string, monthlyCents: number | null): boolean => marks.some((m) => m.mark === "in_use" && m.subject === loanUnknownSubject(monthlyCents, key));
 

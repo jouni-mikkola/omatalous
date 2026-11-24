@@ -1,5 +1,17 @@
 /** Instance-wide key/value settings: data version, pending bank authorisations, locks. */
+import { DatabaseSync } from "node:sqlite";
 import type { Db, Statement } from "./types.ts";
+
+/** The rows of these keys, read from the file before it is opened for the app: read-only, no migrations, nothing written. */
+export function readSettingRows(dbPath: string, keys: string[]): Map<string, string> {
+  const db = new DatabaseSync(dbPath, { readOnly: true });
+  try {
+    const rows = db.prepare(`SELECT key, value FROM settings WHERE key IN (${keys.map(() => "?").join(", ")})`).all(...keys) as unknown as { key: string; value: string }[];
+    return new Map(rows.map((r) => [r.key, r.value]));
+  } finally {
+    db.close();
+  }
+}
 
 /** Set while a user's imported rows still wait for their categories and transfer flags (services/enrich.ts). */
 export const NEEDS_REPROCESS = "needs_reprocess:";

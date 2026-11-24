@@ -15,11 +15,14 @@ import { BundleRefused, checkBundle, NotForThisVersion, RESERVED_IDS } from "../
 import { moduleCodeText, parseModuleCode } from "../src/modules/code.ts";
 import { MigrationError } from "../src/db/migrate.ts";
 import { openDatabase } from "../src/db/open.ts";
+import { SettingsRepo } from "../src/db/settings-repo.ts";
 import { loadInstalledModule, MIGRATION_FAILED, openWithModule, type StartState } from "../src/modules/load.ts";
+import { SecretBox } from "../src/security/secretbox.ts";
+import { checkModuleBeforeStart, recheckModule } from "../src/services/modules.ts";
 import { satisfies } from "../src/modules/semver.ts";
 import { readActive } from "../src/modules/store.ts";
 import { APP_VERSION } from "../src/version.ts";
-import { scratchDir, setupApp } from "./helpers.ts";
+import { NOW, scratchDir, setupApp } from "./helpers.ts";
 
 const PASSWORD = "aino-salasana-123";
 // a made-up value of the right shape: no real token is ever in a test
@@ -511,5 +514,162 @@ describe("the code in Asetukset, then a start", () => {
     const put = await app.admin.call("PUT", "/api/modules/code", { code: CODE, password: PASSWORD });
     expect(put.body).toEqual({ state: "refused", reason: "signature does not verify" });
     expect(readActive(root)).toBeNull();
+  });
+});
+
+const SECRET = "test-secret-that-is-long-enough-0123456789";
+
+/** A database file with the code sealed as the app seals it, which the check before the start reads without writing. */
+async function databaseWithCode(name: string, o: { code?: boolean; status?: Record<string, unknown> } = {}) {
+  const data = join(work, name);
+  const dbPath = join(data, "banking.db");
+  const { db } = await openDatabase(dbPath);
+  const settings = new SettingsRepo(db);
+  if (o.code !== false) await settings.set("instance_module", JSON.stringify({ keyEnc: await (await SecretBox.fromSecret(SECRET)).seal(CODE, "instance:module") }));
+  if (o.status) await settings.set("module_status", JSON.stringify(o.status));
+  return { db, settings, dbPath, root: join(data, "modules") };
+}
+const statusAt = (ms: number, over: Record<string, unknown> = {}) => ({ state: "installed", id: "example", version: "1.2.0", appVersion: APP_VERSION, at: new Date(NOW.getTime() - ms).toISOString(), ...over });
+const MINUTE = 60_000;
+const HOUR = 60 * MINUTE;
+
+type Database = Awaited<ReturnType<typeof databaseWithCode>>;
+const beforeStart = (d: Database, fetchImpl: typeof fetch, extra: { deadlineMs?: number } = {}) =>
+  checkModuleBeforeStart({ dbPath: d.dbPath, appSecret: SECRET, root: d.root, signersFile: signers, appVersion: APP_VERSION, fetch: fetchImpl, now: () => NOW, ...extra });
+
+describe("the check before the start", () => {
+  it("installs a new release before the load, so this start runs it, and writes down what it found once the database is open", async () => {
+    const d = await databaseWithCode("start-1");
+    const seen: { url: string; auth: string | null }[] = [];
+    await beforeStart(d, releaseService({ "1.2.0": realBundle("start-new") }, seen));
+    expect(readActive(d.root)).toEqual({ id: "example", version: "1.2.0" });
+    // nothing was written to the database file by the check
+    expect(await d.settings.get("module_status")).toBeNull();
+    expect(await d.settings.get("module_floor")).toBeNull();
+
+    // the load that follows in the same start runs it
+    const start = await loadInstalledModule({ root: d.root, signersFile: signers, appVersion: APP_VERSION });
+    expect(start).toMatchObject({ state: "connected", id: "example", version: "1.2.0" });
+
+    // the database opens, the check after it writes down the outcome and does not fetch again
+    const app = await setupApp({}, releaseService({}, seen), { modules: { root: d.root, signersFile: signers, start } });
+    await app.s.settings.set("instance_module", (await d.settings.get("instance_module"))!);
+    const fetched = seen.length;
+    await recheckModule(app.s);
+    expect(seen.length).toBe(fetched);
+    expect(JSON.parse((await app.s.settings.get("module_status"))!)).toMatchObject({ state: "installed", id: "example", version: "1.2.0", appVersion: APP_VERSION });
+    expect(JSON.parse((await app.s.settings.get("module_floor"))!)).toEqual({ example: "1.2.0" });
+    const events = await app.admin.call("GET", "/api/security/events");
+    expect(events.body.events.map((e: { kind: string }) => e.kind)).toContain("module_installed");
+    expect((await app.admin.call("GET", "/api/modules")).body).toEqual({ state: "connected", id: "example", version: "1.2.0", label: "Esimerkki" });
+    d.db.close();
+  });
+
+  it("looks only when the last check is older than an hour, the app version changed or none was made, and only with a code", async () => {
+    const cases: [string, Record<string, unknown> | undefined, boolean, boolean][] = [
+      ["fresh", statusAt(30 * MINUTE), false, true],
+      ["an hour old", statusAt(HOUR + MINUTE), true, true],
+      ["another app version", statusAt(MINUTE, { appVersion: "0.0.1" }), true, true],
+      ["never checked", undefined, true, true],
+      ["no code", statusAt(5 * HOUR), false, false],
+    ];
+    for (const [what, status, looks, code] of cases) {
+      const d = await databaseWithCode(`start-age-${what.replace(/ /g, "-")}`, { code, status });
+      const seen: { url: string; auth: string | null }[] = [];
+      await beforeStart(d, releaseService({}, seen));
+      expect(seen.length > 0, what).toBe(looks);
+      // what a look found is written by the check after the start, which this test does not make
+      await recheckModule((await setupApp()).s);
+      d.db.close();
+    }
+    // a data folder with no database yet is a first start: nothing to read, nothing thrown
+    const none: typeof fetch = () => Promise.reject(new Error("must not be called"));
+    await expect(checkModuleBeforeStart({ dbPath: join(work, "start-no-db", "banking.db"), appSecret: SECRET, root: join(work, "start-no-db", "modules"), signersFile: signers, appVersion: APP_VERSION, fetch: none })).resolves.toBeUndefined();
+    expect(existsSync(join(work, "start-no-db"))).toBe(false);
+  });
+
+  it("never holds the start: a release service that does not answer ends at the deadline, and one that fails leaves an installed module alone", async () => {
+    const hang: typeof fetch = (_url, init) => new Promise((_resolve, reject) => init?.signal?.addEventListener("abort", () => reject(new Error("aborted"))));
+    const d = await databaseWithCode("start-hang");
+    const began = Date.now();
+    await beforeStart(d, hang, { deadlineMs: 100 });
+    expect(Date.now() - began).toBeLessThan(5000);
+    expect(readActive(d.root)).toBeNull();
+    const app = await setupApp();
+    await recheckModule(app.s);
+    d.db.close();
+
+    const e = await databaseWithCode("start-failing");
+    await beforeStart(e, releaseService({ "1.2.0": realBundle("start-kept") }));
+    expect(readActive(e.root)).toEqual({ id: "example", version: "1.2.0" });
+    await recheckModule((await setupApp()).s);
+    const failing: typeof fetch = () => Promise.reject(new Error("offline"));
+    await e.settings.set("module_status", JSON.stringify(statusAt(2 * HOUR)));
+    await expect(beforeStart(e, failing)).resolves.toBeUndefined();
+    expect(readActive(e.root)).toEqual({ id: "example", version: "1.2.0" });
+    // the failed check wrote nothing over the status of the installed module
+    expect(JSON.parse((await e.settings.get("module_status"))!)).toMatchObject({ state: "installed", version: "1.2.0" });
+    e.db.close();
+  });
+
+  it("keeps the daily check of the hourly tick: a day old status is checked again, an hour old one is not", async () => {
+    for (const [ageMs, looks] of [[2 * HOUR, false], [25 * HOUR, true]] as const) {
+      const seen: { url: string; auth: string | null }[] = [];
+      const app = await setupApp({}, releaseService({}, seen), { modules: { root: join(work, `daily-${ageMs}`, "modules"), signersFile: signers, start: { state: "none" } } });
+      await app.s.settings.set("instance_module", JSON.stringify({ keyEnc: await (await SecretBox.fromSecret(SECRET)).seal(CODE, "instance:module") }));
+      await app.s.settings.set("module_status", JSON.stringify(statusAt(ageMs)));
+      await recheckModule(app.s);
+      expect(seen.length > 0, String(ageMs)).toBe(looks);
+    }
+  });
+});
+
+describe("Tarkista päivitys (POST /api/modules/check)", () => {
+  it("checks with no password, says which version it installed and whether a restart brings it in, and is limited to one every half minute", async () => {
+    const root = join(work, "data-check", "modules");
+    const bundles: Record<string, { packed: Buffer; signature: Buffer }> = { "1.2.0": realBundle("check-old") };
+    let clock = NOW.getTime();
+    const deps = (start: StartState) => ({ now: () => new Date(clock), modules: { root, signersFile: signers, start } });
+    const first = await setupApp({}, releaseService(bundles), deps({ state: "none" }));
+
+    // no code: nothing to check with
+    const noCode = await first.admin.call("POST", "/api/modules/check");
+    expect(noCode.status).toBe(400);
+    expect(noCode.body.error).toBe("Lisäosan koodia ei ole tallennettu.");
+    await first.admin.call("PUT", "/api/modules/code", { code: CODE, password: PASSWORD });
+
+    const member = await first.member("eero");
+    expect((await member.call("POST", "/api/modules/check")).status).toBe(403);
+    expect((await first.client().call("POST", "/api/modules/check")).status).toBe(401);
+
+    // the version found is on the disk and waits for a restart
+    bundles["1.3.0"] = realBundle("check-new", { version: "1.3.0" });
+    const found = await first.admin.call("POST", "/api/modules/check");
+    expect(found.status).toBe(200);
+    expect(found.body).toEqual({ view: { state: "pending", id: "example", version: "1.3.0" }, checked: { version: "1.3.0", restart: true } });
+    expect(readActive(root)).toEqual({ id: "example", version: "1.3.0" });
+
+    // asked again at once: refused, and it says when to come back
+    const again = await first.admin.call("POST", "/api/modules/check");
+    expect(again.status).toBe(429);
+    expect(Number(again.res.headers.get("retry-after"))).toBeGreaterThan(0);
+    clock += 31_000;
+    expect((await first.admin.call("POST", "/api/modules/check")).status).toBe(200);
+
+    // a process that already runs the newest version needs no restart
+    const start = await loadInstalledModule({ root, signersFile: signers, appVersion: APP_VERSION });
+    expect(start).toMatchObject({ state: "connected", version: "1.3.0" });
+    const running = await setupApp({}, releaseService(bundles), deps(start));
+    await running.s.settings.set("instance_module", (await first.s.settings.get("instance_module"))!);
+    const same = await running.admin.call("POST", "/api/modules/check");
+    expect(same.body).toEqual({ view: { state: "connected", id: "example", version: "1.3.0", label: "Esimerkki" }, checked: { version: "1.3.0", restart: false } });
+
+    // a release service with nothing that fits finds nothing, and the module that runs stays
+    for (const v of Object.keys(bundles)) delete bundles[v];
+    clock += 31_000;
+    const nothing = await running.admin.call("POST", "/api/modules/check");
+    expect(nothing.status).toBe(200);
+    expect(nothing.body.checked).toBeNull();
+    expect(nothing.body.view).toMatchObject({ state: "connected", version: "1.3.0" });
   });
 });

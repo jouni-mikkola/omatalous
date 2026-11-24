@@ -54,4 +54,7 @@ export const EN_SET_RC: Record<keyof typeof FI_SET_RC, string> = {
   "set.rc.lt_interest": "interest left {amount}",
   "set.rc.lt_fee": "fee per payment {amount}",
   "set.rc.lt_set_aside": "No reminders",
+  "set.rc.lt_ended": "Payments to {name} ended on {date}.",
+  "set.rc.lt_paid_off": "Paid off",
+  "set.rc.lt_still_owed": "A card or credit I still owe",
 };

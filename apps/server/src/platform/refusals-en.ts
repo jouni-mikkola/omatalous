@@ -60,6 +60,8 @@ const LINES: readonly (readonly [string, string])[] = [
   ["Kirjoita {1} vahvistukseksi.", "Type {1} to confirm."],
   ["Syöte on liian pitkä.", "The input is too long."],
   ["Syöte ei ole kelvollista JSONia.", "The input is not valid JSON."],
+  ["Lisäosan koodia ei ole tallennettu.", "No add-on code is saved."],
+  ["Odota hetki ennen seuraavaa tarkistusta.", "Wait a moment before the next check."],
   ["Palvelimen salausavain puuttuu. Ylläpitäjä löytää syyn palvelimen lokista.", "The server's encryption key is missing. The admin finds the cause in the server log."],
   ["Palvelimen salausavain on vaihdettu. Käynnistä sovellus uudelleen ja yritä sitten uudelleen.", "The server's encryption key was changed. Restart the app and try again."],
   ["Levy on täynnä, eikä tietoja voitu tallentaa. Pyydä ylläpitäjää vapauttamaan tilaa.", "The disk is full, so the data could not be saved. Ask an administrator to free some space."],

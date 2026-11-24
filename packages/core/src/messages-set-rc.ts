@@ -56,4 +56,7 @@ export const FI_SET_RC = {
   "set.rc.lt_interest": "korkoa jäljellä {amount}",
   "set.rc.lt_fee": "kulu erää kohden {amount}",
   "set.rc.lt_set_aside": "Ei muistutuksia",
+  "set.rc.lt_ended": "Maksut {name} loppuivat {date}.",
+  "set.rc.lt_paid_off": "Maksettu pois",
+  "set.rc.lt_still_owed": "Kortti tai luotto, jota vielä maksan",
 } as const;

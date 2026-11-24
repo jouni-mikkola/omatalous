@@ -119,6 +119,9 @@ export function parseLoanKindSubject(subject: string): { kind: (typeof LOAN_KIND
   return kind && parseSeriesId(key)?.accountId ? { kind, key } : null;
 }
 
+/** An insurer, a landlord, a lessor and a housing company charging for its own loan are paid no loan of the household's. */
+export const paidForOthers = (payee: string, text: string): boolean => isInsuranceText(text) || isRent(text) || isLeaseText(text) || isHousingCompanyName(payee);
+
 /** A monthly instalment over this, paid by a home owner, is a mortgage. */
 const MORTGAGE_PAYMENT_CENTS = 40000;
 
@@ -442,7 +445,7 @@ export function loanProposals(ctx: Pick<AnalysisContext, "txs" | "recurring" | "
     const invoicedLoan = isLenderPayment(payee, text) || hasLoanText(payee) || issuer;
     if (references.size > 1 && !invoicedLoan && !plan) continue;
     // an insurer, a landlord, a lessor and a housing company charging for its own loan are paid no loan of the household's
-    if (isInsuranceText(text) || isRent(text) || isLeaseText(text) || isHousingCompanyName(payee)) continue;
+    if (paidForOthers(payee, text)) continue;
     // Laina is a first name too: a person so named is a lender only when the payment text names the loan
     if (isNamedLaina(payee) && !hasPayeeForm(payee) && !isLoanText(fold(last.description ?? ""))) continue;
     if (isCancelled(cancelled, s)) continue;

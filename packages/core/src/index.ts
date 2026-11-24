@@ -58,6 +58,7 @@ export { debtsOf } from "./analysis/card-settled.ts";
 export { cardLimitCents, debtPayments } from "./holdings.ts";
 export { buildHousing, MORTGAGE_QUESTION } from "./housing.ts";
 export * from "./loan-detect.ts";
+export { endedCredits } from "./ended-credit.ts";
 export { cardGaps, openCardRows, unconnectedCards, unlinkedCardLoans, unlinkedCreditLoans } from "./unconnected-cards.ts";
 export * from "./loan-intake/index.ts";
 export { cardSeriesKeys, mortgageSeriesKeys } from "./declared-loans.ts";

@@ -22,6 +22,7 @@ import { ChoiceButton, mark } from "./review-buttons.tsx";
 import { creditKindChoices } from "./review-items.ts";
 import type { LoanTermsDebt, LoanTermsListItem } from "./review-loan-items.ts";
 import { cardGapFacts, CardChoices } from "./ReviewCardChoices.tsx";
+import { EndedChoices } from "./ReviewEndedChoices.tsx";
 import { PlanChoices } from "./ReviewPlanChoices.tsx";
 
 /**
@@ -57,8 +58,8 @@ function resultLine(loan: Loan, fixings: Fixings, today: string): string {
  */
 function factsOf(debt: LoanTermsDebt): string[] {
   const proposed = debt.source === "proposal";
-  // a card's missing bills tell no due day
-  const due = debt.source === "card_gap" ? null : (debt.terms?.dueDate ?? debt.lastDate);
+  // a card's missing bills and payments that stopped tell no due day
+  const due = debt.source === "card_gap" || debt.source === "ended" ? null : (debt.terms?.dueDate ?? debt.lastDate);
   const kindKnown = proposed ? debt.kindUnknown !== true : debt.placed && debt.source !== "card_bill" && debt.source !== "card_gap";
   return [
     kindKnown && KIND_LABEL[debt.kind] !== debt.name ? KIND_LABEL[debt.kind] : null,
@@ -116,7 +117,7 @@ export function LoanTermsChoices({ item, meta, busy, onAnswer, onHold, onReload 
   const open = item.debts.filter((d) => !closed.some((c) => c.id === d.id));
   const done = open.length === 0;
   // forms filled from rows share the connected loan accounts: with two of them in the list, neither takes one by itself
-  const fromRows = (debts: readonly LoanTermsDebt[]) => debts.filter((d) => d.source === "proposal" || d.source === "card_bill" || (d.source === "card_gap" && d.accountId === null)).length;
+  const fromRows = (debts: readonly LoanTermsDebt[]) => debts.filter((d) => d.source === "proposal" || d.source === "ended" || d.source === "card_bill" || (d.source === "card_gap" && d.accountId === null)).length;
   const [oneAtOpen] = useState(() => fromRows(item.debts) <= 1);
   const ownsAccount = oneAtOpen && fromRows(open) <= 1;
 
@@ -211,6 +212,8 @@ function DebtRow(props: RowProps) {
       return props.debt.gaps.includes("rate") ? <CardRow {...props} /> : <SavedRow {...props} />;
     case "proposal":
       return <ProposalRow {...props} />;
+    case "ended":
+      return <EndedChoices debt={props.debt} meta={props.meta} busy={props.busy} onSend={props.onSend} owed={<ProposalRow {...props} />} />;
     case "plan":
       return <PlanChoices lastDate={props.debt.lastDate ?? props.meta.today} busy={props.busy} onEnd={(end) => props.onSend(() => mark(planSubject(end, props.debt.key ?? ""), "in_use")().then(() => (end === null ? t("set.rc.i_don_t_know") : t("set.rc.lt_ends", { date: monthYear(end) }))))} />;
     case "card_bill":
