@@ -21,17 +21,26 @@ const rows = [
   ...["2025-11", "2025-12", "2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"].map((m) => raw(`${m}-15`, 3200, "ESIMERKKITYÖNANTAJA OY", "PALKKA")),
 ];
 
+type Setup = Awaited<ReturnType<typeof setupApp>>;
+
+/** The checking account `accountId` of the member `userId`, with the rows of the made-up lender and salary. */
+async function addEndedRows(t: Setup, userId: string, accountId: string) {
+  const repo = t.s.finance(userId);
+  await repo.upsertAccount({ id: accountId, connectionId: null, provider: "csv", externalId: null, identity: null, name: "Käyttötili", iban: null, currency: "EUR", type: "checking" });
+  await ingestTransactions(repo, accountId, rows, "csv");
+  await reprocess(repo, t.s.settings);
+}
+
+/** The debts Täydennä lainat lists for the signed-in member. */
+async function debtsOf(caller: Setup["admin"]) {
+  const list = ((await caller.call("GET", "/api/review")).body.items as { kind: string; debts?: { source: string; key: string; name: string; lastDate: string }[] }[]).find((i) => i.kind === "loan_terms_list");
+  return list?.debts ?? [];
+}
+
 async function withEndedRows() {
   const t = await setupApp();
-  const repo = t.s.finance(t.adminId);
-  await repo.upsertAccount({ id: "chk-1", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Käyttötili", iban: null, currency: "EUR", type: "checking" });
-  await ingestTransactions(repo, "chk-1", rows, "csv");
-  await reprocess(repo, t.s.settings);
-  const debts = async () => {
-    const list = ((await t.admin.call("GET", "/api/review")).body.items as { kind: string; debts?: { source: string; key: string; name: string; lastDate: string }[] }[]).find((i) => i.kind === "loan_terms_list");
-    return list?.debts ?? [];
-  };
-  return { ...t, debts };
+  await addEndedRows(t, t.adminId, "chk-1");
+  return { ...t, debts: () => debtsOf(t.admin) };
 }
 
 describe("payments to a lender that stopped, in Täydennä lainat", () => {
@@ -46,5 +55,15 @@ describe("payments to a lender that stopped, in Täydennä lainat", () => {
     const [row] = await t.debts();
     expect((await t.admin.call("PUT", "/api/marks", { subject: creditPaidSubject(row!.key), mark: "in_use" })).status).toBe(200);
     expect(await t.debts()).toEqual([]);
+  });
+
+  it("is the member's own: another member's payments, on an account shared with the first user or not, are asked only of them", async () => {
+    const t = await setupApp();
+    const ville = await t.member("ville", "Ville");
+    await addEndedRows(t, ville.id, "v-chk");
+    expect(await debtsOf(t.admin)).toEqual([]);
+    await t.s.household.share(ville.id, "v-chk", t.adminId);
+    expect(await debtsOf(t.admin)).toEqual([]);
+    expect(await debtsOf(ville)).toEqual([expect.objectContaining({ source: "ended", key: expect.stringMatching(/^out:v-chk:/), lastDate: "2026-04-05" })]);
   });
 });

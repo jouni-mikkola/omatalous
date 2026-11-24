@@ -4,6 +4,9 @@
  * `LENDER_ACTIVE_DAYS` ago are neither: they are no debt service now, and the rows cannot say whether the credit was
  * paid off or is a card or credit line still owed whose purchases are missing. Tarkistettavat asks once.
  *
+ * A lender paid from several accounts is one question: asked by the account of its latest payment, and settled by an
+ * answer that names any of its accounts.
+ *
  * Decision: whether the credit the payments were for is paid off, still owed, or no loan of the household's.
  *
  * Its key is the series id with no product, as the key of a credit of unknown kind is (`LoanProposal.kindUnknown`), so a
@@ -15,7 +18,7 @@ import { type AnalysisContext, type AnalysisTx, standingOf } from "./analysis/co
 import { completeYear } from "./analysis/data-quality.ts";
 import { daysBetween, monthOf } from "./dates.ts";
 import { isLenderPayment, LENDER_ACTIVE_DAYS, LOAN_CATEGORIES } from "./lender-runs.ts";
-import { paidForOthers } from "./loan-detect.ts";
+import { lenderInstalments, paidForOthers } from "./loan-detect.ts";
 import { cardUnknownAsked, parseCreditPaidSubject } from "./loan-terms-answer.ts";
 import { fold } from "./merchant.ts";
 import { seriesId } from "./series-id.ts";
@@ -42,35 +45,40 @@ export interface EndedCredit {
 
 /**
  * The payment series to a lender (a known lender, a payee named for a loan, or a card issuer's name with no word of a
- * loan) of the loans categories that have three payments in three months, the last inside the twelve complete months and
- * more than `LENDER_ACTIVE_DAYS` ago, the largest sum first. A payee paid again lately on any account is running, so it is
- * the proposals' to ask. One a saved loan or "Ei ole velan maksu" names, and one the household answered ("Maksettu pois",
+ * loan) of the loans categories that have three payments in three months (all accounts together), the last inside the
+ * twelve complete months and no longer a running series, the largest sum first. A payee with an active series, or paid
+ * again lately in a payment no series holds, on any account, is running, so it is the proposals' to ask. One a saved loan or "Ei ole velan maksu" names, and one the household answered ("Maksettu pois",
  * "En tiedä"), is left out.
  */
 export function endedCredits(ctx: Pick<AnalysisContext, "txs" | "recurring" | "standing" | "today">, inputs: UserInputs): EndedCredit[] {
   const window = completeYear(ctx.today);
   const taken = takenBill(inputs);
   const paid = new Set(inputs.marks.flatMap((m) => (m.mark === "in_use" ? (parseCreditPaidSubject(m.subject) ?? []) : [])));
-  const byPayee = new Map<string, AnalysisTx[]>();
-  const running = new Set(ctx.recurring.filter((s) => s.active).map((s) => fold(s.merchant)));
+  // the series the proposals ask of: a payee with an active one is running. One that is no longer active (`isActiveAt`) is
+  // ended from that day, so no day between the proposals and this list asks of nothing
+  const series = [...ctx.recurring.filter((s) => s.kind !== "habit"), ...lenderInstalments(ctx)];
+  const held = new Set(series.flatMap((s) => s.transactionIds));
+  const running = new Set(series.filter((s) => s.active).map((s) => fold(s.merchant)));
+  const byLender = new Map<string, AnalysisTx[]>();
   for (const t of standingOf(ctx).txs) {
     if (t.amountCents >= 0 || t.isTransfer || t.bookingDate > ctx.today || !LOAN_CATEGORIES.has(t.category)) continue;
     const payee = fold(t.merchant);
-    if (daysBetween(t.bookingDate, ctx.today) <= LENDER_ACTIVE_DAYS) running.add(payee);
-    const key = `${t.accountId}\u0000${payee}`;
-    byPayee.set(key, [...(byPayee.get(key) ?? []), t]);
+    // a payment no series holds is a lender's few payments (`fewPayments`), a proposal for `LENDER_ACTIVE_DAYS`
+    if (!held.has(t.id) && daysBetween(t.bookingDate, ctx.today) <= LENDER_ACTIVE_DAYS) running.add(payee);
+    byLender.set(payee, [...(byLender.get(payee) ?? []), t]);
   }
   const out: EndedCredit[] = [];
-  for (const rows of byPayee.values()) {
+  for (const [payee, rows] of byLender) {
     const last = rows.reduce((a, b) => (b.day > a.day ? b : a));
-    const payee = fold(last.merchant);
     if (running.has(payee) || last.bookingDate < window.from) continue;
     if (new Set(rows.map((t) => monthOf(t.bookingDate))).size < MIN_SERIES_MONTHS) continue;
     const text = fold([last.merchant, last.counterparty, last.description].filter(Boolean).join(" "));
     const lender = isLenderPayment(payee, text) || (isCreditIssuerText(text) && !isLoanText(text));
     if (!lender || paidForOthers(payee, text)) continue;
-    const key = seriesId({ direction: "out", accountId: last.accountId, merchant: last.merchant, product: null });
-    if (paid.has(key) || cardUnknownAsked(inputs.marks, key, null) || rows.some(taken)) continue;
+    const keyOf = (t: AnalysisTx) => seriesId({ direction: "out", accountId: t.accountId, merchant: t.merchant, product: null });
+    const key = keyOf(last);
+    const accountKeys = [...new Map(rows.map((t) => [t.accountId, t])).values()].map(keyOf);
+    if (accountKeys.some((k) => paid.has(k) || cardUnknownAsked(inputs.marks, k, null)) || rows.some(taken)) continue;
     out.push({
       key,
       payee: withoutSwedishTwin(last.merchant),
