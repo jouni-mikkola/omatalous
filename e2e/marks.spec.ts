@@ -57,7 +57,7 @@ test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi t
     // the paid rows of the open month are folded, and the card's Apple rows paid this month are among them
     const showPaid = async () => {
       await expect(subs.locator(".bill-month").first()).toBeVisible();
-      for (const fold of await subs.locator(".bill-paid[aria-expanded=false]").all()) await fold.click();
+      for (const fold of await subs.locator(".bill-fold[aria-expanded=false]").all()) await fold.click();
     };
     await showPaid();
     // the month's fixed costs are the fixed costs report's figure, in whole euros

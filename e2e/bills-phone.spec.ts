@@ -50,6 +50,8 @@ for (const { width, scale } of [{ width: 390, scale: 100 }, { width: 390, scale:
     // a second month opened, so the rows of two months are compared
     await page.locator("#laskut-taulukko .bill-month[aria-expanded=false]").first().click();
     await expect(page.locator("#laskut-taulukko .bill-month[aria-expanded=true]")).toHaveCount(2);
+    // and their folded rows opened, so the rows a card pays ("Kortilla") and the paid ones are among them
+    for (const fold of await page.locator("#laskut-taulukko .bill-fold[aria-expanded=false]").all()) await fold.click();
     // the sums of a month's head stay inside the page, wrapped when the room is short
     await expect(page.locator(".bill-sums").first()).toBeVisible();
     const sums = await page.locator(".bill-sums > span").evaluateAll((els) => els.map((el) => ({ text: el.textContent?.trim() ?? "", right: el.getBoundingClientRect().right })));

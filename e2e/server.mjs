@@ -52,8 +52,12 @@ function removeAll(dir) {
   if (existsSync(dir)) console.error(`e2e: the data folder ${dir} could not be removed`);
 }
 
-/** @returns {Promise<{ base: string, dir: string, setupCode: string, fakeBank: string, log: () => string, stop: () => void }>} */
-export async function startServer() {
+/**
+ * `today` (YYYY-MM-DD) starts the server's clock on that day (e2e/clock.mjs); without it the server keeps the real one.
+ * @param {{ today?: string }} [options]
+ * @returns {Promise<{ base: string, dir: string, setupCode: string, fakeBank: string, log: () => string, stop: () => void }>}
+ */
+export async function startServer(options = {}) {
   // `pnpm e2e` builds a run that may stamp into a folder of its own and names it here: the tree's `dist` is not touched
   const own = process.env.E2E_BUILD;
   const built = own ? { bundle: join(own, "node.js"), web: join(own, "web") } : { bundle: join(root, "apps/server/dist/node.js"), web: join(root, "apps/web/dist") };
@@ -102,6 +106,8 @@ export async function startServer() {
     EB_AUTH_HOSTS: bank.consentHost,
   };
   delete env.APP_SECRET;
+  delete env.E2E_TODAY;
+  if (options.today) env.E2E_TODAY = options.today;
   // the application the fake bank accepts: made now and kept in memory, never in a file. It goes to the specs as
   // `fakeBank` (run.mjs puts it in their environment) and not to the app, which gets it from the spec that links.
   const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
@@ -112,7 +118,12 @@ export async function startServer() {
     privateKeyPem: privateKey.export({ type: "pkcs8", format: "pem" }),
   });
   // with E2E_HOSTS_DIR set (pnpm e2e) the server records the hosts it connects to
-  const nodeArgs = ["--disable-warning=ExperimentalWarning", ...(process.env.E2E_HOSTS_DIR ? ["--import", join(root, "e2e/record-sockets.mjs")] : []), bundle];
+  const nodeArgs = [
+    "--disable-warning=ExperimentalWarning",
+    ...(process.env.E2E_HOSTS_DIR ? ["--import", join(root, "e2e/record-sockets.mjs")] : []),
+    ...(options.today ? ["--import", join(root, "e2e/clock.mjs")] : []),
+    bundle,
+  ];
   try {
     const setup = spawnSync(process.execPath, [...nodeArgs, "setup-code"], { env, encoding: "utf8" });
     if (setup.status !== 0) throw new Error(`setup-code failed: ${setup.stderr || setup.stdout}`);

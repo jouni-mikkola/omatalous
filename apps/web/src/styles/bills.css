@@ -27,14 +27,14 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .sub-facts dd { margin: 0; font-variant-numeric: tabular-nums; }
 
 /* the head of a month: its name opens and closes it, its sums stand on the right and wrap when the room is short */
-.bill-month, .bill-paid { display: inline-flex; align-items: center; gap: var(--sp-8); padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; }
-@media (pointer: coarse) { .bill-month, .bill-paid { min-block-size: 2.75rem; } }
-/* the toggle of a month's paid rows heads a group of rows inside the month, so it has no band of its own */
-.bill-table tr.rt-group:has(.bill-paid), .bill-table tr.rt-group:has(.bill-paid) > * { background: none; }
-.bill-paid { color: var(--text-2); }
+.bill-month, .bill-fold { display: inline-flex; align-items: center; gap: var(--sp-8); padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; }
+@media (pointer: coarse) { .bill-month, .bill-fold { min-block-size: 2.75rem; } }
+/* the toggle of a month's paid rows, or of the rows a card pays, heads a group of rows inside the month, so it has no band of its own */
+.bill-table tr.rt-group:has(.bill-fold), .bill-table tr.rt-group:has(.bill-fold) > * { background: none; }
+.bill-fold { color: var(--text-2); }
 /* on a phone its row has no line of figures under the toggle. Its padding is the --reach-pad its button takes back, and below
-   it also the one the next month's opener takes back, whose head is padded less at a larger text: the two never overlap */
-.rt-wrap[data-block] .rt.bill-table tr.rt-group:has(.bill-paid) { padding-block: var(--sp-8) calc(2 * var(--sp-8)); }
+   it also the one the next opener takes back, whose head is padded less at a larger text: the two never overlap */
+.rt-wrap[data-block] .rt.bill-table tr.rt-group:has(.bill-fold) { padding-block: var(--sp-8) calc(2 * var(--sp-8)); }
 .bill-table tr.rt-group > td { white-space: normal; }
 .bill-sums { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0 var(--sp-16); font-weight: 400; font-variant-numeric: tabular-nums; }
 .bill-sums > span { white-space: nowrap; }
