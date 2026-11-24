@@ -78,7 +78,7 @@ describe("Yhteiset menot: the lead", () => {
 
   it("counts the payments when there are several", async () => {
     const text = await say([pool([{ owner: "u1", over: -12_000 }, { owner: "u2", over: 7_000 }, { owner: "u3", over: 5_000 }])]);
-    expect(text).toBe("Tämän kuun yhteiset menot tasataan 2 maksulla, yhteensä 120 €.");
+    expect(text).toBe("Tämän kuun yhteiset menot vaativat 2 maksua, yhteensä 120 €.");
   });
 
   it("says nothing when nobody pays anybody", async () => {

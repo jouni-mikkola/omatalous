@@ -36,7 +36,8 @@ function useCashflow(ctx: SectionProps["ctx"]) {
 export function CashflowLead({ ctx }: SectionProps) {
   const { data } = useCashflow(ctx);
   if (!data) return null;
-  const { gap, months } = data.overview;
+  const { overview } = data;
+  const { gap, months } = overview;
   if (gap) return <Lead>{gapText(gap)}</Lead>;
   const complete = months.filter((m) => m.complete && m.incomeCents !== null && m.spendCents !== null);
   if (complete.length === 0) return null;

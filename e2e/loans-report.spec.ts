@@ -261,10 +261,10 @@ test("Raportit has none of the paragraphs the figures replaced, and its balances
   // the sentences that said what the fixed costs take of the income and what the cash covers, and the line under Tulolajit
   await expect(page.locator("#tulot").getByRole("heading", { name: "Tulolajit", exact: true })).toBeVisible();
   await expect(page.getByText(/vievät \d+ % tuloista|Se kattaa|Puskurin pituus|Lisää tilien saldot|Kuukaudessa keskimäärin/)).toHaveCount(0);
-  // Varat ja velat: the balances by month under their question, no chart of them and no legend
+  // Varat ja velat: the balances by month under their question, the daily balance as one line chart and no legend
   await page.goto("/#/reports?q=saldot");
   await expect(page.locator("#saldot").getByRole("heading", { name: "Saldojen kehitys" })).toBeVisible();
-  await expect(page.locator("#saldot [role='img']")).toHaveCount(0);
+  await expect(page.locator("#saldot [role='img']")).toHaveCount(1);
   await expect(page.locator("#saldot .legend")).toHaveCount(0);
   expect(seen.problems).toEqual([]);
   await context.close();

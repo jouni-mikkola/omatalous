@@ -150,7 +150,7 @@ export const FI_REPORTS_5 = {
   "rpt.lead_bal_down": "{date} jälkeen tilien ja korttien saldo on laskenut {change} ja on nyt {amount}.",
   "rpt.lead_bal_down_debt": "{date} jälkeen tilien ja korttien saldo on laskenut {change} ja on nyt {amount}. Velkaa on {debt}.",
   "rpt.lead_shared_pay": "Tämän kuun yhteisistä menoista {from} maksaa {sum}, ja {to} saa sen.",
-  "rpt.lead_shared_many": "Tämän kuun yhteiset menot tasataan {count} maksulla, yhteensä {sum}.",
+  "rpt.lead_shared_many": "Tämän kuun yhteiset menot vaativat {count} maksua, yhteensä {sum}.",
   "rpt.debt_paid": "Velkaa maksettu",
   "rpt.debt_drawn": "Uutta luottoa otettu",
   "rpt.leaks": "Korot ja kulut",
