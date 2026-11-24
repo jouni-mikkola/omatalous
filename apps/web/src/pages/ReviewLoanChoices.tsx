@@ -5,7 +5,7 @@
  * payment fact its plan lacks. Each answer goes through its source's route. A saved row closes into its result line and the queue is read again, so the
  * figures at the top are the server's. When every row is answered the list shows what was saved and Seuraava moves on.
  */
-import { creditPaidSubject, type Fixings, type Loan, type LoanKind, loanTermsDismissible, type LoanTermsMissing, loanTermsResult, loanUnknownSubject, planSubject } from "@banking/core";
+import { type Fixings, type Loan, type LoanKind, loanTermsDismissible, type LoanTermsMissing, loanTermsResult, loanUnknownSubject, planSubject } from "@banking/core";
 import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { api, loanCalls } from "../api.ts";
 import { LoanEditor, LoanLinks, UNIT } from "../components/loans/LoanEditor.tsx";
@@ -22,6 +22,7 @@ import { ChoiceButton, mark } from "./review-buttons.tsx";
 import { creditKindChoices } from "./review-items.ts";
 import type { LoanTermsDebt, LoanTermsListItem } from "./review-loan-items.ts";
 import { cardGapFacts, CardChoices } from "./ReviewCardChoices.tsx";
+import { EndedChoices } from "./ReviewEndedChoices.tsx";
 import { PlanChoices } from "./ReviewPlanChoices.tsx";
 
 /**
@@ -212,7 +213,7 @@ function DebtRow(props: RowProps) {
     case "proposal":
       return <ProposalRow {...props} />;
     case "ended":
-      return <EndedRow {...props} />;
+      return <EndedChoices debt={props.debt} meta={props.meta} busy={props.busy} onSend={props.onSend} owed={<ProposalRow {...props} />} />;
     case "plan":
       return <PlanChoices lastDate={props.debt.lastDate ?? props.meta.today} busy={props.busy} onEnd={(end) => props.onSend(() => mark(planSubject(end, props.debt.key ?? ""), "in_use")().then(() => (end === null ? t("set.rc.i_don_t_know") : t("set.rc.lt_ends", { date: monthYear(end) }))))} />;
     case "card_bill":
@@ -433,32 +434,6 @@ function ProposalRow({ debt, meta, answer, busy, onSend, onSaved, ownsAccount }:
           {notLoan}
         </FieldForm>
       )}
-    </>
-  );
-}
-
-/**
- * Payments to a lender that stopped (`ended`): were they a credit that is paid off, a card or credit still owed (the form
- * of a credit of unknown kind, `ProposalRow`), or no debt payment. Maksettu pois stops the question for good.
- */
-function EndedRow(props: RowProps) {
-  const { debt, meta, busy, onSend } = props;
-  const [owed, setOwed] = useState(false);
-  if (owed) return <ProposalRow {...props} />;
-  return (
-    <>
-      <p className="review-debt-ask">{t("set.rc.lt_ended", { name: debt.name, date: date(debt.lastDate ?? meta.today, meta.today) })}</p>
-      <div className="review-choices">
-        <ChoiceButton busy={busy} onClick={() => onSend(() => mark(creditPaidSubject(debt.key ?? ""), "in_use")().then(() => t("set.rc.lt_paid_off")))}>
-          <span>{t("set.rc.lt_paid_off")}</span>
-        </ChoiceButton>
-        <ChoiceButton busy={busy} onClick={() => setOwed(true)}>
-          <span>{t("set.rc.lt_still_owed")}</span>
-        </ChoiceButton>
-        <ChoiceButton busy={busy} onClick={() => onSend(() => loanCalls.notLoan(debt.key ?? "").then(() => t("set.rc.not_a_loan")))}>
-          <span>{t("set.rc.not_a_loan")}</span>
-        </ChoiceButton>
-      </div>
     </>
   );
 }
