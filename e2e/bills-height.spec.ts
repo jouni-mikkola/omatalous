@@ -66,7 +66,7 @@ for (const { day, open } of DAYS) {
       // the month the day opens, and the rows of it a card pays folded under one closed toggle
       await expect(months.nth(open === "running" ? 0 : 1)).toHaveAttribute("aria-expanded", "true");
       await expect(page.locator("#laskut-taulukko .bill-month[aria-expanded=true]")).toHaveCount(1);
-      const card = page.locator("#laskut-taulukko .bill-fold").filter({ hasText: /Kortilla, \d+ kpl/ });
+      const card = page.locator("#laskut-taulukko .bill-subfold").filter({ hasText: /Kortilla, \d+ kpl/ });
       await expect(card).toHaveCount(1);
       await expect(card).toHaveAttribute("aria-expanded", "false");
       const height = await page.evaluate(() => document.documentElement.scrollHeight);

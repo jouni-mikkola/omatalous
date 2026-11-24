@@ -223,7 +223,7 @@ export function BillsTable({
   const head = (g: CalGroup) =>
     g.fold ? (
       // the count of the rows, and no sum: the month's head has the sum of the paid bills, and a card's rows are in no sum
-      <button type="button" className="bill-fold" aria-expanded={isOpen(g.key)} aria-controls={g.fold.keys.map(foldedRowId).join(" ")} onClick={() => toggle(g.key)}>
+      <button type="button" className="bill-subfold" aria-expanded={isOpen(g.key)} aria-controls={g.fold.keys.map(foldedRowId).join(" ")} onClick={() => toggle(g.key)}>
         <span aria-hidden="true">{isOpen(g.key) ? "▾" : "▸"}</span>
         {t(g.fold.kind === "card" ? "bills.card_fold" : "bills.paid_fold", { count: g.fold.keys.length })}
       </button>

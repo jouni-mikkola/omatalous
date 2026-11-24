@@ -198,7 +198,7 @@ export async function openCategoryPicker(page: Page, merchant: string, now: stri
  * first closed one each time, as an opened one leaves the list the locator matches.
  */
 export async function openBillFolds(table: Locator): Promise<void> {
-  const closed = table.locator(".bill-fold[aria-expanded=false]");
+  const closed = table.locator(".bill-subfold[aria-expanded=false]");
   while ((await closed.count()) > 0) await closed.first().click();
 }
 
