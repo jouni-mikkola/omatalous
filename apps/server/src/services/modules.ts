@@ -6,7 +6,7 @@
  * never runs a bundle: the next start loads what the check installed, and a start checks before it loads.
  */
 import { existsSync } from "node:fs";
-import { DatabaseSync } from "node:sqlite";
+import { readSettingRows } from "../db/settings-repo.ts";
 import type { User } from "../db/rows.ts";
 import { TooManyAttempts, UserError } from "../platform/errors.ts";
 import { SecretBox } from "../security/secretbox.ts";
@@ -248,18 +248,6 @@ interface StartOutcome {
 }
 let startOutcome: StartOutcome | null = null;
 
-const SETTING_KEYS = [KEY, STATUS_KEY, FLOOR_KEY];
-
-/** The rows of the settings table the check needs, read without writing and without the migrations. */
-function readSettingsRows(dbPath: string): Map<string, string> {
-  const db = new DatabaseSync(dbPath, { readOnly: true });
-  try {
-    const rows = db.prepare(`SELECT key, value FROM settings WHERE key IN (${SETTING_KEYS.map(() => "?").join(", ")})`).all(...SETTING_KEYS) as unknown as { key: string; value: string }[];
-    return new Map(rows.map((r) => [r.key, r.value]));
-  } finally {
-    db.close();
-  }
-}
 
 /**
  * The check before the start (entry/node.ts), ahead of the load of the installed module: with a code and a last check
@@ -279,7 +267,7 @@ export async function checkModuleBeforeStart(o: {
 }): Promise<void> {
   try {
     if (!o.appSecret || !existsSync(o.dbPath)) return;
-    const rows = readSettingsRows(o.dbPath);
+    const rows = readSettingRows(o.dbPath, [KEY, STATUS_KEY, FLOOR_KEY]);
     const raw = rows.get(KEY) ?? null;
     if (!raw) return;
     const now = (o.now ?? (() => new Date()))();
