@@ -30,7 +30,7 @@ import { staticFiles } from "../static-files.ts";
 import { findSignersFile } from "../modules/bundle.ts";
 import { loadInstalledModule, type ModuleRuntime, openWithModule, type StartState } from "../modules/load.ts";
 import { moduleBase } from "../routes/module-files.ts";
-import { recheckModule } from "../services/modules.ts";
+import { checkModuleBeforeStart, recheckModule } from "../services/modules.ts";
 import { hourlyTick } from "../services/schedule.ts";
 import { recordEvent } from "../services/security.ts";
 import { upgradeAndLog } from "../services/upgrade.ts";
@@ -91,6 +91,8 @@ const build = buildInfo();
 // the add-on module, before the database opens so its migrations run with the shared ones (docs/MODULES.md)
 const moduleRoot = join(dataDir, "modules");
 const signersFile = findSignersFile();
+// server mode only: a new release is fetched before the load, so this start loads it (bounded, services/modules.ts)
+if (process.argv.length <= 2) await checkModuleBeforeStart({ dbPath, appSecret: config.appSecret, root: moduleRoot, signersFile, appVersion: APP_VERSION });
 const moduleStart = await loadInstalledModule({ root: moduleRoot, signersFile, appVersion: APP_VERSION }).catch((err: Error): StartState => {
   console.error(`add-on module did not load: ${err.name}`);
   return { state: "none" };
@@ -207,7 +209,7 @@ async function tick(): Promise<void> {
 (await import("../services/disk.ts")).startReserve(s); // the 64 MB a full disk gives back; imported here to keep this to one line
 await recoverAfterCrash(s, new Date()).catch((err) => console.error("recovery at start failed:", err));
 await optimizeDatabase(s.db);
-// a new app version, a module waiting for one, or a day gone: look for the module that fits (services/modules.ts)
+// writes down the check before the start, then: a new app version, a module waiting for one, or a day gone: look for the module that fits (services/modules.ts)
 void track(recheckModule(s).catch((err: Error) => console.error(`add-on module check failed: ${err.name}`)));
 
 const port = listenPort(env);

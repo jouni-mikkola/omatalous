@@ -95,7 +95,8 @@ never in the code, the bundle, the environment or the database.
 
 ## What the host does
 
-1. **Check** (on `PUT /api/modules/code`, after each start on a new app version, and once a day): lists the releases of
+1. **Check** (on `PUT /api/modules/code`, after each start on a new app version, once a day, at a start whose last
+   check is over an hour old, and when an admin presses Tarkista päivitys): lists the releases of
    the code's repository through `https://api.github.com/repos/<repo>/releases` with the token, takes the five newest
    versions that carry both assets, and for each, newest first: downloads both (HTTPS only, the token goes only to
    `api.github.com`, a redirect is followed only to an `https` address and without the token), verifies the
@@ -106,6 +107,20 @@ never in the code, the bundle, the environment or the database.
    The highest version installed of each id is kept in the database (settings key `module_floor`), and a release
    below it is refused with the same exception. Removing the code keeps that floor, so a new code does not bring an
    old bundle back either.
+
+   The start checks first, before it loads (`checkModuleBeforeStart`, called from `entry/node.ts` in server mode only):
+   with a code and a last check (the `at` of the status) older than an hour, a release found is installed in time
+   for the same start to load it, so a restart picks up a new release. It reads the code and the status from the
+   database file without writing, keeps its outcome in memory, and the check after the start (`recheckModule`) writes it
+   down: the status, the floor and the security events, and counts it as the last check. All its requests share one
+   deadline of 20 seconds, and every failure ends in the log, so a slow or failing release service never holds or stops
+   the start. A module that is installed stays when the check fails.
+
+   Tarkista päivitys (Asetukset > Lisäosa, admin only, `POST /api/modules/check`) runs the same check at once. It needs
+   no password, as it only fetches a signed release, and is limited to one every half minute (429 with `Retry-After`). The
+   answer is `{ view, checked }`: `checked` is the version the check installed and whether a restart is needed for
+   this process to run it (`restart`), or `null` when it installed none. The card says plainly when a restart is needed.
+   The daily check on the hourly tick stays.
 2. **Install**: the verified tar and its signature go to `<DATA_DIR>/modules/<id>/<version>/`, and
    `<DATA_DIR>/modules/active.json` names `{ "id", "version" }`. No other version is deleted then: the running
    process keeps serving the web files of the version it started with. The app
