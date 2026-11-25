@@ -11,6 +11,7 @@ import { answerMoney, dayHeading } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
 import { t, tn } from "../../text.ts";
 import type { Scope } from "../../types.ts";
+import { usePhone } from "../TransactionRows.tsx";
 
 type Payees = ReportsData["monthLead"]["top"];
 
@@ -34,21 +35,32 @@ function PayeeList({ title, payees, onPick }: { title: string; payees: Payees; o
 }
 
 export function MonthLead({ scope, today, onPick }: { scope: Scope; today: string; onPick: (merchant: string) => void }) {
+  const phone = usePhone();
   const { data } = useApi<Pick<ReportsData, "monthLead">>(`/api/reports${query({ scope, reports: "monthLead" })}`);
   const lead = data?.monthLead;
   if (!lead || (!lead.biggestDay && lead.top.length === 0)) return null;
   const day = lead.biggestDay;
+  const sentence = day && t("tx.lead_day", { day: dayHeading(day.date, today), sum: answerMoney(day.outCents), events: tn(day.count, "tx.event_one", "tx.event_many") });
+  const parts = (
+    <div className="tx-lead-parts">
+      <PayeeList title={t("tx.lead_top")} payees={lead.top} onPick={onPick} />
+      <PayeeList title={t("tx.lead_new")} payees={lead.fresh} onPick={onPick} />
+    </div>
+  );
+  // a phone keeps the first row near the top: the payees wait behind the day's sentence until they are asked for
   return (
     <section className="card tx-lead" aria-label={t("tx.lead_label")}>
-      {day && (
-        <p className="tx-lead-day">
-          {t("tx.lead_day", { day: dayHeading(day.date, today), sum: answerMoney(day.outCents), events: tn(day.count, "tx.event_one", "tx.event_many") })}
-        </p>
+      {sentence && phone ? (
+        <details className="tx-lead-fold">
+          <summary className="tx-lead-day">{sentence}</summary>
+          {parts}
+        </details>
+      ) : (
+        <>
+          {sentence && <p className="tx-lead-day">{sentence}</p>}
+          {parts}
+        </>
       )}
-      <div className="tx-lead-parts">
-        <PayeeList title={t("tx.lead_top")} payees={lead.top} onPick={onPick} />
-        <PayeeList title={t("tx.lead_new")} payees={lead.fresh} onPick={onPick} />
-      </div>
     </section>
   );
 }

@@ -133,7 +133,7 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
           {calendar.unknownCount > 0 && <span className="bills-unknown">{tn(calendar.unknownCount, "bills.unknown_one", "bills.unknown_many")}</span>}
         </p>
         {(dearest || calendar.yearlyCents > 0) && (
-          <p className="bills-year bills-facts">
+          <p className="bills-facts">
             {dearest && t("bills.dearest", { month: monthLong(dearest.month), bills: answerMoney(dearest.billsCents) })}
             {calendar.yearlyCents > 0 && (
               <>
