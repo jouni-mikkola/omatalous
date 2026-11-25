@@ -49,7 +49,7 @@ const EXTRA_STEPS_CENTS = [5_000, 10_000, 20_000] as const;
  * The way out of debt with `extraCents` more a month (`extraPlan`), as the choice under Velkapolku shows it. Each is
  * worked out by the server and the page only switches between them.
  */
-export interface ExtraScenario {
+interface ExtraScenario {
   extraCents: number;
   /** The due date that pays the last debt with the extra money. */
   debtFreeDate: IsoDate;
