@@ -157,7 +157,7 @@ function itemsOf(data: Data, today: string): Item[] {
 const COVER_KEYS: readonly string[] = ["credit", "savings", "accounts"];
 
 /**
- * The spending over the income and what paid it, in one sentence (the words of Raportit's `rpt.gap_*`), or null when the income
+ * The spending over the income and what paid it, in one sentence (the parts use the words of Raportit's `rpt.gap_credit`, `rpt.gap_savings` and `rpt.gap_accounts`), or null when the income
  * paid everything. The gap and its parts are `cover` of the bridge: the sums of the sources bar. The page tells one sum for
  * what was taken out of savings or drawn on credit, the one under Käteen jäi (`shown`): when savings alone covered the gap the
  * sentence names no sum for them, and otherwise it names that sum, not the part of it that went to the gap.
@@ -176,7 +176,7 @@ function gapSentence(view: BridgeView, shown: { saved: number; credit: number })
   // money moved to savings or credit paid back is no spending: the lead then says transfers too
   const lead = t(view.totals.savedCents > 0 || cover.creditRepaidCents > 0 ? "home.gap_lead_transfers" : "home.gap_lead", { sum: answerMoney(cover.gapCents) });
   if (savingsOnly) return `${lead} ${t("home.gap_from_savings")}`;
-  return parts.length === 0 ? lead : `${lead} ${t("rpt.gap_cover", { parts: new Intl.ListFormat(localeOf(language()), { type: "conjunction" }).format(parts) })}`;
+  return parts.length === 0 ? lead : `${lead} ${t("home.gap_cover", { parts: new Intl.ListFormat(localeOf(language()), { type: "conjunction" }).format(parts) })}`;
 }
 
 const FLOW_TONE: Record<string, Tone> = { income: "income", consumption: "spending", interest: "debt", debt: "debt", principal: "debt", subtotal: "neutral", saved: "kept", repaid: "neutral", left: "income", credit: "neutral", savings: "neutral", accounts: "neutral" };

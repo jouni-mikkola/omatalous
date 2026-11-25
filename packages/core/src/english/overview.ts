@@ -68,6 +68,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.gap_lead": "Spending exceeded the income by {sum}.",
   "home.gap_lead_transfers": "Spending and transfers exceeded the income by {sum}.",
   "home.gap_from_savings": "The difference was taken from savings.",
+  "home.gap_cover": "The money came {parts}.",
   "home.bridge_savings_left": "Taken out of savings",
   "home.bridge_credit_left": "Credit drawn",
   "home.tile_spent_above": "{sum} over the usual by this day",
