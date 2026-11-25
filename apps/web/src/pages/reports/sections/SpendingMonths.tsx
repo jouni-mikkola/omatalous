@@ -78,15 +78,19 @@ function SpendingMonths({ ctx }: SectionProps) {
             label: t("rpt.sm_spark"),
             kind: "text",
             csv: false,
-            cell: (c) =>
-              c.typicalCents === null ? null : (
+            // the dashed line is the category's own level, not the sum of the usual month
+            cell: (c) => {
+              const level = c.typicalCents;
+              if (level === null) return null;
+              return (
                 <SparkCell
                   values={c.values.slice(from, r.last! + 1)}
-                  usual={c.typicalCents}
+                  usual={level}
                   off={c.lastOff}
-                  label={t("rpt.sm_spark_of", { name: c.label, sum: eur(c.values[r.last!] ?? 0), usual: eur(c.typicalCents) })}
+                  label={t("rpt.sm_spark_of", { name: c.label, sum: eur(c.values[r.last!] ?? 0), usual: eur(level) })}
                 />
-              ),
+              );
+            },
           },
         ] satisfies Column<Row>[])
       : []),
