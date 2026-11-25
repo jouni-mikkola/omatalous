@@ -97,7 +97,6 @@ export const cssNames = [
   "--mark-gap",
   "--avatar",
   "--avatar-s",
-  "--rail-w",
   "--hairline",
   "--ring",
   "--font-body",
@@ -323,7 +322,6 @@ export const size = {
   "mark-gap": 8,
   avatar: 24,
   "avatar-s": 20,
-  "rail-w": 260,
   hairline: 1,
   ring: 2,
 } as const;

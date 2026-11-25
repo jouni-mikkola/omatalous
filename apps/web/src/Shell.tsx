@@ -1,6 +1,6 @@
 /**
  * The frame of every page once someone is signed in: the header with navigation, the scope switch and the user menu, the
- * notices, the period switch, and the outlet where the router puts the open page (router.tsx). It reads what every
+ * notices, the period switch of a page that has presets of the shell's own (Raportit draws its own), and the outlet where the router puts the open page (router.tsx). It reads what every
  * page needs once (meta, the count of open questions), works out the scope and the period, and hands them to the views
  * through `ShellContext`.
  */
@@ -9,7 +9,7 @@ import { Link, Outlet, useNavigate, useRouterState, useSearch } from "@tanstack/
 import { type ComponentProps, lazy, Suspense, useEffect, useRef, useState } from "react";
 import { api } from "./api.ts";
 import { CONTROL_PANEL, consentNoticeText, consentNotices } from "./consent-notices.ts";
-import { dateRange, dateTime, count } from "./format.ts";
+import { dateTime, count } from "./format.ts";
 import { MetaContext, navigate, useApi } from "./hooks.ts";
 import { markAllCurrent, holdFiguresFor, forgetFigures, useFiguresFrom } from "./offline.ts";
 import { failureText, footText } from "./open-sync.ts";
@@ -36,6 +36,7 @@ import { LANGUAGES, type Language } from "@banking/core";
 import { type ShellState, ShellContext, useSession } from "./shell-context.ts";
 import type { Meta, Scope } from "./types.ts";
 import { Button } from "./components/ui/Button.tsx";
+import { PeriodSwitch } from "./components/PeriodSwitch.tsx";
 import { Segmented } from "./components/ui/Segmented.tsx";
 import { Notice } from "./components/ui/Notice.tsx";
 
@@ -436,19 +437,8 @@ export function Shell() {
             {titleShown}
           </h1>
         )}
-        {presets.length > 0 && (m.accounts.length > 0 || hasHousehold) && (
-          <div className="filters" role="toolbar" aria-label={t("shell.period")}>
-            <Segmented
-              label={t("shell.period")}
-              value={period}
-              options={presets.map((p) => ({ value: p.id, label: p.label }))}
-              onChange={(id) => void navigateTo({ to: ".", search: (prev: Record<string, string | undefined>) => ({ ...prev, period: id }), resetScroll: false })}
-            />
-            <span className="range-label">
-              {dateRange(range.from, range.to)}
-            </span>
-          </div>
-        )}
+        {/* Raportit draws its own in the row of its tabs (pages/reports/Frame.tsx) */}
+        {presets.length > 0 && page !== REPORTS_ID && (m.accounts.length > 0 || hasHousehold) && <PeriodSwitch presets={presets} period={period} range={range} />}
 
         <div className="sheet" key={pageKey}>
           {known ? <Outlet /> : <NotFound />}

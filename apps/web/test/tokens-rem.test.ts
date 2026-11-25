@@ -18,9 +18,9 @@ describe("the tokens that scale with the browser's text size", () => {
     expect(own.filter(([, value]) => !/^[\d.]+rem$/.test(value))).toEqual([]);
   });
 
-  it("has the heights of the header, the tab bar, a row and a control, and the register's width, in rem", () => {
-    const own = named(/^--(rail-h|tabbar-h|row-h|rail-w)$/);
-    expect(own.map(([name]) => name)).toEqual(["--rail-h", "--tabbar-h", "--row-h", "--rail-w"]);
+  it("has the heights of the header, the tab bar, a row and a control in rem", () => {
+    const own = named(/^--(rail-h|tabbar-h|row-h)$/);
+    expect(own.map(([name]) => name)).toEqual(["--rail-h", "--tabbar-h", "--row-h"]);
     expect(own.filter(([, value]) => !/^[\d.]+rem$/.test(value))).toEqual([]);
     expect(declared.find(([name]) => name === "--control-h")?.[1]).toBe("2rem");
   });
@@ -36,7 +36,7 @@ describe("the tokens that scale with the browser's text size", () => {
   it("gives code the same sizes in px as before, 16 px to the rem", () => {
     expect(tokens.fontSize).toMatchObject({ label: 12, body: 14, h2: 16, "fig-m": 20, "fig-l": 32, display: 52 });
     expect(tokens.space).toEqual({ 4: 4, 8: 8, 12: 12, 16: 16, 20: 20, 24: 24, 32: 32, 48: 48 });
-    expect(tokens.size).toMatchObject({ pad: 24, gap: 16, "rail-h": 48, "tabbar-h": 56, "row-h": 32, "rail-w": 260, "control-h": 32, "tap-min": 44 });
+    expect(tokens.size).toMatchObject({ pad: 24, gap: 16, "rail-h": 48, "tabbar-h": 56, "row-h": 32, "control-h": 32, "tap-min": 44 });
   });
 
   it("sets the size of the root in no stylesheet, so the browser's own size is the rem", () => {
