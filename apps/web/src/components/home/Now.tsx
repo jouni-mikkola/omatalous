@@ -9,7 +9,7 @@ import { LowPoint } from "./LowPoint.tsx";
 type Data = DashboardData & { nyt: NonNullable<DashboardData["nyt"]> };
 
 /** Laskut at its table, where the bills the figure takes off stand by month. */
-export const billsHref = hashOf({ page: "bills", params: new URLSearchParams(), anchor: "laskut-taulukko" });
+const billsHref = hashOf({ page: "bills", params: new URLSearchParams(), anchor: "laskut-taulukko" });
 
 /** Why there is no sum left to the payday, in a line's words. */
 function leftUnknown(left: Extract<Data["nyt"]["left"], { known: false }>): string {
