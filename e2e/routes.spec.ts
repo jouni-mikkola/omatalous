@@ -141,9 +141,12 @@ test("the tabs of Raportit share a row with the period switch on a wide screen, 
   expect(periodBox!.y, "the period switch is in the row of the tabs").toBeLessThan(tabBox!.y + tabBox!.height);
   expect(periodBox!.x, "and clear of the last tab").toBeGreaterThanOrEqual(lastTab!.x + lastTab!.width);
 
+  expect(await tabs.evaluate((el, p) => !!(el.compareDocumentPosition(p) & Node.DOCUMENT_POSITION_FOLLOWING), (await period.elementHandle())!), "and follows them in the page, so the keyboard reaches the tabs first").toBe(true);
+
   await page.setViewportSize({ width: 390, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "the page does not scroll sideways").toBe(true);
-  expect(await tabs.evaluate((el) => getComputedStyle(el).overflowX), "the tabs scroll").toBe("auto");
+  const [phoneTabs, phonePeriod] = [await tabs.boundingBox(), await period.boundingBox()];
+  expect(phonePeriod!.y, "on a phone the period switch is under the tabs").toBeGreaterThanOrEqual(phoneTabs!.y + phoneTabs!.height);
   await context.close();
 });
 

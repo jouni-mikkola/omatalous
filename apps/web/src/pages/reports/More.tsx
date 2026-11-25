@@ -4,11 +4,12 @@
  * period (`period=12m`). An anchor in an old address (`#kuukaudet`) opens the page that holds that section.
  */
 import { t } from "../../text.ts";
-import { REPORT_PERIODS } from "../../period.ts";
+import { periodFor, REPORT_PERIODS, shellPeriodsOf } from "../../period.ts";
 import { QUESTIONS, type QuestionId } from "@banking/core";
 import { useEffect, useRef } from "react";
 import { query } from "../../api.ts";
 import { ErrorCard } from "../../components/ErrorCard.tsx";
+import { PeriodSwitch } from "../../components/PeriodSwitch.tsx";
 import { useApi } from "../../hooks.ts";
 import type { Meta, ReportsData, Scope } from "../../types.ts";
 import { reportContext } from "./context.ts";
@@ -82,10 +83,11 @@ export function More({ meta, range, scope, params, anchor, onQuestion }: Reports
   if (!ctx || !shown) return <ReportsSkeleton />;
   const page = reportPage(shown);
   const sections = visiblePageSections(ctx, page);
+  const presets = shellPeriodsOf("reports", meta.today, shown);
 
   return (
     <div className={loading ? "loading" : undefined}>
-      <Frame current={page.id} title={page.title} lead={<page.Lead ctx={ctx} />} pages={questions.map(reportPage)} params={open}>
+      <Frame current={page.id} title={page.title} lead={<page.Lead ctx={ctx} />} pages={questions.map(reportPage)} params={open} period={presets.length > 0 ? <PeriodSwitch presets={presets} period={periodFor("reports", open.get("period"), meta.opening)} range={range} /> : undefined}>
         {sections.map((s) =>
           page.fold ? (
             <FoldContext.Provider key={s.id} value={{ open: !!s.open || s.id === anchor }}>

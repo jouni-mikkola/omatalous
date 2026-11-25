@@ -1,13 +1,17 @@
 /* Reports page: section nav, key figures, pivot and heat tables. */
 
 @layer pages {
-/* the frame of the question pages (pages/reports/Frame.tsx): the questions are tabs; a phone scrolls them sideways */
+/* the frame of the question pages (pages/reports/Frame.tsx): the questions are tabs and the period switch comes under them; a phone scrolls the tabs sideways */
 .q-frame { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-16); }
+.q-bar { display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-8); }
+.q-bar > .filters { margin: 0; }
 .q-list { list-style: none; margin: 0; padding: 0; }
 .q-tabs { overflow-x: auto; scrollbar-width: none; border-bottom: var(--hairline) solid var(--border); }
 .q-tabs::-webkit-scrollbar { display: none; }
-.q-tabs .q-list { display: flex; gap: var(--sp-24); inline-size: max-content; }
-.q-list a { display: flex; align-items: center; min-block-size: var(--tap-min); padding: var(--sp-8) 0; border-bottom: var(--tick) solid transparent; margin-bottom: calc(-1 * var(--hairline)); color: var(--text-2); text-decoration: none; font-weight: 600; white-space: nowrap; }
+.q-tabs .q-list { display: flex; gap: var(--sp-8); inline-size: max-content; }
+/* the tab row clips what is drawn outside it, so the focus ring sits inside the link; the side padding keeps it off the text */
+.q-list a { display: flex; align-items: center; min-block-size: var(--tap-min); padding: var(--sp-8); border-bottom: var(--ring) solid transparent; margin-bottom: calc(-1 * var(--hairline)); color: var(--text-2); text-decoration: none; font-weight: 600; white-space: nowrap; }
+.q-list a:focus-visible { outline-offset: calc(var(--ring) * -1); }
 .q-list a:hover { color: var(--text); }
 .q-list a[aria-current] { color: var(--text); border-bottom-color: var(--accent); }
 .q-page { min-width: 0; }
@@ -35,11 +39,12 @@
 .q-method, .q-accounts { margin: 0 0 var(--sp-12); max-width: 70ch; line-height: var(--lh-prose); }
 /* the link to the notes stands alone, not in a sentence: on a phone it needs the height of a target */
 .q-quality { display: inline-flex; align-items: center; }
-/* wide enough, the period switch of the shell (a row above the page) sits at the right end of the tab row; the tabs keep clear of it */
+/* wide enough, the period switch sits at the right end of the tab row and one line runs under both */
 @media (min-width: 1100px) {
-  main:has(.q-frame) { position: relative; }
-  main:has(.q-frame) > .filters { position: absolute; inset-block-start: 0; inset-inline-end: 0; z-index: 1; margin: 0; flex-wrap: nowrap; }
-  .q-tabs { padding-inline-end: 34rem; min-block-size: calc(var(--tap-min) + var(--sp-4)); }
+  .q-bar { flex-direction: row; align-items: center; gap: var(--sp-16); border-bottom: var(--hairline) solid var(--border); }
+  .q-bar .q-tabs { flex: 1 1 0; min-inline-size: 0; border-bottom: 0; }
+  .q-bar .q-list a { margin-bottom: 0; }
+  .q-bar > .filters { flex: none; flex-wrap: nowrap; }
 }
 /* the readouts: five across at most (a cell is a fifth of the row, 184 px at least so a sum with its share fits), two across on a phone */
 .kv { display: grid; grid-template-columns: repeat(auto-fit, minmax(max(184px, calc(20% - 1px)), 1fr)); gap: var(--sp-16) 0; margin: var(--sp-4) 0 var(--sp-16); }
