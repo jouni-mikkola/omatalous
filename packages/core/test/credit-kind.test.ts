@@ -107,7 +107,7 @@ describe("the question of the kind", () => {
 
   it("is listed beside the debts as a credit of unknown kind with its monthly payment and no balance", () => {
     const { rows: listed, total } = unsavedDebts(ctx, NO_INPUTS);
-    expect(listed).toEqual([{ name: "Bank Norwegian", monthlyCents: expect.any(Number), card: false, kindUnknown: true }]);
+    expect(listed).toEqual([{ debtId: `proposal:${loanProposals(ctx, NO_INPUTS)[0]!.key}`, name: "Bank Norwegian", monthlyCents: expect.any(Number), card: false, kindUnknown: true }]);
     expect(listed[0]!.monthlyCents).toBeGreaterThan(0);
     expect(total).toMatchObject({ count: 1 });
     const holdings = buildHoldings(ctx, [], NO_INPUTS);
@@ -140,6 +140,10 @@ describe("the question of the kind", () => {
     expect(plain).toHaveLength(3);
     expect(plain.filter((r) => r.asked)).toEqual([]);
     expect(plain.map((r) => r.name)).toEqual(expect.arrayContaining(["Bank Norwegian", card!.payee, planned!.payee]));
+    // each row names its debt as the server's list of debts does, so a link opens that debt's own question
+    expect(plain.find((r) => r.name === card!.payee)!.debtId).toBe(`card_bill:${card!.key}`);
+    expect(plain.find((r) => r.name === planned!.payee)!.debtId).toBe(`plan:${planned!.key}`);
+    expect(new Set(plain.map((r) => r.debtId)).size).toBe(3);
     const answered = unsavedDebts(all, { ...NO_INPUTS, marks: [mark(loanUnknownSubject(card!.monthlyCents, card!.key)), mark(planSubject("2027-03", planned!.key))] });
     expect(answered.rows).toEqual(plain.map((r) => (r.name === card!.payee || r.name === planned!.payee ? { ...r, asked: true } : r)));
     expect(answered.total).toEqual(unsavedDebts(all, NO_INPUTS).total);

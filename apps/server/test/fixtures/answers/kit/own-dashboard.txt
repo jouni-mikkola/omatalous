@@ -1008,6 +1008,7 @@
    "paymentCents": 61240,
    "rows": [
     {
+     "debtId": "proposal:out:chk:Nordea Bank Abp#61240",
      "name": "Nordea Bank Abp",
      "monthlyCents": 61240,
      "card": false

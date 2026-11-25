@@ -10,7 +10,7 @@ const context = (data: Record<string, unknown>, accounts: unknown[] = []): Repor
 const html = (s: ReportSection, ctx: ReportContext) => renderToStaticMarkup(createElement(s.Component, { ctx }));
 
 /** The sections that stay (docs/design/README.md, section 2). */
-const SECTION_IDS = ["kategoriat", "lainat", "nostettu-luotto", "osittain", "saldot", "tulot", "tulot-ja-menot", "verovuosi", "vuodet", "yhteiset-menot"];
+const SECTION_IDS = ["kategoriat", "lainat", "nostettu-luotto", "osittain", "saldot", "tulot", "tulot-ja-menot", "vuodet", "yhteiset-menot"];
 const plain = (out: string) => out.replace(/[\u00a0\u202f]/g, " ");
 
 describe("Raportit: Velka ja kulut", () => {
@@ -42,7 +42,6 @@ describe("the page of a section", () => {
       yearOverYear: { comparable: true },
       categories: { comparable: true, groups: [{}], creditDrawnCents: 50_000 },
       loans: { saved: 1 },
-      taxYear: { income: { types: [{}] }, refunds: { rows: [] }, interest: { rows: [] }, loanPayments: [], household: { rows: [] }, residual: { rows: [] } },
     }, [{}]);
   const ids = (page: "month" | "bills" | "balances" | "reports" | "optimise" | "settings") => visibleSections(full(), page).map((s) => s.id);
 

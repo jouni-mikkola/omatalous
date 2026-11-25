@@ -1,9 +1,8 @@
-// Decision: whether the household spends more than it earns, whether the income holds, and which rows of the year go against the tax return
+// Decision: whether the household spends more than it earns, and whether the income holds
 import "../../../styles/report-income.css";
 import type { ReportPage } from "../types.ts";
 import { section as Income } from "../sections/Income.tsx";
 import { CashflowLead, section as Months } from "../sections/Months.tsx";
-import { section as TaxYear } from "../sections/TaxYear.tsx";
 import { t } from "../../../text.ts";
 
 export const page: ReportPage = {
@@ -12,5 +11,5 @@ export const page: ReportPage = {
     return t("rpt.page_income");
   },
   Lead: CashflowLead,
-  sections: [Months, Income, TaxYear],
+  sections: [Months, Income],
 };

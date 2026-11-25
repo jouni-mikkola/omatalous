@@ -259,7 +259,7 @@ describe("a move of the rate that has nothing to tell, and a loan whose balance 
 
 describe("the payments of a month over every debt the page lists", () => {
   const none = { monthlyCents: 0, counted: 0, unknown: 0, bullets: 0 };
-  const row = (monthlyCents: number | null) => ({ name: "Esimerkkirahoitus", monthlyCents, card: false });
+  const row = (monthlyCents: number | null) => ({ debtId: "proposal:esimerkki", name: "Esimerkkirahoitus", monthlyCents, card: false });
   /** The unsaved debts as `unsavedDebts` tells them: the rows and the lenders paid only a few times. */
   const unsaved = (rows: ReturnType<typeof row>[], few = 0) => ({ rows, few });
 

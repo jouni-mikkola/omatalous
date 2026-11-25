@@ -24,16 +24,16 @@ test("the tax sheet prints alone and the page comes back after", async ({ browse
       window.printed += 1;
     };
   });
-  await page.goto("/#/reports?q=tulot#verovuosi");
+  await page.goto("/#/settings/data#verovuosi");
   const root = page.locator("html");
   const sheet = page.locator("#verovuosi");
   const table = sheet.locator("table").first();
   const header = page.locator("header.topbar");
   const menu = page.locator("header.topbar nav.nav");
-  const rail = page.locator("nav.q-tabs");
+  const rail = page.getByRole("navigation", { name: "Asetukset", exact: true });
   const footer = page.getByRole("contentinfo");
   await expect(table).toBeVisible();
-  // Tulot holds the tax sheet alone, so the card a page with more reports would have next to it is put there by hand
+  // the card next to the sheet is put there by hand, so that the test does not depend on what else Tiedot lists
   await sheet.evaluate((card) => {
     const next = document.createElement("section");
     next.className = "card";
@@ -77,4 +77,20 @@ test("the tax sheet prints alone and the page comes back after", async ({ browse
   await expect(other).toBeVisible();
   expect(seen.problems).toEqual([]);
   await context.close();
+});
+
+test("the address of the tax sheet scrolls to it once its rows are there, on a wide page and a phone", async ({ browser }) => {
+  for (const [width, height] of [[1280, 600], [390, 700]] as const) {
+    const context = await browser.newContext({ storageState: STATE, viewport: { width, height } });
+    const page = await context.newPage();
+    const seen = watch(page);
+    await page.goto("/#/overview");
+    await page.goto("/#/settings/data#verovuosi");
+    await expect(page.locator("#verovuosi").locator("table").first(), `at ${width} px`).toBeVisible();
+    await expect(page.locator("#verovuosi"), `at ${width} px the address brings the sheet`).toBeInViewport();
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("#verovuosi"), `at ${width} px the sheet stays in sight`).toBeInViewport();
+    expect(seen.problems).toEqual([]);
+    await context.close();
+  }
 });

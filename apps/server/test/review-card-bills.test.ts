@@ -46,6 +46,15 @@ describe("the question of a card that is not connected", () => {
     expect(items[0]).toMatchObject({ kind: "loan_terms_list", id: expect.stringMatching(/^loan-terms:/), noBalance: 1 });
   });
 
+  it("is the row of the first page whose missing balance links to this question: the row's debt id is the list's", async () => {
+    const t = await household();
+    const [card] = await t.cards();
+    const rows = (await t.admin.call("GET", "/api/dashboard")).body.holdings.unsavedLoans.rows as { debtId: string; card: boolean }[];
+    expect(rows).toEqual([expect.objectContaining({ debtId: card!.id, card: true })]);
+    const items = (await t.admin.call("GET", "/api/review")).body.items as Item[];
+    expect(items.map((i) => i.id)).toContain(`loan-terms:${card!.id}`);
+  });
+
   it("goes with a card saved as a loan linked to its bills, and with Ei ole velan maksu", async () => {
     const t = await household();
     const [card] = await t.cards();

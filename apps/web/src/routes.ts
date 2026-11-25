@@ -23,6 +23,8 @@ export const SETTINGS_ANCHOR = {
   quality: "laatu",
   accounts: "tilit",
   exampleData: "esimerkkitiedot",
+  /** Verovuoden rivit were a section of Raportit: an address that names it opens the card on Tiedot (`redirectRoute`). */
+  taxYear: "verovuosi",
   /** The loans were a card of Asetukset: an address that names it opens the loans in Raportit (`loansRoute`). */
   loans: "lainat",
   bankApp: "pankkisovellus",
@@ -76,6 +78,7 @@ const CARD_TARGET: Record<string, SettingsTarget> = {
   [SETTINGS_ANCHOR.statement]: "banks",
   [SETTINGS_ANCHOR.accounts]: "banks",
   [SETTINGS_ANCHOR.exampleData]: "data",
+  [SETTINGS_ANCHOR.taxYear]: "data",
   "tilien-kayttajat": "banks",
   "jasenet-ilman-tunnusta": "members",
   "tilien-jakaminen": "banks",
@@ -107,6 +110,9 @@ export const CONNECT_BANK_HASH = hashOf({ page: `settings/${FIRST_TARGET}`, para
 
 /** Where a debt's missing balance is typed: Tarkistettavat opens at Täydennä lainat (the item `loan-terms` of the server). */
 export const LOAN_TERMS_HASH = hashOf({ page: "review", params: new URLSearchParams({ item: "loan-terms" }) });
+
+/** Where one debt's missing balance is typed: Tarkistettavat opens at that debt's own question (`debtId` of an unsaved debt, the `loan-terms:<debt>` item). */
+export const loanTermsHash = (debtId: string): string => hashOf({ page: "review", params: new URLSearchParams({ item: `loan-terms:${debtId}` }) });
 
 /** The address of a card of Asetukset by its anchor: the card's target is looked up, so a link names only the card. */
 export function settingsCardHash(anchor: string, params?: URLSearchParams): string {
@@ -221,7 +227,8 @@ export function parseHash(hash: string): Route {
  * `#/reports?month=`), which opens Yhteenveto; and the technical page and Ylläpito of Asetukset (`?section=technical`,
  * `?section=maintenance`), which open the server target for an admin and the first target for a member; and the reports
  * Kiinteät menot (`#/reports?q=kiinteat`), which opens Laskut, and Velat and Varat ja velat (`?q=velat`, `?q=saldot`), which open Varat ja velat (`#/balances`); and
- * Asetukset > Talous with its card of the loans (`#/settings/household`, `#lainat`), which opens Varat ja velat.
+ * Asetukset > Talous with its card of the loans (`#/settings/household`, `#lainat`), which opens Varat ja velat; and
+ * Verovuoden rivit of Raportit (`#/reports?q=tulot#verovuosi`), which opens its card on Asetukset > Tiedot.
  */
 export function redirectRoute(route: Route, role: "admin" | "member" = "member"): Route | null {
   const section = route.page === "settings" ? route.params.get("section") : null;
@@ -258,6 +265,8 @@ export function redirectRoute(route: Route, role: "admin" | "member" = "member")
   if (route.page === "reports" && (route.params.get("q") === "kuukausi" || route.anchor === "kuukausi" || route.params.has("month"))) {
     return { page: "overview", params: withParams(route.params, { q: undefined, month: undefined, period: undefined, compare: undefined }) };
   }
+  // Verovuoden rivit are an export and stand on Asetukset > Tiedot
+  if (route.page === "reports" && route.anchor === SETTINGS_ANCHOR.taxYear) return { page: "settings/data", params: new URLSearchParams(), anchor: SETTINGS_ANCHOR.taxYear };
   // Kiinteät menot of Raportit is gone: Laskut lists the fixed bills. Velat and Varat ja velat (`q=velat`, `q=saldot`) are a page of the header, Varat ja velat
   if (route.page === "reports" && route.params.get("q") === "kiinteat") return { page: "bills", params: withParams(route.params, { q: undefined, period: undefined, compare: undefined }) };
   if (route.page === "reports" && (route.params.get("q") === "velat" || route.params.get("q") === "saldot" || route.anchor === "lainat" || route.anchor === "saldot")) {

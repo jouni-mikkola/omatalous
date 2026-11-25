@@ -1,20 +1,23 @@
-/** Asetukset > Tiedot: the data itself, its export and import, and the example data. */
+/** Asetukset > Tiedot: the data itself, its export and import, the rows of the tax year and the example data. */
 import { Notice } from "../../components/ui/Notice.tsx";
 import { CardStack } from "./CardStack.tsx";
 import { DataExport } from "./DataExport.tsx";
 import { ExampleData } from "./ExampleData.tsx";
 import type { SettingsPageProps } from "./SettingsPage.ts";
+import { TaxYear } from "./TaxYear.tsx";
 import { useCardScroll, useCardsShown, useRunner } from "./use-settings-page.ts";
 
 export function DataPage({ meta, params, anchor, onChange }: SettingsPageProps) {
   const { busy, message, run } = useRunner(onChange);
-  const { shown } = useCardsShown({ expected: 0 });
+  // the tax year reads its own data
+  const { shown, partLoaded } = useCardsShown({ expected: 1 });
   useCardScroll(anchor, `${params.toString()}#${anchor}`, shown);
   return (
     <div className="stack">
       {message && <Notice tone={message.tone}>{message.text}</Notice>}
       <CardStack shown={shown}>
         <DataExport />
+        <TaxYear meta={meta} onLoaded={partLoaded} />
         <ExampleData meta={meta} busy={busy} run={run} />
       </CardStack>
     </div>
