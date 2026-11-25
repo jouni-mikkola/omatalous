@@ -3,6 +3,30 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.8.0
+
+- Yhteenveto draws the balance of the days to the payday as a step line.
+- Laskut shows twelve months, split into regular and rare bills.
+- Varat ja velat shows what an extra monthly payment does to the end of the debts.
+- Charts name their highest and lowest points more clearly, and the first page is tidier.
+
+Money and reports
+
+- Laskut shows twelve months in one chart, with the regular and the rare bills apart, and the picked month by day.
+- Varat ja velat shows when the debts end with an extra monthly payment, and how many months it saves.
+- Varat ja velat names the highest balance of the line the chart draws, with its day.
+- Menot kategorioittain shows each category's line and what changed when a card was connected late.
+
+Look
+
+- Yhteenveto shows the balance of the days to the payday as a step line, with the lowest day marked.
+- Tuli on Yhteenveto shows the sum of each part beside its name, as Menot does.
+- The account rows of Varat ja velat no longer draw a share stub.
+- Tulot ja menot hatches a month's income bar only when the income report counts that month incomplete.
+- The income chart's average line names the months it averages.
+- A lender paid only a few times has its own row among the debts with no balance, so the first page, Lainat and Tarkistettavat count the same debts.
+- The thousands axis of a narrow chart writes `t€` on its top tick, as a clipped sum does.
+
 ## 1.7.0
 
 - A lighter look: a cool grey page, tabs for the reports and a new layout for Yhteenveto.
