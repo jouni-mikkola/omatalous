@@ -80,10 +80,12 @@ a.home-left:hover .fig-l { text-decoration: underline; }
 
 /* the coming months and the accounts stand in one rail */
 .front-rail { display: grid; gap: var(--gap); align-content: start; min-inline-size: 0; }
-/* the rail is a narrow column: the accounts, the cards and the loans stand under each other at every width, not side by side */
-.front-rail .holding-groups.holding-groups { grid-template-columns: minmax(0, 1fr); }
-.front-rail .holding-groups.holding-groups > * { padding-inline: 0; border-inline-start: 0; border-top: 1px solid var(--border); }
-.front-rail .holding-groups.holding-groups > :first-child { border-top: 0; }
+/* from 1040 px the rail is a narrow column: the accounts, the cards and the loans stand under each other, not side by side */
+@media (min-width: 1040px) {
+  .front-rail .holding-groups.holding-groups { grid-template-columns: minmax(0, 1fr); }
+  .front-rail .holding-groups.holding-groups > * { padding-inline: 0; border-inline-start: 0; border-top: 1px solid var(--border); }
+  .front-rail .holding-groups.holding-groups > :first-child { border-top: 0; }
+}
 /* wide: what is left to the payday and the month on the left, the rail beside both with the coming months and the accounts under them.
    The order in the source is the order a phone reads: the dense flow lets the rail, which comes third, fill
    the right of the two rows the payday figure and the month open. With no payday figure it stands across the page. */
