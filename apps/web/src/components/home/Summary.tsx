@@ -110,6 +110,12 @@ function itemsOf(data: Data, today: string): Item[] {
 /** The tone of each part of the bar: the role colour the same part has in every chart. */
 const COVER_KEYS: readonly string[] = ["credit", "savings", "accounts"];
 
+/** The sums the page tells for savings taken out and credit drawn: the ones under Käteen jäi when it has them, else the parts that covered the gap. */
+function drawnSums(view: BridgeView, shown: { saved: number; credit: number }): { drawnSavings: number; drawnCredit: number } {
+  const { cover } = view;
+  return { drawnSavings: shown.saved < 0 ? -shown.saved : cover.savingsCents, drawnCredit: shown.credit > 0 ? shown.credit : cover.creditCents };
+}
+
 /**
  * The spending over the income and what paid it, in one sentence (the parts use the words of Raportit's `rpt.gap_credit`, `rpt.gap_savings` and `rpt.gap_accounts`), or null when the income
  * paid everything. The gap and its parts are `cover` of the bridge: the sums of the sources bar. The page tells one sum for
@@ -120,8 +126,7 @@ function gapSentence(view: BridgeView, shown: { saved: number; credit: number })
   const { cover } = view;
   if (cover.gapCents < 50) return null;
   const savingsOnly = cover.savingsCents >= 50 && cover.creditCents < 50 && cover.accountsCents < 50;
-  const drawnSavings = shown.saved < 0 ? -shown.saved : cover.savingsCents;
-  const drawnCredit = shown.credit > 0 ? shown.credit : cover.creditCents;
+  const { drawnSavings, drawnCredit } = drawnSums(view, shown);
   const parts = [
     cover.creditCents >= 50 ? t("rpt.gap_credit", { sum: answerMoney(drawnCredit) }) : null,
     cover.savingsCents >= 50 && !savingsOnly ? t("rpt.gap_savings", { sum: answerMoney(drawnSavings) }) : null,
@@ -167,7 +172,7 @@ type BridgeFigureOf = BridgeView["figures"][number];
 type BridgePiecesOf = BridgeView["parts"];
 
 /** One bar with its name at the left and its parts named under it. */
-function FlowSide({ side, name, pieces, figures, view, euros }: { side: "in" | "out"; name: string; pieces: BridgePiecesOf; figures: BridgeFigureOf[]; view: BridgeView; euros: Record<string, number> }) {
+function FlowSide({ side, name, pieces, figures, view, euros, sums }: { side: "in" | "out"; name: string; pieces: BridgePiecesOf; figures: BridgeFigureOf[]; view: BridgeView; euros: Record<string, number>; sums: Record<string, number> }) {
   const sharesShown = view.cover.gapCents < 50;
   return (
     <div className="home-flow-side" data-side={side}>
@@ -177,13 +182,13 @@ function FlowSide({ side, name, pieces, figures, view, euros }: { side: "in" | "
           <span key={p.key} data-part={p.key} data-tone={FLOW_TONE[p.key] ?? "neutral"} ref={css({ "flex-grow": p.share })} />
         ))}
       </span>
-      <FlowList figures={figures} view={view} euros={euros} sharesShown={sharesShown} side={side} />
+      <FlowList figures={figures} view={view} euros={euros} sums={sums} sharesShown={sharesShown} side={side} />
     </div>
   );
 }
 
 /** The parts under a bar (or alone): the name, the share of the income and the sum, which a part that is a figure of the strip does not have. */
-function FlowList({ figures, view, euros, sharesShown, side }: { figures: BridgeFigureOf[]; view: BridgeView; euros: Record<string, number>; sharesShown: boolean; side: "in" | "out" | "all" }) {
+function FlowList({ figures, view, euros, sums, sharesShown, side }: { figures: BridgeFigureOf[]; view: BridgeView; euros: Record<string, number>; sums: Record<string, number>; sharesShown: boolean; side: "in" | "out" | "all" }) {
   return (
     <ul className="home-flow-list" data-side={side}>
       {figures.map((f) => (
@@ -191,7 +196,7 @@ function FlowList({ figures, view, euros, sharesShown, side }: { figures: Bridge
           <span className="home-flow-swatch" data-tone={FLOW_TONE[f.key] ?? "neutral"} aria-hidden="true" />
           <span className="home-flow-name">{flowLabel(f.key, view.debtSplit)}</span>
           <span className="home-flow-share num">{sharesShown && f.incomeUnits !== null ? percent(f.incomeUnits / 100) : ""}</span>
-          <span className="home-flow-sum num">{f.key === "left" || IN_KEYS.includes(f.key) || f.key in euros ? "" : answerMoney(f.cents)}</span>
+          <span className="home-flow-sum num">{f.key in sums ? answerMoney(sums[f.key]!) : f.key === "left" || IN_KEYS.includes(f.key) || f.key in euros ? "" : answerMoney(f.cents)}</span>
         </li>
       ))}
     </ul>
@@ -202,7 +207,8 @@ function FlowList({ figures, view, euros, sharesShown, side }: { figures: Bridge
  * Tulojen käyttö: two bars on one scale, Tuli (the income, and what covered the rest: credit, savings, the accounts) and Meni
  * (consumption, debt, savings, what stayed), each with its parts named under it. A part that is already a figure of the
  * month's strip (Tulot, Käteen jäi, and the terms under it: savings moved or taken out, credit drawn or paid back) is named
- * without its sum, so each sum stands once; the sums of what covered a gap are told in the one sentence under the bars, and
+ * without its sum, so each sum stands once. Beside a gap the bar of what came in is the exception: its parts (the income and what
+ * covered the gap) each have the sum the sentence under the bars tells, so the bar reads like Meni, and
  * with a gap the parts have no share column, as shares of the income alone would add to more than 100 %. All of it is
  * `bridgeView` of the same totals as the three figures above, the one calculation of the bridge on Raportit. With no income,
  * or a part below zero, no bar is drawn and the parts stand as a list alone.
@@ -212,6 +218,9 @@ function Flow({ view, shown }: { view: BridgeView; shown: { saved: number; credi
   const euros: Record<string, number> = { saved: shown.saved, "savings-left": -shown.saved, "credit-left": shown.credit, repaid: -shown.credit };
   const figures = view.figures.filter((f) => f.cents !== 0 && (!(f.key in euros) || euros[f.key]! > 0));
   const gap = gapSentence(view, shown);
+  // beside a gap the bar of what came in names each source with its sum, the sums the sentence under the bars tells
+  const { drawnSavings, drawnCredit } = drawnSums(view, shown);
+  const sums: Record<string, number> = view.sources.length > 0 ? { income: view.totals.incomeCents, credit: drawnCredit, savings: drawnSavings, accounts: view.cover.accountsCents } : {};
   // the income alone is the bar of what came in when it paid everything
   const came = view.sources.length > 0 ? view.sources : [{ key: "income" as const, cents: view.totals.incomeCents, share: 1 }];
   return (
@@ -219,11 +228,11 @@ function Flow({ view, shown }: { view: BridgeView; shown: { saved: number; credi
       <h3 id="home-flow-h">{t("home.bridge_where")}</h3>
       {view.draws ? (
         <>
-          <FlowSide side="in" name={t("home.bridge_in")} pieces={came} figures={figures.filter((f) => IN_KEYS.includes(f.key))} view={view} euros={euros} />
-          <FlowSide side="out" name={t("home.bridge_out")} pieces={view.parts} figures={figures.filter((f) => !IN_KEYS.includes(f.key))} view={view} euros={euros} />
+          <FlowSide side="in" name={t("home.bridge_in")} pieces={came} figures={figures.filter((f) => IN_KEYS.includes(f.key))} view={view} euros={euros} sums={sums} />
+          <FlowSide side="out" name={t("home.bridge_out")} pieces={view.parts} figures={figures.filter((f) => !IN_KEYS.includes(f.key))} view={view} euros={euros} sums={{}} />
         </>
       ) : (
-        <FlowList figures={figures.filter((f) => f.key !== "income" && !COVER_KEYS.includes(f.key))} view={view} euros={euros} sharesShown={view.cover.gapCents < 50} side="all" />
+        <FlowList figures={figures.filter((f) => f.key !== "income" && !COVER_KEYS.includes(f.key))} view={view} euros={euros} sums={{}} sharesShown={view.cover.gapCents < 50} side="all" />
       )}
       {gap && <p className="home-detail" data-part="gap">{gap}</p>}
     </section>
