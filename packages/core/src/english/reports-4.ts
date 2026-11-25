@@ -20,6 +20,7 @@ export const EN_REPORTS_4: Record<keyof typeof FI_REPORTS_4, string> = {
   "rpt.bal_saved_unlinked": "Saved loans not linked to an account",
   "rpt.bal_saved": "Saved loans",
   "rpt.bal_lowest": "Lowest balance {date} <b>{amount}</b>.",
+  "rpt.bal_peak": "Highest in {month} was <b>{peak}</b>, now <b>{now}</b>.",
   "rpt.bal_total_est": "Balance at month end (estimate)",
   "rpt.bal_month_change": "Change from previous month",
   "rpt.bal_by_month": "Balances by month",

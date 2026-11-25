@@ -22,7 +22,7 @@ export interface ReportContext {
   compare?: string | null;
   /** The name of the period the page shows ("12 kk"), so a figure that sums it can say so. Raportit sets it. */
   span?: string;
-  /** What the last change of a loan did ('Laina poistettu'), told under the head of Saldot; null when nothing is to tell. Raportit keeps it, so it stays when the change hides the section that made it. */
+  /** What the last change of a loan did ('Laina poistettu'), told under the head of Saldot; null when nothing is to tell. Varat ja velat keeps it, so it stays when the change hides the section that made it. */
   loanSaid?: string | null;
   /** Tells a change of a loan in that line, or empties it with null. */
   sayLoan?: (text: string | null) => void;
@@ -33,7 +33,7 @@ export interface SectionProps {
 }
 
 /** The pages a section can be shown on: the page ids of 0.8.4's structure, so moving a section is a one-word change. */
-export type SectionPage = "month" | "bills" | "reports" | "optimise" | "settings";
+export type SectionPage = "month" | "bills" | "balances" | "reports" | "optimise" | "settings";
 
 /**
  * One block of a page. A file in `sections/` exports it as `section`; `registry.ts` finds it, so the nav and the

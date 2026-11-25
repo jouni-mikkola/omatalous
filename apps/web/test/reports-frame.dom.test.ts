@@ -9,7 +9,7 @@ import { reportPage } from "../src/pages/reports/registry.ts";
 
 afterEach(cleanup);
 
-const ALL: QuestionId[] = ["tulot", "menot", "saldot", "yhteiset"];
+const ALL: QuestionId[] = ["tulot", "menot", "yhteiset"];
 
 function draw(current: QuestionId, open: QuestionId[] = ALL, period = "6m") {
   const pages = open.map(reportPage);
@@ -19,32 +19,31 @@ function draw(current: QuestionId, open: QuestionId[] = ALL, period = "6m") {
 const links = (nav: HTMLElement) => within(nav).getAllByRole("link").map((a) => ({ name: a.textContent, href: a.getAttribute("href"), current: a.getAttribute("aria-current") }));
 
 describe("Raportit: the frame", () => {
-  it("lists the four reports in one row of links, each keeping the period, the open one marked", () => {
+  it("lists the three reports in one row of links, each keeping the period, the open one marked", () => {
     draw("menot");
     expect(links(screen.getByRole("navigation", { name: "Raportit" }))).toEqual([
       { name: "Tulot ja menot", href: "#/reports?q=tulot&period=6m", current: null },
       { name: "Menot kategorioittain", href: "#/reports?q=menot&period=6m", current: "true" },
-      { name: "Varat ja velat", href: "#/reports?q=saldot&period=6m", current: null },
       { name: "Yhteiset menot", href: "#/reports?q=yhteiset&period=6m", current: null },
     ]);
   });
 
   it("names the open report as the heading and has no second row of reports", () => {
-    draw("saldot");
-    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("Varat ja velat");
+    draw("yhteiset");
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("Yhteiset menot");
     expect(screen.getAllByRole("navigation").map((n) => n.getAttribute("aria-label"))).toEqual(["Raportit"]);
   });
 
   it("no address is linked twice on the page", () => {
     draw("tulot");
     const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
-    expect(hrefs.length).toBe(4);
+    expect(hrefs.length).toBe(3);
     expect(new Set(hrefs).size).toBe(hrefs.length);
   });
 
   it("leaves out a report with nothing to show", () => {
-    draw("saldot", ["tulot", "menot", "saldot"]);
-    expect(links(screen.getByRole("navigation", { name: "Raportit" })).map((l) => l.name)).toEqual(["Tulot ja menot", "Menot kategorioittain", "Varat ja velat"]);
+    draw("menot", ["tulot", "menot"]);
+    expect(links(screen.getByRole("navigation", { name: "Raportit" })).map((l) => l.name)).toEqual(["Tulot ja menot", "Menot kategorioittain"]);
   });
 
   it("keeps no period in an address when none is open", () => {

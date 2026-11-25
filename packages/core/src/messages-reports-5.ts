@@ -53,6 +53,8 @@ export const FI_REPORTS_5 = {
   "rpt.ln_col_rate": "Todellinen korko",
   "rpt.ln_caption": "Velat kalleimmasta halvimpaan",
   "rpt.ln_fill": "Täydennä lainat",
+  "rpt.ln_ended": "Päättyneet",
+  "rpt.ln_ended_row": "päättyi {date}",
   "rpt.ln_last_due": "Viimeinen maksupäivä",
   "rpt.ln_your_share": "Osuutesi",
   "rpt.ln_and": "ja",

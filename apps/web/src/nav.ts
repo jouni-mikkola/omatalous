@@ -8,24 +8,29 @@ export interface NavEntry {
 }
 
 /**
- * The pages of the header, in the order the household reads them: Yhteenveto, Laskut, Tapahtumat, Raportit. Every
- * entry is a tab, at every width. What an add-on module adds is a tab after them, at every width. Asetukset is not one of them.
+ * The pages of the header, in the order the household reads them: Yhteenveto, Tapahtumat, Laskut, Varat ja velat, Raportit.
+ * Every entry is a tab. What an add-on module adds is a tab after them. On a phone Raportit leaves the tab bar for the user
+ * menu (`REPORTS_ID`), so the bar holds the other four and the module's page. Asetukset is not one of them.
  */
 export const NAV: readonly NavEntry[] = [
   { id: "overview", get label() { return t("nav.overview"); } },
-  { id: "bills", get label() { return t("nav.bills"); } },
   { id: "transactions", get label() { return t("nav.transactions"); } },
+  { id: "bills", get label() { return t("nav.bills"); } },
+  { id: "balances", get label() { return t("nav.balances"); } },
   { id: "reports", get label() { return t("nav.reports"); } },
 ];
 
+/** The entry of NAV that a phone moves to the user menu. */
+export const REPORTS_ID = "reports";
+
 /**
- * Whether the open page shows figures that Oma and Koko talous change: the four pages of the header. Tarkistettavat,
+ * Whether the open page shows figures that Oma and Koko talous change: the pages of the header. Tarkistettavat,
  * Asetukset and the page of an add-on module do not read the scope, so the switch is not offered there.
  */
 export const readsScope = (page: string): boolean => NAV.some((e) => e.id === page);
 
 /**
- * Whether the page's cards are named, so its name needs no visible title above them: the four pages of the header and
+ * Whether the page's cards are named, so its name needs no visible title above them: the pages of the header and
  * Tarkistettavat. The shell still gives them the name as a heading that only a screen reader meets, and draws a visible
  * title for Asetukset and the page of an add-on module, whose content has no heading that names the page.
  */

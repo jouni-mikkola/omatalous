@@ -2,11 +2,12 @@ import { type Browser, expect, type Page, test } from "@playwright/test";
 import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
-// The header and the phone's tab bar: the four tabs (Yhteenveto, Laskut, Tapahtumat, Raportit), at the foot of a phone
-// and in the header of a wide screen; Tarkistettavat is a link of the header with its count of open items, and
-// Asetukset is in the user menu.
-const FOUR = ["Yhteenveto", "Laskut", "Tapahtumat", "Raportit"];
-const ADDRESSES = ["#/overview", "#/bills", "#/transactions", "#/reports"];
+// The header and the phone's tab bar: the tabs (Yhteenveto, Tapahtumat, Laskut, Varat ja velat, Raportit), in the header of a
+// wide screen; the bar at the foot of a phone has the first four and Raportit is in the user menu there. Tarkistettavat is a
+// link of the header with its count of open items, and Asetukset is in the user menu.
+const PHONE = ["Yhteenveto", "Tapahtumat", "Laskut", "Varat ja velat"];
+const WIDE = [...PHONE, "Raportit"];
+const ADDRESSES = ["#/overview", "#/transactions", "#/bills", "#/balances", "#/reports"];
 const review = (page: Page) => page.locator("header.topbar .review-link");
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const TAP = 44;
@@ -18,12 +19,12 @@ const phone = async (browser: Browser, width = 390) => {
 const tabs = (page: Page) => page.getByRole("navigation", { name: "Päävalikko" }).getByRole("link");
 
 for (const width of [390, 320]) {
-  test(`${width} px: the tab bar has four tabs, each at least ${TAP} px, in one row, and nothing scrolls sideways`, async ({ browser }) => {
+  test(`${width} px: the tab bar has four tabs and Raportit is in the user menu, each at least ${TAP} px, in one row, and nothing scrolls sideways`, async ({ browser }) => {
     const { context, page } = await phone(browser, width);
     const seen = watch(page);
     await page.goto("/#/overview");
     await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-    await expect(tabs(page)).toHaveText(FOUR);
+    await expect(tabs(page)).toHaveText(PHONE);
     const boxes = await tabs(page).evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ top: Math.round(r.top), width: r.width, height: r.height, right: r.right })));
     expect(boxes).toHaveLength(4);
     expect(new Set(boxes.map((b) => b.top)).size, "one row").toBe(1);
@@ -41,7 +42,7 @@ for (const width of [390, 320]) {
 }
 
 for (const width of [390, 1440]) {
-  test(`${width} px: the four tabs are in sight by name, each opens its page, and Tarkistettavat carries the count of open items`, async ({ browser }) => {
+  test(`${width} px: the tabs are in sight by name, each opens its page, and Tarkistettavat carries the count of open items`, async ({ browser }) => {
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 }, ...(width < 641 ? { isMobile: true, hasTouch: true } : {}) });
     const page = await context.newPage();
     const seen = watch(page);
@@ -50,12 +51,12 @@ for (const width of [390, 1440]) {
     await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
     // Tarkistettavat: its own address and title, its link the current one and no tab
     await expect(page).toHaveTitle(/^Tarkistettavat/);
-    await expect(tabs(page)).toHaveText(FOUR);
+    await expect(tabs(page)).toHaveText(width < 641 ? PHONE : WIDE);
     await expect(page.locator('nav.nav [aria-current="page"]')).toHaveCount(0);
     await expect(review(page)).toHaveAttribute("aria-current", "page");
     // on its own page the count is the queue's; on the others it is the count the header asked for
     await expect(review(page).locator(".nav-count")).toHaveText(/^\d+/);
-    for (const [n, address] of ADDRESSES.entries()) {
+    for (const [n, address] of ADDRESSES.slice(0, width < 641 ? 4 : 5).entries()) {
       await expect(tabs(page).nth(n)).toBeVisible();
       await tabs(page).nth(n).click();
       await expect.poll(() => new URL(page.url()).hash.split("?")[0]).toBe(address);
@@ -106,7 +107,7 @@ test("1280 px: every page is a link in the header, Asetukset is in the user menu
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   await page.goto("/#/overview");
-  await expect(tabs(page)).toHaveText(FOUR);
+  await expect(tabs(page)).toHaveText(WIDE);
   await expect(page.locator("header.topbar").getByRole("link", { name: "Asetukset", exact: true })).toHaveCount(0);
   await page.locator(".user-menu summary").click();
   const menu = page.locator(".user-menu .menu");

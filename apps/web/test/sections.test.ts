@@ -44,7 +44,7 @@ describe("the page of a section", () => {
       loans: { saved: 1 },
       taxYear: { income: { types: [{}] }, refunds: { rows: [] }, interest: { rows: [] }, loanPayments: [], household: { rows: [] }, residual: { rows: [] } },
     }, [{}]);
-  const ids = (page: "month" | "bills" | "reports" | "optimise" | "settings") => visibleSections(full(), page).map((s) => s.id);
+  const ids = (page: "month" | "bills" | "balances" | "reports" | "optimise" | "settings") => visibleSections(full(), page).map((s) => s.id);
 
   it("every section names one, and each page shows the sections that name it", () => {
     expect(REPORT_SECTIONS.map((x) => x.id).sort()).toEqual(SECTION_IDS);
@@ -53,6 +53,8 @@ describe("the page of a section", () => {
     // Yhteiset menot needs a joint account the user is weighted in, which the full answer does not have
     expect(ids("reports")).not.toContain("yhteiset-menot");
     expect(ids("reports")).toContain("nostettu-luotto");
+    expect(ids("balances")).toEqual(["saldot", "lainat"]);
+    expect(ids("reports")).not.toContain("saldot");
     // the parts of a category come only from an add-on module
     expect(ids("reports")).not.toContain("osittain");
   });

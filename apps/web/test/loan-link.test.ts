@@ -56,7 +56,7 @@ describe("the Lainat report offers the link", () => {
     payment: { cents: null, interestCents: null, amortisationCents: null, intervalMonths: null, date: null, unknown: null }, interest: { cents: null, unknown: null }, cost: null, payoff: { date: null, unknown: null, never: false }, scenarios: [] };
   const report = (twice: unknown) => ({ day, saved: 1, loans: [row], unsaved: [], total: { cents: 100_000, unknown: [] }, totalKnown: true, interest: { cents: 0, unknown: [] }, interestKnown: true, withoutRate: 0, cost12: { cents: 0, interestCents: 0, feeCents: 0 }, plan: null, consolidation: null, payments: { monthlyCents: 0, counted: 0, unknown: 0, bullets: 0 }, monthly: { cents: null, unknown: 0 }, path: { days: [day], balanceCents: [0], interestCents: [0], tops: [0], payoff: null, moves: [] }, maybeTwice: [twice], overdraftTwice: [] }) as unknown as LoansReport;
   const html = (r: LoansReport, own: string[], scope = "own") => {
-    const balances = { months: [], total: [], accountsLessDebt: [], monthChange: [], missing: [], lowest: null, accounts: [], debt: { day, cents: 0, savedCents: 0 } };
+    const balances = { months: [], total: [], accountsLessDebt: [], monthChange: [], missing: [], lowest: null, peak: null, accounts: [], debt: { day, cents: 0, savedCents: 0 } };
     const ctx = { data: { loans: r, balances }, meta: { today: day, accounts: own.map((id) => ({ id })) }, running: null, scope, exportHref: () => "" } as unknown as ReportContext;
     return renderToStaticMarkup(createElement(loans.Component, { ctx })).replace(/&amp;/g, "&").replace(/&gt;/g, ">");
   };
@@ -71,7 +71,7 @@ describe("the Lainat report offers the link", () => {
     expect(out).toContain("Liitä Laina A tiliin Kortti 1");
     expect(out).toContain("Liitä Laina B tiliin Kortti 1");
     expect(out).not.toContain("Puolison kortti</a>");
-    expect(out.match(/<a href="#\/reports\?q=saldot&drill=[^"]*&linkLoan=/g)).toHaveLength(2);
+    expect(out.match(/<a href="#\/balances\?drill=[^"]*&linkLoan=/g)).toHaveLength(2);
     expect(out).toContain(`<a href="${loanEditHash("a", "c1")}">`);
   });
 

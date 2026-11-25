@@ -10,7 +10,8 @@ const PAGES = [
   "transactions",
   "transactions?view=merchants",
   // every question page of Raportit
-  ...["menot", "tulot", "saldot", "yhteiset"].map((q) => `reports?q=${q}`),
+  ...["menot", "tulot", "yhteiset"].map((q) => `reports?q=${q}`),
+  "balances",
   "review",
   // the tabs of Asetukset a member sees
   ...["banks", "household", "security", "data"].map((tab) => `settings/${tab}`),

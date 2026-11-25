@@ -45,9 +45,10 @@ describe("redirectRoute", () => {
   it("Kiinteät menot of Raportit opens Laskut and Velat opens Varat ja velat", () => {
     expect(landing("reports", "q=kiinteat")).toBe("#/bills");
     expect(landing("reports", "q=kiinteat&period=6m&scope=household")).toBe("#/bills?scope=household");
-    expect(landing("reports", "q=velat&period=6m")).toBe("#/reports?q=saldot&period=6m");
-    expect(hashOf(redirectRoute(route("reports", "q=velat", "lainat"))!)).toBe("#/reports?q=saldot#lainat");
-    expect(redirectRoute(route("reports", "q=saldot"))).toBeNull();
+    expect(landing("reports", "q=velat&period=6m")).toBe("#/balances");
+    expect(hashOf(redirectRoute(route("reports", "q=velat", "lainat"))!)).toBe("#/balances#lainat");
+    expect(landing("reports", "q=saldot")).toBe("#/balances");
+    expect(hashOf(redirectRoute(route("reports", "", "lainat"))!)).toBe("#/balances#lainat");
   });
 
   it("keeps the anchor of the address", () => {
@@ -175,10 +176,10 @@ describe("Asetukset: the target and the card every address lands on", () => {
 
   it("the loans that were Asetukset > Talous open Varat ja velat, and a link to a loan's editor opens that loan's row with it", () => {
     for (const role of both) {
-      expect(lands("#/settings/household", role)).toBe("#/reports?q=saldot");
-      expect(lands("#/settings/household#lainat", role)).toBe("#/reports?q=saldot");
-      expect(lands("#/settings#lainat", role)).toBe("#/reports?q=saldot");
-      expect(lands("#/settings/banks#lainat", role)).toBe("#/reports?q=saldot");
+      expect(lands("#/settings/household", role)).toBe("#/balances");
+      expect(lands("#/settings/household#lainat", role)).toBe("#/balances");
+      expect(lands("#/settings#lainat", role)).toBe("#/balances");
+      expect(lands("#/settings/banks#lainat", role)).toBe("#/balances");
       expect(lands("#/settings/household?linkLoan=home&linkAccount=card#lainat", role)).toBe(loanEditHash("home", "card"));
       expect(lands("#/settings?linkLoan=home#lainat", role)).toBe(loanEditHash("home"));
     }
@@ -195,10 +196,10 @@ describe("Asetukset: the target and the card every address lands on", () => {
 
 describe("the addresses of the loans in Varat ja velat", () => {
   it("open Varat ja velat, a loan's row in Lainat, and that row with its editor and the account chosen for its link", () => {
-    expect(hashOf(loansRoute())).toBe("#/reports?q=saldot");
-    expect(loanHash("home")).toBe("#/reports?q=saldot&drill=velat-kalleimmasta-halvimpaan%3Ahome#lainat");
-    expect(loanEditHash("home")).toBe("#/reports?q=saldot&drill=velat-kalleimmasta-halvimpaan%3Ahome&linkLoan=home#lainat");
-    expect(loanEditHash("home", "card")).toBe("#/reports?q=saldot&drill=velat-kalleimmasta-halvimpaan%3Ahome&linkLoan=home&linkAccount=card#lainat");
+    expect(hashOf(loansRoute())).toBe("#/balances");
+    expect(loanHash("home")).toBe("#/balances?drill=velat-kalleimmasta-halvimpaan%3Ahome#lainat");
+    expect(loanEditHash("home")).toBe("#/balances?drill=velat-kalleimmasta-halvimpaan%3Ahome&linkLoan=home#lainat");
+    expect(loanEditHash("home", "card")).toBe("#/balances?drill=velat-kalleimmasta-halvimpaan%3Ahome&linkLoan=home&linkAccount=card#lainat");
     // the id of an account's own loan has a colon, which the table's state escapes so the address still reads back
     expect(new URLSearchParams(parseHash(loanHash("account:a1")).params).get("drill")).toBe("velat-kalleimmasta-halvimpaan:account%3Aa1");
   });

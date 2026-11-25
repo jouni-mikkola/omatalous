@@ -5,7 +5,7 @@ import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { FigureRow } from "../holdings/FigureRow.tsx";
 import { Holdings } from "../holdings/Holdings.tsx";
-import { answerMoney, date, money, monthLong, moneyIn, plural, signedMoney } from "../../../format.ts";
+import { answerMoney, date, money, monthLong, monthLongIn, moneyIn, plural, signedMoney } from "../../../format.ts";
 import { Lead } from "../Lead.tsx";
 import "../../../styles/statement.css";
 import { BALANCES_ID } from "./ids.ts";
@@ -47,7 +47,11 @@ function Balances({ ctx }: SectionProps) {
   const lastIsToday = last >= 0 && r.months[last] === ctx.running;
   const { maybeTwice, overdraftTwice: overdrafts } = ctx.data.loans;
   // the balance of the newest day and its change are the page's sentence above: the answer says only what that leaves out
-  const answer = r.lowest && rich("rpt.bal_lowest", { date: date(r.lowest.day), amount: money(r.lowest.cents, false) });
+  const lowest = r.lowest && rich("rpt.bal_lowest", { date: date(r.lowest.day), amount: money(r.lowest.cents, false) });
+  // the highest month end beside today's balance, told only while the two differ
+  const now = lastIsToday ? r.total[last] : null;
+  const peak = r.peak && now != null && r.peak.month !== r.months[last] ? rich("rpt.bal_peak", { month: monthLongIn(r.peak.month), peak: money(r.peak.cents, false), now: money(now, false) }) : null;
+  const answer = peak && lowest ? <>{peak} {lowest}</> : (peak ?? lowest);
   const monthRows = r.months.map((_, i) => i);
   const tableColumns: Column<number>[] = [
     {
@@ -137,7 +141,7 @@ export const section: ReportSection = {
     return t("rpt.sec_balances");
   },
   order: 110,
-  page: "reports",
+  page: "balances",
   reports: ["balances", "loans"],
   Component: Balances,
 };

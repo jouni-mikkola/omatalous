@@ -310,7 +310,7 @@ test("a loan's name opens the report Lainat, the sums of the block stand on one 
   // the loan's name leads to its row of Lainat in Varat ja velat, open
   await page.setViewportSize({ width: 1280, height: 900 });
   await lainat.getByRole("link", { name: "Kodin laina" }).click();
-  await expect(page).toHaveURL(new RegExp(`#/reports\\?q=saldot&drill=[^#]*${loanId}#lainat$`));
+  await expect(page).toHaveURL(new RegExp(`#/balances\\?drill=[^#]*${loanId}#lainat$`));
   await expect(page.locator("#lainat").getByRole("heading", { name: "Lainat" })).toBeInViewport();
   await expect(page.locator("#lainat").getByRole("button", { name: "Kodin laina", exact: true })).toHaveAttribute("aria-expanded", "true");
 

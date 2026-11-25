@@ -13,7 +13,7 @@ import { dateRange, dateTime, count } from "./format.ts";
 import { MetaContext, navigate, useApi } from "./hooks.ts";
 import { markAllCurrent, holdFiguresFor, forgetFigures, useFiguresFrom } from "./offline.ts";
 import { failureText, footText } from "./open-sync.ts";
-import { NAV, namesItself, readsScope, REVIEW, SETTINGS } from "./nav.ts";
+import { NAV, namesItself, readsScope, REPORTS_ID, REVIEW, SETTINGS } from "./nav.ts";
 import { addOnLoadFailed, extensionPages } from "./extensions.ts";
 import { ErrorCard } from "./components/ErrorCard.tsx";
 import { Loading } from "./components/Loading.tsx";
@@ -316,7 +316,7 @@ export function Shell() {
           </PageLink>
           <nav className="nav" aria-label={t("shell.main_menu")}>
             {NAV.map((e) => (
-              <PageLink key={e.id} id={e.id} current={page === e.id}>
+              <PageLink key={e.id} id={e.id} current={page === e.id} className={e.id === REPORTS_ID ? "nav-reports" : undefined}>
                 {e.label}
               </PageLink>
             ))}
@@ -368,6 +368,9 @@ export function Shell() {
                 {LANGUAGE_NAME[otherLanguage]}
               </button>
               {news > 0 && <a href={settingsCardHash(SETTINGS_ANCHOR.notices)}>{tn(news, "notice.news_one", "notice.news_many")}</a>}
+              <PageLink id={REPORTS_ID} current={page === REPORTS_ID} className="menu-reports">
+                {t("nav.reports")}
+              </PageLink>
               <PageLink id={SETTINGS.id} current={page === SETTINGS.id}>
                 {SETTINGS.label}
               </PageLink>

@@ -44,9 +44,12 @@ describe("Shell: a page carries its tab's name", () => {
     await router.navigate({ href: "/reports" });
     await waitFor(() => expect(document.title).toMatch(/^Raportit(: .+)? · Omatalous$/));
     // every report is under Raportit: its tab stays marked on a question page too, and the title names the question
-    await router.navigate({ href: "/reports?q=saldot" });
+    await router.navigate({ href: "/reports?q=yhteiset" });
     await waitFor(() => expect(current()).toEqual(["Raportit"]));
-    await waitFor(() => expect(document.title).toBe("Raportit: Varat ja velat · Omatalous"));
+    await waitFor(() => expect(document.title).toBe("Raportit: Yhteiset menot · Omatalous"));
+    await router.navigate({ href: "/balances" });
+    await waitFor(() => expect(document.title).toBe("Varat ja velat · Omatalous"));
+    expect(current()).toEqual(["Varat ja velat"]);
     // Asetukset names its open section
     await router.navigate({ href: "/settings/security" });
     await waitFor(() => expect(document.title).toBe("Asetukset: Turvallisuus · Omatalous"));
@@ -57,7 +60,8 @@ describe("Shell: a page carries its tab's name", () => {
     await openApp("#/overview");
     const menu = document.querySelector(".user-menu .menu")!;
     const names = [...menu.querySelectorAll("a")].map((a) => a.textContent);
-    expect(names).toEqual(["Asetukset"]);
+    // Raportit is a link of the menu for a phone, whose tab bar has no room for it (a style hides it where it is a tab)
+    expect(names).toEqual(["Raportit", "Asetukset"]);
   }, 60000);
 
   it("links the logo to Yhteenveto by its name", async () => {

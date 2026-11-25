@@ -33,7 +33,7 @@ describe("a page asks the server for the reports of its own sections", () => {
     const pageOf = (id: string) => REPORT_PAGES.find((p) => p.sections.some((s) => s.id === id))?.id;
     expect(pageOf("vuodet")).toBe("menot");
     expect(pageOf("verovuosi")).toBe("tulot");
-    expect(pageOf("lainat")).toBe("saldot");
+    expect(pageOf("lainat")).toBeUndefined();
     expect(pageOf("tulot-ja-menot")).toBe("tulot");
   });
 });

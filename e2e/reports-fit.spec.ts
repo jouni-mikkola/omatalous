@@ -5,7 +5,7 @@ import { join } from "node:path";
 // heading and the comparison switch stay inside the window.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 // Yhteiset is not here: the demo has no account two members share, so the list does not name it and its address opens another report
-const QUESTIONS = ["tulot", "menot", "saldot"];
+const QUESTIONS = ["tulot", "menot"];
 
 for (const width of [390, 1440]) {
   for (const q of QUESTIONS) {

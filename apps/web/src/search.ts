@@ -57,6 +57,8 @@ const PAGE_FIELDS = {
   bills: {},
   transactions: TRANSACTIONS,
   reports: REPORTS,
+  /** Varat ja velat has no period: its parameters are the open loan (`drill`) and the loan editor's own. */
+  balances: {},
   /** `item`: the id of the question shown first (`loan-terms` from Kokonaisuus). */
   review: { item: text },
   more: {},

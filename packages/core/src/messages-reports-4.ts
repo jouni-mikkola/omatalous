@@ -23,6 +23,7 @@ export const FI_REPORTS_4 = {
   "rpt.bal_saved_unlinked": "Tallennetut lainat, joita ei ole liitetty tiliin",
   "rpt.bal_saved": "Tallennetut lainat",
   "rpt.bal_lowest": "Alin saldo {date} <b>{amount}</b>.",
+  "rpt.bal_peak": "Korkeimmillaan {month} oli <b>{peak}</b>, nyt <b>{now}</b>.",
   "rpt.bal_total_est": "Saldo kuun lopussa, arvio",
   "rpt.bal_month_change": "Tilien muutos edellisestä",
   "rpt.bal_by_month": "Saldot kuukausittain",

@@ -6,7 +6,6 @@ import { t } from "./text.ts";
 const QUESTION_NAME = {
   tulot: "rpt.page_income",
   menot: "rpt.page_spending",
-  saldot: "rpt.page_balances",
   yhteiset: "rpt.page_shared",
 } as const satisfies Record<QuestionId, MessageCode>;
 
