@@ -15,6 +15,7 @@ export const FI_SHEETS = {
   "tax.title": "Verovuoden rivit",
   "tax.question": "Veroilmoituksen rivit",
   "tax.intro": "Tässä ovat vuoden {year} rivit tileiltäsi, jotka voivat liittyä veroilmoitukseesi. Emme anna veroneuvontaa emmekä kerro, mitä voit vähentää. Katso se Verohallinnon ohjeista.",
+  "tax.none": "Tältä vuodelta ei ole rivejä.",
   "tax.income": "Tulot lähteittäin",
   "tax.interest": "Lainojen ja luottojen korot",
   "tax.loans": "Lainojen maksut",

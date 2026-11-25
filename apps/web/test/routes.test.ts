@@ -147,6 +147,17 @@ describe("Asetukset: the target and the card every address lands on", () => {
     expect(redirectRoute(parseHash("#/settings/members"), "admin")).toBeNull();
   });
 
+  it("Verovuoden rivit of Raportit open their card on Tiedot, and Tiedot with the card is left alone", () => {
+    for (const role of both) {
+      expect(lands("#/reports?q=tulot#verovuosi", role)).toBe("#/settings/data#verovuosi");
+      expect(lands("#/reports#verovuosi", role)).toBe("#/settings/data#verovuosi");
+      expect(lands("#/settings/banks#verovuosi", role)).toBe("#/settings/data#verovuosi");
+      expect(redirectRoute(parseHash("#/settings/data#verovuosi"), role)).toBeNull();
+      // a near miss: another section of the page stays where it is
+      expect(redirectRoute(parseHash("#/reports?q=tulot#tulot"), role)).toBeNull();
+    }
+  });
+
   it("a member's address of an admin's target opens the first target, and drops its card", () => {
     expect(lands("#/settings/server#yllapito", "member")).toBe("#/settings/banks");
     expect(lands("#/settings/server", "member")).toBe("#/settings/banks");

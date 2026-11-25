@@ -102,7 +102,7 @@ describe("Raportit: Lainat", () => {
 
   it("the cost total is a dash with the one link to Tarkistettavat while a debt lacks its terms, never the known part", () => {
     // the debt lacking its terms is an unsaved one Tarkistettavat still asks of
-    const unsaved = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }];
+    const unsaved = [{ debtId: "proposal:a", name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }];
     const out = html(loans, context(report([row({ cost: null })], { cost12: { cents: null, interestCents: null, feeCents: null }, unsaved })));
     expect(out).toContain('<a href="#/review?item=loan-terms">Täydennä lainat</a>');
     expect(out.split("Täydennä lainat").length - 1).toBe(1);
@@ -229,7 +229,7 @@ describe("Raportit: Lainat", () => {
   });
 
   it("lists a loan and a card nobody saved with the monthly payment and no balance, and shows the section with no saved loan", () => {
-    const unsaved = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }, { name: "Esimerkkikauppa", monthlyCents: 20_000, card: true }];
+    const unsaved = [{ debtId: "proposal:a", name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }, { debtId: "card_bill:b", name: "Esimerkkikauppa", monthlyCents: 20_000, card: true }];
     const data = report([], { unsaved, payments: { monthlyCents: 0, counted: 0, unknown: 0, bullets: 0 } });
     expect(loans.visible!(context(data))).toBe(true);
     expect(loans.visible!(context(report([])))).toBe(false);
@@ -248,7 +248,7 @@ describe("Raportit: Lainat", () => {
   });
 
   it("shows a dash, never 0, for an unsaved debt with no monthly figure", () => {
-    const unsaved = [{ name: "Esimerkkierä", monthlyCents: null, card: false }];
+    const unsaved = [{ debtId: "proposal:a", name: "Esimerkkierä", monthlyCents: null, card: false }];
     const out = html(loans, context(report([], { unsaved, payments: { monthlyCents: 0, counted: 0, unknown: 0, bullets: 0 } })));
     expect(out).not.toContain("loan-about");
     expect(out).not.toContain("/kk");
@@ -256,7 +256,7 @@ describe("Raportit: Lainat", () => {
   });
 
   it("adds the payments the unsaved rows tell to the payments of a month, and counts the debts that tell none", () => {
-    const unsaved = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }, { name: "Esimerkkierä", monthlyCents: null, card: false }];
+    const unsaved = [{ debtId: "proposal:a", name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }, { debtId: "proposal:b", name: "Esimerkkierä", monthlyCents: null, card: false }];
     const known = { monthlyCents: 0, counted: 0, unknown: 1, bullets: 0 };
     // 1 382,24 € known and one debt with no figure: the sum and its count, never the sum alone or a dash
     const some = html(loans, context(report([row()], { unsaved, payments: known, monthly: { cents: 138_224, unknown: 2 } })));
@@ -268,13 +268,13 @@ describe("Raportit: Lainat", () => {
   });
 
   it("names the total of saved loans as the known one while a debt has no balance", () => {
-    const unsaved = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }];
+    const unsaved = [{ debtId: "proposal:a", name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }];
     expect(words(html(loans, context(report([row()], { unsaved }))))).toContain("Velat yhteensä, tiedossa 120 000 €");
     expect(html(loans, context(report([row()])))).not.toContain("tiedossa");
   });
 
   it("Saldot leaves the debts without a balance to Lainat, which lists them", () => {
-    const unsaved = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }];
+    const unsaved = [{ debtId: "proposal:a", name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }];
     const holdings = { ...balanceData.holdings, unsavedLoans: { count: 1, names: ["Esimerkkirahoitus"], paymentCents: 10_000, rows: unsaved } };
     const out = html(balances, context(report([], { unsaved }), "own", { ...balanceData, holdings }));
     expect(out).not.toContain("saldo puuttuu");
@@ -310,7 +310,7 @@ describe("Raportit: Lainat", () => {
     // a rate-only saved loan of the viewer: its own drill
     expect(link(html(loans, context(report([row(noRate)], unknownCost))))).toEqual([loanHash("home")]);
     // an unsaved debt is a cause too: the list of debts asks for all of it
-    const unsaved = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }];
+    const unsaved = [{ debtId: "proposal:a", name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }];
     expect(link(html(loans, context(report([row(noRate)], { ...unknownCost, unsaved }))))).toEqual(["#/review?item=loan-terms"]);
     // another member's loan or a connected account the viewer cannot change has no drill of theirs to open, and nothing to ask
     expect(link(html(loans, context(report([row({ ...noRate, typedBy: "Aino" })], unknownCost))))).toEqual([]);
@@ -322,12 +322,12 @@ describe("Raportit: Lainat", () => {
     const unknownCost = { cost12: { cents: null, interestCents: null, feeCents: null } };
     const link = (out: string) => [...out.matchAll(/<a href="([^"]*)">Täydennä lainat<\/a>/g)].map((m) => m[1]!.replaceAll("&amp;", "&"));
     const asked = [
-      { name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false, asked: true as const },
-      { name: "Esimerkkikortti", monthlyCents: 20_000, card: true, asked: true as const },
+      { debtId: "proposal:a", name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false, asked: true as const },
+      { debtId: "card_bill:b", name: "Esimerkkikortti", monthlyCents: 20_000, card: true, asked: true as const },
     ];
     expect(link(html(loans, context(report([row(noRate)], { ...unknownCost, unsaved: asked }))))).toEqual([loanHash("home")]);
     // one debt still asked of keeps the link on the list that asks it
-    const open = [...asked, { name: "Toinenrahoitus", monthlyCents: 5_000, card: false }];
+    const open = [...asked, { debtId: "proposal:c", name: "Toinenrahoitus", monthlyCents: 5_000, card: false }];
     expect(link(html(loans, context(report([row(noRate)], { ...unknownCost, unsaved: open }))))).toEqual(["#/review?item=loan-terms"]);
   });
 
@@ -335,7 +335,7 @@ describe("Raportit: Lainat", () => {
     const noRate = { rateBp: null, reference: null, interest: { cents: null, unknown: "rate" }, cost: { rateMilli: null, costClass: null, next12: null, leftCents: null, feePerPaymentCents: null, unknown: "rate" } } as const;
     const unknownCost = { cost12: { cents: null, interestCents: null, feeCents: null } };
     const link = (out: string) => [...out.matchAll(/<a href="([^"]*)">Täydennä lainat<\/a>/g)].map((m) => m[1]!.replaceAll("&amp;", "&"));
-    const asked = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false, asked: true as const }];
+    const asked = [{ debtId: "proposal:a", name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false, asked: true as const }];
     // (a) every unsaved debt asked of already and no own loan with an unknown cost: the dash alone
     const a = html(loans, context(report([row()], { ...unknownCost, unsaved: asked })));
     expect(link(a)).toEqual([]);

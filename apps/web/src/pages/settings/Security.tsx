@@ -16,6 +16,7 @@ import { Button } from "../../components/ui/Button.tsx";
 import { useInPlaceForm } from "../../components/ui/in-place-form.ts";
 import { Notice } from "../../components/ui/Notice.tsx";
 import { Empty } from "../../components/ui/Empty.tsx";
+import { FoldCard } from "../../components/ui/FoldCard.tsx";
 import { labelTable, t } from "../../text.ts";
 import { ConfirmDialog } from "../../components/ConfirmDialog.tsx";
 interface Session {
@@ -271,20 +272,17 @@ export function eventDetail(e: Pick<SecurityEvent, "kind" | "detail" | "username
 
 /**
  * The list of logins, lockouts, key changes and maintenance requests of the last 90 days: an admin's of everyone, a
- * member's of their own. The list of notices above it marks the events seen (Notices.tsx).
+ * member's of their own. The list of notices above it marks the events seen (Notices.tsx). The card is folded until the
+ * reader opens it, or an address names it (`open`).
  */
-export function SecurityLog({ onLoaded }: { onLoaded?: (failed?: boolean) => void }) {
+export function SecurityLog({ open, onLoaded }: { open: boolean; onLoaded?: (failed?: boolean) => void }) {
   const [kind, setKind] = useState("");
   const events = useApi<{ events: SecurityEvent[]; kinds: string[] }>(`/api/security/events${kind ? `?kind=${encodeURIComponent(kind)}` : ""}`);
   useReportLoaded(events.data !== null || events.error !== null, onLoaded, events.error !== null);
   return (
-    <div className="card" id={SETTINGS_ANCHOR.securityLog}>
-      <div className="card-head">
-        <div>
-          <h2>{t("set.sec.security_log")}</h2>
-        </div>
-        <label className="field field-inline">
-          {t("set.sec.show")}
+    <FoldCard id={SETTINGS_ANCHOR.securityLog} title={t("set.sec.security_log")} folded={!open}>
+      <label className="field field-inline">
+        {t("set.sec.show")}
         <select value={kind} onChange={(e) => setKind(e.target.value)}>
           <option value="">{t("set.sec.all")}</option>
           {(events.data?.kinds ?? Object.keys(KIND_LABEL)).map((k) => (
@@ -293,8 +291,7 @@ export function SecurityLog({ onLoaded }: { onLoaded?: (failed?: boolean) => voi
             </option>
           ))}
         </select>
-        </label>
-      </div>
+      </label>
       {events.error && <Notice tone="error">{events.error}</Notice>}
       <Table
         caption={t("set.sec.security_log")}
@@ -312,6 +309,6 @@ export function SecurityLog({ onLoaded }: { onLoaded?: (failed?: boolean) => voi
         ]}
       />
       {events.data && !events.data.events.length && <Empty>{t("set.sec.no_events")}</Empty>}
-    </div>
+    </FoldCard>
   );
 }

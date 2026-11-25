@@ -174,6 +174,8 @@ export interface Holdings {
 
 /** One debt of `Holdings.unsavedLoans`: who is paid, what it costs a month in this view (the viewer's part of a joint account's payment) and whether it is a card. Null is a payment with no monthly figure (never read as 0). */
 export interface UnsavedRow {
+  /** The id the server's list of debts gives this debt (`debt` ids in services/review-loan-terms.ts), so a link opens its own question: `loan-terms:<debtId>`. */
+  debtId: string;
   name: string;
   monthlyCents: number | null;
   card: boolean;
@@ -201,8 +203,8 @@ export function unsavedDebts(ctx: AnalysisContext, inputs: UserInputs, proposals
     few,
     total: unsavedLoans([...lenders, ...cards]),
     rows: [
-      ...lenders.map((p): UnsavedRow => ({ name: p.payee, monthlyCents: p.monthlyCents, card: false, ...(p.kindUnknown ? { kindUnknown: true as const } : {}), ...(unsavedDebtAnswered(inputs.marks, { proposal: p }) ? { asked: true as const } : {}) })),
-      ...cards.map((c): UnsavedRow => ({ name: c.payee, monthlyCents: c.monthlyCents, card: true, ...(unsavedDebtAnswered(inputs.marks, { card: c }) ? { asked: true as const } : {}) })),
+      ...lenders.map((p): UnsavedRow => ({ debtId: `${p.plan ? "plan" : "proposal"}:${p.key}`, name: p.payee, monthlyCents: p.monthlyCents, card: false, ...(p.kindUnknown ? { kindUnknown: true as const } : {}), ...(unsavedDebtAnswered(inputs.marks, { proposal: p }) ? { asked: true as const } : {}) })),
+      ...cards.map((c): UnsavedRow => ({ debtId: `card_bill:${c.key}`, name: c.payee, monthlyCents: c.monthlyCents, card: true, ...(unsavedDebtAnswered(inputs.marks, { card: c }) ? { asked: true as const } : {}) })),
     ],
   };
 }

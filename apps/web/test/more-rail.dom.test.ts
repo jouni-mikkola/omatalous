@@ -5,7 +5,7 @@ import { openApp, startServer } from "./dom-kit.ts";
 describe("Raportit: the reports stand on every report page and mark the open one", () => {
   it("marks the report of an address that opens at a section of its page, and the first report on the bare address", async () => {
     await startServer();
-    await openApp("#/reports?q=tulot#verovuosi");
+    await openApp("#/reports?q=tulot#tulot");
     const rail = await screen.findByRole("navigation", { name: "Raportit" });
     await waitFor(() => expect(rail.querySelector("[aria-current]")?.textContent).toBe("Tulot ja menot"));
     const { router } = await import("../src/router.tsx");
