@@ -26,6 +26,9 @@
  * while a bill's sum is not known and it falls on or before the last day looked at, or its day is not known (`unknowns` of
  * the calendar), it says so: a figure with a bill missing would pass for a safe one. An unknown bill beyond the last day, one
  * a card pays and a pay that is not known leave the figure as it is: none of them can make the lowest balance lower.
+ *
+ * The walk is also told day by day for the first page's chart (`line`, `steps`), so the chart and the figure are one
+ * walk: the lowest corner of the line is the figure, on its day.
  */
 import type { AheadBasis } from "./analysis/ahead.ts";
 import type { AnalysisContext, AnalysisTx } from "./analysis/context.ts";
@@ -57,7 +60,39 @@ export type LowPoint =
       highCents: number;
       /** The days looked at, from today. */
       days: number;
+      /**
+       * The balance of the walk as a line, date ascending, from today to the last day looked at. A day has a corner for
+       * the balance after its payments, with the spending of the days before it taken off (the figure's own measure, so
+       * the lowest corner is the figure). A day whose payments move the balance has a corner before it, what
+       * the day opens with, and a day with a pay one after it, the pay in: corners of one date are a step, down by the
+       * payments and then up by the pay. Between days the line falls by a day's expected spending. Each corner has the
+       * range of that spending, `lowCents <= cents <= highCents`.
+       */
+      line: LowPointCorner[];
+      /** The payments and pays of the walk, date ascending; within a day the calendar's order (`billCalendar`), the bills of a card shown only by them last. */
+      steps: LowPointStep[];
     };
+
+/** A corner of the balance line of `lowPoint`. */
+export interface LowPointCorner {
+  date: IsoDate;
+  cents: number;
+  lowCents: number;
+  highCents: number;
+}
+
+/** A payment or a pay the balance of `lowPoint` steps by. */
+export interface LowPointStep {
+  date: IsoDate;
+  /** The merchant, the lender's loan, the card or the payer. */
+  payee: string;
+  /** Negative for a payment, positive for a pay. */
+  cents: number;
+  /** A sum that is the usual of a series whose charges vary, or a pay beyond the next two, rather than a known one. */
+  estimate: boolean;
+  /** The balance after the payments and pays of its day, before the day's spending; the same for every step of a day. */
+  afterCents: number;
+}
 
 /** The expected everyday spending taken off by the end of a day: its mean, and the lower and upper quartile of the base months. */
 interface Spent {
@@ -100,6 +135,11 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
   const heldByBills = (t: AnalysisTx) => billOnly.has(t.merchant) && paysBillOnly(t, t.merchant);
   const income = rows.filter((r) => r.kind === "income");
   const payments: { date: IsoDate; cents: number }[] = [...rows.filter((r) => r.kind !== "income"), ...cardBills.map((r) => ({ date: r.date, cents: Math.abs(r.cents!) }))];
+  const moves = [
+    ...rows.map((r) => ({ date: r.date, payee: r.payee, cents: r.kind === "income" ? r.cents : -r.cents, estimate: r.state === "estimate" })),
+    // a card shown only by its bills: a bill is the usual of its series
+    ...cardBills.map((r) => ({ date: r.date, payee: r.name, cents: -Math.abs(r.cents!), estimate: true })),
+  ].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
   // the cards' debt of today is taken off whole, as Käytettävissä does: the day a bill falls is never guessed
   const startCents = ahead.balance.startCents - ahead.balance.cardDebtCents;
@@ -135,15 +175,34 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
   const billDays = [...billDay.values()].filter((d) => d >= from && d <= last);
   const checked = [...new Set([...rows.map((r) => r.date), ...cardBills.map((r) => r.date), ...billDays, last])].sort();
   const sum = (list: readonly { date: IsoDate; cents: number }[], keep: (date: IsoDate) => boolean) => list.reduce((total, r) => (keep(r.date) ? total + r.cents : total), 0);
+  // the spending before each day of the walk, read once for the figure and the line
+  const spentBy = new Map<IsoDate, Spent>();
+  for (let day = from; day <= last; day = addDays(day, 1)) spentBy.set(day, spentBefore(day));
+  const spentAt = (day: IsoDate) => spentBy.get(day)!;
+  // what the payments and pays have left by the day's payments: a pay counts from the day after its own
+  const heldOn = (day: IsoDate) => startCents + sum(income, (d) => d < day) - sum(payments, (d) => d <= day);
+  const corner = (date: IsoDate, held: number, spent: Spent): LowPointCorner => ({ date, cents: held - spent.cents, lowCents: held - spent.highCents, highCents: held - spent.lowCents });
   let point = { date: last, cents: Infinity };
   let [lowest, highest] = [Infinity, Infinity];
   for (const day of checked) {
-    const held = startCents + sum(income, (d) => d < day) - sum(payments, (d) => d <= day);
-    const spent = spentBefore(day);
-    const cents = held - spent.cents;
+    const { cents, lowCents, highCents } = corner(day, heldOn(day), spentAt(day));
     if (cents < point.cents) point = { date: day, cents };
-    lowest = Math.min(lowest, held - spent.highCents);
-    highest = Math.min(highest, held - spent.lowCents);
+    lowest = Math.min(lowest, lowCents);
+    highest = Math.min(highest, highCents);
   }
-  return { known: true, date: point.date, cents: point.cents, lowCents: lowest, highCents: highest, days };
+  const paidIn = (day: IsoDate) => sum(income, (d) => d === day);
+  const same = (a: LowPointCorner, b: LowPointCorner) => a.cents === b.cents && a.lowCents === b.lowCents && a.highCents === b.highCents;
+  const line: LowPointCorner[] = [];
+  for (let day = from; day <= last; day = addDays(day, 1)) {
+    const before = addDays(day, -1);
+    // what the day opens with: the day before with its pay, less its spending
+    const opened = corner(day, heldOn(before) + paidIn(before), spentAt(day));
+    const paid = corner(day, heldOn(day), spentAt(day));
+    const landed = corner(day, heldOn(day) + paidIn(day), spentAt(day));
+    if (day > from && !same(opened, paid)) line.push(opened);
+    line.push(paid);
+    if (!same(paid, landed)) line.push(landed);
+  }
+  const steps = moves.map((m) => ({ ...m, afterCents: heldOn(m.date) + paidIn(m.date) - spentAt(m.date).cents }));
+  return { known: true, date: point.date, cents: point.cents, lowCents: lowest, highCents: highest, days, line, steps };
 }

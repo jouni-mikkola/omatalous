@@ -5,7 +5,7 @@ import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { runwayOf } from "../src/analysis/runway.ts";
 import { addDays, dateIn, daysBetween, daysInMonth, fromMonthIndex, monthIndex, weekdayOf } from "../src/dates.ts";
 import { loanUnknownSubject } from "../src/loan-terms-answer.ts";
-import { lowPoint } from "../src/low-point.ts";
+import { type LowPoint, lowPoint } from "../src/low-point.ts";
 import { LOW_POINT_DAYS } from "../src/thresholds.ts";
 import { type Account, type BalanceInput, type ExpectedBill, type IsoDate, type Loan, NO_INPUTS, type Transaction, type UserInputs } from "../src/types.ts";
 import { cardGaps } from "../src/unconnected-cards.ts";
@@ -42,11 +42,40 @@ function shopping(from: IsoDate, cents: number, more: readonly string[] = []): T
   return rows;
 }
 
-/** The lowest balance of `days` days for the rows and the balance, with the figures it is held against. */
+/** The figure of a lowest balance without the walk's line and steps, which their own tests read. */
+function figureOf(point: LowPoint): LowPoint {
+  if (!point.known) return point;
+  const { line: _line, steps: _steps, ...figure } = point;
+  return figure as LowPoint;
+}
+
+/** The lowest balance of `days` days for the rows and the balance, with the figures it is held against; `walked` keeps the line and steps. */
 function walk(rows: Transaction[], balances: BalanceInput[], days?: number, inputs: UserInputs = NO_INPUTS, accounts: Account[] = [own]) {
   const ctx = createContext(rows, accounts, TODAY);
   const basis = aheadBasis(ctx, balances, inputs);
-  return { ctx, basis, point: lowPoint(ctx, basis, balances, inputs, days), runway: runwayOf(ctx, basis) };
+  const walked = lowPoint(ctx, basis, balances, inputs, days);
+  return { ctx, basis, point: figureOf(walked), walked, runway: runwayOf(ctx, basis) };
+}
+
+/** A corner of the line with no range. */
+const flatCorner = (date: IsoDate, cents: number) => ({ date, cents, lowCents: cents, highCents: cents });
+
+/** What every line holds: one day after another from today, the range around each corner, and the figure as its lowest corner. */
+function expectLineHolds(point: LowPoint) {
+  if (!point.known) throw new Error("no figure");
+  const { line } = point;
+  expect(line[0]!.date).toBe(TODAY);
+  expect(line[line.length - 1]!.date).toBe(addDays(TODAY, point.days - 1));
+  for (let i = 1; i < line.length; i++) expect([line[i - 1]!.date, addDays(line[i - 1]!.date, 1)]).toContain(line[i]!.date);
+  expect(new Set(line.map((c) => c.date)).size).toBe(point.days);
+  for (const c of line) {
+    expect(c.lowCents).toBeLessThanOrEqual(c.cents);
+    expect(c.cents).toBeLessThanOrEqual(c.highCents);
+  }
+  expect(Math.min(...line.map((c) => c.cents))).toBe(point.cents);
+  expect(Math.min(...line.map((c) => c.lowCents))).toBe(point.lowCents);
+  expect(Math.min(...line.map((c) => c.highCents))).toBe(point.highCents);
+  expect(line.some((c) => c.date === point.date && c.cents === point.cents)).toBe(true);
 }
 
 describe("lowPoint with no everyday spending", () => {
@@ -301,6 +330,54 @@ describe("lowPoint with a card", () => {
     // gives the lowest on 13.11.: 1 100 € - 680 € - 17 days of 40 € = -260 €; a second 680 € would give -940 €
     expect(point.cents).toBeGreaterThanOrEqual(-26_000);
     expect(point.cents).toBeLessThanOrEqual(runway.freeCents);
+  });
+});
+
+describe("lowPoint's line and steps", () => {
+  it("steps down by the rent on its day and up by the pay on its day, after the day's payments, with no spending to slope by", () => {
+    // 500 € to 31.10., the rent of 900 € on 1.11. leaves -400 € to the payday 13.11., and the pay of 3 000 € lands that day
+    const { walked } = walk([...pays(), ...rents()], [bal(50_000)], 19);
+    if (!walked.known) throw new Error("no figure");
+    const days = (first: IsoDate, n: number, cents: number) => Array.from({ length: n }, (_, i) => flatCorner(addDays(first, i), cents));
+    // 1.11. opens at 500 € and its rent takes it to -400 €; 13.11. is at -400 € until its pay lifts it to 2 600 €
+    expect(walked.line).toEqual([...days("2026-10-26", 6, 50_000), flatCorner("2026-11-01", 50_000), ...days("2026-11-01", 13, -40_000), flatCorner("2026-11-13", 260_000)]);
+    expect(walked.steps).toEqual([
+      { date: "2026-11-01", payee: "Sato Oyj", cents: -90_000, estimate: false, afterCents: -40_000 },
+      { date: "2026-11-13", payee: "Esimerkki Oy", cents: 300_000, estimate: false, afterCents: 260_000 },
+    ]);
+    expectLineHolds(walked);
+  });
+
+  it("falls by the day's expected spending between days, so a step stands between the day's opening and its payments", () => {
+    // 9 000 €, 40 € a day: 31.10. at 9 000 € - 5 days = 8 800 €, 1.11. opens at 8 760 € and the rent takes it to 7 860 €
+    const { walked } = walk([...pays(), ...rents(), ...shopping("2026-03-01", 4000)], [bal(900_000)], 30);
+    if (!walked.known) throw new Error("no figure");
+    const on = (date: IsoDate) => walked.line.filter((c) => c.date === date).map((c) => c.cents);
+    expect(on("2026-10-26")).toEqual([900_000]);
+    expect(on("2026-10-31")).toEqual([880_000]);
+    expect(on("2026-11-01")).toEqual([876_000, 786_000]);
+    // the payday: 7 380 € before the pay, the figure of Jää palkkapäivänä, and 10 380 € with it
+    expect(on("2026-11-13")).toEqual([738_000, 1_038_000]);
+    expect(walked.steps.map((s) => [s.date, s.cents, s.afterCents])).toEqual([
+      ["2026-11-01", -90_000, 786_000],
+      ["2026-11-13", 300_000, 1_038_000],
+    ]);
+    expectLineHolds(walked);
+  });
+
+  it("carries the range of the spending on every corner, its lowest ends the figure's range", () => {
+    const rows = [...pays(), ...rents(), ...shopping("2026-03-01", 4000, ["2026-07", "2026-08", "2026-09"])];
+    const { walked } = walk(rows, [bal(900_000)], 30);
+    if (!walked.known) throw new Error("no figure");
+    expect(walked.line.find((c) => c.date === "2026-11-13")).toEqual({ date: "2026-11-13", cents: 702_000, lowCents: 666_000, highCents: 738_000 });
+    expectLineHolds(walked);
+  });
+
+  it("holds with a card, whose bill and the purchases it takes are steps of the line", () => {
+    const rows = [...pays(), ...rents(), ...cardShopping(), ...statements()].filter((t) => t.bookingDate <= TODAY);
+    const { walked } = walk(rows, balBoth(200_000), undefined, NO_INPUTS, [own, card]);
+    expectLineHolds(walked);
+    expect(walked.known && walked.steps.some((s) => s.date === "2026-11-09" && s.cents === -68_000)).toBe(true);
   });
 });
 
