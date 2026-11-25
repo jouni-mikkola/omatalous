@@ -19,6 +19,7 @@ export const EN_SET_RI: Record<keyof typeof FI_SET_RI, string> = {
   "set.ri.complete_the_loans": "Complete the loans",
   "set.ri.gain_loan_balance": "Tell the loan's balance to see the total debt and the most expensive loan.",
   "set.ri.gain_card_rate": "Tell whether the card is paid in full each month to see what the interest costs.",
+  "set.ri.gain_loan_rate": "Tell the loan's interest rate to see how much interest is left.",
   "set.ri.gain_loan_terms": "Complete the loan's details to see when it ends and how much interest is left.",
   "set.ri.gain_plan_end": "Tell when the instalments end to see when the monthly spending falls.",
   "set.ri.gain_card_debt": "Tell what the card owes to count it in the total debt.",

@@ -165,11 +165,13 @@ describe("the debts that lack a balance, a rate or a payment", () => {
   const list = listOf();
   it("are one item a debt, with the loans' eyebrow and name", () => {
     expect([eyebrow(list), nameOf(list)]).toEqual(["Velat", "Lainat ja kortit"]);
+    expect(nameOf(listOf(debt("loan")))).toBe("Esimerkkirahoitus");
   });
   it("ask what the answer gives, by the kind of the debt", () => {
     const heading = (...args: Parameters<typeof debt>) => questionOf(listOf(debt(...args)));
     expect(heading("proposal")).toBe("Kerro lainan saldo, niin näet velan kokonaismäärän ja kalleimman lainan.");
     expect(heading("loan", ["payment"])).toBe("Täydennä lainan tiedot, niin näet, milloin laina päättyy ja paljonko korkoa vielä jää.");
+    expect(heading("loan", ["rate"])).toBe("Kerro lainan korko, niin näet, paljonko korkoa vielä jää.");
     expect(heading("card", ["rate"])).toBe("Kerro, maksetaanko kortti kokonaan joka kuukausi, niin näet, paljonko korko maksaa.");
     expect(heading("plan")).toBe("Kerro, milloin maksuerät päättyvät, niin näet, milloin kuukausimeno pienenee.");
     expect(heading("card_bill")).toBe("Kerro kortin velka, niin se tulee mukaan velkojen kokonaismäärään.");

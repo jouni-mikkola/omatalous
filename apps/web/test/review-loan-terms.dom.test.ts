@@ -166,8 +166,8 @@ describe("Täydennä lainat", () => {
     expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ kind: "mortgage", reference: "euribor_12", marginBp: null, rateReviewDate: "2027-03-14", rateBp: null, balanceCents: 10_000_000, balanceDate: "2026-10-12", seriesKey: "k" });
     // the saved loan's balance and its rate counted now (2,31 % on 13.3.2026 and the margin)
     await screen.findByText(/^Jäljellä 100\s000,00\s€ · korko 2,96/, {}, T);
-    // the end: what was saved and how many lack a balance, no total of the page's own
-    expect(totals()).toBe("Ilman saldoa 0");
+    // the end: this debt is answered and the list's figures are not shown, as other debts may still lack a balance
+    expect(totals()).toBe("");
     expect(screen.queryByLabelText(/^Marginaali/)).toBeNull();
     // the queue read again after the save no longer has the item: it stays until Seuraava
     view.rerender(createElement(Review, { meta, queue: { data: { items: items.slice(1) }, error: null, reload: () => {} } }));

@@ -21,6 +21,7 @@ export const FI_SET_RI = {
   "set.ri.complete_the_loans": "Täydennä lainat",
   "set.ri.gain_loan_balance": "Kerro lainan saldo, niin näet velan kokonaismäärän ja kalleimman lainan.",
   "set.ri.gain_card_rate": "Kerro, maksetaanko kortti kokonaan joka kuukausi, niin näet, paljonko korko maksaa.",
+  "set.ri.gain_loan_rate": "Kerro lainan korko, niin näet, paljonko korkoa vielä jää.",
   "set.ri.gain_loan_terms": "Täydennä lainan tiedot, niin näet, milloin laina päättyy ja paljonko korkoa vielä jää.",
   "set.ri.gain_plan_end": "Kerro, milloin maksuerät päättyvät, niin näet, milloin kuukausimeno pienenee.",
   "set.ri.gain_card_debt": "Kerro kortin velka, niin se tulee mukaan velkojen kokonaismäärään.",

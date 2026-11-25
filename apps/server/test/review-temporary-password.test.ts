@@ -4,6 +4,7 @@
  * Made-up members; the clock moves by days.
  */
 import { describe, expect, it } from "vitest";
+import { createServiceToken } from "../src/services/service-tokens.ts";
 import { NOW, setupApp } from "./helpers.ts";
 
 const DAY = 86_400_000;
@@ -39,6 +40,18 @@ describe("the temporary password in Tarkistettavat", () => {
     const { t, bob, after } = await household();
     after(8);
     expect(await temporary(bob)).toEqual([]);
+    expect(await temporary(t.admin)).toHaveLength(1);
+  });
+
+  it("is not asked of an admin's service token, which reads as a member", async () => {
+    const { t, after } = await household();
+    after(8);
+    const { token } = await createServiceToken(t.s, { username: "aino", name: "agent" });
+    const agent = t.client();
+    const asToken = async (path: string) => (await agent.call("GET", path, undefined, { Authorization: `Bearer ${token}` })).body;
+    expect(((await asToken("/api/review")).items as Item[]).filter((i) => i.kind === "temporary_password")).toEqual([]);
+    expect((await asToken("/api/review/count")).count).toBe(0);
+    // the same admin in a session is asked
     expect(await temporary(t.admin)).toHaveLength(1);
   });
 

@@ -54,6 +54,11 @@ describe("an add-on module's questions in Tarkistettavat", () => {
     let open = true;
     EXTENSIONS.push(questionModule("example", async () => (open ? [question([link("#/review")], { cents: -5 })] : [])));
     expect((await extensionItems(admin))[0]).toMatchObject({ cents: 0 });
+    EXTENSIONS.splice(0);
+    EXTENSIONS.push(questionModule("example", async () => [question([link("#/review")], { cents: Number.NaN })]));
+    expect((await extensionItems(admin))[0]).toMatchObject({ cents: 0 });
+    EXTENSIONS.splice(0);
+    EXTENSIONS.push(questionModule("example", async () => (open ? [question([link("#/review")], { cents: -5 })] : [])));
     open = false;
     expect(await extensionItems(admin)).toEqual([]);
   });

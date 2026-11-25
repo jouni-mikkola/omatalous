@@ -4,6 +4,7 @@
  * answer given here changes what the old card's answer changed.
  */
 import { addDays, type AnalysisContext, type AnalysisTx, billCents, billDueSubject, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, getCategory, type GuessCandidate, type HouseholdMember, householdWords, isCancelled, isUnknownMerchant, marksBySubject, memberOfRow, missedOn, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, type RecurringSeries, seriesMarkSubject, type UserInputs } from "@banking/core";
+import type { User } from "../db/rows.ts";
 import { type ExtensionQuestion, extensionQuestions } from "../extensions.ts";
 import { connectionView } from "./accounts.ts";
 import { requestInputs } from "./analysis.ts";
@@ -211,8 +212,8 @@ const front: Source = async (s, userId, own) => {
   const { ctx, accounts, stamp } = own;
   const today = s.today();
   const repo = s.finance(userId);
-  const [rules, industries, user] = await Promise.all([repo.listRules(), industryMap(repo), s.users.get(userId)]);
-  const household = householdWords([user?.displayName, ...accounts.map((a) => a.holder)]);
+  const [rules, industries] = await Promise.all([repo.listRules(), industryMap(repo)]);
+  const household = householdWords([own.viewer.displayName, ...accounts.map((a) => a.holder)]);
   const members = await own.members();
   const memberArgs = members.map((m) => [m.id, m.name ? [...m.name] : null, [...m.ibans]]);
   return memoOn(ctx, "review:front", [today, stamp, rules, [...industries], [...household], memberArgs], () => {
@@ -407,31 +408,32 @@ const rows: Source = async (s, _userId, own) => {
 };
 
 // a temporary password a week old or more is a way into the household's money that nobody has closed: only an admin can change or remove it
-const temporaryPasswords = async (s: Services): Promise<Sourced[]> => {
-  const members = (await s.users.list()).filter((u) => u.mustChangePassword);
+const temporaryPasswords = async (s: Services, own: OwnView): Promise<Sourced[]> => {
+  const members = (await own.users()).filter((u) => u.mustChangePassword);
   const long = await Promise.all(members.map((u) => temporaryIsLong(s, u.id)));
   return members.flatMap((u, i): Sourced[] => (long[i] ? [{ kind: "temporary_password", id: `temporary_password:${u.id}`, cents: 0, userId: u.id, name: u.displayName || u.username }] : []));
 };
 
 // the questions the add-on modules ask; the module words them, so none of its words are here
 const extensions = async (s: Services, viewer: { id: string; role: string }): Promise<Sourced[]> =>
-  (await extensionQuestions(s, viewer)).map(({ cents, ...q }): Sourced => ({ ...q, kind: "extension", cents: Math.max(0, cents ?? 0) }));
+  (await extensionQuestions(s, viewer)).map(({ cents, ...q }): Sourced => ({ ...q, kind: "extension", cents: Number.isFinite(cents) ? Math.max(0, cents!) : 0 }));
 
-// what is not about the rows: the viewer is read once for both, and only an admin is asked of temporary passwords
-const outsideRows: Source = async (s, userId) => {
-  const viewer = await s.users.get(userId);
-  if (!viewer) return [];
-  return [...(viewer.role === "admin" ? await temporaryPasswords(s) : []), ...(await extensions(s, { id: viewer.id, role: viewer.role }))];
+// what is not about the rows: the user and role are the request's (a service token reads as a member, so no token is asked of passwords), and only an admin is asked of temporary passwords
+const outsideRows: Source = async (s, _userId, own) => {
+  const { id, role } = own.viewer;
+  return [...(role === "admin" ? await temporaryPasswords(s, own) : []), ...(await extensions(s, { id, role }))];
 };
 
 /** The member's own view, read once for the queue: what each source would otherwise read for itself. */
-async function ownViewOf(s: Services, userId: string): Promise<OwnView> {
+async function ownViewOf(s: Services, viewer: User): Promise<OwnView> {
+  const userId = viewer.id;
   const reads = new RequestReads();
   const { ctx, accounts } = await s.analysis.get(s, userId, "own", undefined, reads);
   const { balances, inputs, stamp } = await requestInputs(s, userId, accounts);
+  let users: Promise<User[]> | undefined;
   let members: Promise<HouseholdMember[]> | undefined;
   let memberMoney: ReturnType<OwnView["memberMoney"]> | undefined;
-  const own: OwnView = { ctx, accounts, balances, inputs, stamp, reads, members: () => (members ??= membersOf(s)), memberMoney: () => (memberMoney ??= memberMoneyItems(s, userId, own)) };
+  const own: OwnView = { ctx, accounts, balances, inputs, stamp, reads, viewer, users: () => (users ??= s.users.list()), members: () => (members ??= own.users().then((all) => membersOf(s, all))), memberMoney: () => (memberMoney ??= memberMoneyItems(s, userId, own)) };
   return own;
 }
 
@@ -449,9 +451,9 @@ const SOURCES: readonly Source[] = [front, splits, subscriptions, mortgage, loan
 const first = (item: ReviewItem): number => (item.kind === "loan_terms_list" ? 1 : 0);
 
 /** The whole queue in its order; the page caps a sitting. */
-export async function reviewQueue(s: Services, userId: string): Promise<Review> {
-  const own = await ownViewOf(s, userId);
-  const lists = await Promise.all(SOURCES.map((source) => source(s, userId, own)));
+export async function reviewQueue(s: Services, viewer: User): Promise<Review> {
+  const own = await ownViewOf(s, viewer);
+  const lists = await Promise.all(SOURCES.map((source) => source(s, viewer.id, own)));
   const { ctx } = own;
   const byId = memoOn(ctx, "review:rows-by-id", null, () => new Map(ctx.txs.map((t) => [t.id, t])));
   const seen = new Set<string>();
@@ -472,6 +474,6 @@ export async function reviewQueue(s: Services, userId: string): Promise<Review> 
  * a source sends having its card on the page (apps/web review-items.ts `KINDS`), so the mark falls to zero when the
  * page is empty.
  */
-export async function reviewCount(s: Services, userId: string): Promise<{ count: number }> {
-  return { count: (await reviewQueue(s, userId)).items.length };
+export async function reviewCount(s: Services, viewer: User): Promise<{ count: number }> {
+  return { count: (await reviewQueue(s, viewer)).items.length };
 }

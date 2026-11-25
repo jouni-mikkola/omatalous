@@ -146,12 +146,15 @@ export function LoanTermsChoices({ item, meta, busy, onAnswer, onHold, onReload 
   return (
     <div className="review-debts">
       <p className="review-debt-totals" aria-live="polite">
+        {/* each debt is its own question, so the figures are of the list as it was read: they say nothing once this debt is answered */}
         {!done && (
-          <span>
-            {t(item.noBalance > 0 ? "holdings.debts_known" : "holdings.debts_total")} {item.debtsCents === null ? "–" : money(item.debtsCents)}
-          </span>
+          <>
+            <span>
+              {t(item.noBalance > 0 ? "holdings.debts_known" : "holdings.debts_total")} {item.debtsCents === null ? "–" : money(item.debtsCents)}
+            </span>
+            <span>{t("set.rc.lt_no_balance", { count: item.noBalance })}</span>
+          </>
         )}
-        <span>{t("set.rc.lt_no_balance", { count: done ? 0 : item.noBalance })}</span>
       </p>
       {loans.error && !loans.data && (
         <Notice tone="error" className="review-error" as="p">

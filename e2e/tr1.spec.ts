@@ -100,7 +100,7 @@ test("each kind is asked in its own words and answered through its own route, th
 
   // the debts first: the list of loans, with a row for a loan the app cannot place, its guess first and marked
   await expect(card(page).locator(".review-kind")).toHaveText("Velat");
-  await expect(card(page).locator(".review-name")).toHaveText("Lainat ja kortit");
+  await expect(card(page).locator(".review-name")).toHaveText("Esimerkkirahoitus");
   await expect(question(page)).toContainText("Kerro lainan saldo");
   const row = card(page).locator("li.review-debt");
   expect(plain((await row.locator(".review-debt-name").textContent()) ?? "")).toBe("Esimerkkirahoitus · Autolaina · 250,00 €/kk");

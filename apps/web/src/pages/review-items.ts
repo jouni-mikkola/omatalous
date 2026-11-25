@@ -292,7 +292,8 @@ export function nameOf(item: ReviewItem): string {
     case "payer":
       return item.wallet ? "MobilePay" : item.merchant;
     case "loan_terms_list":
-      return t("set.ri.loans_and_cards");
+      // a question is one debt's, so the card names it; a list with no debt keeps the old name
+      return item.debts[0]?.name ?? t("set.ri.loans_and_cards");
     case "loan_drift":
       return item.name;
     case "split":
@@ -338,6 +339,7 @@ function loanGain(debt: LoanTermsDebt | undefined): string {
     case "card_gap":
       return t("set.ri.gain_card_debt");
     case "loan":
+      return debt.gaps.includes("rate") ? t("set.ri.gain_loan_rate") : t("set.ri.gain_loan_terms");
     case "card":
       return debt.gaps.includes("rate") ? t("set.ri.gain_card_rate") : t("set.ri.gain_loan_terms");
   }
