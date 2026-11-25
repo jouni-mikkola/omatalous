@@ -14,7 +14,7 @@ type Item = { id: string; kind: string; cents: number; [field: string]: unknown 
 
 /** A debt of the list Täydennä lainat, as the server sends it. */
 const debtOf = (over: Record<string, unknown>) => ({ id: "d", source: "proposal", name: "", loanId: null, accountId: null, key: null, kind: "other", placed: true, monthlyCents: null, latestCents: null, lastDate: null, owedCents: null, balanceDate: null, gaps: [], subject: null, terms: null, savedCards: [], ...over });
-const listOf = (cents: number, debts: { key: unknown }[]): Item => ({ kind: "loan_terms_list", id: "loan-terms", cents, debts, debtsCents: null, noBalance: debts.length });
+const listOf = (cents: number, debts: { id?: unknown; key: unknown }[]): Item => ({ kind: "loan_terms_list", id: `loan-terms:${String(debts[0]?.id ?? "none")}`, cents, debts, debtsCents: null, noBalance: debts.length, fromRows: debts.length });
 const LOAN_KEY = "out:chk:Esimerkkirahoitus#25000";
 // a loan the app cannot place: its row names the kind it guesses and asks what is left
 const loan = listOf(300_000, [debtOf({ id: `proposal:${LOAN_KEY}`, name: "Esimerkkirahoitus", key: LOAN_KEY, kind: "car", placed: false, monthlyCents: 25_000, latestCents: 25_000, lastDate: "2026-09-05" })]);

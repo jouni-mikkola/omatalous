@@ -117,9 +117,7 @@ export function LoanTermsChoices({ item, meta, busy, onAnswer, onHold, onReload 
   const open = item.debts.filter((d) => !closed.some((c) => c.id === d.id));
   const done = open.length === 0;
   // forms filled from rows share the connected loan accounts: with two of them in the list, neither takes one by itself
-  const fromRows = (debts: readonly LoanTermsDebt[]) => debts.filter((d) => d.source === "proposal" || d.source === "ended" || d.source === "card_bill" || (d.source === "card_gap" && d.accountId === null)).length;
-  const [oneAtOpen] = useState(() => fromRows(item.debts) <= 1);
-  const ownsAccount = oneAtOpen && fromRows(open) <= 1;
+  const [ownsAccount] = useState(() => item.fromRows <= 1);
 
   // the form that had the focus is gone: the focus goes to the line it closed into, or to Seuraava at the end
   useEffect(() => {

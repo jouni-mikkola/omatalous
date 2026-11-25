@@ -53,6 +53,8 @@ export interface LoanTermsListItem extends Base {
   debts: LoanTermsDebt[];
   debtsCents: number | null;
   noBalance: number;
+  /** How many debts waiting in all are filled from rows: with more than one, no form takes a connected loan account by itself. */
+  fromRows: number;
 }
 
 /**

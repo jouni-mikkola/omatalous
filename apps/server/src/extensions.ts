@@ -25,6 +25,27 @@ export interface ExtensionSealed {
 /** A bank row as a module reads it to add to it. */
 type ExtensionRow = Pick<StoredTransaction, "id" | "accountId" | "bookingDate" | "amountCents" | "merchant" | "category" | "categorySource">;
 
+/**
+ * A question a module puts in Tarkistettavat. Each choice is an answer the page sends to a route under /api, or a link to
+ * a page of the app (`href`). `cents` is the money at stake over a year, 0 when none; `guess` is the id of the choice the
+ * module suggests.
+ */
+export interface ExtensionQuestion {
+  /** Stable while the question stands; given the module's id in front (`<id>:<question id>`). */
+  id: string;
+  /** The module's own name for the kind of question. */
+  type: string;
+  title: string;
+  question: string;
+  detail?: string;
+  date?: string;
+  guess?: string;
+  cents?: number;
+  choices: ExtensionChoice[];
+}
+
+type ExtensionChoice = { id: string; label: string } & ({ answer: { method: "PUT" | "POST"; path: `/api/${string}`; body: unknown } } | { href: `#/${string}` });
+
 export interface ServerExtension {
   /** Its route prefix (/api/<id>), its page id and its name in errors; the manifest's id, never renamed. */
   readonly id: string;
@@ -53,6 +74,11 @@ export interface ServerExtension {
    * the module's id in front (`<id>:<notice id>`). A failure is logged and adds none.
    */
   notices?(s: Services, user: { id: string; role: string }): Promise<Notice[]>;
+  /**
+   * Its questions of now for the user, in Tarkistettavat after the app's own. A question goes when it is no longer returned
+   * here. A failure is logged and adds none.
+   */
+  reviewQuestions?(s: Services, user: { id: string; role: string }): Promise<ExtensionQuestion[]>;
   /** Set by the loader from the manifest: a folder of NNNN_name.sql files numbered 9001 to 9899, each additive with a compat floor. */
   migrationsDir?: string;
   /** Its tables the household's export holds: how each is written and how an import reads it back. */
@@ -103,6 +129,50 @@ export async function extensionNotices(s: Services, user: { id: string; role: st
       for (const n of await e.notices(s, user)) out.push({ ...n, id: `${e.id}:${n.id}` });
     } catch (err) {
       console.error(`notices of ${e.id} failed:`, (err as Error).name);
+    }
+  }
+  return out;
+}
+
+const ANSWER_PATH_CHARS = /^[A-Za-z0-9_.~:-]+$/;
+const APP_LINK = /^#\/[a-z][a-z0-9-]*(\/[a-z0-9-]+)*(\?[A-Za-z0-9=&_.:-]*)?$/;
+const QUESTION_ID = /^[A-Za-z0-9_.:-]{1,100}$/;
+const MAX_ANSWER_BODY = 4000;
+
+/**
+ * Whether a module may send the page to this choice. An answer goes only to a route under the module's own /api/<id>/
+ * (letters, digits and `_.~:-` in each segment: no `..`, empty segment, query, escape or backslash) with PUT or POST and a
+ * small JSON body. A link goes only to a page of the app (`#/page`, no `//`), never an address outside it.
+ */
+function choiceAllowed(extensionId: string, c: ExtensionChoice): boolean {
+  if (typeof c.id !== "string" || typeof c.label !== "string" || !c.id || !c.label) return false;
+  if ("href" in c) return typeof c.href === "string" && APP_LINK.test(c.href);
+  const a = c.answer;
+  if (a?.method !== "PUT" && a?.method !== "POST") return false;
+  const prefix = `/api/${extensionId}/`;
+  if (typeof a.path !== "string" || !a.path.startsWith(prefix)) return false;
+  const segments = a.path.slice(prefix.length).split("/");
+  if (!segments.every((seg) => seg !== "." && seg !== ".." && ANSWER_PATH_CHARS.test(seg))) return false;
+  try {
+    return (JSON.stringify(a.body ?? null)?.length ?? Infinity) <= MAX_ANSWER_BODY;
+  } catch {
+    return false;
+  }
+}
+
+/** The questions the modules have for the user. A failure is logged and adds none: the app's own questions show without them. A choice outside what `choiceAllowed` lets through is left out, and a question left with no choice goes with it. */
+export async function extensionQuestions(s: Services, user: { id: string; role: string }): Promise<ExtensionQuestion[]> {
+  const out: ExtensionQuestion[] = [];
+  for (const e of EXTENSIONS) {
+    if (!e.reviewQuestions) continue;
+    try {
+      for (const q of await e.reviewQuestions(s, user)) {
+        if (!QUESTION_ID.test(q.id)) continue;
+        const choices = q.choices.filter((c) => choiceAllowed(e.id, c));
+        if (choices.length > 0) out.push({ ...q, id: `${e.id}:${q.id}`, choices });
+      }
+    } catch (err) {
+      console.error(`review questions of ${e.id} failed:`, (err as Error).name);
     }
   }
   return out;

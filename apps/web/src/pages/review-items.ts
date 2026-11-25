@@ -8,7 +8,7 @@ import { PAYER_ROLE_LABEL, WALLET_ROLE_LABEL } from "../components/questions.ts"
 import { date, dateTime, money } from "../format.ts";
 import type { SyncRun } from "../types.ts";
 import { t, tn } from "../text.ts";
-import type { LoanDriftItem, LoanTermsListItem } from "./review-loan-items.ts";
+import type { LoanDriftItem, LoanTermsDebt, LoanTermsListItem } from "./review-loan-items.ts";
 
 export interface Base {
   id: string;
@@ -149,6 +149,25 @@ interface RowItem extends Base {
   picks: string[];
 }
 
+/** A question of an add-on module: each choice is an answer sent to a route under /api, or a link to a page of the app. */
+interface ExtensionItem extends Base {
+  kind: "extension";
+  type: string;
+  title: string;
+  question: string;
+  detail?: string;
+  date?: string;
+  guess?: string;
+  choices: ({ id: string; label: string } & ({ answer: { method: "PUT" | "POST"; path: string; body: unknown } } | { href: string }))[];
+}
+
+/** A member whose temporary password has stood over a week; the admin changes it or removes the account in Asetukset > Jäsenet. */
+interface TemporaryPasswordItem extends Base {
+  kind: "temporary_password";
+  userId: string;
+  name: string;
+}
+
 /** The last fetch from the bank failed. The page makes it from the run `/api/meta` tells; it goes when a fetch succeeds. */
 interface FetchItem extends Base {
   kind: "fetch";
@@ -158,7 +177,7 @@ interface FetchItem extends Base {
   message: string | null;
 }
 
-export type ReviewItem = PayeeItem | PayerItem | LoanTermsListItem | SplitItem | SubscriptionItem | MortgageItem | LoanDriftItem | MoneyBackItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | FetchItem;
+export type ReviewItem = PayeeItem | PayerItem | LoanTermsListItem | SplitItem | SubscriptionItem | MortgageItem | LoanDriftItem | MoneyBackItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | ExtensionItem | TemporaryPasswordItem | FetchItem;
 
 /**
  * A failed fetch is a queue item (design, section 4): the last run that failed stays first in the queue until a later
@@ -169,7 +188,8 @@ export const withFetch = (items: readonly ReviewItem[], run: SyncRun | null | un
 
 /** The queue with the item a link names (`#/review?item=loan-terms`) first; an id the queue lacks changes nothing. */
 export function linkedFirst(items: readonly ReviewItem[], id: string | null): ReviewItem[] {
-  const linked = id === null ? undefined : items.find((i) => i.id === id);
+  // `loan-terms` names the first debt's question: each debt has its own, `loan-terms:<debt>`
+  const linked = id === null ? undefined : items.find((i) => i.id === id || (id === "loan-terms" && i.kind === "loan_terms_list"));
   return linked ? [linked, ...items.filter((i) => i !== linked)] : [...items];
 }
 
@@ -195,10 +215,10 @@ export type SittingView =
   | { state: "empty" };
 
 /**
- * The kinds this page has a card for. An item of a kind that is not here (the server's `extension`, which no source
- * sends today, the `input` an older server asked a tip's number with, or a newer server's) is left out, since the words below have nothing to say of it.
+ * The kinds this page has a card for. An item of a kind that is not here (the `input` an older server asked a tip's
+ * number with, or a newer server's) is left out, since the words below have nothing to say of it.
  */
-const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan_terms_list: true, split: true, subscription: true, mortgage: true, loan_drift: true, money_back: true, balance: true, card_balance: true, consent: true, bill: true, row: true, unresolved: true, fetch: true };
+const KINDS: Record<ReviewItem["kind"], true> = { payee_out: true, payee_in: true, payer: true, loan_terms_list: true, split: true, subscription: true, mortgage: true, loan_drift: true, money_back: true, balance: true, card_balance: true, consent: true, bill: true, row: true, unresolved: true, extension: true, temporary_password: true, fetch: true };
 const hasCard = (item: { kind: string }): boolean => Object.hasOwn(KINDS, item.kind);
 
 /** The items still open: the queue without what this sitting has answered. The one number its heading and the header's mark show. */
@@ -232,6 +252,10 @@ export function eyebrow(item: ReviewItem): string {
       return t("set.ri.loan");
     case "loan_terms_list":
       return t("set.ri.debts");
+    case "extension":
+      return t("set.ri.add_on");
+    case "temporary_password":
+      return t("set.ri.members");
     case "money_back":
       return t(item.reason === "double" ? "set.ri.money_back_double" : "set.ri.money_back_cancelled");
     case "split":
@@ -280,6 +304,10 @@ export function nameOf(item: ReviewItem): string {
       return item.accountName;
     case "unresolved":
       return item.names.join(", ");
+    case "extension":
+      return item.title;
+    case "temporary_password":
+      return item.name;
     case "consent":
       return item.institution;
     case "fetch":
@@ -296,6 +324,25 @@ export function isPerson(item: ReviewItem): boolean {
   return (item.kind === "payer" && !item.wallet && item.options.includes("own_money")) || item.kind === "split";
 }
 
+/** What the answer to a debt's question gives: the question's heading. A list with no debt (none is sent) says the old heading. */
+function loanGain(debt: LoanTermsDebt | undefined): string {
+  if (!debt) return t("set.ri.complete_the_loans");
+  switch (debt.source) {
+    case "proposal":
+      return t("set.ri.gain_loan_balance");
+    case "ended":
+      return t("set.ri.gain_credit_ended");
+    case "plan":
+      return t("set.ri.gain_plan_end");
+    case "card_bill":
+    case "card_gap":
+      return t("set.ri.gain_card_debt");
+    case "loan":
+    case "card":
+      return debt.gaps.includes("rate") ? t("set.ri.gain_card_rate") : t("set.ri.gain_loan_terms");
+  }
+}
+
 /** The question itself, the page's heading for the item. */
 export function questionOf(item: ReviewItem): string {
   switch (item.kind) {
@@ -306,7 +353,12 @@ export function questionOf(item: ReviewItem): string {
     case "payer":
       return t("set.ri.what_are_these_payments");
     case "loan_terms_list":
-      return t("set.ri.complete_the_loans");
+      // one debt a question, and the question says what the answer gives
+      return loanGain(item.debts[0]);
+    case "extension":
+      return item.question;
+    case "temporary_password":
+      return t("set.ri.temporary_password_question");
     case "split":
       return t("set.ri.whose_money_was_this");
     case "subscription":
@@ -366,6 +418,10 @@ export function figureOf(item: ReviewItem): { text: string; unit?: string; line:
     }
     case "mortgage":
       return { text: "", line: "" };
+    case "extension":
+      return { text: "", line: [item.detail, item.date ? date(item.date) : null].filter(Boolean).join(" · ") };
+    case "temporary_password":
+      return { text: "", line: t("set.ri.temporary_password_gain") };
     case "balance":
       return { text: money(item.cents), unit: t("set.ri.difference"), line: t("set.ri.balance_changed_rows_add_up", { from: date(item.fromDay), to: date(item.toDay), bank: money(item.bankCents), rows: money(item.rowsCents) }) };
     case "card_balance":

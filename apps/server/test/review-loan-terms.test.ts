@@ -17,8 +17,7 @@ type Caller = { call: (method: string, path: string, body?: unknown) => Promise<
 
 /** The rows of Täydennä lainat of saved loans and connected cards, each with the first fact it lacks as `missing`. */
 const queue = async (c: Caller) => {
-  const list = ((await c.call("GET", "/api/review")).body.items as Item[]).find((i) => i.kind === "loan_terms_list");
-  const debts = (list?.debts ?? []) as { source: string; gaps: string[]; [field: string]: unknown }[];
+  const debts = ((await c.call("GET", "/api/review")).body.items as Item[]).flatMap((i) => (i.kind === "loan_terms_list" ? (i.debts as { source: string; gaps: string[]; [field: string]: unknown }[]) : []));
   return debts.filter((d) => d.source === "loan" || d.source === "card").map((d): Record<string, unknown> => ({ ...d, missing: d.gaps[0] }));
 };
 
@@ -367,8 +366,8 @@ describe("the question of a payment the loan's plan did not expect", () => {
 
   it("lists a saved loan once with the rows of its series, and no proposal of that series beside it", async () => {
     const { t, id } = await household([payment("2026-08-02", 90_000), payment("2026-09-02", 90_000), payment("2026-10-02", 90_000)], { ...LOAN, paymentCents: null });
-    const list = ((await t.admin.call("GET", "/api/review")).body.items as Item[]).find((i) => i.kind === "loan_terms_list");
-    expect((list?.debts as { source: string; loanId: string | null; key: string | null }[]).map((d) => [d.source, d.loanId])).toEqual([["loan", id]]);
+    const debts = ((await t.admin.call("GET", "/api/review")).body.items as Item[]).flatMap((i) => (i.kind === "loan_terms_list" ? (i.debts as { source: string; loanId: string | null; key: string | null }[]) : []));
+    expect(debts.map((d) => [d.source, d.loanId])).toEqual([["loan", id]]);
   });
 
   it("asks nothing of a loan with no series", async () => {
@@ -379,8 +378,8 @@ describe("the question of a payment the loan's plan did not expect", () => {
 
 describe("En tiedä on a loan the rows propose", () => {
   const proposals = async (c: Caller) => {
-    const list = ((await c.call("GET", "/api/review")).body.items as Item[]).find((i) => i.kind === "loan_terms_list");
-    return ((list?.debts ?? []) as { source: string; key: string; monthlyCents: number | null }[]).filter((d) => d.source === "proposal");
+    const debts = ((await c.call("GET", "/api/review")).body.items as Item[]).flatMap((i) => (i.kind === "loan_terms_list" ? (i.debts as { source: string; key: string; monthlyCents: number | null }[]) : []));
+    return debts.filter((d) => d.source === "proposal");
   };
   const household = async () => {
     const t = await setupApp();
@@ -418,7 +417,7 @@ describe("the debts nobody saved on the first page and in Täydennä lainat", ()
     await t.db.run("UPDATE transactions SET category = 'card_bill', category_source = 'user' WHERE counterparty = ?", ["ESIMERKKIPANKKI KORTTI"]);
     await reprocess(repo, t.s.settings);
     type Asked = { source: string; name: string; key: string; monthlyCents: number | null };
-    const listed = async () => (((await t.admin.call("GET", "/api/review")).body.items as Item[]).find((i) => i.kind === "loan_terms_list")?.debts ?? []) as Asked[];
+    const listed = async () => ((await t.admin.call("GET", "/api/review")).body.items as Item[]).flatMap((i) => (i.kind === "loan_terms_list" ? (i.debts as Asked[]) : []));
     const unsaved = async () => ((await t.admin.call("GET", "/api/dashboard?scope=own")).body.holdings.unsavedLoans?.rows ?? []) as { name: string; asked?: true }[];
     /** The names the first page marks asked, and the names of its rows the list no longer holds: the two are one set. */
     const agree = async () => {
@@ -454,8 +453,8 @@ describe("a loan the rows guess to be the home loan", () => {
     await reprocess(repo, t.s.settings);
     const categories = async () => [...new Set((await repo.allTransactions()).filter((r) => r.description === "LAINAN LYHENNYS").map((r) => r.category))];
     expect(await categories()).toEqual(["loans"]);
-    const list = ((await t.admin.call("GET", "/api/review")).body.items as Item[]).find((i) => i.kind === "loan_terms_list");
-    const [debt] = ((list?.debts ?? []) as { source: string; key: string; kind: string }[]).filter((d) => d.source === "proposal");
+    const listed = ((await t.admin.call("GET", "/api/review")).body.items as Item[]).flatMap((i) => (i.kind === "loan_terms_list" ? (i.debts as { source: string; key: string; kind: string }[]) : []));
+    const [debt] = listed.filter((d) => d.source === "proposal");
     // the kind is the rows' guess, which the form saves as it stands
     expect(debt).toMatchObject({ kind: "mortgage" });
     expect((await t.admin.call("POST", "/api/loans", { ...BASE, kind: debt!.kind, paymentCents: 60_000, intervalMonths: 1, seriesKey: debt!.key })).status).toBe(200);
@@ -466,17 +465,21 @@ describe("a loan the rows guess to be the home loan", () => {
 describe("Täydennä lainat", () => {
   const items = async (c: Caller) => (await c.call("GET", "/api/review")).body.items as Item[];
 
-  it("is one item, first in the queue, its debts the largest year of payments first and the ones of no known payment last", async () => {
+  it("is one item a debt, first in the queue, the largest year of payments first and the ones of no known payment last", async () => {
     const t = await setupApp();
     const bare = await save(t.admin, { ...BASE, name: "Ei maksua" });
     // plans at 0 % whose fee nothing tells keep asking with their payments known
     const PLAN = { kind: "instalment", balanceCents: 600_000, balanceDate: "2026-10-01", rateBp: 0, repayment: "fixed_instalment", intervalMonths: 1 };
     const small = await save(t.admin, { ...PLAN, name: "Pieni", paymentCents: 20_000 });
     const large = await save(t.admin, { ...PLAN, name: "Suuri", paymentCents: 90_000 });
-    const [first, ...rest] = await items(t.admin);
-    expect(first).toMatchObject({ kind: "loan_terms_list", id: "loan-terms", cents: 12 * 110_000 });
-    expect(rest.filter((i) => i.kind === "loan_terms_list")).toEqual([]);
-    expect((first!.debts as { loanId: string }[]).map((d) => d.loanId)).toEqual([large, small, bare]);
+    const lists = (await items(t.admin)).filter((i) => i.kind === "loan_terms_list");
+    expect(lists[0]).toMatchObject({ id: expect.stringMatching(/^loan-terms:/), cents: 12 * 90_000 });
+    // each item asks about one debt
+    expect(lists.map((i) => (i.debts as unknown[]).length)).toEqual([1, 1, 1]);
+    expect(lists.flatMap((i) => i.debts as { loanId: string }[]).map((d) => d.loanId)).toEqual([large, small, bare]);
+    expect(lists.map((i) => i.id)).toEqual(lists.map((i) => `loan-terms:${(i.debts as { id: string }[])[0]!.id}`));
+    expect(new Set(lists.map((i) => i.id)).size).toBe(3);
+    expect((await items(t.admin)).slice(0, 3).map((i) => i.kind)).toEqual(["loan_terms_list", "loan_terms_list", "loan_terms_list"]);
   });
 
   it("tells what the household owes as the first page does, and how many debts have no balance", async () => {

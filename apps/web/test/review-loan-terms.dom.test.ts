@@ -38,7 +38,9 @@ const debtOf = (over: Partial<LoanTermsDebt>): LoanTermsDebt => ({
   savedCards: [],
   ...over,
 });
-const listOf = (debts: LoanTermsDebt[], debtsCents: number | null = null, noBalance = 0) => ({ kind: "loan_terms_list", id: "loan-terms", cents: 0, debts, debtsCents, noBalance }) as unknown as ReviewItem;
+// the server sends a question a debt; the rows of these tests may hold several, as the page still draws a list
+const fromRowsOf = (debts: LoanTermsDebt[]) => debts.filter((d) => d.source === "proposal" || d.source === "ended" || d.source === "card_bill" || (d.source === "card_gap" && d.accountId === null)).length;
+const listOf = (debts: LoanTermsDebt[], debtsCents: number | null = null, noBalance = 0) => ({ kind: "loan_terms_list", id: `loan-terms:${debts[0]?.id ?? "none"}`, cents: 0, debts, debtsCents, noBalance, fromRows: fromRowsOf(debts) }) as unknown as ReviewItem;
 const show = (items: ReviewItem[], meta = metaOf(), reload = () => {}) => render(createElement(Review, { meta, queue: { data: { items }, error: null, reload } }));
 const savedLoan = (over: Partial<Loan>): Loan => ({ id: "loan-7", name: "Asuntolaina", lender: null, kind: "mortgage", grantedCents: null, balanceCents: 15_000_000, balanceDate: "2026-10-01", rateBp: null, reference: null, marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: 90_000, endDate: null, limitCents: null, seriesKey: null, ...over }) as Loan;
 const plain = (s: string | null | undefined) => (s ?? "").replace(/\s/g, " ");

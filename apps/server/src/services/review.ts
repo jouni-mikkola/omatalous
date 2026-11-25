@@ -4,6 +4,7 @@
  * answer given here changes what the old card's answer changed.
  */
 import { addDays, type AnalysisContext, type AnalysisTx, billCents, billDueSubject, buildHousing, buildQuestions, cancelledSubjects, countingMark, dueConsents, getCategory, type GuessCandidate, type HouseholdMember, householdWords, isCancelled, isUnknownMerchant, marksBySubject, memberOfRow, missedOn, netSpend, newCharges, openPriceRises, payeeGuesser, payerRoleOf, type RecurringSeries, seriesMarkSubject, type UserInputs } from "@banking/core";
+import { type ExtensionQuestion, extensionQuestions } from "../extensions.ts";
 import { connectionView } from "./accounts.ts";
 import { requestInputs } from "./analysis.ts";
 import { visibleTo } from "./visible-accounts.ts";
@@ -18,6 +19,7 @@ import { memberMoneyItems, membersOf } from "./review-members.ts";
 import { type MoneyBackItem, moneyBackItems } from "./review-money-back.ts";
 import type { OwnView } from "./review-own.ts";
 import { type UnresolvedItem, unresolvedItems } from "./review-unresolved.ts";
+import { temporaryIsLong } from "./users.ts";
 import { withoutWrongBills } from "./wrong-bills.ts";
 
 type Asked = ReturnType<typeof buildQuestions>["items"][number];
@@ -168,21 +170,24 @@ interface RowItem extends Base {
 }
 
 /**
- * The slot of an extension's source: `type` is the extension's own name for the kind of question. Each choice names
- * its own answer route under /api, which the page calls as it is.
+ * A question of an extension (extensions.ts `reviewQuestions`): `type` is the extension's own name for the kind of
+ * question. Each choice names its own answer route under /api, which the page calls as it is, or a page it links to.
  */
-interface ExtensionItem extends Base {
+interface ExtensionItem extends Base, Omit<ExtensionQuestion, "id" | "cents"> {
   kind: "extension";
-  type: string;
-  title: string;
-  question: string;
-  detail?: string;
-  date?: string;
-  guess?: string;
-  choices: { id: string; label: string; answer: { method: "PUT" | "POST"; path: `/api/${string}`; body: unknown } }[];
 }
 
-type ReviewItem = PayeeItem | PayerItem | LoanTermsListItem | SplitItem | SubscriptionItem | MortgageItem | LoanDriftItem | MoneyBackItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | ExtensionItem;
+/**
+ * A member whose temporary password has stood over a week (`temporaryIsLong`), asked of the admins: the password is changed
+ * or the account removed in Asetukset > Jäsenet, and the item goes with it.
+ */
+interface TemporaryPasswordItem extends Base {
+  kind: "temporary_password";
+  userId: string;
+  name: string;
+}
+
+type ReviewItem = PayeeItem | PayerItem | LoanTermsListItem | SplitItem | SubscriptionItem | MortgageItem | LoanDriftItem | MoneyBackItem | BalanceItem | CardBalanceItem | ConsentItem | BillItem | RowItem | UnresolvedItem | ExtensionItem | TemporaryPasswordItem;
 
 export interface Review {
   items: ReviewItem[];
@@ -401,6 +406,22 @@ const rows: Source = async (s, _userId, own) => {
   });
 };
 
+// a temporary password a week old or more is a way into the household's money that nobody has closed: only an admin can change or remove it
+const temporaryPasswords: Source = async (s, userId) => {
+  const viewer = await s.users.get(userId);
+  if (viewer?.role !== "admin") return [];
+  const members = (await s.users.list()).filter((u) => u.mustChangePassword);
+  const long = await Promise.all(members.map((u) => temporaryIsLong(s, u.id)));
+  return members.flatMap((u, i): Sourced[] => (long[i] ? [{ kind: "temporary_password", id: `temporary_password:${u.id}`, cents: 0, userId: u.id, name: u.displayName || u.username }] : []));
+};
+
+// the questions the add-on modules ask; the module words them, so none of its words are here
+const extensions: Source = async (s, userId) => {
+  const viewer = await s.users.get(userId);
+  if (!viewer) return [];
+  return (await extensionQuestions(s, { id: viewer.id, role: viewer.role })).map(({ cents, ...q }): Sourced => ({ ...q, kind: "extension", cents: Math.max(0, cents ?? 0) }));
+};
+
 /** The member's own view, read once for the queue: what each source would otherwise read for itself. */
 async function ownViewOf(s: Services, userId: string): Promise<OwnView> {
   const reads = new RequestReads();
@@ -420,7 +441,7 @@ const loanQuestions: Source = async (s, userId, own) => {
 };
 
 // the unexplained money in from another member: a payer the front's source asked already is kept once (`reviewQueue`)
-const SOURCES: readonly Source[] = [front, splits, subscriptions, mortgage, loanQuestions, balances, cardBalances, consents, bills, rows, (_s, _userId, own) => own.memberMoney(), unresolvedItems, moneyBackItems];
+const SOURCES: readonly Source[] = [front, splits, subscriptions, mortgage, loanQuestions, balances, cardBalances, consents, bills, rows, (_s, _userId, own) => own.memberMoney(), unresolvedItems, moneyBackItems, temporaryPasswords, extensions];
 
 /** Täydennä lainat first, as every debt figure waits on it; then the whole queue, the most money first. The page caps a sitting. */
 const first = (item: ReviewItem): number => (item.kind === "loan_terms_list" ? 1 : 0);
@@ -446,8 +467,8 @@ export async function reviewQueue(s: Services, userId: string): Promise<Review> 
 
 /**
  * How many items are open, which is what the tab's mark and the page's title both say: the whole queue, each kind
- * a source sends having its card on the page, so the mark falls to zero when the page is empty. `extension` has no
- * card there (apps/web review-items.ts `KINDS`) and no source: one that starts to send it needs the card first.
+ * a source sends having its card on the page (apps/web review-items.ts `KINDS`), so the mark falls to zero when the
+ * page is empty.
  */
 export async function reviewCount(s: Services, userId: string): Promise<{ count: number }> {
   return { count: (await reviewQueue(s, userId)).items.length };

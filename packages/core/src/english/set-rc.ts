@@ -8,6 +8,7 @@ export const EN_SET_RC: Record<keyof typeof FI_SET_RC, string> = {
   "set.rc.still_coming": "Still coming",
   "set.rc.connect_the_bank_again": "Connect the bank again",
   "set.rc.open_the_account": "Open the account",
+  "set.rc.open_members": "Open Members",
   "set.rc.connect_the_paying_account": "Connect the account the card is paid from",
   "set.rc.connect_the_card": "Connect the card",
   "set.rc.add_the_card_debt": "Add what the card owes",
