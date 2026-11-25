@@ -21,10 +21,10 @@ export function CapBreak({ x, width, end, dir }: { x: number; width: number; end
   return <path className="cap-break" d={`M${x - 1},${at(10)}L${x + width + 1},${at(14)}M${x - 1},${at(15)}L${x + width + 1},${at(19)}`} />;
 }
 
-/** The sum of a clipped column, past its cut end. */
+/** The sum of a clipped column: above a top end, in the margin; inside a bottom end, above its break, since the month names stand under the plot. */
 export function CapSum({ x, end, dir, anchor = "middle", text }: { x: number; end: number; dir: -1 | 1; anchor?: "start" | "middle" | "end"; text: string }) {
   return (
-    <text className="cap-sum" x={x} y={dir === -1 ? end - 4 : end + 12} textAnchor={anchor}>
+    <text className="cap-sum" x={x} y={dir === -1 ? end - 4 : end - 24} textAnchor={anchor}>
       {text}
     </text>
   );

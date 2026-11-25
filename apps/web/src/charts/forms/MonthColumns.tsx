@@ -73,15 +73,17 @@ export function MonthColumns({
   const narrow = width < NARROW;
   // the months that have a total come first, so an index the scale calls clipped maps back to its month
   const present = months.flatMap((m, i) => (m.totalCents === null ? [] : [i]));
-  const values = [...present.map((i) => months[i]!.totalCents!), ...(usual ? [usual.cents] : [])];
+  // the usual level widens the axis but does not count as a month, so a short period clips no month
+  const values = present.map((i) => months[i]!.totalCents!);
   const options = monthPlot(width, TOP + BOTTOM);
   const draft = frame(width, { top: TOP, right: 4, bottom: BOTTOM, left: 48 }, options);
-  const scale = (innerH: number) => linear(values, [innerH, 0], { target: monthTickTarget(innerH), clip: OUTLIER_FACTOR });
+  const scale = (innerH: number) => linear(values, [innerH, 0], { target: monthTickTarget(innerH), clip: OUTLIER_FACTOR, include: usual ? [usual.cents] : [] });
   const y0 = scale(draft.innerH);
   const f = frame(width, { top: TOP, right: 4, bottom: BOTTOM, left: axisRoom(y0.ticks.map(monthAxisLabels(y0.ticks, y0.step, narrow))) }, options);
   const y = scale(f.innerH);
   const axisLabel = monthAxisLabels(y.ticks, y.step, narrow);
-  const capped = new Set(y.clipped.flatMap((k) => (k < present.length ? [present[k]!] : [])));
+  // cut only where the column runs out of the plot: the axis tops at a round tick that can lie above a clipped sum
+  const capped = new Set(y.clipped.flatMap((k) => (y(values[k]!) < 0 || y(values[k]!) > f.innerH ? [present[k]!] : [])));
   const x = band(months.length, f.innerW, 0.72);
   const ticks = monthTicks(
     months.map((m) => m.month),
@@ -96,6 +98,8 @@ export function MonthColumns({
     ...(series.length > 1 ? [{ name: t("rpt.total"), value: m.totalCents === null ? "–" : money(m.totalCents, false) }] : []),
     ...(whole(m) || m.totalCents === null ? [] : [{ name: t(m.month === running ? "home.months_running" : "home.months_partial"), value: "" }]),
   ];
+  const capEnd = (sum: number) => (sum > 0 ? -CAP_OVERSHOOT : f.innerH + CAP_OVERSHOOT);
+  const capDir = (sum: number) => (sum > 0 ? -1 : 1);
   const keys = months.map((m) => m.month);
   return (
     <div className={`chart month-columns ms-${tone}`} ref={ref}>
@@ -136,12 +140,7 @@ export function MonthColumns({
                     const bottom = capY(y(Math.min(from, to)), f.innerH);
                     return <rect key={series[k]!.key} className={`ms-s${k}`} x={x.x(i)} y={top} width={x.width} height={Math.max(0, bottom - top)} />;
                   })}
-                  {capped.has(i) && (
-                    <>
-                      <CapBreak x={x.x(i)} width={x.width} end={m.totalCents! > 0 ? -CAP_OVERSHOOT : f.innerH + CAP_OVERSHOOT} dir={m.totalCents! > 0 ? -1 : 1} />
-                      <CapSum x={x.centre(i)} end={m.totalCents! > 0 ? -CAP_OVERSHOOT : f.innerH + CAP_OVERSHOOT} dir={m.totalCents! > 0 ? -1 : 1} text={capSum(m.totalCents!, narrow)} />
-                    </>
-                  )}
+                  {capped.has(i) && <CapBreak x={x.x(i)} width={x.width} end={capEnd(m.totalCents!)} dir={capDir(m.totalCents!)} />}
                   <CategoryTick x={x.centre(i)} base={f.innerH} long={ticks[i]!.printed} />
                   {ticks[i]!.printed && (
                     <text className={m.month === running ? "ms-now" : undefined} x={x.centre(i)} y={f.innerH + LABEL_Y} textAnchor="middle">
@@ -156,6 +155,8 @@ export function MonthColumns({
                 </g>
               );
             })}
+            {/* after every column, so a neighbour never covers a sum */}
+            {months.map((m, i) => capped.has(i) && <CapSum key={m.month} x={x.centre(i)} end={capEnd(m.totalCents!)} dir={capDir(m.totalCents!)} text={capSum(m.totalCents!, narrow)} />)}
             {usual && <line className="ms-usual" x1={0} x2={f.innerW} y1={crisp(capY(y(usual.cents), f.innerH))} y2={crisp(capY(y(usual.cents), f.innerH))} />}
           </g>
           <ReadoutLayer xs={months.map((_, i) => x.centre(i))} innerW={f.innerW} innerH={f.innerH} at={at} onAt={setAt} keys={keys} label={label} />

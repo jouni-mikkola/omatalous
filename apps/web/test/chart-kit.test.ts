@@ -150,6 +150,18 @@ describe("a domain that one outlier does not flatten", () => {
     expect(plain.domain[1]).toBeGreaterThanOrEqual(9000);
     expect(plain.clipped).toEqual([]);
   });
+
+  it("holds an included level inside the axis without counting it toward the clip or being clipped", () => {
+    // three months and a usual level: the level is no fourth value, so nothing is clipped
+    const short = linear([2000, 2000, 9000], [100, 0], { clip: 2, include: [2000] });
+    expect(short.clipped).toEqual([]);
+    expect(short.domain[1]).toBeGreaterThanOrEqual(9000);
+    // four months and a level above the others' top: the outlier is clipped, the level stays on the axis
+    const long = linear([1000, 1100, 1200, 9000], [100, 0], { clip: 2, include: [1800] });
+    expect(long.clipped).toEqual([3]);
+    expect(long.domain[1]).toBeGreaterThanOrEqual(1800);
+    expect(long.domain[1]).toBeLessThan(9000);
+  });
 });
 
 describe("a name at the end of a bar or a line", () => {

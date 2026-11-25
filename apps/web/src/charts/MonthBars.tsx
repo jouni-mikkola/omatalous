@@ -28,6 +28,8 @@ const BOTTOM = LABEL_Y + 16;
 const TOP = 22;
 /** A sum is an outlier when it is more than this many times the third quartile of the months' sums (`robustDomain`). */
 const OUTLIER_FACTOR = 2;
+/** A bar is cut only in a view of at least this many months: two bars a month would let a view of two clip. */
+const MIN_CLIP_MONTHS = 4;
 /** Under this width the axis is in thousands and a clipped sum is "21 t€". */
 const NARROW = 600;
 
@@ -65,15 +67,16 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
     ...(m.spendCents === null ? [] : [{ month: i, kind: "spend" as const }]),
   ]);
   const sumOf = (s: (typeof sums)[number]) => (s.kind === "income" ? months[s.month]!.incomeCents! : months[s.month]!.spendCents!);
-  const values = [...sums.map(sumOf), ...(usual === null ? [] : [usual])];
+  // the usual level widens the axis but does not count as a sum, so a short period clips none
+  const values = sums.map(sumOf);
   const options = monthPlot(width, TOP + BOTTOM);
   const draft = frame(width, { top: TOP, right: 4, bottom: BOTTOM, left: 48 }, options);
-  const scale = (innerH: number) => linear(values, [innerH, 0], { target: monthTickTarget(innerH), clip: OUTLIER_FACTOR });
+  const scale = (innerH: number) => linear(values, [innerH, 0], { target: monthTickTarget(innerH), clip: new Set(sums.map((s) => s.month)).size >= MIN_CLIP_MONTHS ? OUTLIER_FACTOR : undefined, include: usual === null ? [] : [usual] });
   const y0 = scale(draft.innerH);
   const f = frame(width, { top: TOP, right: 4, bottom: BOTTOM, left: axisRoom(y0.ticks.map(monthAxisLabels(y0.ticks, y0.step, narrow))) }, options);
   const y = scale(f.innerH);
   const axisLabel = monthAxisLabels(y.ticks, y.step, narrow);
-  const capped = new Set(y.clipped.flatMap((k) => (k < sums.length ? [`${sums[k]!.month}:${sums[k]!.kind}`] : [])));
+  const capped = new Set(y.clipped.flatMap((k) => (y(values[k]!) < 0 || y(values[k]!) > f.innerH ? [`${sums[k]!.month}:${sums[k]!.kind}`] : [])));
   const x = band(months.length, f.innerW, 0.72);
   const bar = Math.max(1, x.width / 2 - 1);
   const running = (i: number) => i === months.length - 1 && months[i]!.month === today.slice(0, 7);
@@ -88,17 +91,13 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
   const top = (v: number) => capY(Math.min(y(v), y(0)), f.innerH);
   const height = (v: number) => Math.abs(capY(y(v), f.innerH) - y(0));
   const title = (m: Month) => monthLong(m.month);
-  // the break across a cut bar and its sum, the sum on the side of the pair's middle so two cut bars do not collide
-  const capMarks = (sum: number, at: number, anchor: "start" | "end", textX: number) => {
-    const end = sum > 0 ? -CAP_OVERSHOOT : f.innerH + CAP_OVERSHOOT;
-    const dir = sum > 0 ? -1 : 1;
-    return (
-      <>
-        <CapBreak x={at} width={bar} end={end} dir={dir} />
-        <CapSum x={textX} end={end} dir={dir} anchor={anchor} text={capSum(sum, narrow)} />
-      </>
-    );
-  };
+  // the break across a cut bar, and its sum on the side of the pair's middle so two cut bars do not collide; the sums are drawn after every bar, so a neighbour never covers one
+  const capEnd = (sum: number) => (sum > 0 ? -CAP_OVERSHOOT : f.innerH + CAP_OVERSHOOT);
+  const capDir = (sum: number) => (sum > 0 ? -1 : 1);
+  const capSums = months.flatMap((m, i) => [
+    ...(m.incomeCents !== null && capped.has(`${i}:income`) ? [{ key: `${m.month}:income`, sum: m.incomeCents, x: x.centre(i) - 1, anchor: "end" as const }] : []),
+    ...(m.spendCents !== null && capped.has(`${i}:spend`) ? [{ key: `${m.month}:spend`, sum: m.spendCents, x: x.centre(i) + 1, anchor: "start" as const }] : []),
+  ]);
   return (
     <div className="chart month-bars" ref={ref}>
       <ul className="mb-key" aria-hidden="true">
@@ -151,8 +150,8 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
                   {m.spendCents !== null && (
                     <rect className={whole ? "mb-spend" : "mb-spend-part"} fill={whole ? undefined : `url(#${hatch}-spend)`} x={left + bar + 2} y={top(m.spendCents)} width={bar} height={height(m.spendCents)} />
                   )}
-                  {m.incomeCents !== null && capped.has(`${i}:income`) && capMarks(m.incomeCents, left, "end", x.centre(i) - 1)}
-                  {m.spendCents !== null && capped.has(`${i}:spend`) && capMarks(m.spendCents, left + bar + 2, "start", x.centre(i) + 1)}
+                  {m.incomeCents !== null && capped.has(`${i}:income`) && <CapBreak x={left} width={bar} end={capEnd(m.incomeCents)} dir={capDir(m.incomeCents)} />}
+                  {m.spendCents !== null && capped.has(`${i}:spend`) && <CapBreak x={left + bar + 2} width={bar} end={capEnd(m.spendCents)} dir={capDir(m.spendCents)} />}
                   <CategoryTick x={x.centre(i)} base={f.innerH} long={ticks[i]!.printed} />
                   {ticks[i]!.printed && (
                     <text x={x.centre(i)} y={f.innerH + LABEL_Y} textAnchor="middle">
@@ -167,6 +166,9 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
                 </g>
               );
             })}
+            {capSums.map((c) => (
+              <CapSum key={c.key} x={c.x} end={capEnd(c.sum)} dir={capDir(c.sum)} anchor={c.anchor} text={capSum(c.sum, narrow)} />
+            ))}
             {usual !== null && <line className="mb-usual" x1={0} x2={f.innerW} y1={crisp(y(usual))} y2={crisp(y(usual))} />}
           </g>
           {/* outside the picture: each month is a link of its own, so a control never sits inside an image */}
