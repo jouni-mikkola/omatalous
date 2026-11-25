@@ -25,6 +25,7 @@ test("what the README says about Lisää, English and statement files holds on t
     await expect(page.getByRole("table", { name: "Tulot kuukausittain" })).toBeVisible();
     // a table of more than ten rows downloads as CSV
     await page.goto("/#/balances");
+    await page.locator("details.chart-fold > summary").first().click();
     await expect(page.getByRole("button", { name: /csv/i }).first()).toBeVisible();
 
     // the statement files: one place on Pankit ja tilit takes CSV and camt.053, read in the browser

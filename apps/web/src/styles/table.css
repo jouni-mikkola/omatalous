@@ -220,7 +220,7 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 
 /* the table of a chart, folded under it (ChartWithTable): the head line is the only thing drawn until it is opened */
 .chart-fold { border-top: 1px solid var(--grid); margin-top: var(--sp-16); }
-.chart-fold > summary { display: flex; align-items: center; gap: var(--sp-8); min-height: 44px; cursor: pointer; color: var(--text-2); }
+.chart-fold > summary { display: flex; align-items: center; gap: var(--sp-8); min-height: var(--tap-min); cursor: pointer; color: var(--text-2); }
 .chart-fold-count { color: var(--text-2); font-variant-numeric: tabular-nums; }
 .chart-fold-count::before { content: "\00b7"; margin-right: var(--sp-8); }
 .chart-fold[open] > summary { margin-bottom: var(--sp-8); }

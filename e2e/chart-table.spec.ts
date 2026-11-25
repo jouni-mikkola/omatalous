@@ -15,8 +15,7 @@ test("a month chart: its table is folded, a pick opens it on that month and Esca
   await expect(fold).toBeVisible({ timeout: 20_000 });
   await expect(fold).not.toHaveAttribute("open", "");
   await expect(fold.locator("summary")).toContainText("Kuukaudet taulukkona");
-  const chart = page.locator("svg g[tabindex='0']").first();
-  await chart.focus();
+  await fold.locator("xpath=preceding::*[@role='group'][1]").focus();
   await page.keyboard.press("Enter");
   await expect(fold).toHaveAttribute("open", "");
   await expect(fold.locator("table.rt tbody tr")).toHaveCount(1);

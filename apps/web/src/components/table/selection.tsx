@@ -49,6 +49,11 @@ export function ChartWithTable({ chart, table, title, rows }: { chart: ReactNode
   );
 }
 
+/** Tables inside are not cut by the pick of the scope around them: the opened detail of a row has rows of its own kind. */
+export function OutsideFilter({ children }: { children: ReactNode }) {
+  return <FilterContext.Provider value={null}>{children}</FilterContext.Provider>;
+}
+
 /** What a chart sends its pick to; null outside a `ChartWithTable`. */
 export function useSelect(): Pick | null {
   return useContext(PickContext);
