@@ -91,6 +91,8 @@ const EN: Record<BaseCodes, string> = {
   "auth.username_taken": "The username is already taken.",
   "auth.token_bad": "The service token is not valid.",
   "auth.token_read_only": "A service token can only read.",
+  "auth.device_token_bad": "The device token is not valid.",
+  "auth.device_token_scope": "A device token does not reach this.",
   "auth.token_too_many": "Too many attempts. Try again later.",
   "pw.too_short": "The password needs at least {min} characters.",
   "pw.too_long": "The password is too long.",

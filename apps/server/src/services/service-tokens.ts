@@ -5,10 +5,12 @@
  * member's rights whatever that user's role, and only through the GET routes READABLE names and those of an extension
  * that says its GETs only read (`tokenReads` in extensions.ts). It is made, listed and removed on the command line
  * (cli-service-token.ts), which needs the host; an admin also lists and removes them in Asetukset. Every token ends: at most MAX_DAYS after it was made.
+ * A bearer token of another prefix that an extension owns (`deviceTokens`) is that extension's to open and reaches only its
+ * device routes (deviceMayReach).
  */
 import type { User } from "../db/rows.ts";
 import type { ServiceTokenInfo } from "../db/service-token-repo.ts";
-import { EXTENSIONS } from "../extensions.ts";
+import { EXTENSIONS, type ServerExtension } from "../extensions.ts";
 import { UserError } from "../platform/errors.ts";
 import { randomBytes, sha256, toBase64Url } from "../security/encoding.ts";
 import type { Services } from "./context.ts";
@@ -55,6 +57,27 @@ function extensionReads(path: string): boolean {
 /** Whether a token may make this request: a read of a route READABLE names, or of an extension that says it only reads. */
 export function serviceMayRead(method: string, path: string): boolean {
   return (method === "GET" || method === "HEAD") && (READABLE.some((r) => r.test(path)) || extensionReads(path));
+}
+
+/**
+ * Whether an extension may take bearer tokens of this prefix (`deviceTokens` in extensions.ts): 2 to 8 lowercase letters
+ * and an underscore, so it is never empty and never takes a service token's `omt_`.
+ */
+export function devicePrefixValid(prefix: unknown): boolean {
+  return typeof prefix === "string" && /^[a-z]{2,8}_$/.test(prefix) && prefix !== PREFIX;
+}
+
+/** The extension whose device tokens start like this token, if any. */
+export function deviceTokenOwner(token: string): ServerExtension | undefined {
+  return EXTENSIONS.find((e) => e.deviceTokens !== undefined && devicePrefixValid(e.deviceTokens.prefix) && token.startsWith(e.deviceTokens.prefix));
+}
+
+/** Whether a device token of this extension may make a request of this path: /api/<id>/device/ and below, any method. */
+export function deviceMayReach(e: ServerExtension, path: string): boolean {
+  const prefix = `/api/${e.id}/device`;
+  if (!path.startsWith(`${prefix}/`)) return false;
+  const rest = path.slice(prefix.length);
+  return EXTENSION_REST.test(rest) && !rest.split("/").some((seg) => seg === "." || seg === "..");
 }
 
 function parseDays(days: string | undefined): number {

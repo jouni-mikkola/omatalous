@@ -9,7 +9,7 @@ import type { SecurityEvent } from "../db/security-repo.ts";
 import type { Services } from "./context.ts";
 import { type HealthProbes, healthNotices } from "./db-health.ts";
 import { INDUSTRY_NOTICE_KEY } from "./instance.ts";
-import { EXTENSIONS } from "../extensions.ts";
+import { EXTENSIONS, extensionNotices } from "../extensions.ts";
 
 export const EVENT_KINDS = [
   "login_ok",
@@ -240,6 +240,8 @@ async function everyNotice(s: Services, user: NoticeUser, probes?: HealthProbes,
   }
   // the disk and the host helper (db-health.ts), for admins
   out.push(...(await healthNotices(s, user, probes)));
+  // the add-on module's own (extensions.ts `notices`)
+  out.push(...(await extensionNotices(s, user)));
   return out;
 }
 
