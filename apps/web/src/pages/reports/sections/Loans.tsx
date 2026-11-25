@@ -7,6 +7,7 @@ import { intervalLabel, KIND_LABEL, referenceName } from "../../../components/lo
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { Figure } from "../../../components/Figure.tsx";
 import { DebtPath, DebtPathTable } from "../../../charts/forms/DebtPath.tsx";
+import { ExtraPlan } from "../../../components/loans/ExtraPlan.tsx";
 import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
 import { ACCOUNT_TYPE_LABEL, date, money, monthLongIn, percent, plainNumber } from "../../../format.ts";
 import { accountsLessDebt, sameDebtTwice } from "../parts.tsx";
@@ -376,6 +377,12 @@ function Loans({ ctx }: SectionProps) {
         </QuestionChart>
       )}
       {path && path.tops[0]! > 0 && <hr className="qc-rule" />}
+      {path && path.tops[0]! > 0 && r.extra.length > 0 && (
+        <>
+          <ExtraPlan path={path} extra={r.extra} />
+          <hr className="qc-rule" />
+        </>
+      )}
       <PlanDrill plan={r.plan} basis={r.consolidation} loans={r.loans} today={ctx.meta.today} />
       <Table<Entry>
         caption={t("rpt.ln_caption")}

@@ -18,6 +18,7 @@
   .qc-pair { grid-template-columns: 1fr 1fr; gap: 32px; }
   .qc-pair .qc + .qc { margin-top: 0; }
 }
+.qc-choice { margin-bottom: var(--sp-12); }
 .qc-rule { border: 0; border-top: 1px solid var(--grid); margin: 24px 0; }
 
 /* the marks */

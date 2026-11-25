@@ -2469,6 +2469,7 @@
    "payoff": "2026-11-10",
    "moves": []
   },
+  "extra": [],
   "maybeTwice": [],
   "overdraftTwice": [],
   "ended": []
