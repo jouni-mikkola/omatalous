@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
  * apps/web/src. KNOWN is what is left today, one count per file; it only shrinks: a file that loses a sum loses its
  * count, and a new file or a higher count fails.
  */
-const MONEY = /[a-zA-Z]Cents\s*[-+]\s*[a-zA-Z.]*Cents|reduce\(.*Cents|\+=\s*[a-zA-Z.]*Cents/g;
+const MONEY = /[a-zA-Z]Cents\s*[-+]\s*[a-zA-Z.]*Cents|reduce\(.*(?:Cents|\bcents\()|\+=\s*[a-zA-Z.]*Cents/g;
 
 const KNOWN: Record<string, number> = {
   "components/next-days-line.ts": 1,
@@ -36,6 +36,9 @@ describe("the web adds up no money of its own", () => {
     expect(moneySums("<Figure text={money(totals.leftCents)} />")).toBe(0);
     expect(moneySums("rows.sort((a, b) => b.changeCents - a.changeCents)[0]")).toBe(0);
     expect(moneySums("rows.map((a) => a.incomeCents - a.spentCents)")).toBe(1);
+    // a reducer that reads the figure through a function of its own
+    expect(moneySums("complete.reduce((total, m) => total + (cents(m) ?? 0), 0)")).toBe(1);
+    expect(moneySums("months.map((m) => cents(m))")).toBe(0);
   });
 
   it("has no sum of money beyond the list of what is left, and the list holds no file that has none", () => {

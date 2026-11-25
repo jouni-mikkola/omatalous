@@ -48,6 +48,8 @@ interface IncomeTypeRow {
   monthlyCents: number | null;
   /** Share of earned income, null for money that is not earned. */
   share: number | null;
+  /** Share of all the money in, earned or not, 0 to 1; 0 when no money came in. The rows add up to 1. */
+  shareOfAll: number;
   /** The type's money of each of the report's `months`, in their order; null in a month the data does not reach. */
   months: (number | null)[];
   /**
@@ -339,6 +341,7 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
       totalCents: r.total,
       monthlyCents: completeMonths ? Math.round(r.complete / completeMonths) : null,
       share: def.earned && earnedCents > 0 ? r.total / earnedCents : null,
+      shareOfAll: earnedCents + notEarnedCents > 0 ? r.total / (earnedCents + notEarnedCents) : 0,
       months: whereKnown(r.months, known),
       previousCents: previousCovered ? (previousByType.get(type) ?? 0) : null,
       changeCents: previousCovered ? r.complete - (previousByType.get(type) ?? 0) : null,
