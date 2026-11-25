@@ -104,13 +104,18 @@
 main:focus { outline: none; }
 /* the name of the open page, on every page, the one the menu gives it */
 .page-title { margin: var(--sp-16) 0 var(--sp-8); font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); font-weight: var(--w-strong); letter-spacing: 0; }
-/* under 360 px the switch, the word, a count of three digits and the user need a tighter row: less room at the edges and between the parts */
-@media (max-width: 359px) {
+/* under 390 px the switch, the word, a count of three digits and the user need a tighter row: less room at the edges and between the parts */
+@media (max-width: 389px) {
   .topbar-in:has(.scope-toggle) { padding: 0 var(--sp-8); gap: 0 var(--sp-4); }
   .topbar-in:has(.scope-toggle) .user-menu summary { padding: 0; }
   .topbar-in:has(.scope-toggle) .review-link { padding: 0; gap: var(--sp-4); }
   .topbar-in:has(.scope-toggle) .nav-count { padding: 0 var(--sp-4); }
   .topbar-in:has(.scope-toggle) .segmented button { padding: 0 var(--sp-4); }
+}
+/* under 360 px the user's button is what a finger needs and no wider (the name has what is left), and the count has less room round its digits, so that the row keeps one line with a count of three digits */
+@media (max-width: 359px) {
+  .topbar-in:has(.scope-toggle) .user-menu { flex-basis: var(--tap-phone); }
+  .topbar-in:has(.scope-toggle) .nav-count { padding: 0 1px; }
 }
 /* at 320 px the tabs get the whole width: no padding of their own */
 @media (max-width: 340px) {
