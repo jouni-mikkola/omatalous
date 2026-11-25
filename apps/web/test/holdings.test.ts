@@ -135,9 +135,12 @@ describe("Holdings", () => {
       const both = html(answer({ ...saved, unsavedLoans, unsavedFewPayments: 1 }));
       expect(undated(both)).toContain("Varat ja velat Varat velkojen jälkeen (ilman 3 velkaa) −119 000 €");
       expect(text(both)).toContain("Esimerkkirahoitus 100,00 €/kk · saldo puuttuu");
-      const alone = html(answer({ ...saved, unsavedFewPayments: 1 }));
+      // a lender with no monthly figure has its row too, with no /kk
+      const few = { count: 0, names: [], paymentCents: 0, rows: [{ debtId: "proposal:c", name: "Esimerkkilaina", monthlyCents: null, card: false }] };
+      const alone = html(answer({ ...saved, unsavedLoans: few, unsavedFewPayments: 1 }));
       expect(undated(alone)).toContain("Varat ja velat Varat velkojen jälkeen (ilman 1 velkaa) −119 000 €");
-      expect(text(alone)).not.toContain("saldo puuttuu");
+      expect(text(alone)).toContain("Esimerkkilaina saldo puuttuu");
+      expect(text(alone)).not.toContain("/kk");
     });
 
     it("is a dash while the debt total is unknown, whatever the accounts hold", () => {
