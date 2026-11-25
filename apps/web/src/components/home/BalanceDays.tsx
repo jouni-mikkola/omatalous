@@ -8,9 +8,10 @@ import { type Column, Table } from "../table/Table.tsx";
 type StepRow = KnownLowPoint["steps"][number] & { key: string };
 
 /**
- * Saldo päivä päivältä: the walk of core's `lowPoint` as a picture (BalanceSteps) under the sum left on the payday, with
- * its payments and pays folded under it as a table, one row to each, and the balance after its day's payments. Only
- * while the lowest balance is known and the walk has a day to go.
+ * Saldo päivä päivältä: the walk of core's `lowPoint` as a picture (BalanceSteps), with its payments and pays folded
+ * under it as a table, one row to each, and the balance after its day's payments. It stands under the sum left on the
+ * payday on a wide screen and under the month's figures on a phone (home.css). Only while the lowest balance is known and
+ * the walk has a day to go.
  */
 export function BalanceDays({ low, payday }: { low: KnownLowPoint; payday: string | null }) {
   const rows: StepRow[] = low.steps.map((s, i) => ({ ...s, key: `${s.date}:${i}` }));
@@ -21,14 +22,14 @@ export function BalanceDays({ low, payday }: { low: KnownLowPoint; payday: strin
     { key: "after", label: t("home.days_col_after"), kind: "money", main: true, precision: "cents", cents: (s) => s.afterCents },
   ];
   return (
-    <div className="home-days">
-      <h3 className="home-days-title">{t("home.days_title")}</h3>
+    <section className="card home-days" aria-labelledby="home-days-h">
+      <h2 id="home-days-h">{t("home.days_title")}</h2>
       <ChartWithTable
         title={t("home.days_table")}
         rows={rows.length}
         chart={<BalanceSteps low={low} payday={payday} />}
         table={rows.length > 0 ? <Table<StepRow> caption={t("home.days_title")} rows={rows} rowKey={(s) => s.key} columns={columns} toolbar={false} search={false} csv={false} /> : undefined}
       />
-    </div>
+    </section>
   );
 }

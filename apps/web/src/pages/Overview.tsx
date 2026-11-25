@@ -1,7 +1,8 @@
 import { query } from "../api.ts";
 import { Buffer } from "../components/home/Buffer.tsx";
 import { Coming } from "../components/home/Coming.tsx";
-import { Now } from "../components/home/Now.tsx";
+import { BalanceDays } from "../components/home/BalanceDays.tsx";
+import { Now, paydayOf } from "../components/home/Now.tsx";
 import { Summary } from "../components/home/Summary.tsx";
 import { FirstFetch } from "../components/home/FirstFetch.tsx";
 import { HomeSkeleton } from "../components/home/Skeleton.tsx";
@@ -20,7 +21,7 @@ import { t } from "../text.ts";
  * (Summary: Tulot, Menot and Tulos with their comparisons, and the use of the income under them), the coming months
  * (Coming: the bills, pays and what is left after them of this month and the two after it, read from Laskut's own
  * answer) and the accounts, cards and loans (Holdings, the block of Raportit > Varat ja velat); the last two stand in one rail
- * on a wide screen, the accounts under the coming months. The source order is the order a phone reads. The twelve months of income and spending are a chart of Raportit > Menot. No notice and no
+ * on a wide screen, the accounts under the coming months. The source order is the order a phone reads. The balance of the days to the payday is a chart under Nyt (BalanceDays), and the twelve months of income and spending are a chart of Raportit > Menot. No notice and no
  * question stands here: the notices are on Asetukset > Turvallisuus, the questions on Tarkistettavat. Every figure is a
  * field of an answer; nothing is added up here. The page always tells today and the running month.
  */
@@ -69,6 +70,8 @@ export function Overview({
       {nyt ? (
         <>
           <Now data={{ ...data, nyt }} />
+          {/* under Nyt on a wide screen, under the month on a phone (home.css) */}
+          {data.home.lowPoint?.known && data.home.lowPoint.line.length > 1 && <BalanceDays low={data.home.lowPoint} payday={paydayOf({ ...data, nyt })} />}
           <Summary data={{ ...data, nyt }} today={meta.today} />
         </>
       ) : (

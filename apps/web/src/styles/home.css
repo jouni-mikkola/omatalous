@@ -57,9 +57,9 @@
 .home-now .home-fig-label { margin-block-end: var(--sp-4); font-size: var(--fs-h2); font-weight: var(--w-strong); color: var(--text); }
 a.home-left:hover .fig-l { text-decoration: underline; }
 
-/* the balance of the days to the payday, across the answer and its working */
-.home-days { grid-column: 1 / -1; min-inline-size: 0; padding-block-start: var(--sp-16); border-block-start: var(--hairline) solid var(--grid); }
-.home-days-title { margin: 0 0 var(--sp-4); font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--w-strong); color: var(--text); }
+/* the balance of the days to the payday: a block of its own under Nyt, and under the month where the page is one column (below) */
+.home-days { min-inline-size: 0; }
+.home-days > h2 { margin-block-end: var(--sp-4); }
 
 /* the lowest balance of the next days, one line under the sum left to the payday */
 .home-low { margin: var(--sp-8) 0 0; font-size: var(--fs-body); line-height: var(--lh-body); }
@@ -99,6 +99,14 @@ a.home-left:hover .fig-l { text-decoration: underline; }
   .front:has(> .home-now) { grid-template-rows: auto 1fr; }
   .front > .home-now, .front > .home-summary { grid-column: 1 / 8; }
   .front > .home-now ~ .front-rail { grid-column: 8 / -1; grid-row: span 2; }
+  .front:has(> .home-days) { grid-template-rows: auto auto 1fr; }
+  .front > .home-days { grid-column: 1 / 8; }
+  .front > .home-days ~ .front-rail { grid-row: span 3; }
+}
+/* one column: the balance picture comes after the month, so the month's figures still end within the first screen of a phone */
+@media (max-width: 1039px) {
+  .front > .home-days { order: 1; }
+  .front > .front-rail { order: 2; }
 }
 /* a month's bills with the estimate under them, and a pay that is an estimate, are two lines in one cell, the second small and muted like the second line of a row */
 .home-coming .rt td.num { white-space: normal; }
