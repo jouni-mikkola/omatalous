@@ -74,7 +74,7 @@
   /* with larger text the parts of the bar no longer fit one line: they wrap, and the bar grows by a line, rather than squeeze the user's button or push the page wide */
   .topbar-in { padding: 0 12px; gap: 0 8px; height: auto; min-height: var(--rail-h); flex-wrap: wrap; }
   /* the name takes what the row leaves and is cut with an ellipsis, so the row keeps one line */
-  .user-menu { flex: 0 1 7rem; margin-left: auto; }
+  .user-menu { flex: 0 1 5.5rem; margin-left: auto; }
   .user-menu summary, .review-link { min-height: var(--tap-min); }
   .review-link { padding: 0 var(--sp-4); gap: var(--sp-4); }
   .user-menu summary { padding: var(--sp-4); }
