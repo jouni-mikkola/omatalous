@@ -25,9 +25,9 @@ describe("Laskut: the days of the picked month", () => {
     expect(screen.getByRole("img", { name: "Laskut päivittäin, joulukuu 2026" })).toBeTruthy();
     const bars = [...container.querySelectorAll<HTMLElement>(".bill-day > i")];
     expect(bars).toHaveLength(31);
-    expect(bars[0]!.style.blockSize).toBe("100%");
-    expect(bars[9]!.style.blockSize).toBe("25%");
-    expect(bars[1]!.style.blockSize).toBe("0%");
+    expect(bars[0]!.style.getPropertyValue("block-size")).toBe("100%");
+    expect(bars[9]!.style.getPropertyValue("block-size")).toBe("25%");
+    expect(bars[1]!.style.getPropertyValue("block-size")).toBe("0%");
   });
 
   it("marks the day of a pay and numbers the first day and every fifth", () => {
@@ -41,7 +41,7 @@ describe("Laskut: the days of the picked month", () => {
 
   it("draws no height in a month with no bill left", () => {
     const { container } = render(createElement(BillDays, { month: month("2026-12", []) }));
-    expect([...container.querySelectorAll<HTMLElement>(".bill-day > i")].every((bar) => bar.style.blockSize === "0%")).toBe(true);
+    expect([...container.querySelectorAll<HTMLElement>(".bill-day > i")].every((bar) => bar.style.getPropertyValue("block-size") === "0%")).toBe(true);
   });
 });
 

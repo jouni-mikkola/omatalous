@@ -949,7 +949,22 @@
     "optionalCents": 0,
     "afterCents": 101803,
     "monthlyBillsCount": 2,
-    "monthlyBillsCents": 7611
+    "monthlyBillsCents": 7611,
+    "lessOftenCents": 285586,
+    "billDays": [
+     {
+      "date": "2026-10-10",
+      "cents": 285586
+     },
+     {
+      "date": "2026-10-15",
+      "cents": 4621
+     },
+     {
+      "date": "2026-10-20",
+      "cents": 2990
+     }
+    ]
    },
    {
     "month": "2026-11",
@@ -1125,7 +1140,26 @@
     "optionalCents": 0,
     "afterCents": 235952,
     "monthlyBillsCount": 4,
-    "monthlyBillsCents": 144048
+    "monthlyBillsCents": 144048,
+    "lessOftenCents": 0,
+    "billDays": [
+     {
+      "date": "2026-11-02",
+      "cents": 105000
+     },
+     {
+      "date": "2026-11-05",
+      "cents": 28900
+     },
+     {
+      "date": "2026-11-15",
+      "cents": 7158
+     },
+     {
+      "date": "2026-11-20",
+      "cents": 2990
+     }
+    ]
    },
    {
     "month": "2026-12",
@@ -1301,7 +1335,26 @@
     "optionalCents": 0,
     "afterCents": 235367,
     "monthlyBillsCount": 4,
-    "monthlyBillsCents": 144633
+    "monthlyBillsCents": 144633,
+    "lessOftenCents": 0,
+    "billDays": [
+     {
+      "date": "2026-12-02",
+      "cents": 105000
+     },
+     {
+      "date": "2026-12-05",
+      "cents": 28900
+     },
+     {
+      "date": "2026-12-15",
+      "cents": 7743
+     },
+     {
+      "date": "2026-12-20",
+      "cents": 2990
+     }
+    ]
    },
    {
     "month": "2027-01",
@@ -1486,7 +1539,26 @@
     "optionalCents": 0,
     "afterCents": 221345,
     "monthlyBillsCount": 4,
-    "monthlyBillsCents": 144425
+    "monthlyBillsCents": 144425,
+    "lessOftenCents": 14230,
+    "billDays": [
+     {
+      "date": "2027-01-02",
+      "cents": 105000
+     },
+     {
+      "date": "2027-01-05",
+      "cents": 43130
+     },
+     {
+      "date": "2027-01-15",
+      "cents": 7535
+     },
+     {
+      "date": "2027-01-20",
+      "cents": 2990
+     }
+    ]
    },
    {
     "month": "2027-02",
@@ -1662,7 +1734,26 @@
     "optionalCents": 0,
     "afterCents": 235873,
     "monthlyBillsCount": 4,
-    "monthlyBillsCents": 144127
+    "monthlyBillsCents": 144127,
+    "lessOftenCents": 0,
+    "billDays": [
+     {
+      "date": "2027-02-02",
+      "cents": 105000
+     },
+     {
+      "date": "2027-02-05",
+      "cents": 28900
+     },
+     {
+      "date": "2027-02-15",
+      "cents": 7237
+     },
+     {
+      "date": "2027-02-20",
+      "cents": 2990
+     }
+    ]
    },
    {
     "month": "2027-03",
@@ -1838,7 +1929,26 @@
     "optionalCents": 0,
     "afterCents": 235903,
     "monthlyBillsCount": 4,
-    "monthlyBillsCents": 144097
+    "monthlyBillsCents": 144097,
+    "lessOftenCents": 0,
+    "billDays": [
+     {
+      "date": "2027-03-02",
+      "cents": 105000
+     },
+     {
+      "date": "2027-03-05",
+      "cents": 28900
+     },
+     {
+      "date": "2027-03-15",
+      "cents": 7207
+     },
+     {
+      "date": "2027-03-20",
+      "cents": 2990
+     }
+    ]
    },
    {
     "month": "2027-04",
@@ -2023,7 +2133,26 @@
     "optionalCents": 0,
     "afterCents": 224900,
     "monthlyBillsCount": 4,
-    "monthlyBillsCents": 140870
+    "monthlyBillsCents": 140870,
+    "lessOftenCents": 14230,
+    "billDays": [
+     {
+      "date": "2027-04-02",
+      "cents": 105000
+     },
+     {
+      "date": "2027-04-05",
+      "cents": 43130
+     },
+     {
+      "date": "2027-04-15",
+      "cents": 3980
+     },
+     {
+      "date": "2027-04-20",
+      "cents": 2990
+     }
+    ]
    },
    {
     "month": "2027-05",
@@ -2199,7 +2328,26 @@
     "optionalCents": 0,
     "afterCents": 238388,
     "monthlyBillsCount": 4,
-    "monthlyBillsCents": 141612
+    "monthlyBillsCents": 141612,
+    "lessOftenCents": 0,
+    "billDays": [
+     {
+      "date": "2027-05-02",
+      "cents": 105000
+     },
+     {
+      "date": "2027-05-05",
+      "cents": 28900
+     },
+     {
+      "date": "2027-05-15",
+      "cents": 4722
+     },
+     {
+      "date": "2027-05-20",
+      "cents": 2990
+     }
+    ]
    },
    {
     "month": "2027-06",
@@ -2375,7 +2523,26 @@
     "optionalCents": 0,
     "afterCents": 239645,
     "monthlyBillsCount": 4,
-    "monthlyBillsCents": 140355
+    "monthlyBillsCents": 140355,
+    "lessOftenCents": 0,
+    "billDays": [
+     {
+      "date": "2027-06-02",
+      "cents": 105000
+     },
+     {
+      "date": "2027-06-05",
+      "cents": 28900
+     },
+     {
+      "date": "2027-06-15",
+      "cents": 3465
+     },
+     {
+      "date": "2027-06-20",
+      "cents": 2990
+     }
+    ]
    },
    {
     "month": "2027-07",
@@ -2560,7 +2727,26 @@
     "optionalCents": 0,
     "afterCents": 224259,
     "monthlyBillsCount": 4,
-    "monthlyBillsCents": 141511
+    "monthlyBillsCents": 141511,
+    "lessOftenCents": 14230,
+    "billDays": [
+     {
+      "date": "2027-07-02",
+      "cents": 105000
+     },
+     {
+      "date": "2027-07-05",
+      "cents": 43130
+     },
+     {
+      "date": "2027-07-15",
+      "cents": 4621
+     },
+     {
+      "date": "2027-07-20",
+      "cents": 2990
+     }
+    ]
    },
    {
     "month": "2027-08",
@@ -2736,7 +2922,26 @@
     "optionalCents": 0,
     "afterCents": 237886,
     "monthlyBillsCount": 4,
-    "monthlyBillsCents": 142114
+    "monthlyBillsCents": 142114,
+    "lessOftenCents": 0,
+    "billDays": [
+     {
+      "date": "2027-08-02",
+      "cents": 105000
+     },
+     {
+      "date": "2027-08-05",
+      "cents": 28900
+     },
+     {
+      "date": "2027-08-15",
+      "cents": 5224
+     },
+     {
+      "date": "2027-08-20",
+      "cents": 2990
+     }
+    ]
    },
    {
     "month": "2027-09",
@@ -2912,7 +3117,26 @@
     "optionalCents": 0,
     "afterCents": 238621,
     "monthlyBillsCount": 4,
-    "monthlyBillsCents": 141379
+    "monthlyBillsCents": 141379,
+    "lessOftenCents": 0,
+    "billDays": [
+     {
+      "date": "2027-09-02",
+      "cents": 105000
+     },
+     {
+      "date": "2027-09-05",
+      "cents": 28900
+     },
+     {
+      "date": "2027-09-15",
+      "cents": 4489
+     },
+     {
+      "date": "2027-09-20",
+      "cents": 2990
+     }
+    ]
    }
   ],
   "billsCents": 1905058,

@@ -6,6 +6,7 @@
  * every sum and day is a row of the table under it.
  */
 import { daysInMonth } from "@banking/core";
+import { css } from "../../css.ts";
 import { monthLong } from "../../format.ts";
 import { t } from "../../text.ts";
 import type { CalMonth } from "./calendar-rows.ts";
@@ -27,7 +28,7 @@ export function BillDays({ month }: { month: CalMonth }) {
         return (
           <div key={date} className={pay ? "bill-day bill-day-pay" : "bill-day"}>
             {pay && <b>{t("bills.day_pay")}</b>}
-            <i style={{ blockSize: `${share}%` }} />
+            <i ref={css({ "block-size": `${share}%` })} />
             <span>{labelled(day) || pay ? day : ""}</span>
           </div>
         );
