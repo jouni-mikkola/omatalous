@@ -3,6 +3,39 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.6.6
+
+- Yhteenveto leads with Jää palkkapäivänä, the money left on payday after bills and usual spending.
+- Each report page opens with one sentence of what its figures come to.
+- Laskut folds the bills a card pays under one toggle, so the page stays short on a phone.
+- The add-on checks for a new release at start-up and loads it in the same start.
+
+Money and reports
+
+- A credit whose payments stopped within the year is now asked about once: paid off, still owed, or not a loan
+- Yhteenveto leads with Jää palkkapäivänä: the money left on payday after bills and the usual everyday spending.
+- The lowest balance of the next days shows only when it falls on or after payday, as one sum.
+- Varat ja velat on Yhteenveto no longer repeats a second sum after card debt, and "Ei puskuria" is one line with no sum under it.
+- Tulevat kuukaudet starts at the next month when the running month has everything paid and nothing to come.
+- Money taken out of savings or drawn on credit is told as its own sum in whole euros, the same under Käteen jäi and in Tulojen käyttö.
+- When spending was over the income, Tulojen käyttö tells in one sentence what paid the gap and shows no share column, as shares of the income alone would add to more than 100 %. The sum taken out of savings is told once, the same as under Käteen jäi.
+- Each report page opens with one sentence of what its figures come to: cash flow, spending, balances, shared costs.
+- Raportit > Menot shows the debt paid (interest included), the new credit drawn and the bank fees and late fees in one panel.
+- Raportit > Varat ja velat draws the daily balance as a line.
+
+Look
+
+- Laskut folds the open month's bills that a card pays under one toggle, Kortilla, so the page stays short on a phone on any day of the month.
+
+Reliability
+
+- The add-on looks for a new release at start-up when the last check is over an hour old, and loads it in the same start.
+- Asetukset > Lisäosa has a Tarkista päivitys button that looks for a new add-on release and says if a restart is needed.
+
+For developers
+
+- An add-on module can take its own device tokens for its device routes and add notices to the notice list.
+
 ## 1.6.5
 
 Look
