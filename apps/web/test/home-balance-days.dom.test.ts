@@ -62,7 +62,7 @@ describe("BalanceDays", () => {
 
   it("folds the payments and pays under the picture, one row each, an estimate said", () => {
     const c = view();
-    expect(flat(c.querySelector(".chart-fold-title")?.textContent)).toBe("Päivät taulukkona");
+    expect(flat(c.querySelector(".chart-fold-title")?.textContent)).toBe("Maksut taulukkona");
     expect(flat(c.querySelector(".chart-fold-count")?.textContent)).toBe("2 riviä");
     expect([...c.querySelectorAll("tbody tr")].map(cells)).toEqual([
       ["13.12.", "Vuokra", "−600,00 €", "300,00 €"],

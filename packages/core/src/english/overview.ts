@@ -116,7 +116,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.days_low": "lowest {date} {sum}",
   "home.days_low_short": "lowest {sum}",
   "home.days_payday": "payday {date}",
-  "home.days_table": "Days as a table",
+  "home.days_table": "Payments as a table",
   "home.days_col_day": "Day",
   "home.days_col_after": "Balance after the day's payments",
   "home.days_estimate": "{payee}, estimate",
