@@ -56,6 +56,7 @@ export function Table<R>({
   open: openProp,
   onOpen,
   drillButton = true,
+  keepColumns,
   headTop,
   groups,
   sectionFigure,
@@ -74,7 +75,7 @@ export function Table<R>({
   view: viewProp,
   onView,
 }: TableProps<R>) {
-  const slim = columns.filter((c) => !c.series && c.phone !== "hide").length <= SLIM;
+  const slim = keepColumns === true || columns.filter((c) => !c.series && c.phone !== "hide").length <= SLIM;
   const [wrap, block] = useBlock(slim);
   const [openOwn, setOpenOwn] = useOpenRow(caption);
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());

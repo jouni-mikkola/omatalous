@@ -62,6 +62,8 @@ export type TableProps<R> = {
   onOpen?: (key: string | null) => void;
   /** False when the page has the button: no chevron in the first cell. */
   drillButton?: boolean;
+  /** A table of a few short cells (a month, three sums) that keeps its columns on a phone as long as they fit, though it has more than three: it still becomes blocks when they do not. */
+  keepColumns?: boolean;
   /** An upper head row; the row of the columns follows it, without the `covered` columns. */
   headTop?: { cells: HeadCell[]; covered?: string[] };
   /** The rows in bodies of their own, in this order (`rows` still holds them all, flat); the sort orders each group. */

@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { marksBySubject } from "@banking/core";
 import { BillsTable } from "../src/components/bills/BillsTable.tsx";
 import { Coming, ComingMonths } from "../src/components/home/Coming.tsx";
+import { billsHref } from "../src/components/home/Now.tsx";
 import { billItems } from "../src/components/bills/items.ts";
 import type { ReportsData } from "../src/types.ts";
 import { bill, calendar, month } from "./bill-calendar-fixture.ts";
@@ -73,21 +74,22 @@ describe("Tulevat kuukaudet", () => {
     const trs = [...container.querySelectorAll("tbody tr")];
     expect(trs).toHaveLength(3);
     trs.forEach((tr, i) => {
-      const [, bills, income, after] = cells(tr);
+      const [, income, billsCell, after] = cells(tr);
       const head = heads[i]!;
-      // the bills with their estimated part, as the head says them
-      expect(head).toContain(`Laskut ${bills}`);
+      // the bills with their estimated part under them ("josta arvio"), as the head says them ("arviota")
+      const [bills, estimate] = billsCell!.split(" josta arvio ");
+      expect(head).toContain(estimate === undefined ? `Laskut ${bills}` : `Laskut ${bills} (arviota ${estimate})`);
       if (income !== "–") expect(head).toContain(`Tulot ${income}`);
       if (after === "Ei tiedossa") expect(head).toContain("Laskujen jälkeen: ei tiedossa");
       else expect(head).toContain(`Laskujen jälkeen ${after}`);
     });
-    if (make === answer) expect(cells(trs[0]!)).toEqual(["Marraskuu 2026", "1 500,00 € (arviota 300,00 €)", "3 000,00 €", "1 400,00 €"]);
+    if (make === answer) expect(cells(trs[0]!)).toEqual(["Marraskuu 2026", "3 000,00 €", "1 500,00 € josta arvio 300,00 €", "1 400,00 €"]);
   });
 
   it("never turns a sum that is not known into 0, and says how many bills lack one", () => {
     const { container } = render(createElement(ComingMonths, { calendar: unknownAnswer() }));
     const trs = [...container.querySelectorAll("tbody tr")];
-    expect(cells(trs[2]!)).toEqual(["Tammikuu 2027", "900,00 €", "3 100,00 €", "Ei tiedossa"]);
+    expect(cells(trs[2]!)).toEqual(["Tammikuu 2027", "3 100,00 €", "900,00 €", "Ei tiedossa"]);
     // no month has a sum after the bills while a bill's sum is unknown
     expect(trs.map((tr) => cells(tr)[3])).toEqual(["Ei tiedossa", "Ei tiedossa", "Ei tiedossa"]);
     expect(cells(trs[2]!).join(" ")).not.toContain("0,00 € 0");
@@ -105,9 +107,21 @@ describe("Tulevat kuukaudet", () => {
 
   it("leaves the pays out of a month that has none and tells what is left below 0, as Laskut does", () => {
     const { container } = render(createElement(ComingMonths, { calendar: answer() }));
-    const [month, bills, income, after] = cells([...container.querySelectorAll("tbody tr")][1]!);
-    expect([month, bills, income]).toEqual(["Joulukuu 2026", "800,00 €", "–"]);
+    const [month, income, bills, after] = cells([...container.querySelectorAll("tbody tr")][1]!);
+    expect([month, income, bills]).toEqual(["Joulukuu 2026", "–", "800,00 €"]);
     expect(after).toMatch(/^[−-]800,00 €$/);
+  });
+
+  it("marks the pays of a month as an estimate when one of them is", () => {
+    const pay = (state: "known" | "estimate") => bill({ date: "2026-11-25", payee: "Työnantaja", cents: 300000, kind: "income", state });
+    const cal = calendar([
+      month("2026-11", [...rows("2026-11"), pay("known")], { knownCents: 80000, billsCents: 80000, incomeCents: 300000, afterCents: 220000 }),
+      month("2026-12", [...rows("2026-12"), pay("estimate")], { knownCents: 80000, billsCents: 80000, incomeCents: 300000, afterCents: 220000 }),
+    ]);
+    const { container } = render(createElement(ComingMonths, { calendar: cal }));
+    const trs = [...container.querySelectorAll("tbody tr")];
+    expect(cells(trs[0]!)[1]).toBe("3 000,00 €");
+    expect(cells(trs[1]!)[1]).toBe("3 000,00 € arvio");
   });
 
   it("says a running month's sum is what is unpaid when some of its bills are paid", () => {
@@ -115,8 +129,8 @@ describe("Tulevat kuukaudet", () => {
     const { container } = render(createElement(ComingMonths, { calendar: cal }));
     const trs = [...container.querySelectorAll("tbody tr")];
     expect(cells(trs[0]!)[0]).toBe("Marraskuu 2026");
-    expect(cells(trs[0]!)[1]).toBe("400,00 € maksamatta");
-    expect(cells(trs[1]!)[1]).toBe("800,00 €");
+    expect(cells(trs[0]!)[2]).toBe("400,00 € maksamatta");
+    expect(cells(trs[1]!)[2]).toBe("800,00 €");
     // the head of the same month in Laskut tells the same: what is paid and what is unpaid
     const head = laskutHeads(cal)[0]!;
     expect(head).toContain("Maksetut laskut 1 542,04 €");
@@ -222,14 +236,14 @@ describe("Laskut: the unknown bills a month head counts", () => {
 });
 
 describe("Tulevat kuukaudet, the block", () => {
-  it("asks for the bill calendar of the scope, shows it under its heading and has no link: the figure of Nyt is the one way to Laskut", async () => {
+  it("asks for the bill calendar of the scope, shows it under its heading and links to Laskut from its head", async () => {
     const seen = stubApi({ "GET /api/reports": { billCalendar: answer() } });
     render(createElement(Coming, { scope: "household" }));
     const region = screen.getByRole("region", { name: "Tulevat kuukaudet" });
     await waitFor(() => expect(within(region).getAllByRole("row").length).toBeGreaterThan(1));
     expect(seen).toHaveLength(1);
     expect(seen[0]!.path).toBe("/api/reports");
-    expect(within(region).queryAllByRole("link")).toEqual([]);
+    expect(within(region).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")])).toEqual([["Laskut", billsHref]]);
   });
 
   it("shows the error of a failed answer and no figure", async () => {

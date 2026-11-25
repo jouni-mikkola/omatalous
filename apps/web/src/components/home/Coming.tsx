@@ -8,6 +8,7 @@ import type { ReportsData, Scope } from "../../types.ts";
 import { nothingToCome } from "../bills/calendar-rows.ts";
 import { Notice } from "../ui/Notice.tsx";
 import { Table } from "../table/Table.tsx";
+import { billsHref } from "./Now.tsx";
 
 type Calendar = ReportsData["billCalendar"];
 type Month = Calendar["months"][number];
@@ -17,14 +18,20 @@ const COMING_MONTHS = 3;
 
 const capital = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slice(1);
 
+/** A line under a figure of a cell, in the small muted type of a second line of a row. */
+const note = (text: string) => <span className="home-coming-note">{text}</span>;
+
 /**
- * The bills of a month, with the estimated part when there is one: the figure Laskut's month head gives. A month with bills
+ * The bills of a month, with the estimated part under them when there is one: the figure Laskut's month head gives. A month with bills
  * already paid (the running one) says the sum is what is unpaid, as its head does, so the column never reads 0 for paid bills.
  */
-const billsText = (m: Month) => {
-  const sum = m.estimateCents > 0 ? t("home.coming_estimate", { sum: money(m.billsCents), estimate: money(m.estimateCents) }) : money(m.billsCents);
-  return m.paidCents > 0 ? t("home.coming_unpaid", { sum }) : sum;
+const billsCell = (m: Month) => {
+  const sum = m.paidCents > 0 ? t("home.coming_unpaid", { sum: money(m.billsCents) }) : money(m.billsCents);
+  return m.estimateCents > 0 ? <>{sum} {note(t("home.coming_estimate", { estimate: money(m.estimateCents) }))}</> : sum;
 };
+
+/** The pays of a month, marked as an estimate when one of them is: the calendar's rows say which pays are known. */
+const incomeCell = (m: Month) => (m.incomeCents > 0 ? <>{money(m.incomeCents)} {m.rows.some((r) => r.kind === "income" && r.state === "estimate") && note(t("home.coming_income_estimate"))}</> : "–");
 
 /** What is left of the pays after the bills, as Laskut's month head tells it: below 0 in a month with no pay, and a status in a month a bill with no known sum falls in, never 0. */
 const afterText = (m: Month) => (m.afterCents === null ? t("home.coming_after_unknown") : nothingToCome(m) ? "–" : money(m.afterCents));
@@ -52,10 +59,11 @@ export function ComingMonths({ calendar }: { calendar: Calendar }) {
         rowKey={(m) => m.month}
         columns={[
           { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => capital(monthLong(m.month)) },
-          { key: "bills", label: t("nav.bills"), kind: "money", main: true, cents: (m) => m.billsCents, cell: billsText },
-          { key: "income", label: t("home.coming_income"), kind: "money", cents: (m) => m.incomeCents, cell: (m) => (m.incomeCents > 0 ? money(m.incomeCents) : "–") },
-          { key: "after", label: t("home.coming_after"), kind: "money", cents: (m) => m.afterCents, cell: afterText },
+          { key: "income", label: t("home.coming_income"), kind: "money", cents: (m) => m.incomeCents, cell: incomeCell },
+          { key: "bills", label: t("nav.bills"), kind: "money", main: true, cents: (m) => m.billsCents, cell: billsCell },
+          { key: "after", label: t("home.coming_after"), kind: "money", cents: (m) => m.afterCents, cell: afterText, className: () => "home-coming-after" },
         ]}
+        keepColumns
         drillButton={false}
         toolbar={false}
         csv={false}
@@ -72,7 +80,10 @@ export function Coming({ scope }: { scope: Scope }) {
   const calendar = answer.data?.billCalendar;
   return (
     <section className="card home-coming" aria-labelledby="home-coming-h">
-      <h2 id="home-coming-h">{t("home.coming_title")}</h2>
+      <div className="card-head home-coming-head">
+        <h2 id="home-coming-h">{t("home.coming_title")}</h2>
+        <a href={billsHref}>{t("nav.bills")}</a>
+      </div>
       {answer.error && !calendar ? <Notice tone="error">{answer.error}</Notice> : calendar ? <ComingMonths calendar={calendar} /> : <span className="home-coming-wait" aria-hidden="true" />}
     </section>
   );

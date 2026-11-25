@@ -19,8 +19,8 @@ import { t } from "../text.ts";
  * Yhteenveto: how the household's money stands and is going, in four blocks. Nyt (what is left to the payday), the month
  * (Summary: Tulot, Menot and Tulos with their comparisons, and the use of the income under them), the coming months
  * (Coming: the bills, pays and what is left after them of this month and the two after it, read from Laskut's own
- * answer) and the accounts, cards and loans (Holdings, the block of Raportit > Varat ja velat). The source order is the
- * order a phone reads. The twelve months of income and spending are a chart of Raportit > Menot. No notice and no
+ * answer) and the accounts, cards and loans (Holdings, the block of Raportit > Varat ja velat); the last two stand in one rail
+ * on a wide screen, the accounts under the coming months. The source order is the order a phone reads. The twelve months of income and spending are a chart of Raportit > Menot. No notice and no
  * question stands here: the notices are on Asetukset > Turvallisuus, the questions on Tarkistettavat. Every figure is a
  * field of an answer; nothing is added up here. The page always tells today and the running month.
  */
@@ -74,8 +74,10 @@ export function Overview({
       ) : (
         <p className="home-detail">{t("home.no_payments_shown")}</p>
       )}
-      <Coming scope={scope} />
-      <Holdings holdings={data.holdings} meta={meta} ahead={data.ahead} net={false} buffer={<Buffer direction={data.home.direction} />} />
+      <div className="front-rail">
+        <Coming scope={scope} />
+        <Holdings holdings={data.holdings} meta={meta} ahead={data.ahead} net={false} buffer={<Buffer direction={data.home.direction} />} />
+      </div>
     </div>
   );
 }

@@ -152,53 +152,79 @@ function flowLabel(key: string, split: boolean): string {
     case "repaid": return t("home.bridge_repaid");
     case "savings-left": return t("home.bridge_savings_left");
     case "credit-left": return t("home.bridge_credit_left");
+    case "income": return t("home.fig_income");
+    case "credit": return t("home.source_credit");
+    case "savings": return t("home.source_savings");
+    case "accounts": return t("home.source_accounts");
     default: return t("home.fig_result");
   }
 }
 
+/** The parts of the bar of what came in (Tuli); every other part is on the bar of what went out (Meni). */
+const IN_KEYS: readonly string[] = ["income", "credit-left", "savings-left", ...COVER_KEYS];
+
+type BridgeFigureOf = BridgeView["figures"][number];
+type BridgePiecesOf = BridgeView["parts"];
+
+/** One bar with its name at the left and its parts named under it. */
+function FlowSide({ side, name, pieces, figures, view, euros }: { side: "in" | "out"; name: string; pieces: BridgePiecesOf; figures: BridgeFigureOf[]; view: BridgeView; euros: Record<string, number> }) {
+  const sharesShown = view.cover.gapCents < 50;
+  return (
+    <div className="home-flow-side" data-side={side}>
+      <span className="home-flow-side-name">{name}</span>
+      <span className="home-flow-bar" data-bar={side} aria-hidden="true">
+        {pieces.filter((p) => p.share > 0).map((p) => (
+          <span key={p.key} data-part={p.key} data-tone={FLOW_TONE[p.key] ?? "neutral"} ref={css({ "flex-grow": p.share })} />
+        ))}
+      </span>
+      <FlowList figures={figures} view={view} euros={euros} sharesShown={sharesShown} side={side} />
+    </div>
+  );
+}
+
+/** The parts under a bar (or alone): the name, the share of the income and the sum, which a part that is a figure of the strip does not have. */
+function FlowList({ figures, view, euros, sharesShown, side }: { figures: BridgeFigureOf[]; view: BridgeView; euros: Record<string, number>; sharesShown: boolean; side: "in" | "out" | "all" }) {
+  return (
+    <ul className="home-flow-list" data-side={side}>
+      {figures.map((f) => (
+        <li key={f.key} data-part={f.key}>
+          <span className="home-flow-swatch" data-tone={FLOW_TONE[f.key] ?? "neutral"} aria-hidden="true" />
+          <span className="home-flow-name">{flowLabel(f.key, view.debtSplit)}</span>
+          <span className="home-flow-share num">{sharesShown && f.incomeUnits !== null ? percent(f.incomeUnits / 100) : ""}</span>
+          <span className="home-flow-sum num">{f.key === "left" || IN_KEYS.includes(f.key) || f.key in euros ? "" : answerMoney(f.cents)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /**
- * Tulojen käyttö: the bar of where the month's income went, in the order of the flows (consumption, debt, savings, what
- * stayed), and under it each part with its sum and its share of the income. A part that is already a figure of the month's strip
- * (Käteen jäi, and the terms under it: savings moved or taken out, credit drawn or paid back) is named without its sum, so each sum stands once.
- * All of it is `bridgeView` of the same totals as the three figures above, the one calculation of the bridge on Raportit. When
- * the spending was more than the income, a second bar above the first draws what paid for it: the income, then the credit,
- * the savings and the accounts that covered the rest, told in one sentence under the list: the spending over the income and
- * what paid it; the list then has no share column, as its shares of the income alone would add to more than 100 %. With no income, or a part
- * below zero, no bar is drawn and the parts stand as a list alone.
+ * Tulojen käyttö: two bars on one scale, Tuli (the income, and what covered the rest: credit, savings, the accounts) and Meni
+ * (consumption, debt, savings, what stayed), each with its parts named under it. A part that is already a figure of the
+ * month's strip (Tulot, Käteen jäi, and the terms under it: savings moved or taken out, credit drawn or paid back) is named
+ * without its sum, so each sum stands once; the sums of what covered a gap are told in the one sentence under the bars, and
+ * with a gap the parts have no share column, as shares of the income alone would add to more than 100 %. All of it is
+ * `bridgeView` of the same totals as the three figures above, the one calculation of the bridge on Raportit. With no income,
+ * or a part below zero, no bar is drawn and the parts stand as a list alone.
  */
 function Flow({ view, shown }: { view: BridgeView; shown: { saved: number; credit: number } }) {
   // a part named like a term under Tulos stands only where its term is shown, and it has no sum of its own: the term tells it
   const euros: Record<string, number> = { saved: shown.saved, "savings-left": -shown.saved, "credit-left": shown.credit, repaid: -shown.credit };
-  const rows = view.figures.filter((f) => f.key !== "income" && !COVER_KEYS.includes(f.key) && f.cents !== 0 && (!(f.key in euros) || euros[f.key]! > 0));
+  const figures = view.figures.filter((f) => f.cents !== 0 && (!(f.key in euros) || euros[f.key]! > 0));
   const gap = gapSentence(view, shown);
-  const sharesShown = view.cover.gapCents < 50;
+  // the income alone is the bar of what came in when it paid everything
+  const came = view.sources.length > 0 ? view.sources : [{ key: "income" as const, cents: view.totals.incomeCents, share: 1 }];
   return (
     <section className="home-flow" aria-labelledby="home-flow-h">
       <h3 id="home-flow-h">{t("home.bridge_where")}</h3>
-      {view.draws && view.sources.length > 0 && (
-        <span className="home-flow-bar" data-bar="sources" aria-hidden="true">
-          {view.sources.filter((p) => p.share > 0).map((p) => (
-            <span key={p.key} data-part={p.key} data-tone={FLOW_TONE[p.key] ?? "neutral"} ref={css({ "flex-grow": p.share })} />
-          ))}
-        </span>
+      {view.draws ? (
+        <>
+          <FlowSide side="in" name={t("home.bridge_in")} pieces={came} figures={figures.filter((f) => IN_KEYS.includes(f.key))} view={view} euros={euros} />
+          <FlowSide side="out" name={t("home.bridge_out")} pieces={view.parts} figures={figures.filter((f) => !IN_KEYS.includes(f.key))} view={view} euros={euros} />
+        </>
+      ) : (
+        <FlowList figures={figures.filter((f) => f.key !== "income" && !COVER_KEYS.includes(f.key))} view={view} euros={euros} sharesShown={view.cover.gapCents < 50} side="all" />
       )}
-      {view.draws && (
-        <span className="home-flow-bar" data-bar="parts" aria-hidden="true">
-          {view.parts.filter((p) => p.share > 0).map((p) => (
-            <span key={p.key} data-part={p.key} data-tone={FLOW_TONE[p.key] ?? "neutral"} ref={css({ "flex-grow": p.share })} />
-          ))}
-        </span>
-      )}
-      <ul className="home-flow-list">
-        {rows.map((f) => (
-          <li key={f.key} data-part={f.key}>
-            <span className="home-flow-swatch" data-tone={FLOW_TONE[f.key] ?? "neutral"} aria-hidden="true" />
-            <span className="home-flow-name">{flowLabel(f.key, view.debtSplit)}</span>
-            <span className="home-flow-share num">{sharesShown && f.incomeUnits !== null ? percent(f.incomeUnits / 100) : ""}</span>
-            <span className="home-flow-sum num">{f.key === "left" || f.key in euros ? "" : answerMoney(f.cents)}</span>
-          </li>
-        ))}
-      </ul>
       {gap && <p className="home-detail" data-part="gap">{gap}</p>}
     </section>
   );
@@ -228,10 +254,12 @@ export function Summary({ data, today }: { data: Data; today: string }) {
         {items.map((item) => (
           <li key={item.id} data-fig={item.id} className={item.id === "result" && item.cents < 0 ? "home-short" : undefined}>
             <span className="home-fig-label">{item.label}</span>
-            <Figure text={answerMoney(item.cents)} size="m" />
-            {item.terms?.map((term) => <span key={term} className="home-fig-term">{term}</span>)}
-            {item.line && <span className="home-fig-line">{item.line}</span>}
-            {item.extra && <span className="home-fig-line">{item.extra}</span>}
+            <Figure text={answerMoney(item.cents)} size="l" />
+            <span className="home-fig-notes">
+              {item.terms?.map((term) => <span key={term} className="home-fig-term">{term}</span>)}
+              {item.line && <span className="home-fig-line">{item.line}</span>}
+              {item.extra && <span className="home-fig-line">{item.extra}</span>}
+            </span>
           </li>
         ))}
       </ul>
