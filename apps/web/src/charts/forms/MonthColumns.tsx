@@ -117,6 +117,7 @@ export function MonthColumns({
         <g transform={`translate(${f.margin.left},${f.margin.top})`}>
           <g role="img" aria-label={label}>
             <ValueAxis ticks={[...y.ticks]} y={y} width={f.innerW} height={f.innerH} label={axisLabel} bare />
+            {at !== null && <rect className="pick-band" x={x.step * at} y={0} width={x.step} height={f.innerH} pointerEvents="none" />}
             {months.map((m, i) => {
               // a sum above zero stacks up from zero and one below it stacks down from zero
               let up = 0;

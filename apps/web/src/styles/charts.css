@@ -25,6 +25,8 @@
 /* the mark picked for the table under the chart keeps a rule after the pointer has left */
 .chart .sel-line { stroke: var(--accent); stroke-width: 2; shape-rendering: crispEdges; }
 .chart .sel-band { fill: var(--accent); fill-opacity: 0.14; }
+/* the month the readout names: a tenth of the accent over the whole slice of the month */
+.chart .pick-band { fill: var(--accent); fill-opacity: 0.1; pointer-events: none; }
 
 /* monthly totals: one colour, period in full strength, the rest lighter */
 .chart .bar { fill: var(--series-1); }

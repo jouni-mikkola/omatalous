@@ -129,7 +129,7 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
               ))}
             </defs>
             <ValueAxis ticks={[...y.ticks]} y={y} width={f.innerW} height={f.innerH} label={axisLabel} bare />
-            {at !== null && <rect className="sel-band" x={x.step * at} y={0} width={x.step} height={f.innerH} />}
+            {at !== null && <rect className="pick-band" x={x.step * at} y={0} width={x.step} height={f.innerH} />}
             {months.map((m, i) => {
               const whole = m.complete && !running(i);
               const left = x.x(i);

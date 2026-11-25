@@ -84,11 +84,13 @@ describe("Raportit: the months chart", () => {
 
   it("reads the newest month out on focus, with its sums and that it is not whole", () => {
     const { container } = show();
+    expect(container.querySelector(".pick-band")).toBeNull();
     fireEvent.focus(screen.getByRole("group", { name: "Tulot kuukausittain" }));
     const readout = container.querySelector(".readout-line")!;
     expect(readout.textContent).toContain("lokakuu 2026");
     expect(readout.textContent).toContain("Ansiotulot");
     expect(readout.textContent).toContain("kesken");
+    expect(container.querySelectorAll(".pick-band")).toHaveLength(1);
     expect(container.querySelector(".tooltip")).toBeNull();
   });
 

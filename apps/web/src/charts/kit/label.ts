@@ -5,7 +5,7 @@ export function fitLabel(text: string, maxChars: number): string {
 }
 
 /** Room one month name needs on a monthly axis, in pixels: no two printed names stand closer than this. */
-export const MONTH_LABEL_ROOM = 44;
+const MONTH_LABEL_ROOM = 44;
 
 /**
  * The months whose name is printed on a monthly axis: every `ceil(44 / slot)` months counted from the newest, so the
