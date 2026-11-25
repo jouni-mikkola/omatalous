@@ -58,11 +58,11 @@ function MonthChange({ ctx }: SectionProps) {
   return (
     <ReportPanel id={section.id} title={section.title}>
       <div className="mc-pick">
-        {before !== null ? <Button variant="link" onClick={() => setPicked(before)}>{t("rpt.mc_prev", { month: monthLong(r.months[before]!) })}</Button> : <span />}
+        {before !== null && <Button variant="link" onClick={() => setPicked(before)}>{t("rpt.mc_prev", { month: monthLong(r.months[before]!) })}</Button>}
         <strong>{monthLong(month)}</strong>
-        {after !== null ? <Button variant="link" onClick={() => setPicked(after)}>{t("rpt.mc_next", { month: monthLong(r.months[after]!) })}</Button> : <span />}
+        {after !== null && <Button variant="link" onClick={() => setPicked(after)}>{t("rpt.mc_next", { month: monthLong(r.months[after]!) })}</Button>}
       </div>
-      <Table<Bar> caption={t("rpt.mc_caption", { month: monthLong(month) })} rows={bars} rowKey={(b) => b.key} columns={columns} toolbar={false} csv={false} search={false} />
+      <Table<Bar> caption={t("rpt.mc_caption", { month: monthLong(month) })} rows={bars} rowKey={(b) => b.key} columns={columns} toolbar={false} csv={false} search={false} rowClassName={(b) => (b.tone === "usual" || b.tone === "whole" ? "mc-whole" : undefined)} />
     </ReportPanel>
   );
 }
