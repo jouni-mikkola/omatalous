@@ -114,10 +114,10 @@ describe("the head of a table in a window under 640 px with a mouse", () => {
 });
 
 describe("the name in the user menu of the top bar", () => {
-  it("is hidden under 1100 px and shrinks to an ellipsis above, so a long name never wraps the bar", () => {
+  it("shrinks to an ellipsis at every width, so a long name never wraps the bar", () => {
     const css = readFileSync(new URL("../src/styles/shell.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-    expect(css).toMatch(/@media \(max-width: 1099px\) \{ \.user-menu summary \.small \{ display: none; \} \}/);
-    expect(css).toMatch(/\.user-menu summary \.small \{[^}]*min-width: 0;[^}]*overflow: hidden;[^}]*text-overflow: ellipsis;[^}]*white-space: nowrap;/);
+    expect(css).not.toMatch(/\.user-menu summary \.user-name \{ display: none/);
+    expect(css).toMatch(/\.user-menu summary \.user-name \{[^}]*min-width: 0;[^}]*overflow: hidden;[^}]*text-overflow: ellipsis;[^}]*white-space: nowrap;/);
     expect(css).toMatch(/\.user-menu \{[^}]*min-width: 0;[^}]*max-width: calc\(var\(--sp-48\) \* 5\);/);
   });
 });

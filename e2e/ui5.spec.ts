@@ -20,16 +20,47 @@ for (const width of [1000, 1099]) {
       const page = await context.newPage();
       const seen = watch(page);
       await page.goto(`/#/${route}`);
-      await expect(page.locator(".user-menu .avatar")).toBeVisible({ timeout: 15_000 });
+      await expect(page.locator(".user-menu summary")).toBeVisible({ timeout: 15_000 });
       if (route === "review") await expect(page.locator(".scope-toggle")).toHaveCount(0);
       else await expect(page.locator(".scope-toggle")).toBeVisible();
-      const avatar = (await page.locator(".user-menu .avatar").boundingBox())!;
-      expect(avatar.x + avatar.width, "the avatar is inside the band").toBeLessThanOrEqual(width);
+      const summary = (await page.locator(".user-menu summary").boundingBox())!;
+      expect(summary.x + summary.width, "the user menu is inside the band").toBeLessThanOrEqual(width);
       expect(await overflow(page), "the page scrolls sideways").toBeLessThanOrEqual(1);
       expect(seen.problems).toEqual([]);
       await context.close();
     });
   }
+}
+
+// Between a phone and 1100 px the pages take a row under the first; the first holds the mark, the switch, Tarkistettavat and the user, and a long name is cut, not moved to a row of its own.
+for (const width of [641, 700, 768]) {
+  test(`${width} px: with the view switch and a 40-character name the mark and the user menu share one row`, async ({ browser }) => {
+    const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 800 } });
+    await context.route(/\/api\/meta(\?|$)/, async (r) => {
+      const response = await r.fetch();
+      const json = await response.json();
+      if (!json.sharedAccounts.length && json.accounts.length) json.sharedAccounts = [{ ...json.accounts[0], id: "shared-ui5", ownerName: "Eero" }];
+      await r.fulfill({ response, json });
+    });
+    await context.route(/\/api\/auth\/state$/, async (r) => {
+      const response = await r.fetch();
+      const json = await response.json();
+      if (json.user) json.user.displayName = "Liisa Meikäläinen-Virtanen von Pitkänimi";
+      await r.fulfill({ response, json });
+    });
+    const page = await context.newPage();
+    const seen = watch(page);
+    await page.goto("/#/overview");
+    await expect(page.locator(".scope-toggle")).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator(".user-menu summary .user-name")).toContainText("Pitkänimi");
+    const [brand, toggle, menu] = await Promise.all([".topbar .brand", ".scope-toggle", ".user-menu"].map((s) => page.locator(s).boundingBox()));
+    const centres = [brand!, toggle!, menu!].map((b) => b.y + b.height / 2);
+    expect(Math.max(...centres) - Math.min(...centres), "the mark, the switch and the user menu are on one row").toBeLessThan(8);
+    expect(menu!.x + menu!.width, "the user menu is inside the screen").toBeLessThanOrEqual(width);
+    expect(await overflow(page), "the page scrolls sideways").toBeLessThanOrEqual(1);
+    expect(seen.problems).toEqual([]);
+    await context.close();
+  });
 }
 
 // A payee whose category the rows only suggest, answered on a phone: the badge stays inside its button.

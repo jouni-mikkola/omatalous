@@ -69,6 +69,13 @@ describe("tokens.css contrast, the one look, light", () => {
     expect([...below(7, ["on-ink", "on-ink-2"], ["ink"]), ...below(7, ["on-ink"], ["ink-2"])]).toEqual([]);
   });
 
+  it("the news dot on the user menu sits on the band: its colour reads on --ink at 3 to 1 or more (WCAG 1.4.11)", () => {
+    const css = readFileSync(new URL("../src/styles/notices.css", import.meta.url), "utf8");
+    const token = css.match(/\.notice-dot \{[^}]*background: var\(--([a-z0-9-]+)\)/)?.[1] as Name | undefined;
+    expect(token, "the dot's background is a token").toBeDefined();
+    expect(below(3, [token!], ["ink"])).toEqual([]);
+  });
+
   it("a filled control: --on-fill reads on --fill at 7 to 1, the text on a button and under the pointer at 7 to 1", () => {
     expect([...below(7, ["on-fill"], ["fill"]), ...below(7, ["text", "muted"], ["control", "control-hover"])]).toEqual([]);
   });
