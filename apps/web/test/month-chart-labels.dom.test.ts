@@ -47,7 +47,7 @@ const usualBoxes = (container: Element): Box[] => {
   const sample = container.querySelector("line.usual-sample")!;
   return [textBox(usualName(container)), { left: num(sample, "x1"), right: num(sample, "x2"), top: num(sample, "y1") - 1, bottom: num(sample, "y2") + 1 }];
 };
-const monthName = (container: Element, stem: string) => [...container.querySelectorAll("svg text")].find((el) => first(el).textContent === stem);
+const monthName = (container: Element, stem: string) => [...container.querySelectorAll("svg text")].find((el) => first(el)?.textContent === stem);
 
 function columns() {
   // October is far above the others: its column is cut and its sum written over it, next to the newest columns
@@ -114,7 +114,7 @@ describe.each(CHARTS)("$name: the usual level's name", ({ draw, marks }) => {
       // inside the chart's own width: the name is not cut off at the left
       expect(label.left).toBeGreaterThan(0);
     }
-    expect(usualName(container).textContent).toBe(width < 600 ? "tavallinen 3 100 €" : "tavallinen kuukausi 3 100 €");
+    expect(usualName(container).textContent?.replace(/[  ]/g, " ")).toBe(width < 600 ? "tavallinen 3 100 €" : "tavallinen kuukausi 3 100 €");
   });
 });
 

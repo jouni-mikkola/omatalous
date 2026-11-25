@@ -76,7 +76,7 @@ describe("Raportit: the months chart", () => {
   });
 
   it("draws no usual line or label with no usual level", () => {
-    const { container } = show({ series: [SERIES[0]!], months: MONTHS.map((m) => ({ ...m, parts: [m.parts[0]!], totalCents: m.parts[0]! })), usual: null });
+    const { container } = show({ series: [SERIES[0]!], months: MONTHS.map((m) => ({ ...m, parts: [m.parts[0]!], totalCents: m.parts[0]!, against: null })), usual: null });
     expect(container.querySelector("line.ms-usual")).toBeNull();
     expect(container.querySelector("text.usual-label")).toBeNull();
     expect(plain(container.querySelector(".readout-line")!.textContent)).not.toContain("keskiarvon");
