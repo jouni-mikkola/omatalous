@@ -260,8 +260,8 @@ describe("a move of the rate that has nothing to tell, and a loan whose balance 
 describe("the payments of a month over every debt the page lists", () => {
   const none = { monthlyCents: 0, counted: 0, unknown: 0, bullets: 0 };
   const row = (monthlyCents: number | null) => ({ debtId: "proposal:esimerkki", name: "Esimerkkirahoitus", monthlyCents, card: false });
-  /** The unsaved debts as `unsavedDebts` tells them: the rows and the lenders paid only a few times. */
-  const unsaved = (rows: ReturnType<typeof row>[], few = 0) => ({ rows, few });
+  /** The unsaved debts as `unsavedDebts` tells them: the rows, a lender paid only a few times among them with no monthly figure. */
+  const unsaved = (rows: ReturnType<typeof row>[]) => ({ rows });
 
   it("adds the saved loans' payments and the unsaved rows' known ones, and counts the debts that tell none", () => {
     // four unsaved rows with a figure and one without, beside a saved loan with no payment: 1 382,24 € and two unknown
@@ -274,8 +274,8 @@ describe("the payments of a month over every debt the page lists", () => {
   });
 
   it("counts a lender paid only a few times as one more unknown debt, with no figure of its own", () => {
-    expect(monthlyPayments({ monthlyCents: 20_000, counted: 1, unknown: 0, bullets: 0 }, unsaved([row(10_000)], 2))).toEqual({ cents: 30_000, unknown: 2 });
-    expect(monthlyPayments(none, unsaved([], 1))).toEqual({ cents: null, unknown: 1 });
+    expect(monthlyPayments({ monthlyCents: 20_000, counted: 1, unknown: 0, bullets: 0 }, unsaved([row(10_000), row(null), row(null)]))).toEqual({ cents: 30_000, unknown: 2 });
+    expect(monthlyPayments(none, unsaved([row(null)]))).toEqual({ cents: null, unknown: 1 });
   });
 
   it("is null, never 0, while no payment is known", () => {

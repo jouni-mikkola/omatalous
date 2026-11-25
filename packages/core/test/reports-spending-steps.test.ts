@@ -7,6 +7,7 @@ import { gateFor } from "../src/analysis/usual.ts";
 import { buildReports } from "../src/reports/index.ts";
 import type { Account } from "../src/types.ts";
 import { tx } from "./helpers.ts";
+import { lateCardContext } from "./late-card-household.ts";
 import { dataset } from "./report-dataset.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: null, currency: "EUR", type: "checking" };
@@ -50,6 +51,20 @@ describe("reports: spending steps", () => {
     expect(s.changes.every((c, i) => c === null || s.complete[i])).toBe(true);
     const short = buildReports({ ctx, range: { from: "2026-08-01", to: "2026-10-31" }, balances: [] }, ["spendingMonths"]).spendingMonths;
     expect(short.changes.every((c) => c === null)).toBe(true);
+  });
+});
+
+describe("reports: the steps of a household whose card was connected late", () => {
+  it("start from the usual month while the card's categories have no level, and their gaps are in the last step", () => {
+    const s = buildReports({ ctx: lateCardContext("2026-08"), range: { from: "2026-01-01", to: "2026-10-09" }, balances: [] }, ["spendingMonths"]).spendingMonths;
+    const shown = s.changes.flatMap((c, i) => (c ? [{ c, i }] : []));
+    expect(shown.length).toBe(s.complete.filter(Boolean).length);
+    for (const { c, i } of shown) {
+      expect(c.startCents).toBe(s.typicalCents);
+      expect(c.endCents).toBe(s.totals[i]);
+      expect(c.startCents + c.steps.reduce((sum, st) => sum + st.cents, 0)).toBe(c.endCents);
+      for (const st of c.steps.filter((x) => x.category !== null)) expect(st.category).toBe("housing");
+    }
   });
 });
 

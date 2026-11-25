@@ -75,19 +75,19 @@ const loansWithoutRate = (interest: DebtFigure): number => interest.unknown.filt
 interface MonthlyPayments {
   /** The payments of the saved loans (`DebtPayments`) and of the unsaved rows that tell one. Null when none is known: an unknown sum is never 0. */
   cents: number | null;
-  /** Saved loans left out of the sum (`DebtPayments.unknown`), unsaved rows with no monthly figure and lenders paid only a few times (`UnsavedDebts.few`): a debt is never silently left out. */
+  /** Saved loans left out of the sum (`DebtPayments.unknown`), unsaved rows with no monthly figure, a lender paid only a few times among them: a debt is never silently left out. */
   unknown: number;
 }
 
 /**
  * The payments the page lists, saved or not, in one sum: the saved loans' payments and the payments of the unsaved rows
- * (`UnsavedRow.monthlyCents`, the viewer's part), with the debts that tell none counted, a lender paid only a few times (`few`) among them.
+ * (`UnsavedRow.monthlyCents`, the viewer's part), with the debts that tell none counted, a lender paid only a few times among them.
  */
-export function monthlyPayments(payments: DebtPayments, unsaved: Pick<ReturnType<typeof unsavedDebts>, "rows" | "few">): MonthlyPayments {
+export function monthlyPayments(payments: DebtPayments, unsaved: Pick<ReturnType<typeof unsavedDebts>, "rows">): MonthlyPayments {
   const known = unsaved.rows.flatMap((row) => row.monthlyCents ?? []);
   return {
     cents: payments.counted + known.length > 0 ? known.reduce((sum, cents) => sum + cents, payments.monthlyCents) : null,
-    unknown: payments.unknown + unsaved.rows.length - known.length + unsaved.few,
+    unknown: payments.unknown + unsaved.rows.length - known.length,
   };
 }
 
@@ -307,7 +307,7 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
   const payments = debtPaymentsPerMonth(debts.loans, day);
   const cost12 = cost12Of(
     loans.map((l) => l.cost),
-    unsaved.rows.length > 0 || unsaved.few > 0,
+    unsaved.rows.length > 0,
   );
   // a buffer nothing tells is no step before the debts: the plan keeps its dates for the debts alone
   const cash = bufferCash(ctx, balances, inputs);

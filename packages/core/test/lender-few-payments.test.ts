@@ -46,12 +46,22 @@ describe("a lender paid twice", () => {
     expect(p!.owedAtLeastCents).toBeUndefined();
   });
 
-  it("is asked what loan it is, weighed by its latest payment once, and stays out of the unsaved loans' monthly sum but in their count", () => {
+  it("is asked what loan it is, weighed by its latest payment once, and has a row with no monthly figure that stays out of the unsaved loans' monthly sum but in their count", () => {
     const ctx = contextOf(rows);
     expect(buildQuestions(ctx, range, NO_INPUTS).items.filter((q) => q.kind === "loan").map((q) => q.cents)).toEqual([1500]);
     const { holdings } = buildDashboard(ctx, range);
-    expect(holdings.unsavedLoans).toBeUndefined();
+    expect(holdings.unsavedLoans).toEqual({ count: 0, names: [], paymentCents: 0, rows: [{ debtId: `proposal:${proposed(rows)[0]!.key}`, name: "Malli Rahoitus Oy", monthlyCents: null, card: false }] });
     expect(holdings.unsavedFewPayments).toBe(1);
+  });
+
+  it("is listed beside a lender paid every month, so the rows, the debts counted and the proposals the review asks of agree", () => {
+    const instalments = [row("KLARNA BANK AB", "OSAMAKSU 1", -30, "2026-09-12"), row("KLARNA BANK AB", "OSAMAKSU 2", -30, "2026-10-12")];
+    const both = [...rows, ...instalments];
+    const { holdings } = buildDashboard(contextOf(both), range);
+    const listed = holdings.unsavedLoans!;
+    expect(listed.rows.map((r) => r.monthlyCents)).toEqual([3000, null]);
+    expect(listed.rows).toHaveLength(listed.count + holdings.unsavedFewPayments!);
+    expect(listed.rows).toHaveLength(proposed(both).length);
   });
 
   it("is set aside by Ei ole velan maksu", () => {

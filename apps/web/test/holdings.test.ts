@@ -135,9 +135,12 @@ describe("Holdings", () => {
       const both = html(answer({ ...saved, unsavedLoans, unsavedFewPayments: 1 }));
       expect(undated(both)).toContain("Varat ja velat Varat velkojen jälkeen (ilman 3 velkaa) −119 000 €");
       expect(text(both)).toContain("Esimerkkirahoitus 100,00 €/kk · saldo puuttuu");
-      const alone = html(answer({ ...saved, unsavedFewPayments: 1 }));
+      // a lender with no monthly figure has its row too, with no /kk
+      const few = { count: 0, names: [], paymentCents: 0, rows: [{ debtId: "proposal:c", name: "Esimerkkilaina", monthlyCents: null, card: false }] };
+      const alone = html(answer({ ...saved, unsavedLoans: few, unsavedFewPayments: 1 }));
       expect(undated(alone)).toContain("Varat ja velat Varat velkojen jälkeen (ilman 1 velkaa) −119 000 €");
-      expect(text(alone)).not.toContain("saldo puuttuu");
+      expect(text(alone)).toContain("Esimerkkilaina saldo puuttuu");
+      expect(text(alone)).not.toContain("/kk");
     });
 
     it("is a dash while the debt total is unknown, whatever the accounts hold", () => {
@@ -200,25 +203,14 @@ describe("Holdings", () => {
   describe("the marks of Tilit", () => {
     const rows = (...cents: (number | null)[]) => cents.map((c, i) => account(`m${i}`, `Tili ${i}`, c));
     const total = (...cents: (number | null)[]) => cents.reduce<number>((a, b) => a + (b ?? 0), 0);
-    // core works out the bracket and the shares (balances-holdings.test.ts): the page draws what it is given
-    const marks = (cents: (number | null)[], shares: (number | null)[] | null) =>
-      html(answer({ accounts: rows(...cents), accountsCents: total(...cents), accountShares: shares }));
 
-    it("draws a track on each row as the answer says and no bracket line beside the rows", () => {
-      const out = marks([60_000, 30_000, 10_000], [60, 30, 10]);
+    // a share of the total drawn as a short line on each row's rule read as a stray stub: the rows carry no mark of their own
+    it("draws no track, bracket or inline style on the rows, whatever shares the answer holds", () => {
+      const out = html(answer({ accounts: rows(60_000, 30_000, 10_000), accountsCents: total(60_000, 30_000, 10_000), accountShares: [60, 30, 10] }));
       expect(out).toContain('<ul class="st-rows">');
-      expect(out.match(/holding-account share"/g)).toHaveLength(3);
-      expect(out).not.toMatch(/adds-up|part-first|part-last/);
+      expect(out.match(/<li class="st-row holding-account">/g)).toHaveLength(3);
+      expect(out).not.toMatch(/share|adds-up|part-first|part-last/);
       expect(out).not.toContain("style=");
-    });
-    it("draws no track when the answer gives no shares", () => {
-      const out = marks([150_000, -50_000], null);
-      expect(out).not.toContain("share");
-      expect(marks([100_000], null)).not.toContain("share");
-    });
-    it("leaves a row without a balance out of the tracks", () => {
-      const out = marks([70_000, null, 30_000], [70, null, 30]);
-      expect(out.match(/ share/g)).toHaveLength(2);
     });
   });
 
@@ -505,7 +497,7 @@ describe("Holdings", () => {
       expect(undated(markup)).toContain("Käyttötilit 1 200,00 € Käyttötili 1 000,00 € Toinen käyttötili 200,00 € Säästötilit Säästötili 5 000,00 € Tilit yhteensä 6 200,00 €");
     });
 
-    it("keeps the types in one list, so each track starts where the row above ended", () => {
+    it("keeps the types in one list", () => {
       const markup = html(
         answer({
           accounts: [typed("a", "Käyttötili", "checking", 100_000), typed("s", "Säästötili", "savings", 300_000)],
@@ -516,9 +508,8 @@ describe("Holdings", () => {
       );
       expect(markup.match(/<ul class="st-rows/g)).toEqual(['<ul class="st-rows']);
       expect(markup).not.toContain("adds-up");
-      // the headings are rows of the list, with no track of their own
       expect(markup.match(/<li class="st-row holding-type-head">/g)).toHaveLength(2);
-      expect(markup.match(/ share/g)).toHaveLength(2);
+      expect(markup).not.toContain(" share");
     });
 
     it("has no type headings when every account is of one type", () => {
