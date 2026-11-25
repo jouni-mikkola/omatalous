@@ -133,6 +133,7 @@ a.home-left:hover .fig-l { text-decoration: underline; }
 .home-skeleton .sk-flow { block-size: calc(var(--row-h-roomy) * 4); }
 /* each block as high as it is when loaded, so the page keeps its length */
 .home-skeleton .home-now .sk-fig { inline-size: 40%; block-size: var(--lh-display); }
+.home-skeleton .sk-days { block-size: calc(var(--row-h-roomy) * 8); }
 .home-skeleton .sk-coming { block-size: calc(var(--row-h-roomy) * 5); }
 .home-skeleton .sk-holdings { block-size: calc(var(--row-h-roomy) * 8); }
 }

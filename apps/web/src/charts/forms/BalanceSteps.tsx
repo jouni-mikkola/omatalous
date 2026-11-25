@@ -60,7 +60,7 @@ export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: stri
   const narrow = width < NARROW;
   const values = line.flatMap((c) => [c.cents, c.lowCents, c.highCents]);
   // a phone gets a smaller plot, so the page stays short (the roadmap's N11)
-  const options = narrow ? { minHeight: 150, tallest: 170, ratio: 0.3 } : { minHeight: 200, tallest: 280, ratio: 0.3 };
+  const options = narrow ? { minHeight: 130, tallest: 150, ratio: 0.3 } : { minHeight: 200, tallest: 280, ratio: 0.3 };
   const margin = { top: 20, right: 8, bottom: BOTTOM };
   const draft = frame(width, { ...margin, left: 48 }, options);
   const y0 = linear(values, [draft.innerH, 0], { target: tickTarget(draft.innerH) });
