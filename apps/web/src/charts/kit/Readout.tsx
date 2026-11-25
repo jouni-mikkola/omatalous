@@ -3,7 +3,7 @@ import { useSelect } from "../../components/table/selection.tsx";
 import { crisp } from "../draw.ts";
 import { answerMoney } from "../../format.ts";
 import { t } from "../../text.ts";
-import { againstUsual, nearestIndex, stepIndex } from "./readout.ts";
+import { nearestIndex, stepIndex } from "./readout.ts";
 import "../../styles/charts.css";
 
 /** The datum a chart reads out, and the setter its layer and its own parts (a legend, a table row) share. */
@@ -128,11 +128,16 @@ export function ReadoutLine({ title, parts, note, compare }: { title: string; pa
   );
 }
 
-/** "menot 2 920 € alle tavallisen": a month's sum set against the level the dashed line stands at, or `undefined` when they are the same to the euro. `average` names the level an average (income) instead of the usual one. */
-export function usualComparison(what: "spend" | "income", cents: number, usual: number, average: boolean): string | undefined {
-  const diff = againstUsual(cents, usual);
-  if (!diff) return undefined;
-  return t(`chart.vs_${average ? "average" : "usual"}_${diff.side}`, { what: t(`chart.what_${what}`), sum: answerMoney(diff.cents) });
+/** A month's gap to its level, as core gives it (`againstUsual` of core): the web only words it. */
+export interface Against {
+  cents: number;
+  side: "more" | "less";
+}
+
+/** "menot 2 920 € alle tavallisen": a month's gap to the level the dashed line stands at, or `undefined` when core gives none. `average` names the level an average (income) instead of the usual one. */
+export function usualComparison(what: "spend" | "income", against: Against | null | undefined, average: boolean): string | undefined {
+  if (!against) return undefined;
+  return t(`chart.vs_${average ? "average" : "usual"}_${against.side}`, { what: t(`chart.what_${what}`), sum: answerMoney(against.cents) });
 }
 
 /** Room a monthly chart adds above its plot, over the room for a clipped sum, for the name of its dashed level. */

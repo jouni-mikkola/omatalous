@@ -38,12 +38,14 @@ const NARROW = 600;
 const monthRowsHref = (month: string, today: string) =>
   hashOf({ page: "transactions", params: new URLSearchParams({ from: `${month}-01`, to: monthEnd(month) < today ? monthEnd(month) : today }) });
 
-/** What a month says in its readout and its link's name: the two sums, and that the month is not whole. */
+/** What a month says in its readout and its link's name: the two sums, that the month is not whole, and how its spending stands against the usual. */
 function monthRows(m: Month, running: boolean): { name: string; value: string }[] {
+  const compare = usualComparison("spend", m.againstUsual, false);
   return [
     { name: t("home.months_income"), value: m.incomeCents === null ? "–" : money(m.incomeCents, false) },
     { name: t("home.fig_spent"), value: m.spendCents === null ? "–" : money(m.spendCents, false) },
     ...(running ? [{ name: t("home.months_running"), value: "" }] : !m.complete && m.spendCents !== null ? [{ name: t("home.months_partial"), value: "" }] : []),
+    ...(compare ? [{ name: compare, value: "" }] : []),
   ];
 }
 
@@ -109,10 +111,10 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
           title={title(months[shown])}
           parts={[
             { name: t("home.months_income"), value: months[shown].incomeCents === null ? "–" : answerMoney(months[shown].incomeCents), swatch: <span className="mb-key-income" /> },
-            { name: t("home.months_spend"), value: months[shown].spendCents === null ? "–" : answerMoney(months[shown].spendCents), swatch: <span className="mb-key-spend" /> },
+            { name: t("home.fig_spent"), value: months[shown].spendCents === null ? "–" : answerMoney(months[shown].spendCents), swatch: <span className="mb-key-spend" /> },
           ]}
           note={running(shown) ? t("home.months_running") : !months[shown].complete && months[shown].spendCents !== null ? t("home.months_partial") : undefined}
-          compare={usual !== null && wholeMonth(months[shown], shown) && months[shown].spendCents !== null ? usualComparison("spend", months[shown].spendCents, usual, false) : undefined}
+          compare={usualComparison("spend", months[shown].againstUsual, false)}
         />
       ) : (
         <div className="readout-line" />

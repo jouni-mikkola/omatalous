@@ -260,6 +260,24 @@ export function gateFor(baseCents: number, floorCents: number = GATE_FLOOR_CENTS
   return Math.max(floorCents, Math.round(GATE_SHARE * baseCents));
 }
 
+/** How far a month's figure stands from the level it is read against: the gap in cents and on which side. */
+export interface AgainstUsual {
+  cents: number;
+  side: "more" | "less";
+}
+
+/**
+ * A month's figure set against a level on the same base (both are Menot of the flows, or both income), as the readout of
+ * the monthly charts says it. Null when either is missing, or when the two are the same to the euro, which is too
+ * small to show. The one definition of the gap, so no view subtracts the two itself (ADR 0004).
+ */
+export function againstUsual(cents: number | null, usual: number | null): AgainstUsual | null {
+  if (cents === null || usual === null) return null;
+  const gap = Math.abs(cents - usual);
+  if (Math.round(gap / 100) === 0) return null;
+  return { cents: gap, side: cents > usual ? "more" : "less" };
+}
+
 /** The expected figure of a month (`expectedFor`), read here by its type alone: expected.ts imports this file. */
 type ExpectedFigure = NonNullable<ReturnType<typeof expectedFor>>;
 

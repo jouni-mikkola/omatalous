@@ -3,7 +3,7 @@
  * the last twelve months of income and spending, and this month's categories against their usual month. Every other part reads a figure of `nyt`, `home`, `ahead` or `holdings` as it is.
  */
 import { addMonths, monthEnd, monthIndex, monthOf } from "./dates.ts";
-import { earnedIncome, monthIncome } from "./analysis/usual.ts";
+import { type AgainstUsual, againstUsual, earnedIncome, monthIncome } from "./analysis/usual.ts";
 import { type AnalysisContext, inDays } from "./analysis/context.ts";
 import { coverOf, totalsOf } from "./analysis/flows.ts";
 import { toDayRange } from "./analysis/period.ts";
@@ -30,6 +30,8 @@ interface OverviewMonth {
   fromSavingsCents: number | null;
   /** Ended, and the accounts were in the data from its 1st (`isCompleteMonth`). The running month never is. */
   complete: boolean;
+  /** `spendCents` against `usualSpendCents`, both on the base of the bars; null in a month that is not complete or within the euro of the level. */
+  againstUsual: AgainstUsual | null;
 }
 
 interface OverviewCategory {
@@ -94,7 +96,7 @@ export function buildOverview(ctx: AnalysisContext, lang: Language = DEFAULT_LAN
   const cover = coverOf(totalsOf(completeFlows));
   return {
     income: { cents: monthIncome(ctx, month), earnedCents: earnedIncome(ctx, month) },
-    months: spending.months.map((m, i) => ({ month: m, incomeCents: known[i] ? monthIncome(ctx, m) : null, spendCents: spent[i] ?? null, fromSavingsCents: spending.fromSavings[i] ?? null, complete: spending.complete[i]! })),
+    months: spending.months.map((m, i) => ({ month: m, incomeCents: known[i] ? monthIncome(ctx, m) : null, spendCents: spent[i] ?? null, fromSavingsCents: spending.fromSavings[i] ?? null, complete: spending.complete[i]!, againstUsual: spending.complete[i] ? againstUsual(spent[i] ?? null, spending.typicalFlowCents) : null })),
     usualSpendCents: spending.typicalFlowCents,
     usualMonths: spending.typicalMonths,
     gap: cover.gapCents > 0 ? { gapCents: cover.gapCents, creditCents: cover.creditCents, savingsCents: cover.savingsCents, accountsCents: cover.accountsCents } : undefined,

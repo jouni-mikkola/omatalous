@@ -7,7 +7,7 @@ import { crisp, LABEL_Y } from "../draw.ts";
 import { CAP_OVERSHOOT, capSum, capY, CapBreak, CapSum } from "../kit/cap.tsx";
 import { axisRoom, frame, monthPlot } from "../kit/layout.ts";
 import { monthNamePlaces, printedMonths } from "../kit/label.ts";
-import { LiveReadout, ReadoutLayer, ReadoutLine, UsualLabel, USUAL_STRIP, useReadout, usualComparison } from "../kit/Readout.tsx";
+import { type Against, LiveReadout, ReadoutLayer, ReadoutLine, UsualLabel, USUAL_STRIP, useReadout, usualComparison } from "../kit/Readout.tsx";
 import { lastWhole, readoutText } from "../kit/readout.ts";
 import { band, linear } from "../kit/scale.ts";
 import { monthAxisLabels, monthTickTarget } from "../kit/ticks.ts";
@@ -27,6 +27,8 @@ interface MonthColumn {
   parts: readonly number[];
   /** The month's total as the report gives it: the axis and the readout read it, nothing is added up here for them. Null in a month the data does not reach: no column, and the readout says "–". */
   totalCents: number | null;
+  /** The month's gap to `usual` as the report gives it (null in a month that is not whole or the same to the euro); the readout words it. */
+  against?: Against | null;
 }
 
 /** The width the first paint draws at, before the box is measured. */
@@ -100,6 +102,7 @@ export function MonthColumns({
   ];
   const note = (m: MonthColumn) => (whole(m) || m.totalCents === null ? undefined : t(m.month === running ? "home.months_running" : "home.months_partial"));
   const shownMonth = months[shown];
+  const compare = (m: MonthColumn) => usualComparison(tone === "income" ? "income" : "spend", m.against, tone === "income");
   const capEnd = (sum: number) => (sum > 0 ? -CAP_OVERSHOOT : f.innerH + CAP_OVERSHOOT);
   const capDir = (sum: number) => (sum > 0 ? -1 : 1);
   const places = monthNamePlaces(months.map((_, i) => x.centre(i)), x.step, f.innerW, months.map((m) => monthLabel(m.month)), printed, shown);
@@ -112,7 +115,7 @@ export function MonthColumns({
           title={monthLong(shownMonth.month)}
           parts={rows(shownMonth)}
           note={note(shownMonth)}
-          compare={usual && whole(shownMonth) && shownMonth.totalCents !== null ? usualComparison(tone === "income" ? "income" : "spend", shownMonth.totalCents, usual.cents, tone === "income") : undefined}
+          compare={compare(shownMonth)}
         />
       ) : (
         <div className="readout-line" />
@@ -167,7 +170,7 @@ export function MonthColumns({
           <ReadoutLayer xs={months.map((_, i) => x.centre(i))} innerW={f.innerW} innerH={f.innerH} at={at} onAt={setAt} keys={keys} label={label} />
         </g>
       </svg>
-      <LiveReadout text={at === null || !months[at] ? "" : readoutText(monthLong(months[at]!.month), [...rows(months[at]!), ...(note(months[at]!) ? [{ name: note(months[at]!)!, value: "" }] : [])])} />
+      <LiveReadout text={at === null || !months[at] ? "" : readoutText(monthLong(months[at]!.month), [...rows(months[at]!), ...[note(months[at]!), compare(months[at]!)].flatMap((name) => (name ? [{ name, value: "" }] : []))])} />
     </div>
   );
 }

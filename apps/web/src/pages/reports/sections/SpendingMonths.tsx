@@ -83,7 +83,7 @@ function SpendingMonths({ ctx }: SectionProps) {
       <ChartWithTable
         chart={
           <MonthColumns
-            months={r.months.map((month, i) => ({ month, complete: r.complete[i]!, parts: [r.totals[i] ?? 0], totalCents: r.totals[i] ?? null }))}
+            months={r.months.map((month, i) => ({ month, complete: r.complete[i]!, parts: [r.totals[i] ?? 0], totalCents: r.totals[i] ?? null, against: r.againstUsual[i] ?? null }))}
             series={[{ key: "spend", label: t("home.months_spend") }]}
             tone="spending"
             // the first page's Tavallinen kuukausi: the same figure under the same label (Menot without a debt paid from savings)

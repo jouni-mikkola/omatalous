@@ -11,7 +11,7 @@ import { band, linear, points, time } from "../src/charts/kit/scale.ts";
 import { dayTicks, evenMonthTicks, moneyAxis, monthAxisLabels, monthTickTarget, monthTicks, weekday } from "../src/charts/kit/ticks.ts";
 import { capSum, capY } from "../src/charts/kit/cap.tsx";
 import { axisRoom, frame, monthPlot, tickTarget } from "../src/charts/kit/layout.ts";
-import { againstUsual, boxPlace, DOT_PLOT_BELOW, gridStep, lastWhole, nearestIndex, readoutText, stepIndex } from "../src/charts/kit/readout.ts";
+import { boxPlace, DOT_PLOT_BELOW, gridStep, lastWhole, nearestIndex, readoutText, stepIndex } from "../src/charts/kit/readout.ts";
 import { bandRect, placeMarkers, referenceY, spreadLabels } from "../src/charts/kit/annotate.ts";
 import { areaPath, linePath, stepPath } from "../src/charts/kit/path.ts";
 import { markKey } from "../src/charts/kit/marks.ts";
@@ -344,12 +344,6 @@ describe("the readout", () => {
     expect(lastWhole([false, true, false, true])).toBe(3);
     expect(lastWhole([false, false])).toBeNull();
     expect(lastWhole([])).toBeNull();
-  });
-
-  it("sets a sum against the usual level in whole euros, and says nothing when they are the same to the euro", () => {
-    expect(againstUsual(292000, 723000)).toEqual({ cents: 431000, side: "less" });
-    expect(againstUsual(800000, 723000)).toEqual({ cents: 77000, side: "more" });
-    expect(againstUsual(723040, 723000)).toBeNull();
   });
 
   it("prints a month name for every ceil(44 / slot) months from the newest, and the readout's month in its place", () => {

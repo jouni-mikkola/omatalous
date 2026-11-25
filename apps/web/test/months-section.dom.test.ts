@@ -16,7 +16,7 @@ const monthsOf = (n: number) =>
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
   });
 
-const MONTHS = monthsOf(12).map((month, i) => ({ month, incomeCents: 400000 + i * 100, spendCents: 300000 + i * 100, complete: i > 0 && i < 11 }));
+const MONTHS = monthsOf(12).map((month, i) => ({ month, incomeCents: 400000 + i * 100, spendCents: 300000 + i * 100, complete: i > 0 && i < 11, againstUsual: i > 0 && i < 11 ? { cents: 300000 + i * 100 - 214900, side: "more" as const } : null }));
 const categories = { rows: [], otherCents: 0, otherCount: 0, totalCents: 0, fromSavingsCents: 0, usualMonths: 0 };
 const overview = (more: Record<string, unknown> = {}) => ({ months: MONTHS, usualSpendCents: 214900, usualMonths: 10, categories, ...more });
 
@@ -85,8 +85,16 @@ describe("Tulot ja menot", () => {
     const readout = flat(container.querySelector(".readout-line")?.textContent);
     expect(readout).toContain("lokakuu 2026");
     expect(readout).toContain("Tulot 4 010 €");
-    expect(readout).toContain("Menot 3 010 €");
+    expect(readout).toContain("Menot ilman säästöistä maksettua 3 010 €");
     expect(readout).toContain("menot 861 € yli tavallisen");
+  });
+
+  it("gives the comparison in the month's link and the live readout, and none for a month that is not whole", async () => {
+    const container = await show({ overview: overview() });
+    const links = [...container.querySelectorAll("svg a")];
+    expect(flat(links[10]!.getAttribute("aria-label"))).toContain("menot 861 € yli tavallisen");
+    expect(flat(links[11]!.getAttribute("aria-label"))).not.toContain("tavallisen");
+    expect(flat(links[0]!.getAttribute("aria-label"))).not.toContain("tavallisen");
   });
 
   it("leaves the sentence to the page's lead: the section draws only the bars", async () => {

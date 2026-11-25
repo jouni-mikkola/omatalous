@@ -14,7 +14,7 @@ import "./fixed-clock.ts";
 afterEach(cleanup);
 
 const MONTHS = [
-  { month: "2026-08", complete: true, parts: [300000, 20000], totalCents: 320000 },
+  { month: "2026-08", complete: true, parts: [300000, 20000], totalCents: 320000, against: { cents: 20000, side: "more" as const } },
   { month: "2026-09", complete: false, parts: [150000, 0], totalCents: 150000 },
   { month: "2026-10", complete: true, parts: [310000, 0], totalCents: 310000 },
 ];
@@ -61,6 +61,18 @@ describe("Raportit: the months chart", () => {
     expect(readout).toContain("elokuu 2026");
     expect(readout).toContain("Yhteensä 3 200 €");
     expect(readout).toContain("tulot 200 € yli keskiarvon");
+  });
+
+  it("puts the comparison in the live readout of a picked month, and says none for a month the report gives none for", () => {
+    const { container } = show();
+    const layer = container.querySelector("[role='group']")!;
+    fireEvent.focus(layer);
+    // from no pick the first arrow lands on the newest month (running October), the next on September
+    fireEvent.keyDown(layer, { key: "ArrowLeft" });
+    expect(container.querySelector("[aria-live]")!.textContent).not.toContain("keskiarvon");
+    fireEvent.keyDown(layer, { key: "ArrowLeft" });
+    fireEvent.keyDown(layer, { key: "ArrowLeft" });
+    expect(plain(container.querySelector("[aria-live]")!.textContent)).toContain("tulot 200 € yli keskiarvon");
   });
 
   it("draws no usual line or label with no usual level", () => {
