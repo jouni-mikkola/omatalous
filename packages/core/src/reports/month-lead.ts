@@ -1,8 +1,8 @@
 // Decision: where the running month's money went so far, and which payee is new and worth keeping an eye on
-import { type AnalysisContext, type AnalysisTx, inDays, paidToPerson, spendRows } from "../analysis/context.ts";
+import { type AnalysisContext, type AnalysisTx, paidToPerson, spendRows } from "../analysis/context.ts";
 import { totalsOf } from "../analysis/flows.ts";
 import { toDayRange } from "../analysis/period.ts";
-import { addMonths, dayNumber, monthOf } from "../dates.ts";
+import { addMonths, monthOf } from "../dates.ts";
 import { UNKNOWN_MERCHANT } from "../merchant.ts";
 import { LEAD_PAYEES } from "../thresholds.ts";
 import type { IsoDate } from "../types.ts";
@@ -16,7 +16,7 @@ interface PayeeSum {
 interface MonthLead {
   /** `YYYY-MM`: the month of today. */
   month: string;
-  /** The day of the month with the most spending, as the totals above the list add it: its sum and how many rows the day has. Null while the month has no spending. */
+  /** The day of the month with the most spending, as the totals above the list add it: its sum and how many of the day's rows spent money (income and transfers are not counted, like the sum). Null while the month has no spending. */
   biggestDay: { date: IsoDate; outCents: number; count: number } | null;
   /** The payees the month's purchases went to most, the largest first. Debt service and money to people are not purchases. */
   top: PayeeSum[];
@@ -47,7 +47,7 @@ export function monthLeadReport(ctx: AnalysisContext): MonthLead {
   let biggest: MonthLead["biggestDay"] = null;
   for (const [date, flows] of [...flowsOfDay].sort(([a], [b]) => a.localeCompare(b))) {
     const outCents = totalsOf(flows).expenseCents;
-    if (outCents > (biggest?.outCents ?? 0)) biggest = { date, outCents, count: inDays(ctx, { fromDay: dayNumber(date), toDay: dayNumber(date) }).length };
+    if (outCents > (biggest?.outCents ?? 0)) biggest = { date, outCents, count: flows.filter((f) => totalsOf([f]).expenseCents > 0).length };
   }
 
   const sums = new Map<string, number>();

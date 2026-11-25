@@ -2,7 +2,7 @@
  * The lead above the list of Tapahtumat: the biggest day of the running month, the payees that took most and the ones
  * that are new. Decision: is there a day or a payee this month that the household did not expect. Every figure is the
  * `monthLead` report of core, always about the month of today; the page adds up nothing. A payee opens the list
- * limited to it.
+ * limited to it and to the days the lead adds up, the first of the month to today.
  */
 import type { ReportsData } from "@banking/core";
 import { query } from "../../api.ts";
@@ -14,7 +14,7 @@ import { usePhone } from "../TransactionRows.tsx";
 
 type Payees = ReportsData["monthLead"]["top"];
 
-function PayeeList({ title, payees }: { title: string; payees: Payees }) {
+function PayeeList({ title, payees, from, to }: { title: string; payees: Payees; from: string; to: string }) {
   if (payees.length === 0) return null;
   return (
     <div className="tx-lead-part">
@@ -22,7 +22,7 @@ function PayeeList({ title, payees }: { title: string; payees: Payees }) {
       <ul className="tx-lead-list">
         {payees.map((p) => (
           <li key={p.merchant}>
-            <a href={`#/transactions${query({ merchant: p.merchant })}`}>{p.merchant}</a>{" "}
+            <a href={`#/transactions${query({ merchant: p.merchant, from, to })}`}>{p.merchant}</a>{" "}
             <span className="tx-lead-sum">{answerMoney(p.outCents)}</span>
           </li>
         ))}
@@ -38,10 +38,11 @@ export function MonthLead({ scope, today }: { scope: Scope; today: string }) {
   if (!lead || (!lead.biggestDay && lead.top.length === 0)) return null;
   const day = lead.biggestDay;
   const sentence = day && t("tx.lead_day", { day: dayHeading(day.date, today), sum: answerMoney(day.outCents), events: tn(day.count, "tx.event_one", "tx.event_many") });
+  const from = `${lead.month}-01`;
   const parts = (
     <div className="tx-lead-parts">
-      <PayeeList title={t("tx.lead_top")} payees={lead.top} />
-      <PayeeList title={t("tx.lead_new")} payees={lead.fresh} />
+      <PayeeList title={t("tx.lead_top")} payees={lead.top} from={from} to={today} />
+      <PayeeList title={t("tx.lead_new")} payees={lead.fresh} from={from} to={today} />
     </div>
   );
   // a phone keeps the first row near the top: the payees wait behind the day's sentence until they are asked for

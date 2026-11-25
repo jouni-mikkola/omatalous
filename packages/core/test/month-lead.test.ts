@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
+import { UNKNOWN_MERCHANT } from "../src/merchant.ts";
 import { monthLeadReport } from "../src/reports/month-lead.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
@@ -40,6 +41,31 @@ describe("the lead of the running month", () => {
 
   it("calls nothing new while the history does not reach the month before", () => {
     expect(leadOf(rows.filter((r) => r.bookingDate >= "2026-10-01")).fresh).toEqual([]);
+  });
+
+  it("counts only the rows of the biggest day that spent money, not income or transfers", () => {
+    const day = "2026-10-05";
+    const more = [
+      ...rows,
+      tx({ bookingDate: day, amountCents: 150_000, merchant: "Työnantaja", category: "salary" }),
+      tx({ bookingDate: day, amountCents: -50_000, merchant: "Säästötili", category: "transfer", isTransfer: true }),
+    ];
+    expect(leadOf(more).biggestDay).toEqual({ date: day, outCents: 10000, count: 2 });
+  });
+
+  it("leaves money to a person, debt payments and unknown payees out of the payees", () => {
+    const more = [
+      ...rows,
+      tx({ bookingDate: "2026-10-06", amountCents: -80_000, merchant: "Matti Meikäläinen", counterparty: "MATTI MEIKÄLÄINEN", description: "MobilePay", category: "other" }),
+      tx({ bookingDate: "2026-10-07", amountCents: -90_000, merchant: "Asuntolaina", category: "mortgage" }),
+      tx({ bookingDate: "2026-10-08", amountCents: -70_000, merchant: UNKNOWN_MERCHANT, category: "other" }),
+    ];
+    const { top, fresh } = leadOf(more);
+    for (const name of ["Matti Meikäläinen", "Asuntolaina", UNKNOWN_MERCHANT]) {
+      expect(top.map((p) => p.merchant)).not.toContain(name);
+      expect(fresh.map((p) => p.merchant)).not.toContain(name);
+    }
+    expect(top.map((p) => p.merchant)).toEqual(["Uusi Kauppa", "K-Market"]);
   });
 
   it("has no day while the month has no spending", () => {

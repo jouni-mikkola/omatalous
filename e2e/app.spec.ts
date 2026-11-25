@@ -325,6 +325,41 @@ test("the merchants of the month on Tapahtumat, and a merchant there has a summa
   await context.close();
 });
 
+test("the lead of Tapahtumat names the biggest day and links a payee for the month, and on a phone the payees stay folded", async ({ browser }) => {
+  for (const [width, height] of [[1440, 900], [390, 844]] as const) {
+    const phone = width < 600;
+    const context = await browser.newContext({ storageState: STATE, viewport: { width, height }, isMobile: phone, hasTouch: phone });
+    const page = await context.newPage();
+    const seen = watch(page);
+    await page.goto("/#/transactions");
+    const lead = page.getByRole("region", { name: "Tämä kuukausi" });
+    await expect(lead.locator(".tx-lead-day")).toContainText(/^Suurin päivä .+: .+ €, \d+ /);
+    const link = lead.locator(".tx-lead-list a").first();
+    if (phone) {
+      // closed: the day's sentence is the summary and the payees wait behind it
+      const fold = lead.locator("details.tx-lead-fold");
+      await expect(fold).not.toHaveAttribute("open", "");
+      await expect(link).toBeHidden();
+      await lead.locator("summary").click();
+      await expect(fold).toHaveAttribute("open", "");
+    }
+    await expect(link).toBeVisible();
+    // a payee opens the list for that payee over the days the lead adds up
+    const merchant = (await link.innerText()).trim();
+    const month = new Date().toISOString().slice(0, 7);
+    await expect(link).toHaveAttribute("href", new RegExp(`#/transactions\\?merchant=.+&from=${month}-01&to=${month}-\\d\\d$`));
+    await link.click();
+    await expect(page).toHaveURL((url) => {
+      const q = new URLSearchParams(url.hash.split("?")[1]);
+      return q.get("merchant") === merchant && q.get("from") === `${month}-01` && q.get("to") !== null;
+    });
+    // a filter hides the lead
+    await expect(lead).toHaveCount(0);
+    expect(seen.problems).toEqual([]);
+    await context.close();
+  }
+});
+
 test("an empty Tapahtumat says so: with a filter that it matches nothing, without one with the way to a bank", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
@@ -504,7 +539,7 @@ test("Toistuvat is Laskut: the old address opens the new page, and Yhteenveto li
   for (const heading of ["Tulevat maksut", "Laskut, sopimukset ja tilaukset"]) await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
   // the head holds the figure of the next twelve months and no link to a report
   await expect(page.locator("#laskut-taulukko .card-datum")).toHaveCount(0);
-  await expect(page.locator("#tulossa .bills-year")).toContainText(/Seuraavat 12 kk: laskuja .+, noin .+ kuussa\./);
+  await expect(page.locator("#tulossa .bills-year")).toContainText(/Seuraavat 12 kuukautta: laskuja .+, noin .+ kuussa\./);
   await expect(page.locator("#laskut-taulukko").getByRole("link", { name: "Kiinteät menot", exact: true })).toHaveCount(0);
   for (const gone of ["Seuraavaksi erääntyy", "Tilaukset", "Sopimukset ja laskut", "Harvoin tulevat laskut", "Tulevat laskut", "Hinnanmuutokset"]) await expect(page.getByRole("heading", { name: gone, exact: true })).toHaveCount(0);
   // the old address of Raportit > Kiinteät menot opens Laskut

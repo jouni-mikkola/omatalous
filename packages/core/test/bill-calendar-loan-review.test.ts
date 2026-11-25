@@ -62,8 +62,8 @@ describe("a loan's payments after its review day in the bill calendar", () => {
     expect(cal.billsCents).toBe(1_358_809);
     // the lead of Laskut: the average month, the month after today's and the dearest month
     expect(cal.perMonthCents).toBe(Math.round(1_358_809 / 12));
-    const [, following] = cal.months;
-    expect(cal.next).toEqual({ month: following!.month, billsCents: following!.billsCents, debtCents: following!.debtCents });
+    // the month after today's (26.10.2026): its one loan payment is all of its bills and its debt part
+    expect(cal.next).toEqual({ month: "2026-11", billsCents: 121_500, debtCents: 121_500 });
     expect(cal.dearest?.billsCents).toBe(Math.max(...cal.months.map((m) => m.billsCents)));
     expect(cal.unknownCount).toBe(0);
   });
