@@ -23,7 +23,7 @@ const completeTotals = { months: 10, incomeCents: 4005000, averageIncomeCents: 4
 const overview = (more: Record<string, unknown> = {}) => ({ months: MONTHS, usualSpendCents: 214900, usualMonths: 10, completeTotals, categories, ...more });
 const stripItems = () => [...document.querySelectorAll(".strip-item")].map((li) => [...li.children].map((c) => flat(c.textContent)).join(" "));
 
-const ctx = { meta: { today: TODAY, accounts: [{ id: "acc-1" }], sharedAccounts: [] }, scope: "own", data: { income: { monthlyCents: 396000 } } } as unknown as ReportContext;
+const ctx = { meta: { today: TODAY, accounts: [{ id: "acc-1" }], sharedAccounts: [] }, scope: "own", data: { income: { monthlyCents: 396000, months: MONTHS.map((m) => ({ month: m.month, complete: true })) } } } as unknown as ReportContext;
 
 /** The answer is cached by its path: each show starts with an empty cache and no earlier view, so it reads its own. */
 function fresh() {
