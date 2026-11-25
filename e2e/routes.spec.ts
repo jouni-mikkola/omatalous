@@ -129,6 +129,24 @@ test("the period of Raportit and the order of a table are in the address and sta
   await context.close();
 });
 
+test("the tabs of Raportit share a row with the period switch on a wide screen, and scroll on a phone", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  const tabs = page.getByRole("navigation", { name: "Raportit" }).first();
+  const period = page.getByRole("toolbar", { name: "Aikaväli" });
+  await page.goto("/#/reports");
+  await expect(tabs).toBeVisible({ timeout: 15_000 });
+  await expect(period).toBeVisible();
+  const [tabBox, periodBox] = [await tabs.boundingBox(), await period.boundingBox()];
+  expect(periodBox!.y, "the period switch is in the row of the tabs").toBeLessThan(tabBox!.y + tabBox!.height);
+  expect(periodBox!.x, "and at its right end, clear of the tabs").toBeGreaterThanOrEqual(tabBox!.x + tabBox!.width);
+
+  await page.setViewportSize({ width: 390, height: 800 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "the page does not scroll sideways").toBe(true);
+  expect(await tabs.evaluate((el) => getComputedStyle(el).overflowX), "the tabs scroll").toBe("auto");
+  await context.close();
+});
+
 test("every page reads the count and none but Tarkistettavat the queue; the mark says what the title of Tarkistettavat says", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
