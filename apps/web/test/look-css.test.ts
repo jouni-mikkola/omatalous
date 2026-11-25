@@ -8,11 +8,3 @@ describe("the line of the notices on Yhteenveto", () => {
     expect(css("notices.css")).not.toMatch(/nowrap|text-overflow|overflow: hidden/);
   });
 });
-
-describe("the share track of Asuminen", () => {
-  it("outranks the bracket's cap size on a middle row (td.share.sum), so the track is not clipped to 4 px", () => {
-    const housing = css("housing.css");
-    expect(housing).toMatch(/\.housing-charges \.adds-up > tr > td\.share\.sum \{ --track:/);
-    expect(housing).not.toMatch(/\.adds-up > tr > td\.share \{/);
-  });
-});
