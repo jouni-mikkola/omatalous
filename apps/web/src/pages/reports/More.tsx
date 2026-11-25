@@ -6,7 +6,7 @@
 import { t } from "../../text.ts";
 import { periodFor, REPORT_PERIODS, shellPeriodsOf } from "../../period.ts";
 import { QUESTIONS, type QuestionId } from "@banking/core";
-import { useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { query } from "../../api.ts";
 import { ErrorCard } from "../../components/ErrorCard.tsx";
 import { PeriodSwitch } from "../../components/PeriodSwitch.tsx";
@@ -20,9 +20,10 @@ import { FoldContext } from "../../components/Section.tsx";
 import "../../styles/reports.css";
 
 /** Loading: the question and the first panel at the size they will have, with no figures. */
-function ReportsSkeleton() {
+function ReportsSkeleton({ periodSwitch }: { periodSwitch?: ReactNode }) {
   return (
     <div className="stack" aria-busy="true" aria-label={t("rpt.reports_loading")}>
+      {periodSwitch}
       <span className="sk sk-title" aria-hidden="true" />
       <section className="card skeleton-card" aria-hidden="true">
         <div className="card-head tb">
@@ -79,15 +80,26 @@ export function More({ meta, range, scope, params, anchor, onQuestion }: Reports
     onQuestion?.(shown);
     return () => onQuestion?.(null);
   }, [shown, onQuestion]);
-  if (error && !data) return <ErrorCard message={error} onRetry={reload} />;
-  if (!ctx || !shown) return <ReportsSkeleton />;
+  // the switch stays while the first answer loads and when it fails, so the period can still be changed
+  const periodSwitch = (question: string | null): ReactNode => {
+    const presets = shellPeriodsOf("reports", meta.today, question);
+    return presets.length > 0 ? <PeriodSwitch presets={presets} period={periodFor("reports", open.get("period"), meta.opening)} range={range} /> : undefined;
+  };
+  if (error && !data) {
+    return (
+      <div className="stack">
+        {periodSwitch(open.get("q"))}
+        <ErrorCard message={error} onRetry={reload} />
+      </div>
+    );
+  }
+  if (!ctx || !shown) return <ReportsSkeleton periodSwitch={periodSwitch(open.get("q"))} />;
   const page = reportPage(shown);
   const sections = visiblePageSections(ctx, page);
-  const presets = shellPeriodsOf("reports", meta.today, shown);
 
   return (
     <div className={loading ? "loading" : undefined}>
-      <Frame current={page.id} title={page.title} lead={<page.Lead ctx={ctx} />} pages={questions.map(reportPage)} params={open} period={presets.length > 0 ? <PeriodSwitch presets={presets} period={periodFor("reports", open.get("period"), meta.opening)} range={range} /> : undefined}>
+      <Frame current={page.id} title={page.title} lead={<page.Lead ctx={ctx} />} pages={questions.map(reportPage)} params={open} period={periodSwitch(shown)}>
         {sections.map((s) =>
           page.fold ? (
             <FoldContext.Provider key={s.id} value={{ open: !!s.open || s.id === anchor }}>

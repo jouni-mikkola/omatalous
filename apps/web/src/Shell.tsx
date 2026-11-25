@@ -1,6 +1,6 @@
 /**
  * The frame of every page once someone is signed in: the header with navigation, the scope switch and the user menu, the
- * notices, the period switch, and the outlet where the router puts the open page (router.tsx). It reads what every
+ * notices, the period switch of a page that has presets of the shell's own (Raportit draws its own), and the outlet where the router puts the open page (router.tsx). It reads what every
  * page needs once (meta, the count of open questions), works out the scope and the period, and hands them to the views
  * through `ShellContext`.
  */

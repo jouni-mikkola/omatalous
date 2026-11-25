@@ -5,7 +5,7 @@ import { t } from "../text.ts";
 import { Segmented } from "./ui/Segmented.tsx";
 
 /**
- * The period switch with the dates it covers. The shell draws it above a page; Raportit draws it in the row of its tabs.
+ * The period switch with the dates it covers. Raportit draws it in the row of its tabs; the shell draws it above any other page that has presets (none now).
  * A choice is the address's `period`.
  */
 export function PeriodSwitch({ presets, period, range }: { presets: readonly PeriodPreset[]; period: string; range: { from: string; to: string } }) {

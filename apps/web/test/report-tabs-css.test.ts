@@ -32,6 +32,8 @@ describe("the tabs of Raportit", () => {
     expect(value(of(".q-list a")!.body, "border-bottom")).toBe("var(--ring) solid transparent");
     expect(SIZE.ring).toBe(2);
     expect(value(of(".q-list a[aria-current]")!.body, "border-bottom-color")).toBe("var(--accent)");
+    // the row clips below its padding box, so a negative margin would hide 1 px of the line
+    expect(value(of(".q-list a")!.body, "margin-bottom")).toBeUndefined();
   });
 
   it("reserve no width for the period switch: it is a sibling in the row, not laid over the tabs", () => {
