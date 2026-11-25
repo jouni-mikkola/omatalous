@@ -42,17 +42,14 @@ export function CashflowLead({ ctx }: SectionProps) {
   const { data } = useCashflow(ctx);
   if (!data) return null;
   const { overview } = data;
-  const { gap, months, usualSpendCents } = overview;
-  const complete = months.filter((m) => m.complete && m.incomeCents !== null && m.spendCents !== null);
-  if (complete.length === 0) return gap ? <Lead>{gapText(gap)}</Lead> : null;
-  const sum = (cents: (m: (typeof complete)[number]) => number | null) => complete.reduce((total, m) => total + (cents(m) ?? 0), 0);
-  const count = String(complete.length);
+  const { completeTotals: complete, gap, usualSpendCents } = overview;
+  if (complete === null) return gap ? <Lead>{gapText(gap)}</Lead> : null;
+  const count = String(complete.months);
   const average = ctx.data.income?.monthlyCents ?? null;
-  const higher = (a: Month, b: Month) => (b.spendCents! > a.spendCents! ? b : a);
-  const peak = complete.length > 1 ? complete.reduce(higher) : null;
+  const { peak } = complete;
   const items: StripItem[] = [
-    { label: t("rpt.strip_income", { months: count }), figure: answerMoney(sum((m) => m.incomeCents)), note: average === null ? undefined : t("rpt.strip_income_average", { sum: answerMoney(average) }) },
-    { label: t("rpt.strip_spent", { months: count }), figure: answerMoney(sum((m) => m.spendCents)), note: peak ? t("rpt.strip_spent_peak", { month: monthLong(peak.month), sum: answerMoney(peak.spendCents!) }) : undefined },
+    { label: t("rpt.strip_income", { months: count }), figure: answerMoney(complete.incomeCents), note: average === null ? undefined : t("rpt.strip_income_average", { sum: answerMoney(average) }) },
+    { label: t("rpt.strip_spent", { months: count }), figure: answerMoney(complete.spendCents), note: peak ? t("rpt.strip_spent_peak", { month: monthLong(peak.month), sum: answerMoney(peak.spendCents) }) : undefined },
     ...(usualSpendCents === null ? [] : [{ label: t("rpt.strip_usual"), figure: answerMoney(usualSpendCents), note: t("rpt.strip_usual_note", { months: String(overview.usualMonths) }) }]),
   ];
   return (

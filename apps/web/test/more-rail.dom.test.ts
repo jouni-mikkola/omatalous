@@ -18,6 +18,8 @@ describe("Raportit: the reports stand on every report page and mark the open one
     const bare = await screen.findByRole("navigation", { name: "Raportit" });
     await waitFor(() => expect(bare.querySelector("[aria-current]")?.textContent).toBe("Tulot ja menot"));
     await waitFor(() => expect(document.querySelector("h2.q-title")?.textContent).toBe("Tulot ja menot"));
+    // the page's name is for screen readers: the open tab above shows it already
+    expect(document.querySelector("h2.q-title")?.classList.contains("sr-only")).toBe(true);
     const names = [...bare.querySelectorAll("a")].map((a) => a.textContent);
     expect(names).not.toContain("Kuukausi");
     expect(names).not.toContain("Varat ja velat");

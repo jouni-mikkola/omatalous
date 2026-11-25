@@ -24,7 +24,10 @@ const income = {
     { id: "earned", label: "Ansiotulot", months: [300000, 300000, 100000] },
     { id: "other", label: "Muut tulot", months: [20000, 0, 0] },
   ],
-  types: [{ type: "salary", label: "Palkka", totalCents: 700000, monthlyCents: 300000, payers: [] }],
+  types: [
+    { type: "salary", label: "Palkka", totalCents: 700000, shareOfAll: 700000 / 720000, monthlyCents: 300000, payers: [] },
+    { type: "tax_refund", label: "Veronpalautus", totalCents: 20000, shareOfAll: 20000 / 720000, monthlyCents: 0, payers: [] },
+  ],
 };
 const ctx = { data: { income }, meta: { today: "2026-10-09", accounts: [], sharedAccounts: [] }, running: "2026-10", label: (id: string) => id } as unknown as ReportContext;
 
@@ -36,6 +39,15 @@ describe("Raportit: Tulot", () => {
     expect(container.querySelectorAll("rect.ms-s0")).toHaveLength(3);
     expect(container.querySelectorAll("rect.ms-s1")).toHaveLength(1);
     expect(container.querySelectorAll("line.ms-usual")).toHaveLength(1);
+  });
+
+  it("prints each kind's share of all the money in as the report gives it, and 100 % in the total", () => {
+    const { container } = render(createElement(section.Component, { ctx }));
+    const rows = [...container.querySelectorAll(".in-types tbody tr")].map((tr) => [...tr.querySelectorAll("td")].map((td) => plain(td.textContent).trim()));
+    expect(rows.map((cells) => cells.filter((c) => /%$/.test(c)))).toEqual([["97 %"], ["3 %"]]);
+    // the bar of each row is on the same share, in the column that takes its width from the stylesheet
+    expect([...container.querySelectorAll(".in-types td.in-share-bar .rt-bar-track > span")].map((bar) => (bar as HTMLElement).style.width)).toEqual(["97.2%", "2.8%"]);
+    expect(plain(container.querySelector(".in-types tfoot")!.textContent)).toContain("100 %");
   });
 
   it("reads a month's total from the report", () => {

@@ -18,7 +18,10 @@ const monthsOf = (n: number) =>
 
 const MONTHS = monthsOf(12).map((month, i) => ({ month, incomeCents: 400000 + i * 100, spendCents: 300000 + i * 100, complete: i > 0 && i < 11, againstUsual: i > 0 && i < 11 ? { cents: 300000 + i * 100 - 214900, side: "more" as const } : null }));
 const categories = { rows: [], otherCents: 0, otherCount: 0, totalCents: 0, fromSavingsCents: 0, usualMonths: 0 };
-const overview = (more: Record<string, unknown> = {}) => ({ months: MONTHS, usualSpendCents: 214900, usualMonths: 10, categories, ...more });
+// what the server adds up over the ten complete months of MONTHS: the page prints these and sums nothing
+const completeTotals = { months: 10, incomeCents: 4005500, spendCents: 3005500, peak: { month: "2026-10", spendCents: 301000 } };
+const overview = (more: Record<string, unknown> = {}) => ({ months: MONTHS, usualSpendCents: 214900, usualMonths: 10, completeTotals, categories, ...more });
+const stripItems = () => [...document.querySelectorAll(".strip-item")].map((li) => [...li.children].map((c) => flat(c.textContent)).join(" "));
 
 const ctx = { meta: { today: TODAY, accounts: [{ id: "acc-1" }], sharedAccounts: [] }, scope: "own", data: { income: { monthlyCents: 396000 } } } as unknown as ReportContext;
 
@@ -135,17 +138,34 @@ describe("Tulot ja menot: the sentence the page opens with", () => {
   it("says the income covered the complete months when they have no gap, and gives their figures once, in the strip", async () => {
     // the ten complete months of MONTHS
     expect(await lead({ overview: overview() })).toBe("Päättyneinä kuukausina tulot riittivät menoihin ja säästöön siirrettyyn rahaan.");
-    const items = [...document.querySelectorAll(".strip-item")].map((li) => [...li.children].map((c) => flat(c.textContent)).join(" "));
-    expect(items).toEqual([
+    expect(stripItems()).toEqual([
       "Tulot, 10 kk 40 055 € Keskimäärin 3 960 € kuussa",
       "Menot, 10 kk 30 055 € Suurin kuukausi lokakuu 2026, 3 010 €",
       "Tavallinen kuukausi 2 149 € Ilman suuria ostoja, 10 kk",
     ]);
   });
 
+  it("prints the server's totals as they are, whatever the months of the answer hold", async () => {
+    await lead({ overview: overview({ completeTotals: { months: 3, incomeCents: 1234500, spendCents: 987600, peak: { month: "2026-09", spendCents: 400000 } } }) });
+    expect(stripItems().slice(0, 2)).toEqual(["Tulot, 3 kk 12 345 € Keskimäärin 3 960 € kuussa", "Menot, 3 kk 9 876 € Suurin kuukausi syyskuu 2026, 4 000 €"]);
+  });
+
+  it("draws the strip under the gap sentence when the months took more than they earned", async () => {
+    const text = await lead({ overview: overview({ gap: { gapCents: 20000, creditCents: 0, savingsCents: 0, accountsCents: 0 } }) });
+    expect(text).toContain("ylittivät tulot 200 €");
+    expect(stripItems()).toHaveLength(3);
+    expect(stripItems()[0]).toBe("Tulot, 10 kk 40 055 € Keskimäärin 3 960 € kuussa");
+  });
+
+  it("draws two figures when there is no usual month, and names no dearest month of a single one", async () => {
+    await lead({ overview: overview({ usualSpendCents: null, usualMonths: 0, completeTotals: { months: 1, incomeCents: 400100, spendCents: 300100, peak: null } }) });
+    expect(document.querySelector(".strip")!.getAttribute("data-count")).toBe("2");
+    expect(stripItems()).toEqual(["Tulot, 1 kk 4 001 € Keskimäärin 3 960 € kuussa", "Menot, 1 kk 3 001 €"]);
+  });
+
   it("is nothing when no month is complete", async () => {
     fresh();
-    const seen = stubApi({ "GET /api/dashboard": { overview: overview({ months: MONTHS.map((m) => ({ ...m, complete: false })) }) } });
+    const seen = stubApi({ "GET /api/dashboard": { overview: overview({ months: MONTHS.map((m) => ({ ...m, complete: false })), completeTotals: null }) } });
     const view = render(createElement(CashflowLead, { ctx }));
     await waitFor(() => expect(seen.length).toBe(1));
     await waitFor(() => expect(queryClient.isFetching()).toBe(0));

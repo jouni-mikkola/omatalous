@@ -1,8 +1,8 @@
 /* Income of Raportit (pages/reports/pages/Income.tsx): the styles of its own sections, which no other page reads. */
 @layer pages {
 .in-types { margin-top: var(--sp-24); }
-/* a kind's share bar fills its column, as the track has room beside the name and the figures */
-.in-types .rt-bar-track { min-width: calc(var(--sp-48) * 2); }
+/* the share bar's column takes about a third of the table, and the track fills it */
+.in-types td.in-share-bar { width: 33%; }
 }
 
 /* the head of the tax year's card: the name with its range beside it and the two links at the right. In the layer of the title block's own rule (marks.css), which a rule of `pages` cannot beat. */

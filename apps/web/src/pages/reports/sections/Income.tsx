@@ -43,12 +43,10 @@ function Payers({ row }: { row: Row }) {
 
 function Income({ ctx }: SectionProps) {
   const r = ctx.data.income;
-  // a kind's share of all the money in, a ratio of two figures of the answer
-  const share = (ty: Row) => (r.totalCents > 0 ? ty.totalCents / r.totalCents : 0);
   const columns: Column<Row>[] = [
     { key: "type", label: t("rpt.in_type"), kind: "text", rowHead: true, cell: (ty) => ty.label, csv: (ty) => ty.label },
-    { key: "bar", label: t("rpt.fd_share"), headHidden: true, kind: "text", phone: "hide", csv: false, bar: { tone: "income", value: share, max: 1 } },
-    { key: "share", label: t("rpt.fd_share"), kind: "share", phone: "hide", cell: (ty) => percent(share(ty)), csv: (ty) => share(ty) },
+    { key: "bar", label: t("rpt.fd_share"), headHidden: true, kind: "text", phone: "hide", csv: false, className: () => "in-share-bar", bar: { tone: "income", value: (ty) => ty.shareOfAll, max: 1 } },
+    { key: "share", label: t("rpt.fd_share"), kind: "share", phone: "hide", cell: (ty) => percent(ty.shareOfAll), csv: (ty) => ty.shareOfAll },
     { key: "total", label: ctx.span ?? t("rpt.total"), kind: "money", main: true, precision: "cents", cents: (ty) => ty.totalCents },
   ];
   return (
