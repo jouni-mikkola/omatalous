@@ -113,11 +113,13 @@ describe("reports", () => {
     expect(s.typicalCents).not.toBeNull();
   });
 
-  it("spending by month: with the card's rows since August, two months hold it as September does: no category level yet", () => {
+  it("spending by month: with the card's rows since August, two months hold it as September does: the card's categories have no level yet, the others read every complete month", () => {
     const s = buildReports({ ctx: lateCardContext("2026-08"), range: { from: "2026-01-01", to: "2026-10-09" }, balances: [] }, ["spendingMonths"]).spendingMonths;
+    const of = (category: string) => s.categories.find((c) => c.category === category)!;
     expect(s.cardGap).toBe(true);
     expect(s.categoryMonths).toBeLessThan(3);
-    expect(s.categories.every((c) => c.typicalCents === null && c.lastDiffCents === null)).toBe(true);
+    for (const card of ["groceries", "restaurants", "card_bill"]) expect(of(card)).toMatchObject({ typicalCents: null, lastDiffCents: null });
+    expect(of("housing")).toMatchObject({ typicalCents: 90_000, lastDiffCents: 0 });
     expect(s.typicalCents).not.toBeNull();
   });
 
