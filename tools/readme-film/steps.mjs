@@ -329,7 +329,7 @@ async function desk(/** @type {Film} */ film) {
   const answer = page.locator('[data-tile="left"]');
   await answer.waitFor({ state: "visible" });
   const left = plain(await answer.locator(".fig").textContent());
-  const payday = /palkkapäivä (\d{1,2}\.\d{1,2}\.)/.exec(plain(await answer.locator(".home-fig-line").textContent()))?.[1];
+  const payday = /palkkapäivä (\d{1,2}\.\d{1,2}\.)/.exec(plain(await answer.locator(".home-fig-label").textContent()))?.[1];
   if (!payday) throw new Error("Yhteenveto names no payday");
   film.marks = [await film.box(answer)];
   await film.say(`Yhteenveto: ${euros(cents(left))} is left on payday, ${englishDate(payday)}, after the bills and the everyday spending before it.`);

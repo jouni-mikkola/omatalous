@@ -56,7 +56,9 @@ for (const width of [390, 1440] as const) {
     expect(await monthFigure(page, "result"), "Käteen jäi").toBe(whole(totals.leftCents));
     expect(cents(await page.locator("[data-tile=left] .fig").innerText()), "what is left on payday").toBe(whole(leftOnPayday.leftCents));
     const [, paydayMonth, paydayDay] = leftOnPayday.payday.date.split("-").map(Number);
-    expect(plain(await page.locator("[data-tile=left] .home-fig-line").innerText())).toBe(leftOnPayday.days > 0 ? `palkkapäivä ${paydayDay}.${paydayMonth}.` : "Palkkapäivä tänään");
+    // the payday stands in the question of the figure, and in a line only when it is today
+    if (leftOnPayday.days > 0) expect(plain(await page.locator("[data-tile=left] .home-fig-label").innerText())).toBe(`Jää palkkapäivänä ${paydayDay}.${paydayMonth}.`);
+    else expect(plain(await page.locator("[data-tile=left] .home-fig-line").innerText())).toBe("Palkkapäivä tänään");
     // the lowest balance of the next days under it, when it falls on the payday or after it: core's day and sum, or core's reason. It is no link
     const { lowPoint } = home;
     const low = page.locator(".home-now .home-low");
