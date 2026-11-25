@@ -135,12 +135,25 @@ export function usualComparison(what: "spend" | "income", cents: number, usual: 
   return t(`chart.vs_${average ? "average" : "usual"}_${diff.side}`, { what: t(`chart.what_${what}`), sum: answerMoney(diff.cents) });
 }
 
-/** The name of the dashed level, set at the right end of its line over a halo in the page's colour so a column never hides it. */
-export function UsualLabel({ x, y, text }: { x: number; y: number; text: string }) {
+/** Room a monthly chart adds above its plot, over the room for a clipped sum, for the name of its dashed level. */
+export const USUAL_STRIP = 16;
+/** Length of the dashed sample that ties the name to its line. */
+const USUAL_SAMPLE = 16;
+
+/**
+ * The name of the dashed level, in the strip above the plot (`above` is the room over the plot that is not the strip),
+ * right-aligned to the plot's end after a short dashed sample of the line. It stands where no column can reach, so
+ * nothing covers it.
+ */
+export function UsualLabel({ innerW, above, text }: { innerW: number; above: number; text: string }) {
+  const y = -(above + 4);
   return (
-    <text className="usual-label" x={x} y={y - 5} textAnchor="end">
-      {text}
-    </text>
+    <g className="usual-name" pointerEvents="none">
+      <line className="usual-sample" x1={innerW - USUAL_SAMPLE} x2={innerW} y1={y - 4} y2={y - 4} />
+      <text className="usual-label" x={innerW - USUAL_SAMPLE - 6} y={y} textAnchor="end">
+        {text}
+      </text>
+    </g>
   );
 }
 

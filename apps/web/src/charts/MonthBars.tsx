@@ -9,9 +9,9 @@ import type { DashboardData } from "../types.ts";
 import { CategoryTick, ValueAxis } from "./Axes.tsx";
 import { crisp, LABEL_Y } from "./draw.ts";
 import { CAP_OVERSHOOT, capSum, capY, CapBreak, CapSum } from "./kit/cap.tsx";
-import { printedMonths } from "./kit/label.ts";
+import { monthNamePlaces, printedMonths } from "./kit/label.ts";
 import { axisRoom, frame, monthPlot } from "./kit/layout.ts";
-import { ReadoutLine, UsualLabel, usualComparison } from "./kit/Readout.tsx";
+import { ReadoutLine, UsualLabel, USUAL_STRIP, usualComparison } from "./kit/Readout.tsx";
 import { lastWhole, readoutText } from "./kit/readout.ts";
 import { band, linear } from "./kit/scale.ts";
 import { monthAxisLabels, monthTickTarget } from "./kit/ticks.ts";
@@ -70,11 +70,13 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
   const sumOf = (s: (typeof sums)[number]) => (s.kind === "income" ? months[s.month]!.incomeCents! : months[s.month]!.spendCents!);
   // the usual level widens the axis but does not count as a sum, so a short period clips none
   const values = sums.map(sumOf);
-  const options = monthPlot(width, TOP + BOTTOM);
-  const draft = frame(width, { top: TOP, right: 4, bottom: BOTTOM, left: 48 }, options);
+  // the level's name stands in a strip above the clipped sums, so no bar reaches it
+  const headroom = TOP + (usual === null ? 0 : USUAL_STRIP);
+  const options = monthPlot(width, headroom + BOTTOM);
+  const draft = frame(width, { top: headroom, right: 4, bottom: BOTTOM, left: 48 }, options);
   const scale = (innerH: number) => linear(values, [innerH, 0], { target: monthTickTarget(innerH), clip: new Set(sums.map((s) => s.month)).size >= MIN_CLIP_MONTHS ? OUTLIER_FACTOR : undefined, include: usual === null ? [] : [usual] });
   const y0 = scale(draft.innerH);
-  const f = frame(width, { top: TOP, right: 4, bottom: BOTTOM, left: axisRoom(y0.ticks.map(monthAxisLabels(y0.ticks, y0.step, narrow))) }, options);
+  const f = frame(width, { top: headroom, right: 4, bottom: BOTTOM, left: axisRoom(y0.ticks.map(monthAxisLabels(y0.ticks, y0.step, narrow))) }, options);
   const y = scale(f.innerH);
   const axisLabel = monthAxisLabels(y.ticks, y.step, narrow);
   const capped = new Set(y.clipped.flatMap((k) => (y(values[k]!) < 0 || y(values[k]!) > f.innerH ? [`${sums[k]!.month}:${sums[k]!.kind}`] : [])));
@@ -91,6 +93,8 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
   const top = (v: number) => capY(Math.min(y(v), y(0)), f.innerH);
   const height = (v: number) => Math.abs(capY(y(v), f.innerH) - y(0));
   const title = (m: Month) => monthLong(m.month);
+  const places = monthNamePlaces(months.map((_, i) => x.centre(i)), x.step, f.innerW, months.map((m) => monthLabel(m.month)), printed, shown);
+  const place = (i: number) => places[i]!;
   // the break across a cut bar, and its sum on the side of the pair's middle so two cut bars do not collide; the sums are drawn after every bar, so a neighbour never covers one
   const capEnd = (sum: number) => (sum > 0 ? -CAP_OVERSHOOT : f.innerH + CAP_OVERSHOOT);
   const capDir = (sum: number) => (sum > 0 ? -1 : 1);
@@ -145,15 +149,15 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
                   {m.spendCents !== null && capped.has(`${i}:spend`) && <CapBreak x={left + bar + 2} width={bar} end={capEnd(m.spendCents)} dir={capDir(m.spendCents)} />}
                   <CategoryTick x={x.centre(i)} base={f.innerH} long={printed.has(i)} />
                   {printed.has(i) && (
-                    <text className={i === shown ? "mb-pick" : undefined} x={x.centre(i)} y={f.innerH + LABEL_Y} textAnchor="middle">
+                    <text className={i === shown ? "mb-pick" : undefined} x={place(i).x} y={f.innerH + LABEL_Y} textAnchor={place(i).anchor}>
                       <tspan>{monthLabel(m.month)}</tspan>
                       {i === runningAt ? (
-                        <tspan x={x.centre(i)} dy={12}>
+                        <tspan x={place(i).x} dy={12}>
                           {t("home.months_running")}
                         </tspan>
                       ) : (
                         yearOf(i) && (
-                          <tspan x={x.centre(i)} dy={12}>
+                          <tspan x={place(i).x} dy={12}>
                             {yearOf(i)}
                           </tspan>
                         )
@@ -167,7 +171,7 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
               <CapSum key={c.key} x={c.x} end={capEnd(c.sum)} dir={capDir(c.sum)} anchor={c.anchor} text={capSum(c.sum, narrow)} />
             ))}
             {usual !== null && <line className="mb-usual" x1={0} x2={f.innerW} y1={crisp(y(usual))} y2={crisp(y(usual))} />}
-            {usual !== null && <UsualLabel x={f.innerW} y={crisp(y(usual))} text={t(narrow ? "home.months_usual_short" : "home.months_usual", { sum: answerMoney(usual) })} />}
+            {usual !== null && <UsualLabel innerW={f.innerW} above={TOP} text={t(narrow ? "home.months_usual_short" : "home.months_usual", { sum: answerMoney(usual) })} />}
           </g>
           {/* outside the picture: each month is a link of its own, so a control never sits inside an image */}
           {months.map((m, i) => (
