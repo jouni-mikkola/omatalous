@@ -158,6 +158,9 @@ listens on `127.0.0.1` only.
   user's data. They are made only on the command line, stored as SHA-256, end within 90 days, carry a member's rights
   whatever the user's role, and reach only an allowlist of GET routes; anything else is 403. Use is logged once an hour
   with the address, and 20 unknown tokens from an address in 15 minutes stop it.
+- An add-on module may take bearer tokens of its own prefix for a device it paired (`deviceTokens`, MODULES.md). Such a
+  token reaches only `/api/<module id>/device/` and below, with a member's rights; anything else is 403. A wrong one is
+  401 and counts toward the same limit as a wrong service token.
 
 ## Who sees what
 
@@ -174,7 +177,8 @@ listens on `127.0.0.1` only.
 - User management and server settings are admin only.
 - CSRF: requests that change something need the `X-Requested-With: fetch` header. When the browser sends an `Origin`, it
   must be the app's configured address or the host the request was sent to. A request without an `Origin` is let
-  through on the header alone.
+  through on the header alone. A request with an add-on module's device token is not compared by `Origin`: it carries
+  no cookie of the browser to misuse, and the header is still needed.
 
 ## Keys and secrets
 

@@ -19,6 +19,7 @@ import * as rateLimit from "../security/rate-limit.ts";
 import * as analysis from "../services/analysis.ts";
 import * as importStores from "../services/data-import-stores.ts";
 import * as security from "../services/security.ts";
+import { devicePrefixValid } from "../services/service-tokens.ts";
 
 export const HOST_KEY = Symbol.for("omatalous.host");
 
@@ -63,6 +64,9 @@ export function moduleHost(opts: { id: string; version: string; dir: string; mig
       if (added) throw new Error("a module adds one entry");
       if (!entry || typeof entry !== "object" || entry.id !== opts.id || typeof entry.routes !== "function") throw new Error("the entry's id differs from the manifest's");
       if (EXTENSIONS.some((e) => e.id === entry.id)) throw new Error("an entry of this id is already registered");
+      if (entry.deviceTokens !== undefined && (typeof entry.deviceTokens?.resolve !== "function" || !devicePrefixValid(entry.deviceTokens.prefix))) {
+        throw new Error("a device token prefix is 2 to 8 lowercase letters and an underscore, not omt_, with a resolve function");
+      }
       entry.migrationsDir = opts.migrationsDir;
       added = entry;
       EXTENSIONS.push(entry);

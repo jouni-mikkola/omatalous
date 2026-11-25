@@ -210,5 +210,7 @@ export type AppEnv = {
     sessionId: string;
     /** Set when a service token made the request (auth/middleware.ts); there is no session then. */
     serviceToken: string;
+    /** The id of the extension whose device token made the request (auth/middleware.ts); there is no session then. */
+    deviceToken: string;
   };
 };

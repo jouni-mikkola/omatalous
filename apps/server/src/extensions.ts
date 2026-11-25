@@ -11,6 +11,7 @@ import type { Db, Statement } from "./db/types.ts";
 import type { AppEnv, Services } from "./services/context.ts";
 import type { ExportStore } from "./db/data-export-stores.ts";
 import type { ImportStore } from "./services/data-import-stores.ts";
+import type { Notice } from "./services/security.ts";
 
 /** A value a module keeps sealed, re-sealed by the secret rotation in the same transaction as every other. */
 export interface ExtensionSealed {
@@ -36,6 +37,22 @@ export interface ServerExtension {
    * out, its routes stay shut to tokens, like a shared route READABLE does not name.
    */
   readonly tokenReads?: boolean;
+  /**
+   * Tokens of its own that a device sends as `Authorization: Bearer <prefix>…` (auth/middleware.ts). Such a request is
+   * answered by the token alone and reaches only /api/<id>/device/ and below, as the user `resolve` names, with a member's
+   * rights; every other path is 403. A token `resolve` does not open is 401 and counts toward the limit of wrong service
+   * tokens. The module makes, stores, ends and removes its tokens itself. `prefix` is 2 to 8 lowercase letters and an
+   * underscore, never the service tokens' `omt_` (service-tokens.ts `devicePrefixValid`).
+   */
+  readonly deviceTokens?: {
+    readonly prefix: string;
+    resolve(s: Services, token: string): Promise<{ userId: string } | null>;
+  };
+  /**
+   * Its notices of now for the user, in the list of `GET /api/security/notices` after the app's own. Each id is given
+   * the module's id in front (`<id>:<notice id>`). A failure is logged and adds none.
+   */
+  notices?(s: Services, user: { id: string; role: string }): Promise<Notice[]>;
   /** Set by the loader from the manifest: a folder of NNNN_name.sql files numbered 9001 to 9899, each additive with a compat floor. */
   migrationsDir?: string;
   /** Its tables the household's export holds: how each is written and how an import reads it back. */
@@ -76,6 +93,20 @@ export interface ServerExtension {
 }
 
 export const EXTENSIONS: ServerExtension[] = [];
+
+/** The notices the modules have for the user. A failure is logged and adds none: the app's own notices show without them. */
+export async function extensionNotices(s: Services, user: { id: string; role: string }): Promise<Notice[]> {
+  const out: Notice[] = [];
+  for (const e of EXTENSIONS) {
+    if (!e.notices) continue;
+    try {
+      for (const n of await e.notices(s, user)) out.push({ ...n, id: `${e.id}:${n.id}` });
+    } catch (err) {
+      console.error(`notices of ${e.id} failed:`, (err as Error).name);
+    }
+  }
+  return out;
+}
 
 /**
  * What the module adds to these rows. A failure is logged and adds nothing: the list of rows is the bank's and shows

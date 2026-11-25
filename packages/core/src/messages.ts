@@ -41,6 +41,8 @@ const FI = {
   "auth.username_taken": "Käyttäjätunnus on jo käytössä.",
   "auth.token_bad": "Palvelutunnus ei kelpaa.",
   "auth.token_read_only": "Palvelutunnuksella voi vain lukea.",
+  "auth.device_token_bad": "Laitteen tunnus ei kelpaa.",
+  "auth.device_token_scope": "Laitteen tunnuksella ei pääse tähän.",
   "auth.token_too_many": "Liian monta yritystä. Yritä myöhemmin uudelleen.",
   "pw.too_short": "Salasanan pitää olla vähintään {min} merkkiä.",
   "pw.too_long": "Salasana on liian pitkä.",

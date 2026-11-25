@@ -180,9 +180,28 @@ interface ModuleHost {
 ```
 
 `ServerExtension` is the type in the server's extension file: `id`, `label`, `routes(s)` (mounted at `/api/<id>` behind the
-signed-in user), `tokenReads?`, `stores?`, `leftOut?`, `sealed?`, `securityEvents?`, `demo?`, `removeDemo?`, `cli?`,
-`cliUsage?`, `hourly?`, `rowFields?`, `rowParts?`. The host sets `migrationsDir` from the manifest; an entry's own value
-is ignored. A registered extension is on: the code is the switch, and there is no flag of its own to turn off.
+signed-in user), `tokenReads?`, `deviceTokens?`, `notices?`, `stores?`, `leftOut?`, `sealed?`, `securityEvents?`, `demo?`,
+`removeDemo?`, `cli?`, `cliUsage?`, `hourly?`, `rowFields?`, `rowParts?`. The host sets `migrationsDir` from the manifest;
+an entry's own value is ignored. A registered extension is on: the code is the switch, and there is no flag of its own to
+turn off.
+
+`deviceTokens` (`{ prefix, resolve(s, token) }`) lets a device the module paired, such as a browser add-on working in the
+background, call the module without a session. A request with `Authorization: Bearer <prefix>…` is answered by that
+token alone, and a cookie beside it is not read. The host asks `resolve` for the user (`{ userId }`, or null), and then:
+
+- a token `resolve` does not open, or one whose user is gone or must change a password, is 401 and counts toward the
+  limit of wrong service tokens from the address (20 in 15 minutes, then 429 for both kinds);
+- the request reaches `/api/<id>/device/` and the paths below it, by any method, as that user with a member's role;
+  every other path, the module's own other routes and another module's device routes included, is 403;
+- it still needs `X-Requested-With: fetch`, and its `Origin` is not compared with the app's address: no cookie is read,
+  so a forged request has nothing to borrow. Every other request keeps the full CSRF check.
+
+The prefix is 2 to 8 lowercase letters and an underscore and never `omt_`; `addExtension` refuses any other. The module
+makes, stores (hashed), ends and removes its tokens and writes their security events itself.
+
+`notices(s, user)` gives the module's notices of now for the user. They join the end of the list of
+`GET /api/security/notices`, with `<id>:` in front of each id. A notice with no `seen` is a state and lasts while the
+module returns it. A failure is logged with the module's id and adds none.
 
 `host.modules` holds, by specifier:
 
