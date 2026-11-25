@@ -47,6 +47,9 @@ export const FI_SHELL = {
   "load.slow": "Lataus kestää tavallista kauemmin. Odota tai lataa sivu uudelleen.",
   "load.failed": "Emme saaneet tietoja haettua. Yritä uudelleen.",
   "load.retry": "Yritä uudelleen",
+  "notfound.title": "Sivua ei löydy",
+  "notfound.body": "Osoite ei vastaa mitään sivua.",
+  "notfound.back": "Avaa Yhteenveto",
   "more.show_n": "Näytä {count} lisää",
   "more.show_less": "Näytä vähemmän",
   // sign-in

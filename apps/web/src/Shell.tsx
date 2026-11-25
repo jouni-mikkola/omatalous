@@ -5,7 +5,7 @@
  * through `ShellContext`.
  */
 import { AboutFoot } from "./components/AboutFoot.tsx";
-import { Link, Navigate, Outlet, useNavigate, useRouterState, useSearch } from "@tanstack/react-router";
+import { Link, Outlet, useNavigate, useRouterState, useSearch } from "@tanstack/react-router";
 import { type ComponentProps, lazy, Suspense, useEffect, useRef, useState } from "react";
 import { api } from "./api.ts";
 import { CONTROL_PANEL, consentNoticeText, consentNotices } from "./consent-notices.ts";
@@ -16,6 +16,7 @@ import { failureText, footText } from "./open-sync.ts";
 import { NAV, namesItself, readsScope, REPORTS_ID, REVIEW, SETTINGS } from "./nav.ts";
 import { addOnLoadFailed, extensionPages } from "./extensions.ts";
 import { ErrorCard } from "./components/ErrorCard.tsx";
+import { NotFound } from "./NotFound.tsx";
 import { Loading } from "./components/Loading.tsx";
 import { StaleAnswer } from "./components/StaleAnswer.tsx";
 import { useNoticeNews } from "./components/Notices.tsx";
@@ -76,7 +77,7 @@ export function Shell() {
   // the page of an add-on module is a tab after the four, at every width
   const extensions = extensionPages();
   const pages: { id: string; label: string }[] = [...NAV, ...extensions.map((e) => ({ id: e.id, label: e.page!.label })), REVIEW, SETTINGS];
-  // an unknown or old link opens the overview instead of an empty page
+  // an unknown address shows the not-found page; an old one was rewritten by the router before it got here
   const known = pages.some((e) => e.id === requested);
   const page = known ? requested : "overview";
   // the open questions: only their count, in the header of every page and read again when a page opens, since any page can answer one (a rule, a mark, a loan); the queue is Tarkistettavat's own
@@ -327,7 +328,7 @@ export function Shell() {
             ))}
           </nav>
           <span className="spacer" />
-          {hasHousehold && readsScope(page) && (
+          {hasHousehold && known && readsScope(page) && (
             <Segmented
               className="scope-toggle"
               label={t("shell.scope")}
@@ -449,7 +450,7 @@ export function Shell() {
         )}
 
         <div className="sheet" key={pageKey}>
-          {known ? <Outlet /> : <Navigate to="/overview" replace />}
+          {known ? <Outlet /> : <NotFound />}
         </div>
         </main>
         <footer className="sheet-foot">
