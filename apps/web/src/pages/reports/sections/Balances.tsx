@@ -1,4 +1,5 @@
 // Decision: is the buffer growing and the debt shrinking
+import type { LoansReport } from "@banking/core";
 import { useAddLoan } from "../../../components/loans/AddLoan.tsx";
 import { BalanceLine } from "../../../charts/forms/BalanceLine.tsx";
 import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
@@ -35,6 +36,23 @@ export function BalancesLead({ ctx }: SectionProps) {
         debt: answerMoney(r.debt.cents ?? 0),
       })}
     </Lead>
+  );
+}
+
+/** The credits the household answered "Maksettu pois" for, each with the day of its last payment (the server's list, latest first): ended, no debt, and not gone from the page. */
+export function EndedCredits({ ended }: { ended: LoansReport["ended"] }) {
+  if (ended.length === 0) return null;
+  return (
+    <section>
+      <h3 className="st-cap">{t("rpt.ln_ended")}</h3>
+      <dl className="st-rows balance-rows">
+        {ended.map((e) => (
+          <FigureRow key={e.key} label={e.payee}>
+            {t("rpt.ln_ended_row", { date: date(e.lastDate) })}
+          </FigureRow>
+        ))}
+      </dl>
+    </section>
   );
 }
 
@@ -115,6 +133,8 @@ function Balances({ ctx }: SectionProps) {
           <hr className="qc-rule" />
           {/* the page is named Varat ja velat, and Lainat (shown with a saved or an unsaved loan) lists the loans and their total */}
           <Holdings holdings={r.holdings} meta={ctx.meta} title={null} loansListed={listsLoans(ctx.data.loans)} />
+          {ctx.data.loans.ended.length > 0 && <hr className="qc-rule" />}
+          <EndedCredits ended={ctx.data.loans.ended} />
           {r.missing.length > 0 && (
             <>
               <hr className="qc-rule" />

@@ -47,8 +47,8 @@
 .kv dt, .kv dd { margin: 0; }
 .kv .k { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
 .kv .v { margin-top: 2px; }
-/* two columns on a phone; the column minimum is in rem, so larger text gives a column to each figure instead of a figure wider than its box */
-@media (max-width: 640px) { .kv { grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr)); } }
+/* two columns on a phone at most (half the row, so a sum with its share fits); the minimum is in rem too, so larger text gives a column to each figure instead of a figure wider than its box */
+@media (max-width: 640px) { .kv { grid-template-columns: repeat(auto-fit, minmax(max(8rem, calc(50% - 1px)), 1fr)); } }
 
 /* pivot heat cells: one blue ramp; ink flips where the fill gets dark */
 .heat-l1 { background: var(--heat-1); color: var(--heat-ink-1); }
