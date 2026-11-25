@@ -57,7 +57,7 @@ describe("Menot kategorioittain: Mikä muuttui", () => {
     const rows = Array.from(table.querySelectorAll("tbody tr")).map((tr) => plain(tr.textContent));
     expect(rows).toHaveLength(4);
     // the categories' own sum has a label of its own: Tavallinen kuukausi is the line of the months above it
-    expect(rows[0]).toContain("Tavallisesti kategorioissa");
+    expect(rows[0]).toContain("Kategoriat keskimäärin kuussa");
     expect(rows[0]).not.toContain("Tavallinen kuukausi");
     expect(rows[0]).toContain("1 000 €");
     expect(rows[1]).toContain("Ruokakauppa");

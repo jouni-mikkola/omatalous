@@ -192,7 +192,7 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.sec_month_change": "What changed",
   "rpt.mc_caption": "What changed: {month}",
   "rpt.mc_step": "Change",
-  "rpt.mc_levels": "Usual across categories",
+  "rpt.mc_levels": "Categories, monthly average",
   "rpt.mc_note": "The usual level leaves out large purchases, the month's figure keeps them.",
   "rpt.mc_prev": "‹ {month}",
   "rpt.mc_next": "{month} ›",

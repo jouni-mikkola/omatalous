@@ -195,7 +195,7 @@ export const FI_REPORTS_5 = {
   "rpt.sec_month_change": "Mikä muuttui",
   "rpt.mc_caption": "Mikä muuttui: {month}",
   "rpt.mc_step": "Muutos",
-  "rpt.mc_levels": "Tavallisesti kategorioissa",
+  "rpt.mc_levels": "Kategoriat keskimäärin kuussa",
   "rpt.mc_note": "Tavallinen taso on ilman suuria ostoja, kuukauden luvussa ne ovat mukana.",
   "rpt.mc_prev": "‹ {month}",
   "rpt.mc_next": "{month} ›",

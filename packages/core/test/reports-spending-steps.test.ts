@@ -71,7 +71,7 @@ describe("reports: the two usual figures of Menot kategorioittain", () => {
 
   it("the usual month of the steps (the categories' levels added up) is not the line of the months (Menot) when a debt is paid from savings", () => {
     const steps = s.changes[s.last!]!;
-    // each has its own label on the page: Tavallisesti kategorioissa and Tavallinen kuukausi
+    // each has its own label on the page: Kategoriat keskimäärin kuussa and Tavallinen kuukausi
     expect(steps.startCents).toBe(GROCERIES + INSTALMENT);
     expect(s.typicalFlowCents).toBe(GROCERIES);
     expect(steps.startCents).not.toBe(s.typicalFlowCents);
