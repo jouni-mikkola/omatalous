@@ -220,7 +220,7 @@ function Flow({ view, shown }: { view: BridgeView; shown: { saved: number; credi
   const gap = gapSentence(view, shown);
   // beside a gap the bar of what came in names each source with its sum, the sums the sentence under the bars tells
   const { drawnSavings, drawnCredit } = drawnSums(view, shown);
-  const sums: Record<string, number> = view.sources.length > 0 ? { income: view.totals.incomeCents, credit: drawnCredit, savings: drawnSavings, accounts: view.cover.accountsCents } : {};
+  const sums: Record<string, number> = view.sources.length > 0 && view.cover.gapCents >= 50 ? { income: view.totals.incomeCents, credit: drawnCredit, savings: drawnSavings, accounts: view.cover.accountsCents } : {};
   // the income alone is the bar of what came in when it paid everything
   const came = view.sources.length > 0 ? view.sources : [{ key: "income" as const, cents: view.totals.incomeCents, share: 1 }];
   return (
