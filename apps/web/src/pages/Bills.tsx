@@ -19,7 +19,7 @@ import { billItems } from "../components/bills/items.ts";
 import { ErrorCard } from "../components/ErrorCard.tsx";
 import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
-import { answerMoney } from "../format.ts";
+import { answerMoney, monthLong, monthStarting } from "../format.ts";
 import { useApi } from "../hooks.ts";
 import { t, tn } from "../text.ts";
 import type { Meta, Recurring as Series, ReportsData, Scope } from "../types.ts";
@@ -84,6 +84,8 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
   };
   const items = billItems({ series, typed: upcoming.manual, cancelled, marks, today: meta.today });
   const listed = items.length > 0 || calendar.months.some((m) => m.rows.length > 0);
+  // the month the lead already named says its sum once
+  const dearest = calendar.dearest && calendar.dearest.month !== calendar.next?.month ? calendar.dearest : null;
 
   return (
     <div className={`page-grid ${recurring.loading || reports.loading ? "loading" : ""}`}>
@@ -119,9 +121,28 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
           </p>
         )}
         <p className="bills-year">
-          {t("bills.year", { bills: answerMoney(calendar.billsCents), rare: answerMoney(calendar.yearlyCents), reserve: answerMoney(calendar.reserveMonthlyCents) })}
+          {t("bills.year", { bills: answerMoney(calendar.billsCents), perMonth: answerMoney(calendar.perMonthCents) })}
+          {calendar.next && (
+            <>
+              {" "}
+              {calendar.next.debtCents > 0
+                ? t("bills.due_debt", { month: monthStarting(calendar.next.month), bills: answerMoney(calendar.next.billsCents), debt: answerMoney(calendar.next.debtCents) })
+                : t("bills.due", { month: monthStarting(calendar.next.month), bills: answerMoney(calendar.next.billsCents) })}
+            </>
+          )}
           {calendar.unknownCount > 0 && <span className="bills-unknown">{tn(calendar.unknownCount, "bills.unknown_one", "bills.unknown_many")}</span>}
         </p>
+        {(dearest || calendar.yearlyCents > 0) && (
+          <p className="bills-year bills-facts">
+            {dearest && t("bills.dearest", { month: monthLong(dearest.month), bills: answerMoney(dearest.billsCents) })}
+            {calendar.yearlyCents > 0 && (
+              <>
+                {" "}
+                {t("bills.rare", { rare: answerMoney(calendar.yearlyCents), reserve: answerMoney(calendar.reserveMonthlyCents) })}
+              </>
+            )}
+          </p>
+        )}
       </section>
       {markError && <Notice tone="error">{markError}</Notice>}
       {listed ? (

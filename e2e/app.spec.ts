@@ -504,7 +504,7 @@ test("Toistuvat is Laskut: the old address opens the new page, and Yhteenveto li
   for (const heading of ["Tulevat maksut", "Laskut, sopimukset ja tilaukset"]) await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
   // the head holds the figure of the next twelve months and no link to a report
   await expect(page.locator("#laskut-taulukko .card-datum")).toHaveCount(0);
-  await expect(page.locator("#tulossa .bills-year")).toContainText("Seuraavat 12 kk");
+  await expect(page.locator("#tulossa .bills-year")).toContainText(/Seuraavat 12 kk: laskuja .+, noin .+ kuussa\./);
   await expect(page.locator("#laskut-taulukko").getByRole("link", { name: "Kiinteät menot", exact: true })).toHaveCount(0);
   for (const gone of ["Seuraavaksi erääntyy", "Tilaukset", "Sopimukset ja laskut", "Harvoin tulevat laskut", "Tulevat laskut", "Hinnanmuutokset"]) await expect(page.getByRole("heading", { name: gone, exact: true })).toHaveCount(0);
   // the old address of Raportit > Kiinteät menot opens Laskut

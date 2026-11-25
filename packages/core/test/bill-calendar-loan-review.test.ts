@@ -60,6 +60,11 @@ describe("a loan's payments after its review day in the bill calendar", () => {
     // 4 payments at 121 500 and 7 at 124 687
     expect(cal.billsCents).toBe(4 * 121_500 + 7 * 124_687);
     expect(cal.billsCents).toBe(1_358_809);
+    // the lead of Laskut: the average month, the month after today's and the dearest month
+    expect(cal.perMonthCents).toBe(Math.round(1_358_809 / 12));
+    const [, following] = cal.months;
+    expect(cal.next).toEqual({ month: following!.month, billsCents: following!.billsCents, debtCents: following!.debtCents });
+    expect(cal.dearest?.billsCents).toBe(Math.max(...cal.months.map((m) => m.billsCents)));
     expect(cal.unknownCount).toBe(0);
   });
 

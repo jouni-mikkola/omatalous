@@ -103,7 +103,11 @@ export const FI_BILLS = {
   "bills.monthly_fold": "Kuukausittaiset laskut, {count} kpl",
   "bills.paid_fold": "Maksetut laskut, {count} kpl",
   "bills.card_fold": "Kortilla, {count} kpl",
-  "bills.year": "Seuraavat 12 kk: laskuja {bills}, harvemmin kuin kuukausittain {rare} ({reserve} kuussa)",
+  "bills.year": "Seuraavat 12 kk: laskuja {bills}, noin {perMonth} kuussa.",
+  "bills.due": "{month} erääntyy {bills}.",
+  "bills.due_debt": "{month} erääntyy {bills}, josta lainat ja kortit {debt}.",
+  "bills.dearest": "Kallein kuukausi on {month}, {bills}.",
+  "bills.rare": "Harvoin tulevat {rare} vuodessa ({reserve}/kk), varaa niihin.",
   "bills.unknown_one": "{count} laskun summa tai päivä ei ole tiedossa",
   "bills.unknown_many": "{count} laskun summa tai päivä ei ole tiedossa",
   // Bills page frame

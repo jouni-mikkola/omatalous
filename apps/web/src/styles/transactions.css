@@ -73,6 +73,15 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 .tx-acct-logo { display: contents; }
 .tx-acct-short { font-size: var(--fs-label); line-height: var(--lh-label); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
 
+/* ── the lead of the running month ──────────────────────────────────────────────── */
+.tx-lead { display: grid; gap: var(--sp-12); }
+.tx-lead-day { margin: 0; font-weight: var(--w-strong); font-variant-numeric: tabular-nums; }
+.tx-lead-parts { display: flex; flex-wrap: wrap; gap: var(--sp-12) var(--sp-24); }
+.tx-lead-part { min-width: 0; }
+.tx-lead-h { margin: 0 0 var(--sp-4); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); color: var(--text-2); }
+.tx-lead-list { display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-16); margin: 0; padding: 0; list-style: none; }
+.tx-lead-sum { font-variant-numeric: tabular-nums; }
+
 /* ── the totals strip ────────────────────────────────────────────────────────────── */
 .tx-totals-wrap { position: relative; padding: var(--sp-8) 0; }
 /* the count and the three sums are one line that wraps; the histogram under it is the picture of the same rows */

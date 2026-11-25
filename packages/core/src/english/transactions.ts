@@ -96,6 +96,10 @@ export const EN_TRANSACTIONS: Record<keyof typeof FI_TRANSACTIONS, string> = {
   "tx.savings_drawn": "Taken out of savings",
   "tx.result": "Result",
   "tx.updating": "The sums are updating",
+  "tx.lead_label": "This month",
+  "tx.lead_day": "Biggest day {day}: {sum}, {events}",
+  "tx.lead_top": "Biggest this month",
+  "tx.lead_new": "New this month",
   // Categories
   "category.housing": "Rent and maintenance charge",
   "category.utilities": "Electricity, water and heating",

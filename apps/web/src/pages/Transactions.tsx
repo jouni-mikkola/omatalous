@@ -12,6 +12,7 @@ import { type DaySum, type ListedRow, PAGE_ROWS, pageOf, rowChips, RowsSkeleton,
 import { listPeriodOf, periodOf, periodParams } from "./transactions/DateRange.tsx";
 import { accountLooks } from "./transactions/Marks.tsx";
 import type { Filters } from "./transactions/FilterChips.tsx";
+import { MonthLead } from "./transactions/MonthLead.tsx";
 import { StripSkeleton, type Totals, TotalsStrip } from "./transactions/TotalsStrip.tsx";
 import { FilterShortcut, TxBar } from "./transactions/TxBar.tsx";
 import "../styles/transactions.css";
@@ -382,6 +383,8 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
         onSearch={onSearch}
       />
       {filters.merchant && <MerchantSummary merchant={filters.merchant} scope={scope} refresh={edits} alone={Object.entries(filters).every(([k, v]) => k === "merchant" || !v)} categoryLabel={categoryLabel} />}
+      {/* the month's own lead is of the list as it opens: a search or a limit asks about other rows */}
+      {!filters.q && !filters.chip && !filters.category && !filters.kind && !filters.accountId && !filters.merchant && <MonthLead scope={scope} today={meta.today} onPick={(merchant) => set({ merchant })} />}
       {!data && !error && !filters.chip && <StripSkeleton />}
       {/* a mark narrows the rows in the browser, so the server's sums would be of rows the list does not show */}
       {data && data.total > 0 && !filters.chip && (
