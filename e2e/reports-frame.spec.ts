@@ -12,7 +12,7 @@ test("a report in the list opens its page and keeps the period; a phone shows th
   await page.goto("/#/reports?period=6m");
   const list = page.getByRole("navigation", { name: "Raportit" });
   await expect(list.getByRole("button")).toHaveCount(0);
-  await expect(list.getByRole("link", { name: "Varat ja velat" })).toBeVisible();
+  await expect(list.getByRole("link", { name: "Menot kategorioittain" })).toBeVisible();
   for (const link of await list.getByRole("link").all()) {
     const box = (await link.boundingBox())!;
     expect(box.height, "a target of 44 px").toBeGreaterThanOrEqual(44);
@@ -21,10 +21,10 @@ test("a report in the list opens its page and keeps the period; a phone shows th
     expect(box.width, "a report takes the width of the page, one under another").toBeGreaterThan(300);
   }
   await expect(list.getByRole("link", { name: "Tulot ja menot" })).toHaveAttribute("aria-current", "true");
-  await list.getByRole("link", { name: "Varat ja velat" }).click();
-  await expect(page.locator("h2.q-title", { hasText: "Varat ja velat" })).toBeVisible();
-  await expect(list.getByRole("link", { name: "Varat ja velat" })).toHaveAttribute("aria-current", "true");
-  expect(new URL(page.url()).hash).toMatch(/q=saldot/);
+  await list.getByRole("link", { name: "Menot kategorioittain" }).click();
+  await expect(page.locator("h2.q-title", { hasText: "Menot kategorioittain" })).toBeVisible();
+  await expect(list.getByRole("link", { name: "Menot kategorioittain" })).toHaveAttribute("aria-current", "true");
+  expect(new URL(page.url()).hash).toMatch(/q=menot/);
   expect(new URL(page.url()).hash).toContain("period=6m");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), "no sideways scroll at 390 px").toBe(true);
   expect(seen.problems).toEqual([]);

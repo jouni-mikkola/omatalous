@@ -9,6 +9,7 @@
  */
 import { bufferCash } from "../analysis/buffer-cash.ts";
 import { debtsOf } from "../analysis/card-settled.ts";
+import { type EndedCredit, paidOffCredits } from "../ended-credit.ts";
 import type { AnalysisContext } from "../analysis/context.ts";
 import { type DebtCost, debtCost } from "../debt-cost.ts";
 import type { Debt } from "../debt-part.ts";
@@ -160,6 +161,8 @@ export interface LoansReport {
   maybeTwice: readonly MaybeTwice[];
   /** Saved credit lines beside accounts below zero: the debt may be twice in the accounts less the debts, and is once in `total`. */
   overdraftTwice: readonly MaybeTwice[];
+  /** The credits whose payments stopped inside the twelve complete months and that the household answered "Maksettu pois" for, the latest payment first: no debt, listed under Päättyneet so they do not vanish. */
+  ended: readonly EndedCredit[];
 }
 
 /** Korot ja kulut 12 kk of all the debts, and its parts where every debt splits them. */
@@ -272,5 +275,6 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
     path: debtPath(debts.loans, day, RATE_SHIFTS_BP),
     maybeTwice: maybeTwice(balances, debts),
     overdraftTwice: overdraftTwice(balances, debts),
+    ended: paidOffCredits(ctx, inputs),
   };
 }

@@ -5,7 +5,7 @@ import { overflow } from "./helpers.ts";
 // No page scrolls sideways at a desktop width or a phone's: the shell and the base layout
 // (a report said every page was 6 px too wide at 1280) hold for each top page.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
-const PAGES = ["overview", "transactions", "bills", "reports", "review"];
+const PAGES = ["overview", "transactions", "bills", "balances", "reports", "review"];
 
 // The tabs of Asetukset wrap on a phone, so every tab is whole in sight and the page does not scroll sideways, the first and the last of the row alike.
 for (const tab of ["banks", "server"]) {
@@ -42,7 +42,7 @@ for (const width of [1280, 390]) {
       expect(await overflow(page), `${id} at ${width} px`).toBeLessThanOrEqual(0);
     }
     // the questions of Raportit are pages of their own (Yhteiset needs a joint account, which the demo has not), and the month's head and the Vertaa choice sit in some of them
-    for (const q of ["menot", "tulot", "saldot"]) {
+    for (const q of ["menot", "tulot"]) {
       await page.goto(`/#/reports?q=${q}`);
       await expect(page.locator("main")).toBeVisible();
       await page.waitForLoadState("networkidle");

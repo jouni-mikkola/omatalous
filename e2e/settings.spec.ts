@@ -51,7 +51,7 @@ test("Asetukset is in the user menu and has five targets, each its own address",
 
   // the pages in the nav, and Asetukset in the user menu instead of among them
   await page.goto("/#/overview");
-  await expect(nav.getByRole("link")).toHaveText(["Yhteenveto", "Laskut", "Tapahtumat", "Raportit"]);
+  await expect(nav.getByRole("link")).toHaveText(["Yhteenveto", "Tapahtumat", "Laskut", "Varat ja velat", "Raportit"]);
   await expect(nav.getByRole("link", { name: "Asetukset" })).toHaveCount(0);
   const menu = page.locator(".user-menu");
   await menu.locator("summary").click();
@@ -180,9 +180,9 @@ test("every address of Asetukset lands on the card it names, on the target that 
   const cases: [address: string, lands: string, card: string | null][] = [
     ["/#/settings", "#/settings/banks", null],
     ["/#/settings/banks#tilit", "#/settings/banks#tilit", "tilit"],
-    // the loans were a card of Asetukset > Talous, and are kept in Raportit > Varat ja velat, under Saldot and its Lisää laina
-    ["/#/settings/household#lainat", "#/reports?q=saldot", "saldot"],
-    ["/#/settings/household", "#/reports?q=saldot", "saldot"],
+    // the loans were a card of Asetukset > Talous, and are kept in Varat ja velat, under Saldot and its Lisää laina
+    ["/#/settings/household#lainat", "#/balances", "saldot"],
+    ["/#/settings/household", "#/balances", "saldot"],
     ["/#/settings/security#salasana", "#/settings/security#salasana", "salasana"],
     ["/#/settings/security#kirjautuminen", "#/settings/security#kirjautuminen", "kirjautuminen"],
     ["/#/settings/security#turvallisuusloki", "#/settings/security#turvallisuusloki", "turvallisuusloki"],

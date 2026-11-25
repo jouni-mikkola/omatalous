@@ -1,11 +1,12 @@
 // Decision: is the buffer growing and the debt shrinking
+import type { LoansReport } from "@banking/core";
 import { useAddLoan } from "../../../components/loans/AddLoan.tsx";
 import { BalanceLine } from "../../../charts/forms/BalanceLine.tsx";
 import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { FigureRow } from "../holdings/FigureRow.tsx";
 import { Holdings } from "../holdings/Holdings.tsx";
-import { answerMoney, date, money, monthLong, moneyIn, plural, signedMoney } from "../../../format.ts";
+import { answerMoney, date, money, monthLong, monthLongIn, moneyIn, plural, signedMoney } from "../../../format.ts";
 import { Lead } from "../Lead.tsx";
 import "../../../styles/statement.css";
 import { BALANCES_ID } from "./ids.ts";
@@ -38,6 +39,23 @@ export function BalancesLead({ ctx }: SectionProps) {
   );
 }
 
+/** The credits the household answered "Maksettu pois" for, each with the day of its last payment (the server's list, latest first): ended, no debt, and not gone from the page. */
+export function EndedCredits({ ended }: { ended: LoansReport["ended"] }) {
+  if (ended.length === 0) return null;
+  return (
+    <section>
+      <h3 className="st-cap">{t("rpt.ln_ended")}</h3>
+      <dl className="st-rows balance-rows">
+        {ended.map((e) => (
+          <FigureRow key={e.key} label={e.payee}>
+            {t("rpt.ln_ended_row", { date: date(e.lastDate) })}
+          </FigureRow>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
 function Balances({ ctx }: SectionProps) {
   const r = ctx.data.balances;
   // the loans are added here, also by a viewer with no account, whose panel has nothing else
@@ -47,7 +65,11 @@ function Balances({ ctx }: SectionProps) {
   const lastIsToday = last >= 0 && r.months[last] === ctx.running;
   const { maybeTwice, overdraftTwice: overdrafts } = ctx.data.loans;
   // the balance of the newest day and its change are the page's sentence above: the answer says only what that leaves out
-  const answer = r.lowest && rich("rpt.bal_lowest", { date: date(r.lowest.day), amount: money(r.lowest.cents, false) });
+  const lowest = r.lowest && rich("rpt.bal_lowest", { date: date(r.lowest.day), amount: money(r.lowest.cents, false) });
+  // the highest month end beside today's balance, told only while the two differ
+  const now = lastIsToday ? r.total[last] : null;
+  const peak = r.peak && now != null && r.peak.month !== r.months[last] ? rich("rpt.bal_peak", { month: monthLongIn(r.peak.month), peak: money(r.peak.cents, false), now: money(now, false) }) : null;
+  const answer = peak && lowest ? <>{peak} {lowest}</> : (peak ?? lowest);
   const monthRows = r.months.map((_, i) => i);
   const tableColumns: Column<number>[] = [
     {
@@ -111,6 +133,8 @@ function Balances({ ctx }: SectionProps) {
           <hr className="qc-rule" />
           {/* the page is named Varat ja velat, and Lainat (shown with a saved or an unsaved loan) lists the loans and their total */}
           <Holdings holdings={r.holdings} meta={ctx.meta} title={null} loansListed={listsLoans(ctx.data.loans)} />
+          {ctx.data.loans.ended.length > 0 && <hr className="qc-rule" />}
+          <EndedCredits ended={ctx.data.loans.ended} />
           {r.missing.length > 0 && (
             <>
               <hr className="qc-rule" />
@@ -137,7 +161,7 @@ export const section: ReportSection = {
     return t("rpt.sec_balances");
   },
   order: 110,
-  page: "reports",
+  page: "balances",
   reports: ["balances", "loans"],
   Component: Balances,
 };

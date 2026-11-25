@@ -627,6 +627,10 @@
    "day": "2026-10-07",
    "cents": 1205857
   },
+  "peak": {
+   "month": "2026-10",
+   "cents": 1205857
+  },
   "holdings": {
    "accounts": [
     {
@@ -3297,7 +3301,8 @@
    "moves": []
   },
   "maybeTwice": [],
-  "overdraftTwice": []
+  "overdraftTwice": [],
+  "ended": []
  },
  "housing": {
   "loans": [],

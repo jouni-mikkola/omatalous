@@ -456,7 +456,7 @@ test("the Lainat report offers to link a saved card to the card account, and the
   await expect(dialog.getByLabel("Nimi")).toHaveValue("Esimerkkikortti");
   await expect(dialog.getByLabel("Sama velka pankin tilillä")).toHaveValue(account!.id);
   // the loan's row is open in Varat ja velat, and the address forgets the link, so a reload does not open the editor again
-  await expect(page).toHaveURL(/#\/reports\?q=saldot&drill=[^#]*#lainat$/);
+  await expect(page).toHaveURL(/#\/balances\?drill=[^#]*#lainat$/);
   await expect(page).not.toHaveURL(/linkLoan|linkAccount/);
   await dialog.getByRole("button", { name: "Tallenna" }).click();
   await expect(dialog).toHaveCount(0);
