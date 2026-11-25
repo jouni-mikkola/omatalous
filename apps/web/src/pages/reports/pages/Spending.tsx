@@ -4,6 +4,7 @@ import { answerMoney } from "../../../format.ts";
 import { Lead } from "../Lead.tsx";
 import type { ReportPage, SectionProps } from "../types.ts";
 import { section as Borrowed } from "../sections/Borrowed.tsx";
+import { section as MonthChange } from "../sections/MonthChange.tsx";
 import { section as SpendingMonths } from "../sections/SpendingMonths.tsx";
 import { section as CategoryParts } from "../sections/CategoryParts.tsx";
 import { section as YearOverYear } from "../sections/YearOverYear.tsx";
@@ -26,5 +27,5 @@ export const page: ReportPage = {
   },
   Lead: SpendingLead,
   fold: true,
-  sections: [SpendingMonths, Borrowed, CategoryParts, YearOverYear],
+  sections: [MonthChange, SpendingMonths, Borrowed, CategoryParts, YearOverYear],
 };

@@ -7,9 +7,9 @@ import { type DateRange, toDayRange } from "../analysis/period.ts";
 import { fromMonthIndex } from "../dates.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { expectedLevel } from "../analysis/expected.ts";
-import { type AgainstUsual, againstUsual, cardRowsMissingIn } from "../analysis/usual.ts";
+import { type AgainstUsual, againstUsual, cardRowsMissingIn, gateFor } from "../analysis/usual.ts";
 import { largePurchases } from "../analysis/large.ts";
-import { SPENDING_PAYEES } from "../thresholds.ts";
+import { SPENDING_CHANGE_STEPS, SPENDING_PAYEES } from "../thresholds.ts";
 import { fullMonths, knownMonths, rangeMonthIndexes, whereKnown } from "./shared.ts";
 
 interface SpendingPayee {
@@ -32,6 +32,8 @@ interface SpendingCategory {
   typicalCents: number | null;
   /** The newest complete month less `typicalCents`; null without either. */
   lastDiffCents: number | null;
+  /** The newest complete month stands off `typicalCents` by at least the gate of the level (`gateFor`), on either side. False without a level. */
+  lastOff: boolean;
   /** The largest payees over the months shown, and the rest of them as one sum, so they add up to `totalCents`. */
   payees: SpendingPayee[];
   otherPayeesCents: number;
@@ -40,6 +42,27 @@ interface SpendingCategory {
    * in the sum and not in its list. 0 without statements.
    */
   statementCents: number;
+}
+
+/** A step of the waterfall from the usual month to a month: a category's gap to its level, between the running sums `fromCents` and `toCents`. */
+interface SpendingChangeStep {
+  /** The category's id and name; null for the one last step that holds the gaps of all the others. */
+  category: string | null;
+  label: string | null;
+  /** The gap in cents: above zero is more than the category's level. */
+  cents: number;
+  fromCents: number;
+  toCents: number;
+}
+
+/**
+ * A month set against the usual month, category by category: `startCents` (the categories' levels added up) plus the
+ * steps is `endCents`, the month's spending, so the steps add up to the month's gap to the usual one.
+ */
+interface SpendingChange {
+  startCents: number;
+  steps: SpendingChangeStep[];
+  endCents: number;
 }
 
 export interface SpendingMonthsReport {
@@ -84,6 +107,12 @@ export interface SpendingMonthsReport {
   cardGap: boolean;
   /** Index in `months` of the newest complete month; null without one. */
   last: number | null;
+  /**
+   * Per month, the waterfall from the usual month: the categories whose gap is the largest (`SPENDING_CHANGE_STEPS`, a
+   * euro or more each), the rises first, and the rest of the gaps as one last step. Null in a month that is not one of
+   * the months the categories' levels read (`categoryMonths`), the only months a category can be compared in.
+   */
+  changes: (SpendingChange | null)[];
   /** Every category with a row in the months shown, largest first. In every month their values add up to the month's total. */
   categories: SpendingCategory[];
 }
@@ -151,12 +180,14 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
         totalCents,
         typicalCents,
         lastDiffCents: typicalCents !== null && last !== null ? values[last]! - typicalCents : null,
+        lastOff: typicalCents !== null && last !== null && Math.abs(values[last]! - typicalCents) >= gateFor(typicalCents),
         payees: named,
         otherPayeesCents: totalCents - named.reduce((s, p) => s + p.cents, 0),
         statementCents,
       };
     })
     .sort((a, b) => b.totalCents - a.totalCents || a.category.localeCompare(b.category));
+  const changes = indexes.map((_, i) => (known[i] && categoryAt.includes(i) ? changeOf(i, categories, totals[i]!) : null));
   const typicalFlowCents = expectedLevel(completeAt.map((i) => totals[i]! - fromSavings[i]! - largeFlowTotals[i]!));
   return {
     months,
@@ -174,6 +205,32 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
     categoryMonths: categoryAt.length,
     cardGap: categoryAt.length < completeAt.length,
     last,
+    changes,
     categories,
   };
+}
+
+/** The waterfall of month `i`: null while a category has no level to be set against. */
+function changeOf(i: number, categories: readonly { category: string; label: string; values: (number | null)[]; typicalCents: number | null }[], endCents: number): SpendingChange | null {
+  const gaps: { category: string; label: string; cents: number }[] = [];
+  let startCents = 0;
+  for (const c of categories) {
+    if (c.typicalCents === null) return null;
+    startCents += c.typicalCents;
+    gaps.push({ category: c.category, label: c.label, cents: (c.values[i] ?? 0) - c.typicalCents });
+  }
+  // a gap that rounds to no euro is no step; the largest are named, a rise stands before a fall
+  const named = gaps
+    .filter((g) => Math.round(Math.abs(g.cents) / 100) !== 0)
+    .sort((a, b) => Math.abs(b.cents) - Math.abs(a.cents) || a.category.localeCompare(b.category))
+    .slice(0, SPENDING_CHANGE_STEPS)
+    .sort((a, b) => b.cents - a.cents || a.category.localeCompare(b.category));
+  const steps: SpendingChangeStep[] = [];
+  let running = startCents;
+  for (const g of named) {
+    steps.push({ category: g.category, label: g.label, cents: g.cents, fromCents: running, toCents: running + g.cents });
+    running += g.cents;
+  }
+  steps.push({ category: null, label: null, cents: endCents - running, fromCents: running, toCents: endCents });
+  return { startCents, steps, endCents };
 }

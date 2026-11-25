@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { money } from "../../format.ts";
 import { cellText, type Column, type Role } from "./columns.ts";
-import { barShare, deltaTone, type Meaning, sparkGeometry } from "./cells.ts";
+import { barShare, deltaTone, type Meaning, sparkGeometry, spanGeometry } from "./cells.ts";
 import type { SortDir } from "./sort.ts";
 import { MerchantAvatar } from "../MerchantAvatar.tsx";
 import "../../styles/table.css";
@@ -30,11 +30,27 @@ export function BarFigure({ value, max, color, tone, figureCh, children }: { val
   );
 }
 
-/** A sparkline with no axis: a 2 px line, a dot at the last value and the usual level dashed. `label` is its sentence; `scale` the table's shared one. */
-export function SparkCell({ values, usual, label, scale, width = 72, height = 22 }: { values: readonly (number | null)[]; usual?: number | null; label: string; scale?: { lo: number; hi: number }; width?: number; height?: number }) {
+/**
+ * A bar that starts at an offset: from `from` to `to` on the column's `axis` (`spanAxis`), the way a step of a waterfall
+ * is drawn. `tone` is its meaning (a rise, a fall, a whole); the figure stands in its own cell and the bar is hidden from readers.
+ */
+export function SpanCell({ from, to, axis, tone }: { from: number | null; to: number; axis: { lo: number; hi: number }; tone: "rise" | "fall" | "usual" | "whole" }) {
+  const g = spanGeometry(from, to, axis);
+  return (
+    <span className="rt-span" data-tone={tone} aria-hidden="true">
+      <span ref={css({ left: `${(g.left * 100).toFixed(2)}%`, width: `${(g.width * 100).toFixed(2)}%` })} />
+    </span>
+  );
+}
+
+/**
+ * A sparkline with no axis: a 2 px line, a dot at the last value and the usual level dashed. `label` is its sentence; `scale` the table's shared one.
+ * `off` marks the dot: the last value stands off the usual level, which the server says.
+ */
+export function SparkCell({ values, usual, label, scale, off, width = 72, height = 22 }: { values: readonly (number | null)[]; usual?: number | null; label: string; scale?: { lo: number; hi: number }; off?: boolean; width?: number; height?: number }) {
   const g = sparkGeometry(values, width, height, usual, scale);
   return (
-    <svg className="rt-spark" width={width} height={height} role="img" aria-label={label}>
+    <svg className="rt-spark" width={width} height={height} role="img" aria-label={label} data-off={off ? "" : undefined}>
       {g.usualY !== null && <line className="rt-spark-usual" x1={0} x2={width} y1={g.usualY} y2={g.usualY} />}
       <path d={g.d} fill="none" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
       {g.dot && <circle cx={g.dot.x} cy={g.dot.y} r={2.5} />}

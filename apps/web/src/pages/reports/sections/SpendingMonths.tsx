@@ -1,8 +1,9 @@
 // Decision: which category to cut: its sum over the period, its average month, and the months and payees behind it
-import { monthEnd } from "@banking/core";
+import { monthEnd, YEAR_MONTHS } from "@banking/core";
 import { MonthColumns } from "../../../charts/forms/MonthColumns.tsx";
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
 import { KeyValue } from "../../../components/table/KeyValue.tsx";
+import { SparkCell } from "../../../components/table/Cells.tsx";
 import { ChartWithTable } from "../../../components/table/selection.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { query } from "../../../api.ts";
@@ -66,8 +67,29 @@ function SpendingMonths({ ctx }: SectionProps) {
   // (`cardGap`), so they may have none while the month totals have theirs
   const usual = r.cardGap ? r.categories.some((c) => c.typicalCents !== null) : r.typicalCents !== null;
   const last = r.last !== null ? r.months[r.last]! : null;
+  // a line of the newest twelve months up to the newest complete one, so its dot is the month the level is read against
+  const from = r.last === null ? 0 : Math.max(0, r.last + 1 - YEAR_MONTHS);
   const columns: Column<Row>[] = [
     { key: "label", label: t("rpt.sm_category"), kind: "text", rowHead: true, cell: (c) => c.label, csv: (c) => c.label },
+    ...(usual && r.last !== null
+      ? ([
+          {
+            key: "spark",
+            label: t("rpt.sm_spark"),
+            kind: "text",
+            csv: false,
+            cell: (c) =>
+              c.typicalCents === null ? null : (
+                <SparkCell
+                  values={c.values.slice(from, r.last! + 1)}
+                  usual={c.typicalCents}
+                  off={c.lastOff}
+                  label={t("rpt.sm_spark_of", { name: c.label, sum: eur(c.values[r.last!] ?? 0), usual: eur(c.typicalCents) })}
+                />
+              ),
+          },
+        ] satisfies Column<Row>[])
+      : []),
     { key: "total", label: t("rpt.total"), kind: "money", main: true, sort: true, precision: "euros", cents: (c) => c.totalCents, bar: { tone: "spending", value: (c) => c.totalCents, max: Math.max(1, ...r.categories.map((c) => c.totalCents)) } },
     ...(usual
       ? ([

@@ -97,7 +97,8 @@ const spendingReport = (fromSavings: number[]): Spending => {
     categoryMonths: 5,
     cardGap: false,
     last: 4,
-    categories: [{ category: "groceries", label: "Ruokakauppa", values, totalCents: 160000, typicalCents: 30000, lastDiffCents: 0, payees: [], otherPayeesCents: 160000, statementCents: 0 }],
+    changes: values.map(() => null),
+    categories: [{ category: "groceries", label: "Ruokakauppa", values, totalCents: 160000, typicalCents: 30000, lastDiffCents: 0, lastOff: false, payees: [], otherPayeesCents: 160000, statementCents: 0 }],
   } as unknown as Spending;
 };
 const spendingContext = (spendingMonths: Spending): ReportContext =>

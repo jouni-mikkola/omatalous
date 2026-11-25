@@ -22,6 +22,9 @@
 /* Ruoka: the sentence that names the table's months and bases, and why the card bills' row has no share */
 .food-base { margin-bottom: var(--sp-8); }
 
+/* Mikä muuttui: the month's name between the two months beside it */
+.mc-pick { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-12); margin-bottom: var(--sp-8); }
+
 /* Kategoriat: the categories stand apart from the folded months above them, and a category's two tables from each other */
 .sm-categories-head { margin-top: var(--sp-24); }
 .sm-detail { display: grid; gap: var(--sp-16); }

@@ -23,6 +23,7 @@ const category = (id: string, label: string, values: number[], typicalCents: num
   totalCents: values.reduce((a, b) => a + b, 0),
   typicalCents,
   lastDiffCents,
+  lastOff: lastDiffCents !== null && lastDiffCents !== 0,
   payees: [],
   otherPayeesCents: values.reduce((a, b) => a + b, 0),
   statementCents: 0,
@@ -48,6 +49,7 @@ const report = (typical: boolean): Report => {
     categoryMonths: typical ? 3 : 1,
     cardGap: true,
     last: 4,
+    changes: MONTHS.map(() => null),
     categories: [category("card_bill", "Luottokortin lasku", bills, typical ? 0 : null, typical ? 0 : null), category("groceries", "Ruokakauppa", groceries, typical ? 40000 : null, typical ? 0 : null)],
   };
 };
@@ -62,7 +64,7 @@ describe("Menot kategorioittain: a category's average beside a card connected la
     show(report(true));
     expect(plain(document.body.textContent)).not.toContain("kortin ostot");
     const table = screen.getByRole("table", { name: "Kategoriat" });
-    expect(within(table).getAllByRole("columnheader").map((h) => plain(h.textContent))).toEqual(["Kategoria", "Yhteensä", "Keskimäärin kuussa", "Ero keskiarvoon, syyskuu 2026"]);
+    expect(within(table).getAllByRole("columnheader").map((h) => plain(h.textContent))).toEqual(["Kategoria", "Kehitys", "Yhteensä", "Keskimäärin kuussa", "Ero keskiarvoon, syyskuu 2026"]);
     // 400 € over July to September is not added up with the totals' 448 € over May to September
     expect(plain(table.querySelector("tfoot")!.textContent)).not.toContain("448");
     const months = screen.getByRole("table", { name: "Menot kuukausittain", hidden: true });
@@ -92,6 +94,24 @@ describe("Menot kategorioittain: a category's average beside a card connected la
     show({ ...report(true), cardGap: false, categoryMonths: 5, typicalCents: 40000 });
     expect(plain(document.body.textContent)).not.toContain("kortin ostot");
     expect(plain(screen.getByRole("table", { name: "Kategoriat" }).querySelector("tfoot")!.textContent)).not.toContain("400 €");
+  });
+});
+
+describe("Menot kategorioittain: the line of a category's months", () => {
+  it("draws a line with the level dashed for a category that has one, and marks the dot only where the report says the month is off", () => {
+    const base = report(true);
+    const { container } = show({ ...base, categories: base.categories.map((c) => (c.category === "groceries" ? { ...c, lastOff: true } : c)) });
+    const table = screen.getByRole("table", { name: "Kategoriat" });
+    const lines = Array.from(table.querySelectorAll("svg.rt-spark"));
+    expect(lines).toHaveLength(2);
+    expect(container.querySelectorAll("line.rt-spark-usual")).toHaveLength(2);
+    expect(lines.map((l) => l.hasAttribute("data-off"))).toEqual([false, true]);
+    expect(lines[1]!.getAttribute("aria-label")).toBe("Ruokakauppa: viimeisin kuukausi 400 €, keskimäärin 400 €");
+  });
+
+  it("draws none for a category with no level", () => {
+    show(report(false));
+    expect(document.querySelector("svg.rt-spark")).toBeNull();
   });
 });
 
