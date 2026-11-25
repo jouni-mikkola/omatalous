@@ -32,7 +32,8 @@ const num = (el: Element, name: string) => Number(el.getAttribute(name));
 const rectBox = (el: Element): Box => ({ left: num(el, "x"), right: num(el, "x") + num(el, "width"), top: num(el, "y"), bottom: num(el, "y") + num(el, "height") });
 /** A name's box: it runs from the baseline up one line of 12 px; its width is the characters' estimate, from x by its anchor. */
 const textBox = (el: Element): Box => {
-  const w = (el.textContent ?? "").length * LABEL_CHAR_W;
+  // a month's name with "kesken" under it is two tspans: the box is the name's, the first line
+  const w = ((el.firstElementChild ?? el).textContent ?? "").length * LABEL_CHAR_W;
   const x = num(el, "x");
   const anchor = el.getAttribute("text-anchor");
   const left = anchor === "end" ? x - w : anchor === "start" ? x : x - w / 2;
@@ -83,8 +84,8 @@ const CHARTS = [
     point: (container: Element, i: number) => {
       const layer = container.querySelector("[role='group']")!;
       fireEvent.focus(layer);
-      // the first arrow from no pick lands on the newest month
-      for (let step = 0; step < MONTHS.length - i; step += 1) fireEvent.keyDown(layer, { key: "ArrowLeft" });
+      // focus lands on the newest month, each arrow left goes one month back
+      for (let step = 0; step < MONTHS.length - 1 - i; step += 1) fireEvent.keyDown(layer, { key: "ArrowLeft" });
     },
   },
   {

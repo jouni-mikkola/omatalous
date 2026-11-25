@@ -1026,84 +1026,129 @@
     "incomeCents": 352000,
     "spendCents": 322224,
     "fromSavingsCents": 0,
-    "complete": true
+    "complete": true,
+    "againstUsual": {
+     "cents": 10574,
+     "side": "less"
+    }
    },
    {
     "month": "2025-12",
     "incomeCents": 366300,
     "spendCents": 340685,
     "fromSavingsCents": 0,
-    "complete": true
+    "complete": true,
+    "againstUsual": {
+     "cents": 7887,
+     "side": "more"
+    }
    },
    {
     "month": "2026-01",
     "incomeCents": 352000,
     "spendCents": 395826,
     "fromSavingsCents": 0,
-    "complete": true
+    "complete": true,
+    "againstUsual": {
+     "cents": 63028,
+     "side": "more"
+    }
    },
    {
     "month": "2026-02",
     "incomeCents": 352000,
     "spendCents": 334876,
     "fromSavingsCents": 0,
-    "complete": true
+    "complete": true,
+    "againstUsual": {
+     "cents": 2078,
+     "side": "more"
+    }
    },
    {
     "month": "2026-03",
     "incomeCents": 352000,
     "spendCents": 298682,
     "fromSavingsCents": 0,
-    "complete": true
+    "complete": true,
+    "againstUsual": {
+     "cents": 34116,
+     "side": "less"
+    }
    },
    {
     "month": "2026-04",
     "incomeCents": 352000,
     "spendCents": 407585,
     "fromSavingsCents": 0,
-    "complete": true
+    "complete": true,
+    "againstUsual": {
+     "cents": 74787,
+     "side": "more"
+    }
    },
    {
     "month": "2026-05",
     "incomeCents": 352000,
     "spendCents": 309550,
     "fromSavingsCents": 0,
-    "complete": true
+    "complete": true,
+    "againstUsual": {
+     "cents": 23248,
+     "side": "less"
+    }
    },
    {
     "month": "2026-06",
     "incomeCents": 528000,
     "spendCents": 333982,
     "fromSavingsCents": 0,
-    "complete": true
+    "complete": true,
+    "againstUsual": {
+     "cents": 1184,
+     "side": "more"
+    }
    },
    {
     "month": "2026-07",
     "incomeCents": 352000,
     "spendCents": 293420,
     "fromSavingsCents": 0,
-    "complete": true
+    "complete": true,
+    "againstUsual": {
+     "cents": 39378,
+     "side": "less"
+    }
    },
    {
     "month": "2026-08",
     "incomeCents": 352000,
     "spendCents": 330876,
     "fromSavingsCents": 0,
-    "complete": true
+    "complete": true,
+    "againstUsual": {
+     "cents": 1922,
+     "side": "less"
+    }
    },
    {
     "month": "2026-09",
     "incomeCents": 352000,
     "spendCents": 293067,
     "fromSavingsCents": 0,
-    "complete": true
+    "complete": true,
+    "againstUsual": {
+     "cents": 39731,
+     "side": "less"
+    }
    },
    {
     "month": "2026-10",
     "incomeCents": 0,
     "spendCents": 276614,
     "fromSavingsCents": 0,
-    "complete": false
+    "complete": false,
+    "againstUsual": null
    }
   ],
   "usualSpendCents": 332798,

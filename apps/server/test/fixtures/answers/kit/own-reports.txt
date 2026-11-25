@@ -2114,7 +2114,8 @@
      "other": 0,
      "not_earned": 0,
      "unknown": 0
-    }
+    },
+    "againstAverage": null
    }
   ],
   "completeMonths": 0,
@@ -4022,6 +4023,9 @@
   "fromSavingsCents": 0,
   "typicalCents": null,
   "typicalFlowCents": null,
+  "againstUsual": [
+   null
+  ],
   "typicalMonths": 0,
   "categoryMonths": 0,
   "cardGap": false,
