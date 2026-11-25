@@ -2,7 +2,7 @@ import { type BrowserContext, expect, type Locator, type Page, test } from "@pla
 import { join } from "node:path";
 import { overflow, OVERVIEW_TILES, watch } from "./helpers.ts";
 
-// Yhteenveto on a phone, at 320, 360 and 390 px wide: the four blocks (Nyt, the month, the coming months, the accounts) under each other, the month's figures two by two. Nothing scrolls sideways, no text is cut, every control that is tapped is 44 px high and wide, and the page is no taller than 2600 px.
+// Yhteenveto on a phone, at 320, 360 and 390 px wide: the four blocks (Nyt, the month, the coming months, the accounts) under each other, the month's figures two by two. Nothing scrolls sideways, no text is cut, every control that is tapped is 44 px high and wide, and the page is no taller than 2800 px.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 async function open(context: BrowserContext): Promise<Page> {
@@ -63,8 +63,8 @@ for (const width of [320, 360, 390]) {
     expect(await small(page.locator("main :is(a, button, select, summary, input):visible, .nav a:visible")), "tap targets under 44 px").toEqual([]);
     // the coming months are three rows, the first of them this month
     await expect(page.locator(".home-coming tbody tr")).toHaveCount(3);
-    // the whole page, at the width a phone has: the roadmap's N11 holds it to 2600 px
-    expect(await page.evaluate(() => document.documentElement.scrollHeight), "the page is too high").toBeLessThanOrEqual(2600);
+    // the whole page, at the width a phone has: the roadmap's N11 holds it to 2800 px (2600 before the balance chart, about 340 px, came after the month)
+    expect(await page.evaluate(() => document.documentElement.scrollHeight), "the page is too high").toBeLessThanOrEqual(2800);
     expect(seen.problems).toEqual([]);
     await context.close();
   });

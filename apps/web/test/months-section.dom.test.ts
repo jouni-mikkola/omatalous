@@ -73,6 +73,21 @@ describe("Tulot ja menot", () => {
     expect(flat(groups[11]!.querySelector("text")?.textContent)).toBe("marraskesken");
   });
 
+  // a card joining in a month leaves its spending partial and its income whole: Tulolajit draws the month solid, so its income bar is too
+  it("hatches an income bar only where the income report does not count the month complete", async () => {
+    fresh();
+    stubApi({ "GET /api/dashboard": { overview: overview() } });
+    const incomeCtx = { ...ctx, data: { income: { monthlyCents: 396000, months: MONTHS.map((m, i) => ({ month: m.month, complete: i < 11 })) } } } as unknown as ReportContext;
+    const view = render(createElement(section.Component, { ctx: incomeCtx }));
+    await waitFor(() => expect(view.container.querySelector("svg a")).not.toBeNull());
+    const [first, ...rest] = [...view.container.querySelectorAll(".mb-month")];
+    expect(first!.querySelector(".mb-income")).not.toBeNull();
+    expect(first!.querySelector(".mb-income-part")).toBeNull();
+    expect(first!.querySelector(".mb-spend-part")).not.toBeNull();
+    // the running month is hatched in both bars
+    expect(rest.at(-1)!.querySelector(".mb-income-part")).not.toBeNull();
+  });
+
   it("draws the usual month as a line and names it at the line's end, and leaves both out without one", async () => {
     const usual = await show({ overview: overview() });
     expect(usual.querySelector(".mb-usual")).not.toBeNull();

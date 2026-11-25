@@ -286,8 +286,8 @@ describe("Yhteenveto's month", () => {
     expect(sources.map((s) => s.tone)).toEqual(["income", "neutral", "neutral"]);
     expect(sources.map((s) => Math.round(s.share * 1000) / 1000)).toEqual([0.667, 0.133, 0.2]);
     expect(barOf(container, "out").map((s) => s.part)).toEqual(["consumption"]);
-    // the sources are named under their bar without a sum or a share (the sentence under the bars tells the sums, and shares of the income alone would read as a total above 100 %)
-    expect(rowsOf(container)).toEqual([["income", "Tulot", ""], ["savings", "Säästöistä", ""], ["accounts", "Tileiltä tai korteilta", ""], ["consumption", "Kulutus", "1 500 €"]]);
+    // the sources are named under their bar with their sums, as the parts of Meni are, and with no share (shares of the income alone would read as a total above 100 %)
+    expect(rowsOf(container)).toEqual([["income", "Tulot", "1 000 €"], ["savings", "Säästöistä", "200 €"], ["accounts", "Tileiltä tai korteilta", "300 €"], ["consumption", "Kulutus", "1 500 €"]]);
     expect([...container.querySelectorAll(".home-flow-share")].map((el) => flat(el.textContent)).filter((s) => s !== "")).toEqual([]);
     expect(flat(container.querySelector("[data-part=gap]")?.textContent)).toBe("Menot ylittivät tulot 500 €. Rahat tulivat säästöistä 200 € ja tileiltä tai korteilta 300 €.");
   });
@@ -300,7 +300,7 @@ describe("Yhteenveto's month", () => {
   it("when credit covered the gap the bar of what came in names the credit before the accounts", () => {
     const container = summaryIn(data({ totals: { ...totalsOf(100000, 150000, 0, 0), borrowedCents: 40000, leftCents: -10000 } } as never));
     expect(barOf(container, "in").map((s) => s.part)).toEqual(["income", "credit", "accounts"]);
-    expect(rowsOf(container).map((r) => r[0])).toEqual(["income", "credit", "accounts", "consumption"]);
+    expect(rowsOf(container)).toEqual([["income", "Tulot", "1 000 €"], ["credit", "Luotosta", "400 €"], ["accounts", "Tileiltä tai korteilta", "100 €"], ["consumption", "Kulutus", "1 500 €"]]);
     expect(flat(container.querySelector("[data-part=gap]")?.textContent)).toBe("Menot ylittivät tulot 500 €. Rahat tulivat luotosta 400 € ja tileiltä tai korteilta 100 €.");
   });
 

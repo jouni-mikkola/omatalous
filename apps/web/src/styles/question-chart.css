@@ -18,6 +18,7 @@
   .qc-pair { grid-template-columns: 1fr 1fr; gap: 32px; }
   .qc-pair .qc + .qc { margin-top: 0; }
 }
+.qc-choice { margin-bottom: var(--sp-12); }
 .qc-rule { border: 0; border-top: 1px solid var(--grid); margin: 24px 0; }
 
 /* the marks */
@@ -66,6 +67,10 @@
 .heat-key-2 { background: var(--heat-2); }
 .heat-key-3 { background: var(--heat-3); }
 .heat-key-4 { background: var(--heat-4); }
+
+/* the balance to the payday (BalanceSteps): the line and the range of the everyday spending, named in its readout */
+.bs-key-line { background: var(--series-1); }
+.bs-key-band { background: var(--estimate-fill); }
 
 .qc-cap { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text); font-weight: 600; margin: 0 0 4px; }
 

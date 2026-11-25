@@ -13,7 +13,8 @@ import { type EndedCredit, paidOffCredits } from "../ended-credit.ts";
 import type { AnalysisContext } from "../analysis/context.ts";
 import { type DebtCost, debtCost } from "../debt-cost.ts";
 import type { Debt } from "../debt-part.ts";
-import { type ConsolidationBasis, consolidationBasis, payoffPlan, type PayoffPlan } from "../debt-plan.ts";
+import { monthIndex, monthOf } from "../dates.ts";
+import { type ConsolidationBasis, consolidationBasis, extraPlan, payoffPlan, type PayoffPlan } from "../debt-plan.ts";
 import { type DebtPath, debtPath } from "../loan-path.ts";
 import { typedRateBpOn } from "../loan-schedule.ts";
 import { type MaybeTwice, maybeTwice, overdraftTwice } from "../household-debts.ts";
@@ -41,6 +42,29 @@ export type { MaybeTwice };
 /** The reference rate moves the scenario lines tell, in hundredths of a percent: one percentage point down and up. */
 const RATE_SHIFTS_BP = [-100, 100] as const;
 
+/** The extra monthly payments of the debt-free choice, in cents: 50, 100 and 200 euros. */
+const EXTRA_STEPS_CENTS = [5_000, 10_000, 20_000] as const;
+
+/**
+ * The way out of debt with `extraCents` more a month (`extraPlan`), as the choice under Velkapolku shows it. Each is
+ * worked out by the server and the page only switches between them.
+ */
+interface ExtraScenario {
+  extraCents: number;
+  /** The due date that pays the last debt with the extra money. */
+  debtFreeDate: IsoDate;
+  /** The months by which that is before the last debt ends on the debts' own payments. */
+  monthsEarlier: number;
+  /** The interest and fees the extra money saves against the debts' own payments. */
+  savedCents: number;
+  /** The extra money that fills the buffer before any goes to a debt; 0 when the buffer is full. */
+  bufferCents: number;
+  /** The day the buffer is full; null when it needs nothing or does not fill before the debts end. */
+  bufferFullDate: IsoDate | null;
+  /** What the debts owe on each day of `path.days`; 0 from the debt-free month on. */
+  owedCents: number[];
+}
+
 /**
  * How many loans an interest total leaves out for their rate: they owe and no rate was told. A loan whose balance is
  * dated after the day is left out too, for its balance, and is not one of these.
@@ -51,19 +75,19 @@ const loansWithoutRate = (interest: DebtFigure): number => interest.unknown.filt
 interface MonthlyPayments {
   /** The payments of the saved loans (`DebtPayments`) and of the unsaved rows that tell one. Null when none is known: an unknown sum is never 0. */
   cents: number | null;
-  /** Saved loans left out of the sum (`DebtPayments.unknown`), unsaved rows with no monthly figure and lenders paid only a few times (`UnsavedDebts.few`): a debt is never silently left out. */
+  /** Saved loans left out of the sum (`DebtPayments.unknown`), unsaved rows with no monthly figure, a lender paid only a few times among them: a debt is never silently left out. */
   unknown: number;
 }
 
 /**
  * The payments the page lists, saved or not, in one sum: the saved loans' payments and the payments of the unsaved rows
- * (`UnsavedRow.monthlyCents`, the viewer's part), with the debts that tell none counted, a lender paid only a few times (`few`) among them.
+ * (`UnsavedRow.monthlyCents`, the viewer's part), with the debts that tell none counted, a lender paid only a few times among them.
  */
-export function monthlyPayments(payments: DebtPayments, unsaved: Pick<ReturnType<typeof unsavedDebts>, "rows" | "few">): MonthlyPayments {
+export function monthlyPayments(payments: DebtPayments, unsaved: Pick<ReturnType<typeof unsavedDebts>, "rows">): MonthlyPayments {
   const known = unsaved.rows.flatMap((row) => row.monthlyCents ?? []);
   return {
     cents: payments.counted + known.length > 0 ? known.reduce((sum, cents) => sum + cents, payments.monthlyCents) : null,
-    unknown: payments.unknown + unsaved.rows.length - known.length + unsaved.few,
+    unknown: payments.unknown + unsaved.rows.length - known.length,
   };
 }
 
@@ -157,6 +181,11 @@ export interface LoansReport {
    * the path of the rest would tell a part as the whole.
    */
   path: DebtPath | null;
+  /**
+   * The way out with each extra monthly payment of `EXTRA_STEPS_CENTS` that pays the debts off sooner, the smallest first,
+   * on the days of `path`. Empty while `path` or `plan` is null, and when no extra payment makes a difference.
+   */
+  extra: readonly ExtraScenario[];
   /** Saved loans beside connected cards and loan accounts that may tell the same debt and are not linked: both are in `total`. */
   maybeTwice: readonly MaybeTwice[];
   /** Saved credit lines beside accounts below zero: the debt may be twice in the accounts less the debts, and is once in `total`. */
@@ -210,6 +239,32 @@ export function inCostOrder(rows: readonly LoanRow[]): LoanRow[] {
   return [...rows].sort((a, b) => part(a) - part(b) || byDescending(rate(a), rate(b)) || byDescending(dearness(a), dearness(b)) || byDescending(year(a), year(b)));
 }
 
+/**
+ * The scenarios of `EXTRA_STEPS_CENTS` that end the debts earlier or save something, each laid on the days of the path.
+ * One that would run past the path's last day is left out: the path and the plan then disagree on a debt's end.
+ */
+function extraScenarios(debts: readonly Debt[], day: IsoDate, path: DebtPath, buffer: { netCents: number; spendCents: number }, costOf: (debt: Debt) => DebtCost | null): ExtraScenario[] {
+  return EXTRA_STEPS_CENTS.flatMap((extraCents) => {
+    const scenario = extraPlan(debts, day, extraCents, buffer, costOf);
+    if (scenario === null || scenario.owedCents.length > path.days.length) return [];
+    const { plan, owedCents, debtFreeDate } = scenario;
+    // the same day 'Ei lisää' names: the path's last payment, a card paid in full among them
+    const monthsEarlier = monthIndex(monthOf(path.payoff ?? path.days.at(-1)!)) - monthIndex(monthOf(debtFreeDate));
+    if (monthsEarlier <= 0 && plan.savedCents <= 0) return [];
+    return [
+      {
+        extraCents,
+        debtFreeDate,
+        monthsEarlier,
+        savedCents: plan.savedCents,
+        bufferCents: plan.bufferCents,
+        bufferFullDate: plan.bufferFullDate,
+        owedCents: path.days.map((_, i) => owedCents[i] ?? 0),
+      },
+    ];
+  });
+}
+
 /** The household's debts on the context's today, each with its figures from `loans.ts`. */
 export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs): LoansReport {
   const debts = debtsOf(ctx, balances, inputs);
@@ -252,11 +307,13 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
   const payments = debtPaymentsPerMonth(debts.loans, day);
   const cost12 = cost12Of(
     loans.map((l) => l.cost),
-    unsaved.rows.length > 0 || unsaved.few > 0,
+    unsaved.rows.length > 0,
   );
   // a buffer nothing tells is no step before the debts: the plan keeps its dates for the debts alone
   const cash = bufferCash(ctx, balances, inputs);
   const buffer = { netCents: cash.netCents ?? 0, spendCents: cash.netCents === null ? 0 : (cash.spendExpected ?? 0) };
+  const path = debtPath(debts.loans, day, RATE_SHIFTS_BP);
+  const plan = cost12.cents === null ? null : payoffPlan(debts.loans, day, 0, buffer, costOf);
   return {
     day,
     saved: loansOf(inputs).length,
@@ -268,11 +325,12 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
     interestKnown: debts.interestKnown,
     withoutRate: loansWithoutRate(debts.interest),
     cost12,
-    plan: cost12.cents === null ? null : payoffPlan(debts.loans, day, 0, buffer, costOf),
+    plan,
     consolidation: cost12.cents === null ? null : consolidationBasis(debts.loans, day, costOf),
     payments,
     monthly: monthlyPayments(payments, unsaved),
-    path: debtPath(debts.loans, day, RATE_SHIFTS_BP),
+    path,
+    extra: path === null || plan === null ? [] : extraScenarios(debts.loans, day, path, buffer, costOf),
     maybeTwice: maybeTwice(balances, debts),
     overdraftTwice: overdraftTwice(balances, debts),
     ended: paidOffCredits(ctx, inputs),

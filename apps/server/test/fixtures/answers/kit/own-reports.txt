@@ -598,8 +598,8 @@
    "cents": 1894423
   },
   "peak": {
-   "month": "2026-10",
-   "cents": 1894423
+   "day": "2026-10-01",
+   "cents": 2166845
   },
   "holdings": {
    "accounts": [
@@ -2797,6 +2797,7 @@
    "payoff": "2026-11-10",
    "moves": []
   },
+  "extra": [],
   "maybeTwice": [],
   "overdraftTwice": [],
   "ended": []

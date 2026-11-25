@@ -11,6 +11,13 @@ type Data = DashboardData & { nyt: NonNullable<DashboardData["nyt"]> };
 /** Laskut at its table, where the bills the figure takes off stand by month. */
 const billsHref = hashOf({ page: "bills", params: new URLSearchParams(), anchor: "laskut-taulukko" });
 
+/** The payday the figure counts to (the day the balance picture marks), when the page has one. */
+export function paydayOf(data: Data): string | null {
+  const runway = data.home.runway?.leftOnPayday;
+  const { left } = data.nyt;
+  return runway?.known ? runway.payday.date : left.known ? left.payday.date : null;
+}
+
 /** Why there is no sum left to the payday, in a line's words. */
 function leftUnknown(left: Extract<Data["nyt"]["left"], { known: false }>): string {
   if (left.reason === "late") return t("home.tile_late");
@@ -66,7 +73,7 @@ export function Now({ data }: { data: Data }) {
     : !left.known ? leftUnknown(left) : left.leftCents < 0 ? t("home.tile_left_short", { sum: answerMoney(-left.leftCents) }) : left.days === 0 ? t("home.tile_left_today") : t("home.tile_left_line", { sum: answerMoney(left.perDayCents), date: dayMonth(left.payday.date) });
   const label = runway?.known ? t("home.tile_runway", { date: dayMonth(runway.payday.date) }) : t("home.tile_left");
   const leftCents = runway?.known ? runway.leftCents : left.known ? left.leftCents : null;
-  const payday = runway?.known ? runway.payday.date : left.known ? left.payday.date : null;
+  const payday = paydayOf(data);
   const sum = data.home.runway?.sum;
   // the reason the figure's own line gives while it has no sum: an unknown lowest balance for the same reason says nothing more
   const ownReason = runway?.known || left.known ? null : left.reason;

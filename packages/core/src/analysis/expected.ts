@@ -384,6 +384,15 @@ export type EverydayGap = "history" | "cards";
  * without.
  */
 export function expectedEveryday(ctx: AnalysisContext, from: IsoDate, until: IsoDate, keep: (t: AnalysisTx) => boolean = () => true, month: string = monthOf(from)): ExpectedEveryday | EverydayGap {
+  const span = everydaySpans(ctx, keep, month);
+  return typeof span === "string" ? span : span(from, until);
+}
+
+/**
+ * `expectedEveryday` of one set of rows for many spans: the base months' days are read once and each span sums them, so a
+ * walk that asks for a span to every day of 60 reads the rows once. The same figure as `expectedEveryday` for the same span.
+ */
+export function everydaySpans(ctx: AnalysisContext, keep: (t: AnalysisTx) => boolean, month: string): ((from: IsoDate, until: IsoDate) => ExpectedEveryday) | EverydayGap {
   const figure = expectedFor(ctx, month);
   // the reason Yhteenveto's month gives, so the runway's cannot say "history" beside their "cards"
   if (!figure) return usualGap(ctx, month) ?? "history";
@@ -401,17 +410,19 @@ export function expectedEveryday(ctx: AnalysisContext, from: IsoDate, until: Iso
     }
     return days;
   });
-  const totals = figure.months.map(() => 0);
-  for (let day = from; day <= until; day = addDays(day, 1)) {
-    const d = Number(day.slice(8, 10));
-    figure.months.forEach((m, i) => {
-      const length = daysInMonth(m);
-      totals[i]! += d <= length ? perDay[i]![d - 1]! : sumOf(perDay[i]!) / length;
-    });
-  }
-  const sorted = [...totals].sort((a, b) => a - b);
-  const cents = Math.round(sumOf(totals) / totals.length);
-  return { cents, lowCents: Math.min(cents, quantile(sorted, RANGE_LOW)), highCents: Math.max(cents, quantile(sorted, RANGE_HIGH)), months: totals.length };
+  return (from, until) => {
+    const totals = figure.months.map(() => 0);
+    for (let day = from; day <= until; day = addDays(day, 1)) {
+      const d = Number(day.slice(8, 10));
+      figure.months.forEach((m, i) => {
+        const length = daysInMonth(m);
+        totals[i]! += d <= length ? perDay[i]![d - 1]! : sumOf(perDay[i]!) / length;
+      });
+    }
+    const sorted = [...totals].sort((a, b) => a - b);
+    const cents = Math.round(sumOf(totals) / totals.length);
+    return { cents, lowCents: Math.min(cents, quantile(sorted, RANGE_LOW)), highCents: Math.max(cents, quantile(sorted, RANGE_HIGH)), months: totals.length };
+  };
 }
 
 /**

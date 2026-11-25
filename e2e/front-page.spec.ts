@@ -9,8 +9,8 @@ import { cents, overflow, OVERVIEW_TILES, plain, watch } from "./helpers.ts";
 // one the server gives, the three fit the first screen of a phone, the blocks under them are the ones of the page, and
 // the page does not move when it has loaded.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
-/** The page's height at the two widths it is held to: the roadmap's N11. */
-const MAX_HEIGHT = { 1440: 1500, 390: 2600 } as const;
+/** The page's height at the two widths it is held to: the roadmap's N11. The phone's 2800 px holds the balance chart (about 340 px) that stands after the month. */
+const MAX_HEIGHT = { 1440: 1500, 390: 2800 } as const;
 /** The longest a page may change in height once its answer has landed. */
 const MAX_JUMP = 0.25;
 
@@ -95,7 +95,7 @@ for (const width of [390, 1440] as const) {
     const classes = await page.locator(".home-now, .home-summary, .home-coming, .holdings").evaluateAll((els) => els.map((e) => e.getAttribute("class") ?? ""));
     const order = classes.map((c) => c.split(" ").find((name) => /^home-|^holdings$/.test(name)));
     expect(order).toEqual(["home-now", "home-summary", "home-coming", "holdings"]);
-    expect(await page.locator("main .card h2").allInnerTexts()).toEqual([`Jää palkkapäivänä ${paydayDay}.${paydayMonth}.`, "Tulevat kuukaudet", "Varat ja velat"]);
+    expect(await page.locator("main .card h2").allInnerTexts()).toEqual([`Jää palkkapäivänä ${paydayDay}.${paydayMonth}.`, "Saldo päivä päivältä", "Tulevat kuukaudet", "Varat ja velat"]);
     await expect(page.locator("main .notice, main .home-notice")).toHaveCount(0);
     // the buffer line at the foot of Varat ja velat: core's months, and its drill holds the two sums they divide, or core's reason
     const buffer = page.locator(".holdings .home-buffer");

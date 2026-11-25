@@ -41,6 +41,9 @@ function Payers({ row }: { row: Row }) {
   return <Table<Payer> caption={t("rpt.in_payers", { label: row.label })} rows={row.payers} rowKey={(p) => p.payer} columns={columns} drill={(p) => <Payments payer={p} />} drillLabel={(p) => p.payer} toolbar={false} csv={false} />;
 }
 
+/** The average line of the chart names the months it is the mean of: the income report counts its complete months on its own rule, so the strip above may count others. */
+const averageLine = (cents: number, months: number): string => t("rpt.in_average_line", { sum: money(cents, false), months: String(months) });
+
 function Income({ ctx }: SectionProps) {
   const r = ctx.data.income;
   const columns: Column<Row>[] = [
@@ -60,7 +63,7 @@ function Income({ ctx }: SectionProps) {
             months={r.months.map((m, i) => ({ month: m.month, complete: m.complete, parts: r.kinds.map((k) => k.months[i] ?? 0), totalCents: m.totalCents, against: m.againstAverage }))}
             series={r.kinds.map((k) => ({ key: k.id, label: k.label }))}
             tone="income"
-            usual={r.monthlyCents === null ? null : { cents: r.monthlyCents, label: t("rpt.in_average_line", { sum: money(r.monthlyCents, false) }), short: t("rpt.in_average_line", { sum: money(r.monthlyCents, false) }) }}
+            usual={r.monthlyCents === null ? null : { cents: r.monthlyCents, label: averageLine(r.monthlyCents, r.completeMonths), short: averageLine(r.monthlyCents, r.completeMonths) }}
             running={ctx.running}
             label={t("rpt.in_months")}
           />

@@ -60,9 +60,10 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
   (`bufferMonths`), and its drill shows the two sums the months divide (`bufferNetCents`, `bufferSpendCents`). With no
   figure the line says why, as core gives it (`bufferGap`): *Ei saldoa*, *Liian lyhyt historia* or *Ei menoja*. A net
   below zero is shown as it is, as negative months.
-- No chart and no list of categories on the first page: the categories of the month are in Raportit > Menot.
+- One chart on the first page, Saldo päivä päivältä (the balance of the days to the payday, its table folded), and no
+  list of categories: the categories of the month are in Raportit > Menot.
 - At 1440 px Nyt and the month stand on the left and the coming months and the accounts in a column beside them.
-  A phone reads Nyt, the month, the coming months and the accounts in one column, no taller than 2600 px.
+  A phone reads Nyt, the month, the balance chart, the coming months and the accounts in one column, no taller than 2800 px.
 - Not shown: notices (a dot on the user menu leads to Asetukset > Turvallisuus), questions (Tarkistettavat, the
   header's link), explaining sentences, goals.
 ```
