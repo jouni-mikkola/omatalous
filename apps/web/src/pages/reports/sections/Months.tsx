@@ -48,7 +48,8 @@ export function CashflowLead({ ctx }: SectionProps) {
   const sum = (cents: (m: (typeof complete)[number]) => number | null) => complete.reduce((total, m) => total + (cents(m) ?? 0), 0);
   const count = String(complete.length);
   const average = ctx.data.income?.monthlyCents ?? null;
-  const peak = complete.length > 1 ? complete.reduce((a, b) => (b.spendCents! > a.spendCents! ? b : a)) : null;
+  const higher = (a: Month, b: Month) => (b.spendCents! > a.spendCents! ? b : a);
+  const peak = complete.length > 1 ? complete.reduce(higher) : null;
   const items: StripItem[] = [
     { label: t("rpt.strip_income", { months: count }), figure: answerMoney(sum((m) => m.incomeCents)), note: average === null ? undefined : t("rpt.strip_income_average", { sum: answerMoney(average) }) },
     { label: t("rpt.strip_spent", { months: count }), figure: answerMoney(sum((m) => m.spendCents)), note: peak ? t("rpt.strip_spent_peak", { month: monthLong(peak.month), sum: answerMoney(peak.spendCents!) }) : undefined },
@@ -95,7 +96,7 @@ function Months({ ctx }: SectionProps) {
         title={t("table.folded_months")}
         rows={dashboard.overview.months.length}
         chart={<MonthBars overview={dashboard.overview} today={ctx.meta.today} />}
-        table={<Table<Month> caption={t("rpt.sec_cashflow")} rows={dashboard.overview.months} rowKey={(m) => m.month} columns={columns} toolbar={false} csv={false} />}
+        table={<Table<Month> caption={t("rpt.sec_cashflow")} rows={dashboard.overview.months} rowKey={(m) => m.month} columns={columns} search={false} />}
       />
     </Panel>
   );
@@ -108,7 +109,8 @@ export const section: ReportSection = {
   },
   order: 10,
   page: "reports",
-  reports: [],
+  // the sentence above reads the average month of the income report (CashflowLead)
+  reports: ["income"],
   visible: (ctx) => ctx.meta.accounts.length > 0,
   open: true,
   Component: Months,

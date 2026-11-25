@@ -77,8 +77,6 @@ function Income({ ctx }: SectionProps) {
               { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "cents", cents: (m) => m.totalCents },
             ]}
             search={false}
-            toolbar={false}
-            csv={false}
           />
         }
       />

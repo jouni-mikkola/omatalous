@@ -2,7 +2,7 @@
 @layer pages {
 .in-types { margin-top: var(--sp-24); }
 /* a kind's share bar fills its column, as the track has room beside the name and the figures */
-.in-types .rt-bar-track { min-width: 96px; }
+.in-types .rt-bar-track { min-width: calc(var(--sp-48) * 2); }
 }
 
 /* the head of the tax year's card: the name with its range beside it and the two links at the right. In the layer of the title block's own rule (marks.css), which a rule of `pages` cannot beat. */

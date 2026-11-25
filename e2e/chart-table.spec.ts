@@ -11,7 +11,8 @@ test("a month chart: its table is folded, a pick opens it on that month and Esca
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/reports?q=tulot");
-  const fold = page.locator("details.chart-fold").first();
+  // the income kinds' chart: the one above it (Tulot ja menot) is read by link, its months have no pick
+  const fold = page.locator("#tulot details.chart-fold").first();
   await expect(fold).toBeVisible({ timeout: 20_000 });
   await expect(fold).not.toHaveAttribute("open", "");
   await expect(fold.locator("summary")).toContainText("Kuukaudet taulukkona");
