@@ -318,12 +318,12 @@ export function Shell() {
           </PageLink>
           <nav className="nav" aria-label={t("shell.main_menu")}>
             {NAV.map((e) => (
-              <PageLink key={e.id} id={e.id} current={page === e.id} className={e.id === REPORTS_ID ? "nav-reports" : undefined}>
+              <PageLink key={e.id} id={e.id} current={known && page === e.id} className={e.id === REPORTS_ID ? "nav-reports" : undefined}>
                 {e.label}
               </PageLink>
             ))}
             {extensions.map((e) => (
-              <PageLink key={e.id} id={e.id} current={page === e.id}>
+              <PageLink key={e.id} id={e.id} current={known && page === e.id}>
                 {e.page!.label}
               </PageLink>
             ))}
