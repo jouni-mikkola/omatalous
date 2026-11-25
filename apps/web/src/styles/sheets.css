@@ -1,13 +1,27 @@
-/* The tax-year sheet of Raportit: the print look. Printing hides the page but the sheet that asked (components/SheetActions.tsx marks it). */
+/* The tax-year sheet of Asetukset > Tiedot: the print look. Printing hides the page but the sheet that asked (components/SheetActions.tsx marks it). */
 @layer pages {
 .sheet-part { margin-block: var(--sp-16) var(--sp-8); font-size: var(--fs-label); }
+.sheet-year { margin-block-end: var(--sp-8); }
 @media print {
   html.printing-sheet body * { visibility: hidden; }
   html.printing-sheet .print-sheet, html.printing-sheet .print-sheet * { visibility: visible; }
   html.printing-sheet .print-sheet { position: absolute; inset-block-start: 0; inset-inline-start: 0; inline-size: 100%; box-shadow: none; border: 0; }
   /* the title block (marks.css, a later layer) gives every cell of the head `display: flex`, so the buttons leave the paper only with !important */
   html.printing-sheet .print-sheet .card-tool { display: none !important; }
+  html.printing-sheet .print-sheet .sheet-year { display: none; }
   html.printing-sheet .print-sheet .sheet-part { break-after: avoid; }
   html.printing-sheet .print-sheet tr { break-inside: avoid; }
+}
+}
+
+/* the head of the tax year's card: the name with its range beside it and the two links at the right. In the layer of the title block's own rule (marks.css), which a rule of `pages` cannot beat. */
+@layer utilities {
+#verovuosi .card-head.tb > .card-name { flex: 0 0 auto; }
+#verovuosi .card-head.tb > .card-datum { flex: 1 1 auto; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--w-regular); color: var(--text-2); }
+#verovuosi .card-tool .form-row { gap: var(--sp-8); }
+#verovuosi .sheet-sep { color: var(--text-2); }
+@media (max-width: 640px) {
+  #verovuosi .card-head.tb > .card-datum { text-align: left; }
+  #verovuosi .card-head.tb > .card-tool { padding-block: 0; min-height: 0; }
 }
 }

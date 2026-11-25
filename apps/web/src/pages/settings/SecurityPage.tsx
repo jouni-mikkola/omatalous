@@ -1,7 +1,7 @@
 /**
  * Asetukset > Turvallisuus: the member's own sign-in (the password, the second factor and the signed-in
- * devices; the service tokens are rows of Omat istunnot) and the security log, an admin's of every member. The notices
- * of the server stand first while there are any: no other page shows them.
+ * devices; the service tokens are rows of Omat istunnot) and the security log, an admin's of every member, folded until
+ * it is opened or an address names it. The notices of the server stand first while there are any: no other page shows them.
  */
 import { NoticeList } from "../../components/Notices.tsx";
 import { SETTINGS_ANCHOR } from "../../routes.ts";
@@ -22,7 +22,7 @@ export function SecurityPage({ meta, params, anchor }: SettingsPageProps) {
       <Password username={meta.user.username} openPassword={anchor === SETTINGS_ANCHOR.password} />
       <SecondFactor />
       <Sessions admin={isAdmin} onLoaded={partLoaded} />
-      <SecurityLog onLoaded={partLoaded} />
+      <SecurityLog open={anchor === SETTINGS_ANCHOR.securityLog} onLoaded={partLoaded} />
     </CardStack>
   );
 }

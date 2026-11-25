@@ -24,16 +24,16 @@ test("the tax sheet prints alone and the page comes back after", async ({ browse
       window.printed += 1;
     };
   });
-  await page.goto("/#/reports?q=tulot#verovuosi");
+  await page.goto("/#/settings/data#verovuosi");
   const root = page.locator("html");
   const sheet = page.locator("#verovuosi");
   const table = sheet.locator("table").first();
   const header = page.locator("header.topbar");
   const menu = page.locator("header.topbar nav.nav");
-  const rail = page.locator("nav.q-tabs");
+  const rail = page.getByRole("navigation", { name: "Asetukset", exact: true });
   const footer = page.getByRole("contentinfo");
   await expect(table).toBeVisible();
-  // Tulot holds the tax sheet alone, so the card a page with more reports would have next to it is put there by hand
+  // the card next to the sheet is put there by hand, so that the test does not depend on what else Tiedot lists
   await sheet.evaluate((card) => {
     const next = document.createElement("section");
     next.className = "card";

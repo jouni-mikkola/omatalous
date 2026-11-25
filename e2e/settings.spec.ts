@@ -24,6 +24,7 @@ const INVENTORY: { heading: string; target: string; admin?: true; example?: true
   { heading: "Omat istunnot", target: "security" },
   { heading: "Turvallisuusloki", target: "security" },
   { heading: "Tiedot", target: "data" },
+  { heading: "Verovuoden rivit", target: "data", fetched: true },
   { heading: "Esimerkkitiedot", target: "data", example: true },
   { heading: "Palvelin", target: "server", admin: true },
   { heading: "Ylläpito", target: "server", admin: true },

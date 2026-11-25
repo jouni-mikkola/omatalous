@@ -106,7 +106,7 @@ Yhteenveto shows the sums, in the order Tulot, Kulutus, Korot ja luottokulut, Ve
 not 0), a subtotal of the income less these costs, Lyhennykset, the rows for saving and credit, Tulos. The cash flow
 report data carries them too, and no page shows them there yet.
 
-The interest of the tax-year sheet (`taxYearReport`, Raportit > Verovuoden rivit) is the interest of home and student loans
+The interest of the tax-year sheet (`taxYearReport`, Asetukset > Tiedot > Verovuoden rivit) is the interest of home and student loans
 alone: the interest rows that pay a saved home or student loan, and the interest part (the fee left out) of each row of
 the categories `mortgage` and `student_loan` that the same evidence splits (`debtRowParts`). A payment row that reaches
 a saved loan whose interest the bank booked as a row of its own in the same calendar month holds no interest. The sum

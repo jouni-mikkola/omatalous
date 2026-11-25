@@ -1,5 +1,5 @@
 /**
- * Raportit: the tax-year card has no explanation lines and names the days it covers in its caption, and the months table of
+ * Asetukset > Tiedot: the tax-year card has no explanation lines and names the days it covers in its caption. Raportit: the months table of
  * Menot kategorioittain draws the column of debt paid from savings only when a month holds some.
  */
 import { cleanup, render, screen, within } from "@testing-library/react";
@@ -7,7 +7,7 @@ import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import "@banking/core/late";
 import { section as spending } from "../src/pages/reports/sections/SpendingMonths.tsx";
-import { section as tax } from "../src/pages/reports/sections/TaxYear.tsx";
+import { hasTaxRows, TaxYearSheet } from "../src/pages/settings/TaxYear.tsx";
 import type { ReportContext } from "../src/pages/reports/types.ts";
 import type { ReportsData } from "../src/types.ts";
 import "./fixed-clock.ts";
@@ -32,8 +32,7 @@ const taxReport = (partial: boolean): Tax =>
     household: { cents: -9000, rows: [row("r3", "Siivouspalvelu", -9000)] },
   }) as unknown as Tax;
 
-const taxContext = (taxYear: Tax): ReportContext => ({ data: { taxYear }, label: (id: string) => id }) as unknown as ReportContext;
-const showTax = (r: Tax) => render(createElement(tax.Component, { ctx: taxContext(r) }));
+const showTax = (r: Tax) => render(createElement(TaxYearSheet, { r, label: (id: string) => id }));
 
 describe("Verovuoden rivit", () => {
   it("has no explanation line, a year in progress included, and every part keeps its rows", () => {
@@ -70,7 +69,7 @@ describe("Verovuoden rivit", () => {
   it("shows an interest sum that is not known as unknown, never 0, also with no interest row", () => {
     const unknown = { ...taxReport(true), interest: { cents: null, rows: [] }, loanPayments: [{ category: "mortgage", cents: 138_200, count: 1 }] } as unknown as Tax;
     const onlyUnknown = { ...unknown, refunds: { cents: 0, rows: [] }, residual: { cents: 0, rows: [] }, loanPayments: [], household: { cents: 0, rows: [] } } as unknown as Tax;
-    expect(tax.visible?.(taxContext(onlyUnknown))).toBe(true);
+    expect(hasTaxRows(onlyUnknown)).toBe(true);
     showTax(unknown);
     const text = plain(screen.getByRole("table", { name: "Lainojen ja luottojen korot" }).textContent);
     expect(text).toMatch(/Yhteensä\s*–/);
