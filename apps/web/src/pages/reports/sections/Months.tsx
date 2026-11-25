@@ -11,6 +11,9 @@ import { t } from "../../../text.ts";
 import type { DashboardData } from "../../../types.ts";
 import type { ReactNode } from "react";
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
+import { ChartWithTable } from "../../../components/table/selection.tsx";
+import { type Column, Table } from "../../../components/table/Table.tsx";
+import { monthName } from "../month-name.ts";
 import { Lead, Strip, type StripItem } from "../Lead.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
@@ -59,6 +62,8 @@ export function CashflowLead({ ctx }: SectionProps) {
   );
 }
 
+type Month = DashboardData["overview"]["months"][number];
+
 function Panel({ children }: { children: ReactNode }) {
   return (
     <ReportPanel id={section.id} title={section.title}>
@@ -79,9 +84,19 @@ function Months({ ctx }: SectionProps) {
   if (error && !dashboard) return <Notice tone="error">{error}</Notice>;
   if (!dashboard) return <Panel><Empty>{t("rpt.loading")}</Empty></Panel>;
   if (dashboard.overview.months.length === 0) return null;
+  const columns: Column<Month>[] = [
+    { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName({ ...m, unknown: m.incomeCents === null && m.spendCents === null }, ctx.running) },
+    { key: "income", label: t("home.months_income"), kind: "money", precision: "euros", cents: (m) => m.incomeCents },
+    { key: "spend", label: t("home.fig_spent"), kind: "money", main: true, precision: "euros", cents: (m) => m.spendCents },
+  ];
   return (
     <Panel>
-      <MonthBars overview={dashboard.overview} today={ctx.meta.today} />
+      <ChartWithTable
+        title={t("table.folded_months")}
+        rows={dashboard.overview.months.length}
+        chart={<MonthBars overview={dashboard.overview} today={ctx.meta.today} />}
+        table={<Table<Month> caption={t("rpt.sec_cashflow")} rows={dashboard.overview.months} rowKey={(m) => m.month} columns={columns} toolbar={false} csv={false} />}
+      />
     </Panel>
   );
 }
