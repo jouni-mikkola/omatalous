@@ -38,15 +38,12 @@ export function sparkGeometry(values: readonly (number | null)[], w: number, h: 
 }
 
 /**
- * The axis of a column of spans: its lowest and highest end, with a third of their reach left below, so the bar of the
- * smallest figure still has a length and the steps stand out from the whole. Only geometry: the ends are the server's.
+ * The axis of a column of spans: zero to the highest end, so a whole bar and a step share one scale and a small step is
+ * not drawn larger than it is. Only geometry: the ends are the server's.
  */
 export function spanAxis(ends: readonly number[]): { lo: number; hi: number } {
-  if (!ends.length) return { lo: 0, hi: 1 };
-  const hi = Math.max(...ends);
-  const low = Math.min(...ends);
-  const lo = Math.max(0, low - (hi - low) / 3);
-  return { lo, hi: hi > lo ? hi : lo + 1 };
+  const hi = Math.max(0, ...ends);
+  return { lo: 0, hi: hi > 0 ? hi : 1 };
 }
 
 /**

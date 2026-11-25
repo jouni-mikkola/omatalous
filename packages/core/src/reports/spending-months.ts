@@ -46,7 +46,7 @@ interface SpendingCategory {
 
 /** A step of the waterfall from the usual month to a month: a category's gap to its level, between the running sums `fromCents` and `toCents`. */
 interface SpendingChangeStep {
-  /** The category's id and name; null for the one last step that holds the gaps of all the others. */
+  /** The category's id and name; null for the one last step that holds the gaps of all the others, which is there only when they do not cancel out. */
   category: string | null;
   label: string | null;
   /** The gap in cents: above zero is more than the category's level. */
@@ -231,6 +231,7 @@ function changeOf(i: number, categories: readonly { category: string; label: str
     steps.push({ category: g.category, label: g.label, cents: g.cents, fromCents: running, toCents: running + g.cents });
     running += g.cents;
   }
-  steps.push({ category: null, label: null, cents: endCents - running, fromCents: running, toCents: endCents });
+  // the gaps of the others are one last step, left out when they cancel out
+  if (endCents !== running) steps.push({ category: null, label: null, cents: endCents - running, fromCents: running, toCents: endCents });
   return { startCents, steps, endCents };
 }

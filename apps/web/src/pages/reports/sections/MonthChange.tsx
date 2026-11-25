@@ -15,6 +15,8 @@ type Change = NonNullable<ReportsData["spendingMonths"]["changes"][number]>;
 type Bar = { key: string; label: string; from: number | null; to: number; cents: number; tone: "rise" | "fall" | "usual" | "whole"; figure: string };
 
 const eur = (cents: number) => money(cents, false);
+// the month stands at the start of a row
+const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
  * The usual month, a step for each category that moved it and the month, as rows of a table with a bar that starts where
@@ -23,7 +25,7 @@ const eur = (cents: number) => money(cents, false);
  */
 function barsOf(change: Change, month: string): Bar[] {
   return [
-    { key: "usual", label: t("rpt.strip_usual"), from: null, to: change.startCents, cents: change.startCents, tone: "usual", figure: eur(change.startCents) },
+    { key: "usual", label: t("rpt.mc_levels"), from: null, to: change.startCents, cents: change.startCents, tone: "usual", figure: eur(change.startCents) },
     ...change.steps.map((s) => ({
       key: s.category ?? "rest",
       label: s.label ?? t("rep.rest_changes"),
@@ -33,7 +35,7 @@ function barsOf(change: Change, month: string): Bar[] {
       tone: s.cents < 0 ? ("fall" as const) : ("rise" as const),
       figure: signedMoney(s.cents),
     })),
-    { key: "month", label: monthLong(month), from: null, to: change.endCents, cents: change.endCents, tone: "whole", figure: eur(change.endCents) },
+    { key: "month", label: capital(monthLong(month)), from: null, to: change.endCents, cents: change.endCents, tone: "whole", figure: eur(change.endCents) },
   ];
 }
 
@@ -63,6 +65,7 @@ function MonthChange({ ctx }: SectionProps) {
         {after !== null && <Button variant="link" onClick={() => setPicked(after)}>{t("rpt.mc_next", { month: monthLong(r.months[after]!) })}</Button>}
       </div>
       <Table<Bar> caption={t("rpt.mc_caption", { month: monthLong(month) })} rows={bars} rowKey={(b) => b.key} columns={columns} toolbar={false} csv={false} search={false} rowClassName={(b) => (b.tone === "usual" || b.tone === "whole" ? "mc-whole" : undefined)} />
+      <p className="mc-note">{t("rpt.mc_note")}</p>
     </ReportPanel>
   );
 }

@@ -47,17 +47,16 @@ describe("a sparkline", () => {
 });
 
 describe("a bar that starts at an offset", () => {
-  it("lies between its ends on the axis, the lower end first, with a third of the reach below the lowest", () => {
+  it("lies between its ends on one scale that starts at zero, the lower end first", () => {
     const axis = spanAxis([5000, 5297, 5664]);
-    expect(axis.hi).toBe(5664);
-    expect(axis.lo).toBeCloseTo(5000 - 664 / 3, 9);
+    expect(axis).toEqual({ lo: 0, hi: 5664 });
     const step = spanGeometry(5297, 5000, axis);
-    expect(step.left).toBeCloseTo((5000 - axis.lo) / (axis.hi - axis.lo), 9);
-    expect(step.width).toBeCloseTo(297 / (axis.hi - axis.lo), 9);
-    // a whole starts at the axis; a step of no length is still drawn; the axis never goes below zero
+    expect(step.left).toBeCloseTo(5000 / 5664, 9);
+    expect(step.width).toBeCloseTo(297 / 5664, 9);
+    // a whole starts at zero and is as long as its figure; a step of no length is still drawn
     expect(spanGeometry(null, 5664, axis)).toEqual({ left: 0, width: 1 });
+    expect(spanGeometry(null, 2832, axis).width).toBeCloseTo(0.5, 9);
     expect(spanGeometry(5000, 5000, axis).width).toBeGreaterThan(0);
-    expect(spanAxis([100, 900]).lo).toBe(0);
     expect(spanGeometry(null, 7, spanAxis([7])).width).toBeGreaterThan(0);
     expect(spanAxis([]).hi).toBe(1);
   });

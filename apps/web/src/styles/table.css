@@ -223,8 +223,8 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 .rt-span > span { position: absolute; inset-block: 0.125rem; background: var(--series-1); border-radius: var(--radius-s); }
 .rt-span[data-tone="rise"] > span { background: var(--rise); }
 .rt-span[data-tone="fall"] > span { background: var(--fall); }
-.rt-span[data-tone="usual"] > span { background: var(--grid); box-shadow: inset 0 0 0 1px var(--axis); }
-.rt-span[data-tone="whole"] > span { background: var(--series-1); }
+/* the usual month and the month are totals in a neutral ink, so blue means only less */
+.rt-span[data-tone="usual"] > span, .rt-span[data-tone="whole"] > span { background: var(--muted); }
 
 /* the row a chart's picked mark leaves: a chip with the row's name, and its x as the way back to every row */
 .rt-filter { margin: 0 0 var(--sp-8); }

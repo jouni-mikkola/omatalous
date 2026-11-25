@@ -56,13 +56,28 @@ describe("Menot kategorioittain: Mikä muuttui", () => {
     const table = screen.getByRole("table", { name: "Mikä muuttui: syyskuu 2026" });
     const rows = Array.from(table.querySelectorAll("tbody tr")).map((tr) => plain(tr.textContent));
     expect(rows).toHaveLength(4);
-    expect(rows[0]).toContain("Tavallinen kuukausi");
+    // the categories' own sum has a label of its own: Tavallinen kuukausi is the line of the months above it
+    expect(rows[0]).toContain("Tavallisesti kategorioissa");
+    expect(rows[0]).not.toContain("Tavallinen kuukausi");
     expect(rows[0]).toContain("1 000 €");
     expect(rows[1]).toContain("Ruokakauppa");
     expect(rows[1]).toContain("500 €");
-    expect(rows[3]).toContain("syyskuu 2026");
+    expect(rows[3]).toContain("Syyskuu 2026");
     expect(rows[3]).toContain("1 300 €");
     expect(table.querySelectorAll(".rt-span")).toHaveLength(4);
+    expect(plain(document.querySelector(".mc-note")?.textContent ?? null)).toContain("suuria ostoja");
+  });
+
+  it("has no rest row when the server sends none because the other gaps cancel out", () => {
+    const whole: NonNullable<Report["changes"][number]> = {
+      startCents: 100_000,
+      steps: [{ category: "groceries", label: "Ruokakauppa", cents: 5_000, fromCents: 100_000, toCents: 105_000 }],
+      endCents: 105_000,
+    };
+    show(report([null, null, null, null, whole, null]));
+    const rows = Array.from(screen.getByRole("table").querySelectorAll("tbody tr")).map((tr) => plain(tr.textContent));
+    expect(rows).toHaveLength(3);
+    expect(rows.join(" ")).not.toContain("Muut muutokset");
   });
 
   it("steps to the months before and after that have steps, and offers none past the ends", () => {
