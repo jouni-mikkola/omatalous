@@ -22,7 +22,7 @@ const december = month(
 describe("Laskut: the days of the picked month", () => {
   it("draws a bar for every day of the month, as high as the day's share of the dearest day", () => {
     const { container } = render(createElement(BillDays, { month: december }));
-    expect(screen.getByRole("img", { name: "Laskut päivittäin, joulukuu 2026" })).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Laskut päivittäin, joulukuu 2026, palkka 15." })).toBeTruthy();
     const bars = [...container.querySelectorAll<HTMLElement>(".bill-day > i")];
     expect(bars).toHaveLength(31);
     expect(bars[0]!.style.getPropertyValue("block-size")).toBe("100%");

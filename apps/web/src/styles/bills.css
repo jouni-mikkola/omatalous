@@ -92,7 +92,7 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 }
 
 /* ── The days of the picked month: one bar a day as high as its bills, the days of a pay in the colour of income */
-.bill-days { display: flex; align-items: flex-end; gap: var(--hairline); block-size: calc(var(--bar-h) * 4 + var(--lh-label) + var(--sp-16)); padding-block-start: var(--lh-label); padding-block-end: var(--sp-16); border-block-end: var(--hairline) solid var(--axis); }
+.bill-days { display: flex; align-items: flex-end; gap: var(--hairline); block-size: calc(var(--bar-h) * 2 + var(--lh-label) + var(--sp-16)); padding-block-start: var(--lh-label); padding-block-end: var(--sp-16); border-block-end: var(--hairline) solid var(--axis); }
 .bill-day { position: relative; flex: 1 1 0; min-inline-size: 0; block-size: 100%; display: flex; flex-direction: column; justify-content: flex-end; }
 .bill-day > i { display: block; min-block-size: 0; background: var(--role-spending); }
 .bill-day > span { position: absolute; inset-inline: -50%; inset-block-end: calc(-1 * var(--sp-16)); text-align: center; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums; }
