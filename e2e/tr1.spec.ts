@@ -101,7 +101,7 @@ test("each kind is asked in its own words and answered through its own route, th
   // the debts first: the list of loans, with a row for a loan the app cannot place, its guess first and marked
   await expect(card(page).locator(".review-kind")).toHaveText("Velat");
   await expect(card(page).locator(".review-name")).toHaveText("Lainat ja kortit");
-  await expect(question(page)).toContainText("Täydennä lainat");
+  await expect(question(page)).toContainText("Kerro lainan saldo");
   const row = card(page).locator("li.review-debt");
   expect(plain((await row.locator(".review-debt-name").textContent()) ?? "")).toBe("Esimerkkirahoitus · Autolaina · 250,00 €/kk");
   // one field and three answers, and no kind to pick
@@ -206,7 +206,7 @@ test("on a phone the card whose bills are paid and which is not connected offers
   const { context, page, seen } = await open(browser, 390, [cardBill]);
   await page.route(/\/api\/loans$/, (route) => (route.request().method() === "GET" ? route.fulfill({ json: { loans: [], fixings: {} } }) : route.fallback()));
   await expect(card(page).locator(".review-kind")).toHaveText("Velat");
-  await expect(question(page)).toContainText("Täydennä lainat");
+  await expect(question(page)).toContainText("Kerro kortin velka");
   // the card is a row of the list, headed by what its bills tell
   expect(plain((await card(page).locator(".review-debt-name").textContent()) ?? "")).toBe("Esimerkkikortti · 460,00 €/kk · eräpäivä 12.");
   const connect = card(page).getByRole("link", { name: "Yhdistä kortti" });

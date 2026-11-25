@@ -43,7 +43,7 @@ describe("a sitting", () => {
 
   it("leaves out an item of a kind the page has no card for", () => {
     const unknown = (kind: string) => ({ kind, id: `${kind}:1`, cents: 900_000 }) as unknown as ReviewItem;
-    const view = sittingView([...["extension", "newer"].map(unknown), payee(0)], NEW_SITTING);
+    const view = sittingView([...["older", "newer"].map(unknown), payee(0)], NEW_SITTING);
     expect(view).toMatchObject({ state: "item", position: 1, of: 1 });
     expect(view.state === "item" && view.item.id).toBe("payee_out:Kauppa 0");
     expect(sittingView([unknown("newer")], NEW_SITTING)).toEqual({ state: "empty" });

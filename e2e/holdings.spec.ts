@@ -314,11 +314,11 @@ test("a loan's name opens the report Lainat, the sums of the block stand on one 
   await expect(page.locator("#lainat").getByRole("heading", { name: "Lainat" })).toBeInViewport();
   await expect(page.locator("#lainat").getByRole("button", { name: "Kodin laina", exact: true })).toHaveAttribute("aria-expanded", "true");
 
-  // the missing balance opens Tarkistettavat at the list of debts
+  // the missing balance opens Tarkistettavat at the first debt's question
   await page.goto("/#/overview");
   await missing.click();
   await expect(page).toHaveURL(/#\/review\?item=loan-terms$/);
-  await expect(page.locator(".review-item").getByRole("heading", { level: 2 })).toContainText("Täydennä lainat");
+  await expect(page.locator(".review-item").getByRole("heading", { level: 2 })).toContainText("Kerro lainan saldo");
   await expect(page.locator(".review-debt").first()).toBeVisible();
 
   expect(seen.problems).toEqual([]);

@@ -407,19 +407,21 @@ const rows: Source = async (s, _userId, own) => {
 };
 
 // a temporary password a week old or more is a way into the household's money that nobody has closed: only an admin can change or remove it
-const temporaryPasswords: Source = async (s, userId) => {
-  const viewer = await s.users.get(userId);
-  if (viewer?.role !== "admin") return [];
+const temporaryPasswords = async (s: Services): Promise<Sourced[]> => {
   const members = (await s.users.list()).filter((u) => u.mustChangePassword);
   const long = await Promise.all(members.map((u) => temporaryIsLong(s, u.id)));
   return members.flatMap((u, i): Sourced[] => (long[i] ? [{ kind: "temporary_password", id: `temporary_password:${u.id}`, cents: 0, userId: u.id, name: u.displayName || u.username }] : []));
 };
 
 // the questions the add-on modules ask; the module words them, so none of its words are here
-const extensions: Source = async (s, userId) => {
+const extensions = async (s: Services, viewer: { id: string; role: string }): Promise<Sourced[]> =>
+  (await extensionQuestions(s, viewer)).map(({ cents, ...q }): Sourced => ({ ...q, kind: "extension", cents: Math.max(0, cents ?? 0) }));
+
+// what is not about the rows: the viewer is read once for both, and only an admin is asked of temporary passwords
+const outsideRows: Source = async (s, userId) => {
   const viewer = await s.users.get(userId);
   if (!viewer) return [];
-  return (await extensionQuestions(s, { id: viewer.id, role: viewer.role })).map(({ cents, ...q }): Sourced => ({ ...q, kind: "extension", cents: Math.max(0, cents ?? 0) }));
+  return [...(viewer.role === "admin" ? await temporaryPasswords(s) : []), ...(await extensions(s, { id: viewer.id, role: viewer.role }))];
 };
 
 /** The member's own view, read once for the queue: what each source would otherwise read for itself. */
@@ -441,7 +443,7 @@ const loanQuestions: Source = async (s, userId, own) => {
 };
 
 // the unexplained money in from another member: a payer the front's source asked already is kept once (`reviewQueue`)
-const SOURCES: readonly Source[] = [front, splits, subscriptions, mortgage, loanQuestions, balances, cardBalances, consents, bills, rows, (_s, _userId, own) => own.memberMoney(), unresolvedItems, moneyBackItems, temporaryPasswords, extensions];
+const SOURCES: readonly Source[] = [front, splits, subscriptions, mortgage, loanQuestions, balances, cardBalances, consents, bills, rows, (_s, _userId, own) => own.memberMoney(), unresolvedItems, moneyBackItems, outsideRows];
 
 /** Täydennä lainat first, as every debt figure waits on it; then the whole queue, the most money first. The page caps a sitting. */
 const first = (item: ReviewItem): number => (item.kind === "loan_terms_list" ? 1 : 0);

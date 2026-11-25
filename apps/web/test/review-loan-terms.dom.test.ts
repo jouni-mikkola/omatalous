@@ -57,7 +57,7 @@ describe("Täydennä lainat", () => {
       debtOf({ id: "loan-8", source: "loan", name: "Autolaina", loanId: "loan-8", kind: "car", owedCents: 1_200_000, gaps: ["payment"] }),
     ];
     show([listOf(debts, null, 1)]);
-    expect(document.querySelector(".review-item")!.textContent).toContain("Täydennä lainat");
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toContain("Kerro lainan saldo");
     const names = [...document.querySelectorAll(".review-debt-name")].map((h) => plain(h.textContent));
     // a loan the rows show reads payee, the kind guessed and the monthly payment
     expect(names).toEqual([plain("Esimerkkipankki · Asuntolaina · 861,41 €/kk"), plain("Autolaina · Jäljellä 12 000,00 €")]);
@@ -102,9 +102,9 @@ describe("Täydennä lainat", () => {
     expect(reloads).toBe(1);
     // the focus moves from the form that is gone to the line it closed into
     await waitFor(() => expect(document.activeElement).toBe(line), T);
-    // the totals are what the queue read again tells
+    // the question that was answered stays as it was asked, though the queue read again has the other debt's question only
     view.rerender(createElement(Review, { meta: metaOf(), queue: { data: { items: [listOf(debts.slice(1), 31_000_000, 0)] }, error: null, reload: () => {} } }));
-    expect(totals()).toBe(plain("Velat yhteensä 310 000,00 €Ilman saldoa 0"));
+    expect(totals()).toBe(plain("Velat yhteensä 300 000,00 €Ilman saldoa 0"));
     expect(screen.getByText(/^Jäljellä [^·]+ · korko 3,5/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Seuraava" })).toBeNull();
   });
