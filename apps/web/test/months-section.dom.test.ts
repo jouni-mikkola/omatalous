@@ -86,7 +86,7 @@ describe("Tulot ja menot", () => {
     expect(readout).toContain("lokakuu 2026");
     expect(readout).toContain("Tulot 4 010 €");
     expect(readout).toContain("Menot 3 010 €");
-    expect(readout).toContain("menot 862 € yli tavallisen");
+    expect(readout).toContain("menot 861 € yli tavallisen");
   });
 
   it("leaves the sentence to the page's lead: the section draws only the bars", async () => {
