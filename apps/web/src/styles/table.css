@@ -218,6 +218,14 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 /* the row a chart's picked mark leaves: a chip with the row's name, and its x as the way back to every row */
 .rt-filter { margin: 0 0 var(--sp-8); }
 
+/* the table of a chart, folded under it (ChartWithTable): the head line is the only thing drawn until it is opened */
+.chart-fold { border-top: 1px solid var(--grid); margin-top: var(--sp-16); }
+.chart-fold > summary { display: flex; align-items: center; gap: var(--sp-8); min-height: var(--tap-min); cursor: pointer; color: var(--text-2); }
+.chart-fold-count { color: var(--text-2); font-variant-numeric: tabular-nums; }
+.chart-fold-count::before { content: "\00b7"; margin-right: var(--sp-8); }
+.chart-fold[open] > summary { margin-bottom: var(--sp-8); }
+.chart-fold[open] .chart-fold-count { display: none; }
+
 /* the groups a windowed table leaves out (use-window.ts): one body as high as they would be */
 .rt-wrap .rt tbody.rt-spacer > tr { display: block; padding: 0; border: 0; }
 .rt-wrap .rt tbody.rt-spacer > tr > td { display: block; padding: 0; border: 0; block-size: var(--rt-gap); }

@@ -104,7 +104,7 @@ const spendingContext = (spendingMonths: Spending): ReportContext =>
   ({ data: { spendingMonths }, meta: { today: "2026-10-09", accounts: [{ id: "acc-1" }], sharedAccounts: [] }, range: { from: "2026-05-01", to: "2026-10-09" }, scope: "own", running: "2026-10", label: (id: string) => id, exportHref: () => "/export.csv" }) as unknown as ReportContext;
 const monthHeaders = (fromSavings: number[]) => {
   render(createElement(spending.Component, { ctx: spendingContext(spendingReport(fromSavings)) }));
-  return within(screen.getByRole("table", { name: "Menot kuukausittain" })).getAllByRole("columnheader").map((h) => plain(h.textContent));
+  return within(screen.getByRole("table", { name: "Menot kuukausittain", hidden: true })).getAllByRole("columnheader", { hidden: true }).map((h) => plain(h.textContent));
 };
 
 describe("Menot kategorioittain: the column of debt paid from savings", () => {

@@ -11,7 +11,7 @@ import { band, linear, points, time } from "../src/charts/kit/scale.ts";
 import { dayTicks, evenMonthTicks, moneyAxis, monthAxisLabels, monthTickTarget, monthTicks, weekday } from "../src/charts/kit/ticks.ts";
 import { capSum, capY } from "../src/charts/kit/cap.tsx";
 import { axisRoom, frame, monthPlot, tickTarget } from "../src/charts/kit/layout.ts";
-import { boxPlace, DOT_PLOT_BELOW, gridStep, lastWhole, nearestIndex, readoutText, stepIndex } from "../src/charts/kit/readout.ts";
+import { boxPlace, gridStep, lastWhole, nearestIndex, readoutText, stepIndex } from "../src/charts/kit/readout.ts";
 import { bandRect, placeMarkers, referenceY, spreadLabels } from "../src/charts/kit/annotate.ts";
 import { areaPath, linePath, stepPath } from "../src/charts/kit/path.ts";
 import { markKey } from "../src/charts/kit/marks.ts";
@@ -374,10 +374,6 @@ describe("the readout", () => {
     expect(monthNamePlaces(centres.map((c) => c * 3), 81, 972, names, printed, 10).every((p) => p.anchor === "middle")).toBe(true);
     // a newest name that is not printed stays where it is
     expect(monthNamePlaces(centres, 27, 324, names, new Set([10]), 10).every((p) => p.anchor === "middle")).toBe(true);
-  });
-
-  it("goes to the dot plot under 600 px", () => {
-    expect(DOT_PLOT_BELOW).toBe(600);
   });
 
   it("draws one focusable layer with a crosshair at the datum", () => {

@@ -4,9 +4,6 @@
  * mark's key to the table under the chart, and Escape lets go. This file is the pure part, `Readout.tsx` draws it.
  */
 
-/** Under this screen width a chart with a mark per month is drawn as a dot plot: one dot a month, no bars or steps. */
-export const DOT_PLOT_BELOW = 600;
-
 /** The index of the position nearest to `px` in `xs` (ascending pixels). Binary search: 2 000 points take 11 steps. */
 export function nearestIndex(xs: readonly number[], px: number): number {
   if (xs.length === 0) return -1;

@@ -166,6 +166,7 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.sec_borrowed": "Debt and fees",
   "rpt.sec_categories": "Categories",
   "rpt.sm_category": "Category",
+  "rpt.sm_categories_all": "All months",
   "rpt.sm_typical": "Average per month",
   "rpt.sm_last": "Against the average, {month}",
   "rpt.sm_months": "Spending by month",
