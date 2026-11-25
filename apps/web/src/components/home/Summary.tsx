@@ -1,7 +1,7 @@
 // Decision: how the month stands: what came in, what went out, what is left of it, and where the income went
-import { bridgeView, MIN_COMPARE_MONTHS, monthEnd, previousRange, type BridgeView } from "@banking/core";
+import { bridgeView, localeOf, MIN_COMPARE_MONTHS, monthEnd, previousRange, type BridgeView } from "@banking/core";
 import { css } from "../../css.ts";
-import { answerMoney, completeMonths, dateRange, monthLong, percent } from "../../format.ts";
+import { answerMoney, completeMonths, dateRange, language, monthLong, percent } from "../../format.ts";
 import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
@@ -87,31 +87,22 @@ interface Item {
 
 /**
  * What Tulot less Menot leaves out of Tulos: money moved to savings (less), taken out of them (more), credit drawn (more) or
- * paid back (less). Each is a sum of `totals`, told with its direction. The figures are told in whole euros, so the terms
- * are rounded with Tulot, Menot and Tulos: the first term is its own sum to the euro and the last takes what is left, so
- * the terms as shown add up to Tulos as shown.
+ * paid back (less). Each is a sum of `totals`, told with its direction and rounded to its own euro, so a term is the same
+ * sum wherever the page tells it. The terms as shown can differ from Tulos as shown by a euro: each figure is rounded alone.
  */
-function termsOf(totals: Data["totals"], incomeCents: number, spentCents: number): string[] {
-  const { saved, credit } = shownTerms(totals, incomeCents, spentCents);
+function termsOf(totals: Data["totals"]): string[] {
+  const { saved, credit } = shownTerms(totals);
   const line = (key: "home.term_saved" | "home.term_savings_drawn" | "home.term_credit_drawn" | "home.term_credit_repaid", cents: number) => (cents === 0 ? [] : [t(key, { sum: answerMoney(Math.abs(cents)) })]);
   return [...line(saved >= 0 ? "home.term_saved" : "home.term_savings_drawn", saved), ...line(credit >= 0 ? "home.term_credit_drawn" : "home.term_credit_repaid", credit)];
 }
 
 /**
  * What moved to savings (negative: taken out) and what was drawn on credit (negative: paid back) as the whole euros the page
- * shows, so the terms under Tulos add up to the Tulos shown, and the same words in Tulojen käyttö show the same euros. A term
- * the rounding would turn to the other direction or to nothing is not shown.
+ * shows: each is its own sum to the euro, and the same words in Tulojen käyttö show the same euros. A sum under 50 cents is no term.
  */
-function shownTerms(totals: Data["totals"], incomeCents: number, spentCents: number): { saved: number; credit: number } {
-  const euros = (cents: number) => Math.sign(cents) * Math.round(Math.abs(cents) / 100) * 100;
-  const hasSaved = Math.abs(totals.savedCents) >= 50;
-  const hasCredit = Math.abs(totals.borrowedCents) >= 50;
-  // Tulos as shown is Tulot less Menot, less what moved to savings, plus the credit drawn: this is what the last two leave
-  const between = euros(incomeCents) - euros(spentCents) - euros(totals.leftCents);
-  const saved = hasSaved ? (hasCredit ? euros(totals.savedCents) : between) : 0;
-  const credit = hasCredit ? (hasSaved ? saved - between : -between) : 0;
-  const faithful = (shown: number, cents: number) => (Math.sign(shown) === Math.sign(cents) ? shown : 0);
-  return { saved: faithful(saved, totals.savedCents), credit: faithful(credit, totals.borrowedCents) };
+function shownTerms(totals: Data["totals"]): { saved: number; credit: number } {
+  const euros = (cents: number) => (Math.abs(cents) >= 50 ? Math.sign(cents) * Math.round(Math.abs(cents) / 100) * 100 : 0);
+  return { saved: euros(totals.savedCents), credit: euros(totals.borrowedCents) };
 }
 
 function itemsOf(data: Data, today: string): Item[] {
@@ -157,12 +148,37 @@ function itemsOf(data: Data, today: string): Item[] {
       cents: totals.leftCents,
       gauge: { cents: totals.leftCents, scaleCents, tone: totals.leftCents < 0 ? "debt" : "income", markCents: sameSign(totals.leftCents, previousResult), band: null },
       line: previousLine(previousResult),
-      terms: termsOf(totals, incomeCents, spentCents),
+      terms: termsOf(totals),
     },
   ];
 }
 
 /** The tone of each part of the bar: the role colour the same part has in every chart. */
+const COVER_KEYS: readonly string[] = ["credit", "savings", "accounts"];
+
+/**
+ * The spending over the income and what paid it, in one sentence (the words of Raportit's `rpt.gap_*`), or null when the income
+ * paid everything. The gap and its parts are `cover` of the bridge: the sums of the sources bar. The page tells one sum for
+ * what was taken out of savings or drawn on credit, the one under Käteen jäi (`shown`): when savings alone covered the gap the
+ * sentence names no sum for them, and otherwise it names that sum, not the part of it that went to the gap.
+ */
+function gapSentence(view: BridgeView, shown: { saved: number; credit: number }): string | null {
+  const { cover } = view;
+  if (cover.gapCents < 50) return null;
+  const savingsOnly = cover.savingsCents >= 50 && cover.creditCents < 50 && cover.accountsCents < 50;
+  const drawnSavings = shown.saved < 0 ? -shown.saved : cover.savingsCents;
+  const drawnCredit = shown.credit > 0 ? shown.credit : cover.creditCents;
+  const parts = [
+    cover.creditCents >= 50 ? t("rpt.gap_credit", { sum: answerMoney(drawnCredit) }) : null,
+    cover.savingsCents >= 50 && !savingsOnly ? t("rpt.gap_savings", { sum: answerMoney(drawnSavings) }) : null,
+    cover.accountsCents >= 50 ? t("rpt.gap_accounts", { sum: answerMoney(cover.accountsCents) }) : null,
+  ].filter((p): p is string => p !== null);
+  // money moved to savings or credit paid back is no spending: the lead then says transfers too
+  const lead = t(view.totals.savedCents > 0 || cover.creditRepaidCents > 0 ? "home.gap_lead_transfers" : "home.gap_lead", { sum: answerMoney(cover.gapCents) });
+  if (savingsOnly) return `${lead} ${t("home.gap_from_savings")}`;
+  return parts.length === 0 ? lead : `${lead} ${t("rpt.gap_cover", { parts: new Intl.ListFormat(localeOf(language()), { type: "conjunction" }).format(parts) })}`;
+}
+
 const FLOW_TONE: Record<string, Tone> = { income: "income", consumption: "spending", interest: "debt", debt: "debt", principal: "debt", subtotal: "neutral", saved: "kept", repaid: "neutral", left: "income", credit: "neutral", savings: "neutral", accounts: "neutral" };
 
 /** The debt service is told whole (*Maksettu velanhoito*) or, beside its interest and repayments, as what no evidence splits. */
@@ -175,9 +191,6 @@ function flowLabel(key: string, split: boolean): string {
     case "principal": return t("home.bridge_principal");
     case "saved": return t("home.bridge_saved");
     case "repaid": return t("home.bridge_repaid");
-    case "credit": return t("home.bridge_credit");
-    case "savings": return t("home.bridge_savings");
-    case "accounts": return t("home.bridge_accounts");
     case "savings-left": return t("home.bridge_savings_left");
     case "credit-left": return t("home.bridge_credit_left");
     default: return t("home.fig_result");
@@ -189,15 +202,18 @@ function flowLabel(key: string, split: boolean): string {
  * stayed), and under it each part with its sum and its share of the income. All of it is `bridgeView` of the same totals
  * as the three figures above, the one calculation of the bridge on Raportit, so the parts add up to the figures. When
  * the spending was more than the income, a second bar above the first draws what paid for it: the income, then the credit,
- * the savings and the accounts that covered the rest, the rows "Katettu …" of the list. With no income, or a part below
- * zero, no bar is drawn and the parts stand as a list alone.
+ * the savings and the accounts that covered the rest, told in one sentence under the list: the spending over the income and
+ * what paid it; the list then has no share column, as its shares of the income alone would add to more than 100 %. With no income, or a part
+ * below zero, no bar is drawn and the parts stand as a list alone.
  */
 function Flow({ view, shown }: { view: BridgeView; shown: { saved: number; credit: number } }) {
   // a part named like a term under Tulos shows the euros that term shows, and no row stands where its term is not shown
   const euros: Record<string, number> = { saved: shown.saved, "savings-left": -shown.saved, "credit-left": shown.credit, repaid: -shown.credit };
   const rows = view.figures
-    .filter((f) => f.key !== "income" && f.cents !== 0 && (!(f.key in euros) || euros[f.key]! > 0))
+    .filter((f) => f.key !== "income" && !COVER_KEYS.includes(f.key) && f.cents !== 0 && (!(f.key in euros) || euros[f.key]! > 0))
     .map((f) => ({ ...f, cents: f.key in euros ? euros[f.key]! : f.cents }));
+  const gap = gapSentence(view, shown);
+  const sharesShown = view.cover.gapCents < 50;
   return (
     <section className="home-flow" aria-labelledby="home-flow-h">
       <h3 id="home-flow-h">{t("home.bridge_where")}</h3>
@@ -220,11 +236,12 @@ function Flow({ view, shown }: { view: BridgeView; shown: { saved: number; credi
           <li key={f.key} data-part={f.key}>
             <span className="home-flow-swatch" data-tone={FLOW_TONE[f.key] ?? "neutral"} aria-hidden="true" />
             <span className="home-flow-name">{flowLabel(f.key, view.debtSplit)}</span>
-            <span className="home-flow-share num">{f.incomeUnits !== null ? percent(f.incomeUnits / 100) : ""}</span>
+            <span className="home-flow-share num">{sharesShown && f.incomeUnits !== null ? percent(f.incomeUnits / 100) : ""}</span>
             <span className="home-flow-sum num">{answerMoney(f.cents)}</span>
           </li>
         ))}
       </ul>
+      {gap && <p className="home-detail" data-part="gap">{gap}</p>}
     </section>
   );
 }
@@ -261,7 +278,7 @@ export function Summary({ data, today }: { data: Data; today: string }) {
           </li>
         ))}
       </ul>
-      <Flow view={bridgeView(data.totals, data.split)} shown={shownTerms(data.totals, data.overview.income.cents, data.overview.months.at(-1)?.spendCents ?? data.nyt.pace.spentCents)} />
+      <Flow view={bridgeView(data.totals, data.split)} shown={shownTerms(data.totals)} />
     </section>
   );
 }

@@ -47,28 +47,31 @@ for (const width of [390, 1440] as const) {
     const dashboard = await answerOf(context);
     const { nyt, overview, home, totals } = dashboard;
     expect(nyt?.left.known, "the demo household has a payday and a balance").toBe(true);
-    const { left } = nyt;
+    const { leftOnPayday } = home.runway;
+    expect(leftOnPayday.known, "and three complete months to expect its everyday spending from").toBe(true);
     // every figure in whole euros, as the server gives it
     const whole = (c: number) => Math.round(c / 100) * 100;
     expect(await monthFigure(page, "income"), "the month's income").toBe(whole(overview.income.cents));
     expect(await monthFigure(page, "spent"), "the month's spending").toBe(whole(home.pace?.spentCents ?? nyt.pace.spentCents));
     expect(await monthFigure(page, "result"), "Käteen jäi").toBe(whole(totals.leftCents));
-    expect(cents(await page.locator("[data-tile=left] .fig").innerText()), "what is left before payday").toBe(whole(left.leftCents));
-    if (left.days > 0) expect(sums(await page.locator("[data-tile=left] .home-fig-line").innerText())[0]).toBe(whole(left.perDayCents));
-    // the lowest balance of the next days under it: core's day and range, or core's reason. It is no link
-    const low = page.locator(".home-now .home-low");
-    await expect(low).toHaveCount(1);
+    expect(cents(await page.locator("[data-tile=left] .fig").innerText()), "what is left on payday").toBe(whole(leftOnPayday.leftCents));
+    const [, paydayMonth, paydayDay] = leftOnPayday.payday.date.split("-").map(Number);
+    expect(plain(await page.locator("[data-tile=left] .home-fig-line").innerText())).toBe(leftOnPayday.days > 0 ? `palkkapäivä ${paydayDay}.${paydayMonth}.` : "Palkkapäivä tänään");
+    // the lowest balance of the next days under it, when it falls on the payday or after it: core's day and sum, or core's reason. It is no link
     const { lowPoint } = home;
-    if (lowPoint.known) {
-      const text = plain(await low.innerText());
-      const [lowest, highest] = text.split("arviolta ")[1]!.split(/ ?– ?/).map(cents);
-      expect(lowest, "the low end of the lowest balance").toBe(whole(lowPoint.lowCents));
-      expect(highest, "the high end of the lowest balance").toBe(whole(lowPoint.highCents));
-      const [, month, day] = lowPoint.date.split("-").map(Number);
-      expect(text).toContain(`Alin saldo ${lowPoint.days} pv: ${day}.${month}.,`);
+    const low = page.locator(".home-now .home-low");
+    if (lowPoint.known && lowPoint.date < leftOnPayday.payday.date) {
+      await expect(low).toHaveCount(0);
     } else {
+      await expect(low).toHaveCount(1);
       const text = plain(await low.innerText());
-      expect(text).toMatch(new RegExp(`^Alin saldo ${lowPoint.days} pv: \\D+$`));
+      if (lowPoint.known) {
+        expect(cents(text.split("arviolta ")[1]!), "the lowest balance").toBe(whole(lowPoint.cents));
+        const [, month, day] = lowPoint.date.split("-").map(Number);
+        expect(text).toContain(`Alin saldo ${lowPoint.days} pv: ${day}.${month}.,`);
+      } else {
+        expect(text).toMatch(new RegExp(`^Alin saldo ${lowPoint.days} pv: \\D+$`));
+      }
     }
     await expect(low.locator("a")).toHaveCount(0);
     // the month's figures are no list's sum, so they lead nowhere; the one link of Nyt is the figure's, to Laskut' table
@@ -91,6 +94,10 @@ for (const width of [390, 1440] as const) {
     if (bufferMonths === null) {
       const reasons: Record<string, string> = { "no-balance": "Ei saldoa", history: "Liian lyhyt historia", "no-spending": "Ei menoja" };
       expect(plain(await buffer.innerText())).toBe(`Puskuri ${reasons[bufferGap as string]}`);
+    } else if (bufferNetCents !== null && bufferNetCents < 0) {
+      // no buffer: the line says so and holds no sum, the shortfall is the figure Nyt leads with
+      expect(plain(await buffer.innerText())).toBe("Ei puskuria");
+      await expect(buffer.locator("summary")).toHaveCount(0);
     } else {
       const months = bufferMonths.toLocaleString("fi-FI", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
       await expect(buffer.locator("summary")).toHaveText(`Puskuri ${months} kk`);
@@ -138,9 +145,12 @@ test("the coming months tell the figures the month heads of Laskut tell", async 
   const response = await context.request.get("/api/reports?scope=own&reports=billCalendar");
   expect(response.ok()).toBe(true);
   const { billCalendar } = await response.json();
+  // the block starts at the first month with something to come: a running month with everything paid has no row
+  const empty = (m: { afterCents: number | null; billsCents: number; incomeCents: number; savingCents: number }) => m.afterCents === 0 && m.billsCents === 0 && m.incomeCents === 0 && m.savingCents === 0;
+  const shown = billCalendar.months.slice(Math.max(0, billCalendar.months.findIndex((m: Parameters<typeof empty>[0]) => !empty(m)))).slice(0, 3);
   const rows = page.locator(".home-coming tbody tr");
   await expect(rows).toHaveCount(3);
-  for (const [i, month] of billCalendar.months.slice(0, 3).entries()) {
+  for (const [i, month] of shown.entries()) {
     const [, bills, income, after] = await rows.nth(i).locator("th, td").allInnerTexts();
     expect(sums(bills!)[0], `${month.month}: the bills`).toBe(month.billsCents);
     if (month.estimateCents > 0) expect(sums(bills!)[1], `${month.month}: their estimated part`).toBe(month.estimateCents);
@@ -152,8 +162,8 @@ test("the coming months tell the figures the month heads of Laskut tell", async 
   // the same three months on Laskut's own heads
   await page.goto("/#/bills");
   await expect(page.locator(".bill-sums").first()).toBeVisible({ timeout: 15_000 });
-  const heads = (await page.locator(".bill-sums").allInnerTexts()).slice(0, 3);
-  for (const [i, month] of billCalendar.months.slice(0, 3).entries()) expect(sums(heads[i]!)[0], `${month.month}: Laskut' head`).toBe(month.billsCents);
+  const allHeads = await page.locator(".bill-sums").allInnerTexts();
+  for (const month of shown) expect(sums(allHeads[billCalendar.months.indexOf(month)]!)[0], `${month.month}: Laskut' head`).toBe(month.billsCents);
   await context.close();
 });
 

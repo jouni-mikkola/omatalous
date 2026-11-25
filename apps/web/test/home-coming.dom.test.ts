@@ -110,17 +110,29 @@ describe("Tulevat kuukaudet", () => {
     expect(after).toMatch(/^[−-]800,00 €$/);
   });
 
-  it("says a running month's sum is what is unpaid when its bills are paid, and shows no sum after the bills when nothing is left to come", () => {
-    const cal = calendar([month("2026-11", rows("2026-11"), { paidCents: 154204 }), month("2026-12", rows("2026-12"), { knownCents: 80000, billsCents: 80000, afterCents: -80000 })]);
+  it("says a running month's sum is what is unpaid when some of its bills are paid", () => {
+    const cal = calendar([month("2026-11", rows("2026-11"), { knownCents: 40000, billsCents: 40000, paidCents: 154204, afterCents: -40000 }), month("2026-12", rows("2026-12"), { knownCents: 80000, billsCents: 80000, afterCents: -80000 })]);
     const { container } = render(createElement(ComingMonths, { calendar: cal }));
     const trs = [...container.querySelectorAll("tbody tr")];
-    expect(cells(trs[0]!)).toEqual(["Marraskuu 2026", "0,00 € maksamatta", "–", "–"]);
+    expect(cells(trs[0]!)[0]).toBe("Marraskuu 2026");
+    expect(cells(trs[0]!)[1]).toBe("400,00 € maksamatta");
     expect(cells(trs[1]!)[1]).toBe("800,00 €");
     // the head of the same month in Laskut tells the same: what is paid and what is unpaid
     const head = laskutHeads(cal)[0]!;
     expect(head).toContain("Maksetut laskut 1 542,04 €");
-    expect(head).toContain("Maksamatta 0,00 €");
-    expect(head).not.toContain("Laskujen jälkeen");
+    expect(head).toContain("Maksamatta 400,00 €");
+  });
+
+  it("starts at the next month when the running month has everything paid and nothing to come, so no row stands empty", () => {
+    const cal = calendar([
+      month("2026-11", rows("2026-11"), { paidCents: 154204 }),
+      month("2026-12", rows("2026-12"), { knownCents: 80000, billsCents: 80000, afterCents: -80000 }),
+      month("2027-01", rows("2027-01"), { knownCents: 90000, billsCents: 90000, incomeCents: 310000, afterCents: 220000 }),
+      month("2027-02", rows("2027-02"), { knownCents: 70000, billsCents: 70000, incomeCents: 310000, afterCents: 240000 }),
+      month("2027-03", rows("2027-03"), { knownCents: 70000, billsCents: 70000, incomeCents: 310000, afterCents: 240000 }),
+    ]);
+    const { container } = render(createElement(ComingMonths, { calendar: cal }));
+    expect([...container.querySelectorAll("tbody tr")].map((tr) => cells(tr)[0])).toEqual(["Joulukuu 2026", "Tammikuu 2027", "Helmikuu 2027"]);
   });
 
   it("keeps the heading of the block as the only one drawn", () => {

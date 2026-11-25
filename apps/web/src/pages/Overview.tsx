@@ -75,7 +75,7 @@ export function Overview({
         <p className="home-detail">{t("home.no_payments_shown")}</p>
       )}
       <Coming scope={scope} />
-      <Holdings holdings={data.holdings} meta={meta} ahead={data.ahead} buffer={<Buffer direction={data.home.direction} />} />
+      <Holdings holdings={data.holdings} meta={meta} ahead={data.ahead} net={false} buffer={<Buffer direction={data.home.direction} />} />
     </div>
   );
 }
