@@ -20,24 +20,33 @@ function leftUnknown(left: Extract<Data["nyt"]["left"], { known: false }>): stri
 }
 
 /**
- * Nyt: what is left to the payday (`nyt.left`) with its sum a day. It is the one figure of the page that is a payday
- * period and not the month, and it leads to Laskut, whose list holds the bills it takes off. On the payday the sum a day
- * is the whole sum, so the line says only that the payday is today. Under it stands the lowest balance of the next days
- * (`home.lowPoint`). Nothing is added up here.
+ * Nyt: what is left on the payday (`home.runway.leftOnPayday`, Jää palkkapäivänä): the accounts less the payments before it and
+ * the everyday spending of the days to it, the one figure of the page that is a payday period and not the month. It leads
+ * to Laskut, whose list holds the bills it takes off. While the everyday spending cannot be expected (under three complete
+ * months, a card's purchases missing) the figure is `nyt.left` (Käytettävissä palkkapäivään), the money after the payments
+ * alone, with its sum a day. Under it stands the lowest balance of the next days (`home.lowPoint`) when that comes after the
+ * payday: a lowest balance before it is the figure above. Nothing is added up here.
  */
 export function Now({ data }: { data: Data }) {
   const { left } = data.nyt;
+  const { lowPoint } = data.home;
+  const runway = data.home.runway?.leftOnPayday;
   // a sum a day below zero says nothing the sum does not: the line tells what is missing
-  const line = !left.known ? leftUnknown(left) : left.leftCents < 0 ? t("home.tile_left_short", { sum: answerMoney(-left.leftCents) }) : left.days === 0 ? t("home.tile_left_today") : t("home.tile_left_line", { sum: answerMoney(left.perDayCents), date: dayMonth(left.payday.date) });
+  const line = runway?.known
+    ? runway.days === 0 ? t("home.tile_left_today") : t("home.tile_runway_line", { date: dayMonth(runway.payday.date) })
+    : !left.known ? leftUnknown(left) : left.leftCents < 0 ? t("home.tile_left_short", { sum: answerMoney(-left.leftCents) }) : left.days === 0 ? t("home.tile_left_today") : t("home.tile_left_line", { sum: answerMoney(left.perDayCents), date: dayMonth(left.payday.date) });
+  const label = t(runway?.known ? "home.tile_runway" : "home.tile_left");
+  const leftCents = runway?.known ? runway.leftCents : left.known ? left.leftCents : null;
+  const payday = runway?.known ? runway.payday.date : left.known ? left.payday.date : null;
   return (
-    <section className="card home-now" aria-label={t("home.tile_left")}>
-      <a className={`home-left${left.known && left.leftCents < 0 ? " home-short" : ""}`} data-tile="left" href={billsHref}>
+    <section className="card home-now" aria-label={label}>
+      <a className={`home-left${leftCents !== null && leftCents < 0 ? " home-short" : ""}`} data-tile="left" href={billsHref}>
         {/* the spaces keep the words apart in the text a screen reader reads; the grid draws none */}
-        <span className="home-fig-label">{t("home.tile_left")}</span>{" "}
-        <Figure text={left.known ? answerMoney(left.leftCents) : "–"} size="m" />{" "}
+        <span className="home-fig-label">{label}</span>{" "}
+        <Figure text={leftCents === null ? "–" : answerMoney(leftCents)} size="m" />{" "}
         <span className="home-fig-line">{line}</span>
       </a>
-      <LowPoint lowPoint={data.home.lowPoint} />
+      <LowPoint lowPoint={lowPoint?.known && payday !== null && lowPoint.date < payday ? null : lowPoint} />
     </section>
   );
 }

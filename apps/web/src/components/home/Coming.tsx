@@ -12,7 +12,7 @@ import { Table } from "../table/Table.tsx";
 type Calendar = ReportsData["billCalendar"];
 type Month = Calendar["months"][number];
 
-/** The months the block shows: this one and the two after it. */
+/** The months the block shows: three, from the first that has something to come. */
 const COMING_MONTHS = 3;
 
 const capital = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slice(1);
@@ -30,13 +30,15 @@ const billsText = (m: Month) => {
 const afterText = (m: Month) => (m.afterCents === null ? t("home.coming_after_unknown") : nothingToCome(m) ? "–" : money(m.afterCents));
 
 /**
- * Tulevat kuukaudet: this month and the two after it, each with the bills (and the estimated part of them), the pays
+ * Tulevat kuukaudet: this month and the two after it (the running month is left out once its bills are all paid and nothing else is to come), each with the bills (and the estimated part of them), the pays
  * expected and what is left after the bills. Every figure is a field of the month in `billCalendar`, the answer Laskut's
  * month heads read, so a month has the same sums in both places: `billsCents`, `estimateCents`, `incomeCents` and
  * `afterCents`, which is null in a month a bill with no known sum falls in (`unknowns`), and in every month while a bill has no day. Nothing is added up here.
  */
 export function ComingMonths({ calendar }: { calendar: Calendar }) {
-  const months = calendar.months.slice(0, COMING_MONTHS);
+  // the running month, once its bills are all paid and nothing else is to come, would stand as an empty row: the block starts at the next
+  const first = Math.max(0, calendar.months.findIndex((m) => !nothingToCome(m)));
+  const months = calendar.months.slice(first, first + COMING_MONTHS);
   if (months.length === 0) return null;
   // only the bills that leave a shown month's sum after the bills unknown, each once; one of a later month is not counted
   const unknownBills = unknownBillsIn(calendar, months.map((m) => m.month));

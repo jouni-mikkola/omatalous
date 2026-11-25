@@ -1,5 +1,5 @@
 // Decision: do the accounts dip below what the household can live with before the money after the next payday arrives
-import { answerMoney, dayMonth, language } from "../../format.ts";
+import { answerMoney, dayMonth } from "../../format.ts";
 import { LOAN_TERMS_HASH, SETTINGS_ANCHOR, settingsCardHash, settingsHash } from "../../routes.ts";
 import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
@@ -32,17 +32,8 @@ function linkOf({ reason, cardRowOpen }: Extract<Low, { known: false }>): string
 }
 
 /**
- * A range of sums as the page says one: the euro sign stands once, after the range, in Finnish ("120–480 €"). A range that
- * starts below zero has spaces round its dash, so the minus sign is not taken for it ("−250 – 50 €", "−480 – −120 €").
- */
-const range = (lowCents: number, highCents: number): string => {
-  const low = answerMoney(lowCents);
-  return `${language() === "en" ? low : low.replace(/\s*€$/, "")}${lowCents < 0 ? " – " : "–"}${answerMoney(highCents)}`;
-};
-
-/**
- * The line under the sum left to the payday: "Alin saldo 60 pv: 13.12., arviolta 120–480 €", core's `lowPoint` (the day
- * and the range of the lowest balance). While core has no figure it gives the reason and the line says it. Nothing is
+ * The line under the sum left on the payday: "Alin saldo 60 pv: 13.12., arviolta 120 €", core's `lowPoint` (the day
+ * and the sum of the lowest balance, whose range stays in the answer). While core has no figure it gives the reason and the line says it. Nothing is
  * added up or guessed here.
  */
 export function LowPoint({ lowPoint }: { lowPoint: DashboardData["home"]["lowPoint"] }) {
@@ -60,7 +51,7 @@ export function LowPoint({ lowPoint }: { lowPoint: DashboardData["home"]["lowPoi
   }
   return (
     <p className="home-low" data-low="known">
-      {t("home.low", { days: String(lowPoint.days), date: dayMonth(lowPoint.date), range: range(lowPoint.lowCents, lowPoint.highCents) })}
+      {t("home.low", { days: String(lowPoint.days), date: dayMonth(lowPoint.date), sum: answerMoney(lowPoint.cents) })}
     </p>
   );
 }
