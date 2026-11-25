@@ -11,6 +11,9 @@
 .chart text { fill: var(--text-2); font-size: var(--fs-label); font-variant-numeric: tabular-nums lining-nums; }
 .chart .grid-line { stroke: var(--grid); stroke-width: 1; shape-rendering: crispEdges; }
 .chart .axis-line, .chart .tick { stroke: var(--axis); stroke-width: 1; shape-rendering: crispEdges; }
+/* a column cut at the plot's end (charts/kit/cap.tsx): a break in the page colour across it and its sum written over it (a cut bottom end has the sum inside the plot, on a halo of the page colour) */
+.chart .cap-break { fill: none; stroke: var(--page); stroke-width: 2; pointer-events: none; }
+.chart text.cap-sum { fill: var(--text); font-weight: var(--w-strong); pointer-events: none; paint-order: stroke; stroke: var(--page); stroke-width: 3; stroke-linejoin: round; }
 .chart .hit { fill: transparent; cursor: default; outline: none; }
 .chart .hit:focus-visible { stroke: var(--accent); stroke-width: 1.5; }
 .chart .hit-pick { cursor: pointer; }

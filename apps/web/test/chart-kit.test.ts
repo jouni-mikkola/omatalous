@@ -8,8 +8,9 @@ import { describe, expect, it } from "vitest";
 import { valueAxis } from "../src/charts/scale.ts";
 import { dayNumber, fromDayNumber } from "@banking/core";
 import { band, linear, points, time } from "../src/charts/kit/scale.ts";
-import { dayTicks, evenMonthTicks, moneyAxis, monthTicks, weekday } from "../src/charts/kit/ticks.ts";
-import { axisRoom, frame, tickTarget } from "../src/charts/kit/layout.ts";
+import { dayTicks, evenMonthTicks, moneyAxis, monthAxisLabels, monthTickTarget, monthTicks, weekday } from "../src/charts/kit/ticks.ts";
+import { capSum, capY } from "../src/charts/kit/cap.tsx";
+import { axisRoom, frame, monthPlot, tickTarget } from "../src/charts/kit/layout.ts";
 import { boxPlace, DOT_PLOT_BELOW, gridStep, nearestIndex, readoutText, stepIndex } from "../src/charts/kit/readout.ts";
 import { bandRect, placeMarkers, referenceY, spreadLabels } from "../src/charts/kit/annotate.ts";
 import { areaPath, linePath, stepPath } from "../src/charts/kit/path.ts";
@@ -149,6 +150,18 @@ describe("a domain that one outlier does not flatten", () => {
     expect(plain.domain[1]).toBeGreaterThanOrEqual(9000);
     expect(plain.clipped).toEqual([]);
   });
+
+  it("holds an included level inside the axis without counting it toward the clip or being clipped", () => {
+    // three months and a usual level: the level is no fourth value, so nothing is clipped
+    const short = linear([2000, 2000, 9000], [100, 0], { clip: 2, include: [2000] });
+    expect(short.clipped).toEqual([]);
+    expect(short.domain[1]).toBeGreaterThanOrEqual(9000);
+    // four months and a level above the others' top: the outlier is clipped, the level stays on the axis
+    const long = linear([1000, 1100, 1200, 9000], [100, 0], { clip: 2, include: [1800] });
+    expect(long.clipped).toEqual([3]);
+    expect(long.domain[1]).toBeGreaterThanOrEqual(1800);
+    expect(long.domain[1]).toBeLessThan(9000);
+  });
 });
 
 describe("a name at the end of a bar or a line", () => {
@@ -245,6 +258,39 @@ describe("the frame", () => {
     expect(tickTarget(80)).toBe(2);
     expect(tickTarget(220)).toBe(4);
     expect(tickTarget(900)).toBe(5);
+  });
+});
+
+describe("the frame of a monthly chart", () => {
+  it("has a plot a quarter of the width high, between 170 and 260 px, and 3 ticks under 200 px, else 4", () => {
+    const vertical = 22 + 27;
+    const plot = (width: number) => frame(width, { top: 22, right: 4, bottom: 27, left: 40 }, monthPlot(width, vertical)).innerH;
+    expect(plot(390)).toBe(170);
+    expect(plot(1000)).toBe(240);
+    expect(plot(3000)).toBe(260);
+    expect(monthTickTarget(199)).toBe(3);
+    expect(monthTickTarget(200)).toBe(4);
+  });
+
+  it("writes the axis as 10 000 with the euro on the top tick only, and as 10 t with t € on a phone", () => {
+    const ticks = [0, 1_000_000, 2_000_000, 3_000_000];
+    const wide = monthAxisLabels(ticks, 1_000_000, false);
+    expect(ticks.map(wide).map((s) => s.replace(/\s/g, " "))).toEqual(["0", "10 000", "20 000", "30 000 €"]);
+    const narrow = monthAxisLabels(ticks, 1_000_000, true);
+    expect(ticks.map(narrow)).toEqual(["0", "10 t", "20 t", "30 t €"]);
+    expect(monthAxisLabels([-100_000, 0, 100_000], 100_000, false)(-100_000).replace(/\s/g, " ")).toBe("−1 000".replace(/\s/g, " "));
+    // a step that is not whole thousands keeps the full number on a phone
+    expect(monthAxisLabels([0, 25_000, 50_000], 25_000, true)(50_000)).toMatch(/^500 €$/);
+    expect(monthAxisLabels([0, 250_000, 500_000], 250_000, true)(500_000)).toMatch(/^5\s000\s€$/);
+  });
+
+  it("writes a clipped sum in whole euros, and in thousands on a phone, and stops its column 6 px past the plot", () => {
+    expect(capSum(2_045_000, false).replace(/\s/g, " ")).toBe("20 450 €");
+    expect(capSum(2_045_000, true)).toBe("20 t€");
+    expect(capSum(50_000, true).replace(/\s/g, " ")).toBe("500 €");
+    expect(capY(-300, 200)).toBe(-6);
+    expect(capY(900, 200)).toBe(206);
+    expect(capY(80, 200)).toBe(80);
   });
 });
 
