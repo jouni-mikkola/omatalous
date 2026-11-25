@@ -439,14 +439,15 @@ test("sign out and back in", async ({ page }) => {
   expect(seen.problems.filter((p) => !/HTTP 401: POST .*\/api\/auth\/login/.test(p) && !/Failed to load resource.*401/.test(p))).toEqual([]);
 });
 
-test("the Laskut page at 1440 px is at most 1800 px tall and does not scroll sideways", async ({ browser }) => {
+// 1850 and not 1800: the days strip of the picked month gained a row for the pay's name above its 32 px bars.
+test("the Laskut page at 1440 px is at most 1850 px tall and does not scroll sideways", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/bills");
   await expect(page.getByRole("heading", { name: "Laskut, sopimukset ja tilaukset" })).toBeVisible();
   await page.waitForLoadState("networkidle");
-  expect(await page.evaluate(() => document.documentElement.scrollHeight), "page height at 1440 px").toBeLessThanOrEqual(1800);
+  expect(await page.evaluate(() => document.documentElement.scrollHeight), "page height at 1440 px").toBeLessThanOrEqual(1850);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   // the openers of the rows stand one under the other with no box over a neighbour's, the folded rows opened too
   await openBillFolds(page.locator("#laskut-taulukko"));
