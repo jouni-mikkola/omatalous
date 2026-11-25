@@ -67,6 +67,7 @@ export function moduleHost(opts: { id: string; version: string; dir: string; mig
       if (entry.deviceTokens !== undefined && (typeof entry.deviceTokens?.resolve !== "function" || !devicePrefixValid(entry.deviceTokens.prefix))) {
         throw new Error("a device token prefix is 2 to 8 lowercase letters and an underscore, not omt_, with a resolve function");
       }
+      if (entry.deviceTokens && EXTENSIONS.some((e) => e.deviceTokens?.prefix === entry.deviceTokens?.prefix)) throw new Error("another entry already uses this device token prefix");
       entry.migrationsDir = opts.migrationsDir;
       added = entry;
       EXTENSIONS.push(entry);

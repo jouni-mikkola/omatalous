@@ -175,6 +175,12 @@ describe("an add-on module's device tokens", () => {
     expect(EXTENSIONS.map((e) => e.id)).toEqual(["example"]);
   });
 
+  it("refuse a prefix another module already uses", () => {
+    moduleHost({ id: "example", version: "1.0.0", dir: "." }).host.addExtension(deviceModule("example", "exd_", DEVICE, () => null));
+    expect(() => moduleHost({ id: "other", version: "1.0.0", dir: "." }).host.addExtension(deviceModule("other", "exd_", DEVICE, () => null))).toThrow(/prefix/);
+    expect(EXTENSIONS.map((e) => e.id)).toEqual(["example"]);
+  });
+
   it("name their routes: plain segments under /api/<id>/device/", () => {
     const e = deviceModule("example", "exd_", DEVICE, () => null);
     expect(deviceMayReach(e, "/api/example/device/state")).toBe(true);
