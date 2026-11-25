@@ -28,7 +28,7 @@ from the source:
 
 What there is:
 
-- Surfaces are `--page`, `--surface` and `--surface-2`.
+- Surfaces are `--page`, `--surface` and `--surface-2`. `--page` is `oklch(0.965 0.004 258)` (#F2F3F6), the hue of the header band at almost no chroma.
 - Text colours are `--text`, `--text-2` and `--muted`.
 - Lines are `--border` and `--grid`. `--accent` marks what is chosen.
 - `--good` is money in and `--bad` is money out. `--warn` is a warning.
