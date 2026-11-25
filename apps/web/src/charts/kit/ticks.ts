@@ -6,6 +6,28 @@ export function moneyAxis(cents: number): string {
   return cents < 0 ? `−${moneyTick(-cents)}` : moneyTick(cents);
 }
 
+/** Ticks of a monthly chart: 3 steps on a plot under 200 px high, 4 above it. */
+export function monthTickTarget(innerH: number): number {
+  return innerH < 200 ? 3 : 4;
+}
+
+/**
+ * The labels of a monthly chart's value axis: "10 000" with the € on the top tick only, and on a narrow chart "10 t" with
+ * "t €" on the top tick. The thousands form needs a step of whole thousands, so "2 500" is never "2,5 t".
+ */
+export function monthAxisLabels(ticks: readonly number[], step: number, narrow: boolean): (cents: number) => string {
+  const top = Math.max(...ticks, 0);
+  const thousands = narrow && step % 100_000 === 0 && step > 0;
+  return (cents) => {
+    const sign = cents < 0 ? "−" : "";
+    const size = Math.abs(cents);
+    const isTop = cents === top && top > 0;
+    if (thousands) return size === 0 ? "0" : `${sign}${size / 100_000} t${isTop ? " €" : ""}`;
+    const bare = moneyTick(size).replace(/\s?€$/, "");
+    return `${sign}${bare}${isTop ? " €" : ""}`;
+  };
+}
+
 /** 0 for Monday to 6 for Sunday, by the calendar alone. */
 export function weekday(iso: string): number {
   const [y, m, d] = iso.split("-").map(Number);

@@ -86,6 +86,22 @@ describe("Raportit: the months chart", () => {
     expect(tops[1]!).toBeGreaterThan(line);
   });
 
+  it("cuts a month far above the others 6 px past the top, with a break, and writes its sum above it", () => {
+    const sums = [120000, 130000, 110000, 125000, 2045000].map((cents, i) => ({ month: `2026-0${i + 1}`, complete: true, parts: [cents], totalCents: cents }));
+    const { container } = show({ months: sums, series: [SERIES[0]!], usual: null, running: null });
+    const columns = [...container.querySelectorAll("g.ms-month rect.ms-s0")];
+    expect(num(columns[4]!, "y")).toBe(-6);
+    expect(num(columns[3]!, "y")).toBeGreaterThan(0);
+    expect(container.querySelectorAll("path.cap-break")).toHaveLength(1);
+    expect(plain(container.querySelector("text.cap-sum")!.textContent)).toBe("20 450 €");
+  });
+
+  it("draws no break when no month stands out", () => {
+    const { container } = show();
+    expect(container.querySelector("path.cap-break")).toBeNull();
+    expect(container.querySelector("text.cap-sum")).toBeNull();
+  });
+
   it("stacks the series from the bottom in their order", () => {
     const { container } = show();
     const month = container.querySelector("g.ms-month")!;

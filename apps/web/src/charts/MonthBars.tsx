@@ -9,10 +9,11 @@ import type { DashboardData } from "../types.ts";
 import { CategoryTick, ValueAxis } from "./Axes.tsx";
 import { crisp, LABEL_Y } from "./draw.ts";
 import { Tip } from "./forms/parts.tsx";
-import { axisRoom, frame, tickTarget } from "./kit/layout.ts";
+import { CAP_OVERSHOOT, capSum, capY, CapBreak, CapSum } from "./kit/cap.tsx";
+import { axisRoom, frame, monthPlot } from "./kit/layout.ts";
 import { readoutText } from "./kit/readout.ts";
 import { band, linear } from "./kit/scale.ts";
-import { moneyAxis, monthTicks } from "./kit/ticks.ts";
+import { monthAxisLabels, monthTickTarget, monthTicks } from "./kit/ticks.ts";
 import "../styles/charts.css";
 import "../styles/month-bars.css";
 
@@ -23,6 +24,12 @@ type Month = Overview["months"][number];
 const UNMEASURED = 640;
 /** Room under the axis for the month's name and a second line (the year, or that the month is not whole). */
 const BOTTOM = LABEL_Y + 16;
+/** Room above the plot for the sum written over a clipped bar. */
+const TOP = 22;
+/** A sum is an outlier when it is more than this many times the third quartile of the months' sums (`robustDomain`). */
+const OUTLIER_FACTOR = 2;
+/** Under this width the axis is in thousands and a clipped sum is "21 t€". */
+const NARROW = 600;
 
 /** The rows of one month in Tapahtumat: its days, to today in the running month. */
 const monthRowsHref = (month: string, today: string) =>
@@ -41,7 +48,8 @@ function monthRows(m: Month, running: boolean): { name: string; value: string }[
  * Income and spending of the last twelve months as a pair of bars a month (`overview.months`), on one value axis, with
  * the usual month's spending as a dashed line across them (`overview.usualSpendCents`). The running month and a month
  * the accounts do not cover from its 1st are hatched with a dashed edge and the key says so, as their sums are not a
- * month's. The year stands under each January only. Each month is a link to its rows in Tapahtumat; pointing at it or its keyboard focus reads
+ * month's. A sum far above the others (more than twice the third quartile) does not set the axis: its bar is cut 6 px
+ * past the top with a break, and the sum is written above it. The year stands under each January only. Each month is a link to its rows in Tapahtumat; pointing at it or its keyboard focus reads
  * out its sums. Every value is a field of the answer: nothing is added up here.
  */
 export function MonthBars({ overview, today }: { overview: Overview; today: string }) {
@@ -51,12 +59,21 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
   const width = measured || UNMEASURED;
   const { months, usualSpendCents: usual, usualMonths } = overview;
   // a month the data does not reach (null) is no bar and no value of the axis
-  const values = [...months.flatMap((m) => [m.incomeCents, m.spendCents].flatMap((v) => (v === null ? [] : [v]))), ...(usual === null ? [] : [usual])];
-  const options = { minHeight: 200, tallest: 220, ratio: 0.3 };
-  const draft = frame(width, { top: 8, right: 4, bottom: BOTTOM, left: 48 }, options);
-  const y0 = linear(values, [draft.innerH, 0], { target: tickTarget(draft.innerH) });
-  const f = frame(width, { top: 8, right: 4, bottom: BOTTOM, left: axisRoom(y0.ticks.map(moneyAxis)) }, options);
-  const y = linear(values, [f.innerH, 0], { target: tickTarget(f.innerH) });
+  const narrow = width < NARROW;
+  const sums = months.flatMap((m, i) => [
+    ...(m.incomeCents === null ? [] : [{ month: i, kind: "income" as const }]),
+    ...(m.spendCents === null ? [] : [{ month: i, kind: "spend" as const }]),
+  ]);
+  const sumOf = (s: (typeof sums)[number]) => (s.kind === "income" ? months[s.month]!.incomeCents! : months[s.month]!.spendCents!);
+  const values = [...sums.map(sumOf), ...(usual === null ? [] : [usual])];
+  const options = monthPlot(width, TOP + BOTTOM);
+  const draft = frame(width, { top: TOP, right: 4, bottom: BOTTOM, left: 48 }, options);
+  const scale = (innerH: number) => linear(values, [innerH, 0], { target: monthTickTarget(innerH), clip: OUTLIER_FACTOR });
+  const y0 = scale(draft.innerH);
+  const f = frame(width, { top: TOP, right: 4, bottom: BOTTOM, left: axisRoom(y0.ticks.map(monthAxisLabels(y0.ticks, y0.step, narrow))) }, options);
+  const y = scale(f.innerH);
+  const axisLabel = monthAxisLabels(y.ticks, y.step, narrow);
+  const capped = new Set(y.clipped.flatMap((k) => (k < sums.length ? [`${sums[k]!.month}:${sums[k]!.kind}`] : [])));
   const x = band(months.length, f.innerW, 0.72);
   const bar = Math.max(1, x.width / 2 - 1);
   const running = (i: number) => i === months.length - 1 && months[i]!.month === today.slice(0, 7);
@@ -68,9 +85,20 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
   );
   const yearOf = (i: number) => (ticks[i]!.printed && months[i]!.month.endsWith("-01") ? months[i]!.month.slice(0, 4) : null);
   const anyPartial = months.some((m, i) => (!m.complete && m.spendCents !== null) || running(i));
-  const top = (v: number) => Math.min(y(v), y(0));
-  const height = (v: number) => Math.abs(y(v) - y(0));
+  const top = (v: number) => capY(Math.min(y(v), y(0)), f.innerH);
+  const height = (v: number) => Math.abs(capY(y(v), f.innerH) - y(0));
   const title = (m: Month) => monthLong(m.month);
+  // the break across a cut bar and its sum, the sum on the side of the pair's middle so two cut bars do not collide
+  const capMarks = (sum: number, at: number, anchor: "start" | "end", textX: number) => {
+    const end = sum > 0 ? -CAP_OVERSHOOT : f.innerH + CAP_OVERSHOOT;
+    const dir = sum > 0 ? -1 : 1;
+    return (
+      <>
+        <CapBreak x={at} width={bar} end={end} dir={dir} />
+        <CapSum x={textX} end={end} dir={dir} anchor={anchor} text={capSum(sum, narrow)} />
+      </>
+    );
+  };
   return (
     <div className="chart month-bars" ref={ref}>
       <ul className="mb-key" aria-hidden="true">
@@ -110,7 +138,7 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
                 </pattern>
               ))}
             </defs>
-            <ValueAxis ticks={[...y.ticks]} y={y} width={f.innerW} height={f.innerH} label={moneyAxis} />
+            <ValueAxis ticks={[...y.ticks]} y={y} width={f.innerW} height={f.innerH} label={axisLabel} bare />
             {at !== null && <rect className="sel-band" x={x.step * at} y={0} width={x.step} height={f.innerH} />}
             {months.map((m, i) => {
               const whole = m.complete && !running(i);
@@ -123,6 +151,8 @@ export function MonthBars({ overview, today }: { overview: Overview; today: stri
                   {m.spendCents !== null && (
                     <rect className={whole ? "mb-spend" : "mb-spend-part"} fill={whole ? undefined : `url(#${hatch}-spend)`} x={left + bar + 2} y={top(m.spendCents)} width={bar} height={height(m.spendCents)} />
                   )}
+                  {m.incomeCents !== null && capped.has(`${i}:income`) && capMarks(m.incomeCents, left, "end", x.centre(i) - 1)}
+                  {m.spendCents !== null && capped.has(`${i}:spend`) && capMarks(m.spendCents, left + bar + 2, "start", x.centre(i) + 1)}
                   <CategoryTick x={x.centre(i)} base={f.innerH} long={ticks[i]!.printed} />
                   {ticks[i]!.printed && (
                     <text x={x.centre(i)} y={f.innerH + LABEL_Y} textAnchor="middle">

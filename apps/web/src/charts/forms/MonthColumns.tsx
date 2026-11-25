@@ -4,11 +4,12 @@ import { money, monthLong } from "../../format.ts";
 import { t } from "../../text.ts";
 import { CategoryTick, ValueAxis } from "../Axes.tsx";
 import { crisp, LABEL_Y } from "../draw.ts";
-import { axisRoom, frame, tickTarget } from "../kit/layout.ts";
+import { CAP_OVERSHOOT, capSum, capY, CapBreak, CapSum } from "../kit/cap.tsx";
+import { axisRoom, frame, monthPlot } from "../kit/layout.ts";
 import { LiveReadout, ReadoutLayer, useReadout } from "../kit/Readout.tsx";
 import { readoutText } from "../kit/readout.ts";
 import { band, linear } from "../kit/scale.ts";
-import { moneyAxis, monthTicks } from "../kit/ticks.ts";
+import { monthAxisLabels, monthTickTarget, monthTicks } from "../kit/ticks.ts";
 import { Tip } from "./parts.tsx";
 import "../../styles/charts.css";
 import "../../styles/month-columns.css";
@@ -32,13 +33,21 @@ interface MonthColumn {
 const UNMEASURED = 640;
 /** Room under the axis for a month's name and the line that carries its year. */
 const BOTTOM = LABEL_Y + 16;
+/** Room above the plot for the sum written over a clipped column. */
+const TOP = 22;
+/** A month's sum is an outlier when it is more than this many times the third quartile of the months' sums (`robustDomain`). */
+const OUTLIER_FACTOR = 2;
+/** Under this width the axis is in thousands and a clipped sum is "21 t€". */
+const NARROW = 600;
 
 /**
  * One column a month (`months`), stacked by `series`, on one value axis that starts at 0. `usual` is the level the
  * months are read against, a dashed line across them. A month that is not whole is drawn lighter with a dashed edge and
  * says why in its readout. Pointing at a month or stepping to it with the keys reads its sums out, and a click or
  * Enter keeps that month's row in the table under the chart (`rowKey` of that table is the month). Every figure is a
- * field of the report: only the stack's total is added up here, for the axis.
+ * field of the report: only the stack's total is added up here, for the axis. A month far above the others (more than
+ * twice the third quartile) does not set the axis: its column is cut 6 px past the top with a break, and its sum is
+ * written above it.
  */
 export function MonthColumns({
   months,
@@ -61,12 +70,18 @@ export function MonthColumns({
   const [ref, measured] = useWidth<HTMLDivElement>();
   const [at, setAt] = useReadout();
   const width = measured || UNMEASURED;
-  const values = [...months.flatMap((m) => (m.totalCents === null ? [] : [m.totalCents])), ...(usual ? [usual.cents] : [])];
-  const options = { minHeight: 200, tallest: 260, ratio: 0.3 };
-  const draft = frame(width, { top: 8, right: 4, bottom: BOTTOM, left: 48 }, options);
-  const y0 = linear(values, [draft.innerH, 0], { target: tickTarget(draft.innerH) });
-  const f = frame(width, { top: 8, right: 4, bottom: BOTTOM, left: axisRoom(y0.ticks.map(moneyAxis)) }, options);
-  const y = linear(values, [f.innerH, 0], { target: tickTarget(f.innerH) });
+  const narrow = width < NARROW;
+  // the months that have a total come first, so an index the scale calls clipped maps back to its month
+  const present = months.flatMap((m, i) => (m.totalCents === null ? [] : [i]));
+  const values = [...present.map((i) => months[i]!.totalCents!), ...(usual ? [usual.cents] : [])];
+  const options = monthPlot(width, TOP + BOTTOM);
+  const draft = frame(width, { top: TOP, right: 4, bottom: BOTTOM, left: 48 }, options);
+  const scale = (innerH: number) => linear(values, [innerH, 0], { target: monthTickTarget(innerH), clip: OUTLIER_FACTOR });
+  const y0 = scale(draft.innerH);
+  const f = frame(width, { top: TOP, right: 4, bottom: BOTTOM, left: axisRoom(y0.ticks.map(monthAxisLabels(y0.ticks, y0.step, narrow))) }, options);
+  const y = scale(f.innerH);
+  const axisLabel = monthAxisLabels(y.ticks, y.step, narrow);
+  const capped = new Set(y.clipped.flatMap((k) => (k < present.length ? [present[k]!] : [])));
   const x = band(months.length, f.innerW, 0.72);
   const ticks = monthTicks(
     months.map((m) => m.month),
@@ -104,7 +119,7 @@ export function MonthColumns({
       <svg width={f.width} height={f.height}>
         <g transform={`translate(${f.margin.left},${f.margin.top})`}>
           <g role="img" aria-label={label}>
-            <ValueAxis ticks={[...y.ticks]} y={y} width={f.innerW} height={f.innerH} label={moneyAxis} />
+            <ValueAxis ticks={[...y.ticks]} y={y} width={f.innerW} height={f.innerH} label={axisLabel} bare />
             {months.map((m, i) => {
               // a sum above zero stacks up from zero and one below it stacks down from zero
               let up = 0;
@@ -117,8 +132,16 @@ export function MonthColumns({
                     const to = from + v;
                     if (v > 0) up = to;
                     else down = to;
-                    return <rect key={series[k]!.key} className={`ms-s${k}`} x={x.x(i)} y={y(Math.max(from, to))} width={x.width} height={Math.max(0, Math.abs(y(from) - y(to)))} />;
+                    const top = capY(y(Math.max(from, to)), f.innerH);
+                    const bottom = capY(y(Math.min(from, to)), f.innerH);
+                    return <rect key={series[k]!.key} className={`ms-s${k}`} x={x.x(i)} y={top} width={x.width} height={Math.max(0, bottom - top)} />;
                   })}
+                  {capped.has(i) && (
+                    <>
+                      <CapBreak x={x.x(i)} width={x.width} end={m.totalCents! > 0 ? -CAP_OVERSHOOT : f.innerH + CAP_OVERSHOOT} dir={m.totalCents! > 0 ? -1 : 1} />
+                      <CapSum x={x.centre(i)} end={m.totalCents! > 0 ? -CAP_OVERSHOOT : f.innerH + CAP_OVERSHOOT} dir={m.totalCents! > 0 ? -1 : 1} text={capSum(m.totalCents!, narrow)} />
+                    </>
+                  )}
                   <CategoryTick x={x.centre(i)} base={f.innerH} long={ticks[i]!.printed} />
                   {ticks[i]!.printed && (
                     <text className={m.month === running ? "ms-now" : undefined} x={x.centre(i)} y={f.innerH + LABEL_Y} textAnchor="middle">
@@ -133,7 +156,7 @@ export function MonthColumns({
                 </g>
               );
             })}
-            {usual && <line className="ms-usual" x1={0} x2={f.innerW} y1={crisp(y(usual.cents))} y2={crisp(y(usual.cents))} />}
+            {usual && <line className="ms-usual" x1={0} x2={f.innerW} y1={crisp(capY(y(usual.cents), f.innerH))} y2={crisp(capY(y(usual.cents), f.innerH))} />}
           </g>
           <ReadoutLayer xs={months.map((_, i) => x.centre(i))} innerW={f.innerW} innerH={f.innerH} at={at} onAt={setAt} keys={keys} label={label} />
         </g>
