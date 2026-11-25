@@ -132,7 +132,10 @@ function gapSentence(view: BridgeView, shown: { saved: number; credit: number })
   const left = t("home.gap_left");
   const lead = t(view.totals.savedCents > 0 || cover.creditRepaidCents > 0 ? "home.gap_lead_transfers" : "home.gap_lead", { sum: answerMoney(cover.gapCents) });
   if (savingsOnly) return `${lead} ${t("home.gap_from_savings")} ${left}`;
-  return parts.length === 0 ? `${lead} ${left}` : `${lead} ${t("home.gap_cover", { parts: new Intl.ListFormat(localeOf(language()), { type: "conjunction" }).format(parts) })}`;
+  if (parts.length === 0) return `${lead} ${left}`;
+  const covered = `${lead} ${t("home.gap_cover", { parts: new Intl.ListFormat(localeOf(language()), { type: "conjunction" }).format(parts) })}`;
+  // credit that covered the gap can leave money over: Käteen jäi is then above 0 beside a gap, and the line says what it is
+  return view.totals.leftCents > 0 ? `${covered} ${left}` : covered;
 }
 
 const FLOW_TONE: Record<string, Tone> = { income: "income", consumption: "spending", interest: "debt", debt: "debt", principal: "debt", subtotal: "neutral", saved: "kept", repaid: "neutral", left: "income", credit: "neutral", savings: "neutral", accounts: "neutral" };
@@ -155,19 +158,18 @@ function flowLabel(key: string, split: boolean): string {
 
 /**
  * Tulojen käyttö: the bar of where the month's income went, in the order of the flows (consumption, debt, savings, what
- * stayed), and under it each part with its sum and its share of the income. All of it is `bridgeView` of the same totals
- * as the three figures above, the one calculation of the bridge on Raportit, so the parts add up to the figures. When
+ * stayed), and under it each part with its sum and its share of the income. A part that is already a figure of the month's strip
+ * (Käteen jäi, and the terms under it: savings moved or taken out, credit drawn or paid back) is named without its sum, so each sum stands once.
+ * All of it is `bridgeView` of the same totals as the three figures above, the one calculation of the bridge on Raportit. When
  * the spending was more than the income, a second bar above the first draws what paid for it: the income, then the credit,
  * the savings and the accounts that covered the rest, told in one sentence under the list: the spending over the income and
  * what paid it; the list then has no share column, as its shares of the income alone would add to more than 100 %. With no income, or a part
  * below zero, no bar is drawn and the parts stand as a list alone.
  */
 function Flow({ view, shown }: { view: BridgeView; shown: { saved: number; credit: number } }) {
-  // a part named like a term under Tulos shows the euros that term shows, and no row stands where its term is not shown
+  // a part named like a term under Tulos stands only where its term is shown, and it has no sum of its own: the term tells it
   const euros: Record<string, number> = { saved: shown.saved, "savings-left": -shown.saved, "credit-left": shown.credit, repaid: -shown.credit };
-  const rows = view.figures
-    .filter((f) => f.key !== "income" && !COVER_KEYS.includes(f.key) && f.cents !== 0 && (!(f.key in euros) || euros[f.key]! > 0))
-    .map((f) => ({ ...f, cents: f.key in euros ? euros[f.key]! : f.cents }));
+  const rows = view.figures.filter((f) => f.key !== "income" && !COVER_KEYS.includes(f.key) && f.cents !== 0 && (!(f.key in euros) || euros[f.key]! > 0));
   const gap = gapSentence(view, shown);
   const sharesShown = view.cover.gapCents < 50;
   return (
@@ -193,7 +195,7 @@ function Flow({ view, shown }: { view: BridgeView; shown: { saved: number; credi
             <span className="home-flow-swatch" data-tone={FLOW_TONE[f.key] ?? "neutral"} aria-hidden="true" />
             <span className="home-flow-name">{flowLabel(f.key, view.debtSplit)}</span>
             <span className="home-flow-share num">{sharesShown && f.incomeUnits !== null ? percent(f.incomeUnits / 100) : ""}</span>
-            <span className="home-flow-sum num">{answerMoney(f.cents)}</span>
+            <span className="home-flow-sum num">{f.key === "left" || f.key in euros ? "" : answerMoney(f.cents)}</span>
           </li>
         ))}
       </ul>
@@ -207,8 +209,8 @@ const monthHeading = (month: string) => monthLong(month).replace(/^./u, (c) => c
 
 /**
  * The top of Yhteenveto: one period named once (the month and the days it has run), then Tulot, Menot and Tulos in the
- * order the money moves, Tulos the largest, each with its comparison drawn on its own bar: a mark at the same day of last
- * month, and for Menot the band of the usual level to this day when the history gives one. Below them the use of the
+ * order the money moves, each with its comparison as a line: the same day of last month, and for Menot the usual level to this
+ * day when the history gives one. Below them the use of the
  * income (Flow). The figures are `totals` of the dashboard answer, the same period and the same calculation the bridge
  * has, so nothing is added up here. The payday figure belongs to the bills (Bills), which it is made of.
  */

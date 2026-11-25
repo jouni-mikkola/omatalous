@@ -1,9 +1,9 @@
-/* Yhteenveto: the month (Tulot, Menot, Tulos and the use of the income), the months and the bills, the largest categories and the accounts, cards and loans.
+/* Yhteenveto: what is left on the payday, the month (Tulot, Menot, Tulos and the use of the income), the coming months and the accounts, cards and loans.
    Sections are told apart by a heading and a hairline (the `.card` rule), so nothing here has a box. A block keeps its place from the first frame: the loading frame uses the same classes, so the page
    does not move when the answer lands. */
 
 @layer pages {
-/* the month: one period named once, three figures in the order the money moves, the last the largest */
+/* the month: one period named once, three figures in the order the money moves */
 .home-summary { display: grid; gap: var(--sp-24); padding-block: var(--sp-16) var(--sp-8); border-block-start: var(--hairline) solid var(--border); }
 .home-period { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-4) var(--sp-16); }
 .home-period h2 { margin: 0; }
@@ -47,9 +47,9 @@
 .home-ledger > div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-16); padding: var(--sp-8) 0; border-block-end: var(--hairline) solid var(--grid); }
 .home-ledger dt { color: var(--text-2); }
 .home-ledger dd { margin: 0; white-space: nowrap; font-weight: var(--w-strong); }
-/* the page's question is its first heading: heading size and weight, in the text colour */
-.home-now .home-fig-label { font-size: var(--fs-h2); font-weight: var(--w-strong); color: var(--text); }
-a.home-left:hover .home-fig-label { text-decoration: underline; }
+/* the page's question is its first heading (an h2, named by the section): heading size and weight, in the text colour, the figure under it */
+.home-now .home-fig-label { margin-block-end: var(--sp-4); font-size: var(--fs-h2); font-weight: var(--w-strong); color: var(--text); }
+a.home-left:hover .fig-l { text-decoration: underline; }
 
 /* the lowest balance of the next days, one line under the sum left to the payday */
 .home-low { margin: var(--sp-8) 0 0; font-size: var(--fs-body); line-height: var(--lh-body); }

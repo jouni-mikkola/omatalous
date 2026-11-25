@@ -96,7 +96,7 @@ export const FI_OVERVIEW = {
   "home.low_known": "Saldo on alimmillaan {date}, arviolta",
   "home.ledger_balance": "Tilien saldo nyt",
   "home.ledger_payments": "Laskut ennen palkkapäivää",
-  "home.ledger_cards": "Korttivelka",
+  "home.ledger_cards": "Korttivelka laskujen lisäksi",
   "home.ledger_everyday": "Arvioitu kulutus {days} päivältä",
   "home.ledger_billed": "Kortilla arvioidut ostot laskuun asti",
   "home.coming_none": "Ei tulevia laskuja eikä palkkoja.",

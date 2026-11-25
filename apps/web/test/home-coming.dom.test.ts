@@ -135,6 +135,30 @@ describe("Tulevat kuukaudet", () => {
     expect([...container.querySelectorAll("tbody tr")].map((tr) => cells(tr)[0])).toEqual(["Joulukuu 2026", "Tammikuu 2027", "Helmikuu 2027"]);
   });
 
+  it("keeps the row of an empty month between two that have something to come", () => {
+    const cal = calendar([
+      month("2026-11", rows("2026-11"), { knownCents: 80000, billsCents: 80000, afterCents: -80000 }),
+      month("2026-12", [], {}),
+      month("2027-01", rows("2027-01"), { knownCents: 90000, billsCents: 90000, incomeCents: 310000, afterCents: 220000 }),
+    ]);
+    const { container } = render(createElement(ComingMonths, { calendar: cal }));
+    expect([...container.querySelectorAll("tbody tr")].map((tr) => cells(tr)[0])).toEqual(["Marraskuu 2026", "Joulukuu 2026", "Tammikuu 2027"]);
+    expect(container.querySelector(".home-detail")).toBeNull();
+  });
+
+  it("says in one line that nothing is to come when every month is empty, and draws no row", () => {
+    const cal = calendar([month("2026-11", [], { paidCents: 154204 }), month("2026-12", [], {}), month("2027-01", [], {})]);
+    const { container } = render(createElement(ComingMonths, { calendar: cal }));
+    expect(container.querySelector("table")).toBeNull();
+    expect(flat(container.textContent)).toBe("Ei tulevia laskuja eikä palkkoja.");
+  });
+
+  it("says the same when the calendar has no month", () => {
+    const { container } = render(createElement(ComingMonths, { calendar: calendar([]) }));
+    expect(container.querySelector("table")).toBeNull();
+    expect(flat(container.textContent)).toBe("Ei tulevia laskuja eikä palkkoja.");
+  });
+
   it("keeps the heading of the block as the only one drawn", () => {
     const { container } = render(createElement(ComingMonths, { calendar: answer() }));
     expect(container.querySelector("caption")?.className).toBe("sr-only");

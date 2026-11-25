@@ -56,13 +56,21 @@ for (const width of [390, 1440] as const) {
     expect(await monthFigure(page, "result"), "Käteen jäi").toBe(whole(totals.leftCents));
     expect(cents(await page.locator("[data-tile=left] .fig").innerText()), "what is left on payday").toBe(whole(leftOnPayday.leftCents));
     const [, paydayMonth, paydayDay] = leftOnPayday.payday.date.split("-").map(Number);
-    // the payday stands in the question of the figure, and in a line only when it is today
-    if (leftOnPayday.days > 0) expect(plain(await page.locator("[data-tile=left] .home-fig-label").innerText())).toBe(`Jää palkkapäivänä ${paydayDay}.${paydayMonth}.`);
-    else expect(plain(await page.locator("[data-tile=left] .home-fig-line").innerText())).toBe("Palkkapäivä tänään");
-    // the lowest balance of the next days under it, when it falls on the payday or after it: core's day and sum, or core's reason. It is no link
+    // the payday stands in the question, the heading of the figure's section, and in a line too when it is today
+    const question = page.getByRole("heading", { name: `Jää palkkapäivänä ${paydayDay}.${paydayMonth}.`, level: 2 });
+    await expect(question).toHaveCount(1);
+    await expect(page.getByRole("region", { name: `Jää palkkapäivänä ${paydayDay}.${paydayMonth}.` })).toHaveCount(1);
+    if (leftOnPayday.days === 0) expect(plain(await page.locator("[data-tile=left] .home-fig-line").innerText())).toBe("Palkkapäivä tänään");
+    // its working beside it: every row is a field of the answer to the cent with its sign, and a part that is 0 has no row
+    const { sum } = home.runway;
+    const parts: Record<string, number> = { balance: sum.balanceCents, payments: -sum.paymentsCents, cards: -sum.cardDebtCents, everyday: -leftOnPayday.everydayCents, billed: -leftOnPayday.billedCents };
+    const rows = await page.locator(".home-ledger [data-row]").evaluateAll((els) => els.map((el) => [el.getAttribute("data-row"), el.querySelector("dd")?.textContent ?? ""] as const));
+    expect(rows.map(([key]) => key)).toEqual(Object.keys(parts).filter((key) => key === "balance" || parts[key] !== 0));
+    for (const [key, text] of rows) expect(cents(text), `the ledger row ${key}`).toBe(parts[key!]);
+    // the lowest balance of the next days under it, when it falls after the payday: core's day and sum, or core's reason. It is no link
     const { lowPoint } = home;
     const low = page.locator(".home-now .home-low");
-    if (lowPoint.known && lowPoint.date < leftOnPayday.payday.date) {
+    if (lowPoint.known && lowPoint.date <= leftOnPayday.payday.date) {
       await expect(low).toHaveCount(0);
     } else {
       await expect(low).toHaveCount(1);
@@ -87,7 +95,7 @@ for (const width of [390, 1440] as const) {
     const classes = await page.locator(".home-now, .home-summary, .home-coming, .holdings").evaluateAll((els) => els.map((e) => e.getAttribute("class") ?? ""));
     const order = classes.map((c) => c.split(" ").find((name) => /^home-|^holdings$/.test(name)));
     expect(order).toEqual(["home-now", "home-summary", "home-coming", "holdings"]);
-    expect(await page.locator("main .card h2").allInnerTexts()).toEqual(["Tulevat kuukaudet", "Varat ja velat"]);
+    expect(await page.locator("main .card h2").allInnerTexts()).toEqual([`Jää palkkapäivänä ${paydayDay}.${paydayMonth}.`, "Tulevat kuukaudet", "Varat ja velat"]);
     await expect(page.locator("main .notice, main .home-notice")).toHaveCount(0);
     // the buffer line at the foot of Varat ja velat: core's months, and its drill holds the two sums they divide, or core's reason
     const buffer = page.locator(".holdings .home-buffer");
@@ -138,6 +146,7 @@ test("at 1440 px Tulot, Menot and Käteen jäi stand on one row with Käteen jä
   expect(boxes[1]!.x).toBeLessThan(boxes[2]!.x);
   const size = (id: string) => page.locator(`[data-fig=${id}] .fig`).evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
   expect(await size("result"), "Käteen jäi is a figure like the other two").toBe(await size("income"));
+  expect(await size("spent"), "and so is Menot").toBe(await size("income"));
   await context.close();
 });
 

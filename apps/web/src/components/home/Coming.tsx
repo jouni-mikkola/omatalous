@@ -34,12 +34,14 @@ const afterText = (m: Month) => (m.afterCents === null ? t("home.coming_after_un
  * expected and what is left after the bills. Every figure is a field of the month in `billCalendar`, the answer Laskut's
  * month heads read, so a month has the same sums in both places: `billsCents`, `estimateCents`, `incomeCents` and
  * `afterCents`, which is null in a month a bill with no known sum falls in (`unknowns`), and in every month while a bill has no day. Nothing is added up here.
+ * A month with nothing to come between two that have something keeps its row; with no month that has anything (or none at all) the
+ * block says so in one line.
  */
 export function ComingMonths({ calendar }: { calendar: Calendar }) {
   // the running month, once its bills are all paid and nothing else is to come, would stand as an empty row: the block starts at the next
-  const first = Math.max(0, calendar.months.findIndex((m) => !nothingToCome(m)));
+  const first = calendar.months.findIndex((m) => !nothingToCome(m));
+  if (first < 0) return <p className="home-detail">{t("home.coming_none")}</p>;
   const months = calendar.months.slice(first, first + COMING_MONTHS);
-  if (months.length === 0) return null;
   // only the bills that leave a shown month's sum after the bills unknown, each once; one of a later month is not counted
   const unknownBills = unknownBillsIn(calendar, months.map((m) => m.month));
   return (

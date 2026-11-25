@@ -88,8 +88,35 @@ describe("Now", () => {
     expect(nowOf(known({ date: "2026-12-09" }), runway).querySelector("p.home-low")).toBeNull();
   });
 
-  it("keeps the line when the lowest balance falls on the payday or after it", () => {
-    expect(nowOf(known({ date: "2026-12-10" }), runway).querySelector("p.home-low")).not.toBeNull();
+  // core takes the payday's own bills off before the pay lands, so a lowest balance dated the payday is below the figure of that day: two sums for one day
+  it("leaves the line out when the lowest balance falls on the payday, also when the payday is today", () => {
+    expect(nowOf(known({ date: "2026-12-10" }), runway).querySelector("p.home-low")).toBeNull();
+    expect(nowOf(known({ date: "2026-12-10" }), { ...runway, days: 0 }).querySelector("p.home-low")).toBeNull();
+  });
+
+  it("keeps the line when the lowest balance falls after the payday", () => {
+    expect(nowOf(known({ date: "2026-12-11" }), runway).querySelector("p.home-low")).not.toBeNull();
     expect(nowOf(known({ date: "2027-01-22" }), runway).querySelector("p.home-low")).not.toBeNull();
+  });
+
+  it("does not tell the reason twice: an unknown lowest balance for the reason of the figure's own line has no line", () => {
+    const section = nowOf({ known: false, reason: "no-payday", days: 60 });
+    expect(flat(section.querySelector(".home-fig-line")?.textContent)).toBe("Palkkapäivä ei vielä tiedossa");
+    expect(section.querySelector("p.home-low")).toBeNull();
+  });
+
+  it("keeps an unknown lowest balance whose reason is not the figure's", () => {
+    expect(nowOf({ known: false, reason: "history", days: 60 }).querySelector("p.home-low")).not.toBeNull();
+    expect(nowOf({ known: false, reason: "history", days: 60 }, runway).querySelector("p.home-low")).not.toBeNull();
+    // the figure is known and tells no reason, so the line is the one place the reason stands
+    expect(nowOf({ known: false, reason: "no-payday", days: 60 }, runway).querySelector("p.home-low")).not.toBeNull();
+  });
+
+  it("names the section by its question, a heading, and the figure is the link", () => {
+    const section = nowOf(known(), runway);
+    const heading = section.querySelector("h2")!;
+    expect(flat(heading.textContent)).toBe("Jää palkkapäivänä 10.12.");
+    expect(section.getAttribute("aria-labelledby")).toBe(heading.id);
+    expect(section.querySelector("a[data-tile=left] h2")).toBeNull();
   });
 });
