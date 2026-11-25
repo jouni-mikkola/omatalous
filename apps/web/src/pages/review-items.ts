@@ -8,7 +8,7 @@ import { PAYER_ROLE_LABEL, WALLET_ROLE_LABEL } from "../components/questions.ts"
 import { date, dateTime, money } from "../format.ts";
 import type { SyncRun } from "../types.ts";
 import { t, tn } from "../text.ts";
-import type { LoanDriftItem, LoanTermsDebt, LoanTermsListItem } from "./review-loan-items.ts";
+import { loanGain, type LoanDriftItem, type LoanTermsListItem } from "./review-loan-items.ts";
 
 export interface Base {
   id: string;
@@ -323,26 +323,6 @@ export function nameOf(item: ReviewItem): string {
 /** A person's money gets the person glyph, never initials: a payer the app would offer "Omaa rahaa", a shared account's payer. */
 export function isPerson(item: ReviewItem): boolean {
   return (item.kind === "payer" && !item.wallet && item.options.includes("own_money")) || item.kind === "split";
-}
-
-/** What the answer to a debt's question gives: the question's heading. A list with no debt (none is sent) says the old heading. */
-function loanGain(debt: LoanTermsDebt | undefined): string {
-  if (!debt) return t("set.ri.complete_the_loans");
-  switch (debt.source) {
-    case "proposal":
-      return t("set.ri.gain_loan_balance");
-    case "ended":
-      return t("set.ri.gain_credit_ended");
-    case "plan":
-      return t("set.ri.gain_plan_end");
-    case "card_bill":
-    case "card_gap":
-      return t("set.ri.gain_card_debt");
-    case "loan":
-      return debt.gaps.includes("rate") ? t("set.ri.gain_loan_rate") : t("set.ri.gain_loan_terms");
-    case "card":
-      return debt.gaps.includes("rate") ? t("set.ri.gain_card_rate") : t("set.ri.gain_loan_terms");
-  }
 }
 
 /** The question itself, the page's heading for the item. */

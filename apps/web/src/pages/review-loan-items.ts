@@ -1,4 +1,5 @@
 import type { InferredLoanTerms, LoanKind, LoanTermsMissing } from "@banking/core";
+import { t } from "../text.ts";
 import type { Base } from "./review-items.ts";
 
 /**
@@ -71,4 +72,24 @@ export interface LoanDriftItem extends Base {
   expectedCents: number;
   newPaymentCents: number;
   reviewDate: string | null;
+}
+
+/** What the answer to a debt's question gives: the question's heading. A list with no debt (none is sent) says the old heading. */
+export function loanGain(debt: LoanTermsDebt | undefined): string {
+  if (!debt) return t("set.ri.complete_the_loans");
+  switch (debt.source) {
+    case "proposal":
+      return t("set.ri.gain_loan_balance");
+    case "ended":
+      return t("set.ri.gain_credit_ended");
+    case "plan":
+      return t("set.ri.gain_plan_end");
+    case "card_bill":
+    case "card_gap":
+      return t("set.ri.gain_card_debt");
+    case "loan":
+      return debt.gaps.includes("rate") ? t("set.ri.gain_loan_rate") : t("set.ri.gain_loan_terms");
+    case "card":
+      return debt.gaps.includes("rate") ? t("set.ri.gain_card_rate") : t("set.ri.gain_loan_terms");
+  }
 }
