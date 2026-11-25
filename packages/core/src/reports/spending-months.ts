@@ -9,7 +9,7 @@ import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { expectedLevel } from "../analysis/expected.ts";
 import { type AgainstUsual, againstUsual, cardRowsMissingIn, gateFor } from "../analysis/usual.ts";
 import { largePurchases } from "../analysis/large.ts";
-import { SPENDING_CHANGE_STEPS, SPENDING_PAYEES } from "../thresholds.ts";
+import { MIN_COMPARE_MONTHS, SPENDING_CHANGE_STEPS, SPENDING_PAYEES } from "../thresholds.ts";
 import { fullMonths, knownMonths, rangeMonthIndexes, whereKnown } from "./shared.ts";
 
 interface SpendingPayee {
@@ -26,8 +26,10 @@ interface SpendingCategory {
   /** The sum of the category's rows over the range, those of a month the data does not reach too. */
   totalCents: number;
   /**
-   * The expected level of the category over `categoryMonths` (`expectedLevel`, their mean) without its large purchases
-   * (`largePurchases`); null under `MIN_COMPARE_MONTHS` of them.
+   * The expected level of the category (`expectedLevel`, the mean of its months) without its large purchases
+   * (`largePurchases`); null under `MIN_COMPARE_MONTHS` of them. A category that holds a card's purchases (or the card's
+   * bill) reads the `categoryMonths`; every other category reads every complete month, as a card connected late is no
+   * part of its history.
    */
   typicalCents: number | null;
   /** The newest complete month less `typicalCents`; null without either. */
@@ -109,8 +111,10 @@ export interface SpendingMonthsReport {
   last: number | null;
   /**
    * Per month, the waterfall from the usual month: the categories whose gap is the largest (`SPENDING_CHANGE_STEPS`, a
-   * euro or more each), the rises first, and the rest of the gaps as one last step. Null in a month that is not one of
-   * the months the categories' levels read (`categoryMonths`), the only months a category can be compared in.
+   * euro or more each), the rises first, and the rest of the gaps as one last step. A category with no level (those of
+   * a card connected late) is no step of its own and is in the last one, and the start is then `typicalCents`, the
+   * level of the month totals. Null in a month that is not one of the months the levels read: the `categoryMonths`
+   * while the card's categories have a level, else every complete month; and null without a level for the month.
    */
   changes: (SpendingChange | null)[];
   /** Every category with a row in the months shown, largest first. In every month their values add up to the month's total. */
@@ -136,15 +140,17 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
   const large = largePurchases(ctx);
   const largeTotals = indexes.map(() => 0);
   const largeFlowTotals = indexes.map(() => 0);
-  const byCategory = new Map<string, { values: number[]; largeValues: number[]; payees: Map<string, SpendingPayee>; statementCents: number }>();
+  const byCategory = new Map<string, { values: number[]; largeValues: number[]; payees: Map<string, SpendingPayee>; statementCents: number; cardLinked: boolean }>();
   const offStatement = new Set<unknown>(ctx.explained);
+  const cards = new Set(ctx.accounts.filter((a) => a.type === "credit_card").map((a) => a.id));
   for (const t of spendRows(ctx, toDayRange(shown))) {
     if (!t.spend || t.month < first) continue;
     const i = t.month - first;
     totals[i]! += t.spend;
     fromSavings[i]! += t.spend - flowSpendOf(t);
-    const e = byCategory.get(t.category) ?? { values: indexes.map(() => 0), largeValues: indexes.map(() => 0), payees: new Map<string, SpendingPayee>(), statementCents: 0 };
+    const e = byCategory.get(t.category) ?? { values: indexes.map(() => 0), largeValues: indexes.map(() => 0), payees: new Map<string, SpendingPayee>(), statementCents: 0, cardLinked: t.category === "card_bill" };
     e.values[i]! += t.spend;
+    if (cards.has(t.accountId) || offStatement.has(t)) e.cardLinked = true;
     // money back for a large purchase leaves with it (as in the themes), or the level is lowered by a refund of a sum it left out
     if (large.has(ctx.returns.get(t.id) ?? t.id)) {
       e.largeValues[i]! += t.spend;
@@ -168,10 +174,14 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
   // late moves no month out: a card never connected is a bill in every month.
   const gapAt = new Set(completeAt.filter((i) => cardRowsMissingIn(ctx, months[i]!)));
   const categoryAt = last === null ? [] : completeAt.filter((i) => gapAt.has(i) === gapAt.has(last));
+  // only a category that holds the card's purchases or its bill is short of months before the card: the rent and the
+  // other categories of the accounts that were there all along keep every complete month
+  const typicalCents = expectedLevel(completeAt.map((i) => totals[i]! - largeTotals[i]!));
   const categories = [...byCategory.entries()]
-    .map(([category, { values, largeValues, payees, statementCents }]) => {
+    .map(([category, { values, largeValues, payees, statementCents, cardLinked }]) => {
       const totalCents = values.reduce((s, v) => s + v, 0);
-      const typicalCents = expectedLevel(categoryAt.map((i) => values[i]! - largeValues[i]!));
+      const levelAt = cardLinked ? categoryAt : completeAt;
+      const typicalCents = expectedLevel(levelAt.map((i) => values[i]! - largeValues[i]!));
       const named = [...payees.values()].sort((a, b) => b.cents - a.cents || a.name.localeCompare(b.name)).slice(0, SPENDING_PAYEES);
       return {
         category,
@@ -187,7 +197,9 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
       };
     })
     .sort((a, b) => b.totalCents - a.totalCents || a.category.localeCompare(b.category));
-  const changes = indexes.map((_, i) => (known[i] && categoryAt.includes(i) ? changeOf(i, categories, totals[i]!) : null));
+  // the months the card's categories have a level in, or every complete month when they have none: they are then in the last step
+  const changeAt = categoryAt.length >= MIN_COMPARE_MONTHS ? categoryAt : completeAt;
+  const changes = indexes.map((_, i) => (known[i] && changeAt.includes(i) ? changeOf(i, categories, totals[i]!, typicalCents) : null));
   const typicalFlowCents = expectedLevel(completeAt.map((i) => totals[i]! - fromSavings[i]! - largeFlowTotals[i]!));
   return {
     months,
@@ -198,7 +210,7 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
     totalCents: totals.reduce((s, v) => s + v, 0),
     fromSavings: whereKnown(fromSavings, known),
     fromSavingsCents: fromSavings.reduce((s, v) => s + v, 0),
-    typicalCents: expectedLevel(completeAt.map((i) => totals[i]! - largeTotals[i]!)),
+    typicalCents,
     typicalFlowCents,
     againstUsual: indexes.map((_, i) => (complete[i] && known[i] ? againstUsual(totals[i]! - fromSavings[i]!, typicalFlowCents) : null)),
     typicalMonths: completeAt.length,
@@ -210,15 +222,25 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
   };
 }
 
-/** The waterfall of month `i`: null while a category has no level to be set against. */
-function changeOf(i: number, categories: readonly { category: string; label: string; values: (number | null)[]; typicalCents: number | null }[], endCents: number): SpendingChange | null {
+/**
+ * The waterfall of month `i`. The categories with a level start from their sum. When some have none, the start is the
+ * level of the month totals (`usualCents`) and their gaps are in the last step; null when no category has a level, or
+ * the totals have none.
+ */
+function changeOf(i: number, categories: readonly { category: string; label: string; values: (number | null)[]; typicalCents: number | null }[], endCents: number, usualCents: number | null): SpendingChange | null {
   const gaps: { category: string; label: string; cents: number }[] = [];
-  let startCents = 0;
+  let levelsCents = 0;
+  let withoutLevel = false;
   for (const c of categories) {
-    if (c.typicalCents === null) return null;
-    startCents += c.typicalCents;
+    if (c.typicalCents === null) {
+      withoutLevel = true;
+      continue;
+    }
+    levelsCents += c.typicalCents;
     gaps.push({ category: c.category, label: c.label, cents: (c.values[i] ?? 0) - c.typicalCents });
   }
+  const startCents = withoutLevel ? usualCents : levelsCents;
+  if (startCents === null || gaps.length === 0) return null;
   // a gap that rounds to no euro is no step; the largest are named, a rise stands before a fall
   const named = gaps
     .filter((g) => Math.round(Math.abs(g.cents) / 100) !== 0)
