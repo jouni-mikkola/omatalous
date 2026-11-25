@@ -23,6 +23,6 @@
 .food-base { margin-bottom: var(--sp-8); }
 
 /* Kategoriat: the categories stand apart from the folded months above them, and a category's two tables from each other */
-.sm-categories { margin-top: var(--sp-24); }
+.sm-categories-head { margin-top: var(--sp-24); }
 .sm-detail { display: grid; gap: var(--sp-16); }
 }

@@ -111,9 +111,9 @@ function SpendingMonths({ ctx }: SectionProps) {
       />
         }
       />
+      <h3 className="st-cap sm-categories-head">{inSpan(ctx, t("rpt.sm_categories_all"))}</h3>
       <Table<Row>
         caption={section.title}
-        className="sm-categories"
         rows={r.categories}
         rowKey={(c) => c.category}
         columns={columns}

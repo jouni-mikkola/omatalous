@@ -224,6 +224,7 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 .chart-fold-count { color: var(--text-2); font-variant-numeric: tabular-nums; }
 .chart-fold-count::before { content: "\00b7"; margin-right: var(--sp-8); }
 .chart-fold[open] > summary { margin-bottom: var(--sp-8); }
+.chart-fold[open] .chart-fold-count { display: none; }
 
 /* the groups a windowed table leaves out (use-window.ts): one body as high as they would be */
 .rt-wrap .rt tbody.rt-spacer > tr { display: block; padding: 0; border: 0; }

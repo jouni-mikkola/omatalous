@@ -169,6 +169,7 @@ export const FI_REPORTS_5 = {
   "rpt.sec_borrowed": "Velka ja kulut",
   "rpt.sec_categories": "Kategoriat",
   "rpt.sm_category": "Kategoria",
+  "rpt.sm_categories_all": "Kaikki kuukaudet",
   "rpt.sm_typical": "Keskimäärin kuussa",
   "rpt.sm_last": "Ero keskiarvoon, {month}",
   "rpt.sm_months": "Menot kuukausittain",

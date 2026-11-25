@@ -16,7 +16,7 @@ There is no switch. The table stands under its chart in `ChartWithTable` (`compo
 - A click, Enter or Space on a mark sends its key and opens the fold. The table keeps the row with that `rowKey`, says so above
   itself and has a link to show all rows again. Escape lets go of the pick and leaves the fold as it is. A key no row has
   filters nothing.
-- The fold is titled by its chart ("Kuukaudet taulukkona" for a month chart) and carries its row count. CSV stays inside.
+- The fold is titled by its chart ("Kuukaudet taulukkona" for a month chart). A month chart's fold carries its row count, hidden while the fold is open. CSV stays inside.
 - Columns stay on phones. The rule that drew one dot per month under 600 px is removed (`DOT_PLOT_BELOW`).
 - Motion runs only under `prefers-reduced-motion: no-preference`.
 
