@@ -101,7 +101,11 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "bills.monthly_fold": "Monthly bills, {count}",
   "bills.paid_fold": "Paid bills, {count}",
   "bills.card_fold": "On card, {count}",
-  "bills.year": "Next 12 months: bills {bills}, less often than monthly {rare} ({reserve} a month)",
+  "bills.year": "Next 12 months: bills {bills}, about {perMonth} a month.",
+  "bills.due": "{month}: {bills} falls due.",
+  "bills.due_debt": "{month}: {bills} falls due, of which loans and cards {debt}.",
+  "bills.dearest": "The dearest month is {month}, {bills}.",
+  "bills.rare": "Bills that come rarely take {rare} a year ({reserve}/month): set money aside for them.",
   "bills.unknown_one": "The sum or day of {count} bill is not known",
   "bills.unknown_many": "The sum or day of {count} bills is not known",
   // Bills page frame

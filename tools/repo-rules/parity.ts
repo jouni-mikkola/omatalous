@@ -122,7 +122,8 @@ describe("repo rules: parity", () => {
     // spendingChange: no page shows it; the findings tool and the figure tests of the server read its views
     // billCalendar: Laskut reads its months for its one list, with no section of its own
     // fixedCosts: the module host API v1 exports it and Laskut lists the fixed bills, so Raportit has no page for it
-    const NO_SECTION = new Set<string>(["upcoming", "billCalendar", "income", "housing", "spendingChange", "fixedCosts"]);
+    // monthLead: the lead block above the list of Tapahtumat reads it, with no section of Raportit
+    const NO_SECTION = new Set<string>(["upcoming", "billCalendar", "income", "housing", "spendingChange", "fixedCosts", "monthLead"]);
     const sectionFiles = repoFiles().filter((f) => f.startsWith(SECTIONS) && /^[^/]+\.tsx$/.test(f.slice(SECTIONS.length)));
     expect(sectionFiles.length, "the web report sections are found").toBeGreaterThan(5);
     const shown = new Set<string>();

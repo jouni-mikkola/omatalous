@@ -20,6 +20,7 @@ export const THRESHOLDS = {
   usualMonths: threshold(6, "months", "A judgement (ADR 0005): six months follow a change in the household's living within half a year, and the median of six stays put while two months are odd. It is the one period of every usual level, income included (ADR 0020)."),
   minCompareMonths: threshold(3, "months", "A judgement: under three values the median is one value or the mean of two, so no month is odd against it."),
   spendingPayees: threshold(8, "count", "A judgement: eight payees of a category fit on a screen under its months; the rest are one sum."),
+  leadPayees: threshold(3, "count", "A judgement: three payees fit on a line of the lead of Tapahtumat, also on a phone; the rest are in the list under it."),
   gateShare: threshold(0.02, "share", "A judgement: a cause under 2 % of its base a month is noise beside the base."),
   gateFloorCents: threshold(1000, "cents", "A judgement: under 10 € a month is too little to act on, however small the base."),
   incomeGateFloorCents: threshold(3000, "cents", "A judgement: the income findings use a floor of 30 €, three times the floor of the spending findings."),
@@ -87,6 +88,7 @@ export const THRESHOLDS = {
 export const USUAL_MONTHS = THRESHOLDS.usualMonths.value;
 export const MIN_COMPARE_MONTHS = THRESHOLDS.minCompareMonths.value;
 export const SPENDING_PAYEES = THRESHOLDS.spendingPayees.value;
+export const LEAD_PAYEES = THRESHOLDS.leadPayees.value;
 export const SAME_UNDER_CENTS = THRESHOLDS.sameUnderCents.value;
 export const FIXED_PAYMENT_MONTHS = THRESHOLDS.fixedPaymentMonths.value;
 export const GATE_SHARE = THRESHOLDS.gateShare.value;

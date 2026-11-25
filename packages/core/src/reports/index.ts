@@ -16,6 +16,7 @@ import { categoryReport } from "./categories.ts";
 import { fixedCostsReport } from "./fixed-costs.ts";
 import { incomeReport } from "./income.ts";
 import { loansReport } from "./loans.ts";
+import { monthLeadReport } from "./month-lead.ts";
 import { buildHousing } from "../housing.ts";
 import { spendingChangeReport } from "./spending-change.ts";
 import { spendingMonthsReport } from "./spending-months.ts";
@@ -48,6 +49,7 @@ export const REPORTS = {
   spendingChange: ({ ctx, range, lang }: ReportInput) => spendingChangeReport(ctx, range, lang),
   spendingMonths: ({ ctx, range, lang }: ReportInput) => spendingMonthsReport(ctx, range, lang),
   fixedCosts: ({ ctx, inputs, lang }: ReportInput) => fixedCostsReport(ctx, inputs, lang),
+  monthLead: ({ ctx }: ReportInput) => monthLeadReport(ctx),
 } as const;
 
 export type ReportId = keyof typeof REPORTS;
