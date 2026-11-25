@@ -78,6 +78,12 @@ const transactionsRoute = createRoute({
   validateSearch: searchOf("transactions"),
   component: lazyRouteComponent(() => import("./views/TransactionsView.tsx"), "TransactionsView"),
 });
+const balancesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/balances",
+  validateSearch: searchOf("balances"),
+  component: lazyRouteComponent(() => import("./views/BalancesView.tsx"), "BalancesView"),
+});
 const reportsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/reports",
@@ -129,6 +135,7 @@ const routeTree = rootRoute.addChildren([
   overviewRoute,
   billsRoute,
   transactionsRoute,
+  balancesRoute,
   reportsRoute,
   reviewRoute,
   settingsRoute.addChildren(settingsTargetRoutes),

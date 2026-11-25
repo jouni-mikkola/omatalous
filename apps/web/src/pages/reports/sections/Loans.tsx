@@ -408,7 +408,7 @@ export const section: ReportSection = {
   },
   // right under Saldot: what is owed after what is held
   order: 115,
-  page: "reports",
+  page: "balances",
   reports: ["loans", "balances"],
   // balances is read for the accounts less the debts of the running month only; a period that ends before it hides that tile
   ofToday: ["balances"],

@@ -149,7 +149,7 @@ flowchart LR
   holds only while the account's balance is at or below zero and is not older than the balance typed for the loan
   (`balanceDayOf`). Otherwise, and in the months of Saldot before the account's first known balance, the saved loan
   counts as typed, still once. The loan form reads the household's accounts and loans from the context `LoanLinks`
-  (`components/loans/LoanEditor.tsx`), and `#/reports?q=saldot&linkLoan=<loan id>&linkAccount=<account id>` (`loanEditHash`)
+  (`components/loans/LoanEditor.tsx`), and `#/balances?linkLoan=<loan id>&linkAccount=<account id>` (`loanEditHash`)
   opens a loan's form with that account chosen, once. The loans are kept in Raportit > Varat ja velat: Lisää laina in
   the head of Saldot (`components/loans/AddLoan.tsx`) and a loan's row in Lainat with Muokkaa, Poista laina and the box
   that reads the loan's text (`components/loans/LoanChanges.tsx`). An old address of the loans (`#/settings/household`,

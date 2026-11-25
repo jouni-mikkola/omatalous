@@ -263,6 +263,7 @@ test("Raportit has none of the paragraphs the figures replaced, and its balances
   await expect(page.getByText(/vievät \d+ % tuloista|Se kattaa|Puskurin pituus|Lisää tilien saldot|Kuukaudessa keskimäärin/)).toHaveCount(0);
   // Varat ja velat: the balances by month under their question, the daily balance as one line chart and no legend
   await page.goto("/#/reports?q=saldot");
+  await expect(page).toHaveURL(/#\/balances$/);
   await expect(page.locator("#saldot").getByRole("heading", { name: "Saldojen kehitys" })).toBeVisible();
   await expect(page.locator("#saldot [role='img']")).toHaveCount(1);
   await expect(page.locator("#saldot .legend")).toHaveCount(0);

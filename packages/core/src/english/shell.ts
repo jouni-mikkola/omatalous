@@ -6,6 +6,7 @@ export const EN_SHELL: Record<keyof typeof FI_SHELL, string> = {
   "nav.overview": "Overview",
   "nav.bills": "Bills",
   "nav.transactions": "Transactions",
+  "nav.balances": "Assets and debts",
   "nav.reports": "Reports",
   "nav.review": "To review",
   "nav.settings": "Settings",

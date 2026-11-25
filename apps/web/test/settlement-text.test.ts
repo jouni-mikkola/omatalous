@@ -44,7 +44,7 @@ describe("the wording of the settlement answer", () => {
 
 describe("the answer under the balance chart", () => {
   const answerOf = (balances: object) => {
-    const ctx = { data: { loans: { maybeTwice: [], overdraftTwice: [], loans: [], saved: 0, unsaved: [] }, balances }, meta: { today: "2026-10-11", accounts: [] }, running: "2026-10", scope: "own", exportHref: () => "" } as unknown as ReportContext;
+    const ctx = { data: { loans: { maybeTwice: [], overdraftTwice: [], loans: [], saved: 0, unsaved: [], ended: [] }, balances }, meta: { today: "2026-10-11", accounts: [] }, running: "2026-10", scope: "own", exportHref: () => "" } as unknown as ReportContext;
     const html = renderToStaticMarkup(createElement(section.Component, { ctx })).replace(/[\s  ]+/g, " ");
     return /<p class="qc-a">(.*?)<\/p>/.exec(html)?.[1] ?? null;
   };

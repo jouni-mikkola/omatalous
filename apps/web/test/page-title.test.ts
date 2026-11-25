@@ -5,7 +5,7 @@ describe("the title of the open page", () => {
   it("names the question page of Raportit that is open", () => {
     expect(pageTitle("Raportit", "reports", "tulot", undefined)).toBe("Raportit: Tulot ja menot");
     expect(pageTitle("Raportit", "reports", "menot", undefined)).toBe("Raportit: Menot kategorioittain");
-    expect(pageTitle("Raportit", "reports", "saldot", undefined)).toBe("Raportit: Varat ja velat");
+    expect(pageTitle("Raportit", "reports", "saldot", undefined)).toBe("Raportit");
     expect(pageTitle("Raportit", "reports", "yhteiset", undefined)).toBe("Raportit: Yhteiset menot");
   });
 

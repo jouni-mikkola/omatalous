@@ -72,6 +72,8 @@ export interface BalanceReport {
   change: BalanceChange | null;
   /** The lowest end-of-day total of the range and the first day it was reached (`lowestDayBalance`); null when an account is not known at the start. */
   lowest: { day: IsoDate; cents: number } | null;
+  /** The month whose end total is the highest of the range (the first of equals) and that total; null when no month's total is known. The page's lead sentence names it beside today's. */
+  peak: { month: string; cents: number } | null;
   /**
    * The change at each month end from the month before: `total[i]` less `total[i - 1]`, so the column is the plain
    * difference of the balances shown. An account that has its first value in month `i` brings its whole balance with it, and
@@ -85,6 +87,15 @@ export interface BalanceReport {
   missing: { accountId: string; name: string; type: AccountType; foreign: { currency: string; cents: number } | null }[];
   /** What the household has and owes today, laid out for the first page: the same answer as `DashboardData.holdings`. */
   holdings: Holdings;
+}
+
+/** The month with the highest known end total, the first of equals. */
+function peakMonth(months: readonly string[], total: readonly (number | null)[]): { month: string; cents: number } | null {
+  let peak: { month: string; cents: number } | null = null;
+  for (const [i, cents] of total.entries()) {
+    if (cents !== null && (peak === null || cents > peak.cents)) peak = { month: months[i]!, cents };
+  }
+  return peak;
 }
 
 /**
@@ -170,5 +181,5 @@ export function balanceReport(ctx: AnalysisContext, range: DateRange, accounts: 
   // a connected loan with no balance is still in `accountsLessDebt` as the loan was typed: it is not missing from the picture
   const typedDebt = new Set(debts.sources.filter((s) => s.typed !== null).map((s) => s.accountId));
   const missing = accounts.filter((a) => !walks.has(a.id) && !typedDebt.has(a.id)).map((a) => ({ accountId: a.id, name: a.name, type: a.type, foreign: a.foreign ?? null }));
-  return { months: monthLabels(months), accounts: withChange, total, monthChange, missing, accountsLessDebt, debt, daily: { from: fromDayNumber(dailyFrom), cents: daily }, change, lowest: low && { day: fromDayNumber(low.day), cents: low.cents }, holdings: buildHoldings(ctx, accounts, inputs) };
+  return { months: monthLabels(months), accounts: withChange, total, monthChange, missing, accountsLessDebt, debt, daily: { from: fromDayNumber(dailyFrom), cents: daily }, change, lowest: low && { day: fromDayNumber(low.day), cents: low.cents }, peak: peakMonth(monthLabels(months), total), holdings: buildHoldings(ctx, accounts, inputs) };
 }

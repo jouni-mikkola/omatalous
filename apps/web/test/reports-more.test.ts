@@ -22,22 +22,21 @@ describe("the question Raportit opens", () => {
     expect(questionOf(all, "kertaostot", undefined)).toBe("tulot");
   });
   it("the section an anchor names opens its report", () => {
-    expect(questionOf(["tulot", "menot", "saldot"], "tulot", "lainat")).toBe("saldot");
-    expect(questionOf(["tulot", "menot", "saldot"], null, "tulot-ja-menot")).toBe("tulot");
+    expect(questionOf(["tulot", "menot", "yhteiset"], "tulot", "vuodet")).toBe("menot");
+    expect(questionOf(["tulot", "menot", "yhteiset"], null, "tulot-ja-menot")).toBe("tulot");
   });
 });
 
-describe("the four reports of Raportit", () => {
-  it("are Tulot ja menot, Menot kategorioittain, Varat ja velat and Yhteiset menot, in that order", () => {
+describe("the three reports of Raportit", () => {
+  it("are Tulot ja menot, Menot kategorioittain and Yhteiset menot, in that order", () => {
     expect(REPORT_PAGES.map((p) => ({ id: p.id, title: p.title }))).toEqual([
       { id: "tulot", title: "Tulot ja menot" },
       { id: "menot", title: "Menot kategorioittain" },
-      { id: "saldot", title: "Varat ja velat" },
       { id: "yhteiset", title: "Yhteiset menot" },
     ]);
   });
   it("a report's address names its question and keeps the period", () => {
     expect(reportHref("menot", "6m")).toBe("#/reports?q=menot&period=6m");
-    expect(reportHref("saldot", null)).toBe("#/reports?q=saldot");
+    expect(reportHref("yhteiset", null)).toBe("#/reports?q=yhteiset");
   });
 });

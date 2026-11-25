@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
-import { endedCredits } from "../src/ended-credit.ts";
+import { endedCredits, paidOffCredits } from "../src/ended-credit.ts";
 import { loanProposals } from "../src/loan-detect.ts";
 import { notLoanMark } from "../src/loan-mark.ts";
 import { creditPaidSubject, loanUnknownSubject } from "../src/loan-terms-answer.ts";
@@ -90,6 +90,20 @@ describe("payments to a lender that stopped", () => {
     const keyOf = (merchant: string) => seriesId({ direction: "out", accountId: "own", merchant, product: null });
     const ctx = contextOf([...payments("2026-04", 7), ...payments("2026-05", 6, { lender: names.nayte, times: 2 }), ...payments("2026-03", 6, { lender: names.aihio, times: 2 })]);
     expect(endedCredits(ctx, NO_INPUTS).map((e) => e.key)).toEqual([keyOf(names.aihio), keyOf(names.nayte), KEY]);
+  });
+
+  it("lists the credits answered 'Maksettu pois' apart, the latest payment first, and no other", () => {
+    const at = "2026-10-20T10:00:00.000Z";
+    const other = "Näyte Rahoitus";
+    const keyOther = seriesId({ direction: "out", accountId: "own", merchant: other, product: null });
+    const ctx = contextOf([...payments("2026-04", 7), ...payments("2026-06", 4, { lender: other })]);
+    expect(paidOffCredits(ctx, NO_INPUTS)).toEqual([]);
+    const paid = withMarks({ subject: creditPaidSubject(KEY), mark: "in_use", markedAt: at }, { subject: creditPaidSubject(keyOther), mark: "in_use", markedAt: at });
+    expect(paidOffCredits(ctx, paid).map((e) => [e.key, e.lastDate])).toEqual([[keyOther, "2026-06-19"], [KEY, "2026-04-19"]]);
+    expect(endedCredits(ctx, paid)).toEqual([]);
+    // "En tiedä" is no payoff, and a running series is no ended credit
+    expect(paidOffCredits(ctx, withMarks({ subject: loanUnknownSubject(null, KEY), mark: "in_use", markedAt: at }))).toEqual([]);
+    expect(paidOffCredits(running(), withMarks({ subject: creditPaidSubject(KEY), mark: "in_use", markedAt: at }))).toEqual([]);
   });
 
   it("goes back to the proposals when a lender answered 'Maksettu pois' pays again, and stays answered once it stops", () => {

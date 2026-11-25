@@ -43,11 +43,10 @@ describe("Lainat in Varat ja velat", () => {
     expect(screen.getByRole("button", { name: "Muokkaa lainaa Autolaina" })).not.toBeNull();
   }, 60000);
 
-  it("gives a viewer with no account Varat ja velat alone, where a loan is added, listed in Lainat and removed", async () => {
+  it("gives a viewer with no account Varat ja velat, where a loan is added, listed in Lainat and removed", async () => {
     await startServer({ demo: false });
-    await openApp("#/reports");
-    const rail = await screen.findByRole("navigation", { name: "Raportit" }, T);
-    expect(within(rail).getAllByRole("link").map((a) => a.textContent)).toEqual(["Varat ja velat"]);
+    await openApp("#/balances");
+    await screen.findByRole("heading", { name: "Varat ja velat", level: 2 }, T);
     expect(screen.queryByRole("heading", { name: "Lainat", level: 2 })).toBeNull();
     fireEvent.click(await screen.findByRole("button", { name: "Lisää laina" }, T));
     const form = (await screen.findByRole("region", { name: "Uusi laina" }, T)) as HTMLElement;
@@ -64,7 +63,6 @@ describe("Lainat in Varat ja velat", () => {
     // the last loan is gone with its panel, and the line in Saldot still says so
     await said("Laina poistettu");
     await waitFor(() => expect(screen.queryByRole("heading", { name: "Lainat", level: 2 })).toBeNull(), T);
-    expect(within(screen.getByRole("navigation", { name: "Raportit" })).getAllByRole("link")).toHaveLength(1);
   }, 60000);
 });
 
@@ -73,7 +71,7 @@ describe("Lisää laina, the form that opens in place", () => {
 
   it("stands in the head of Saldot, moves the focus into the form on open and back to its button on Peruuta or Escape", async () => {
     await startServer();
-    await openApp("#/reports?q=saldot");
+    await openApp("#/balances");
     const opener = await screen.findByRole("button", { name: "Lisää laina" }, T);
     expect(opener.closest(".card-head")?.closest("#saldot"), "Lisää laina in the head of Saldot").not.toBeNull();
     fireEvent.click(opener);

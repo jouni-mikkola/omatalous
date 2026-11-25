@@ -50,6 +50,8 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.ln_col_rate": "Effective rate",
   "rpt.ln_caption": "Debts from the dearest to the cheapest",
   "rpt.ln_fill": "Complete the loans",
+  "rpt.ln_ended": "Ended",
+  "rpt.ln_ended_row": "ended {date}",
   "rpt.ln_last_due": "Last due date",
   "rpt.ln_your_share": "Your share",
   "rpt.ln_and": "and",

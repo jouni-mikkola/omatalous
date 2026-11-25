@@ -8,7 +8,7 @@ import { auditTables } from "./table-audit.ts";
 // default font size doubled, which is what the rem tokens follow.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const PAGES = ["members", "security", "server"];
-const TOP = ["overview", "transactions", "bills", "reports", "review"];
+const TOP = ["overview", "transactions", "bills", "balances", "reports", "review"];
 
 for (const scale of [100, 200]) {
   test(`Asetukset, 390 px with a finger and text at ${scale} %: nothing scrolls sideways and every target is 44 px`, async ({ browser }) => {

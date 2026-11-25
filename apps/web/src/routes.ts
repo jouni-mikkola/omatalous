@@ -151,7 +151,7 @@ function merchantsView(route: Route): Route {
   return { page: "transactions", params, ...(anchor ? { anchor } : {}) };
 }
 
-/** The card of Raportit that tells the loans, as the anchor of its section. */
+/** The card of Varat ja velat that tells the loans, as the anchor of its section. */
 export const LOANS_REPORT_ANCHOR = "lainat";
 
 /**
@@ -160,20 +160,17 @@ export const LOANS_REPORT_ANCHOR = "lainat";
  */
 export const LOAN_LINK_PARAM = { loan: "linkLoan", account: "linkAccount" } as const;
 
-/** The page of Raportit where the loans are kept: Varat ja velat. */
-const LOANS_QUESTION = "saldot";
-
 /**
- * Where the loans are kept: Raportit > Varat ja velat. With `loan` that loan's row of Lainat is open, whose drill edits
+ * Where the loans are kept: Varat ja velat. With `loan` that loan's row of Lainat is open, whose drill edits
  * and removes it; `edit` opens its editor too, with `account` chosen for the link when it is one the loan can take.
  */
 export function loansRoute(open?: { loan: string; edit?: boolean; account?: string | null }): Route {
-  const params = new URLSearchParams({ q: LOANS_QUESTION });
-  if (!open) return { page: "reports", params };
+  const params = new URLSearchParams();
+  if (!open) return { page: "balances", params };
   params.set(DRILL_PARAM, writeTableState(undefined, tableId(t("rpt.ln_caption")), open.loan)!);
   if (open.edit) params.set(LOAN_LINK_PARAM.loan, open.loan);
   if (open.edit && open.account) params.set(LOAN_LINK_PARAM.account, open.account);
-  return { page: "reports", params, anchor: LOANS_REPORT_ANCHOR };
+  return { page: "balances", params, anchor: LOANS_REPORT_ANCHOR };
 }
 
 /** The address of a loan's row in Varat ja velat, open. */
@@ -223,7 +220,7 @@ export function parseHash(hash: string): Route {
  * (`#/recurring`), which became Laskut (`#/bills`); Kuukausi of Raportit (`#/reports?q=kuukausi`, `#/reports#kuukausi`,
  * `#/reports?month=`), which opens Yhteenveto; and the technical page and Ylläpito of Asetukset (`?section=technical`,
  * `?section=maintenance`), which open the server target for an admin and the first target for a member; and the reports
- * Kiinteät menot (`#/reports?q=kiinteat`), which opens Laskut, and Velat (`?q=velat`), which opens Varat ja velat; and
+ * Kiinteät menot (`#/reports?q=kiinteat`), which opens Laskut, and Velat and Varat ja velat (`?q=velat`, `?q=saldot`), which open Varat ja velat (`#/balances`); and
  * Asetukset > Talous with its card of the loans (`#/settings/household`, `#lainat`), which opens Varat ja velat.
  */
 export function redirectRoute(route: Route, role: "admin" | "member" = "member"): Route | null {
@@ -261,9 +258,11 @@ export function redirectRoute(route: Route, role: "admin" | "member" = "member")
   if (route.page === "reports" && (route.params.get("q") === "kuukausi" || route.anchor === "kuukausi" || route.params.has("month"))) {
     return { page: "overview", params: withParams(route.params, { q: undefined, month: undefined, period: undefined, compare: undefined }) };
   }
-  // Kiinteät menot of Raportit is gone: Laskut lists the fixed bills. Velat joined Varat ja velat (`q=saldot`)
+  // Kiinteät menot of Raportit is gone: Laskut lists the fixed bills. Velat and Varat ja velat (`q=velat`, `q=saldot`) are a page of the header, Varat ja velat
   if (route.page === "reports" && route.params.get("q") === "kiinteat") return { page: "bills", params: withParams(route.params, { q: undefined, period: undefined, compare: undefined }) };
-  if (route.page === "reports" && route.params.get("q") === "velat") return { page: "reports", params: withParams(route.params, { q: "saldot" }), ...(route.anchor ? { anchor: route.anchor } : {}) };
+  if (route.page === "reports" && (route.params.get("q") === "velat" || route.params.get("q") === "saldot" || route.anchor === "lainat" || route.anchor === "saldot")) {
+    return { page: "balances", params: withParams(route.params, { q: undefined, period: undefined, compare: undefined }), ...(route.anchor ? { anchor: route.anchor } : {}) };
+  }
   const period = route.params.get("period");
   if (period && (route.page === "overview" || route.page === "reports")) {
     const home = pageOfPeriod(period);

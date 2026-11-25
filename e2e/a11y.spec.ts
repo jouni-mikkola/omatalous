@@ -160,7 +160,7 @@ const ROUTES = [
   "/#/reports",
   "/#/reports?q=tulot",
   "/#/reports?q=menot",
-  "/#/reports?q=saldot",
+  "/#/balances",
   "/#/reports?q=yhteiset",
   "/#/review",
   "/#/settings/banks",

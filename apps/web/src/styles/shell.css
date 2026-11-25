@@ -67,8 +67,10 @@
 .menu button:hover, .menu a:hover { background: var(--surface-2); }
 @media (pointer: coarse) { .menu button, .menu a { min-height: var(--tap-min); } }
 .menu .muted { padding: 4px 8px 8px; font-size: var(--fs-label); }
+/* Raportit is a tab of the header; on a phone its place in the tab bar goes to Varat ja velat and it is here, in the user menu */
+.menu .menu-reports { display: none; }
 
-/* phones: one top row (mark, view switch, Tarkistettavat, the user) and the four pages as a tab bar at the foot */
+/* phones: one top row (mark, view switch, Tarkistettavat, the user) and the pages as a tab bar at the foot, less Raportit */
 @media (max-width: 640px) {
   /* with larger text the parts of the bar no longer fit one line: they wrap, and the bar grows by a line, rather than squeeze the user's button or push the page wide */
   .topbar-in { padding: 0 12px; gap: 0 8px; height: auto; min-height: var(--rail-h); flex-wrap: wrap; }
@@ -86,6 +88,8 @@
   /* a word breaks only where the tabs no longer fit their width, as with text at 200 % */
   .nav a { flex: 1 1 auto; min-inline-size: var(--tap-min); height: var(--tabbar-h); justify-content: center; padding: 0 var(--sp-4); font-size: var(--fs-label); text-align: center; overflow-wrap: anywhere; }
   .nav a[aria-current="page"] { box-shadow: inset 0 3px 0 var(--on-ink); }
+  .nav a.nav-reports { display: none; }
+  .menu .menu-reports { display: flex; }
   .app { padding: 0 12px calc(var(--tabbar-h) + 24px + env(safe-area-inset-bottom)); }
 }
 

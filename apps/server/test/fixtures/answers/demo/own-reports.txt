@@ -627,6 +627,10 @@
    "day": "2026-10-07",
    "cents": 1205857
   },
+  "peak": {
+   "month": "2026-10",
+   "cents": 1205857
+  },
   "holdings": {
    "accounts": [
     {
@@ -2911,6 +2915,16 @@
    }
   ],
   "billsCents": 1905058,
+  "perMonthCents": 158755,
+  "next": {
+   "month": "2026-11",
+   "billsCents": 144048,
+   "debtCents": 28900
+  },
+  "dearest": {
+   "month": "2026-10",
+   "billsCents": 293197
+  },
   "yearlyCents": 56920,
   "reserveMonthlyCents": 4743,
   "unknownCount": 0,
@@ -3287,7 +3301,8 @@
    "moves": []
   },
   "maybeTwice": [],
-  "overdraftTwice": []
+  "overdraftTwice": [],
+  "ended": []
  },
  "housing": {
   "loans": [],
@@ -5635,5 +5650,28 @@
   "incomeMonthlyCents": 395000,
   "fixedShare": 0.4432759493670886,
   "fixedShareLabel": "Kiinteät menot tavallisista tuloista, viimeiset 6 kuukautta"
+ },
+ "monthLead": {
+  "month": "2026-10",
+  "biggestDay": {
+   "date": "2026-10-02",
+   "outCents": 114049,
+   "count": 3
+  },
+  "top": [
+   {
+    "merchant": "Sato",
+    "outCents": 105000
+   },
+   {
+    "merchant": "If Vahinkovakuutus Oy",
+    "outCents": 14230
+   },
+   {
+    "merchant": "Wolt",
+    "outCents": 10932
+   }
+  ],
+  "fresh": []
  }
 }

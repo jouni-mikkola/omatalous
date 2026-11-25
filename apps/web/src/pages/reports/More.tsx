@@ -1,13 +1,12 @@
 /**
  * Raportit: one question page of `reports/pages/`, the first with something to show for a bare address. It stands in the frame
  * (`reports/Frame.tsx`) beside the list of the four reports. The address names the question (`?q=menot`), the comparison (`compare=previous`) and the
- * period (`period=12m`). An anchor in an old address (`#kuukaudet`) opens the page that holds that section. A viewer with no
- * accounts (`noData`) sees Varat ja velat alone, where they can add a loan of their own.
+ * period (`period=12m`). An anchor in an old address (`#kuukaudet`) opens the page that holds that section.
  */
 import { t } from "../../text.ts";
 import { REPORT_PERIODS } from "../../period.ts";
 import { QUESTIONS, type QuestionId } from "@banking/core";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { query } from "../../api.ts";
 import { ErrorCard } from "../../components/ErrorCard.tsx";
 import { useApi } from "../../hooks.ts";
@@ -56,18 +55,14 @@ export function questionOf(open: readonly QuestionId[], asked: string | null, an
   return byAnchor ?? open.find((id) => id === asked) ?? open[0] ?? QUESTIONS[0];
 }
 
-type ReportsProps = { meta: Meta; range: ReportRange; scope: Scope; params?: URLSearchParams; anchor?: string; noData?: boolean; onQuestion?: (question: string | null) => void };
-
-/** The one page of a viewer with no accounts: Varat ja velat, where a loan is added. */
-const NO_DATA_QUESTIONS: QuestionId[] = ["saldot"];
+type ReportsProps = { meta: Meta; range: ReportRange; scope: Scope; params?: URLSearchParams; anchor?: string; onQuestion?: (question: string | null) => void };
 
 /** Every page's reports are asked for at once, so a switch of report needs no new answer. */
 const reportsPath = (range: ReportRange, scope: Scope): string => `/api/reports${query({ ...range, scope, reports: [...new Set(REPORT_PAGES.flatMap(reportsOfPage))].join(",") })}`;
 
-export function More({ meta, range, scope, params, anchor, noData = false, onQuestion }: ReportsProps) {
+export function More({ meta, range, scope, params, anchor, onQuestion }: ReportsProps) {
   const { data, error, loading, reload } = useApi<ReportsData>(reportsPath(range, scope));
-  const [loanSaid, sayLoan] = useState<string | null>(null);
-  // an address names a section (#/reports?period=12m#kuukaudet from Yhteenveto): scroll to it once the sections are there
+    // an address names a section (#/reports?period=12m#kuukaudet from Yhteenveto): scroll to it once the sections are there
   const scrolledFor = useRef<string | null>(null);
   useEffect(() => {
     if (!anchor || !data || scrolledFor.current === anchor) return;
@@ -76,8 +71,8 @@ export function More({ meta, range, scope, params, anchor, noData = false, onQue
   }, [anchor, data]);
   const open = params ?? new URLSearchParams();
   const span = REPORT_PERIODS.find((p) => p.id === open.get("period"))?.label ?? REPORT_PERIODS.find((p) => p.id === "12m")?.label;
-  const ctx = data ? { ...reportContext(data, meta, range, scope, reload), compare: open.get("compare"), span, loanSaid, sayLoan } : null;
-  const questions = ctx ? (noData ? NO_DATA_QUESTIONS : openQuestions(ctx)) : [];
+  const ctx = data ? { ...reportContext(data, meta, range, scope, reload), compare: open.get("compare"), span } : null;
+  const questions = ctx ? openQuestions(ctx) : [];
   const shown = ctx ? questionOf(questions, open.get("q"), anchor) : null;
   useEffect(() => {
     onQuestion?.(shown);

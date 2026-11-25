@@ -52,7 +52,7 @@ export const RESERVED_IDS: ReadonlySet<string> = new Set([
   "marks", "merchants", "meta", "modules", "ops", "payer-roles", "recurring", "reports", "review", "rules", "security",
   "settlement", "statements", "sync", "transactions", "users",
   // shared pages
-  "overview", "bills", "settings",
+  "overview", "bills", "balances", "settings",
   // shared CLI commands
   "address", "help", "secret", "service-token", "sessions", "setup-code", "user", "version",
 ]);

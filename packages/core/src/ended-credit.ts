@@ -43,6 +43,12 @@ export interface EndedCredit {
   cents: number;
 }
 
+/** An ended series and whether the household answered "Maksettu pois" for it. */
+interface ScannedCredit {
+  credit: EndedCredit;
+  paidOff: boolean;
+}
+
 /**
  * The payment series to a lender (a known lender, a payee named for a loan, or a card issuer's name with no word of a
  * loan) of the loans categories that have three payments in three months (all accounts together), the last inside the
@@ -51,6 +57,21 @@ export interface EndedCredit {
  * "En tiedä"), is left out.
  */
 export function endedCredits(ctx: Pick<AnalysisContext, "txs" | "recurring" | "standing" | "today">, inputs: UserInputs): EndedCredit[] {
+  return scanEnded(ctx, inputs).flatMap((s) => (s.paidOff ? [] : [s.credit]));
+}
+
+/**
+ * The credits the household answered "Maksettu pois" for that stopped inside the twelve complete months, the latest
+ * payment first. They are no question and no debt, and a list of debts shows them as ended with the day of the last
+ * payment, so an answered credit does not vanish from every page.
+ */
+export function paidOffCredits(ctx: Pick<AnalysisContext, "txs" | "recurring" | "standing" | "today">, inputs: UserInputs): EndedCredit[] {
+  return scanEnded(ctx, inputs)
+    .flatMap((s) => (s.paidOff ? [s.credit] : []))
+    .sort((a, b) => (a.lastDate < b.lastDate ? 1 : a.lastDate > b.lastDate ? -1 : a.key < b.key ? -1 : 1));
+}
+
+function scanEnded(ctx: Pick<AnalysisContext, "txs" | "recurring" | "standing" | "today">, inputs: UserInputs): ScannedCredit[] {
   const window = completeYear(ctx.today);
   const taken = takenBill(inputs);
   const paid = new Set(inputs.marks.flatMap((m) => (m.mark === "in_use" ? (parseCreditPaidSubject(m.subject) ?? []) : [])));
@@ -67,7 +88,7 @@ export function endedCredits(ctx: Pick<AnalysisContext, "txs" | "recurring" | "s
     if (!held.has(t.id) && daysBetween(t.bookingDate, ctx.today) <= LENDER_ACTIVE_DAYS) running.add(payee);
     byLender.set(payee, [...(byLender.get(payee) ?? []), t]);
   }
-  const out: EndedCredit[] = [];
+  const out: ScannedCredit[] = [];
   for (const [payee, rows] of byLender) {
     const last = rows.reduce((a, b) => (b.day > a.day ? b : a));
     if (running.has(payee) || last.bookingDate < window.from) continue;
@@ -78,15 +99,19 @@ export function endedCredits(ctx: Pick<AnalysisContext, "txs" | "recurring" | "s
     const keyOf = (t: AnalysisTx) => seriesId({ direction: "out", accountId: t.accountId, merchant: t.merchant, product: null });
     const key = keyOf(last);
     const accountKeys = [...new Map(rows.map((t) => [t.accountId, t])).values()].map(keyOf);
-    if (accountKeys.some((k) => paid.has(k) || cardUnknownAsked(inputs.marks, k, null)) || rows.some(taken)) continue;
+    const paidOff = accountKeys.some((k) => paid.has(k));
+    if (accountKeys.some((k) => !paid.has(k) && cardUnknownAsked(inputs.marks, k, null)) || rows.some(taken)) continue;
     out.push({
-      key,
-      payee: withoutSwedishTwin(last.merchant),
-      accountId: last.accountId,
-      lastDate: last.bookingDate,
-      count: rows.length,
-      cents: rows.filter((t) => t.bookingDate >= window.from && t.bookingDate <= window.to).reduce((sum, t) => sum - billCents(t), 0),
+      paidOff,
+      credit: {
+        key,
+        payee: withoutSwedishTwin(last.merchant),
+        accountId: last.accountId,
+        lastDate: last.bookingDate,
+        count: rows.length,
+        cents: rows.filter((t) => t.bookingDate >= window.from && t.bookingDate <= window.to).reduce((sum, t) => sum - billCents(t), 0),
+      },
     });
   }
-  return out.sort((a, b) => b.cents - a.cents || (a.key < b.key ? -1 : 1));
+  return out.sort((a, b) => b.credit.cents - a.credit.cents || (a.credit.key < b.credit.key ? -1 : 1));
 }
