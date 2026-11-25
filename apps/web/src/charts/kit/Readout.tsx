@@ -1,8 +1,9 @@
-import { useState, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
+import { useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from "react";
 import { useSelect } from "../../components/table/selection.tsx";
 import { crisp } from "../draw.ts";
+import { answerMoney } from "../../format.ts";
 import { t } from "../../text.ts";
-import { nearestIndex, stepIndex } from "./readout.ts";
+import { againstUsual, nearestIndex, stepIndex } from "./readout.ts";
 import "../../styles/charts.css";
 
 /** The datum a chart reads out, and the setter its layer and its own parts (a legend, a table row) share. */
@@ -103,6 +104,43 @@ export function ReadoutLayer({
         onKeyDown={onKey}
       />
     </>
+  );
+}
+
+/**
+ * The line above a monthly chart that names the month and each series with its colour and sum, in place of a legend: the
+ * month the pointer or the keys are on, else the last whole month. `compare` is the one sentence that sets the month
+ * against the usual level; `note` says the month is not whole.
+ */
+export function ReadoutLine({ title, parts, note, compare }: { title: string; parts: readonly { name: string; value: string; swatch: ReactNode }[]; note?: string; compare?: string }) {
+  return (
+    <div className="readout-line" aria-hidden="true">
+      <strong className="readout-title">{title}</strong>
+      {parts.map((p) => (
+        <span className="readout-part" key={p.name}>
+          {p.swatch}
+          {p.name} <strong>{p.value}</strong>
+        </span>
+      ))}
+      {note && <span className="readout-note">{note}</span>}
+      {compare && <span className="readout-compare">{compare}</span>}
+    </div>
+  );
+}
+
+/** "menot 2 920 € alle tavallisen": a month's sum set against the level the dashed line stands at, or `undefined` when they are the same to the euro. `average` names the level an average (income) instead of the usual one. */
+export function usualComparison(what: "spend" | "income", cents: number, usual: number, average: boolean): string | undefined {
+  const diff = againstUsual(cents, usual);
+  if (!diff) return undefined;
+  return t(`chart.vs_${average ? "average" : "usual"}_${diff.side}`, { what: t(`chart.what_${what}`), sum: answerMoney(diff.cents) });
+}
+
+/** The name of the dashed level, set at the right end of its line over a halo in the page's colour so a column never hides it. */
+export function UsualLabel({ x, y, text }: { x: number; y: number; text: string }) {
+  return (
+    <text className="usual-label" x={x} y={y - 5} textAnchor="end">
+      {text}
+    </text>
   );
 }
 

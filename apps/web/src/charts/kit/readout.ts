@@ -63,6 +63,19 @@ export function readoutText(title: string, rows: readonly { name: string; value:
   return rows.length ? `${title}: ${rows.map((r) => (r.value ? `${r.name} ${r.value}` : r.name)).join(", ")}` : title;
 }
 
+/** The last index flagged in `whole` (a month that has ended and has a sum): the month a monthly chart's readout names while nothing is picked. */
+export function lastWhole(whole: readonly boolean[]): number | null {
+  const i = whole.lastIndexOf(true);
+  return i < 0 ? null : i;
+}
+
+/** How far `cents` stands from `usual`, in whole euros, and on which side; `null` when they are the same to the euro. */
+export function againstUsual(cents: number, usual: number): { cents: number; side: "more" | "less" } | null {
+  const diff = Math.abs(cents - usual);
+  if (Math.round(diff / 100) === 0) return null;
+  return { cents: diff, side: cents > usual ? "more" : "less" };
+}
+
 /** A cell of a grid chart (a calendar's week and weekday). */
 export interface Cell {
   col: number;

@@ -276,7 +276,8 @@ test("every route: no control sits inside an image, and a chart's keyboard stop 
   await expect(months).toHaveCount(12);
   await months.first().focus();
   await expect(months.first()).toBeFocused();
-  await expect(page.locator(".month-bars .tooltip")).toBeVisible();
+  const picked = ((await months.first().getAttribute("aria-label")) ?? "").split(":")[0];
+  await expect(page.locator(".month-bars .readout-line .readout-title")).toHaveText(picked!);
   await context.close();
 });
 

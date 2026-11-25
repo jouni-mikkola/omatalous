@@ -43,6 +43,12 @@ export const FI_TABLES = {
   "chart.pick_hint": "{label} Enter näyttää merkin rivin taulukossa.",
   "chart.slope_keys": "{label}. Nuolinäppäimet siirtävät viivasta toiseen, Enter näyttää rivin taulukossa.",
   "chart.slope_change": "Muutos",
+  "chart.what_spend": "menot",
+  "chart.what_income": "tulot",
+  "chart.vs_usual_less": "{what} {sum} alle tavallisen",
+  "chart.vs_usual_more": "{what} {sum} yli tavallisen",
+  "chart.vs_average_less": "{what} {sum} alle keskiarvon",
+  "chart.vs_average_more": "{what} {sum} yli keskiarvon",
   // Rows
   "row.whole": "koko summa {amount}",
   "row.card_bill": "Korttilasku: ostot eivät näy",

@@ -27,7 +27,7 @@ const props = (more: Partial<Parameters<typeof MonthColumns>[0]> = {}): Paramete
   months: MONTHS,
   series: SERIES,
   tone: "income",
-  usual: { cents: 300000, label: "Tavallinen kuukausi 3 000 € (3 kk)" },
+  usual: { cents: 300000, label: "keskimäärin 3 000 €", short: "keskimäärin 3 000 €" },
   running: "2026-10",
   label: "Tulot kuukausittain",
   ...more,
@@ -44,19 +44,36 @@ describe("Raportit: the months chart", () => {
     expect(container.querySelectorAll("rect.ms-s1")).toHaveLength(1);
   });
 
-  it("names the stack's series and the usual level in the legend", () => {
+  it("has no legend list: the readout line names the stack's series, and the usual level is named on its line", () => {
     const { container } = show();
-    const legend = container.querySelector(".ms-legend")!.textContent;
-    expect(legend).toContain("Ansiotulot");
-    expect(legend).toContain("Muut tulot");
-    expect(legend).toContain("Tavallinen kuukausi 3 000 € (3 kk)");
+    expect(container.querySelector(".ms-legend")).toBeNull();
+    const readout = plain(container.querySelector(".readout-line")!.textContent);
+    expect(readout).toContain("Ansiotulot");
+    expect(readout).toContain("Muut tulot");
     expect(container.querySelectorAll("line.ms-usual")).toHaveLength(1);
+    expect(plain(container.querySelector("text.usual-label")!.textContent)).toBe("keskimäärin 3 000 €");
   });
 
-  it("has no legend for one series with no usual level, and no usual line", () => {
+  it("names the last whole month in the readout while nothing is picked, and sets it against the average", () => {
+    const { container } = show();
+    const readout = plain(container.querySelector(".readout-line")!.textContent);
+    // September is not whole and October is running, so August is the month named
+    expect(readout).toContain("elokuu 2026");
+    expect(readout).toContain("Yhteensä 3 200 €");
+    expect(readout).toContain("tulot 200 € yli keskiarvon");
+  });
+
+  it("draws no usual line or label with no usual level", () => {
     const { container } = show({ series: [SERIES[0]!], months: MONTHS.map((m) => ({ ...m, parts: [m.parts[0]!], totalCents: m.parts[0]! })), usual: null });
-    expect(container.querySelector(".ms-legend")).toBeNull();
     expect(container.querySelector("line.ms-usual")).toBeNull();
+    expect(container.querySelector("text.usual-label")).toBeNull();
+    expect(plain(container.querySelector(".readout-line")!.textContent)).not.toContain("keskiarvon");
+  });
+
+  it("labels the running month with kesken under its name", () => {
+    const { container } = show();
+    const running = [...container.querySelectorAll("svg text")].find((el) => el.textContent?.startsWith("loka"));
+    expect(plain(running!.textContent)).toBe("lokakesken");
   });
 
   it("draws a month that is not whole apart", () => {
@@ -66,12 +83,13 @@ describe("Raportit: the months chart", () => {
   });
 
   it("reads the newest month out on focus, with its sums and that it is not whole", () => {
-    show();
+    const { container } = show();
     fireEvent.focus(screen.getByRole("group", { name: "Tulot kuukausittain" }));
-    const tip = document.querySelector(".tooltip")!;
-    expect(tip.textContent).toContain("lokakuu 2026");
-    expect(tip.textContent).toContain("Ansiotulot");
-    expect(tip.textContent).toContain("kesken");
+    const readout = container.querySelector(".readout-line")!;
+    expect(readout.textContent).toContain("lokakuu 2026");
+    expect(readout.textContent).toContain("Ansiotulot");
+    expect(readout.textContent).toContain("kesken");
+    expect(container.querySelector(".tooltip")).toBeNull();
   });
 
   it("puts the usual line at the height of a column that holds the usual sum", () => {
@@ -100,12 +118,12 @@ describe("Raportit: the months chart", () => {
     const sums = [120000, 130000, 110000, 125000, 2045000].map((cents, i) => ({ month: `2026-0${i + 1}`, complete: true, parts: [cents], totalCents: cents }));
     show({ months: sums, series: [SERIES[0]!], usual: null, running: null });
     fireEvent.focus(screen.getByRole("group", { name: "Tulot kuukausittain" }));
-    expect(plain(document.querySelector(".tooltip")!.textContent)).toContain("20 450 €");
+    expect(plain(document.querySelector(".readout-line")!.textContent)).toContain("20 450 €");
   });
 
   it("cuts nothing in a view of three months, whatever the usual level", () => {
     const sums = [200000, 200000, 900000].map((cents, i) => ({ month: `2026-0${i + 1}`, complete: true, parts: [cents], totalCents: cents }));
-    const { container } = show({ months: sums, series: [SERIES[0]!], usual: { cents: 200000, label: "Tavallinen kuukausi 2 000 € (3 kk)" }, running: null });
+    const { container } = show({ months: sums, series: [SERIES[0]!], usual: { cents: 200000, label: "tavallinen kuukausi 2 000 €", short: "tavallinen 2 000 €" }, running: null });
     expect(container.querySelector("path.cap-break")).toBeNull();
     expect(container.querySelector("text.cap-sum")).toBeNull();
     expect(num(container.querySelectorAll("g.ms-month rect.ms-s0")[2]!, "y")).toBeGreaterThanOrEqual(0);
@@ -115,7 +133,7 @@ describe("Raportit: the months chart", () => {
     // the cap is 1 800 € and the axis rounds up to 2 000 €, so 1 900 € is under the top
     const cents = [...Array(10).fill(90000), 180000, 190000];
     const sums = cents.map((c, i) => ({ month: `2026-${String(i + 1).padStart(2, "0")}`, complete: true, parts: [c], totalCents: c }));
-    const { container } = show({ months: sums, series: [SERIES[0]!], usual: { cents: 100000, label: "Tavallinen kuukausi 1 000 € (10 kk)" }, running: null });
+    const { container } = show({ months: sums, series: [SERIES[0]!], usual: { cents: 100000, label: "tavallinen kuukausi 1 000 €", short: "tavallinen 1 000 €" }, running: null });
     expect(container.querySelector("path.cap-break")).toBeNull();
     expect(container.querySelector("text.cap-sum")).toBeNull();
     expect(num(container.querySelectorAll("g.ms-month rect.ms-s0")[11]!, "y")).toBeGreaterThan(0);
@@ -165,7 +183,7 @@ describe("Raportit: the months chart", () => {
   it("reads a month's total from the report, not from the sum of its parts", () => {
     show({ months: [{ month: "2026-10", complete: true, parts: [100000, 20000], totalCents: 123400 }], usual: null });
     fireEvent.focus(screen.getByRole("group", { name: "Tulot kuukausittain" }));
-    const tip = document.querySelector(".tooltip")!;
+    const tip = document.querySelector(".readout-line")!;
     expect(plain(tip.textContent)).toContain("1 234 €");
     expect(plain(tip.textContent)).not.toContain("1 200 €");
   });
@@ -173,7 +191,7 @@ describe("Raportit: the months chart", () => {
   it("reads a negative month in its readout", () => {
     show({ months: [{ month: "2026-10", complete: true, parts: [-50000], totalCents: -50000 }], series: [SERIES[0]!], usual: null });
     fireEvent.focus(screen.getByRole("group", { name: "Tulot kuukausittain" }));
-    expect(plain(document.querySelector(".tooltip")!.textContent)).toMatch(/[−-]500 €/);
+    expect(plain(document.querySelector(".readout-line")!.textContent)).toMatch(/[−-]500 €/);
   });
 });
 

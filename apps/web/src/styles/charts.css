@@ -1,8 +1,12 @@
-/* Charts: legend, SVG chart parts, tooltip. */
+/* Charts: the readout line of a monthly chart, SVG chart parts, tooltip. */
 
 @layer components {
-.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); margin-bottom: 8px; }
-.legend span { display: inline-flex; align-items: center; gap: 8px; }
+/* The line above a monthly chart: the month and each series with its colour and sum, in place of a legend. */
+.readout-line { display: flex; flex-wrap: wrap; align-items: baseline; align-content: center; gap: var(--sp-4) var(--sp-16); min-block-size: var(--row-h-roomy); margin-block-end: var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.readout-title { font-weight: var(--w-strong); color: var(--text); }
+.readout-part { display: inline-flex; align-items: baseline; gap: var(--sp-8); }
+.readout-part .ms-key, .readout-part .mb-key-income, .readout-part .mb-key-spend { align-self: center; }
+.readout-part strong { font-weight: var(--w-strong); color: var(--text); font-variant-numeric: tabular-nums lining-nums; }
 .swatch { width: 10px; height: 10px; border-radius: 1px; display: inline-block; flex: none; }
 .line-key { width: 16px; height: 2px; border-radius: 0; display: inline-block; flex: none; }
 
@@ -14,6 +18,7 @@
 /* a column cut at the plot's end (charts/kit/cap.tsx): a break in the page colour across it and its sum written over it (a cut bottom end has the sum inside the plot, on a halo of the page colour) */
 .chart .cap-break { fill: none; stroke: var(--page); stroke-width: 2; pointer-events: none; }
 .chart text.cap-sum { fill: var(--text); font-weight: var(--w-strong); pointer-events: none; paint-order: stroke; stroke: var(--page); stroke-width: 3; stroke-linejoin: round; }
+.chart text.usual-label { fill: var(--text-2); pointer-events: none; paint-order: stroke; stroke: var(--page); stroke-width: 3; stroke-linejoin: round; }
 .chart .hit { fill: transparent; cursor: default; outline: none; }
 .chart .hit:focus-visible { stroke: var(--accent); stroke-width: 1.5; }
 .chart .hit-pick { cursor: pointer; }

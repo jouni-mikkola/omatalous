@@ -56,27 +56,37 @@ describe("Tulot ja menot", () => {
     expect(links[11]!.getAttribute("href")).toBe("#/transactions?from=2026-11-01&to=2026-11-11");
     // the link names the month and its two sums, so a reader who cannot see the bars hears them
     expect(flat(links[11]!.getAttribute("aria-label"))).toMatch(/^Marraskuu 2026.*Tulot 4 011 €.*Menot ilman säästöistä maksettua 3 011 €.*kesken/i);
-    // the year stands under January only
+    // the year stands under the first month and under January
     const years = [...container.querySelectorAll("svg text tspan")].map((s) => s.textContent).filter((s) => /^\d{4}$/.test(s ?? ""));
-    expect(years).toEqual(["2026"]);
+    expect(years).toEqual(["2025", "2026"]);
   });
 
   it("marks the running month and one the accounts do not cover from its 1st as not whole, and no other", async () => {
     const container = await show({ overview: overview() });
     const groups = [...container.querySelectorAll(".mb-month")];
     expect(groups.map((g) => g.classList.contains("mb-partial"))).toEqual([true, ...Array(10).fill(false), true]);
-    // the two partial months are hatched, and the key says what the hatching means
+    // the two partial months are hatched, the running one says so under its name, and there is no key list
     expect(groups.filter((g) => g.querySelector(".mb-spend-part")?.getAttribute("fill")?.startsWith("url(#")).length).toBe(2);
-    expect(flat(container.querySelector(".mb-key")?.textContent)).toContain("Kesken tai vajaa kuukausi");
+    expect(container.querySelector(".mb-key")).toBeNull();
+    expect(flat(groups[11]!.querySelector("text")?.textContent)).toBe("marraskesken");
   });
 
-  it("draws the usual month as a line and names it in the key, and leaves both out without one", async () => {
+  it("draws the usual month as a line and names it at the line's end, and leaves both out without one", async () => {
     const usual = await show({ overview: overview() });
     expect(usual.querySelector(".mb-usual")).not.toBeNull();
-    expect(flat(usual.querySelector(".mb-key")?.textContent)).toContain("Tavallinen kuukausi 2 149 € (10 kk)");
+    expect(flat(usual.querySelector("text.usual-label")?.textContent)).toBe("tavallinen kuukausi 2 149 €");
     const none = await show({ overview: overview({ usualSpendCents: null, usualMonths: 0 }) });
     expect(none.querySelector(".mb-usual")).toBeNull();
-    expect(flat(none.querySelector(".mb-key")?.textContent)).not.toContain("Tavallinen");
+    expect(none.querySelector("text.usual-label")).toBeNull();
+  });
+
+  it("names the last whole month and its sums in the readout line while nothing is picked", async () => {
+    const container = await show({ overview: overview() });
+    const readout = flat(container.querySelector(".readout-line")?.textContent);
+    expect(readout).toContain("lokakuu 2026");
+    expect(readout).toContain("Tulot 4 010 €");
+    expect(readout).toContain("Menot 3 010 €");
+    expect(readout).toContain("menot 862 € yli tavallisen");
   });
 
   it("leaves the sentence to the page's lead: the section draws only the bars", async () => {
