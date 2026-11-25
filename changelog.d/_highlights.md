@@ -1,4 +1,0 @@
-- Yhteenveto draws the balance of the days to the payday as a step line.
-- Laskut shows twelve months, split into regular and rare bills.
-- Varat ja velat shows what an extra monthly payment does to the end of the debts.
-- Charts name their highest and lowest points more clearly, and the first page is tidier.
