@@ -4,10 +4,8 @@ import { totalsOf } from "../analysis/flows.ts";
 import { toDayRange } from "../analysis/period.ts";
 import { addMonths, dayNumber, monthOf } from "../dates.ts";
 import { UNKNOWN_MERCHANT } from "../merchant.ts";
+import { LEAD_PAYEES } from "../thresholds.ts";
 import type { IsoDate } from "../types.ts";
-
-/** The payees listed under the lead: the top and the new ones. */
-const LEAD_PAYEES = 3;
 
 interface PayeeSum {
   merchant: string;
