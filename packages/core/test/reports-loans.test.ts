@@ -327,6 +327,22 @@ describe("the extra monthly payments of the debt-free choice", () => {
     }
   });
 
+  it("keeps the plan of the debts' own payments: the ended debt's payment goes to the next, which saves 23,00 € with no extra money", () => {
+    const r = run([annuity({ id: "a", balanceCents: 500_000, rateBp: 1_000, paymentCents: 23_072, endDate: "2028-10-01" }), annuity({ id: "b", balanceCents: 1_000_000, rateBp: 300, paymentCents: 29_081, endDate: "2029-10-01" })]).loans;
+    expect(r.plan).toEqual({
+      debtFreeDate: "2029-05-01",
+      baseDebtFreeDate: "2029-10-01",
+      savedCents: 2_300,
+      bufferCents: 0,
+      bufferFullDate: null,
+      debts: [
+        { id: "a", order: 1, endDate: "2028-10-01", baseEndDate: "2028-10-01" },
+        { id: "b", order: 2, endDate: "2029-05-01", baseEndDate: "2029-10-01" },
+      ],
+      snowballExtraCents: 0,
+    });
+  });
+
   it("is empty while a debt has no plan, so no date tells a part of the debt as all of it", () => {
     const r = run([annuity({ id: "a", balanceCents: 1_000_000, paymentCents: 20_000 }), loan({ id: "no-rate", balanceCents: 100_000 })]).loans;
     expect(r.path).toBeNull();

@@ -164,7 +164,8 @@ export interface LoansReport {
   /** Korot ja kulut 12 kk: the sum of the rows' `cost.next12`, null while any debt that owes has none. */
   cost12: Cost12Total;
   /**
-   * The way out of debt on the debts' own payments, with the Puskuri buffer filled first (`payoffPlan` at no extra money). Null while `cost12` is, so never a debt-free
+   * The way out of debt on the debts' own payments, the payment of each ended debt rolled into the dearest next, with
+   * the Puskuri buffer filled first (`payoffPlan` at no extra money). Null while `cost12` is, so never a debt-free
    * date of a part of the debts.
    */
   plan: PayoffPlan | null;

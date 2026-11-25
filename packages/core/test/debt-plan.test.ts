@@ -58,7 +58,7 @@ describe("payoffPlan", () => {
     expect(plan.debts).toEqual([{ id: "loan-1", order: 1, endDate: whatIf.endDate, baseEndDate: loanSchedule(one, day).summary!.endDate }]);
   });
 
-  it("pays the dearest debt first and passes only the extra money on to the next, never an ended debt's own payment", () => {
+  it("pays the dearest debt first and rolls an ended debt's payment into the next", () => {
     const card = loan({ id: "card", kind: "card", repayment: null, balanceCents: 150_000, rateBp: 2_000, paymentCents: 5_000 });
     const credit = loan({ id: "credit", balanceCents: 700_000, rateBp: 900, paymentCents: 22_000 });
     const small = loan({ id: "small", balanceCents: 40_000, rateBp: 1_200, paymentCents: 2_000 });
@@ -69,7 +69,7 @@ describe("payoffPlan", () => {
     expect(plan.savedCents).toBeGreaterThan(0);
     // the smallest first costs a few euros more here, under the 50 € a view shows it from
     expect(plan.snowballExtraCents).toBeGreaterThanOrEqual(0);
-    expect(plan.snowballExtraCents).toBe(3_252);
+    expect(plan.snowballExtraCents).toBe(1_489);
   });
 
   // Worked out with a small throwaway script that shares no code with the app: each month the interest of a loan is
@@ -77,11 +77,11 @@ describe("payoffPlan", () => {
   // A over 24 months, 290,81 € for B over 36), the last due date pays what is left, and the 100 € goes to the dearer
   // loan (A) with what it does not need on to B in the same month. Without extra A ends in month 24 and B in 36, the
   // interest of both is 1 006,67 €. With it A ends in month 17 (15.6.2027), B in month 31 (15.8.2028) and the interest
-  // is 798,59 €: 208,08 € saved. The ended A's 230,72 € is not passed on in either run.
+  // is 798,59 €: 208,08 € saved. The ended A's 230,72 € is not passed on in either run (`extraPlan`).
   it("ends two annuities and saves what the extra money alone saves, to the cent", () => {
     const dear = loan({ id: "dear", repayment: "annuity", balanceCents: 500_000, rateBp: 1_000, paymentCents: 23_072, endDate: "2028-01-15" });
     const cheap = loan({ id: "cheap", repayment: "annuity", balanceCents: 1_000_000, rateBp: 300, paymentCents: 29_081, endDate: "2029-01-15" });
-    expect(payoffPlan([dear, cheap], START, 10_000, FULL)).toEqual({
+    expect(extraPlan([dear, cheap], START, 10_000, FULL)!.plan).toEqual({
       debtFreeDate: "2028-08-15",
       baseDebtFreeDate: "2029-01-15",
       savedCents: 20_808,
@@ -94,7 +94,26 @@ describe("payoffPlan", () => {
       snowballExtraCents: 0,
     });
     // no extra money, no saving: the debts end on their own dates
-    expect(payoffPlan([dear, cheap], START, 0, FULL)).toMatchObject({ debtFreeDate: "2029-01-15", baseDebtFreeDate: "2029-01-15", savedCents: 0 });
+    expect(extraPlan([dear, cheap], START, 0, FULL)!.plan).toMatchObject({ debtFreeDate: "2029-01-15", baseDebtFreeDate: "2029-01-15", savedCents: 0 });
+  });
+
+  // The same two annuities with no extra money: A ends on its own date (15.1.2028) and its 230,72 € joins B's payment
+  // from then on, so B ends 15.8.2028 instead of 15.1.2029 and the interest of the last months, 23,00 €, is saved.
+  it("passes an ended debt's payment on to the next at no extra money, and saves what that saves", () => {
+    const dear = loan({ id: "dear", repayment: "annuity", balanceCents: 500_000, rateBp: 1_000, paymentCents: 23_072, endDate: "2028-01-15" });
+    const cheap = loan({ id: "cheap", repayment: "annuity", balanceCents: 1_000_000, rateBp: 300, paymentCents: 29_081, endDate: "2029-01-15" });
+    expect(payoffPlan([dear, cheap], START, 0, FULL)).toEqual({
+      debtFreeDate: "2028-08-15",
+      baseDebtFreeDate: "2029-01-15",
+      savedCents: 2_300,
+      bufferCents: 0,
+      bufferFullDate: null,
+      debts: [
+        { id: "dear", order: 1, endDate: "2028-01-15", baseEndDate: "2028-01-15" },
+        { id: "cheap", order: 2, endDate: "2028-08-15", baseEndDate: "2029-01-15" },
+      ],
+      snowballExtraCents: 0,
+    });
   });
 
   it("tells what the smallest debt first costs more than the dearest first", () => {
