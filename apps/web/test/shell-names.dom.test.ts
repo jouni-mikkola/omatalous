@@ -82,7 +82,7 @@ describe("Shell: a page carries its tab's name", () => {
       expect(links.map((a) => a.textContent)).toEqual(["Yhteenveto", "Tapahtumat", "Laskut", "Varat ja velat", "Raportit", "Esimerkki"]);
       expect(links.filter((a) => a.classList.contains("nav-wide-only"))).toEqual([]);
       const menu = [...document.querySelectorAll(".user-menu .menu a")];
-      expect(menu.map((a) => a.textContent)).toEqual(["Asetukset"]);
+      expect(menu.map((a) => a.textContent)).toEqual(["Raportit", "Asetukset"]);
     } finally {
       WEB_EXTENSIONS.length = 0;
     }

@@ -16,7 +16,7 @@ const MIN_ROWS = 100_000;
 // 60 characters, no place to break in the first half
 const LONG = "Pitkänimisenkauppiaanerikoistavarakauppa Hämeenlinna Oy 0001";
 const LONG_CENTS = -123_456_78;
-const VIEWS = ["overview", "transactions", "bills", "reports", "reports?q=menot", "reports?q=tulot", "reports?q=saldot", "review"];
+const VIEWS = ["overview", "transactions", "bills", "reports", "reports?q=menot", "reports?q=tulot", "balances", "review"];
 // where a sum is typeset: the figure of an answer, a number cell of a table, a row's sum
 const SUMS = ".fig, .num, .st-num, .review-row-sum, .review-figure, [class*='sum'], [class*='amount']";
 
