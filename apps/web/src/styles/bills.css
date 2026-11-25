@@ -81,11 +81,12 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .bills-head h2 { margin: 0; min-inline-size: 0; }
 .bills-lead { margin: 0; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .bills-days-sum { color: var(--text-2); font-variant-numeric: tabular-nums; }
-/* the three figures keep one row on a phone, and the days strip is lower there: the page is long with twelve months and a chart */
+/* the three figures keep one row on a phone, and the days strip is lower there: the page is long with twelve months and a chart.
+ * The column width is in rem, so with the text at 200 % the figures wrap instead of running out of the screen. */
 @media (max-width: 640px) {
-  .key-figures.bills-figures { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .key-figures.bills-figures { grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); }
   .bills-figures > .kf { padding: var(--sp-8) var(--sp-8) var(--sp-4) 0; }
-  .bills-figures > .kf + .kf { padding-left: var(--sp-8); border-left: 1px solid var(--grid); border-top: 0; }
+  .bills-figures > .kf + .kf { padding-left: var(--sp-8); border-left: 0; border-top: 0; }
   .bills-figures .kf .fig-l, .bills-figures > .kf:first-child .fig-l { font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); }
   .bills-figures .kf-label, .bills-figures .kf-sub { font-size: var(--fs-label); line-height: var(--lh-label); }
 }
