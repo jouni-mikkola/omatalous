@@ -364,16 +364,32 @@ describe("the readout", () => {
     const names = ["joulu", "tammi", "helmi", "maalis", "huhti", "touko", "kesä", "heinä", "elo", "syys", "loka", "marras"];
     const centres = names.map((_, i) => 27 * i + 13.5);
     const printed = printedMonths(12, 27, new Set([11]), 10);
-    const places = monthNamePlaces(centres, 27, 324, names, printed, 10);
+    const places = monthNamePlaces(centres, 27, 324, names, printed);
     expect(places[11]).toEqual({ x: 328, anchor: "end" });
     expect(places[10]!.anchor).toBe("end");
     // the two names do not overlap: loka ends before marras starts
     expect(places[10]!.x).toBeLessThanOrEqual(328 - 6 * LABEL_CHAR_W);
     // a month two slots away stays centred, and wide slots centre everything
-    expect(monthNamePlaces(centres, 27, 324, names, printed, 9)[9]).toEqual({ x: centres[9], anchor: "middle" });
-    expect(monthNamePlaces(centres.map((c) => c * 3), 81, 972, names, printed, 10).every((p) => p.anchor === "middle")).toBe(true);
+    expect(places[9]).toEqual({ x: centres[9], anchor: "middle" });
+    expect(monthNamePlaces(centres.map((c) => c * 3), 81, 972, names, printed).every((p) => p.anchor === "middle")).toBe(true);
     // a newest name that is not printed stays where it is
-    expect(monthNamePlaces(centres, 27, 324, names, new Set([10]), 10).every((p) => p.anchor === "middle")).toBe(true);
+    expect(monthNamePlaces(centres, 27, 324, names, new Set([10])).every((p) => p.anchor === "middle")).toBe(true);
+  });
+
+  it("keeps the running month's name and the picked month's name beside it apart when the running one is the first", () => {
+    const names = ["marras", "joulu", "tammi", "helmi", "maalis", "huhti", "touko", "kesä", "heinä", "elo", "syys", "loka"];
+    const centres = names.map((_, i) => 27 * i + 13.5);
+    const printed = printedMonths(12, 27, new Set([0]), 1);
+    expect([...printed].slice(0, 2).sort()).toEqual([0, 1]);
+    const places = monthNamePlaces(centres, 27, 324, names, printed);
+    const box = (i: number) => {
+      const w = names[i]!.length * LABEL_CHAR_W;
+      const { x, anchor } = places[i]!;
+      const left = anchor === "end" ? x - w : anchor === "start" ? x : x - w / 2;
+      return { left, right: left + w };
+    };
+    expect(box(0).left).toBeGreaterThanOrEqual(0);
+    expect(box(0).right).toBeLessThanOrEqual(box(1).left);
   });
 
   it("draws one focusable layer with a crosshair at the datum", () => {

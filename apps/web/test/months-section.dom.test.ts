@@ -73,19 +73,27 @@ describe("Tulot ja menot", () => {
     expect(flat(groups[11]!.querySelector("text")?.textContent)).toBe("marraskesken");
   });
 
-  // a card joining in a month leaves its spending partial and its income whole: Tulolajit draws the month solid, so its income bar is too
-  it("hatches an income bar only where the income report does not count the month complete", async () => {
+  // a month has one look: spending partial or income partial hatches both of its bars
+  it("hatches both bars of a month that either report does not count complete", async () => {
     fresh();
     stubApi({ "GET /api/dashboard": { overview: overview() } });
     const incomeCtx = { ...ctx, data: { income: { monthlyCents: 396000, months: MONTHS.map((m, i) => ({ month: m.month, complete: i < 11 })) } } } as unknown as ReportContext;
     const view = render(createElement(section.Component, { ctx: incomeCtx }));
     await waitFor(() => expect(view.container.querySelector("svg a")).not.toBeNull());
     const [first, ...rest] = [...view.container.querySelectorAll(".mb-month")];
-    expect(first!.querySelector(".mb-income")).not.toBeNull();
-    expect(first!.querySelector(".mb-income-part")).toBeNull();
+    // the first month is complete for income but not for spending: both bars hatched
+    expect(first!.querySelector(".mb-income")).toBeNull();
+    expect(first!.querySelector(".mb-income-part")).not.toBeNull();
     expect(first!.querySelector(".mb-spend-part")).not.toBeNull();
     // the running month is hatched in both bars
     expect(rest.at(-1)!.querySelector(".mb-income-part")).not.toBeNull();
+    // a month the spending report counts complete but the income report does not: both hatched too
+    const incomeLate = { ...incomeCtx, data: { income: { months: MONTHS.map((m, i) => ({ month: m.month, complete: i !== 5 })) } } } as unknown as ReportContext;
+    const other = render(createElement(section.Component, { ctx: incomeLate }));
+    await waitFor(() => expect(other.container.querySelector("svg a")).not.toBeNull());
+    const sixth = other.container.querySelectorAll(".mb-month")[5]!;
+    expect(sixth.querySelector(".mb-income-part")).not.toBeNull();
+    expect(sixth.querySelector(".mb-spend-part")).not.toBeNull();
   });
 
   it("draws the usual month as a line and names it at the line's end, and leaves both out without one", async () => {

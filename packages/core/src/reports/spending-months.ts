@@ -48,9 +48,11 @@ interface SpendingCategory {
 
 /** A step of the waterfall from the usual month to a month: a category's gap to its level, between the running sums `fromCents` and `toCents`. */
 interface SpendingChangeStep {
-  /** The category's id and name; null for the one last step that holds the gaps of all the others, which is there only when they do not cancel out. */
+  /** The category's id and name; null for the step of the categories with no level (`withoutLevel`) and for the one last step that holds the gaps of all the others, which is there only when they do not cancel out. */
   category: string | null;
   label: string | null;
+  /** The step is what the categories with no level (a card connected late, a category with under `MIN_COMPARE_MONTHS` months) spent in the month: it has no gap, the whole sum is the step. Absent on every other step. */
+  withoutLevel?: true;
   /** The gap in cents: above zero is more than the category's level. */
   cents: number;
   fromCents: number;
@@ -58,8 +60,8 @@ interface SpendingChangeStep {
 }
 
 /**
- * A month set against the usual month, category by category: `startCents` (the categories' levels added up) plus the
- * steps is `endCents`, the month's spending, so the steps add up to the month's gap to the usual one.
+ * A month set against the usual month, category by category: `startCents` (the levels of the categories that have one,
+ * which is the column "Keskimäärin kuussa" added up) plus the steps is `endCents`, the month's spending, to the cent.
  */
 interface SpendingChange {
   startCents: number;
@@ -111,10 +113,10 @@ export interface SpendingMonthsReport {
   last: number | null;
   /**
    * Per month, the waterfall from the usual month: the categories whose gap is the largest (`SPENDING_CHANGE_STEPS`, a
-   * euro or more each), the rises first, and the rest of the gaps as one last step. A category with no level (those of
-   * a card connected late) is no step of its own and is in the last one, and the start is then `typicalCents`, the
-   * level of the month totals. Null in a month that is not one of the months the levels read: the `categoryMonths`
-   * while the card's categories have a level, else every complete month; and null without a level for the month.
+   * euro or more each), the rises first, then what the categories with no level spent in the month as one step
+   * (`withoutLevel`, there when it is not zero), and the rest of the gaps as one last step. The start is the levels added
+   * up, so it is the sum of the categories' monthly averages. Null in a month that is not one of the months the levels
+   * read: the `categoryMonths` while the card's categories have a level, else every complete month; and null when no category has a level.
    */
   changes: (SpendingChange | null)[];
   /** Every category with a row in the months shown, largest first. In every month their values add up to the month's total. */
@@ -199,7 +201,7 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
     .sort((a, b) => b.totalCents - a.totalCents || a.category.localeCompare(b.category));
   // the months the card's categories have a level in, or every complete month when they have none: they are then in the last step
   const changeAt = categoryAt.length >= MIN_COMPARE_MONTHS ? categoryAt : completeAt;
-  const changes = indexes.map((_, i) => (known[i] && changeAt.includes(i) ? changeOf(i, categories, totals[i]!, typicalCents) : null));
+  const changes = indexes.map((_, i) => (known[i] && changeAt.includes(i) ? changeOf(i, categories, totals[i]!) : null));
   const typicalFlowCents = expectedLevel(completeAt.map((i) => totals[i]! - fromSavings[i]! - largeFlowTotals[i]!));
   return {
     months,
@@ -223,24 +225,24 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
 }
 
 /**
- * The waterfall of month `i`. The categories with a level start from their sum. When some have none, the start is the
- * level of the month totals (`usualCents`) and their gaps are in the last step; null when no category has a level, or
- * the totals have none.
+ * The waterfall of month `i`. It starts from the levels of the categories that have one, so the start is the sum of the
+ * column the page names it after. What the categories with no level spent in the month is its own step, so the steps
+ * still end at the month's spending; null when no category has a level.
  */
-function changeOf(i: number, categories: readonly { category: string; label: string; values: (number | null)[]; typicalCents: number | null }[], endCents: number, usualCents: number | null): SpendingChange | null {
+function changeOf(i: number, categories: readonly { category: string; label: string; values: (number | null)[]; typicalCents: number | null }[], endCents: number): SpendingChange | null {
   const gaps: { category: string; label: string; cents: number }[] = [];
   let levelsCents = 0;
-  let withoutLevel = false;
+  let withoutLevelCents = 0;
   for (const c of categories) {
     if (c.typicalCents === null) {
-      withoutLevel = true;
+      withoutLevelCents += c.values[i] ?? 0;
       continue;
     }
     levelsCents += c.typicalCents;
     gaps.push({ category: c.category, label: c.label, cents: (c.values[i] ?? 0) - c.typicalCents });
   }
-  const startCents = withoutLevel ? usualCents : levelsCents;
-  if (startCents === null || gaps.length === 0) return null;
+  const startCents = levelsCents;
+  if (gaps.length === 0) return null;
   // a gap that rounds to no euro is no step; the largest are named, a rise stands before a fall
   const named = gaps
     .filter((g) => Math.round(Math.abs(g.cents) / 100) !== 0)
@@ -252,6 +254,10 @@ function changeOf(i: number, categories: readonly { category: string; label: str
   for (const g of named) {
     steps.push({ category: g.category, label: g.label, cents: g.cents, fromCents: running, toCents: running + g.cents });
     running += g.cents;
+  }
+  if (withoutLevelCents !== 0) {
+    steps.push({ category: null, label: null, withoutLevel: true, cents: withoutLevelCents, fromCents: running, toCents: running + withoutLevelCents });
+    running += withoutLevelCents;
   }
   // the gaps of the others are one last step, left out when they cancel out
   if (endCents !== running) steps.push({ category: null, label: null, cents: endCents - running, fromCents: running, toCents: endCents });

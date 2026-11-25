@@ -142,7 +142,10 @@ describe("the question of a card whose purchases are missing", () => {
     // a connected card's debt is its account's: only its statement is asked, and its balance is not counted missing
     expect(connected).toMatchObject({ accountId: "kortti", monthlyCents: null, lastDate: null, missing: { cents: null, since: "2026-06-01" }, savedCards: [] });
     const item = ((await t.admin.call("GET", "/api/review")).body.items as Item[]).find((i) => i.kind === "loan_terms_list")!;
-    expect(item.noBalance).toBe(2);
+    // "Ilman saldoa" is the count of the rows the first page lists as "saldo puuttuu": a card with one bill is no such row there, so it is not counted here
+    const holdings = (await t.admin.call("GET", "/api/dashboard?scope=own")).body.holdings as { unsavedLoans?: { rows: unknown[] }; loans: { leftCents: number | null }[] };
+    expect(holdings.unsavedLoans?.rows).toHaveLength(1);
+    expect(item.noBalance).toBe(holdings.unsavedLoans!.rows.length + holdings.loans.filter((l) => l.leftCents === null).length);
   });
 
   it("lists a connected card that owes at an unknown rate and starts late once: the row of its rate holds the statement's facts", async () => {

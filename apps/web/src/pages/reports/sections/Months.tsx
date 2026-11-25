@@ -81,8 +81,8 @@ function Months({ ctx }: SectionProps) {
   if (error && !dashboard) return <Notice tone="error">{error}</Notice>;
   if (!dashboard) return <Panel><Empty>{t("rpt.loading")}</Empty></Panel>;
   if (dashboard.overview.months.length === 0) return null;
-  // the income bar of a month is hatched only when the income report does not count the month complete, as in Tulolajit
-  const incomeWhole = new Set((ctx.data.income?.months ?? []).flatMap((m) => (m.complete ? [m.month] : [])));
+  // a month's two bars have one look: solid only when the spending and the income report both count the month complete
+  const incomeWhole = ctx.data.income ? new Set(ctx.data.income.months.flatMap((m) => (m.complete ? [m.month] : []))) : undefined;
   const columns: Column<Month>[] = [
     { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName({ ...m, unknown: m.incomeCents === null && m.spendCents === null }, ctx.running) },
     { key: "income", label: t("home.months_income"), kind: "money", precision: "euros", cents: (m) => m.incomeCents },

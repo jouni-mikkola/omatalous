@@ -27,8 +27,8 @@ function barsOf(change: Change, month: string): Bar[] {
   return [
     { key: "usual", label: t("rpt.mc_levels"), from: null, to: change.startCents, cents: change.startCents, tone: "usual", figure: eur(change.startCents) },
     ...change.steps.map((s) => ({
-      key: s.category ?? "rest",
-      label: s.label ?? t("rep.rest_changes"),
+      key: s.category ?? (s.withoutLevel ? "without-level" : "rest"),
+      label: s.label ?? t(s.withoutLevel ? "rpt.mc_without_level" : "rep.rest_changes"),
       from: s.fromCents,
       to: s.toCents,
       cents: s.cents,
