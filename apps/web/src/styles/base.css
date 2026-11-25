@@ -124,9 +124,9 @@ input[type="checkbox"], input[type="radio"], progress { accent-color: var(--fill
 @media (min-width: 1040px) { .span-5 { grid-column: span 5; } .span-6 { grid-column: span 6; } .span-7 { grid-column: span 7; } }
 
 /* a section: a hairline above it, the name under the line, no box, no ground, no shadow (docs/DESIGN.md) */
-.card { position: relative; min-width: 0; padding: var(--sp-16) 0 var(--sp-24); border-top: 1px solid var(--border); scroll-margin-top: calc(var(--rail-h) + 16px); }
+.card { position: relative; min-width: 0; padding: var(--sp-16) 0 var(--sp-32); border-top: 1px solid var(--border); scroll-margin-top: calc(var(--rail-h) + 16px); }
 /* the name strip: the name in sentence case at the size of a heading, the tools beside it */
-.card-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; min-height: 0; margin: 0 0 var(--sp-12); padding: 0; }
+.card-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; min-height: 0; margin: 0 0 var(--sp-16); padding: 0; }
 /* a section with only its name (Salasana; a fold that is shut) has no empty body under it */
 .card > .card-head:only-child, details.card:not([open]) > summary.card-head { margin-bottom: 0; }
 /* a fold opens with the chevron of a row that opens (themes-table.css), not the browser's triangle: a triangle is a change or a warning */
