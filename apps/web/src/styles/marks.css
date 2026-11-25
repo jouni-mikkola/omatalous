@@ -50,11 +50,6 @@ details.card[open] > summary.card-head { margin-bottom: var(--sp-12); }
 /* on a phone the links are 44 px high: the words beside them stand on their middle */
 @media (max-width: 640px), (pointer: coarse) { .sheet-foot { align-items: center; } }
 
-/* M7 the share track: the last 100 px of a row's rule, 1 px a percent; --from and --part come from shares() */
-.share { background-image: linear-gradient(90deg, transparent calc(var(--from) * 1px), var(--axis) 0 calc((var(--from) + var(--part)) * 1px), transparent 0);
-  background-size: var(--share-w) 2px; background-position: right var(--mark-gutter, 0px) bottom 0; background-repeat: no-repeat; }
-td.share { min-width: var(--share-w); }
-
 /* M12 the sum bracket: these rows add up, to the cent, to the sum it runs into (addsUp) */
 .adds-up { --mark-gutter: var(--mark-gap); }
 /* a table draws the bracket on its cells (table.css) */

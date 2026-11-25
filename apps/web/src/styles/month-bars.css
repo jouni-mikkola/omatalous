@@ -5,7 +5,7 @@
 .month-bars { position: relative; }
 .month-bars .mb-income { fill: var(--role-income); }
 .month-bars .mb-spend { fill: var(--role-spending); }
-.month-bars .mb-partial rect { stroke-width: 1; stroke-dasharray: 3 2; }
+.month-bars .mb-income-part, .month-bars .mb-spend-part { stroke-width: 1; stroke-dasharray: 3 2; }
 .month-bars .mb-hatch-income { stroke: var(--role-income); stroke-width: 2; }
 .month-bars .mb-hatch-spend { stroke: var(--role-spending); stroke-width: 2; }
 .month-bars .mb-partial .mb-income-part { stroke: var(--role-income); }

@@ -165,10 +165,11 @@ export interface Holdings {
   /**
    * The loans the rows show and nobody saved, and the cards whose bills the rows show and nobody connected or saved
    * (`unconnectedCards`): `debtCents` cannot hold them, so each is told beside it with its monthly payment and no
-   * balance. Left out with none.
+   * balance. `rows` also lists a lender's few payments (no monthly payment, `unsavedFewPayments` of them), which
+   * `count`, `names` and `paymentCents` leave out. Left out with no row.
    */
   unsavedLoans?: UnsavedLoans & { rows: UnsavedRow[] };
-  /** The credits of a lender's few payments nobody saved (`fewPayments`): debts `debtCents` cannot hold either, counted in the name of `netCents` and in no sum, as the rows tell no monthly payment of them. Left out with none. */
+  /** The credits of a lender's few payments nobody saved (`fewPayments`): debts `debtCents` cannot hold either, each a row of `unsavedLoans.rows` with no monthly payment, counted in the name of `netCents` and in no sum. Left out with none. */
   unsavedFewPayments?: number;
 }
 
@@ -196,14 +197,16 @@ export function unsavedDebts(ctx: AnalysisContext, inputs: UserInputs, proposals
   // the link (review-loan-terms.ts).
   const saved = new Set(proposals.filter((p) => p.kindUnknown).slice(0, creditsLeft));
   const unsaved = proposals.filter((p) => !saved.has(p));
-  // a lender's few payments tell no monthly figure to sum, so they are counted apart (`unsavedFewPayments`)
+  // a lender's few payments tell no monthly figure to sum: each has a row with none and is counted apart (`unsavedFewPayments`)
   const lenders = unsaved.filter(hasMonthly);
-  const few = unsaved.filter((p) => !hasMonthly(p)).length;
+  const fewPayments = unsaved.filter((p) => !hasMonthly(p));
+  const rowOf = (p: LoanProposal): UnsavedRow => ({ debtId: `${p.plan ? "plan" : "proposal"}:${p.key}`, name: p.payee, monthlyCents: p.monthlyCents, card: false, ...(p.kindUnknown ? { kindUnknown: true as const } : {}), ...(unsavedDebtAnswered(inputs.marks, { proposal: p }) ? { asked: true as const } : {}) });
   return {
-    few,
+    few: fewPayments.length,
     total: unsavedLoans([...lenders, ...cards]),
     rows: [
-      ...lenders.map((p): UnsavedRow => ({ debtId: `${p.plan ? "plan" : "proposal"}:${p.key}`, name: p.payee, monthlyCents: p.monthlyCents, card: false, ...(p.kindUnknown ? { kindUnknown: true as const } : {}), ...(unsavedDebtAnswered(inputs.marks, { proposal: p }) ? { asked: true as const } : {}) })),
+      ...lenders.map(rowOf),
+      ...fewPayments.map(rowOf),
       ...cards.map((c): UnsavedRow => ({ debtId: `card_bill:${c.key}`, name: c.payee, monthlyCents: c.monthlyCents, card: true, ...(unsavedDebtAnswered(inputs.marks, { card: c }) ? { asked: true as const } : {}) })),
     ],
   };
@@ -295,7 +298,7 @@ export function buildHoldings(ctx: AnalysisContext, balances: readonly BalanceIn
   };
   const loans: Holdings["loans"] = rankedByCost(heldLoans(balances, debts).map(({ row, debt }) => ({ row: { ...row, paidOff: row.leftCents === 0 && quiet(row.id) }, cost: costOf(debt) })));
   const { total, rows, few } = unsavedDebts(ctx, inputs, proposals);
-  const unsaved = { ...(total ? { unsavedLoans: { ...total, rows } } : {}), ...(few ? { unsavedFewPayments: few } : {}) };
+  const unsaved = { ...(rows.length ? { unsavedLoans: { ...(total ?? { count: 0, names: [], paymentCents: 0 }), rows } } : {}), ...(few ? { unsavedFewPayments: few } : {}) };
   const balancesOf = accounts.map((a) => a.balanceCents);
   const accountsCents = sumKnown(balancesOf);
   const sumOfType = (type: Holdings["accounts"][number]["type"]) => sumKnown(accounts.filter((a) => a.type === type).map((a) => a.balanceCents));

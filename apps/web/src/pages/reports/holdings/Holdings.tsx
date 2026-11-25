@@ -33,7 +33,6 @@ import { netLabelOf } from "../../../components/net-label.ts";
 import { cardMasks, cardsOwe, dearWord, maskedNames, reconcileTitle } from "./holding-rows.ts";
 import "../../../styles/statement.css";
 import "../../../styles/holdings.css";
-import { css } from "../../../css.ts";
 
 type Answer = DashboardData["holdings"];
 type Ahead = NonNullable<DashboardData["ahead"]>;
@@ -130,15 +129,13 @@ function Tick({ state }: { state: ReconcileState | undefined }) {
 }
 
 /**
- * The accounts as one list, under the headings of their types when `types` is given. One list lets each share track start where the row above ended. A type's heading holds its total when it has two accounts or more; for one account it would only repeat it.
+ * The accounts as one list, under the headings of their types when `types` is given. A type's heading holds its total when it has two accounts or more; for one account it would only repeat it.
  */
 function AccountRows({ holdings, meta, types, common }: { holdings: Answer; meta: Meta; types: { type: AccountType; rows: Answer["accounts"] }[] | null; common: string | null }) {
   const masks = maskedNames(holdings.accounts);
   // a bank's name tells the rows apart only where the accounts are at more than one
   const severalBanks = new Set(holdings.accounts.flatMap((a) => (a.bank ? [a.bank] : []))).size > 1;
   const groups = types ?? [{ type: null, rows: holdings.accounts }];
-  // a track on each row where core says each is a part of the total
-  let at = 0;
   return (
     <ul className="st-rows">
       {groups.map((g) => (
@@ -152,12 +149,8 @@ function AccountRows({ holdings, meta, types, common }: { holdings: Answer; meta
           {g.rows.map((a) => {
             const part = partText(a.part, "account", meta.accounts.find((m) => m.id === a.id)?.traced);
             const since = sinceLine(a.balanceAt, meta.today, common);
-            const p = holdings.accountShares?.[holdings.accounts.indexOf(a)];
-            const track = p == null ? null : { at, p };
-            at += p ?? 0;
-            const classes = ["st-row", "holding-account", track ? "share" : ""];
             return (
-              <li key={a.id} className={classes.filter(Boolean).join(" ")} ref={css({ "--from": track?.at, "--part": track?.p })}>
+              <li key={a.id} className="st-row holding-account">
                 <Name name={a.name} href={`#/transactions${query({ accountId: a.id })}`} mask={masks.get(a.id)} />
                 <span className="st-num">
                   <Tick state={a.reconcile} />
