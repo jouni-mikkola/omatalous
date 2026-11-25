@@ -128,7 +128,7 @@ test("at 390 px Tulot and Menot stand side by side, Käteen jäi under them, and
   await context.close();
 });
 
-test("at 1440 px Tulot, Menot and Käteen jäi stand on one row with Käteen jäi the last and the largest", async ({ browser }) => {
+test("at 1440 px Tulot, Menot and Käteen jäi stand on one row with Käteen jäi the last, all three in one figure size", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
   const page = await open(context);
   const boxes = await Promise.all((await page.locator(".home-figs > li").all()).map(async (item) => (await item.boundingBox())!));
@@ -137,7 +137,7 @@ test("at 1440 px Tulot, Menot and Käteen jäi stand on one row with Käteen jä
   expect(boxes[0]!.x).toBeLessThan(boxes[1]!.x);
   expect(boxes[1]!.x).toBeLessThan(boxes[2]!.x);
   const size = (id: string) => page.locator(`[data-fig=${id}] .fig`).evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
-  expect(await size("result"), "Käteen jäi is the largest figure").toBeGreaterThan(await size("income"));
+  expect(await size("result"), "Käteen jäi is a figure like the other two").toBe(await size("income"));
   await context.close();
 });
 

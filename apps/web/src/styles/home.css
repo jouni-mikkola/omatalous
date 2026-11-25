@@ -48,7 +48,7 @@
 .home-ledger dt { color: var(--text-2); }
 .home-ledger dd { margin: 0; white-space: nowrap; font-weight: var(--w-strong); }
 /* the page's question is its first heading: heading size and weight, in the text colour */
-.home-now .home-fig-label { font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: var(--w-strong); color: var(--text); }
+.home-now .home-fig-label { font-size: var(--fs-h2); font-weight: var(--w-strong); color: var(--text); }
 a.home-left:hover .home-fig-label { text-decoration: underline; }
 
 /* the lowest balance of the next days, one line under the sum left to the payday */
