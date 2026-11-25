@@ -1,16 +1,26 @@
-// Decision: whether the credit drawn in the period is a habit to stop, and what it adds to what is owed
+// Decision: whether the debt paid and the credit drawn in the period, and what bank fees and late fees cost, are a habit to stop
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
-import { inSpan } from "../parts.tsx";
 import { money } from "../../../format.ts";
+import { FigureRow } from "../holdings/FigureRow.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { t } from "../../../text.ts";
+import "../../../styles/statement.css";
 
+/** The period's debt paid, new credit drawn and bank and late fees: a row for each that is above zero. New credit opens its rows. */
 function Borrowed({ ctx }: SectionProps) {
-  const drawn = ctx.data.categories.creditDrawnCents;
-  const rows = `#/transactions?category=credit_draw&from=${ctx.range.from}&to=${ctx.range.to}`;
+  const r = ctx.data.categories;
+  const draws = `#/transactions?category=credit_draw&from=${ctx.range.from}&to=${ctx.range.to}`;
   return (
-    <ReportPanel id={section.id} title={section.title} datum={inSpan(ctx, money(drawn, false))}>
-      <a href={rows}>{t("rpt.borrowed_link")}</a>
+    <ReportPanel id={section.id} title={section.title}>
+      <dl className="st-rows">
+        {r.debtPaidCents > 0 && <FigureRow label={t("rpt.debt_paid")}>{money(r.debtPaidCents, false)}</FigureRow>}
+        {r.creditDrawnCents > 0 && (
+          <FigureRow label={t("rpt.debt_drawn")} bad>
+            <a href={draws}>{money(r.creditDrawnCents, false)}</a>
+          </FigureRow>
+        )}
+        {r.feesCents > 0 && <FigureRow label={t("rpt.leaks")}>{money(r.feesCents, false)}</FigureRow>}
+      </dl>
     </ReportPanel>
   );
 }
@@ -20,10 +30,11 @@ export const section: ReportSection = {
   get title() {
     return t("rpt.sec_borrowed");
   },
-  order: 32,
+  order: 5,
   page: "reports",
   reports: ["categories"],
-  // no draw, nothing to explain
-  visible: (ctx) => !!ctx.data.categories && ctx.data.categories.creditDrawnCents > 0,
+  open: true,
+  // no debt, no draw and no fees: nothing to show
+  visible: (ctx) => !!ctx.data.categories && (ctx.data.categories.debtPaidCents > 0 || ctx.data.categories.creditDrawnCents > 0 || ctx.data.categories.feesCents > 0),
   Component: Borrowed,
 };

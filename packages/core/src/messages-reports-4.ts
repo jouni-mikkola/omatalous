@@ -26,8 +26,6 @@ export const FI_REPORTS_4 = {
   "rpt.bal_total_est": "Saldo kuun lopussa, arvio",
   "rpt.bal_month_change": "Tilien muutos edellisestä",
   "rpt.bal_by_month": "Saldot kuukausittain",
-  "rpt.bal_datum": "Tilien ja korttien saldo {date} {amount}",
-  "rpt.bal_change_since": "{amount} {date} jälkeen",
   "rpt.bal_row": "Tilien ja korttien saldo",
   "rpt.bal_twice_see": "{text}: katso Lainat.",
   "rpt.bal_q_trend": "Saldojen kehitys",

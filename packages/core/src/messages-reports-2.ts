@@ -110,7 +110,6 @@ export const FI_REPORTS_2 = {
   "rpt.q_twins_once_many": "Ne ovat luvuissa kerran.",
   "rpt.q_account_line": "{name}: {parts}",
   "rpt.and": " ja ",
-  "rpt.borrowed_link": "Näytä nostot",
   "rpt.pivot_none": "Kuukausien vertailuun ei ole vielä tarpeeksi päättyneitä kuukausia.",
   "rpt.pivot_flat": "Minkään kategorian menot eivät nousseet selvästi tavallista suuremmiksi.",
   "rpt.pivot_jump": "{label}: {month} meni <b>{amount}</b>, tavallisesti menee {expected}.",

@@ -7,6 +7,8 @@
   "changeCents": 22393,
   "incomeCents": 0,
   "creditDrawnCents": 0,
+  "debtPaidCents": 61240,
+  "feesCents": 0,
   "groups": [
    {
     "group": "Asuminen",

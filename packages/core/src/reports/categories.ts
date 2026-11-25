@@ -4,6 +4,7 @@ import type { AnalysisContext, AnalysisTx } from "../analysis/context.ts";
 import { comparableWith } from "../analysis/coverage.ts";
 import { spendOf, spendSelect, sumOf } from "../analysis/counted.ts";
 import { spendingBase } from "../analysis/data-quality.ts";
+import { isBankFee, isLateFeeAlone } from "../analysis/fees.ts";
 import { roundedShares } from "../analysis/bridge-view.ts";
 import { printedParts } from "../analysis/printed.ts";
 import { CATEGORY_COICOP, type PriceSplit, priceSplit } from "../analysis/prices.ts";
@@ -107,6 +108,10 @@ interface CategoryReport {
   incomeCents: number;
   /** Credit drawn in the range, as `coverOf` reads it from the range's flows. */
   creditDrawnCents: number;
+  /** Debt service paid in the range (`PeriodTotals.debtCents`): repayments and interest. Debt paid from a savings account is not in it, though `totalCents` counts it. */
+  debtPaidCents: number;
+  /** What bank prices and late fees cost in the range (`isBankFee`, `isLateFeeAlone`): a late fee paid together with its bill is not in it, and interest is not, since `debtPaidCents` holds it. */
+  feesCents: number;
   groups: GroupStat[];
 }
 
@@ -171,6 +176,8 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange, lang: Lan
   const base = spendingBase(current);
   const flowTotals = totalsOf(current.map((t) => t.flows));
   const income = flowTotals.incomeCents;
+  // interest is in the debt service already; counting it here too would show it twice in one list
+  const feesCents = sumOf(counted.filter((t) => t.spend > 0 && t.category !== "interest" && (isBankFee(t) || isLateFeeAlone(t))), spendOf);
   const ofIncome = (cents: number) => (income > 0 ? cents / income : null);
   // a category spent on in the previous period only is a row too, at 0 now, so the changes add up to the total change
   const spent = new Set([...perCategory].filter(([, e]) => e.total !== 0).map(([key]) => key));
@@ -261,5 +268,5 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange, lang: Lan
   });
   const previousTotalCents = stats.reduce((s, c) => s + c.previousCents, 0);
   const comparedTotalCents = stats.reduce((s, c) => s + c.comparedCents, 0);
-  return { comparable, totalCents: total, previousTotalCents, comparedTotalCents, changeCents: comparable ? comparedTotalCents - previousTotalCents : null, incomeCents: income, creditDrawnCents: coverOf(flowTotals).creditDrawnCents, groups: printedGroups };
+  return { comparable, totalCents: total, previousTotalCents, comparedTotalCents, changeCents: comparable ? comparedTotalCents - previousTotalCents : null, incomeCents: income, creditDrawnCents: coverOf(flowTotals).creditDrawnCents, debtPaidCents: flowTotals.debtCents, feesCents, groups: printedGroups };
 }

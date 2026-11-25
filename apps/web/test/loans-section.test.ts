@@ -209,8 +209,8 @@ describe("Raportit: Lainat", () => {
     const saldot = html(balances, context(report([row()])));
     expect(rowsOf(saldot)).toEqual(["Tilien ja korttien saldo 1 200,00 €", "Tallennetut lainat 120 000,00 €", "Tilit miinus velat -118 800,00 €"]);
     expect(saldot).not.toContain("Asunnon ja sijoitusten arvo");
-    // the change beside the balance names the day it is counted from
-    expect(saldot).toMatch(/\+200\s€ 30\.9\.(2026)? jälkeen/);
+    // the change and its day are the page's lead sentence, not a figure beside the panel's name
+    expect(saldot).not.toContain("jälkeen");
     // the figures are rows with no "tänään" of their own; the table of the months under the chart marks its row of today
     expect(rowsOf(saldot).join(" ")).not.toContain("tänään");
     expect(own).not.toContain("Nettovarallisuus");

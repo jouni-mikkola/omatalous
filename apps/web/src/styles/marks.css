@@ -29,7 +29,6 @@ details.card[open] > summary.card-head { margin-bottom: var(--sp-12); }
 /* Saldot's datum names its figure and day, so on a phone it wraps under the name instead of pushing the page sideways. It sits here, in the layer of the head's own rule, which a rule of `components` cannot beat. */
 @media (max-width: 599px) {
   #saldot .card-head.tb > .card-datum { flex: 0 1 auto; min-width: 0; white-space: normal; justify-content: flex-end; text-align: right; }
-  #saldot .saldot-datum { flex-wrap: wrap; justify-content: flex-end; }
 }
 
 /* M3 the column register went in VD0: the tick row under the band read as debug art */

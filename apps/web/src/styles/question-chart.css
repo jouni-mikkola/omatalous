@@ -67,8 +67,6 @@
 .heat-key-3 { background: var(--heat-3); }
 .heat-key-4 { background: var(--heat-4); }
 
-/* Saldot: the bank mark beside each account, the change chip beside the head's figure */
-.saldot-datum { display: inline-flex; align-items: center; gap: 8px; }
 .qc-cap { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text); font-weight: 600; margin: 0 0 4px; }
 
 /* marks.css sets the head's flex in the utilities layer, so this rule stands in it too to be read after it */
@@ -76,7 +74,6 @@
   @media (max-width: 599px) {
     /* the head's datum names its figure and day, so on a phone it may wrap under the name instead of pushing the page sideways */
     #saldot .card-head.tb > .card-datum { flex: 0 1 auto; min-width: 0; white-space: normal; justify-content: flex-end; text-align: right; }
-    #saldot .saldot-datum { flex-wrap: wrap; justify-content: flex-end; }
   }
 }
 .chart .qc-bad { stroke: var(--bad); }

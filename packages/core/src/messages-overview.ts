@@ -71,6 +71,7 @@ export const FI_OVERVIEW = {
   "home.gap_lead": "Menot ylittivät tulot {sum}.",
   "home.gap_lead_transfers": "Menot ja siirrot ylittivät tulot {sum}.",
   "home.gap_from_savings": "Ero otettiin säästöistä.",
+  "home.gap_cover": "Rahat tulivat {parts}.",
   "home.bridge_savings_left": "Otettu säästöistä",
   "home.bridge_credit_left": "Nostettu luottoa",
   "home.tile_spent_above": "{sum} yli tavallisen tähän päivään",

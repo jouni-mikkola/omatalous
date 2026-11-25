@@ -2,7 +2,7 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
-import { section } from "../src/pages/reports/sections/Months.tsx";
+import { CashflowLead, section } from "../src/pages/reports/sections/Months.tsx";
 import type { ReportContext } from "../src/pages/reports/types.ts";
 import { queryClient } from "../src/query-client.ts";
 import { stubApi } from "./dom-kit.ts";
@@ -79,24 +79,10 @@ describe("Tulot ja menot", () => {
     expect(flat(none.querySelector(".mb-key")?.textContent)).not.toContain("Tavallinen");
   });
 
-  it("says the gap of the complete months and what paid it, naming only the parts above zero", async () => {
+  it("leaves the sentence to the page's lead: the section draws only the bars", async () => {
     const container = await show({ overview: overview({ gap: { gapCents: 123400, creditCents: 50000, savingsCents: 73400, accountsCents: 0 } }) });
-    const text = flat(container.textContent);
-    expect(text).toContain("ylittivät tulot 1 234 €.");
-    expect(text).toContain("Rahat tulivat luotosta 500 € ja säästöistä 734 €.");
-    expect(text).not.toContain("tileiltä");
-  });
-
-  it("says nothing about a gap when the months have none", async () => {
-    const container = await show({ overview: overview() });
     expect(flat(container.textContent)).not.toContain("ylittivät tulot");
-  });
-
-  it("says the gap alone when nothing is known to have paid it", async () => {
-    const container = await show({ overview: overview({ gap: { gapCents: 20000, creditCents: 0, savingsCents: 0, accountsCents: 0 } }) });
-    const text = flat(container.textContent);
-    expect(text).toContain("ylittivät tulot 200 €.");
-    expect(text).not.toContain("Rahat tulivat");
+    expect(container.querySelector(".q-lead")).toBeNull();
   });
 
   it("is nothing with no month", async () => {
@@ -104,5 +90,43 @@ describe("Tulot ja menot", () => {
     stubApi({ "GET /api/dashboard": { overview: overview({ months: [] }) } });
     const view = render(createElement(section.Component, { ctx }));
     await waitFor(() => expect(view.container.innerHTML).toBe(""));
+  });
+});
+
+describe("Tulot ja menot: the sentence the page opens with", () => {
+  async function lead(answer: unknown) {
+    fresh();
+    stubApi({ "GET /api/dashboard": answer });
+    const view = render(createElement(CashflowLead, { ctx }));
+    await waitFor(() => expect(view.container.querySelector(".q-lead")).not.toBeNull());
+    return flat(view.container.querySelector(".q-lead")?.textContent);
+  }
+
+  it("says the gap of the complete months and what paid it, naming only the parts above zero", async () => {
+    const text = await lead({ overview: overview({ gap: { gapCents: 123400, creditCents: 50000, savingsCents: 73400, accountsCents: 0 } }) });
+    expect(text).toContain("ylittivät tulot 1 234 €");
+    expect(text).toContain("rahat tulivat luotosta 500 € ja säästöistä 734 €.");
+    expect(text).not.toContain("tileiltä");
+  });
+
+  it("says the gap alone when nothing is known to have paid it", async () => {
+    const text = await lead({ overview: overview({ gap: { gapCents: 20000, creditCents: 0, savingsCents: 0, accountsCents: 0 } }) });
+    expect(text).toContain("ylittivät tulot 200 €");
+    expect(text).not.toContain("rahat tulivat");
+  });
+
+  it("says the income and the spending of the complete months when they have no gap", async () => {
+    // the ten complete months of MONTHS
+    expect(await lead({ overview: overview() })).toBe("Päättyneinä kuukausina tuloja tuli 40 055 € ja menoihin meni 30 055 €.");
+  });
+
+  it("is nothing when no month is complete", async () => {
+    fresh();
+    const seen = stubApi({ "GET /api/dashboard": { overview: overview({ months: MONTHS.map((m) => ({ ...m, complete: false })) }) } });
+    const view = render(createElement(CashflowLead, { ctx }));
+    await waitFor(() => expect(seen.length).toBe(1));
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+    await new Promise((done) => setTimeout(done, 0));
+    expect(view.container.querySelector(".q-lead")).toBeNull();
   });
 });
