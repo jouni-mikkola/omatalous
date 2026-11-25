@@ -137,9 +137,9 @@ test("the tabs of Raportit share a row with the period switch on a wide screen, 
   await page.goto("/#/reports");
   await expect(tabs).toBeVisible({ timeout: 15_000 });
   await expect(period).toBeVisible();
-  const [tabBox, periodBox] = [await tabs.boundingBox(), await period.boundingBox()];
+  const [tabBox, lastTab, periodBox] = [await tabs.boundingBox(), await tabs.getByRole("link").last().boundingBox(), await period.boundingBox()];
   expect(periodBox!.y, "the period switch is in the row of the tabs").toBeLessThan(tabBox!.y + tabBox!.height);
-  expect(periodBox!.x, "and at its right end, clear of the tabs").toBeGreaterThanOrEqual(tabBox!.x + tabBox!.width);
+  expect(periodBox!.x, "and clear of the last tab").toBeGreaterThanOrEqual(lastTab!.x + lastTab!.width);
 
   await page.setViewportSize({ width: 390, height: 800 });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "the page does not scroll sideways").toBe(true);

@@ -2,10 +2,10 @@ import { expect, test } from "@playwright/test";
 import { join } from "node:path";
 import { watch } from "./helpers.ts";
 
-// The frame of Raportit: one report open at a time beside the list of them all.
+// The frame of Raportit: one report open at a time under the tabs of them all.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
-test("a report in the list opens its page and keeps the period; a phone shows the reports open with targets of 44 px", async ({ browser }) => {
+test("a report in the list opens its page and keeps the period; a phone shows the tabs in one row with targets of 44 px", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   const seen = watch(page);
@@ -16,10 +16,8 @@ test("a report in the list opens its page and keeps the period; a phone shows th
   for (const link of await list.getByRole("link").all()) {
     const box = (await link.boundingBox())!;
     expect(box.height, "a target of 44 px").toBeGreaterThanOrEqual(44);
-    expect(box.x, "inside the page on the left").toBeGreaterThanOrEqual(0);
-    expect(box.x + box.width, "inside the page on the right").toBeLessThanOrEqual(390);
-    expect(box.width, "a report takes the width of the page, one under another").toBeGreaterThan(300);
   }
+  expect(await list.evaluate((el) => getComputedStyle(el).overflowX), "the tabs scroll sideways when they do not fit").toBe("auto");
   await expect(list.getByRole("link", { name: "Tulot ja menot" })).toHaveAttribute("aria-current", "true");
   await list.getByRole("link", { name: "Menot kategorioittain" }).click();
   await expect(page.locator("h2.q-title", { hasText: "Menot kategorioittain" })).toBeVisible();
