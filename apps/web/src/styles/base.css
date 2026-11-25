@@ -242,8 +242,8 @@ a.btn-primary { color: var(--on-fill); }
 .key-figures { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); padding: var(--sp-16) 0 var(--sp-8); border-top: 1px solid var(--border); }
 .kf { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; padding: var(--sp-4) var(--sp-16) var(--sp-8) 0; }
 .kf + .kf { padding-left: var(--sp-16); border-left: 1px solid var(--grid); }
-/* the display size, 3.25 rem, is for one number: the first figure of a page, the answer it was opened for (Yhteenveto's Tulos) */
-.key-figures > .kf:first-child .fig-l, .home-figs > li[data-fig="result"] .fig-l { font-size: var(--fs-display); line-height: var(--lh-display); }
+/* the display size, 3.25 rem, is for one number: the first figure of a page, the answer it was opened for (Yhteenveto's sum left on the payday) */
+.key-figures > .kf:first-child .fig-l, .home-now .fig-l { font-size: var(--fs-display); line-height: var(--lh-display); }
 .kf-label { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); }
 .kf-sub { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); font-variant-numeric: tabular-nums lining-nums; }
 @media (max-width: 640px) {

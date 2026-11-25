@@ -58,9 +58,6 @@ function summaryIn(d: Data, today = TODAY) {
 }
 
 /** The three figures as a reader sees them: label, figure and the lines under it. */
-const fillOf = (container: HTMLElement, id: string) => container.querySelector<HTMLElement>(`[data-fig=${id}] .home-gauge-fill`)!;
-const markOf = (container: HTMLElement, id: string) => container.querySelector<HTMLElement>(`[data-fig=${id}] .home-gauge-mark`);
-const size = (el: HTMLElement) => el.style.getPropertyValue("inline-size");
 const figuresIn = (container: HTMLElement) =>
   [...container.querySelectorAll(".home-figs > li")].map((li) => ({
     id: li.getAttribute("data-fig"),
@@ -122,7 +119,7 @@ describe("Yhteenveto's month", () => {
     const summary = summaryIn(data({ totals, overview } as never));
     expect([...summary.querySelectorAll("[data-fig=result] .home-fig-term")].map((el) => flat(el.textContent))).toEqual(["Otettu säästöistä 150 €"]);
     // the page tells one sum for it: the 150 € under Käteen jäi, and the gap sentence names no second one
-    expect(flat(summary.querySelector("[data-part=gap]")?.textContent)).toBe("Menot ylittivät tulot 142 €. Ero otettiin säästöistä.");
+    expect(flat(summary.querySelector("[data-part=gap]")?.textContent)).toBe("Menot ylittivät tulot 142 €. Ero otettiin säästöistä. Käteen jäi on se, mitä tileille jäi menojen jälkeen, nostetut rahat mukaan lukien.");
     expect(summary.textContent).not.toMatch(/säästöistä 142/);
     // and no share is told: of the income alone the shares of this month add to more than 100 %
     expect([...summary.querySelectorAll(".home-flow-share")].map((el) => flat(el.textContent)).filter((s) => s !== "")).toEqual([]);
@@ -231,38 +228,10 @@ describe("Yhteenveto's month", () => {
     expect(container.querySelector("[data-fig=income]")?.classList.contains("home-short")).toBe(false);
   });
 
-  it("draws Tulot, Menot and Käteen jäi on one scale, the longest sum the bars and their comparisons hold", () => {
+  it("draws no bar under a figure, the comparison is its line", () => {
     const container = summaryIn(data());
-    expect(figuresIn(container).map((f) => size(fillOf(container, f.id!)))).toEqual(["100%", "36.4%", "51.5%"]);
-    // the same day of last month: Tulot 3 800 €, Käteen jäi 1 900 €, on the scale of 4 120 €; Menot has none to draw
-    expect(figuresIn(container).map((f) => markOf(container, f.id!)?.style.getPropertyValue("inset-inline-start") ?? null)).toEqual(["92.2%", null, "46.1%"]);
-  });
-
-  it("the same sum kept and short are not the same bar: a negative Käteen jäi fills from the far end in the problem tone", () => {
-    const kept = summaryIn(data({ totals: totalsOf(190000, 100000, 20000, 0), comparable: false } as never));
-    const short = summaryIn(data({ totals: totalsOf(100000, 150000, 20000, 0), comparable: false } as never));
-    // +700 € and −700 € are the same length; the end they fill from and the tone tell them apart
-    expect(size(fillOf(kept, "result"))).toBe("17%");
-    expect(size(fillOf(short, "result"))).toBe("17%");
-    expect(fillOf(kept, "result").hasAttribute("data-deficit")).toBe(false);
-    expect(fillOf(kept, "result").closest(".home-gauge")?.getAttribute("data-tone")).toBe("income");
-    expect(fillOf(short, "result").hasAttribute("data-deficit")).toBe(true);
-    expect(fillOf(short, "result").closest(".home-gauge")?.getAttribute("data-tone")).toBe("debt");
-  });
-
-  it("draws the comparison of a negative Käteen jäi from the same end, and leaves it out when last month was on the other side of zero", () => {
-    const short = { overview: { income: { cents: 100000, earnedCents: 100000 }, months: [{ month: "2026-11", incomeCents: 100000, spendCents: 170000, fromSavingsCents: 0, complete: false }] }, totals: totalsOf(100000, 150000, 20000, 0) };
-    // last month short by 500 €: both on the scale of Menot's 1 700 €
-    const both = summaryIn(data({ ...short, previousTotals: totalsOf(100000, 130000, 20000, 0) } as never));
-    expect(size(fillOf(both, "result"))).toBe("41.2%");
-    expect(markOf(both, "result")?.style.getPropertyValue("inset-inline-end")).toBe("29.4%");
-    expect(markOf(both, "result")?.style.getPropertyValue("inset-inline-start")).toBe("");
-    // last month kept 1 900 €: a mark of a surplus on a bar of a shortfall is not drawn, its line stays
-    const other = summaryIn(data({ ...short, previousTotals: totalsOf(380000, 140000, 20000, 30000) } as never));
-    expect(markOf(other, "result")).toBeNull();
-    expect(figuresIn(other)[2]!.lines).toEqual(["Viime kuussa samaan päivään 1 900 €"]);
-    // the comparison of Tulot stays
-    expect(markOf(other, "income")).not.toBeNull();
+    expect(container.querySelector(".home-figs [class*=home-gauge], .home-figs .home-band")).toBeNull();
+    expect(figuresIn(container)[2]!.lines).toEqual(["Viime kuussa samaan päivään 1 900 €"]);
   });
 
   it("tells where the income went as the bridge of Raportit does: each part with its sum", () => {
@@ -386,17 +355,24 @@ describe("Yhteenveto's sum left to the payday", () => {
     it("is the sum left on the payday after the everyday spending, with the payday and no sum a day", () => {
       const el = withRunway(runway());
       expect(el.getAttribute("href")).toBe("#/bills#laskut-taulukko");
-      expect(el.querySelector(".home-fig-label")?.textContent).toBe("Jää palkkapäivänä");
+      expect(el.querySelector(".home-fig-label")?.textContent).toBe("Jää palkkapäivänä 25.11.");
       expect(flat(el.querySelector(".fig")?.textContent)).toBe("2 711 €");
-      expect(flat(el.querySelector(".home-fig-line")?.textContent)).toBe("palkkapäivä 25.11.");
+      expect(el.querySelector(".home-fig-line")).toBeNull();
       expect(el.classList.contains("home-short")).toBe(false);
+    });
+
+    it("shows the parts of the sum beside it, a part that is 0 left out", () => {
+      const d = data();
+      const section = render(createElement(Now, { data: { ...d, nyt: nytOf(true), home: { ...d.home, runway: { leftOnPayday: runway({ everydayCents: 100000, billedCents: 0 }), sum: { balanceCents: 500000, paymentsCents: 150000, cardDebtCents: 0, freeCents: 350000 } } } } as never })).container;
+      const rows = [...section.querySelectorAll(".home-ledger > div")].map((r) => [r.getAttribute("data-row"), flat(r.querySelector("dd")?.textContent)]);
+      expect(rows).toEqual([["balance", "5 000 €"], ["payments", "−1 500 €"], ["everyday", "−1 000 €"]]);
     });
 
     it("below zero is the problem colour and says no more than the figure", () => {
       const el = withRunway(runway({ leftCents: -213761 }));
       expect(el.classList.contains("home-short")).toBe(true);
       expect(flat(el.querySelector(".fig")?.textContent)).toBe("−2 138 €");
-      expect(flat(el.querySelector(".home-fig-line")?.textContent)).toBe("palkkapäivä 25.11.");
+      expect(el.querySelector(".home-fig-line")).toBeNull();
     });
 
     it("on the payday says so", () => {

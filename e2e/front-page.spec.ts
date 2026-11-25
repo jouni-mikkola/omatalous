@@ -68,7 +68,7 @@ for (const width of [390, 1440] as const) {
       if (lowPoint.known) {
         expect(cents(text.split("arviolta ")[1]!), "the lowest balance").toBe(whole(lowPoint.cents));
         const [, month, day] = lowPoint.date.split("-").map(Number);
-        expect(text).toContain(`Alin saldo ${lowPoint.days} pv: ${day}.${month}.,`);
+        expect(text).toContain(`Saldo on alimmillaan ${day}.${month}.,`);
       } else {
         expect(text).toMatch(new RegExp(`^Alin saldo ${lowPoint.days} pv: \\D+$`));
       }

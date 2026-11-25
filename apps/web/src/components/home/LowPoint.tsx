@@ -32,8 +32,8 @@ function linkOf({ reason, cardRowOpen }: Extract<Low, { known: false }>): string
 }
 
 /**
- * The line under the sum left on the payday: "Alin saldo 60 pv: 13.12., arviolta 120 €", core's `lowPoint` (the day
- * and the sum of the lowest balance, whose range stays in the answer). While core has no figure it gives the reason and the line says it. Nothing is
+ * The consequence line under the sum left on the payday: "Saldo on alimmillaan 13.12., arviolta −120 €", core's `lowPoint` (the day
+ * and the sum of the lowest balance, whose range stays in the answer), the sum in the problem colour below zero. While core has no figure it gives the reason and the line says it. Nothing is
  * added up or guessed here.
  */
 export function LowPoint({ lowPoint }: { lowPoint: DashboardData["home"]["lowPoint"] }) {
@@ -51,7 +51,8 @@ export function LowPoint({ lowPoint }: { lowPoint: DashboardData["home"]["lowPoi
   }
   return (
     <p className="home-low" data-low="known">
-      {t("home.low", { days: String(lowPoint.days), date: dayMonth(lowPoint.date), sum: answerMoney(lowPoint.cents) })}
+      {t("home.low_known", { date: dayMonth(lowPoint.date) })}{" "}
+      <strong className="home-low-sum" data-short={lowPoint.cents < 0 || undefined}>{answerMoney(lowPoint.cents)}</strong>
     </p>
   );
 }

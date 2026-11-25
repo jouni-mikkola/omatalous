@@ -18,8 +18,8 @@ const lineOf = (lowPoint: Low) => flat(render(createElement(LowPoint, { lowPoint
 
 describe("LowPoint", () => {
   it("says the day and the sum of the lowest balance, the range stays in the answer", () => {
-    expect(lineOf(known())).toBe("Alin saldo 60 pv: 13.12., arviolta 300 €");
-    expect(lineOf(known({ cents: -30_000, lowCents: -48_000, highCents: -12_000 }))).toBe("Alin saldo 60 pv: 13.12., arviolta −300 €");
+    expect(lineOf(known())).toBe("Saldo on alimmillaan 13.12., arviolta 300 €");
+    expect(lineOf(known({ cents: -30_000, lowCents: -48_000, highCents: -12_000 }))).toBe("Saldo on alimmillaan 13.12., arviolta −300 €");
   });
 
   it.each([
@@ -79,7 +79,7 @@ describe("Now", () => {
   it("stands the line under the sum left on the payday, outside its link", () => {
     const section = nowOf(known());
     const line = section.querySelector("p.home-low")!;
-    expect(flat(line.textContent)).toBe("Alin saldo 60 pv: 13.12., arviolta 300 €");
+    expect(flat(line.textContent)).toBe("Saldo on alimmillaan 13.12., arviolta 300 €");
     expect(line.previousElementSibling?.matches('a[data-tile="left"]')).toBe(true);
     expect(line.closest("a")).toBeNull();
   });

@@ -5,7 +5,6 @@ import { answerMoney, completeMonths, dateRange, language, monthLong, percent } 
 import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
-import { percentBetween, percentOf } from "./shared.ts";
 
 type Data = DashboardData & { nyt: NonNullable<DashboardData["nyt"]> };
 type Tone = "income" | "spending" | "kept" | "debt" | "neutral";
@@ -42,42 +41,10 @@ function spentLine(data: Data, today: string): string | null {
   return null;
 }
 
-/**
- * A figure's bar: its length against the scale all three figures share, and the comparison as a mark or a band. A figure
- * below zero fills from the far end of the bar, so a shortfall never looks like the same sum kept.
- */
-interface Gauge {
-  cents: number;
-  scaleCents: number;
-  tone: Tone;
-  /** The same figure a month before to the same day, or the usual level's band, on the bar's scale. */
-  markCents: number | null;
-  band: { lowCents: number; highCents: number } | null;
-}
-
-function Bar({ gauge }: { gauge: Gauge }) {
-  const { cents, scaleCents, tone, markCents, band } = gauge;
-  const deficit = cents < 0;
-  return (
-    <span className="home-gauge" data-tone={tone} aria-hidden="true">
-      <span className="home-gauge-fill" data-deficit={deficit || undefined} ref={css({ "inline-size": percentOf(Math.abs(cents), scaleCents) })} />
-      {band && <span className="home-band" ref={css({ "inset-inline-start": percentOf(band.lowCents, scaleCents), "inline-size": percentBetween(band.lowCents, band.highCents, scaleCents) })} />}
-      {markCents !== null && <span className="home-gauge-mark" data-deficit={deficit || undefined} ref={css({ [deficit ? "inset-inline-end" : "inset-inline-start"]: percentOf(Math.abs(markCents), scaleCents) })} />}
-    </span>
-  );
-}
-
-/** The longest of the sums the bars draw, with their comparisons: one scale for Tulot, Menot and Tulos. */
-const scaleOf = (...cents: (number | null)[]) => Math.max(1, ...cents.map((c) => Math.abs(c ?? 0)));
-
-/** The comparison of a figure, or null when it is on the other side of zero: a mark of a shortfall on a bar of a surplus says nothing. */
-const sameSign = (cents: number, comparison: number | null) => (comparison !== null && (cents < 0) === (comparison < 0) ? comparison : null);
-
 interface Item {
   id: "income" | "spent" | "result";
   label: string;
   cents: number;
-  gauge: Gauge;
   line: string | null;
   /** A second line under the first: the part of the income that is earned. */
   extra?: string;
@@ -106,7 +73,7 @@ function shownTerms(totals: Data["totals"]): { saved: number; credit: number } {
 }
 
 function itemsOf(data: Data, today: string): Item[] {
-  const { totals, previousTotals, comparable, overview, home } = data;
+  const { totals, previousTotals, comparable, overview } = data;
   // the figures are the ones the chart of the months draws (Tulot, Menot of the running month), so the page tells one sum for each
   const incomeCents = overview.income.cents;
   const spentCents = overview.months.at(-1)?.spendCents ?? data.nyt.pace.spentCents;
@@ -115,17 +82,12 @@ function itemsOf(data: Data, today: string): Item[] {
   const previousLine = (cents: number | null) => (cents === null ? null : t(previousWords(data, today), { sum: answerMoney(cents) }));
   const previousIncome = sameDay(previousTotals.incomeCents);
   const previousResult = sameDay(previousTotals.leftCents);
-  const pace = home.pace;
-  const previousSpent = data.pace.previous?.toToday ?? null;
-  const spentMark = pace ? null : previousSpent;
   const earned = overview.income.earnedCents;
-  const scaleCents = scaleOf(incomeCents, spentCents, totals.leftCents, previousIncome, previousResult, spentMark, pace?.highCents ?? null);
   return [
     {
       id: "income",
       label: t("home.fig_income"),
       cents: incomeCents,
-      gauge: { cents: incomeCents, scaleCents, tone: "income", markCents: previousIncome, band: null },
       line: previousLine(previousIncome),
       extra: earned !== overview.income.cents ? t("home.tile_income_earned", { sum: answerMoney(earned) }) : undefined,
     },
@@ -133,20 +95,12 @@ function itemsOf(data: Data, today: string): Item[] {
       id: "spent",
       label: t("home.fig_spent"),
       cents: spentCents,
-      gauge: {
-        cents: spentCents,
-        scaleCents,
-        tone: "spending",
-        markCents: spentMark,
-        band: pace ? { lowCents: pace.lowCents, highCents: pace.highCents } : null,
-      },
       line: spentLine(data, today),
     },
     {
       id: "result",
       label: t("home.fig_result"),
       cents: totals.leftCents,
-      gauge: { cents: totals.leftCents, scaleCents, tone: totals.leftCents < 0 ? "debt" : "income", markCents: sameSign(totals.leftCents, previousResult), band: null },
       line: previousLine(previousResult),
       terms: termsOf(totals),
     },
@@ -174,9 +128,11 @@ function gapSentence(view: BridgeView, shown: { saved: number; credit: number })
     cover.accountsCents >= 50 ? t("rpt.gap_accounts", { sum: answerMoney(cover.accountsCents) }) : null,
   ].filter((p): p is string => p !== null);
   // money moved to savings or credit paid back is no spending: the lead then says transfers too
+  // Käteen jäi counts the money drawn as well, so beside a gap it is told what it is, not left to read against the gap
+  const left = t("home.gap_left");
   const lead = t(view.totals.savedCents > 0 || cover.creditRepaidCents > 0 ? "home.gap_lead_transfers" : "home.gap_lead", { sum: answerMoney(cover.gapCents) });
-  if (savingsOnly) return `${lead} ${t("home.gap_from_savings")}`;
-  return parts.length === 0 ? lead : `${lead} ${t("home.gap_cover", { parts: new Intl.ListFormat(localeOf(language()), { type: "conjunction" }).format(parts) })}`;
+  if (savingsOnly) return `${lead} ${t("home.gap_from_savings")} ${left}`;
+  return parts.length === 0 ? `${lead} ${left}` : `${lead} ${t("home.gap_cover", { parts: new Intl.ListFormat(localeOf(language()), { type: "conjunction" }).format(parts) })}`;
 }
 
 const FLOW_TONE: Record<string, Tone> = { income: "income", consumption: "spending", interest: "debt", debt: "debt", principal: "debt", subtotal: "neutral", saved: "kept", repaid: "neutral", left: "income", credit: "neutral", savings: "neutral", accounts: "neutral" };
@@ -270,8 +226,7 @@ export function Summary({ data, today }: { data: Data; today: string }) {
         {items.map((item) => (
           <li key={item.id} data-fig={item.id} className={item.id === "result" && item.cents < 0 ? "home-short" : undefined}>
             <span className="home-fig-label">{item.label}</span>
-            <Figure text={answerMoney(item.cents)} size={item.id === "result" ? "l" : "m"} />
-            <Bar gauge={item.gauge} />
+            <Figure text={answerMoney(item.cents)} size="m" />
             {item.terms?.map((term) => <span key={term} className="home-fig-term">{term}</span>)}
             {item.line && <span className="home-fig-line">{item.line}</span>}
             {item.extra && <span className="home-fig-line">{item.extra}</span>}

@@ -19,7 +19,6 @@ export function HomeSkeleton() {
             <li key={id} data-fig={id}>
               <span className="sk-bar" />
               <span className="sk-bar sk-fig" />
-              <span className="home-gauge" />
               <span className="sk-bar" />
             </li>
           ))}
