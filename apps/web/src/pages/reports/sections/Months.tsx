@@ -4,13 +4,17 @@ import { query } from "../../../api.ts";
 import { MonthBars } from "../../../charts/MonthBars.tsx";
 import { Empty } from "../../../components/ui/Empty.tsx";
 import { Notice } from "../../../components/ui/Notice.tsx";
-import { answerMoney, language } from "../../../format.ts";
+import { answerMoney, language, monthLong } from "../../../format.ts";
 import { useApi } from "../../../hooks.ts";
 import { periodRange } from "../../../period.ts";
 import { t } from "../../../text.ts";
 import type { DashboardData } from "../../../types.ts";
 import type { ReactNode } from "react";
-import { Lead } from "../Lead.tsx";
+import { ReportPanel } from "../../../charts/forms/parts.tsx";
+import { ChartWithTable } from "../../../components/table/selection.tsx";
+import { type Column, Table } from "../../../components/table/Table.tsx";
+import { monthName } from "../month-name.ts";
+import { Lead, Strip, type StripItem } from "../Lead.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
 /** The gap of the complete months and what paid it, in one sentence: the paying parts above zero, in the order credit, savings, accounts and cards. */
@@ -30,27 +34,38 @@ function useCashflow(ctx: SectionProps["ctx"]) {
 }
 
 /**
- * What the complete months came to: the gap and what paid it when they took more than they earned, else the income and
- * the spending of those months, as the bars show them. Nothing without a complete month.
+ * What the complete months came to: a sentence, the gap and what paid it when they took more than they earned, else that
+ * the income covered them, and under it the strip of their income, their spending and the usual month. Each figure is
+ * said once: the sentence names only the gap. Nothing without a complete month.
  */
 export function CashflowLead({ ctx }: SectionProps) {
   const { data } = useCashflow(ctx);
   if (!data) return null;
   const { overview } = data;
-  const { gap, months } = overview;
-  if (gap) return <Lead>{gapText(gap)}</Lead>;
-  const complete = months.filter((m) => m.complete && m.incomeCents !== null && m.spendCents !== null);
-  if (complete.length === 0) return null;
-  const sum = (cents: (m: (typeof complete)[number]) => number | null) => complete.reduce((total, m) => total + (cents(m) ?? 0), 0);
-  return <Lead>{t("rpt.lead_flows", { income: answerMoney(sum((m) => m.incomeCents)), spent: answerMoney(sum((m) => m.spendCents)) })}</Lead>;
+  const { completeTotals: complete, gap, usualSpendCents } = overview;
+  if (complete === null) return gap ? <Lead>{gapText(gap)}</Lead> : null;
+  const count = String(complete.months);
+  const { peak } = complete;
+  const items: StripItem[] = [
+    { label: t("rpt.strip_income", { months: count }), figure: answerMoney(complete.incomeCents), note: t("rpt.strip_income_average", { sum: answerMoney(complete.averageIncomeCents) }) },
+    { label: t("rpt.strip_spent", { months: count }), figure: answerMoney(complete.spendCents), note: peak ? t("rpt.strip_spent_peak", { month: monthLong(peak.month), sum: answerMoney(peak.spendCents) }) : undefined },
+    ...(usualSpendCents === null ? [] : [{ label: t("rpt.strip_usual"), figure: answerMoney(usualSpendCents), note: t("rpt.strip_usual_note", { months: String(overview.usualMonths) }) }]),
+  ];
+  return (
+    <>
+      <Lead>{gap ? gapText(gap) : t("rpt.lead_flows")}</Lead>
+      <Strip items={items} />
+    </>
+  );
 }
 
-/** The page is named for this section, so the card keeps the name for a reader of the page's regions and draws no second heading. */
+type Month = DashboardData["overview"]["months"][number];
+
 function Panel({ children }: { children: ReactNode }) {
   return (
-    <section className="card" id={section.id} aria-label={section.title}>
+    <ReportPanel id={section.id} title={section.title}>
       {children}
-    </section>
+    </ReportPanel>
   );
 }
 
@@ -66,9 +81,19 @@ function Months({ ctx }: SectionProps) {
   if (error && !dashboard) return <Notice tone="error">{error}</Notice>;
   if (!dashboard) return <Panel><Empty>{t("rpt.loading")}</Empty></Panel>;
   if (dashboard.overview.months.length === 0) return null;
+  const columns: Column<Month>[] = [
+    { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName({ ...m, unknown: m.incomeCents === null && m.spendCents === null }, ctx.running) },
+    { key: "income", label: t("home.months_income"), kind: "money", precision: "euros", cents: (m) => m.incomeCents },
+    { key: "spend", label: t("home.fig_spent"), kind: "money", main: true, precision: "euros", cents: (m) => m.spendCents },
+  ];
   return (
     <Panel>
-      <MonthBars overview={dashboard.overview} today={ctx.meta.today} />
+      <ChartWithTable
+        title={t("table.folded_months")}
+        rows={dashboard.overview.months.length}
+        chart={<MonthBars overview={dashboard.overview} today={ctx.meta.today} />}
+        table={<Table<Month> caption={t("rpt.sec_cashflow")} rows={dashboard.overview.months} rowKey={(m) => m.month} columns={columns} search={false} />}
+      />
     </Panel>
   );
 }
@@ -80,7 +105,8 @@ export const section: ReportSection = {
   },
   order: 10,
   page: "reports",
-  reports: [],
+  // the sentence above reads the average month of the income report (CashflowLead)
+  reports: ["income"],
   visible: (ctx) => ctx.meta.accounts.length > 0,
   open: true,
   Component: Months,

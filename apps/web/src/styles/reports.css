@@ -18,8 +18,21 @@
 .q-head { display: grid; gap: var(--sp-12); }
 .q-title { margin: 0; font-size: var(--fs-h2); line-height: var(--lh-h2); }
 /* the one large sentence a report page leads with (pages/reports/Lead.tsx) */
-.q-lead { margin: 0; max-width: 34ch; font-size: var(--fs-fig-l); line-height: var(--lh-fig-l); font-weight: var(--w-strong); text-wrap: balance; }
-@media (max-width: 640px) { .q-lead { font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); } }
+.q-lead { margin: 0; max-width: 44ch; font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); font-weight: var(--w-regular); text-wrap: balance; }
+/* the figure strip under a lead (Strip of pages/reports/Lead.tsx): columns of one subgrid so each item's label, figure and note stand on one line across the strip, even when a label wraps */
+.strip { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: var(--sp-4); }
+.strip[data-count="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.strip-item { display: grid; grid-row: span 3; grid-template-rows: subgrid; padding-inline: var(--sp-24); border-inline-start: var(--hairline) solid var(--grid); }
+.strip-item:first-child { padding-inline-start: 0; border-inline-start: 0; }
+.strip-label, .strip-note { color: var(--text-2); }
+@media (max-width: 640px) {
+  .strip { display: block; }
+  .strip-item { grid-row: auto; grid-template-rows: none; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; padding: var(--sp-12) 0; border-inline-start: 0; border-top: var(--hairline) solid var(--grid); }
+  .strip-item:first-child { padding-top: 0; border-top: 0; }
+  .strip-item > .fig { grid-column: 2; grid-row: 1; font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); }
+  .strip-label { grid-column: 1; grid-row: 1; }
+  .strip-note { grid-column: 1 / -1; }
+}
 .verdict { display: grid; gap: var(--sp-8); }
 .verdict p { margin: 0; }
 .verdict-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-4) var(--sp-12); }

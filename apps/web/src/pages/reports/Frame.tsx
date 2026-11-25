@@ -31,7 +31,7 @@ function QuestionList({ pages, current, params }: { pages: readonly Listed[]; cu
   );
 }
 
-/** The frame of every report page: the tabs of the reports with the period switch (when the report has one), and the open report under them, its name as the heading and its lead sentence under it. */
+/** The frame of every report page: the tabs of the reports with the period switch (when the report has one), and the open report under them, its name as a heading for screen readers only (the open tab shows it) and its lead sentence under it. */
 export function Frame({ current, title, lead, pages, params, period, children }: { current: QuestionId; title: string; lead?: ReactNode; pages: readonly Listed[]; params: URLSearchParams; period?: ReactNode; children: ReactNode }) {
   return (
     <div className="q-frame">
@@ -40,9 +40,7 @@ export function Frame({ current, title, lead, pages, params, period, children }:
         {period}
       </div>
       <div className="q-page stack">
-        <header className="q-head">
-          <h2 className="q-title">{title}</h2>
-        </header>
+        <h2 className="q-title sr-only">{title}</h2>
         {lead}
         {children}
       </div>

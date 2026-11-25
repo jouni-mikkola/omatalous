@@ -1153,6 +1153,16 @@
   ],
   "usualSpendCents": 332798,
   "usualMonths": 11,
+  "completeTotals": {
+   "months": 11,
+   "incomeCents": 4062300,
+   "averageIncomeCents": 369300,
+   "spendCents": 3660773,
+   "peak": {
+    "month": "2026-04",
+    "spendCents": 407585
+   }
+  },
   "categories": {
    "rows": [
     {

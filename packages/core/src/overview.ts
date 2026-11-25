@@ -52,6 +52,18 @@ interface OverviewGap {
   accountsCents: number;
 }
 
+/** The complete months of `months` that have both sums, added up: the strip of Tulot ja menot says them once. */
+interface OverviewCompleteTotals {
+  /** How many months the sums cover. */
+  months: number;
+  incomeCents: number;
+  /** `incomeCents` over `months`, in whole cents: the average the strip names beside the total, over the same months. */
+  averageIncomeCents: number;
+  spendCents: number;
+  /** The month of the largest spending among them; null under two months, where it would name the only one. */
+  peak: { month: string; spendCents: number } | null;
+}
+
 export interface Overview {
   /**
    * The running month's income so far (`monthIncome`, the month's Tulot of the income report) and the earned part of it
@@ -65,6 +77,8 @@ export interface Overview {
   usualSpendCents: number | null;
   /** How many complete months `usualSpendCents` is the mean of, which the chart's key names. */
   usualMonths: number;
+  /** The complete months' income and spending added up and the dearest of them; null without a complete month that has both sums. */
+  completeTotals: OverviewCompleteTotals | null;
   /** The gap the complete months of `months` left between their income and what they took; absent when they took no more than the income or none is complete. */
   gap?: OverviewGap;
   /**
@@ -74,6 +88,21 @@ export interface Overview {
    * `rows` and `otherCents` add up to `totalCents` and `fromSavingsCents` together.
    */
   categories: { rows: OverviewCategory[]; otherCents: number; otherCount: number; totalCents: number; fromSavingsCents: number; usualMonths: number };
+}
+
+function completeTotalsOf(months: readonly OverviewMonth[]): OverviewCompleteTotals | null {
+  const whole = months.flatMap((m) => (m.complete && m.incomeCents !== null && m.spendCents !== null ? [{ month: m.month, incomeCents: m.incomeCents, spendCents: m.spendCents }] : []));
+  if (whole.length === 0) return null;
+  // the first of equal months stands
+  const dearest = whole.reduce((a, m) => (m.spendCents > a.spendCents ? m : a));
+  const incomeCents = whole.reduce((sum, m) => sum + m.incomeCents, 0);
+  return {
+    months: whole.length,
+    incomeCents,
+    averageIncomeCents: Math.round(incomeCents / whole.length),
+    spendCents: whole.reduce((sum, m) => sum + m.spendCents, 0),
+    peak: whole.length > 1 ? { month: dearest.month, spendCents: dearest.spendCents } : null,
+  };
 }
 
 export function buildOverview(ctx: AnalysisContext, lang: Language = DEFAULT_LANGUAGE): Overview {
@@ -94,11 +123,13 @@ export function buildOverview(ctx: AnalysisContext, lang: Language = DEFAULT_LAN
   const completeIndexes = new Set(complete.map(monthIndex));
   const completeFlows = complete.length === 0 ? [] : inDays(ctx, toDayRange({ from: `${complete[0]}-01`, to: monthEnd(complete.at(-1)!) })).filter((x) => completeIndexes.has(x.month)).map((x) => x.flows);
   const cover = coverOf(totalsOf(completeFlows));
+  const months: OverviewMonth[] = spending.months.map((m, i) => ({ month: m, incomeCents: known[i] ? monthIncome(ctx, m) : null, spendCents: spent[i] ?? null, fromSavingsCents: spending.fromSavings[i] ?? null, complete: spending.complete[i]!, againstUsual: spending.complete[i] ? againstUsual(spent[i] ?? null, spending.typicalFlowCents) : null }));
   return {
     income: { cents: monthIncome(ctx, month), earnedCents: earnedIncome(ctx, month) },
-    months: spending.months.map((m, i) => ({ month: m, incomeCents: known[i] ? monthIncome(ctx, m) : null, spendCents: spent[i] ?? null, fromSavingsCents: spending.fromSavings[i] ?? null, complete: spending.complete[i]!, againstUsual: spending.complete[i] ? againstUsual(spent[i] ?? null, spending.typicalFlowCents) : null })),
+    months,
     usualSpendCents: spending.typicalFlowCents,
     usualMonths: spending.typicalMonths,
+    completeTotals: completeTotalsOf(months),
     gap: cover.gapCents > 0 ? { gapCents: cover.gapCents, creditCents: cover.creditCents, savingsCents: cover.savingsCents, accountsCents: cover.accountsCents } : undefined,
     categories: {
       rows: top,
