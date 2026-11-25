@@ -4,8 +4,10 @@
  * A chart and the table under it share one selection. The chart sends the key of the mark that was clicked or opened
  * with Enter (`useSelect`); the table of the same scope keeps only the rows whose `rowKey` is that key and says so above
  * itself with a way back (`useRowFilter`). A chart outside a scope sends nothing, a key no row has filters nothing.
+ * The table is folded under the chart; a pick opens it on the picked row (ADR 0023).
  */
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from "react";
+import { plural } from "../../format.ts";
 import { t } from "../../text.ts";
 import { IconButton } from "../ui/IconButton.tsx";
 
@@ -19,15 +21,30 @@ const PickContext = createContext<Pick | null>(null);
 /** Only the table of the scope reads this one, so a table drawn as the chart is not cut by its own pick. */
 const FilterContext = createContext<Pick | null>(null);
 
-/** The chart and its table side by side in the page: the chart above, the table below, one selection between them. */
-export function ChartWithTable({ chart, table }: { chart: ReactNode | ((pick: Pick) => ReactNode); table?: ReactNode }) {
+/**
+ * The chart above and its table folded under it, one selection between them. `title` names the fold (default "Taulukkona"),
+ * `rows` adds the row count. A pick opens the fold; Escape lets go of the pick and leaves it as it is.
+ */
+export function ChartWithTable({ chart, table, title, rows }: { chart: ReactNode | ((pick: Pick) => ReactNode); table?: ReactNode; title?: string; rows?: number }) {
   const [selected, setSelected] = useState<string | null>(null);
-  const select = useCallback((key: string | null) => setSelected((now) => (key === null || key === now ? null : key)), []);
+  const [open, setOpen] = useState(false);
+  const select = useCallback((key: string | null) => {
+    setSelected((now) => (key === null || key === now ? null : key));
+    if (key !== null) setOpen(true);
+  }, []);
   const pick = useMemo(() => ({ selected, select }), [selected, select]);
   return (
     <PickContext.Provider value={pick}>
       {typeof chart === "function" ? chart(pick) : chart}
-      {table && <FilterContext.Provider value={pick}>{table}</FilterContext.Provider>}
+      {table && (
+        <details className="chart-fold" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
+          <summary>
+            <span className="chart-fold-title">{title ?? t("table.folded")}</span>
+            {rows !== undefined && <span className="chart-fold-count">{plural(rows, t("table.rows_one"), t("table.rows_many"))}</span>}
+          </summary>
+          <FilterContext.Provider value={pick}>{table}</FilterContext.Provider>
+        </details>
+      )}
     </PickContext.Provider>
   );
 }

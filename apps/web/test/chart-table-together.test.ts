@@ -1,4 +1,4 @@
-/** A chart and its table are one part: no switch between them, the table stands under the chart and a pick filters it (ADR 0018). */
+/** A chart and its table are one part: no switch between them, the table is folded under the chart and a pick opens it on its row (ADR 0023). */
 import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -14,10 +14,13 @@ describe("chart and table together", () => {
     expect(parts).not.toContain("TableToggle");
     expect(parts).toContain("<ChartWithTable");
   });
-  it("draws the chart first and the table under it, both in sight", () => {
+  it("draws the chart first and the table under it, folded and closed with its title and row count", () => {
     const rows = [{ k: "a", n: "Ensimmäinen" }, { k: "b", n: "Toinen" }];
     const table = createElement(Table<(typeof rows)[number]>, { caption: "Rivit", rows, rowKey: (r) => r.k, columns: [{ key: "n", label: "Nimi", kind: "text", rowHead: true, cell: (r) => r.n }] });
-    const out = renderToStaticMarkup(createElement(ChartWithTable, { chart: createElement("svg", { id: "kaavio" }), table }));
+    const out = renderToStaticMarkup(createElement(ChartWithTable, { chart: createElement("svg", { id: "kaavio" }), table, title: "Kuukaudet taulukkona", rows: 2 }));
+    expect(out).toContain('<details class="chart-fold">');
+    expect(out).toContain("Kuukaudet taulukkona");
+    expect(out).toContain("2 riviä");
     expect(out.indexOf('id="kaavio"')).toBeGreaterThanOrEqual(0);
     expect(out.indexOf("<table")).toBeGreaterThan(out.indexOf('id="kaavio"'));
     expect(out).toContain("Ensimmäinen");

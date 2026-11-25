@@ -202,6 +202,12 @@ export async function openBillFolds(table: Locator): Promise<void> {
   while ((await closed.count()) > 0) await closed.first().click();
 }
 
+/** Opens the tables folded under charts (ChartWithTable) inside `scope`. */
+export async function openChartFolds(scope: Locator | Page): Promise<void> {
+  const closed = scope.locator("details.chart-fold:not([open]) > summary");
+  while ((await closed.count()) > 0) await closed.first().click();
+}
+
 /** Menot kategorioittain folds its sections under their names: opens the ones with these ids that the page has. */
 export async function unfold(page: Page, ...ids: string[]): Promise<void> {
   // the categories are always there: once they show, the page has loaded and a section that is not there is not coming

@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
-import { overflow, watch } from "./helpers.ts";
+import { openChartFolds, overflow, watch } from "./helpers.ts";
 
 // The month tables of Saldot have no search box (one row per month). The forecast chart left with the extra report
 // sections (6fbd30df7), so its legend is not checked any more.
@@ -15,6 +15,7 @@ for (const width of [1440, 390]) {
       await page.goto("/#/reports?q=saldot");
       const balances = page.locator("figure:has(#saldot-kaavio-q)");
       await expect(balances).toBeVisible();
+      await openChartFolds(balances);
       await expect(balances.locator("table.rt tbody tr").first()).toBeVisible();
       expect(await balances.locator("table.rt tbody tr").count(), "long enough to have had a search box").toBeGreaterThan(10);
       await expect(balances.getByRole("searchbox")).toHaveCount(0);

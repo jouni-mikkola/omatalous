@@ -218,11 +218,12 @@ describe("Raportit: the months chart and the table under it", () => {
         table: createElement(Table<(typeof rows)[number]>, { caption: "Kuukaudet", rows, rowKey: (r) => r.month, columns: [{ key: "month", label: "Kuukausi", kind: "text", rowHead: true, cell: (r) => r.month }], search: false, toolbar: false, csv: false }),
       }),
     );
-  const bodyRows = () => within(screen.getByRole("table", { name: "Kuukaudet" })).getAllByRole("row").slice(1);
+  const bodyRows = () => within(screen.getByRole("table", { name: "Kuukaudet", hidden: true })).getAllByRole("row", { hidden: true }).slice(1);
 
   it("an arrow key steps to another month and Enter keeps that month's row alone", () => {
     withTable();
     expect(bodyRows()).toHaveLength(3);
+    expect(document.querySelector<HTMLDetailsElement>("details.chart-fold")!.open).toBe(false);
     const chart = screen.getByRole("group", { name: /Tulot kuukausittain/ });
     fireEvent.focus(chart);
     fireEvent.keyDown(chart, { key: "ArrowLeft" });
@@ -230,6 +231,8 @@ describe("Raportit: the months chart and the table under it", () => {
     const kept = bodyRows();
     expect(kept).toHaveLength(1);
     expect(kept[0]!.textContent).toContain("2026-09");
+    // the pick opened the fold the table stands in
+    expect(document.querySelector<HTMLDetailsElement>("details.chart-fold")!.open).toBe(true);
     // the kept row is a chip with its name and a way back, and no sentence
     const chip = document.querySelector(".rt-filter .chip")!;
     expect(chip.textContent).toContain("2026-09");
@@ -256,7 +259,7 @@ describe("Raportit: the months chart and the table under it", () => {
         }),
       }),
     );
-    const table = screen.getByRole("table", { name: "Kuukaudet" });
+    const table = screen.getByRole("table", { name: "Kuukaudet", hidden: true });
     expect(within(table).getByText("3,00 €")).toBeTruthy();
     const chart = screen.getByRole("group", { name: /Tulot kuukausittain/ });
     fireEvent.focus(chart);
