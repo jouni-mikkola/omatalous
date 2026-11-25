@@ -384,7 +384,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
       />
       {filters.merchant && <MerchantSummary merchant={filters.merchant} scope={scope} refresh={edits} alone={Object.entries(filters).every(([k, v]) => k === "merchant" || !v)} categoryLabel={categoryLabel} />}
       {/* the month's own lead is of the list as it opens: a search or a limit asks about other rows */}
-      {!filters.q && !filters.chip && !filters.category && !filters.kind && !filters.accountId && !filters.merchant && <MonthLead scope={scope} today={meta.today} onPick={(merchant) => set({ merchant })} />}
+      {!filters.q && !filters.chip && !filters.category && !filters.kind && !filters.accountId && !filters.merchant && <MonthLead scope={scope} today={meta.today} />}
       {!data && !error && !filters.chip && <StripSkeleton />}
       {/* a mark narrows the rows in the browser, so the server's sums would be of rows the list does not show */}
       {data && data.total > 0 && !filters.chip && (
