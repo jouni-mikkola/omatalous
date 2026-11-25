@@ -4,13 +4,14 @@ import { query } from "../../../api.ts";
 import { MonthBars } from "../../../charts/MonthBars.tsx";
 import { Empty } from "../../../components/ui/Empty.tsx";
 import { Notice } from "../../../components/ui/Notice.tsx";
-import { answerMoney, language } from "../../../format.ts";
+import { answerMoney, language, monthLong } from "../../../format.ts";
 import { useApi } from "../../../hooks.ts";
 import { periodRange } from "../../../period.ts";
 import { t } from "../../../text.ts";
 import type { DashboardData } from "../../../types.ts";
 import type { ReactNode } from "react";
-import { Lead } from "../Lead.tsx";
+import { ReportPanel } from "../../../charts/forms/parts.tsx";
+import { Lead, Strip, type StripItem } from "../Lead.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
 /** The gap of the complete months and what paid it, in one sentence: the paying parts above zero, in the order credit, savings, accounts and cards. */
@@ -30,27 +31,39 @@ function useCashflow(ctx: SectionProps["ctx"]) {
 }
 
 /**
- * What the complete months came to: the gap and what paid it when they took more than they earned, else the income and
- * the spending of those months, as the bars show them. Nothing without a complete month.
+ * What the complete months came to: a sentence, the gap and what paid it when they took more than they earned, else that
+ * the income covered them, and under it the strip of their income, their spending and the usual month. Each figure is
+ * said once: the sentence names only the gap. Nothing without a complete month.
  */
 export function CashflowLead({ ctx }: SectionProps) {
   const { data } = useCashflow(ctx);
   if (!data) return null;
   const { overview } = data;
-  const { gap, months } = overview;
-  if (gap) return <Lead>{gapText(gap)}</Lead>;
+  const { gap, months, usualSpendCents } = overview;
   const complete = months.filter((m) => m.complete && m.incomeCents !== null && m.spendCents !== null);
-  if (complete.length === 0) return null;
+  if (complete.length === 0) return gap ? <Lead>{gapText(gap)}</Lead> : null;
   const sum = (cents: (m: (typeof complete)[number]) => number | null) => complete.reduce((total, m) => total + (cents(m) ?? 0), 0);
-  return <Lead>{t("rpt.lead_flows", { income: answerMoney(sum((m) => m.incomeCents)), spent: answerMoney(sum((m) => m.spendCents)) })}</Lead>;
+  const count = String(complete.length);
+  const average = ctx.data.income?.monthlyCents ?? null;
+  const peak = complete.length > 1 ? complete.reduce((a, b) => (b.spendCents! > a.spendCents! ? b : a)) : null;
+  const items: StripItem[] = [
+    { label: t("rpt.strip_income", { months: count }), figure: answerMoney(sum((m) => m.incomeCents)), note: average === null ? undefined : t("rpt.strip_income_average", { sum: answerMoney(average) }) },
+    { label: t("rpt.strip_spent", { months: count }), figure: answerMoney(sum((m) => m.spendCents)), note: peak ? t("rpt.strip_spent_peak", { month: monthLong(peak.month), sum: answerMoney(peak.spendCents!) }) : undefined },
+    ...(usualSpendCents === null ? [] : [{ label: t("rpt.strip_usual"), figure: answerMoney(usualSpendCents), note: t("rpt.strip_usual_note", { months: String(overview.usualMonths) }) }]),
+  ];
+  return (
+    <>
+      <Lead>{gap ? gapText(gap) : t("rpt.lead_flows")}</Lead>
+      <Strip items={items} />
+    </>
+  );
 }
 
-/** The page is named for this section, so the card keeps the name for a reader of the page's regions and draws no second heading. */
 function Panel({ children }: { children: ReactNode }) {
   return (
-    <section className="card" id={section.id} aria-label={section.title}>
+    <ReportPanel id={section.id} title={section.title}>
       {children}
-    </section>
+    </ReportPanel>
   );
 }
 

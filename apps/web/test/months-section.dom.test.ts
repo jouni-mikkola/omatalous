@@ -20,7 +20,7 @@ const MONTHS = monthsOf(12).map((month, i) => ({ month, incomeCents: 400000 + i 
 const categories = { rows: [], otherCents: 0, otherCount: 0, totalCents: 0, fromSavingsCents: 0, usualMonths: 0 };
 const overview = (more: Record<string, unknown> = {}) => ({ months: MONTHS, usualSpendCents: 214900, usualMonths: 10, categories, ...more });
 
-const ctx = { meta: { today: TODAY, accounts: [{ id: "acc-1" }], sharedAccounts: [] }, scope: "own" } as unknown as ReportContext;
+const ctx = { meta: { today: TODAY, accounts: [{ id: "acc-1" }], sharedAccounts: [] }, scope: "own", data: { income: { monthlyCents: 396000 } } } as unknown as ReportContext;
 
 /** The answer is cached by its path: each show starts with an empty cache and no earlier view, so it reads its own. */
 function fresh() {
@@ -39,16 +39,15 @@ async function show(answer: unknown) {
 describe("Tulot ja menot", () => {
   it("is a section of Raportit > Tulot ja menot, named for what it shows", () => {
     expect(section.page).toBe("reports");
-    expect(section.title).toBe("Tulot ja menot");
+    expect(section.title).toBe("Tulot ja menot kuukausittain");
     expect(section.visible?.(ctx)).toBe(true);
     expect(section.visible?.({ ...ctx, meta: { ...ctx.meta, accounts: [] } } as ReportContext)).toBe(false);
   });
 
   it("draws twelve months, each a link to its rows, the running one to today", async () => {
     const container = await show({ overview: overview() });
-    expect(screen.getByRole("region", { name: "Tulot ja menot" })).toBeTruthy();
-    // the page names itself with that heading: the card draws no second one
-    expect(screen.queryByRole("heading", { name: "Tulot ja menot" })).toBeNull();
+    expect(screen.getByRole("region", { name: "Tulot ja menot kuukausittain" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Tulot ja menot kuukausittain" })).toBeTruthy();
     const links = [...container.querySelectorAll("svg a")];
     expect(links).toHaveLength(12);
     expect(links[0]!.getAttribute("href")).toBe("#/transactions?from=2025-12-01&to=2025-12-31");
@@ -133,9 +132,15 @@ describe("Tulot ja menot: the sentence the page opens with", () => {
     expect(text).not.toContain("rahat tulivat");
   });
 
-  it("says the income and the spending of the complete months when they have no gap", async () => {
+  it("says the income covered the complete months when they have no gap, and gives their figures once, in the strip", async () => {
     // the ten complete months of MONTHS
-    expect(await lead({ overview: overview() })).toBe("Päättyneinä kuukausina tuloja tuli 40 055 € ja menoihin meni 30 055 €.");
+    expect(await lead({ overview: overview() })).toBe("Päättyneinä kuukausina tulot riittivät menoihin ja säästöön siirrettyyn rahaan.");
+    const items = [...document.querySelectorAll(".strip-item")].map((li) => [...li.children].map((c) => flat(c.textContent)).join(" "));
+    expect(items).toEqual([
+      "Tulot, 10 kk 40 055 € Keskimäärin 3 960 € kuussa",
+      "Menot, 10 kk 30 055 € Suurin kuukausi lokakuu 2026, 3 010 €",
+      "Tavallinen kuukausi 2 149 € Ilman suuria ostoja, 10 kk",
+    ]);
   });
 
   it("is nothing when no month is complete", async () => {

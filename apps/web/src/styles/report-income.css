@@ -1,4 +1,18 @@
 /* Income of Raportit (pages/reports/pages/Income.tsx): the styles of its own sections, which no other page reads. */
 @layer pages {
 .in-types { margin-top: var(--sp-24); }
+/* a kind's share bar fills its column, as the track has room beside the name and the figures */
+.in-types .rt-bar-track { min-width: 96px; }
+}
+
+/* the head of the tax year's card: the name with its range beside it and the two links at the right. In the layer of the title block's own rule (marks.css), which a rule of `pages` cannot beat. */
+@layer utilities {
+#verovuosi .card-head.tb > .card-name { flex: 0 0 auto; }
+#verovuosi .card-head.tb > .card-datum { flex: 1 1 auto; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--w-regular); color: var(--text-2); }
+#verovuosi .card-tool .form-row { gap: var(--sp-8); }
+#verovuosi .sheet-sep { color: var(--text-2); }
+@media (max-width: 640px) {
+  #verovuosi .card-head.tb > .card-datum { text-align: left; }
+  #verovuosi .card-head.tb > .card-tool { padding-block: 0; min-height: 0; }
+}
 }

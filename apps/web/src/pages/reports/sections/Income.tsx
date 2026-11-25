@@ -1,20 +1,17 @@
 // Decision: whether the income holds: what came in over the period, from which kind of income, which payer and which payments, and in which months
 import { MonthColumns } from "../../../charts/forms/MonthColumns.tsx";
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
-import { ChartWithTable } from "../../../components/table/selection.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { query } from "../../../api.ts";
-import { date, money } from "../../../format.ts";
+import { date, money, percent } from "../../../format.ts";
 import type { ReportsData } from "../../../types.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { t } from "../../../text.ts";
-import { monthName } from "../month-name.ts";
 
 type Report = ReportsData["income"];
 type Row = Report["types"][number];
 type Payer = Row["payers"][number];
 type Payment = Payer["rows"][number];
-type MonthRow = Report["months"][number];
 
 /** One payment in Tapahtumat: its day and the payer's name. The list there holds every row of that name on the day. */
 export const paymentHref = (payer: string, day: string): string => `#/transactions${query({ merchant: payer, from: day, to: day })}`;
@@ -43,19 +40,17 @@ function Payers({ row }: { row: Row }) {
 
 function Income({ ctx }: SectionProps) {
   const r = ctx.data.income;
-  const monthly = r.monthlyCents !== null;
+  // a kind's share of all the money in, a ratio of two figures of the answer
+  const share = (ty: Row) => (r.totalCents > 0 ? ty.totalCents / r.totalCents : 0);
   const columns: Column<Row>[] = [
     { key: "type", label: t("rpt.in_type"), kind: "text", rowHead: true, cell: (ty) => ty.label, csv: (ty) => ty.label },
-    { key: "total", label: t("rpt.total"), kind: "money", main: true, precision: "cents", cents: (ty) => ty.totalCents, bar: { tone: "income", value: (ty) => ty.totalCents, max: Math.max(1, ...r.types.map((ty) => ty.totalCents)) } },
-    ...(monthly ? ([{ key: "month", label: t("rpt.sm_typical"), kind: "money", precision: "cents", cents: (ty) => ty.monthlyCents ?? 0 }] satisfies Column<Row>[]) : []),
+    { key: "bar", label: t("rpt.fd_share"), headHidden: true, kind: "text", phone: "hide", csv: false, bar: { tone: "income", value: share, max: 1 } },
+    { key: "share", label: t("rpt.fd_share"), kind: "share", phone: "hide", cell: (ty) => percent(share(ty)), csv: (ty) => share(ty) },
+    { key: "total", label: ctx.span ?? t("rpt.total"), kind: "money", main: true, precision: "cents", cents: (ty) => ty.totalCents },
   ];
   return (
-    <ReportPanel id={section.id} title={section.title} datum={money(r.totalCents)}>
+    <ReportPanel id={section.id} title={section.title}>
       <>
-      <ChartWithTable
-        title={t("table.folded_months")}
-        rows={r.months.length}
-        chart={
           <MonthColumns
             months={r.months.map((m, i) => ({ month: m.month, complete: m.complete, parts: r.kinds.map((k) => k.months[i] ?? 0), totalCents: m.totalCents, against: m.againstAverage }))}
             series={r.kinds.map((k) => ({ key: k.id, label: k.label }))}
@@ -64,20 +59,6 @@ function Income({ ctx }: SectionProps) {
             running={ctx.running}
             label={t("rpt.in_months")}
           />
-        }
-        table={
-      <Table<MonthRow>
-        caption={t("rpt.in_months")}
-        rows={r.months}
-        rowKey={(m) => m.month}
-        columns={[
-          { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName({ ...m, unknown: m.totalCents === null }, ctx.running), csv: (m) => monthName({ ...m, unknown: m.totalCents === null }, ctx.running) },
-          { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "cents", cents: (m) => m.totalCents },
-        ]}
-        search={false}
-      />
-        }
-      />
       <Table<Row>
         caption={t("rpt.in_types")}
         className="in-types"
@@ -86,7 +67,7 @@ function Income({ ctx }: SectionProps) {
         columns={columns}
         drill={(ty) => <Payers row={ty} />}
         drillLabel={(ty) => ty.label}
-        total={{ label: t("rpt.total"), cells: { total: money(r.totalCents), ...(monthly ? { month: money(r.monthlyCents!) } : {}) } }}
+        total={{ label: t("rpt.total"), cells: { share: r.totalCents > 0 ? percent(1) : "", total: money(r.totalCents) } }}
         search={false}
         toolbar={false}
         csv={false}

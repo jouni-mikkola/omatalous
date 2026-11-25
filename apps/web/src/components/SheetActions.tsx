@@ -3,7 +3,7 @@ import { saveCsv } from "./table/csv.ts";
 import { t } from "../text.ts";
 
 /**
- * Print and CSV of a sheet. Printing is the browser's own (print.css of the sheet hides the rest of the page while
+ * Print and CSV of a sheet, as two links in the head of its card. Printing is the browser's own (print.css of the sheet hides the rest of the page while
  * `printing-sheet` is set), so there is no PDF library and nothing to load.
  */
 export function SheetActions({ id, name, csv }: { id: string; name: string; csv: () => string }) {
@@ -22,8 +22,15 @@ export function SheetActions({ id, name, csv }: { id: string; name: string; csv:
   };
   return (
     <>
-      <Button onClick={print}>{t("sheet.print")}</Button>
-      <Button onClick={() => saveCsv(name, csv())}>{t("sheet.csv")}</Button>
+      <Button variant="link" onClick={print}>
+        {t("sheet.print")}
+      </Button>
+      <span className="sheet-sep" aria-hidden="true">
+        ·
+      </span>
+      <Button variant="link" onClick={() => saveCsv(name, csv())}>
+        {t("sheet.csv")}
+      </Button>
     </>
   );
 }
