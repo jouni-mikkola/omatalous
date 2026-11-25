@@ -46,6 +46,14 @@ describe("Raportit: the frame", () => {
     expect(links(screen.getByRole("navigation", { name: "Raportit" })).map((l) => l.name)).toEqual(["Tulot ja menot", "Menot kategorioittain"]);
   });
 
+  it("puts the period switch it is given in the row of the tabs, after them", () => {
+    render(createElement(Frame, { current: "tulot", title: "Tulot ja menot", pages: ALL.map(reportPage), params: new URLSearchParams(), period: createElement("div", { "data-testid": "switch" }), children: null }));
+    const nav = screen.getByRole("navigation", { name: "Raportit" });
+    const switcher = screen.getByTestId("switch");
+    expect(switcher.parentElement).toBe(nav.parentElement);
+    expect(nav.compareDocumentPosition(switcher) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("keeps no period in an address when none is open", () => {
     render(createElement(Frame, { current: "menot", title: "Menot kategorioittain", pages: ["tulot", "menot"].map((id) => reportPage(id as QuestionId)), params: new URLSearchParams(), children: null }));
     expect(links(screen.getByRole("navigation", { name: "Raportit" })).map((l) => l.href)).toEqual(["#/reports?q=tulot", "#/reports?q=menot"]);

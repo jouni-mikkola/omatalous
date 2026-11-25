@@ -30,7 +30,7 @@ test("the tax sheet prints alone and the page comes back after", async ({ browse
   const table = sheet.locator("table").first();
   const header = page.locator("header.topbar");
   const menu = page.locator("header.topbar nav.nav");
-  const rail = page.locator("nav.q-rail");
+  const rail = page.locator("nav.q-tabs");
   const footer = page.getByRole("contentinfo");
   await expect(table).toBeVisible();
   // Tulot holds the tax sheet alone, so the card a page with more reports would have next to it is put there by hand

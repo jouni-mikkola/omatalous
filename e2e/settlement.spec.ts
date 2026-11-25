@@ -101,6 +101,9 @@ let lastMonth: { a: { paid: number; owed: number; over: number }; b: { paid: num
 test("Raportit shows the month of the joint account: paid, share and who paid over, summing to nothing", async ({ browser }) => {
   const { context, page, seen } = await open(browser, members[0]!, "/#/reports?q=yhteiset");
   await expect(page.getByRole("heading", { name: "Tasaus", level: 2, exact: true })).toBeVisible();
+  // the settlement answers the same for every period, so its page draws no period switch beside the tabs
+  await expect(page.getByRole("navigation", { name: "Raportit" }).first()).toBeVisible();
+  await expect(page.getByRole("toolbar", { name: "Aikaväli" })).toHaveCount(0);
   await showMonth(page, LAST);
   const a = await standing(page, NAMES[0]);
   const b = await standing(page, NAMES[1]);
