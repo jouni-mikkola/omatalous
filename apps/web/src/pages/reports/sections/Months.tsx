@@ -45,10 +45,9 @@ export function CashflowLead({ ctx }: SectionProps) {
   const { completeTotals: complete, gap, usualSpendCents } = overview;
   if (complete === null) return gap ? <Lead>{gapText(gap)}</Lead> : null;
   const count = String(complete.months);
-  const average = ctx.data.income?.monthlyCents ?? null;
   const { peak } = complete;
   const items: StripItem[] = [
-    { label: t("rpt.strip_income", { months: count }), figure: answerMoney(complete.incomeCents), note: average === null ? undefined : t("rpt.strip_income_average", { sum: answerMoney(average) }) },
+    { label: t("rpt.strip_income", { months: count }), figure: answerMoney(complete.incomeCents), note: t("rpt.strip_income_average", { sum: answerMoney(complete.averageIncomeCents) }) },
     { label: t("rpt.strip_spent", { months: count }), figure: answerMoney(complete.spendCents), note: peak ? t("rpt.strip_spent_peak", { month: monthLong(peak.month), sum: answerMoney(peak.spendCents) }) : undefined },
     ...(usualSpendCents === null ? [] : [{ label: t("rpt.strip_usual"), figure: answerMoney(usualSpendCents), note: t("rpt.strip_usual_note", { months: String(overview.usualMonths) }) }]),
   ];

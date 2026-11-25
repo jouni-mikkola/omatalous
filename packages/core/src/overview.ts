@@ -57,6 +57,8 @@ interface OverviewCompleteTotals {
   /** How many months the sums cover. */
   months: number;
   incomeCents: number;
+  /** `incomeCents` over `months`, in whole cents: the average the strip names beside the total, over the same months. */
+  averageIncomeCents: number;
   spendCents: number;
   /** The month of the largest spending among them; null under two months, where it would name the only one. */
   peak: { month: string; spendCents: number } | null;
@@ -93,9 +95,11 @@ function completeTotalsOf(months: readonly OverviewMonth[]): OverviewCompleteTot
   if (whole.length === 0) return null;
   // the first of equal months stands
   const dearest = whole.reduce((a, m) => (m.spendCents > a.spendCents ? m : a));
+  const incomeCents = whole.reduce((sum, m) => sum + m.incomeCents, 0);
   return {
     months: whole.length,
-    incomeCents: whole.reduce((sum, m) => sum + m.incomeCents, 0),
+    incomeCents,
+    averageIncomeCents: Math.round(incomeCents / whole.length),
     spendCents: whole.reduce((sum, m) => sum + m.spendCents, 0),
     peak: whole.length > 1 ? { month: dearest.month, spendCents: dearest.spendCents } : null,
   };

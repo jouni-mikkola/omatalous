@@ -3,6 +3,7 @@
 .in-types { margin-top: var(--sp-24); }
 /* the share bar's column takes about a third of the table, and the track fills it */
 .in-types td.in-share-bar { width: 33%; }
+.in-types td.in-share-bar .rt-barcell > .rt-bar-track { flex: 1 1 auto; width: auto; }
 }
 
 /* the head of the tax year's card: the name with its range beside it and the two links at the right. In the layer of the title block's own rule (marks.css), which a rule of `pages` cannot beat. */

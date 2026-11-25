@@ -39,6 +39,8 @@ describe("the overview's totals of the complete months", () => {
     expect(completeTotals!.months).toBe(whole.length);
     expect(completeTotals!.incomeCents).toBe(whole.reduce((sum, m) => sum + m.incomeCents!, 0));
     expect(completeTotals!.spendCents).toBe(whole.reduce((sum, m) => sum + m.spendCents!, 0));
+    // one definition: the average a month over the very months the total adds up
+    expect(completeTotals!.averageIncomeCents).toBe(Math.round(completeTotals!.incomeCents / whole.length));
     const dearest = Math.max(...whole.map((m) => m.spendCents!));
     expect(completeTotals!.peak).toEqual({ month: whole.find((m) => m.spendCents === dearest)!.month, spendCents: dearest });
   });
@@ -52,5 +54,6 @@ describe("the overview's totals of the complete months", () => {
     const single = buildDashboard(createContext(dataset().filter((t) => t.bookingDate <= early), [checking], early), { from: "2025-01-01", to: early }).overview;
     expect(single.months.filter((m) => m.complete).map((m) => m.month)).toEqual(["2025-09"]);
     expect(single.completeTotals).toMatchObject({ months: 1, peak: null });
+    expect(single.completeTotals!.averageIncomeCents).toBe(single.completeTotals!.incomeCents);
   });
 });

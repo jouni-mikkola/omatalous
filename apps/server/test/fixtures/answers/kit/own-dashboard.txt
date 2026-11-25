@@ -1156,6 +1156,7 @@
   "completeTotals": {
    "months": 11,
    "incomeCents": 4062300,
+   "averageIncomeCents": 369300,
    "spendCents": 3660773,
    "peak": {
     "month": "2026-04",
