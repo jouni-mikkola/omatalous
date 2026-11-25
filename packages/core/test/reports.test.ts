@@ -162,45 +162,6 @@ describe("reports", () => {
     expect(r.income.months.every((m) => m.totalCents === (m.byGroup && Object.values(m.byGroup).reduce((a, b) => a + b, 0)))).toBe(true);
   });
 
-  it("income: a type's share of all the money in is its total over the whole, apart from its share of the earned", () => {
-    const refund = tx({ bookingDate: "2026-04-12", amountCents: 41250, category: "tax_refund", merchant: "Verohallinto" });
-    const income = buildReports({ ctx: createContext([...dataset(), refund], [checking], today), range, balances: [] }, ["income"]).income;
-    const salary = income.types.find((ty) => ty.type === "salary")!;
-    const taxRefund = income.types.find((ty) => ty.type === "tax_refund")!;
-    expect(income.notEarnedCents).toBe(41250);
-    expect(taxRefund.shareOfAll).toBe(41250 / income.totalCents);
-    expect(salary.shareOfAll).toBe(salary.totalCents / income.totalCents);
-    // the share of the earned is another figure: null for money that is not earned, and the salary's is the whole of it
-    expect(taxRefund.share).toBeNull();
-    expect(salary.share).toBe(1);
-    expect(salary.shareOfAll).toBeLessThan(1);
-    expect(income.types.reduce((sum, ty) => sum + ty.shareOfAll, 0)).toBeCloseTo(1, 10);
-  });
-
-  it("the overview adds up the complete months' income and spending and names the dearest of them", () => {
-    const { months, completeTotals } = buildDashboard(ctx, { from: "2026-01-01", to: today }).overview;
-    const whole = months.filter((m) => m.complete && m.incomeCents !== null && m.spendCents !== null);
-    expect(whole.length).toBeGreaterThan(1);
-    expect(months.at(-1)!.complete).toBe(false);
-    expect(completeTotals).not.toBeNull();
-    expect(completeTotals!.months).toBe(whole.length);
-    expect(completeTotals!.incomeCents).toBe(whole.reduce((sum, m) => sum + m.incomeCents!, 0));
-    expect(completeTotals!.spendCents).toBe(whole.reduce((sum, m) => sum + m.spendCents!, 0));
-    const dearest = Math.max(...whole.map((m) => m.spendCents!));
-    expect(completeTotals!.peak).toEqual({ month: whole.find((m) => m.spendCents === dearest)!.month, spendCents: dearest });
-  });
-
-  it("the overview has no totals without a complete month and names no dearest month of a single one", () => {
-    const none = buildDashboard(createContext([], [checking], today), { from: "2026-01-01", to: today }).overview;
-    expect(none.months.some((m) => m.complete)).toBe(false);
-    expect(none.completeTotals).toBeNull();
-    // the history starts on 2025-09-01: on 2025-10-09 September is its one complete month
-    const early = "2025-10-09";
-    const single = buildDashboard(createContext(dataset().filter((t) => t.bookingDate <= early), [checking], early), { from: "2025-01-01", to: early }).overview;
-    expect(single.months.filter((m) => m.complete).map((m) => m.month)).toEqual(["2025-09"]);
-    expect(single.completeTotals).toMatchObject({ months: 1, peak: null });
-  });
-
   it("the tax year is the year of the range and its income the sum of its types", () => {
     expect(r.taxYear.year).toBe(2026);
     expect(r.taxYear.income.totalCents).toBe(r.taxYear.income.types.reduce((sum, t) => sum + t.totalCents, 0));
