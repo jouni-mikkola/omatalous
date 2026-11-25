@@ -635,8 +635,8 @@ accounts*).
   known shows a dash and is left out of the debt total. *Kuukausierä* is the next payment spread over a month, and only a
   loan that has one shows it. The last row is *Lainat yhteensä*, `loansCents`: the loans' known balances added together.
   Debts with no balance stand under the totals as rows of their own (`unsavedLoans.rows`): a lender paid every month whose
-  loan nobody saved, and a card whose bills are paid and whose account is not connected (`unconnectedCards`). Each shows
-  its monthly payment, when it has one, and *saldo puuttuu*. Their balance is never added and never read as 0, so while
+  loan nobody saved, a lender paid only a few times, and a card whose bills are paid and whose account is not connected
+  (`unconnectedCards`). Each shows its monthly payment, when it has one (a lender's few payments have none), and *saldo puuttuu*. Their balance is never added and never read as 0, so while
   such a row is there the loans' total is named *Lainat yhteensä, tiedossa* and the debt total *Velat yhteensä, tiedossa*,
   and the first page's accounts less the debts says how many debts it leaves out. A card saved as a loan, marked *Ei ole velan maksu*, or
   from the issuer of a connected card account joins no row, and a card loan saved with no link takes one series.

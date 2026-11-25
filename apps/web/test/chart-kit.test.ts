@@ -272,12 +272,12 @@ describe("the frame of a monthly chart", () => {
     expect(monthTickTarget(200)).toBe(4);
   });
 
-  it("writes the axis as 10 000 with the euro on the top tick only, and as 10 t with t € on a phone", () => {
+  it("writes the axis as 10 000 with the euro on the top tick only, and as 10 t with t€ on a phone", () => {
     const ticks = [0, 1_000_000, 2_000_000, 3_000_000];
     const wide = monthAxisLabels(ticks, 1_000_000, false);
     expect(ticks.map(wide).map((s) => s.replace(/\s/g, " "))).toEqual(["0", "10 000", "20 000", "30 000 €"]);
     const narrow = monthAxisLabels(ticks, 1_000_000, true);
-    expect(ticks.map(narrow)).toEqual(["0", "10 t", "20 t", "30 t €"]);
+    expect(ticks.map(narrow)).toEqual(["0", "10 t", "20 t", "30 t€"]);
     expect(monthAxisLabels([-100_000, 0, 100_000], 100_000, false)(-100_000).replace(/\s/g, " ")).toBe("−1 000".replace(/\s/g, " "));
     // a step that is not whole thousands keeps the full number on a phone
     expect(monthAxisLabels([0, 25_000, 50_000], 25_000, true)(50_000)).toMatch(/^500 €$/);
