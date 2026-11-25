@@ -350,7 +350,7 @@ export function Shell() {
               <span className="sr-only">{t("shell.user_menu")} </span>
               <span className="user-name" title={user.displayName}>{user.displayName}</span>
               {news > 0 && <span className="notice-dot" aria-hidden="true" />}
-              {news > 0 && <span className="sr-only">{tn(news, "notice.news_one", "notice.news_many")} </span>}
+              {news > 0 && <span className="sr-only">{" "}{tn(news, "notice.news_one", "notice.news_many")} </span>}
               <svg className="user-chevron" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false">
                 <path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>

@@ -179,6 +179,13 @@ for (const width of [320, 360, 390]) {
       }
       const right = await page.locator(".user-menu summary").evaluate((e) => e.getBoundingClientRect().right);
       expect(right, "the user menu is inside the screen").toBeLessThanOrEqual(width);
+      // one row: the switch, the count and the user menu share a vertical centre
+      const centres = await page.locator(".scope-toggle, .review-link, .user-menu").evaluateAll((els) => els.map((e) => {
+        const r = e.getBoundingClientRect();
+        return r.top + r.height / 2;
+      }));
+      expect(centres).toHaveLength(count ? 3 : 2);
+      expect(Math.max(...centres) - Math.min(...centres), "the header row does not wrap").toBeLessThan(8);
       expect(await overflow(page)).toBeLessThanOrEqual(0);
       await context.close();
     });
