@@ -12,17 +12,17 @@ test("what the README says about Lisää, English and statement files holds on t
     expect(demo.status()).toBe(200);
     const page = await context.newPage();
 
-    // the demo has three reports: Yhteiset menot waits for an account two members share
+    // the demo has two reports: Yhteiset menot waits for an account two members share
     await page.goto("/#/reports?q=menot");
     const more = page.getByRole("navigation", { name: "Raportit" });
-    await expect(more.getByRole("link")).toHaveText(["Tulot ja menot", "Menot kategorioittain", "Varat ja velat"]);
+    await expect(more.getByRole("link")).toHaveText(["Tulot ja menot", "Menot kategorioittain"]);
     await expect(more.locator("[aria-current]")).toHaveText("Menot kategorioittain");
     await expect(page.getByRole("heading", { name: "Vuosivertailu" })).toBeVisible();
     await page.goto("/#/reports?q=tulot");
     await expect(page.getByRole("heading", { name: "Tulolajit" })).toBeVisible();
     await expect(page.getByRole("table", { name: "Tulot kuukausittain" })).toBeVisible();
     // a table of more than ten rows downloads as CSV
-    await page.goto("/#/reports?q=saldot");
+    await page.goto("/#/balances");
     await expect(page.getByRole("button", { name: /csv/i }).first()).toBeVisible();
 
     // the statement files: one place on Pankit ja tilit takes CSV and camt.053, read in the browser

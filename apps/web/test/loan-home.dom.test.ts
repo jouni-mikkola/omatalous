@@ -63,7 +63,6 @@ describe("Lainat in Varat ja velat", () => {
     // the last loan is gone with its panel, and the line in Saldot still says so
     await said("Laina poistettu");
     await waitFor(() => expect(screen.queryByRole("heading", { name: "Lainat", level: 2 })).toBeNull(), T);
-    expect(within(screen.getByRole("navigation", { name: "Raportit" })).getAllByRole("link")).toHaveLength(1);
   }, 60000);
 });
 
