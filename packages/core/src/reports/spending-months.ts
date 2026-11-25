@@ -7,7 +7,7 @@ import { type DateRange, toDayRange } from "../analysis/period.ts";
 import { fromMonthIndex } from "../dates.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { expectedLevel } from "../analysis/expected.ts";
-import { cardRowsMissingIn } from "../analysis/usual.ts";
+import { type AgainstUsual, againstUsual, cardRowsMissingIn } from "../analysis/usual.ts";
 import { largePurchases } from "../analysis/large.ts";
 import { SPENDING_PAYEES } from "../thresholds.ts";
 import { fullMonths, knownMonths, rangeMonthIndexes, whereKnown } from "./shared.ts";
@@ -68,6 +68,11 @@ export interface SpendingMonthsReport {
   typicalCents: number | null;
   /** `typicalCents` of the spending of the flows (`totals` less `fromSavings`): the usual month the first page's Menot are set against. */
   typicalFlowCents: number | null;
+  /**
+   * Per month, how far its Menot (`totals` less `fromSavings`, the base of `typicalFlowCents`) stand from
+   * `typicalFlowCents`; null in a month that is not complete, without a level, or within the euro of it.
+   */
+  againstUsual: (AgainstUsual | null)[];
   /** How many months `typicalCents` is the level of. */
   typicalMonths: number;
   /**
@@ -152,6 +157,7 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
       };
     })
     .sort((a, b) => b.totalCents - a.totalCents || a.category.localeCompare(b.category));
+  const typicalFlowCents = expectedLevel(completeAt.map((i) => totals[i]! - fromSavings[i]! - largeFlowTotals[i]!));
   return {
     months,
     from: shown.from,
@@ -162,7 +168,8 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
     fromSavings: whereKnown(fromSavings, known),
     fromSavingsCents: fromSavings.reduce((s, v) => s + v, 0),
     typicalCents: expectedLevel(completeAt.map((i) => totals[i]! - largeTotals[i]!)),
-    typicalFlowCents: expectedLevel(completeAt.map((i) => totals[i]! - fromSavings[i]! - largeFlowTotals[i]!)),
+    typicalFlowCents,
+    againstUsual: indexes.map((_, i) => (complete[i] && known[i] ? againstUsual(totals[i]! - fromSavings[i]!, typicalFlowCents) : null)),
     typicalMonths: completeAt.length,
     categoryMonths: categoryAt.length,
     cardGap: categoryAt.length < completeAt.length,

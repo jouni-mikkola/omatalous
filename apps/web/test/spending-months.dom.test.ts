@@ -43,6 +43,7 @@ const report = (typical: boolean): Report => {
     fromSavingsCents: 0,
     typicalCents: 44800,
     typicalFlowCents: 44800,
+    againstUsual: MONTHS.map(() => null),
     typicalMonths: 5,
     categoryMonths: typical ? 3 : 1,
     cardGap: true,
@@ -100,13 +101,24 @@ describe("Menot kategorioittain: the chart of the months", () => {
     expect(screen.getByRole("img", { name: "Menot kuukausittain" })).toBeTruthy();
     expect(container.querySelectorAll("g.ms-month")).toHaveLength(6);
     expect(container.querySelectorAll("line.ms-usual")).toHaveLength(1);
-    expect(plain(container.querySelector(".ms-legend")!.textContent)).toContain("Tavallinen kuukausi 448 €");
+    expect(container.querySelector(".ms-legend")).toBeNull();
+    expect(plain(container.querySelector("text.usual-label")!.textContent)).toBe("tavallinen kuukausi 448 €");
   });
 
   it("names the usual month by the sum the first page names it by, not by the level of the table that keeps a debt paid from savings", () => {
     const { container } = show({ ...report(true), typicalCents: 50000, typicalFlowCents: 44800 });
-    expect(plain(container.querySelector(".ms-legend")!.textContent)).toContain("Tavallinen kuukausi 448 €");
-    expect(plain(container.querySelector(".ms-legend")!.textContent)).not.toContain("500 €");
+    expect(plain(container.querySelector("text.usual-label")!.textContent)).toBe("tavallinen kuukausi 448 €");
+    expect(plain(container.querySelector(".readout-line")!.textContent)).not.toContain("500 €");
+  });
+
+  it("words the gap the report gives for the last whole month, and says nothing when it gives none", () => {
+    // the report's gap on the flow base (a debt paid from savings is not in it): the web adds and subtracts nothing
+    const against = MONTHS.map((_, i) => (i === 4 ? { cents: 120_00, side: "less" as const } : null));
+    const { container } = show({ ...report(true), againstUsual: against });
+    expect(plain(container.querySelector(".readout-line")!.textContent)).toContain("menot 120 € alle tavallisen");
+    cleanup();
+    const none = show(report(true));
+    expect(plain(none.container.querySelector(".readout-line")!.textContent)).not.toContain("tavallisen");
   });
 
   it("a picked month cuts the months table and leaves the opened category's own months whole", () => {

@@ -192,7 +192,7 @@ export const FI_REPORTS_5 = {
   "rpt.sec_food": "Ruoka",
   "rpt.sec_income": "Tulot",
   "rpt.in_months": "Tulot kuukausittain",
-  "rpt.in_average_line": "Keskimäärin kuussa {sum} ({months} kk)",
+  "rpt.in_average_line": "keskimäärin {sum}",
   "rpt.in_payer": "Maksaja",
   "rpt.sec_loans": "Lainat",
   "rpt.sec_pivot": "Menot kuukausittain",

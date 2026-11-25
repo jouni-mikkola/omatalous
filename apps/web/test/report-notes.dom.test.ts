@@ -92,6 +92,7 @@ const spendingReport = (fromSavings: number[]): Spending => {
     fromSavingsCents: fromSavings.reduce((a, b) => a + b, 0),
     typicalCents: 30000,
     typicalFlowCents: 30000,
+    againstUsual: values.map(() => null),
     typicalMonths: 5,
     categoryMonths: 5,
     cardGap: false,

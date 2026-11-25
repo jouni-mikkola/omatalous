@@ -189,7 +189,7 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.sec_food": "Food",
   "rpt.sec_income": "Income",
   "rpt.in_months": "Income by month",
-  "rpt.in_average_line": "Average per month {sum} ({months} mo)",
+  "rpt.in_average_line": "average {sum}",
   "rpt.in_payer": "Payer",
   "rpt.sec_loans": "Loans",
   "rpt.sec_pivot": "Spending by month",

@@ -11,13 +11,13 @@ import { band, linear, points, time } from "../src/charts/kit/scale.ts";
 import { dayTicks, evenMonthTicks, moneyAxis, monthAxisLabels, monthTickTarget, monthTicks, weekday } from "../src/charts/kit/ticks.ts";
 import { capSum, capY } from "../src/charts/kit/cap.tsx";
 import { axisRoom, frame, monthPlot, tickTarget } from "../src/charts/kit/layout.ts";
-import { boxPlace, DOT_PLOT_BELOW, gridStep, nearestIndex, readoutText, stepIndex } from "../src/charts/kit/readout.ts";
+import { boxPlace, DOT_PLOT_BELOW, gridStep, lastWhole, nearestIndex, readoutText, stepIndex } from "../src/charts/kit/readout.ts";
 import { bandRect, placeMarkers, referenceY, spreadLabels } from "../src/charts/kit/annotate.ts";
 import { areaPath, linePath, stepPath } from "../src/charts/kit/path.ts";
 import { markKey } from "../src/charts/kit/marks.ts";
 import { decimate } from "../src/charts/kit/decimate.ts";
 import { robustDomain } from "../src/charts/kit/domain.ts";
-import { fitLabel } from "../src/charts/kit/label.ts";
+import { fitLabel, monthNamePlaces, printedMonths } from "../src/charts/kit/label.ts";
 import { LiveReadout, ReadoutLayer } from "../src/charts/kit/Readout.tsx";
 import { EventMarkers, ReferenceLine } from "../src/charts/kit/Annotations.tsx";
 import { LABEL_CHAR_W, LABEL_GAP } from "../src/charts/draw.ts";
@@ -337,6 +337,43 @@ describe("the readout", () => {
     // without a table to send to the layer is only a readout
     const quiet = renderToStaticMarkup(createElement("svg", null, createElement(ReadoutLayer, { xs: [0, 50, 100], innerW: 100, innerH: 80, at: 1, onAt: () => {}, keys, label: "Saldo." })));
     expect(quiet).not.toContain("hit-pick");
+  });
+
+  it("names the last whole month while nothing is picked, and none when no month is whole", () => {
+    expect(lastWhole([true, true, false, false])).toBe(1);
+    expect(lastWhole([false, true, false, true])).toBe(3);
+    expect(lastWhole([false, false])).toBeNull();
+    expect(lastWhole([])).toBeNull();
+  });
+
+  it("prints a month name for every ceil(44 / slot) months from the newest, and the readout's month in its place", () => {
+    // 12 months in 27 px slots: every second month from the newest
+    expect([...printedMonths(12, 27, new Set(), null)].sort((a, b) => a - b)).toEqual([1, 3, 5, 7, 9, 11]);
+    // room for all
+    expect(printedMonths(6, 80, new Set(), null).size).toBe(6);
+    // the running month always prints and a regular name next to it gives way
+    const running = printedMonths(12, 27, new Set([11]), null);
+    expect(running.has(11)).toBe(true);
+    expect(running.has(10)).toBe(false);
+    // the named month always prints, also next to the running one
+    expect(printedMonths(12, 27, new Set([11]), 4).has(4)).toBe(true);
+    expect(printedMonths(12, 27, new Set([11]), 10).has(10)).toBe(true);
+  });
+
+  it("puts the newest name at the plot's end and the readout's month before it when 27 px slots crowd them", () => {
+    const names = ["joulu", "tammi", "helmi", "maalis", "huhti", "touko", "kesä", "heinä", "elo", "syys", "loka", "marras"];
+    const centres = names.map((_, i) => 27 * i + 13.5);
+    const printed = printedMonths(12, 27, new Set([11]), 10);
+    const places = monthNamePlaces(centres, 27, 324, names, printed, 10);
+    expect(places[11]).toEqual({ x: 328, anchor: "end" });
+    expect(places[10]!.anchor).toBe("end");
+    // the two names do not overlap: loka ends before marras starts
+    expect(places[10]!.x).toBeLessThanOrEqual(328 - 6 * LABEL_CHAR_W);
+    // a month two slots away stays centred, and wide slots centre everything
+    expect(monthNamePlaces(centres, 27, 324, names, printed, 9)[9]).toEqual({ x: centres[9], anchor: "middle" });
+    expect(monthNamePlaces(centres.map((c) => c * 3), 81, 972, names, printed, 10).every((p) => p.anchor === "middle")).toBe(true);
+    // a newest name that is not printed stays where it is
+    expect(monthNamePlaces(centres, 27, 324, names, new Set([10]), 10).every((p) => p.anchor === "middle")).toBe(true);
   });
 
   it("goes to the dot plot under 600 px", () => {

@@ -42,6 +42,6 @@ describe("Raportit: Tulot", () => {
     render(createElement(section.Component, { ctx }));
     fireEvent.focus(screen.getByRole("group", { name: /Tulot kuukausittain/ }));
     fireEvent.keyDown(screen.getByRole("group", { name: /Tulot kuukausittain/ }), { key: "Home" });
-    expect(plain(document.querySelector(".tooltip")!.textContent)).toContain("3 200 €");
+    expect(plain(document.querySelector(".readout-line")!.textContent)).toContain("Yhteensä 3 200 €");
   });
 });

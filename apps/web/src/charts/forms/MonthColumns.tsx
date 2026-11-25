@@ -1,16 +1,16 @@
 // Decision: how the period's money moved month by month, and which months fall away from the usual level
 import { useWidth } from "../../hooks.ts";
-import { money, monthLong } from "../../format.ts";
+import { answerMoney, monthLabel, monthLong } from "../../format.ts";
 import { t } from "../../text.ts";
 import { CategoryTick, ValueAxis } from "../Axes.tsx";
 import { crisp, LABEL_Y } from "../draw.ts";
 import { CAP_OVERSHOOT, capSum, capY, CapBreak, CapSum } from "../kit/cap.tsx";
 import { axisRoom, frame, monthPlot } from "../kit/layout.ts";
-import { LiveReadout, ReadoutLayer, useReadout } from "../kit/Readout.tsx";
-import { readoutText } from "../kit/readout.ts";
+import { monthNamePlaces, printedMonths } from "../kit/label.ts";
+import { type Against, LiveReadout, ReadoutLayer, ReadoutLine, UsualLabel, USUAL_STRIP, useReadout, usualComparison } from "../kit/Readout.tsx";
+import { lastWhole, readoutText } from "../kit/readout.ts";
 import { band, linear } from "../kit/scale.ts";
-import { monthAxisLabels, monthTickTarget, monthTicks } from "../kit/ticks.ts";
-import { Tip } from "./parts.tsx";
+import { monthAxisLabels, monthTickTarget } from "../kit/ticks.ts";
 import "../../styles/charts.css";
 import "../../styles/month-columns.css";
 
@@ -27,6 +27,8 @@ interface MonthColumn {
   parts: readonly number[];
   /** The month's total as the report gives it: the axis and the readout read it, nothing is added up here for them. Null in a month the data does not reach: no column, and the readout says "–". */
   totalCents: number | null;
+  /** The month's gap to `usual` as the report gives it (null in a month that is not whole or the same to the euro); the readout words it. */
+  against?: Against | null;
 }
 
 /** The width the first paint draws at, before the box is measured. */
@@ -61,7 +63,7 @@ export function MonthColumns({
   series: readonly MonthColumnsSeries[];
   /** The colours of the stack: spending is one series in its role colour, income is stacked in the series colours. */
   tone: "spending" | "income";
-  usual: { cents: number; label: string } | null;
+  usual: { cents: number; label: string; short: string } | null;
   /** The month that has not ended yet (`YYYY-MM`). */
   running: string | null;
   /** What the chart is, for a screen reader's name of it. */
@@ -75,55 +77,54 @@ export function MonthColumns({
   const present = months.flatMap((m, i) => (m.totalCents === null ? [] : [i]));
   // the usual level widens the axis but does not count as a month, so a short period clips no month
   const values = present.map((i) => months[i]!.totalCents!);
-  const options = monthPlot(width, TOP + BOTTOM);
-  const draft = frame(width, { top: TOP, right: 4, bottom: BOTTOM, left: 48 }, options);
+  // the level's name stands in a strip above the clipped sums, so no column reaches it
+  const headroom = TOP + (usual ? USUAL_STRIP : 0);
+  const options = monthPlot(width, headroom + BOTTOM);
+  const draft = frame(width, { top: headroom, right: 4, bottom: BOTTOM, left: 48 }, options);
   const scale = (innerH: number) => linear(values, [innerH, 0], { target: monthTickTarget(innerH), clip: OUTLIER_FACTOR, include: usual ? [usual.cents] : [] });
   const y0 = scale(draft.innerH);
-  const f = frame(width, { top: TOP, right: 4, bottom: BOTTOM, left: axisRoom(y0.ticks.map(monthAxisLabels(y0.ticks, y0.step, narrow))) }, options);
+  const f = frame(width, { top: headroom, right: 4, bottom: BOTTOM, left: axisRoom(y0.ticks.map(monthAxisLabels(y0.ticks, y0.step, narrow))) }, options);
   const y = scale(f.innerH);
   const axisLabel = monthAxisLabels(y.ticks, y.step, narrow);
   // cut only where the column runs out of the plot: the axis tops at a round tick that can lie above a clipped sum
   const capped = new Set(y.clipped.flatMap((k) => (y(values[k]!) < 0 || y(values[k]!) > f.innerH ? [present[k]!] : [])));
   const x = band(months.length, f.innerW, 0.72);
-  const ticks = monthTicks(
-    months.map((m) => m.month),
-    x.step,
-    new Set(months.flatMap((m, i) => (m.month === running ? [i] : []))),
-  );
-  const first = ticks.findIndex((tick) => tick.printed);
-  const yearOf = (i: number) => (ticks[i]!.printed && (i === first || months[i]!.month.endsWith("-01")) ? months[i]!.month.slice(0, 4) : null);
   const whole = (m: MonthColumn) => m.complete && m.month !== running;
+  // the readout names the picked month, else the last whole one, so the series are always named next to their colours
+  const shown = at ?? lastWhole(months.map((m) => whole(m) && m.totalCents !== null)) ?? months.length - 1;
+  const runningAt = months.findIndex((m) => m.month === running);
+  const printed = printedMonths(months.length, x.step, new Set(runningAt < 0 ? [] : [runningAt]), shown);
+  const firstPrinted = Math.min(...printed);
+  const yearOf = (i: number) => (printed.has(i) && i !== runningAt && (i === firstPrinted || months[i]!.month.endsWith("-01")) ? months[i]!.month.slice(0, 4) : null);
   const rows = (m: MonthColumn) => [
-    ...series.map((s, k) => ({ name: s.label, value: m.totalCents === null ? "–" : money(m.parts[k] ?? 0, false), key: <span className={`ms-key ms-s${k}`} /> })),
-    ...(series.length > 1 ? [{ name: t("rpt.total"), value: m.totalCents === null ? "–" : money(m.totalCents, false) }] : []),
-    ...(whole(m) || m.totalCents === null ? [] : [{ name: t(m.month === running ? "home.months_running" : "home.months_partial"), value: "" }]),
+    ...series.map((s, k) => ({ name: s.label, value: m.totalCents === null ? "–" : answerMoney(m.parts[k] ?? 0), swatch: <span className={`ms-key ms-s${k}`} /> })),
+    ...(series.length > 1 ? [{ name: t("rpt.total"), value: m.totalCents === null ? "–" : answerMoney(m.totalCents), swatch: null }] : []),
   ];
+  const note = (m: MonthColumn) => (whole(m) || m.totalCents === null ? undefined : t(m.month === running ? "home.months_running" : "home.months_partial"));
+  const shownMonth = months[shown];
+  const compare = (m: MonthColumn) => usualComparison(tone === "income" ? "income" : "spend", m.against, tone === "income");
   const capEnd = (sum: number) => (sum > 0 ? -CAP_OVERSHOOT : f.innerH + CAP_OVERSHOOT);
   const capDir = (sum: number) => (sum > 0 ? -1 : 1);
+  const places = monthNamePlaces(months.map((_, i) => x.centre(i)), x.step, f.innerW, months.map((m) => monthLabel(m.month)), printed, shown);
+  const place = (i: number) => places[i]!;
   const keys = months.map((m) => m.month);
   return (
     <div className={`chart month-columns ms-${tone}`} ref={ref}>
-      {(series.length > 1 || usual) && (
-        <ul className="ms-legend" aria-hidden="true">
-          {series.length > 1 &&
-            series.map((s, k) => (
-              <li key={s.key}>
-                <span className={`ms-key ms-s${k}`} />
-                {s.label}
-              </li>
-            ))}
-          {usual && (
-            <li>
-              <span className="ms-key-usual" />
-              {usual.label}
-            </li>
-          )}
-        </ul>
+      {shownMonth ? (
+        <ReadoutLine
+          title={monthLong(shownMonth.month)}
+          parts={rows(shownMonth)}
+          note={note(shownMonth)}
+          compare={compare(shownMonth)}
+        />
+      ) : (
+        <div className="readout-line" />
       )}
       <svg width={f.width} height={f.height}>
         <g transform={`translate(${f.margin.left},${f.margin.top})`}>
           <g role="img" aria-label={label}>
             <ValueAxis ticks={[...y.ticks]} y={y} width={f.innerW} height={f.innerH} label={axisLabel} bare />
+            {at !== null && <rect className="pick-band" x={x.step * at} y={0} width={x.step} height={f.innerH} pointerEvents="none" />}
             {months.map((m, i) => {
               // a sum above zero stacks up from zero and one below it stacks down from zero
               let up = 0;
@@ -141,14 +142,20 @@ export function MonthColumns({
                     return <rect key={series[k]!.key} className={`ms-s${k}`} x={x.x(i)} y={top} width={x.width} height={Math.max(0, bottom - top)} />;
                   })}
                   {capped.has(i) && <CapBreak x={x.x(i)} width={x.width} end={capEnd(m.totalCents!)} dir={capDir(m.totalCents!)} />}
-                  <CategoryTick x={x.centre(i)} base={f.innerH} long={ticks[i]!.printed} />
-                  {ticks[i]!.printed && (
-                    <text className={m.month === running ? "ms-now" : undefined} x={x.centre(i)} y={f.innerH + LABEL_Y} textAnchor="middle">
-                      <tspan>{ticks[i]!.text}</tspan>
-                      {yearOf(i) && (
-                        <tspan x={x.centre(i)} dy={12}>
-                          {yearOf(i)}
+                  <CategoryTick x={x.centre(i)} base={f.innerH} long={printed.has(i)} />
+                  {printed.has(i) && (
+                    <text className={i === shown ? "ms-pick" : undefined} x={place(i).x} y={f.innerH + LABEL_Y} textAnchor={place(i).anchor}>
+                      <tspan>{monthLabel(m.month)}</tspan>
+                      {i === runningAt ? (
+                        <tspan x={place(i).x} dy={12}>
+                          {t("home.months_running")}
                         </tspan>
+                      ) : (
+                        yearOf(i) && (
+                          <tspan x={place(i).x} dy={12}>
+                            {yearOf(i)}
+                          </tspan>
+                        )
                       )}
                     </text>
                   )}
@@ -158,12 +165,12 @@ export function MonthColumns({
             {/* after every column, so a neighbour never covers a sum */}
             {months.map((m, i) => capped.has(i) && <CapSum key={m.month} x={x.centre(i)} end={capEnd(m.totalCents!)} dir={capDir(m.totalCents!)} text={capSum(m.totalCents!, narrow)} />)}
             {usual && <line className="ms-usual" x1={0} x2={f.innerW} y1={crisp(capY(y(usual.cents), f.innerH))} y2={crisp(capY(y(usual.cents), f.innerH))} />}
+            {usual && <UsualLabel innerW={f.innerW} above={TOP} text={narrow ? usual.short : usual.label} />}
           </g>
           <ReadoutLayer xs={months.map((_, i) => x.centre(i))} innerW={f.innerW} innerH={f.innerH} at={at} onAt={setAt} keys={keys} label={label} />
         </g>
       </svg>
-      {at !== null && months[at] && <Tip x={x.centre(at)} left={f.margin.left} width={f.width} title={monthLong(months[at]!.month)} rows={rows(months[at]!)} />}
-      <LiveReadout text={at === null || !months[at] ? "" : readoutText(monthLong(months[at]!.month), rows(months[at]!))} />
+      <LiveReadout text={at === null || !months[at] ? "" : readoutText(monthLong(months[at]!.month), [...rows(months[at]!), ...[note(months[at]!), compare(months[at]!)].flatMap((name) => (name ? [{ name, value: "" }] : []))])} />
     </div>
   );
 }

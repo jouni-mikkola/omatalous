@@ -8,7 +8,7 @@ import { benefitName, type IncomeBase, incomeBase, type IncomeChange, incomeChan
 import { payPieces, typeName } from "../analysis/income-series.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { expectedIncome } from "../analysis/expected.ts";
-import { earnedIncome, isCompleteIncomeMonth, monthIncome } from "../analysis/usual.ts";
+import { type AgainstUsual, againstUsual, earnedIncome, isCompleteIncomeMonth, monthIncome } from "../analysis/usual.ts";
 import { addDays, addMonths, dayNumber, monthEnd, monthOf, monthRange } from "../dates.ts";
 import { belowWhole } from "../household-debts.ts";
 import { fold } from "../merchant.ts";
@@ -88,6 +88,8 @@ interface IncomeMonth {
   usualCents: number | null;
   /** The month's income by group; null as `totalCents` is. */
   byGroup: Record<IncomeGroup, number> | null;
+  /** `totalCents` against the average complete month (`IncomeReport.monthlyCents`); null in a month that is not complete or within the euro of it. */
+  againstAverage: AgainstUsual | null;
 }
 
 interface IncomeStability {
@@ -274,6 +276,7 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
     earnedCents: known[i] ? earnedIncome(ctx, month) : null,
     usualCents: known[i] ? expectedIncome(ctx, month) : null,
     byGroup: known[i] ? zeroGroups() : null,
+    againstAverage: null,
   }));
   const byMonth = new Map(months.map((m) => [m.month, m]));
   // a month in progress has no counterpart yet: the comparison reads the complete months and the same ones a year before
@@ -418,10 +421,13 @@ export function incomeReport(ctx: AnalysisContext, range: DateRange, balances: r
     members = [...sums.values()];
   }
 
+  const monthlyCents = completeMonths ? types.reduce((sum, t) => sum + (t.monthlyCents ?? 0), 0) : null;
+  for (const m of months) if (m.complete) m.againstAverage = againstUsual(m.totalCents, monthlyCents);
+
   return {
     months,
     completeMonths,
-    monthlyCents: completeMonths ? types.reduce((sum, t) => sum + (t.monthlyCents ?? 0), 0) : null,
+    monthlyCents,
     enough: completeMonths >= MIN_COMPOSITION_MONTHS,
     earnedCents,
     notEarnedCents,
