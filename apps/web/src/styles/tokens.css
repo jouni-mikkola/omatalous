@@ -163,6 +163,7 @@
 }
 @media (pointer: coarse) {
   :root {
+    --tap-phone: 44px;
     --control-h: max(44px, 2rem);
   }
 }
