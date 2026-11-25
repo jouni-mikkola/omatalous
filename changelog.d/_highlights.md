@@ -1,4 +1,0 @@
-- A lighter look: a cool grey page, tabs for the reports and a new layout for Yhteenveto.
-- Varat ja velat is a page of its own, with paid-off credits listed.
-- New report views: the spending trend of each category, what changed from the usual month, and leads on Tapahtumat and Laskut.
-- Tarkistettavat asks one question at a time and says what the answer gives.

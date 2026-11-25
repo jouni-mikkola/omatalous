@@ -3,6 +3,44 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.7.0
+
+- A lighter look: a cool grey page, tabs for the reports and a new layout for Yhteenveto.
+- Varat ja velat is a page of its own, with paid-off credits listed.
+- New report views: the spending trend of each category, what changed from the usual month, and leads on Tapahtumat and Laskut.
+- Tarkistettavat asks one question at a time and says what the answer gives.
+
+Money and reports
+
+- Tarkistettavat asks one loan or card debt at a time and says what the answer gives.
+- A temporary password that has waited over a week is raised to the admins in Tarkistettavat.
+- Add-on modules can put their own questions in Tarkistettavat.
+- Raportit > Yhteiset menot says when there is nothing to settle this month.
+- Raportit > Yhteiset menot and its tab show only once a member has said how a joint account is split.
+- Raportit > Menot kategorioittain shows twelve months of each category against its usual level.
+- It also has Mikä muuttui: the categories that moved against the usual month.
+- Tapahtumat opens with the biggest day of the month, the payees that took most and the new ones.
+- Laskut leads with the monthly average, what falls due next month, the dearest month and what to set aside for rare bills.
+
+Look
+
+- Varat ja velat is a tab of its own, between Laskut and Raportit. On a phone Raportit moves to the user menu.
+- Paid-off credits are listed under Päättyneet on Varat ja velat.
+- Month charts cap a month far above the rest and write its sum above it. The value axis has fewer, plainer labels.
+- Month charts show the month, each series with its sum and how the month stands against the usual level, above the plot.
+- The header shows the user name with a chevron instead of initials, and the open-question count is outlined.
+- The page background is a light cool grey that matches the header band, in place of the warm grey.
+- On a phone, buttons, chips and links are at least 40 px. An unknown address says "Sivua ei löydy" instead of opening Yhteenveto.
+- The reports of Raportit are tabs above the page, not a column beside it.
+- Raportit > Tulot ja menot leads with income, spending and the usual month, and lists income kinds with their share.
+- The months of each chart there stay a folded table under it.
+- Verovuoden rivit moved from Raportit to Asetukset > Tiedot, for this year or last year.
+- The security log on Asetukset > Turvallisuus is folded until opened.
+- The table under a month chart is folded as "Kuukaudet taulukkona". Picking a month opens it on that month.
+- Row labels and table names use the regular weight, so only headings, figures and sums are bold.
+- Yhteenveto leads with the sum left on payday and the sums that make it up.
+- Yhteenveto has a new layout: large month figures, Tulojen käyttö as two bars (Tuli and Meni), and Varat ja velat in one column.
+
 ## 1.6.6
 
 - Yhteenveto leads with Jää palkkapäivänä, the money left on payday after bills and usual spending.
