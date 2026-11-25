@@ -293,9 +293,9 @@ for (const width of [390, 1440]) {
   });
 }
 
-// Two members who link the joint account and tell nothing of its split: Tasaus asks for the split and names the sum, and lists no member with 0,00 €.
+// Two members who link the joint account and tell nothing of its split: Raportit has no Yhteiset menot page and no link to it.
 for (const width of [390, 1440]) {
-  test(`a joint account with no split shows the question and the sum, no shares and no zero rows at ${width} px`, async ({ browser }) => {
+  test(`a joint account with no split leaves Yhteiset menot out of Raportit at ${width} px`, async ({ browser }) => {
     test.setTimeout(120_000);
     const pair: Member[] = [];
     try {
@@ -309,16 +309,9 @@ for (const width of [390, 1440]) {
         await linked.close();
       }
       const { context, page, seen } = await open(browser, pair[0]!, "/#/reports?q=yhteiset", width);
-      await expect(page.getByRole("heading", { name: "Tasaus", level: 2, exact: true })).toBeVisible();
-      await showMonth(page, LAST);
-      const pool = poolOf(page);
-      await expect(pool.getByRole("group", { name: "Et ole kertonut jakoa" })).toBeVisible();
-      await expect(pool.getByRole("link")).toHaveCount(0);
-      await expect(pool.getByText("Menot, joille ei ole osuuksia")).toBeVisible();
-      await expect(pool.getByText("Maksanut", { exact: true })).toHaveCount(0);
-      await expect(pool.getByText("Osuus", { exact: true })).toHaveCount(0);
-      await expect(pool.getByText(/^0,00\s€$/)).toHaveCount(0);
-      expect(await overflow(page), `Tasaus at ${width} px`).toBeLessThanOrEqual(0);
+      await expect(page.getByRole("link", { name: "Menot kategorioittain" }).or(page.getByRole("heading", { level: 2 }).first()).first()).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Tasaus", level: 2, exact: true })).toHaveCount(0);
+      await expect(page.getByRole("link", { name: /yhteiset/i })).toHaveCount(0);
       expect(seen.problems).toEqual([]);
       await context.close();
     } finally {
