@@ -53,6 +53,25 @@ describe("a menu row's focus", () => {
     });
   }
 
+  it("the header's user button is the name and a chevron: no initials plate is styled", () => {
+    const shell = rules(read("shell.css"));
+    expect(read("shell.css")).not.toContain(".avatar");
+    expect(shell.find((r) => r.selector.trim() === ".user-menu summary .user-name")?.body).toContain("text-overflow: ellipsis");
+  });
+
+  it("the header's review count is outlined in the band's text colour, with no fill", () => {
+    const count = rules(read("shell.css")).find((r) => r.selector.trim() === ".nav-count")!.body;
+    expect(value(count, "border")).toBe("1px solid var(--on-ink)");
+    expect(value(count, "background")).toBeUndefined();
+  });
+
+  it("the focus rings of the band are light on the band and accent inside the menu", () => {
+    const shell = rules(read("shell.css"));
+    const ring = (selector: string) => value(shell.find((r) => r.selector.trim() === selector)!.body, "outline-color");
+    expect(ring(".topbar :focus-visible, .nav :focus-visible")).toBe("var(--on-ink)");
+    expect(ring(".topbar .menu :focus-visible")).toBe("var(--accent)");
+  });
+
   it("the `--row-hover` of tokens.css is still the accent at 6 %", () => {
     const accent = /--accent:\s*oklch\(([^)]+)\)/.exec(read("tokens.css"))![1]!;
     expect(read("tokens.css")).toContain(`--row-hover: oklch(${accent} / 0.06);`);

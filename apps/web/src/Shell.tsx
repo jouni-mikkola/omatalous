@@ -242,12 +242,6 @@ export function Shell() {
   const consents = consentNotices(m.connections, m.accounts);
   // whoever can open the Enable Banking application: an admin for the shared one, the user for their own
   const canLinkAccounts = user.role === "admin" || m.bank.source === "user";
-  const initials = user.displayName
-    .split(/\s+/)
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 
   const shell: ShellState = {
     meta: m,
@@ -354,12 +348,12 @@ export function Shell() {
           <details className="user-menu" ref={userMenu}>
             <summary>
               <span className="sr-only">{t("shell.user_menu")} </span>
-              <span className="avatar" aria-hidden="true">
-                {initials}
-                {news > 0 && <span className="notice-dot" />}
-              </span>
+              <span className="user-name" title={user.displayName}>{user.displayName}</span>
+              {news > 0 && <span className="notice-dot" aria-hidden="true" />}
               {news > 0 && <span className="sr-only">{tn(news, "notice.news_one", "notice.news_many")} </span>}
-              <span className="small" title={user.displayName}>{user.displayName}</span>
+              <svg className="user-chevron" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false">
+                <path d="M2 4.5 6 8.5 10 4.5" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </summary>
             {/* choosing an item closes the menu */}
             <div className="menu" onClick={(e) => ((e.currentTarget.parentElement as HTMLDetailsElement).open = false)}>

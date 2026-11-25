@@ -29,8 +29,6 @@
   .user-menu summary { min-height: var(--rail-h); }
   .nav { order: 9; flex: 0 0 100%; margin: 0 -12px; box-shadow: inset 0 1px 0 var(--bar-edge); }
 }
-/* the user's small text (the household or role line) gives way under 1100 px so the one row holds a long name */
-@media (max-width: 1099px) { .user-menu summary .small { display: none; } }
 .nav { display: flex; gap: 0; }
 .nav a, .review-link { display: inline-flex; align-items: center; height: var(--rail-h); padding: 0 var(--sp-12); color: var(--on-ink-2); font-size: var(--fs-body); font-weight: 600; text-decoration: none; }
 /* one row up to 1299 px holds the page of an add-on module beside the view switch and a long name: the links sit closer */
@@ -42,7 +40,7 @@
 
 /* Tarkistettavat in the header: the word and the count of open questions when there are any, the same count the page shows */
 .review-link { gap: 8px; }
-.nav-count { min-inline-size: 20px; padding: 0 8px; border-radius: var(--radius-pill); background: var(--on-ink); color: var(--ink); font-size: var(--fs-label); line-height: 20px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; }
+.nav-count { box-sizing: border-box; min-inline-size: 20px; padding: 0 8px; border-radius: var(--radius-pill); border: 1px solid var(--on-ink); color: var(--on-ink); font-size: var(--fs-label); line-height: 18px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; }
 
 .topbar .segmented { background: var(--ink-2); border-color: transparent; flex: none; white-space: nowrap; }
 .topbar .segmented button { white-space: nowrap; padding: 0 8px; }
@@ -57,11 +55,12 @@
 
 .user-menu { position: relative; min-width: 0; max-width: calc(var(--sp-48) * 5); }
 .user-menu summary { max-width: 100%; list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: var(--radius-m); }
-/* a long name stays on one line of the bar */
-.user-menu summary .small { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* the name and a chevron; a long name stays on one line of the bar and is cut with an ellipsis */
+.user-menu summary .user-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.user-chevron { flex: none; }
+.user-menu[open] .user-chevron { transform: rotate(180deg); }
 .user-menu summary::-webkit-details-marker { display: none; }
 .user-menu summary:hover { background: var(--ink-2); }
-.avatar { width: 28px; height: 28px; border-radius: var(--radius-m); background: var(--on-ink); color: var(--ink); display: inline-grid; place-items: center; font-size: var(--fs-label); font-weight: 600; }
 .menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: var(--z-pop); min-width: 200px; background: var(--surface); color: var(--text); border: 1px solid var(--pop-edge); border-radius: var(--radius); padding: 8px; box-shadow: var(--pop-shadow); display: flex; flex-direction: column; }
 .menu button, .menu a { text-align: left; border: none; background: none; padding: var(--cell-y) 8px; min-height: 36px; display: flex; align-items: center; border-radius: var(--radius-s); cursor: pointer; text-decoration: none; color: var(--text); }
 .menu button:hover, .menu a:hover { background: var(--surface-2); }
@@ -74,7 +73,8 @@
 @media (max-width: 640px) {
   /* with larger text the parts of the bar no longer fit one line: they wrap, and the bar grows by a line, rather than squeeze the user's button or push the page wide */
   .topbar-in { padding: 0 12px; gap: 0 8px; height: auto; min-height: var(--rail-h); flex-wrap: wrap; }
-  .user-menu summary .small { display: none; }
+  /* the name takes what the row leaves and is cut with an ellipsis, so the row keeps one line */
+  .user-menu { flex: 0 1 7rem; margin-left: auto; }
   .user-menu summary, .review-link { min-height: var(--tap-min); }
   .review-link { padding: 0 var(--sp-4); gap: var(--sp-4); }
   .user-menu summary { padding: var(--sp-4); }

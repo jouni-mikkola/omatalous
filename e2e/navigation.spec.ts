@@ -177,8 +177,8 @@ for (const width of [320, 360, 390]) {
         expect(word.clip).toBe("none");
         await expect(link.locator(".nav-count")).toBeVisible();
       }
-      const right = await page.locator(".user-menu .avatar").evaluate((e) => e.getBoundingClientRect().right);
-      expect(right, "the avatar is inside the screen").toBeLessThanOrEqual(width);
+      const right = await page.locator(".user-menu summary").evaluate((e) => e.getBoundingClientRect().right);
+      expect(right, "the user menu is inside the screen").toBeLessThanOrEqual(width);
       expect(await overflow(page)).toBeLessThanOrEqual(0);
       await context.close();
     });

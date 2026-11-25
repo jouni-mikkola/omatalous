@@ -20,11 +20,11 @@ for (const width of [1000, 1099]) {
       const page = await context.newPage();
       const seen = watch(page);
       await page.goto(`/#/${route}`);
-      await expect(page.locator(".user-menu .avatar")).toBeVisible({ timeout: 15_000 });
+      await expect(page.locator(".user-menu summary")).toBeVisible({ timeout: 15_000 });
       if (route === "review") await expect(page.locator(".scope-toggle")).toHaveCount(0);
       else await expect(page.locator(".scope-toggle")).toBeVisible();
-      const avatar = (await page.locator(".user-menu .avatar").boundingBox())!;
-      expect(avatar.x + avatar.width, "the avatar is inside the band").toBeLessThanOrEqual(width);
+      const summary = (await page.locator(".user-menu summary").boundingBox())!;
+      expect(summary.x + summary.width, "the user menu is inside the band").toBeLessThanOrEqual(width);
       expect(await overflow(page), "the page scrolls sideways").toBeLessThanOrEqual(1);
       expect(seen.problems).toEqual([]);
       await context.close();

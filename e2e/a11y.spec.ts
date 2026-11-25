@@ -320,13 +320,13 @@ for (const width of [390, 1100, 1440]) {
     try {
       const page = await context.newPage();
       await page.goto("/#/overview");
-      const small = page.locator(".user-menu summary .small");
-      await small.waitFor({ state: width < 1100 ? "attached" : "visible" });
+      const small = page.locator(".user-menu summary .user-name");
+      await small.waitFor({ state: "visible" });
       const bar = await page.locator(".topbar").boundingBox();
       expect(bar!.height).toBeLessThanOrEqual(49);
       // the bar of a build with more pages leaves less room: the name must give way by itself, not wrap
       expect(await small.evaluate((el) => getComputedStyle(el).whiteSpace)).toBe("nowrap");
-      if (width >= 1100) {
+      {
         const lines = await small.evaluate((el) => el.getClientRects()[0]!.height / parseFloat(getComputedStyle(el).lineHeight));
         expect(lines).toBeLessThan(1.5);
       }
