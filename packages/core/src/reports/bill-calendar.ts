@@ -86,6 +86,10 @@ interface BillMonth {
   /** The rows of `monthly` that are bills or loan payments still to pay, not on a card: how many, and what they add up to. */
   monthlyBillsCount: number;
   monthlyBillsCents: number;
+  /** The month's bills still to pay that do not come every month (`billsCents` less `monthlyBillsCents`): the other part of the picture of the months. */
+  lessOftenCents: number;
+  /** `billsCents` by day, date ascending, only the days with a bill still to pay: the days of the picked month's strip. Their sum is `billsCents`. */
+  billDays: { date: IsoDate; cents: number }[];
 }
 
 interface BillCalendar {
@@ -322,6 +326,8 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       afterCents: found.pays.length === 0 || unknownsIn(unknowns, month) > 0 ? null : incomeCents - knownCents - estimateCents - savingCents,
       monthlyBillsCount: count((r) => r.monthly === true && toPay(r) && !r.onCard),
       monthlyBillsCents: sum((r) => r.monthly === true && toPay(r) && !r.onCard),
+      lessOftenCents: sum((r) => r.monthly !== true && toPay(r) && !r.onCard),
+      billDays: [...new Set(own.filter((r) => toPay(r) && !r.onCard).map((r) => r.date))].map((date) => ({ date, cents: sum((r) => toPay(r) && !r.onCard && r.date === date) })),
     };
   });
   const billsCents = months.reduce((total, m) => total + m.billsCents, 0);

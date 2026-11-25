@@ -57,6 +57,7 @@ export function MonthColumns({
   tone,
   usual,
   running,
+  resting = null,
   label,
 }: {
   months: readonly MonthColumn[];
@@ -66,6 +67,8 @@ export function MonthColumns({
   usual: { cents: number; label: string; short: string } | null;
   /** The month that has not ended yet (`YYYY-MM`). */
   running: string | null;
+  /** The month the readout names while nothing is pointed at (`YYYY-MM`); with none, or one the chart lacks, the last whole month. */
+  resting?: string | null;
   /** What the chart is, for a screen reader's name of it. */
   label: string;
 }) {
@@ -91,7 +94,8 @@ export function MonthColumns({
   const x = band(months.length, f.innerW, 0.72);
   const whole = (m: MonthColumn) => m.complete && m.month !== running;
   // the readout names the picked month, else the last whole one, so the series are always named next to their colours
-  const shown = at ?? lastWhole(months.map((m) => whole(m) && m.totalCents !== null)) ?? months.length - 1;
+  const restingAt = resting === null ? -1 : months.findIndex((m) => m.month === resting);
+  const shown = at ?? (restingAt >= 0 ? restingAt : (lastWhole(months.map((m) => whole(m) && m.totalCents !== null)) ?? months.length - 1));
   const runningAt = months.findIndex((m) => m.month === running);
   const printed = printedMonths(months.length, x.step, new Set(runningAt < 0 ? [] : [runningAt]), shown);
   const firstPrinted = Math.min(...printed);

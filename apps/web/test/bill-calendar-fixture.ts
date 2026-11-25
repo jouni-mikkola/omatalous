@@ -23,6 +23,8 @@ export const month = (key: string, rows: CalBill[], over: Partial<CalMonth> = {}
   afterCents: 0,
   monthlyBillsCount: 0,
   monthlyBillsCents: 0,
+  lessOftenCents: 0,
+  billDays: [],
   ...over,
 });
 

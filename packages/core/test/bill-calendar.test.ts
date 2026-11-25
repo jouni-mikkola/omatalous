@@ -378,6 +378,21 @@ describe("the bill calendar", () => {
       expect(november.rows.find((r) => r.payee === "Esimerkki Vakuutus")!.monthly).toBeUndefined();
     });
 
+    it("splits a month's bills into the monthly and the rest, and by day, each to the cent", () => {
+      const { cal } = run([...household(), ...saving()]);
+      for (const m of cal.months) {
+        expect(m.monthlyBillsCents + m.lessOftenCents, m.month).toBe(m.billsCents);
+        expect(m.billDays.reduce((total, d) => total + d.cents, 0), m.month).toBe(m.billsCents);
+        expect(m.billDays.map((d) => d.date), m.month).toEqual([...new Set(m.billDays.map((d) => d.date))].sort());
+        expect(m.billDays.every((d) => monthOf(d.date) === m.month && d.cents > 0), m.month).toBe(true);
+      }
+      // November: the quarterly insurance is the part that does not come every month, and it falls on its own day
+      const november = cal.months[1]!;
+      expect(november.lessOftenCents).toBe(INSURANCE);
+      const due = november.rows.find((r) => r.payee === "Esimerkki Vakuutus")!.date;
+      expect(november.billDays.find((d) => d.date === due)?.cents).toBeGreaterThanOrEqual(INSURANCE);
+    });
+
     it("gives no figure for what is left in the month of a bill whose sum is not known, and the other months theirs", () => {
       const { ctx, cal } = run(household(), withBills(typedBill("Esimerkki Vero", 0, "2026-12-05")));
       expect(cal.unknownCount).toBe(1);

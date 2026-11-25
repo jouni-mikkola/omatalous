@@ -63,6 +63,18 @@ describe("Raportit: the months chart", () => {
     expect(readout).toContain("tulot 200 € yli keskiarvon");
   });
 
+  it("names the resting month in the readout while nothing is pointed at, and the last whole one when it is not a month of the chart", () => {
+    const named = (resting: string | null) => {
+      const { container, unmount } = show({ resting });
+      const readout = plain(container.querySelector(".readout-line")!.textContent);
+      unmount();
+      return readout;
+    };
+    expect(named("2026-09")).toContain("syyskuu 2026");
+    expect(named("2027-01")).toContain("elokuu 2026");
+    expect(named(null)).toContain("elokuu 2026");
+  });
+
   it("puts the comparison in the live readout of a picked month, and says none for a month the report gives none for", () => {
     const { container } = show();
     const layer = container.querySelector("[role='group']")!;

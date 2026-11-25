@@ -79,7 +79,17 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 /* ── The head: the name of the page, the one secondary action and the figure of the year */
 .bills-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-8) var(--sp-12); margin: 0 0 var(--sp-16); }
 .bills-head h2 { margin: 0; min-inline-size: 0; }
-.bills-year { margin: 0; color: var(--text-2); font-variant-numeric: tabular-nums; }
-.bills-facts { margin: var(--sp-4) 0 0; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.bills-lead { margin: 0; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.bills-days-sum { color: var(--text-2); font-variant-numeric: tabular-nums; }
+
+/* ── The days of the picked month: one bar a day as high as its bills, the days of a pay in the colour of income */
+.bill-days { display: flex; align-items: flex-end; gap: var(--hairline); block-size: calc(var(--bar-h) * 10); padding-block-end: var(--sp-16); border-block-end: var(--hairline) solid var(--axis); }
+.bill-day { position: relative; flex: 1 1 0; min-inline-size: 0; block-size: 100%; display: flex; flex-direction: column; justify-content: flex-end; }
+.bill-day > i { display: block; min-block-size: 0; background: var(--role-spending); }
+.bill-day > span { position: absolute; inset-inline: -50%; inset-block-end: calc(-1 * var(--sp-16)); text-align: center; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.bill-day-pay > span { color: var(--role-income); font-weight: var(--w-strong); }
+.bill-day-pay { background: linear-gradient(to right, transparent calc(50% - var(--hairline)), var(--role-income) calc(50% - var(--hairline)) calc(50% + var(--hairline)), transparent calc(50% + var(--hairline))); }
+.bill-day-pay > i { position: relative; }
+.bill-day-pay > b { position: absolute; inset-block-start: 0; inset-inline-start: 50%; transform: translateX(-50%); padding-inline: var(--sp-4); background: var(--page); color: var(--role-income); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); white-space: nowrap; }
 .bills-unknown { display: block; margin-block-start: var(--sp-4); font-weight: var(--w-strong); }
 }
