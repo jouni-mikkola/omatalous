@@ -8,6 +8,7 @@ import { notLoanMark, type RawTransaction } from "@banking/core";
 import { describe, expect, it } from "vitest";
 import { reprocess } from "../src/services/enrich.ts";
 import { ingestTransactions } from "../src/services/ingest.ts";
+import type { User } from "../src/db/rows.ts";
 import { reviewCount, reviewQueue } from "../src/services/review.ts";
 import { setupApp, statementsOf } from "./helpers.ts";
 
@@ -36,24 +37,27 @@ async function household() {
   await maijaRepo.upsertAccount({ id: "maija-chk", connectionId: null, provider: "csv", externalId: null, identity: null, name: "Maijan tili", iban: null, currency: "EUR", type: "checking" });
   await ingestTransactions(maijaRepo, "maija-chk", MONTHS.map((m) => raw(`${m}-12`, -30, "TOINEN KAUPPA XYZ", "KORTTIOSTO")), "csv");
   await reprocess(maijaRepo, t.s.settings);
-  return { ...t, maijaId: maija.id };
+  // the queue takes the user of the request, so the tests hand it the same rows the middleware would
+  const users: User[] = [(await t.s.users.get(t.adminId))!, (await t.s.users.get(maija.id))!];
+  return { ...t, maijaId: maija.id, userOf: (id: string) => users.find((u) => u.id === id)! };
 }
 
 /**
  * The most statements a warm request may make for this household. The queue made 172 before it read the view once, 28
- * before it read the accounts and their uses once for the request, and makes 23 now. A source that reads one more thing
- * raises it by that; a source that reads the view again must not.
+ * before it read the accounts and their uses once for the request, and makes 23 now. The viewer comes with the request and
+ * the user list is read once for the members and the temporary passwords. A source that reads one more thing raises it by
+ * that; a source that reads the view again must not.
  */
 const MOST = { count: 23, queue: 23 };
 
 describe("the review count and the queue read once", () => {
   it("the count is the length of the queue in every state, and the queue is the same on a second read", async () => {
     const t = await household();
-    const items = async (id: string) => (await reviewQueue(t.s, id)).items;
+    const items = async (id: string) => (await reviewQueue(t.s, t.userOf(id))).items;
     const first = await items(t.adminId);
     expect(first.map((i) => i.kind)).toContain("loan_terms_list");
     const debts = (items: typeof first) => items.flatMap((i) => (i.kind === "loan_terms_list" ? i.debts : []));
-    expect((await reviewCount(t.s, t.adminId)).count).toBe(first.length);
+    expect((await reviewCount(t.s, t.userOf(t.adminId))).count).toBe(first.length);
     expect(await items(t.adminId)).toEqual(first);
     // the loan questions are the proposals of the loans route, which reads its own view and its own inputs
     const proposals = (await t.admin.call("GET", "/api/loans/proposals")).body.proposals as { key: string }[];
@@ -64,7 +68,7 @@ describe("the review count and the queue read once", () => {
     expect((await t.admin.call("PUT", "/api/marks", notLoanMark({ key: loan.key! }))).status).toBe(200);
     const answered = await items(t.adminId);
     expect(debts(answered).map((d) => d.id)).not.toContain(loan.id);
-    expect((await reviewCount(t.s, t.adminId)).count).toBe(answered.length);
+    expect((await reviewCount(t.s, t.userOf(t.adminId))).count).toBe(answered.length);
 
     // a new payee is asked about
     const repo = t.s.finance(t.adminId);
@@ -73,20 +77,21 @@ describe("the review count and the queue read once", () => {
     const grown = await items(t.adminId);
     expect(grown.map((i) => i.id)).toContain("payee_out:Toinen Kauppa Xyz");
     expect(answered.map((i) => i.id)).not.toContain("payee_out:Toinen Kauppa Xyz");
-    expect((await reviewCount(t.s, t.adminId)).count).toBe(grown.length);
+    expect((await reviewCount(t.s, t.userOf(t.adminId))).count).toBe(grown.length);
 
     // the other member is asked about their own rows only, and the count says the same
     const maija = await items(t.maijaId);
-    expect((await reviewCount(t.s, t.maijaId)).count).toBe(maija.length);
+    expect((await reviewCount(t.s, t.userOf(t.maijaId))).count).toBe(maija.length);
     expect(maija.map((i) => i.id)).not.toContain(loan.id);
   });
 
   it("a warm count and a warm queue read the database a bounded number of times", async () => {
     const t = await household();
     // the first request builds the context; the next ones read what a request reads
-    await reviewQueue(t.s, t.adminId);
-    const queue = await statementsOf(t.db, () => reviewQueue(t.s, t.adminId));
-    const count = await statementsOf(t.db, () => reviewCount(t.s, t.adminId));
+    const admin = t.userOf(t.adminId);
+    await reviewQueue(t.s, admin);
+    const queue = await statementsOf(t.db, () => reviewQueue(t.s, admin));
+    const count = await statementsOf(t.db, () => reviewCount(t.s, admin));
     expect.soft(count, "statements of a warm count").toBeLessThanOrEqual(MOST.count);
     expect.soft(queue, "statements of a warm queue").toBeLessThanOrEqual(MOST.queue);
   });

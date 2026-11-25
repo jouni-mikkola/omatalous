@@ -136,6 +136,35 @@ describe("Tarkistettavat", () => {
     expect(focusWhenShown).toBe(true);
   });
 
+  it("asks an add-on module's question: an answer goes to the route the choice names and a link opens a page of the app", async () => {
+    const seen = stubApi({ "PUT /api/example/renew": { ok: true } });
+    const asked = {
+      kind: "extension", id: "example:renew", cents: 0, type: "example_renew", title: "Esimerkkikauppa", question: "Kirjaudutaanko kauppaan uudelleen?", detail: "Kirjautuminen vanhentui", guess: "go",
+      choices: [{ id: "go", label: "Kyllä", answer: { method: "PUT", path: "/api/example/renew", body: { again: true } } }, { id: "open", label: "Avaa kauppa", href: "#/example" }],
+    };
+    const meta = { accounts: [{}], sharedAccounts: [], bank: { banks: [] } } as unknown as Meta;
+    render(createElement(Review, { meta, queue: { data: { items: [asked, { id: "m", kind: "mortgage", cents: 0 }] as unknown as ReviewItem[] }, error: null, reload: () => {} } }));
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toContain("Kirjaudutaanko kauppaan uudelleen?");
+    expect(document.querySelector(".review-item")!.textContent).toContain("Esimerkkikauppa");
+    expect(document.querySelector(".review-item")!.textContent).toContain("Kirjautuminen vanhentui");
+    expect(screen.getByRole("link", { name: "Avaa kauppa" }).getAttribute("href")).toBe("#/example");
+    fireEvent.click(screen.getByRole("button", { name: "Kyllä" }));
+    await waitFor(() => expect(seen).toHaveLength(1), T);
+    expect(seen[0]).toMatchObject({ method: "PUT", path: "/api/example/renew", body: { again: true } });
+    await waitFor(() => expect(screen.getByRole("heading", { level: 2 }).textContent).toContain("Kysymys 2 / 2"), T);
+  });
+
+  it("links a temporary password that has waited over a week to the members, where it is changed or removed", () => {
+    const seen = stubApi({});
+    const items = [{ kind: "temporary_password", id: "temporary_password:u1", cents: 0, userId: "u1", name: "Eero" }] as unknown as ReviewItem[];
+    const meta = { accounts: [{}], sharedAccounts: [], bank: { banks: [] } } as unknown as Meta;
+    render(createElement(Review, { meta, queue: { data: { items }, error: null, reload: () => {} } }));
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toContain("Väliaikainen salasana on odottanut yli viikon");
+    expect(document.querySelector(".review-item")!.textContent).toContain("Eero");
+    expect(screen.getByRole("link", { name: "Avaa Jäsenet" }).getAttribute("href")).toBe("#/settings/members");
+    expect(seen).toEqual([]);
+  });
+
   it("saves a mortgage from Lisää asuntolaina in place and moves on to the next question", async () => {
     queryClient.clear();
     const seen = stubApi({ "GET /api/loans": { loans: [] }, "POST /api/loans": (s: { body: unknown }) => ({ loan: { id: "loan-1", ...(s.body as object) } }) });

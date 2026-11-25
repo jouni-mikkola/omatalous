@@ -3,19 +3,11 @@ import { Hono } from "hono";
 import { UserError } from "../platform/errors.ts";
 import type { AppEnv, Services } from "../services/context.ts";
 import { removeFactorByAdmin } from "../services/second-factor.ts";
-import { createUser, deleteUser, resetPassword, type Role, updateUser } from "../services/users.ts";
+import { createUser, deleteUser, resetPassword, type Role, temporaryIsLong, updateUser } from "../services/users.ts";
 import { strictObject } from "../platform/validate.ts";
 import { body, optionalString, requestInfo } from "./shared.ts";
 
 const ROLES: Role[] = ["admin", "member"];
-
-const TEMPORARY_LONG_DAYS = 7;
-
-/** True when the member's temporary password was set over a week ago. The time is the newest of the events that set one; the log keeps 90 days, so a password with no such event is older still. */
-async function temporaryIsLong(s: Services, userId: string): Promise<boolean> {
-  const set = await s.security.newestOf(userId, ["user_created", "password_reset_by_admin"]);
-  return !set || Date.parse(set.at) < s.now().getTime() - TEMPORARY_LONG_DAYS * 86_400_000;
-}
 
 export function userRoutes(s: Services) {
   const app = new Hono<AppEnv>();

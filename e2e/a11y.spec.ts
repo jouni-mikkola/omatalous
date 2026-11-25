@@ -62,7 +62,7 @@ const debtOf = (n: number, placed: boolean) => ({
   id: `proposal:a11y-${n}`, source: "proposal", name: `Pankki ${n} Oyj`, loanId: null, accountId: null, key: `a11y-${n}`, kind: placed ? "mortgage" : "consumer", placed,
   monthlyCents: 10_000, latestCents: 10_000, lastDate: "2025-12-02", owedCents: null, balanceDate: null, gaps: [], subject: null, terms: null, savedCards: [],
 });
-const LOAN = { kind: "loan_terms_list", id: "loan-terms", cents: 240_000, debts: [debtOf(1, false), debtOf(2, true)], debtsCents: null, noBalance: 2 };
+const LOAN = { kind: "loan_terms_list", id: "loan-terms:proposal:a11y-1", cents: 120_000, debts: [debtOf(1, false)], debtsCents: null, noBalance: 2, fromRows: 2 };
 for (const width of [1280, 390]) {
   for (const [name, path, ready, queue] of [
     ["Yhteenveto", "/#/overview", OVERVIEW_TILES, null],
@@ -85,7 +85,7 @@ for (const width of [1280, 390]) {
 
 // 0.69.1: three rules the serious-only checks above let through, on the pages that had them: a control's name holds its visible
 // text, a landmark is told apart from its twin, a table head cell is not empty. Any impact counts here.
-const MANY = { ...LOAN, debts: Array.from({ length: 5 }, (_, i) => debtOf(i + 1, i % 2 === 1)), noBalance: 5 };
+const MANY = { ...LOAN, debts: Array.from({ length: 5 }, (_, i) => debtOf(i + 1, i % 2 === 1)), noBalance: 5, fromRows: 5 };
 const RULES = ["label-content-name-mismatch", "landmark-unique", "empty-table-header"];
 for (const width of [1440, 390]) {
   for (const [name, path, ready, queue] of [

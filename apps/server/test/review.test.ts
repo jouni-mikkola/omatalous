@@ -30,7 +30,7 @@ type Caller = { call: (method: string, path: string, body?: unknown) => Promise<
 const queue = async (c: Caller) => (await c.call("GET", "/api/review")).body.items as Item[];
 const ids = async (c: Caller) => (await queue(c)).map((i) => i.id);
 /** The debts Täydennä lainat lists, none when it is not in the queue. */
-const listed = (items: Item[]) => (items.find((i) => i.kind === "loan_terms_list")?.debts ?? []) as Item[];
+const listed = (items: Item[]) => items.flatMap((i) => (i.kind === "loan_terms_list" ? (i.debts as Item[]) : []));
 const debtIds = async (c: Caller) => listed(await queue(c)).map((d) => d.id);
 
 async function household() {
@@ -50,7 +50,7 @@ describe("the review queue", () => {
     const items = res.body.items as Item[];
     expect(items.map((i) => i.kind)).toEqual(["loan_terms_list", "payee_out", "subscription", "payee_out", "mortgage"]);
     expect(items.map((i) => i.cents)).toEqual([...items.map((i) => i.cents)].sort((a, b) => b - a));
-    expect(items[0]).toMatchObject({ kind: "loan_terms_list", id: "loan-terms", cents: 300000, noBalance: 1 });
+    expect(items[0]).toMatchObject({ kind: "loan_terms_list", id: expect.stringMatching(/^loan-terms:/), cents: 300000, noBalance: 1 });
     const [loan, ...more] = listed(items);
     expect(more).toEqual([]);
     expect(loan).toMatchObject({ source: "proposal", name: "Esimerkkirahoitus", latestCents: 25000, monthlyCents: 25000, owedCents: null, placed: true, kind: "consumer" });

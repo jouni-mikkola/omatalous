@@ -47,8 +47,8 @@ const debtsOf = async (seriesKey: string | null, proposals: LoanProposal[]) => {
   // a plan at 0 % whose fee nothing tells lacks a fact the review asks, so it is listed (a loan that lacks only its rate is not)
   const body = { name: "Osamaksu", kind: "instalment", balanceCents: 1_500_000, balanceDate: "2026-10-01", rateBp: 0, repayment: "fixed_instalment", intervalMonths: 1, paymentCents: 90_000, seriesKey };
   const id = (await t.admin.call("POST", "/api/loans", body)).body.loan.id as string;
-  const list = ((await t.admin.call("GET", "/api/review")).body.items as Item[]).find((i) => i.kind === "loan_terms_list");
-  return { id, debts: list?.debts ?? [] };
+  const debts = ((await t.admin.call("GET", "/api/review")).body.items as Item[]).flatMap((i) => (i.kind === "loan_terms_list" ? (i.debts as Debt[]) : []));
+  return { id, debts };
 };
 
 describe("Täydennä lainat, a proposal of a saved loan's series", () => {

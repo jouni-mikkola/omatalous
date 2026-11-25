@@ -4,6 +4,7 @@
  * header's count on every page does not repeat the same reads fourteen times.
  */
 import type { AnalysisContext, BalanceInput, HouseholdMember, UserInputs } from "@banking/core";
+import type { User } from "../db/rows.ts";
 import type { ScopeAccount } from "./analysis.ts";
 import type { RequestReads } from "./request-reads.ts";
 import type { MemberMoneyItem } from "./review-members.ts";
@@ -17,6 +18,10 @@ export interface OwnView {
   stamp: string;
   /** What the queue read of the household while it read the view: a source that needs the uses or the traces asks here. */
   reads: RequestReads;
+  /** The user of the request, with the role the request has (a service token reads as a member), never read again from the database. */
+  viewer: User;
+  /** The household's users, read on the first ask and shared by the members and the temporary passwords. */
+  users(): Promise<User[]>;
   /** The household's members, read on the first ask. */
   members(): Promise<HouseholdMember[]>;
   /** The money in from other members that nothing explained, worked out on the first ask. */

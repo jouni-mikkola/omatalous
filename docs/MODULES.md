@@ -180,7 +180,7 @@ interface ModuleHost {
 ```
 
 `ServerExtension` is the type in the server's extension file: `id`, `label`, `routes(s)` (mounted at `/api/<id>` behind the
-signed-in user), `tokenReads?`, `deviceTokens?`, `notices?`, `stores?`, `leftOut?`, `sealed?`, `securityEvents?`, `demo?`,
+signed-in user), `tokenReads?`, `deviceTokens?`, `notices?`, `reviewQuestions?`, `stores?`, `leftOut?`, `sealed?`, `securityEvents?`, `demo?`,
 `removeDemo?`, `cli?`, `cliUsage?`, `hourly?`, `rowFields?`, `rowParts?`. The host sets `migrationsDir` from the manifest;
 an entry's own value is ignored. A registered extension is on: the code is the switch, and there is no flag of its own to
 turn off.
@@ -202,6 +202,16 @@ makes, stores (hashed), ends and removes its tokens and writes their security ev
 `notices(s, user)` gives the module's notices of now for the user. They join the end of the list of
 `GET /api/security/notices`, with `<id>:` in front of each id. A notice with no `seen` is a state and lasts while the
 module returns it. A failure is logged with the module's id and adds none.
+
+`reviewQuestions(s, user)` gives the module's questions of now for the user. They join the queue of Tarkistettavat
+(`GET /api/review`) after the app's own, with `<id>:` in front of each id, and go when the module stops returning them.
+A question has a `type`, a `title`, the `question`, an optional `detail`, `date` and `guess` (the id of a choice), `cents`
+(the money at stake over a year, 0 for none) and its `choices`. A choice is either an answer the page sends to a route
+of the module itself (`answer: { method, path, body }`: `PUT` or `POST`, a path under `/api/<id>/` of letters, digits and
+`_.~:-` with no query, `..` or empty part, and a body of at most 4000 characters of JSON) or a link to a page of the app
+(`href`, such as `#/review?item=x`, never an address outside the app); any other choice is dropped, and a question left
+with no choice goes with it. The question's `id` is letters, digits and `_.:-`, at most 100. Tarkistettavat is the one page that asks, so a module asks there and nowhere else. A failure is logged
+with the module's id and adds none.
 
 `host.modules` holds, by specifier:
 

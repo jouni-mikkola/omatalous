@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { join } from "node:path";
 import { makeMember, overflow, removeMember, watch } from "./helpers.ts";
 
-// Tarkistettavat > Täydennä lainat lists a card whose purchases are not in the data, with its sum and the ways to bring
+// Tarkistettavat asks, one question to a debt, about a card whose purchases are not in the data, with its sum and the ways to bring
 // them in. The data is the administrator's demo household, imported under a fresh member with one card bill added
 // and no card connected.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
@@ -62,14 +62,21 @@ test.beforeAll(async ({ browser }) => {
 });
 test.afterAll(async ({ browser }) => removeMember(browser, member.id));
 
-test("390 px: the missing card is a row of Täydennä lainat with its sum and four 44 px answers, and the page does not scroll sideways", async ({ browser }) => {
+test("390 px: the missing card is the question of one debt with its sum and four 44 px answers, and the page does not scroll sideways", async ({ browser }) => {
   const context = await browser.newContext({ storageState: member.state, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/review?item=loan-terms");
   const card = page.locator(".review-item");
-  await expect(card.getByRole("heading", { level: 2 })).toContainText("Täydennä lainat");
+  const heading = card.getByRole("heading", { level: 2 });
+  await expect(heading).toContainText("Kysymys 1 /");
   const row = card.locator("li.review-debt", { has: page.locator(".review-debt-name", { hasText: CARD_NAME }) });
+  // the link opens the first debt's question; each debt is asked on its own, so the card's comes after the ones that are passed
+  for (let n = 2; n <= 12 && (await row.count()) === 0; n++) {
+    await card.getByRole("button", { name: "Ohita" }).click();
+    await expect(heading).toContainText(`Kysymys ${n} /`);
+  }
+  await expect(heading).toContainText("Kerro kortin velka");
   await expect(row.locator(".review-debt-name")).toContainText("456,78");
   const connect = row.getByRole("link", { name: /^Yhdistä/ });
   await expect(connect).toBeVisible();

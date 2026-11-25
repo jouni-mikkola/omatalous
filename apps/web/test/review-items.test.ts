@@ -43,7 +43,7 @@ describe("a sitting", () => {
 
   it("leaves out an item of a kind the page has no card for", () => {
     const unknown = (kind: string) => ({ kind, id: `${kind}:1`, cents: 900_000 }) as unknown as ReviewItem;
-    const view = sittingView([...["extension", "newer"].map(unknown), payee(0)], NEW_SITTING);
+    const view = sittingView([...["older", "newer"].map(unknown), payee(0)], NEW_SITTING);
     expect(view).toMatchObject({ state: "item", position: 1, of: 1 });
     expect(view.state === "item" && view.item.id).toBe("payee_out:Kauppa 0");
     expect(sittingView([unknown("newer")], NEW_SITTING)).toEqual({ state: "empty" });
@@ -160,9 +160,26 @@ describe("the kinds the page has a card for", () => {
 });
 
 describe("the debts that lack a balance, a rate or a payment", () => {
-  const list: ReviewItem = { kind: "loan_terms_list", id: "loan-terms", cents: 1_200_000, debts: [], debtsCents: null, noBalance: 1 };
-  it("are one item that asks to complete the loans", () => {
-    expect([eyebrow(list), nameOf(list), questionOf(list)]).toEqual(["Velat", "Lainat ja kortit", "Täydennä lainat"]);
+  const debt = (source: string, gaps: string[] = []) => ({ id: `${source}:a`, source, name: "Esimerkkirahoitus", gaps });
+  const listOf = (...debts: ReturnType<typeof debt>[]) => ({ kind: "loan_terms_list", id: `loan-terms:${debts[0]?.id ?? "none"}`, cents: 1_200_000, debts, debtsCents: null, noBalance: 1, fromRows: 1 }) as unknown as ReviewItem;
+  const list = listOf();
+  it("are one item a debt, with the loans' eyebrow and name", () => {
+    expect([eyebrow(list), nameOf(list)]).toEqual(["Velat", "Lainat ja kortit"]);
+    expect(nameOf(listOf(debt("loan")))).toBe("Esimerkkirahoitus");
+  });
+  it("ask what the answer gives, by the kind of the debt", () => {
+    const heading = (...args: Parameters<typeof debt>) => questionOf(listOf(debt(...args)));
+    expect(heading("proposal")).toBe("Kerro lainan saldo, niin näet velan kokonaismäärän ja kalleimman lainan.");
+    expect(heading("loan", ["payment"])).toBe("Täydennä lainan tiedot, niin näet, milloin laina päättyy ja paljonko korkoa vielä jää.");
+    expect(heading("loan", ["rate"])).toBe("Kerro lainan korko, niin näet, paljonko korkoa vielä jää.");
+    expect(heading("card", ["rate"])).toBe("Kerro, maksetaanko kortti kokonaan joka kuukausi, niin näet, paljonko korko maksaa.");
+    expect(heading("plan")).toBe("Kerro, milloin maksuerät päättyvät, niin näet, milloin kuukausimeno pienenee.");
+    expect(heading("card_bill")).toBe("Kerro kortin velka, niin se tulee mukaan velkojen kokonaismäärään.");
+    expect(heading("card_gap")).toBe(heading("card_bill"));
+    expect(heading("ended")).toBe("Kerro, onko luotto maksettu, niin velat eivät näy väärin.");
+  });
+  it("keep the old heading when the item holds no debt", () => {
+    expect(questionOf(list)).toBe("Täydennä lainat");
   });
   it("show no figure of their own: the list shows the totals the server counts after each save", () => {
     expect(figureOf(list)).toMatchObject({ text: "", line: "" });
@@ -232,6 +249,12 @@ describe("a link to one item", () => {
     const items = queue(3);
     expect(linkedFirst(items, "loan-terms")).toEqual(items);
     expect(linkedFirst(items, null)).toEqual(items);
+  });
+  it("opens the first debt's question for the old link `loan-terms`, and a debt's own question for its id", () => {
+    const loan = (id: string) => ({ kind: "loan_terms_list", id: `loan-terms:${id}`, cents: 0, debts: [], debtsCents: null, noBalance: 0, fromRows: 0 }) as unknown as ReviewItem;
+    const items = [payee(0), loan("a"), loan("b")];
+    expect(linkedFirst(items, "loan-terms").map((i) => i.id)).toEqual(["loan-terms:a", payee(0).id, "loan-terms:b"]);
+    expect(linkedFirst(items, "loan-terms:b").map((i) => i.id)).toEqual(["loan-terms:b", payee(0).id, "loan-terms:a"]);
   });
 });
 

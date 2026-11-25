@@ -46,11 +46,17 @@ test("a payment that looks like a loan is asked in Tarkistettavat: saved as a lo
     // the row of the proposal among the debts of the list, while it is asked, and once answered (the card's row has a name of its own)
     const row = item.locator("li.review-debt:not(.is-done)").filter({ has: page.locator(".review-debt-name", { hasText: /^Nordea Rahoitus Suomi Oy · / }) });
     const answered = item.locator("li.review-debt.is-done").filter({ has: page.locator(".review-debt-name", { hasText: /^Nordea Rahoitus Suomi Oy$/ }) });
-    // the link of a missing balance opens the list of debts first
+    // the link of a missing balance opens the first debt's question; each debt is asked on its own, so the payment's comes after the ones that are passed
     const reach = async () => {
+      const heading = item.getByRole("heading", { level: 2 });
       await page.goto("/#/review?item=loan-terms");
       await page.reload();
-      await expect(item.getByRole("heading", { level: 2 })).toContainText("Täydennä lainat", { timeout: 15_000 });
+      await expect(heading).toContainText("Kysymys 1 /", { timeout: 15_000 });
+      for (let n = 2; n <= 12 && (await row.count()) === 0; n++) {
+        await item.getByRole("button", { name: "Ohita" }).click();
+        await expect(heading).toContainText(`Kysymys ${n} /`);
+      }
+      await expect(heading).toContainText("Kerro lainan saldo");
       await expect(row).toBeVisible();
     };
     type Debt = { source: string; name: string };
@@ -91,7 +97,7 @@ test("a payment that looks like a loan is asked in Tarkistettavat: saved as a lo
     await form.getByRole("button", { name: "Tallenna", exact: true }).click();
     await expect(answered.locator(".review-debt-result")).toHaveText(/^Jäljellä 6\s400,50\s€/);
     await expect(row).toHaveCount(0);
-    await expect(item.getByRole("heading", { level: 2 })).toContainText("Täydennä lainat");
+    await expect(item.getByRole("heading", { level: 2 })).toContainText("Kerro lainan saldo");
     const { loans } = await (await context.request.get("/api/loans")).json();
     expect(loans).toHaveLength(1);
     expect(loans[0]).toMatchObject({ kind: "car", lender: COMPANY, balanceCents: 640_050, rateBp: null, paymentCents: 28_900, intervalMonths: 1, repayment: "fixed_instalment" });

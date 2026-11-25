@@ -118,6 +118,32 @@ export function Choices({ item, meta, busy, onAnswer, onHold, onReload }: { item
           onPick={(value) => onAnswer(mark(item.subject, value))}
         />
       );
+    case "extension":
+      // each choice is the module's own: an answer to its route, or a link to a page of the app
+      return (
+        <div className="review-choices">
+          {item.choices.map((c) =>
+            "href" in c ? (
+              <Button key={c.id} className="review-choice" href={c.href}>
+                {c.label}
+              </Button>
+            ) : (
+              <ChoiceButton key={c.id} primary={c.id === item.guess} busy={busy} onClick={() => onAnswer(() => api(c.answer.path, { method: c.answer.method, body: c.answer.body }))}>
+                <span>{c.label}</span>
+              </ChoiceButton>
+            ),
+          )}
+        </div>
+      );
+    case "temporary_password":
+      // the password is changed or the account removed where the members are; the item goes with it
+      return (
+        <div className="review-choices">
+          <Button className="review-choice" href={settingsHash("members")}>
+            {t("set.rc.open_members")}
+          </Button>
+        </div>
+      );
     case "loan_drift":
       return <LoanDriftChoices item={item} meta={meta} busy={busy} onAnswer={onAnswer} />;
     case "mortgage":

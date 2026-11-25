@@ -43,6 +43,14 @@ export function frame(width: number, margin: Margin, { minHeight = 240, tallest 
   };
 }
 
+/**
+ * The frame options of a monthly chart: a plot 24 % of the width high, between 170 and 260 px. `vertical` is the top and
+ * bottom margin, which the frame adds to the plot.
+ */
+export function monthPlot(width: number, vertical: number): FrameOptions {
+  return { minHeight: 170 + vertical, tallest: 260 + vertical, ratio: (0.24 * width + vertical) / Math.max(width, 1) };
+}
+
 /** The left margin a value axis needs for its longest label: the label, 4 px of air and the long tick, never under 40 px. */
 export function axisRoom(labels: readonly string[]): number {
   const longest = labels.reduce((n, l) => Math.max(n, l.length), 0);

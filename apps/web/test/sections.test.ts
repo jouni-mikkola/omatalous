@@ -61,11 +61,18 @@ describe("the page of a section", () => {
 
   it("Yhteiset menot shows only for a user who is weighted in a joint account", () => {
     const section = REPORT_SECTIONS.find((s) => s.id === "yhteiset-menot")!;
-    const ctx = (users: { userId: string; weight: number }[]) => ({ meta: { user: { id: "u1" }, accounts: [{ use: { users } }] } }) as unknown as ReportContext;
+    const ctx = (users: { userId: string; weight: number }[], split?: "unknown") => ({ meta: { user: { id: "u1" }, accounts: [{ use: { users, split } }] } }) as unknown as ReportContext;
     expect(section.visible?.(ctx([{ userId: "u1", weight: 50 }, { userId: "u2", weight: 50 }]))).toBe(true);
     // a near miss: she is named with no weight, or alone
     expect(section.visible?.(ctx([{ userId: "u1", weight: 0 }, { userId: "u2", weight: 100 }]))).toBe(false);
     expect(section.visible?.(ctx([{ userId: "u1", weight: 100 }]))).toBe(false);
+  });
+
+  it("Yhteiset menot stays hidden while the split of the joint account is not said", () => {
+    const section = REPORT_SECTIONS.find((s) => s.id === "yhteiset-menot")!;
+    const ctx = (split?: "unknown") => ({ meta: { user: { id: "u1" }, accounts: [{ use: { users: [{ userId: "u1", weight: 1 }, { userId: "u2", weight: 1 }], split } }] } }) as unknown as ReportContext;
+    expect(section.visible?.(ctx("unknown"))).toBe(false);
+    expect(section.visible?.(ctx())).toBe(true);
   });
 
   it("a page renders only its own sections", () => {

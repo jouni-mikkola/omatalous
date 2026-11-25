@@ -20,7 +20,7 @@
 .rt :is(th, td):first-child { padding-left: 0; }
 .rt tbody tr:last-child > :is(th, td) { border-bottom: 0; }
 .rt tbody tr:has(+ .rt-detail) > *, .rt tbody tr:has(+ .rt-subrow) > * { border-bottom-color: transparent; }
-.rt tbody th[scope="row"] { font-weight: 600; color: var(--text); }
+.rt tbody th[scope="row"] { font-weight: 400; color: var(--text); }
 .rt td.num, .rt th.num { text-align: right; white-space: nowrap; }
 .rt .sub { font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; color: var(--text-2); max-width: 32rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rt th[scope="row"] .sub { display: block; color: var(--muted); }
@@ -45,7 +45,7 @@
 @media (pointer: coarse) and (min-width: 1100px) { .rt thead tr + tr :is(th, td) { top: calc(var(--rail-h) + var(--tap-min)); } }
 /* a window under 640 px with a mouse: the sort button is 24 px high and takes back exactly what it has over the head's line, so the first head row is 32 px and the second row sticks under it with no overlap (base.css takes back 0.2 rem, 1.6 px too little) */
 @media (max-width: 640px) and (not (pointer: coarse)) { .rt thead :is(th, td) :is(a[href], button) { margin-block: min(0px, calc((var(--lh-label) - var(--tap-floor)) / 2)); } }
-.rt caption { padding: 0 0 8px; text-align: left; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; color: var(--text-2); caption-side: top; }
+.rt caption { padding: 0 0 8px; text-align: left; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; color: var(--text-2); caption-side: top; }
 .rt caption.sr-only { padding: 0; }
 
 /* a total: the axis above it and the ledger's double rule under its figures */
