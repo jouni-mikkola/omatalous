@@ -51,6 +51,19 @@ describe("base.css", () => {
     const twice = selectors.filter((sel, i) => !sel.startsWith("@") && selectors.indexOf(sel) !== i);
     expect(twice).toEqual([]);
   });
+
+  it("sets a section as a hairline, 16, the heading, 16, the content, 32", () => {
+    const css = rules(readFileSync(new URL("../src/styles/base.css", import.meta.url), "utf8"));
+    expect(css.find((r) => r.selector === ".card")?.body).toMatch(/padding: var\(--sp-16\) 0 var\(--sp-32\)/);
+    expect(css.find((r) => r.selector === ".card-head")?.body).toMatch(/margin: 0 0 var\(--sp-16\)/);
+  });
+
+  it("sets the label of a row and the name of a table in the regular weight, and the sum row in the strong one", () => {
+    const table = rules(readFileSync(new URL("../src/styles/table.css", import.meta.url), "utf8"));
+    expect(table.find((r) => r.selector === '.rt tbody th[scope="row"]')?.body).toMatch(/font-weight: 400/);
+    expect(table.find((r) => r.selector === ".rt caption")?.body).toMatch(/font-weight: 400/);
+    expect(table.find((r) => r.selector === ".rt tfoot :is(th, td)")?.body).toMatch(/font-weight: 600/);
+  });
 });
 
 describe("the shared parts and the page stylesheets", () => {

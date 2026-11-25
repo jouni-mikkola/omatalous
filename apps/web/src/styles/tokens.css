@@ -7,7 +7,7 @@
 @layer tokens {
 :root {
   color-scheme: light;
-  --page: oklch(0.938 0.004 100);
+  --page: oklch(0.965 0.004 258);
   --surface: oklch(1 0 0);
   --surface-2: oklch(0.941 0.008 253.9);
   --well: oklch(0.972 0.005 258.3);
