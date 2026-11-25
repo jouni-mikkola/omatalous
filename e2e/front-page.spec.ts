@@ -181,6 +181,18 @@ test("at 1440 px the coming months and the accounts stand in one column beside t
   await context.close();
 });
 
+for (const width of [1040, 1440, 390] as const) {
+  test(`at ${width} px the four columns of the coming months fit their room: no sideways scroll, no blocks`, async ({ browser }) => {
+    const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 } });
+    const page = await open(context);
+    await expect(page.locator(".home-coming .rt-wrap[data-block]")).toHaveCount(0);
+    const room = await page.locator(".home-coming .rt-wrap").evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth, table: (el.firstElementChild as HTMLElement).scrollWidth }));
+    expect(room.scroll, "the wrapper scrolls sideways").toBeLessThanOrEqual(room.client);
+    expect(room.table, "the table is wider than its room").toBeLessThanOrEqual(room.client);
+    await context.close();
+  });
+}
+
 test("the coming months tell the figures the month heads of Laskut tell", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
   const page = await open(context);

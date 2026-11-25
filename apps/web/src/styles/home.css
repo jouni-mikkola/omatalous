@@ -80,11 +80,17 @@ a.home-left:hover .fig-l { text-decoration: underline; }
 
 /* the coming months and the accounts stand in one rail */
 .front-rail { display: grid; gap: var(--gap); align-content: start; min-inline-size: 0; }
+/* the rail is a narrow column: the accounts, the cards and the loans stand under each other at every width, not side by side */
+.front-rail .holding-groups.holding-groups { grid-template-columns: minmax(0, 1fr); }
+.front-rail .holding-groups.holding-groups > * { padding-inline: 0; border-inline-start: 0; border-top: 1px solid var(--border); }
+.front-rail .holding-groups.holding-groups > :first-child { border-top: 0; }
 /* wide: what is left to the payday and the month on the left, the rail beside both with the coming months and the accounts under them.
    The order in the source is the order a phone reads: the dense flow lets the rail, which comes third, fill
    the right of the two rows the payday figure and the month open. With no payday figure it stands across the page. */
 @media (min-width: 1040px) {
   .front { grid-auto-flow: row dense; }
+  /* the rail is taller than the payday figure: its extra height goes to the month's row, so the figure and the month stay together */
+  .front:has(> .home-now) { grid-template-rows: auto 1fr; }
   .front > .home-now, .front > .home-summary { grid-column: 1 / 8; }
   .front > .home-now ~ .front-rail { grid-column: 8 / -1; grid-row: span 2; }
 }
