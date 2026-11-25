@@ -19,6 +19,14 @@ export interface RequestInfo {
   userAgent: string | null;
 }
 
+const TEMPORARY_LONG_DAYS = 7;
+
+/** True when the member's temporary password was set over a week ago. The time is the newest of the events that set one; the log keeps 90 days, so a password with no such event is older still. */
+export async function temporaryIsLong(s: Services, userId: string): Promise<boolean> {
+  const set = await s.security.newestOf(userId, ["user_created", "password_reset_by_admin"]);
+  return !set || Date.parse(set.at) < s.now().getTime() - TEMPORARY_LONG_DAYS * 86_400_000;
+}
+
 /** The Argon2id cost a new hash gets now: the admin's limits, read at each use. */
 export const passwordCost = (s: Services): PasswordCost => ({ memoryKib: s.instance.limits.get("passwordMemoryKib"), passes: s.instance.limits.get("passwordPasses") });
 

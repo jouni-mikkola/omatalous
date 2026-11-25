@@ -24,6 +24,8 @@ export interface LinearOptions {
   target?: number;
   /** An outlier more than this many times the third quartile does not set either end of the axis (`robustDomain`). Off by default. */
   clip?: number;
+  /** Values the axis must hold that are no part of the series `clip` judges (a level the bars are read against): they widen the ends and are never clipped. */
+  include?: readonly number[];
 }
 
 /**
@@ -31,11 +33,16 @@ export interface LinearOptions {
  * that moves onto this scale keeps its axis. Without it the domain hugs the values (a balance that moves between 10 000
  * and 12 000 €), still on round steps. `range` is `[bottom, top]` in pixels for a vertical axis.
  */
-export function linear(values: readonly number[], range: readonly [number, number], { zero = true, target = 4, clip }: LinearOptions = {}): Linear {
+export function linear(values: readonly number[], range: readonly [number, number], { zero = true, target = 4, clip, include = [] }: LinearOptions = {}): Linear {
   const finite = values.filter(Number.isFinite);
   const robust = clip === undefined ? null : robustDomain(values, { factor: clip });
   let lo = robust ? robust.min : finite.length ? Math.min(...finite) : 0;
   let hi = robust ? robust.max : finite.length ? Math.max(...finite) : 0;
+  const extra = include.filter(Number.isFinite);
+  if (extra.length) {
+    lo = Math.min(lo, ...extra);
+    hi = Math.max(hi, ...extra);
+  }
   if (zero) {
     lo = Math.min(0, lo);
     hi = Math.max(0, hi);

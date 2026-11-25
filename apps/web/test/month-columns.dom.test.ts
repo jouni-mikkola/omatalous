@@ -86,6 +86,58 @@ describe("Raportit: the months chart", () => {
     expect(tops[1]!).toBeGreaterThan(line);
   });
 
+  it("cuts a month far above the others 6 px past the top, with a break, and writes its sum above it", () => {
+    const sums = [120000, 130000, 110000, 125000, 2045000].map((cents, i) => ({ month: `2026-0${i + 1}`, complete: true, parts: [cents], totalCents: cents }));
+    const { container } = show({ months: sums, series: [SERIES[0]!], usual: null, running: null });
+    const columns = [...container.querySelectorAll("g.ms-month rect.ms-s0")];
+    expect(num(columns[4]!, "y")).toBe(-6);
+    expect(num(columns[3]!, "y")).toBeGreaterThan(0);
+    expect(container.querySelectorAll("path.cap-break")).toHaveLength(1);
+    expect(plain(container.querySelector("text.cap-sum")!.textContent)).toBe("20 450 €");
+  });
+
+  it("reads the true sum of a cut month in its readout", () => {
+    const sums = [120000, 130000, 110000, 125000, 2045000].map((cents, i) => ({ month: `2026-0${i + 1}`, complete: true, parts: [cents], totalCents: cents }));
+    show({ months: sums, series: [SERIES[0]!], usual: null, running: null });
+    fireEvent.focus(screen.getByRole("group", { name: "Tulot kuukausittain" }));
+    expect(plain(document.querySelector(".tooltip")!.textContent)).toContain("20 450 €");
+  });
+
+  it("cuts nothing in a view of three months, whatever the usual level", () => {
+    const sums = [200000, 200000, 900000].map((cents, i) => ({ month: `2026-0${i + 1}`, complete: true, parts: [cents], totalCents: cents }));
+    const { container } = show({ months: sums, series: [SERIES[0]!], usual: { cents: 200000, label: "Tavallinen kuukausi 2 000 € (3 kk)" }, running: null });
+    expect(container.querySelector("path.cap-break")).toBeNull();
+    expect(container.querySelector("text.cap-sum")).toBeNull();
+    expect(num(container.querySelectorAll("g.ms-month rect.ms-s0")[2]!, "y")).toBeGreaterThanOrEqual(0);
+  });
+
+  it("draws no break at a clipped sum whose column still ends inside the plot", () => {
+    // the cap is 1 800 € and the axis rounds up to 2 000 €, so 1 900 € is under the top
+    const cents = [...Array(10).fill(90000), 180000, 190000];
+    const sums = cents.map((c, i) => ({ month: `2026-${String(i + 1).padStart(2, "0")}`, complete: true, parts: [c], totalCents: c }));
+    const { container } = show({ months: sums, series: [SERIES[0]!], usual: { cents: 100000, label: "Tavallinen kuukausi 1 000 € (10 kk)" }, running: null });
+    expect(container.querySelector("path.cap-break")).toBeNull();
+    expect(container.querySelector("text.cap-sum")).toBeNull();
+    expect(num(container.querySelectorAll("g.ms-month rect.ms-s0")[11]!, "y")).toBeGreaterThan(0);
+  });
+
+  it("writes the sum of a month cut at the bottom inside the plot, above its break, clear of the month names", () => {
+    const sums = [-900000, 100000, 110000, 120000, 130000].map((cents, i) => ({ month: `2026-0${i + 1}`, complete: true, parts: [cents], totalCents: cents }));
+    const { container } = show({ months: sums, series: [SERIES[0]!], usual: null, running: null });
+    const column = container.querySelector("g.ms-month rect.ms-s0")!;
+    const bottom = num(column, "y") + num(column, "height");
+    expect(container.querySelectorAll("path.cap-break")).toHaveLength(1);
+    const sum = container.querySelector("text.cap-sum")!;
+    expect(plain(sum.textContent)).toMatch(/[−-]9 000 €/);
+    expect(num(sum, "y")).toBeLessThan(bottom - 6);
+  });
+
+  it("draws no break when no month stands out", () => {
+    const { container } = show();
+    expect(container.querySelector("path.cap-break")).toBeNull();
+    expect(container.querySelector("text.cap-sum")).toBeNull();
+  });
+
   it("stacks the series from the bottom in their order", () => {
     const { container } = show();
     const month = container.querySelector("g.ms-month")!;

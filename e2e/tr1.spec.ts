@@ -14,7 +14,7 @@ type Item = { id: string; kind: string; cents: number; [field: string]: unknown 
 
 /** A debt of the list Täydennä lainat, as the server sends it. */
 const debtOf = (over: Record<string, unknown>) => ({ id: "d", source: "proposal", name: "", loanId: null, accountId: null, key: null, kind: "other", placed: true, monthlyCents: null, latestCents: null, lastDate: null, owedCents: null, balanceDate: null, gaps: [], subject: null, terms: null, savedCards: [], ...over });
-const listOf = (cents: number, debts: { key: unknown }[]): Item => ({ kind: "loan_terms_list", id: "loan-terms", cents, debts, debtsCents: null, noBalance: debts.length });
+const listOf = (cents: number, debts: { id?: unknown; key: unknown }[]): Item => ({ kind: "loan_terms_list", id: `loan-terms:${String(debts[0]?.id ?? "none")}`, cents, debts, debtsCents: null, noBalance: debts.length, fromRows: debts.length });
 const LOAN_KEY = "out:chk:Esimerkkirahoitus#25000";
 // a loan the app cannot place: its row names the kind it guesses and asks what is left
 const loan = listOf(300_000, [debtOf({ id: `proposal:${LOAN_KEY}`, name: "Esimerkkirahoitus", key: LOAN_KEY, kind: "car", placed: false, monthlyCents: 25_000, latestCents: 25_000, lastDate: "2026-09-05" })]);
@@ -100,8 +100,8 @@ test("each kind is asked in its own words and answered through its own route, th
 
   // the debts first: the list of loans, with a row for a loan the app cannot place, its guess first and marked
   await expect(card(page).locator(".review-kind")).toHaveText("Velat");
-  await expect(card(page).locator(".review-name")).toHaveText("Lainat ja kortit");
-  await expect(question(page)).toContainText("Täydennä lainat");
+  await expect(card(page).locator(".review-name")).toHaveText("Esimerkkirahoitus");
+  await expect(question(page)).toContainText("Kerro lainan saldo");
   const row = card(page).locator("li.review-debt");
   expect(plain((await row.locator(".review-debt-name").textContent()) ?? "")).toBe("Esimerkkirahoitus · Autolaina · 250,00 €/kk");
   // one field and three answers, and no kind to pick
@@ -206,7 +206,7 @@ test("on a phone the card whose bills are paid and which is not connected offers
   const { context, page, seen } = await open(browser, 390, [cardBill]);
   await page.route(/\/api\/loans$/, (route) => (route.request().method() === "GET" ? route.fulfill({ json: { loans: [], fixings: {} } }) : route.fallback()));
   await expect(card(page).locator(".review-kind")).toHaveText("Velat");
-  await expect(question(page)).toContainText("Täydennä lainat");
+  await expect(question(page)).toContainText("Kerro kortin velka");
   // the card is a row of the list, headed by what its bills tell
   expect(plain((await card(page).locator(".review-debt-name").textContent()) ?? "")).toBe("Esimerkkikortti · 460,00 €/kk · eräpäivä 12.");
   const connect = card(page).getByRole("link", { name: "Yhdistä kortti" });

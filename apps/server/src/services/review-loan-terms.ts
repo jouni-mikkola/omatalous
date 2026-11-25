@@ -55,7 +55,6 @@ import {
   loanTermsDismissed,
   type ListedDebt,
   loanTermsList,
-  loanTermsListCents,
   type LoanTermsMissing,
   loanTermsSubject,
   openCardRows,
@@ -119,13 +118,16 @@ interface LoanTermsDebt {
 
 export interface LoanTermsListItem {
   kind: "loan_terms_list";
-  id: "loan-terms";
+  /** `loan-terms:<debt id>`: one question a debt. */
+  id: `loan-terms:${string}`;
   cents: number;
   debts: LoanTermsDebt[];
   /** What the household owes in all, null while a loan's balance is dated after the day (`totalKnown`). */
   debtsCents: number | null;
   /** How many debts of the list have no balance. */
   noBalance: number;
+  /** How many debts waiting in all are filled from rows (a proposal, an ended credit, a card's bills, a card with no account). */
+  fromRows: number;
   /** The queue's own fields of every item: the list has no rows of its own. */
   rows?: { id: string; date: string; cents: number; name: string; text: string }[];
   rowCount?: number;
@@ -302,7 +304,7 @@ const connectedGap = (d: LoanTermsDebt): boolean => d.source === "card_gap" && d
 /**
  * Täydennä lainat, or nothing when no debt lacks a fact. Only the member's own loans and accounts are read: an account
  * another member shared is left out of the debts before they are worked out, so another member's loan or card is never
- * listed. The list weighs the year of payments it holds, so it is asked before the questions of smaller sums.
+ * listed. One item a debt, each weighing its own year of payments, so the largest are asked first.
  */
 export const loanTermsListItems = async (_s: Services, _userId: string, view: OwnView): Promise<LoanTermsListItem[]> => {
   const rows = oneRowPerCard(savedDebts(view), unconnectedDebts(view));
@@ -310,7 +312,11 @@ export const loanTermsListItems = async (_s: Services, _userId: string, view: Ow
   if (!listed.length) return [];
   const all = debtsOf(view.ctx, view.balances, view.inputs);
   const debts = listed.map(({ seriesId: _series, yearCents: _year, ...row }): LoanTermsDebt => row);
-  return [{ kind: "loan_terms_list", id: "loan-terms", cents: loanTermsListCents(listed) ?? 0, debts, debtsCents: all.totalKnown ? all.total.cents : null, noBalance: debts.filter((d) => d.owedCents === null && !connectedGap(d) && d.source !== "ended").length }];
+  const noBalance = debts.filter((d) => d.owedCents === null && !connectedGap(d) && d.source !== "ended").length;
+  // forms filled from rows share the connected loan accounts: with two of them waiting, neither takes one by itself
+  const fromRows = debts.filter((d) => d.source === "proposal" || d.source === "ended" || d.source === "card_bill" || (d.source === "card_gap" && d.accountId === null)).length;
+  // one question a debt, the largest payments first; each carries the totals the answers move
+  return listed.map((row, i): LoanTermsListItem => ({ kind: "loan_terms_list", id: `loan-terms:${row.id}`, cents: row.yearCents ?? 0, debts: [debts[i]!], debtsCents: all.totalKnown ? all.total.cents : null, noBalance, fromRows }));
 };
 
 /**

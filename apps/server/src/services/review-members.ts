@@ -4,6 +4,7 @@
  * their own accounts give, and sends nothing of them: only the viewer's own rows leave.
  */
 import { addDays, type HouseholdMember, memberMoney, normalizeIban, PAYER_ROLES, type PayerRole, payerRoleOf, userNameOf } from "@banking/core";
+import type { User } from "../db/rows.ts";
 import type { Services } from "./context.ts";
 import type { OwnView } from "./review-own.ts";
 
@@ -26,8 +27,8 @@ export interface MemberMoneyItem {
 }
 
 /** The members with the name their own accounts give and the numbers of those accounts. */
-export async function membersOf(s: Services): Promise<HouseholdMember[]> {
-  const [users, accounts] = await Promise.all([s.users.list(), s.household.allAccounts()]);
+export async function membersOf(s: Services, users: readonly User[]): Promise<HouseholdMember[]> {
+  const accounts = await s.household.allAccounts();
   return users.map((u) => {
     const own = accounts.filter((a) => a.userId === u.id);
     return { id: u.id, name: userNameOf(own), ibans: new Set(own.flatMap((a) => normalizeIban(a.iban) ?? [])) };

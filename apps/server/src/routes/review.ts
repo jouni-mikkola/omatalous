@@ -7,10 +7,10 @@ export function reviewRoutes(s: Services) {
   const app = new Hono<AppEnv>();
 
   // the signed-in member's own questions: their rows, their marks, the accounts they linked
-  app.get("/review", async (c) => c.json(await reviewQueue(s, c.get("user").id)));
+  app.get("/review", async (c) => c.json(await reviewQueue(s, c.get("user"))));
 
   // only the number, for the mark in the header of every page; the queue itself is read by Tarkistettavat alone
-  app.get("/review/count", async (c) => c.json(await reviewCount(s, c.get("user").id)));
+  app.get("/review/count", async (c) => c.json(await reviewCount(s, c.get("user"))));
 
   return app;
 }
