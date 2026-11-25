@@ -28,17 +28,17 @@ function stringAttr(el: ts.JsxOpeningLikeElement, name: string): string | undefi
 }
 
 /** True when what is inside the element says something: a word, or an expression that may be one. */
-function hasContent(children: readonly ts.JsxChild[]): boolean {
+function hasContent(children: readonly ts.JsxChild[], sf: ts.SourceFile): boolean {
   return children.some((c) => {
     if (ts.isJsxText(c)) return c.text.trim() !== "";
     if (ts.isJsxExpression(c)) return c.expression !== undefined;
     if (ts.isJsxElement(c)) {
       if (hasAttr(c.openingElement, "aria-hidden")) return false;
-      return hasContent(c.children);
+      return hasContent(c.children, sf);
     }
     // a self-closing component may draw its own words; a self-closing html tag (an icon, an image) draws none
-    if (ts.isJsxSelfClosingElement(c)) return /^[A-Z]/.test(c.tagName.getText()) && !hasAttr(c, "aria-hidden");
-    return ts.isJsxFragment(c) && hasContent(c.children);
+    if (ts.isJsxSelfClosingElement(c)) return /^[A-Z]/.test(c.tagName.getText(sf)) && !hasAttr(c, "aria-hidden");
+    return ts.isJsxFragment(c) && hasContent(c.children, sf);
   });
 }
 
@@ -58,7 +58,7 @@ export function unnamedControls(sf: ts.SourceFile): Unnamed[] {
       const tag = opening.tagName.getText(sf);
       if (tag === "label") labelled = true;
       const named = hasAttr(opening, "aria-label", "aria-labelledby", "title") || spreads(opening);
-      if (!named && CLICKABLE.has(tag) && !hasContent(children)) found.push({ line: line(opening), tag });
+      if (!named && CLICKABLE.has(tag) && !hasContent(children, sf)) found.push({ line: line(opening), tag });
       if (!named && FIELDS.has(tag) && !labelled && !hasAttr(opening, "id", "hidden") && stringAttr(opening, "type") !== "hidden") found.push({ line: line(opening), tag });
     }
     ts.forEachChild(node, (c) => visit(c, labelled));

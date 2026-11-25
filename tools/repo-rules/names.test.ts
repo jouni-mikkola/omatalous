@@ -28,6 +28,11 @@ describe("rule 50 detection", () => {
     expect(run("<select aria-label={x} />")).toEqual([]);
   });
 
+  it("reads a component inside a link in a file whose nodes have no parent links, as the scan reads it", () => {
+    const sf = ts.createSourceFile("x.tsx", 'const a = <a href="#">{/* a comment */}<Figure text="1" /></a>;', ts.ScriptTarget.ES2022, false, ts.ScriptKind.TSX);
+    expect(unnamedControls(sf)).toEqual([]);
+  });
+
   it("leaves a component that spreads its props alone", () => {
     expect(run("<button {...rest} />")).toEqual([]);
   });
