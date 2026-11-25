@@ -51,7 +51,10 @@ function Income({ ctx }: SectionProps) {
   ];
   return (
     <ReportPanel id={section.id} title={section.title} datum={money(r.totalCents)}>
+      <>
       <ChartWithTable
+        title={t("table.folded_months")}
+        rows={r.months.length}
         chart={
           <MonthColumns
             months={r.months.map((m, i) => ({ month: m.month, complete: m.complete, parts: r.kinds.map((k) => k.months[i] ?? 0), totalCents: m.totalCents, against: m.againstAverage }))}
@@ -63,9 +66,21 @@ function Income({ ctx }: SectionProps) {
           />
         }
         table={
-          <>
+      <Table<MonthRow>
+        caption={t("rpt.in_months")}
+        rows={r.months}
+        rowKey={(m) => m.month}
+        columns={[
+          { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName({ ...m, unknown: m.totalCents === null }, ctx.running), csv: (m) => monthName({ ...m, unknown: m.totalCents === null }, ctx.running) },
+          { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "cents", cents: (m) => m.totalCents },
+        ]}
+        search={false}
+      />
+        }
+      />
       <Table<Row>
         caption={t("rpt.in_types")}
+        className="in-types"
         rows={r.types}
         rowKey={(ty) => ty.type}
         columns={columns}
@@ -76,21 +91,7 @@ function Income({ ctx }: SectionProps) {
         toolbar={false}
         csv={false}
       />
-      <Table<MonthRow>
-        caption={t("rpt.in_months")}
-        captionVisible
-        className="in-months"
-        rows={r.months}
-        rowKey={(m) => m.month}
-        columns={[
-          { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName({ ...m, unknown: m.totalCents === null }, ctx.running), csv: (m) => monthName({ ...m, unknown: m.totalCents === null }, ctx.running) },
-          { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "cents", cents: (m) => m.totalCents },
-        ]}
-        search={false}
-      />
-          </>
-        }
-      />
+      </>
     </ReportPanel>
   );
 }

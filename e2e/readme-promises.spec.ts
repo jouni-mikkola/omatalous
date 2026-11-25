@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { makeMember, removeMember } from "./helpers.ts";
+import { makeMember, openChartFolds, removeMember } from "./helpers.ts";
 
 // README's *What it does* promises Raportit pages (spending by category, income, the same months a year
 // earlier, CSV of long tables), an English interface and statement files. Each holds on the demo household, here with two years
@@ -20,6 +20,8 @@ test("what the README says about Lisää, English and statement files holds on t
     await expect(page.getByRole("heading", { name: "Vuosivertailu" })).toBeVisible();
     await page.goto("/#/reports?q=tulot");
     await expect(page.getByRole("heading", { name: "Tulolajit" })).toBeVisible();
+    await expect(page.getByText("Kuukaudet taulukkona")).toBeVisible();
+    await openChartFolds(page);
     await expect(page.getByRole("table", { name: "Tulot kuukausittain" })).toBeVisible();
     // a table of more than ten rows downloads as CSV
     await page.goto("/#/balances");

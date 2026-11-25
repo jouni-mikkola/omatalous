@@ -65,7 +65,7 @@ describe("Menot kategorioittain: a category's average beside a card connected la
     expect(within(table).getAllByRole("columnheader").map((h) => plain(h.textContent))).toEqual(["Kategoria", "Yhteensä", "Keskimäärin kuussa", "Ero keskiarvoon, syyskuu 2026"]);
     // 400 € over July to September is not added up with the totals' 448 € over May to September
     expect(plain(table.querySelector("tfoot")!.textContent)).not.toContain("448");
-    const months = screen.getByRole("table", { name: "Menot kuukausittain" });
+    const months = screen.getByRole("table", { name: "Menot kuukausittain", hidden: true });
     expect(months.querySelector("tfoot")).toBeNull();
   });
 
@@ -75,7 +75,7 @@ describe("Menot kategorioittain: a category's average beside a card connected la
     expect(screen.queryByRole("link", { name: "Tuo kortin tiliote" })).toBeNull();
     const table = screen.getByRole("table", { name: "Kategoriat" });
     expect(within(table).getAllByRole("columnheader").map((h) => plain(h.textContent))).toEqual(["Kategoria", "Yhteensä"]);
-    expect(screen.getByRole("table", { name: "Menot kuukausittain" }).querySelector("tfoot")).toBeNull();
+    expect(screen.getByRole("table", { name: "Menot kuukausittain", hidden: true }).querySelector("tfoot")).toBeNull();
   });
 
   it("names the debt paid from savings, which the first page's Menot leave out, only when there is some", () => {
@@ -83,8 +83,8 @@ describe("Menot kategorioittain: a category's average beside a card connected la
     expect(plain(document.body.textContent)).not.toContain("Säästöistä maksettu");
     cleanup();
     show({ ...report(true), fromSavings: [0, 0, 0, 0, 0, 460_00], fromSavingsCents: 460_00 });
-    const months = screen.getByRole("table", { name: "Menot kuukausittain" });
-    expect(within(months).getAllByRole("columnheader").map((h) => plain(h.textContent))).toEqual(["Kuukausi", "Maksettu yhteensä", "Säästöistä maksettu"]);
+    const months = screen.getByRole("table", { name: "Menot kuukausittain", hidden: true });
+    expect(within(months).getAllByRole("columnheader", { hidden: true }).map((h) => plain(h.textContent))).toEqual(["Kuukausi", "Maksettu yhteensä", "Säästöistä maksettu"]);
     expect(plain(Array.from(months.querySelectorAll("tbody tr")).at(-1)!.textContent)).toContain("460 €");
   });
 
@@ -126,7 +126,7 @@ describe("Menot kategorioittain: the chart of the months", () => {
     const chart = screen.getByRole("group", { name: /Menot kuukausittain/ });
     fireEvent.focus(chart);
     fireEvent.keyDown(chart, { key: "Enter" });
-    expect(screen.getByRole("table", { name: "Menot kuukausittain" }).querySelectorAll("tbody tr")).toHaveLength(1);
+    expect(screen.getByRole("table", { name: "Menot kuukausittain", hidden: true }).querySelectorAll("tbody tr")).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Ruokakauppa" }));
     const own = screen.getByRole("table", { name: "Ruokakauppa kuukausittain" });
     expect(own.querySelectorAll("tbody tr")).toHaveLength(6);

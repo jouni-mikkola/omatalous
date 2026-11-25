@@ -8,17 +8,23 @@ own way.
 
 ## Decision
 
-There is no switch. The table stands under its chart, always drawn, in `ChartWithTable`
-(`components/table/selection.tsx`). The two share one pick:
+There is no switch. The table stands under its chart in `ChartWithTable` (`components/table/selection.tsx`), folded in a
+`<details>` that is closed until someone opens it (amended: it was always drawn). The two share one pick:
 
 - Pointer or arrow keys move from mark to mark. The readout names the value and the comparison point, and a polite live
   region says the same to a screen reader (`charts/kit/Readout.tsx`).
-- A click, Enter or Space on a mark sends its key. The table keeps the row with that `rowKey`, says so above itself and has a
-  link to show all rows again. Escape lets go of the pick. A key no row has filters nothing.
-- Under 600 px a chart that draws one mark per month draws one dot per month (`useDotPlot`) and no line or column between them. The legend and the table stay.
+- A click, Enter or Space on a mark sends its key and opens the fold. The table keeps the row with that `rowKey`, says so above
+  itself and has a link to show all rows again. Escape lets go of the pick and leaves the fold as it is. A key no row has
+  filters nothing.
+- The fold is titled by its chart ("Kuukaudet taulukkona" for a month chart) and carries its row count. CSV stays inside.
+- Columns stay on phones. The rule that drew one dot per month under 600 px is removed (`DOT_PLOT_BELOW`).
 - Motion runs only under `prefers-reduced-motion: no-preference`.
 
 ## Consequences
+
+The table is folded because an always-open 12-row table made a report twice as long as its answer, and the readout now
+carries the values. On a phone the hit area of a month is its slice, about 27 px wide for 12 months at 390 px, under the
+44 px tap minimum; the readout above the plot shows the pick and the arrow keys reach every month.
 
 A chart form passes `keys` to its `ReadoutLayer`. A key is the `rowKey` of the row its mark stands for. A form made of
 separate shapes (a slope's lines, the cells of a grid, a month column) takes `useMarks` or `markKey` from

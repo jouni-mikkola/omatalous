@@ -1,6 +1,6 @@
 import { expect, type BrowserContext, type Page, test as base } from "@playwright/test";
 import { join } from "node:path";
-import { openBillFolds, openCategoryPicker, overflow, unfold, watch } from "./helpers.ts";
+import { openBillFolds, openCategoryPicker, openChartFolds, overflow, unfold, watch } from "./helpers.ts";
 import { startServer } from "./server.mjs";
 
 const ADMIN = { username: "e2e-admin", displayName: "E2E Admin", password: "e2e-salasana-123456" };
@@ -415,6 +415,7 @@ test("Menot kuukausittain is a table under its name, the categories keep the CSV
   await page.goto("/#/reports?q=menot");
   await unfold(page);
   const card = page.locator("details#kategoriat");
+  await openChartFolds(card);
   await expect(card.getByRole("table", { name: "Menot kuukausittain" }).locator("tbody tr").first()).toBeVisible();
   await expect(card.getByRole("button", { name: "Lataa CSV" })).toBeVisible();
   expect(await card.evaluate((c) => c.scrollWidth <= c.clientWidth + 1), "the table fits its card at 390px").toBe(true);

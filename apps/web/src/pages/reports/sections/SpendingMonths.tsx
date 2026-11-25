@@ -3,7 +3,7 @@ import { monthEnd } from "@banking/core";
 import { MonthColumns } from "../../../charts/forms/MonthColumns.tsx";
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
 import { KeyValue } from "../../../components/table/KeyValue.tsx";
-import { ChartWithTable, OutsideFilter } from "../../../components/table/selection.tsx";
+import { ChartWithTable } from "../../../components/table/selection.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { query } from "../../../api.ts";
 import { money, monthLong, signedMoney } from "../../../format.ts";
@@ -80,7 +80,10 @@ function SpendingMonths({ ctx }: SectionProps) {
   ];
   return (
     <ReportPanel id={section.id} title={section.title} datum={inSpan(ctx, eur(r.totalCents))}>
+      <>
       <ChartWithTable
+        title={t("table.folded_months")}
+        rows={r.months.length}
         chart={
           <MonthColumns
             months={r.months.map((month, i) => ({ month, complete: r.complete[i]!, parts: [r.totals[i] ?? 0], totalCents: r.totals[i] ?? null, against: r.againstUsual[i] ?? null }))}
@@ -93,25 +96,8 @@ function SpendingMonths({ ctx }: SectionProps) {
           />
         }
         table={
-          <>
-      <Table<Row>
-        caption={section.title}
-        rows={r.categories}
-        rowKey={(c) => c.category}
-        columns={columns}
-        drill={(c) => (
-          <OutsideFilter>
-            <Detail row={c} r={r} ctx={ctx} />
-          </OutsideFilter>
-        )}
-        drillLabel={(c) => c.label}
-        total={{ label: t("rpt.total"), cells: { total: eur(r.totalCents) } }}
-        search={false}
-      />
       <Table<MonthRow>
         caption={t("rpt.sm_months")}
-        captionVisible
-        className="sm-months"
         rows={r.months.map((month, i) => ({ month, cents: r.totals[i] ?? null, complete: r.complete[i]!, savingsCents: r.fromSavings[i] ?? null }))}
         rowKey={(m) => m.month}
         columns={[
@@ -123,9 +109,20 @@ function SpendingMonths({ ctx }: SectionProps) {
         toolbar={false}
         csv={false}
       />
-          </>
         }
       />
+      <Table<Row>
+        caption={section.title}
+        className="sm-categories"
+        rows={r.categories}
+        rowKey={(c) => c.category}
+        columns={columns}
+        drill={(c) => <Detail row={c} r={r} ctx={ctx} />}
+        drillLabel={(c) => c.label}
+        total={{ label: t("rpt.total"), cells: { total: eur(r.totalCents) } }}
+        search={false}
+      />
+      </>
     </ReportPanel>
   );
 }
