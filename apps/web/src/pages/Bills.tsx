@@ -140,7 +140,7 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
             {calendar.unknownCount > 0 && <span className="bills-unknown">{tn(calendar.unknownCount, "bills.unknown_one", "bills.unknown_many")}</span>}
           </p>
         )}
-        <div className="key-figures">
+        <div className="key-figures bills-figures">
           <div className="kf">
             <span className="kf-label">{t("bills.fig_year")}</span>
             <Figure text={answerMoney(calendar.billsCents)} size="l" />

@@ -81,6 +81,14 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .bills-head h2 { margin: 0; min-inline-size: 0; }
 .bills-lead { margin: 0; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .bills-days-sum { color: var(--text-2); font-variant-numeric: tabular-nums; }
+/* the three figures keep one row on a phone, and the days strip is lower there: the page is long with twelve months and a chart */
+@media (max-width: 640px) {
+  .key-figures.bills-figures { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .bills-figures > .kf { padding: var(--sp-8) var(--sp-8) var(--sp-4) 0; }
+  .bills-figures > .kf + .kf { padding-left: var(--sp-8); border-left: 1px solid var(--grid); border-top: 0; }
+  .bills-figures .kf .fig-l, .bills-figures > .kf:first-child .fig-l { font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); }
+  .bills-figures .kf-label, .bills-figures .kf-sub { font-size: var(--fs-label); line-height: var(--lh-label); }
+}
 
 /* ── The days of the picked month: one bar a day as high as its bills, the days of a pay in the colour of income */
 .bill-days { display: flex; align-items: flex-end; gap: var(--hairline); block-size: calc(var(--bar-h) * 6); padding-block-end: var(--sp-16); border-block-end: var(--hairline) solid var(--axis); }
@@ -91,5 +99,6 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .bill-day-pay { background: linear-gradient(to right, transparent calc(50% - var(--hairline)), var(--role-income) calc(50% - var(--hairline)) calc(50% + var(--hairline)), transparent calc(50% + var(--hairline))); }
 .bill-day-pay > i { position: relative; }
 .bill-day-pay > b { position: absolute; inset-block-start: 0; inset-inline-start: 50%; transform: translateX(-50%); padding-inline: var(--sp-4); background: var(--page); color: var(--role-income); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); white-space: nowrap; }
+@media (max-width: 640px) { .bill-days { block-size: calc(var(--bar-h) * 3); } }
 .bills-unknown { display: block; margin-block-start: var(--sp-4); font-weight: var(--w-strong); }
 }
