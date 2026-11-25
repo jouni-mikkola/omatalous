@@ -112,6 +112,7 @@ export function BillsTable({
   controls,
   label,
   scope,
+  focus = null,
   onRemoved,
 }: {
   calendar: Calendar;
@@ -119,6 +120,8 @@ export function BillsTable({
   controls: MarkControls;
   label: (id: string) => string;
   scope: Scope;
+  /** The month picked on the chart above: it opens when it is picked. */
+  focus?: string | null;
   /** A bill typed in or a found one was removed: the page reads its answers again. */
   onRemoved: () => void;
 }) {
@@ -134,6 +137,9 @@ export function BillsTable({
   const startOpen = startOpenMonth(calendar, items);
   const isOpen = (key: string) => toggled.get(key) ?? key === startOpen;
   const toggle = (key: string) => setToggled((before) => new Map(before).set(key, !isOpen(key)));
+  useEffect(() => {
+    if (focus !== null) setToggled((before) => (before.get(focus) === true ? before : new Map(before).set(focus, true)));
+  }, [focus]);
   const typed = items.flatMap((i) => (i.typed ? [i.typed] : []));
   const groups = calendarGroups(calendar, items, typed, isOpen);
   /** The id of a folded row, which its toggle's `aria-controls` names. */

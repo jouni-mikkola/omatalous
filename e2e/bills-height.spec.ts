@@ -3,14 +3,16 @@ import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 import { startServer } from "./server.mjs";
 
-// Laskut on a phone keeps to 1800 px whatever the day of the month. The demo household's bills are dated from today, so the
+// Laskut on a phone keeps to MAX_HEIGHT px whatever the day of the month. The demo household's bills are dated from today, so the
 // open month and how many of its rows are still to come change with the day: each day below runs on a server of its own whose
 // clock starts on it (e2e/clock.mjs), in the month of the run. The 2nd: the running month open with nearly every bill to come.
 // The 15th: the running month open, half of it paid. The 24th: every bill of the running month paid (the demo's last is on
 // the 20th), so the next month opens with all of its bills to come.
 const ADMIN = { username: "e2e-admin", displayName: "E2E Admin", password: "e2e-salasana-123456" };
 const FETCH = { "X-Requested-With": "fetch" };
-const MAX_HEIGHT = 1800;
+// Raised from 1800 on purpose: the page gained a twelve-month chart and the picked month's days strip above the table, which are
+// about 500 px on a phone with the three figures in one row and the strip compact. The table of the months is unchanged.
+const MAX_HEIGHT = 2250;
 const month = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Helsinki", year: "numeric", month: "2-digit" }).format(new Date());
 const DAYS = [
   { day: 2, open: "running" },
