@@ -74,7 +74,7 @@ export type LowPoint =
     };
 
 /** A corner of the balance line of `lowPoint`. */
-export interface LowPointCorner {
+interface LowPointCorner {
   date: IsoDate;
   cents: number;
   lowCents: number;
@@ -82,7 +82,7 @@ export interface LowPointCorner {
 }
 
 /** A payment or a pay the balance of `lowPoint` steps by. */
-export interface LowPointStep {
+interface LowPointStep {
   date: IsoDate;
   /** The merchant, the lender's loan, the card or the payer. */
   payee: string;
