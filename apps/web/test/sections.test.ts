@@ -10,7 +10,7 @@ const context = (data: Record<string, unknown>, accounts: unknown[] = []): Repor
 const html = (s: ReportSection, ctx: ReportContext) => renderToStaticMarkup(createElement(s.Component, { ctx }));
 
 /** The sections that stay (docs/design/README.md, section 2). */
-const SECTION_IDS = ["kategoriat", "lainat", "nostettu-luotto", "osittain", "saldot", "tulot", "tulot-ja-menot", "verovuosi", "vuodet", "yhteiset-menot"];
+const SECTION_IDS = ["kategoriat", "lainat", "mika-muuttui", "nostettu-luotto", "osittain", "saldot", "tulot", "tulot-ja-menot", "verovuosi", "vuodet", "yhteiset-menot"];
 const plain = (out: string) => out.replace(/[\u00a0\u202f]/g, " ");
 
 describe("Raportit: Velka ja kulut", () => {

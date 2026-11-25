@@ -4030,6 +4030,9 @@
   "categoryMonths": 0,
   "cardGap": false,
   "last": null,
+  "changes": [
+   null
+  ],
   "categories": [
    {
     "category": "housing",
@@ -4040,6 +4043,7 @@
     "totalCents": 105000,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "Sato",
@@ -4059,6 +4063,7 @@
     "totalCents": 61240,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "Nordea Bank Abp",
@@ -4078,6 +4083,7 @@
     "totalCents": 38829,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "S-Market",
@@ -4107,6 +4113,7 @@
     "totalCents": 27990,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "Helsingin Kaupunki",
@@ -4126,6 +4133,7 @@
     "totalCents": 15478,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "Neste",
@@ -4150,6 +4158,7 @@
     "totalCents": 14230,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "If Vahinkovakuutus Oy",
@@ -4169,6 +4178,7 @@
     "totalCents": 5077,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "Helen",
@@ -4188,6 +4198,7 @@
     "totalCents": 3164,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "Wolt",
@@ -4207,6 +4218,7 @@
     "totalCents": 2808,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "Espresso House",
@@ -4231,6 +4243,7 @@
     "totalCents": 2798,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "Netflix",

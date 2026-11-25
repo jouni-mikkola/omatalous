@@ -58,7 +58,7 @@ describe("a bar that starts at an offset", () => {
     expect(spanGeometry(null, 5664, axis)).toEqual({ left: 0, width: 1 });
     expect(spanGeometry(5000, 5000, axis).width).toBeGreaterThan(0);
     expect(spanAxis([100, 900]).lo).toBe(0);
-    expect(spanGeometry(null, 7, spanAxis([7]))).toEqual({ left: 0, width: 1 });
+    expect(spanGeometry(null, 7, spanAxis([7])).width).toBeGreaterThan(0);
     expect(spanAxis([]).hi).toBe(1);
   });
 

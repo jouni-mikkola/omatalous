@@ -106,7 +106,7 @@ describe("Menot kategorioittain: the line of a category's months", () => {
     expect(lines).toHaveLength(2);
     expect(container.querySelectorAll("line.rt-spark-usual")).toHaveLength(2);
     expect(lines.map((l) => l.hasAttribute("data-off"))).toEqual([false, true]);
-    expect(lines[1]!.getAttribute("aria-label")).toBe("Ruokakauppa: viimeisin kuukausi 400 €, keskimäärin 400 €");
+    expect(plain(lines[1]!.getAttribute("aria-label")!)).toBe("Ruokakauppa: viimeisin kuukausi 400 €, keskimäärin 400 €");
   });
 
   it("draws none for a category with no level", () => {
