@@ -57,6 +57,10 @@
 .home-now .home-fig-label { margin-block-end: var(--sp-4); font-size: var(--fs-h2); font-weight: var(--w-strong); color: var(--text); }
 a.home-left:hover .fig-l { text-decoration: underline; }
 
+/* the balance of the days to the payday, across the answer and its working */
+.home-days { grid-column: 1 / -1; min-inline-size: 0; padding-block-start: var(--sp-16); border-block-start: var(--hairline) solid var(--grid); }
+.home-days-title { margin: 0 0 var(--sp-4); font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--w-strong); color: var(--text); }
+
 /* the lowest balance of the next days, one line under the sum left to the payday */
 .home-low { margin: var(--sp-8) 0 0; font-size: var(--fs-body); line-height: var(--lh-body); }
 .home-low-sum[data-short] { color: var(--bad); }

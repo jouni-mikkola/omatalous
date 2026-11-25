@@ -4,6 +4,7 @@ import { hashOf } from "../../routes.ts";
 import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
+import { BalanceDays } from "./BalanceDays.tsx";
 import { LowPoint } from "./LowPoint.tsx";
 
 type Data = DashboardData & { nyt: NonNullable<DashboardData["nyt"]> };
@@ -53,7 +54,8 @@ function Ledger({ runway, sum }: { runway: Extract<NonNullable<Data["home"]["run
  * (Käytettävissä palkkapäivään), the money after the payments alone, with its sum a day. Under it stands the lowest balance of
  * the next days (`home.lowPoint`) when that comes after the payday: a lowest balance on or before it is the figure above (core
  * takes the payday's own bills off before the pay lands), and a reason the figure's own line gives is not told twice. Beside it
- * (under it on a phone) stands its ledger (Ledger). Nothing is added up here.
+ * (under it on a phone) stands its ledger (Ledger), and under both the balance of those days as a picture (BalanceDays). Nothing is
+ * added up here.
  */
 export function Now({ data }: { data: Data }) {
   const { left } = data.nyt;
@@ -83,6 +85,7 @@ export function Now({ data }: { data: Data }) {
         <LowPoint lowPoint={lowHidden ? null : lowPoint} />
       </div>
       {runway?.known && sum && <Ledger runway={runway} sum={sum} />}
+      {lowPoint?.known && lowPoint.line.length > 1 && <BalanceDays low={lowPoint} payday={payday} />}
     </section>
   );
 }
