@@ -13,7 +13,7 @@ import type { DashboardData } from "../src/types.ts";
 type Low = DashboardData["home"]["lowPoint"];
 
 const flat = (s: string | null | undefined) => (s ?? "").replace(/[  ]/g, " ").replace(/\s+/g, " ").trim();
-const known = (over: Partial<Extract<NonNullable<Low>, { known: true }>> = {}): Low => ({ known: true, date: "2026-12-13", cents: 30_000, lowCents: 12_000, highCents: 48_000, days: 60, ...over });
+const known = (over: Partial<Extract<NonNullable<Low>, { known: true }>> = {}): Low => ({ known: true, date: "2026-12-13", cents: 30_000, lowCents: 12_000, highCents: 48_000, days: 60, line: [], steps: [], ...over });
 const lineOf = (lowPoint: Low) => flat(render(createElement(LowPoint, { lowPoint })).container.textContent);
 
 describe("LowPoint", () => {

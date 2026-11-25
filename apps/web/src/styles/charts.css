@@ -5,7 +5,7 @@
 .readout-line { display: flex; flex-wrap: wrap; align-items: baseline; align-content: center; gap: var(--sp-4) var(--sp-16); min-block-size: var(--row-h-roomy); margin-block-end: var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
 .readout-title { font-weight: var(--w-strong); color: var(--text); }
 .readout-part { display: inline-flex; align-items: baseline; gap: var(--sp-8); }
-.readout-part .ms-key, .readout-part .mb-key-income, .readout-part .mb-key-spend { align-self: center; }
+.readout-part .swatch, .readout-part .ms-key, .readout-part .mb-key-income, .readout-part .mb-key-spend { align-self: center; }
 .readout-part strong { font-weight: var(--w-strong); color: var(--text); font-variant-numeric: tabular-nums lining-nums; }
 .swatch { width: 10px; height: 10px; border-radius: 1px; display: inline-block; flex: none; }
 .line-key { width: 16px; height: 2px; border-radius: 0; display: inline-block; flex: none; }

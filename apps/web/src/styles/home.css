@@ -57,6 +57,10 @@
 .home-now .home-fig-label { margin-block-end: var(--sp-4); font-size: var(--fs-h2); font-weight: var(--w-strong); color: var(--text); }
 a.home-left:hover .fig-l { text-decoration: underline; }
 
+/* the balance of the days to the payday: a block of its own under Nyt, and under the month where the page is one column (below) */
+.home-days { min-inline-size: 0; }
+.home-days > h2 { margin-block-end: var(--sp-4); }
+
 /* the lowest balance of the next days, one line under the sum left to the payday */
 .home-low { margin: var(--sp-8) 0 0; font-size: var(--fs-body); line-height: var(--lh-body); }
 .home-low-sum[data-short] { color: var(--bad); }
@@ -95,6 +99,21 @@ a.home-left:hover .fig-l { text-decoration: underline; }
   .front:has(> .home-now) { grid-template-rows: auto 1fr; }
   .front > .home-now, .front > .home-summary { grid-column: 1 / 8; }
   .front > .home-now ~ .front-rail { grid-column: 8 / -1; grid-row: span 2; }
+  .front:has(> .home-days) { grid-template-rows: auto auto 1fr; }
+  .front > .home-days { grid-column: 1 / 8; }
+  .front > .home-days ~ .front-rail { grid-row: span 3; }
+}
+/* one column: the balance picture comes after the month, so the month's figures still end within the first screen of a phone */
+@media (max-width: 1039px) {
+  .front > .home-days { order: 1; }
+  .front > .front-rail { order: 2; }
+}
+/* on a phone the block is trimmed: the page holds the roadmap's height with the picture in it (e2e/front-phone.spec.ts) */
+@media (max-width: 599px) {
+  .home-days { padding-block-end: var(--sp-16); }
+  .home-days > h2 { margin-block-end: 0; }
+  .home-days .readout-line { margin-block-end: var(--sp-4); }
+  .home-days .chart-fold { margin-top: var(--sp-8); }
 }
 /* a month's bills with the estimate under them, and a pay that is an estimate, are two lines in one cell, the second small and muted like the second line of a row */
 .home-coming .rt td.num { white-space: normal; }
@@ -121,6 +140,7 @@ a.home-left:hover .fig-l { text-decoration: underline; }
 .home-skeleton .sk-flow { block-size: calc(var(--row-h-roomy) * 4); }
 /* each block as high as it is when loaded, so the page keeps its length */
 .home-skeleton .home-now .sk-fig { inline-size: 40%; block-size: var(--lh-display); }
+.home-skeleton .sk-days { block-size: calc(var(--row-h-roomy) * 8); }
 .home-skeleton .sk-coming { block-size: calc(var(--row-h-roomy) * 5); }
 .home-skeleton .sk-holdings { block-size: calc(var(--row-h-roomy) * 8); }
 }

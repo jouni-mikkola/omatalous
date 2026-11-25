@@ -879,7 +879,553 @@
    "cents": 160371,
    "lowCents": 149276,
    "highCents": 171643,
-   "days": 60
+   "days": 60,
+   "line": [
+    {
+     "date": "2026-10-15",
+     "cents": 176923,
+     "lowCents": 176923,
+     "highCents": 176923
+    },
+    {
+     "date": "2026-10-16",
+     "cents": 176923,
+     "lowCents": 176923,
+     "highCents": 176923
+    },
+    {
+     "date": "2026-10-17",
+     "cents": 176923,
+     "lowCents": 176923,
+     "highCents": 176923
+    },
+    {
+     "date": "2026-10-18",
+     "cents": 176923,
+     "lowCents": 176923,
+     "highCents": 176923
+    },
+    {
+     "date": "2026-10-18",
+     "cents": 173633,
+     "lowCents": 173633,
+     "highCents": 173633
+    },
+    {
+     "date": "2026-10-19",
+     "cents": 173633,
+     "lowCents": 173633,
+     "highCents": 173633
+    },
+    {
+     "date": "2026-10-20",
+     "cents": 173633,
+     "lowCents": 173633,
+     "highCents": 173633
+    },
+    {
+     "date": "2026-10-20",
+     "cents": 171643,
+     "lowCents": 171643,
+     "highCents": 171643
+    },
+    {
+     "date": "2026-10-21",
+     "cents": 171643,
+     "lowCents": 171643,
+     "highCents": 171643
+    },
+    {
+     "date": "2026-10-22",
+     "cents": 171643,
+     "lowCents": 171643,
+     "highCents": 171643
+    },
+    {
+     "date": "2026-10-23",
+     "cents": 171643,
+     "lowCents": 171643,
+     "highCents": 171643
+    },
+    {
+     "date": "2026-10-23",
+     "cents": 523643,
+     "lowCents": 523643,
+     "highCents": 523643
+    },
+    {
+     "date": "2026-10-24",
+     "cents": 523643,
+     "lowCents": 523643,
+     "highCents": 523643
+    },
+    {
+     "date": "2026-10-25",
+     "cents": 523643,
+     "lowCents": 523643,
+     "highCents": 523643
+    },
+    {
+     "date": "2026-10-26",
+     "cents": 523643,
+     "lowCents": 523643,
+     "highCents": 523643
+    },
+    {
+     "date": "2026-10-27",
+     "cents": 523643,
+     "lowCents": 523643,
+     "highCents": 523643
+    },
+    {
+     "date": "2026-10-28",
+     "cents": 523643,
+     "lowCents": 523643,
+     "highCents": 523643
+    },
+    {
+     "date": "2026-10-29",
+     "cents": 523643,
+     "lowCents": 523643,
+     "highCents": 523643
+    },
+    {
+     "date": "2026-10-30",
+     "cents": 523643,
+     "lowCents": 523643,
+     "highCents": 523643
+    },
+    {
+     "date": "2026-10-31",
+     "cents": 523643,
+     "lowCents": 523643,
+     "highCents": 523643
+    },
+    {
+     "date": "2026-11-01",
+     "cents": 523643,
+     "lowCents": 523643,
+     "highCents": 523643
+    },
+    {
+     "date": "2026-11-02",
+     "cents": 523643,
+     "lowCents": 523643,
+     "highCents": 523643
+    },
+    {
+     "date": "2026-11-02",
+     "cents": 418643,
+     "lowCents": 418643,
+     "highCents": 418643
+    },
+    {
+     "date": "2026-11-03",
+     "cents": 418643,
+     "lowCents": 418643,
+     "highCents": 418643
+    },
+    {
+     "date": "2026-11-04",
+     "cents": 418643,
+     "lowCents": 418643,
+     "highCents": 418643
+    },
+    {
+     "date": "2026-11-05",
+     "cents": 418643,
+     "lowCents": 418643,
+     "highCents": 418643
+    },
+    {
+     "date": "2026-11-05",
+     "cents": 357403,
+     "lowCents": 357403,
+     "highCents": 357403
+    },
+    {
+     "date": "2026-11-06",
+     "cents": 357403,
+     "lowCents": 357403,
+     "highCents": 357403
+    },
+    {
+     "date": "2026-11-07",
+     "cents": 357403,
+     "lowCents": 357403,
+     "highCents": 357403
+    },
+    {
+     "date": "2026-11-08",
+     "cents": 357403,
+     "lowCents": 357403,
+     "highCents": 357403
+    },
+    {
+     "date": "2026-11-08",
+     "cents": 329413,
+     "lowCents": 329413,
+     "highCents": 329413
+    },
+    {
+     "date": "2026-11-09",
+     "cents": 329413,
+     "lowCents": 329413,
+     "highCents": 329413
+    },
+    {
+     "date": "2026-11-10",
+     "cents": 234020,
+     "lowCents": 228545,
+     "highCents": 260948
+    },
+    {
+     "date": "2026-11-11",
+     "cents": 234020,
+     "lowCents": 228545,
+     "highCents": 260948
+    },
+    {
+     "date": "2026-11-12",
+     "cents": 229027,
+     "lowCents": 221230,
+     "highCents": 257686
+    },
+    {
+     "date": "2026-11-12",
+     "cents": 217237,
+     "lowCents": 209440,
+     "highCents": 245896
+    },
+    {
+     "date": "2026-11-13",
+     "cents": 212759,
+     "lowCents": 203645,
+     "highCents": 243384
+    },
+    {
+     "date": "2026-11-14",
+     "cents": 205726,
+     "lowCents": 198290,
+     "highCents": 234327
+    },
+    {
+     "date": "2026-11-15",
+     "cents": 199801,
+     "lowCents": 194326,
+     "highCents": 230223
+    },
+    {
+     "date": "2026-11-16",
+     "cents": 194192,
+     "lowCents": 182598,
+     "highCents": 227781
+    },
+    {
+     "date": "2026-11-17",
+     "cents": 192087,
+     "lowCents": 178962,
+     "highCents": 224576
+    },
+    {
+     "date": "2026-11-18",
+     "cents": 187812,
+     "lowCents": 177320,
+     "highCents": 217516
+    },
+    {
+     "date": "2026-11-18",
+     "cents": 184522,
+     "lowCents": 174030,
+     "highCents": 214226
+    },
+    {
+     "date": "2026-11-19",
+     "cents": 179194,
+     "lowCents": 171556,
+     "highCents": 209794
+    },
+    {
+     "date": "2026-11-20",
+     "cents": 176868,
+     "lowCents": 169197,
+     "highCents": 208571
+    },
+    {
+     "date": "2026-11-20",
+     "cents": 174878,
+     "lowCents": 167207,
+     "highCents": 206581
+    },
+    {
+     "date": "2026-11-21",
+     "cents": 170300,
+     "lowCents": 159321,
+     "highCents": 201667
+    },
+    {
+     "date": "2026-11-22",
+     "cents": 168707,
+     "lowCents": 159177,
+     "highCents": 200068
+    },
+    {
+     "date": "2026-11-23",
+     "cents": 163673,
+     "lowCents": 151421,
+     "highCents": 195959
+    },
+    {
+     "date": "2026-11-24",
+     "cents": 161589,
+     "lowCents": 150476,
+     "highCents": 191431
+    },
+    {
+     "date": "2026-11-25",
+     "cents": 160371,
+     "lowCents": 149276,
+     "highCents": 190641
+    },
+    {
+     "date": "2026-11-25",
+     "cents": 512371,
+     "lowCents": 501276,
+     "highCents": 542641
+    },
+    {
+     "date": "2026-11-26",
+     "cents": 505725,
+     "lowCents": 493519,
+     "highCents": 536802
+    },
+    {
+     "date": "2026-11-27",
+     "cents": 501705,
+     "lowCents": 489545,
+     "highCents": 536298
+    },
+    {
+     "date": "2026-11-28",
+     "cents": 499446,
+     "lowCents": 486896,
+     "highCents": 535804
+    },
+    {
+     "date": "2026-11-29",
+     "cents": 495275,
+     "lowCents": 476217,
+     "highCents": 535804
+    },
+    {
+     "date": "2026-11-30",
+     "cents": 489995,
+     "lowCents": 473320,
+     "highCents": 531278
+    },
+    {
+     "date": "2026-12-01",
+     "cents": 484586,
+     "lowCents": 467470,
+     "highCents": 525877
+    },
+    {
+     "date": "2026-12-02",
+     "cents": 478891,
+     "lowCents": 461136,
+     "highCents": 521450
+    },
+    {
+     "date": "2026-12-02",
+     "cents": 373891,
+     "lowCents": 356136,
+     "highCents": 416450
+    },
+    {
+     "date": "2026-12-03",
+     "cents": 373080,
+     "lowCents": 356136,
+     "highCents": 416195
+    },
+    {
+     "date": "2026-12-04",
+     "cents": 371724,
+     "lowCents": 353770,
+     "highCents": 413288
+    },
+    {
+     "date": "2026-12-05",
+     "cents": 370308,
+     "lowCents": 352909,
+     "highCents": 413288
+    },
+    {
+     "date": "2026-12-05",
+     "cents": 309068,
+     "lowCents": 291669,
+     "highCents": 352048
+    },
+    {
+     "date": "2026-12-06",
+     "cents": 303703,
+     "lowCents": 284259,
+     "highCents": 349755
+    },
+    {
+     "date": "2026-12-07",
+     "cents": 297828,
+     "lowCents": 282333,
+     "highCents": 344198
+    },
+    {
+     "date": "2026-12-08",
+     "cents": 295470,
+     "lowCents": 282333,
+     "highCents": 335686
+    },
+    {
+     "date": "2026-12-08",
+     "cents": 267480,
+     "lowCents": 254343,
+     "highCents": 307696
+    },
+    {
+     "date": "2026-12-09",
+     "cents": 261565,
+     "lowCents": 247731,
+     "highCents": 304676
+    },
+    {
+     "date": "2026-12-10",
+     "cents": 259114,
+     "lowCents": 247027,
+     "highCents": 304285
+    },
+    {
+     "date": "2026-12-11",
+     "cents": 254929,
+     "lowCents": 243233,
+     "highCents": 304285
+    },
+    {
+     "date": "2026-12-12",
+     "cents": 249936,
+     "lowCents": 239971,
+     "highCents": 302830
+    },
+    {
+     "date": "2026-12-12",
+     "cents": 239299,
+     "lowCents": 229334,
+     "highCents": 292193
+    },
+    {
+     "date": "2026-12-13",
+     "cents": 234820,
+     "lowCents": 228044,
+     "highCents": 287213
+    }
+   ],
+   "steps": [
+    {
+     "date": "2026-10-18",
+     "payee": "Sanoma Media Finland",
+     "cents": -3290,
+     "estimate": false,
+     "afterCents": 173633
+    },
+    {
+     "date": "2026-10-20",
+     "payee": "Elisa",
+     "cents": -1990,
+     "estimate": false,
+     "afterCents": 171643
+    },
+    {
+     "date": "2026-10-23",
+     "payee": "Acme",
+     "cents": 352000,
+     "estimate": false,
+     "afterCents": 523643
+    },
+    {
+     "date": "2026-11-02",
+     "payee": "Sato",
+     "cents": -105000,
+     "estimate": false,
+     "afterCents": 418643
+    },
+    {
+     "date": "2026-11-05",
+     "payee": "Nordea Bank Abp",
+     "cents": -61240,
+     "estimate": false,
+     "afterCents": 357403
+    },
+    {
+     "date": "2026-11-08",
+     "payee": "Helsingin Kaupunki",
+     "cents": -27990,
+     "estimate": false,
+     "afterCents": 329413
+    },
+    {
+     "date": "2026-11-12",
+     "payee": "Helen",
+     "cents": -11790,
+     "estimate": true,
+     "afterCents": 217237
+    },
+    {
+     "date": "2026-11-18",
+     "payee": "Sanoma Media Finland",
+     "cents": -3290,
+     "estimate": false,
+     "afterCents": 184522
+    },
+    {
+     "date": "2026-11-20",
+     "payee": "Elisa",
+     "cents": -1990,
+     "estimate": false,
+     "afterCents": 174878
+    },
+    {
+     "date": "2026-11-25",
+     "payee": "Acme",
+     "cents": 352000,
+     "estimate": false,
+     "afterCents": 512371
+    },
+    {
+     "date": "2026-12-02",
+     "payee": "Sato",
+     "cents": -105000,
+     "estimate": false,
+     "afterCents": 373891
+    },
+    {
+     "date": "2026-12-05",
+     "payee": "Nordea Bank Abp",
+     "cents": -61240,
+     "estimate": false,
+     "afterCents": 309068
+    },
+    {
+     "date": "2026-12-08",
+     "payee": "Helsingin Kaupunki",
+     "cents": -27990,
+     "estimate": false,
+     "afterCents": 267480
+    },
+    {
+     "date": "2026-12-12",
+     "payee": "Helen",
+     "cents": -10637,
+     "estimate": true,
+     "afterCents": 239299
+    }
+   ]
   },
   "pace": {
    "month": "2026-10",

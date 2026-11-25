@@ -11,6 +11,11 @@ export function HomeSkeleton() {
         <span className="sk-bar sk-line" />
         <span className="sk-bar sk-fig" />
       </section>
+      {/* the balance chart, which stands here on a wide screen and after the month on a phone, as the finished page has it */}
+      <section className="card home-days" aria-hidden="true">
+        <span className="sk-bar sk-line" />
+        <span className="sk-bar sk-days" />
+      </section>
       {/* the month's own boxes, so the block is as high as the finished one on every width */}
       <section className="home-summary" aria-hidden="true">
         <span className="sk-bar sk-line" />
