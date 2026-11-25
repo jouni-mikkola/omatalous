@@ -72,16 +72,16 @@ describe("Holdings", () => {
       expect(text(renderToStaticMarkup(createElement(Holdings, { holdings: h, meta, net: false })))).not.toContain("Varat velkojen jälkeen");
     });
 
-    const rows = [{ name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }, { name: "Esimerkkikauppa", monthlyCents: 20_000, card: true }];
+    const rows = [{ debtId: "proposal:a", name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }, { debtId: "card_bill:b", name: "Esimerkkikauppa", monthlyCents: 20_000, card: true }];
     const unsavedLoans = { count: 2, names: [], paymentCents: 30_000, rows };
 
-    it("is named Varat korttivelan jälkeen when only loans nobody saved are left out, and each of those debts is a row with its monthly sum and a missing balance that links to the list of debts in Tarkistettavat", () => {
+    it("is named Varat korttivelan jälkeen when only loans nobody saved are left out, and each of those debts is a row with its monthly sum and a missing balance that links to that debt's own question in Tarkistettavat", () => {
       const unsaved = html(answer({ ...base, netCents: 100_000, unsavedLoans }));
       expect(undated(unsaved)).toContain("Varat ja velat Varat korttivelan jälkeen 1 000 €");
       const debts = unsaved.slice(unsaved.indexOf('class="st-rows holding-foot"'));
       expect(text(debts)).toContain("Esimerkkirahoitus 100,00 €/kk · saldo puuttuu");
       expect(text(debts)).toContain("Esimerkkikauppa · Luottokortti 200,00 €/kk · saldo puuttuu");
-      expect(links(debts)).toEqual(["#/review?item=loan-terms", "#/review?item=loan-terms"]);
+      expect(links(debts)).toEqual(["#/review?item=loan-terms%3Aproposal%3Aa", "#/review?item=loan-terms%3Acard_bill%3Ab"]);
       expect(links(unsaved).filter((h) => h!.startsWith("#/reports"))).toEqual([]);
     });
 
@@ -91,11 +91,11 @@ describe("Holdings", () => {
       const foot = debts.slice(debts.indexOf('class="st-rows holding-foot"'));
       expect(text(foot)).toContain("Esimerkkirahoitus 100,00 €/kk · saldo puuttuu");
       expect(text(foot)).toContain("Esimerkkikauppa · Luottokortti 200,00 €/kk · saldo puuttuu");
-      expect(links(foot)).toEqual(["#/review?item=loan-terms"]);
+      expect(links(foot)).toEqual(["#/review?item=loan-terms%3Acard_bill%3Ab"]);
     });
 
     it("says only that the balance is missing for an unsaved debt with no monthly figure", () => {
-      const open = [{ name: "Esimerkkerä", monthlyCents: null, card: false }];
+      const open = [{ debtId: "proposal:a", name: "Esimerkkerä", monthlyCents: null, card: false }];
       const out = text(html(answer({ ...base, netCents: 100_000, unsavedLoans: { count: 1, names: [], paymentCents: 0, rows: open } })));
       expect(out).toContain("Esimerkkerä saldo puuttuu");
       expect(out).not.toContain("/kk");

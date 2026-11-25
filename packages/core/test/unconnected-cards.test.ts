@@ -94,7 +94,7 @@ describe("cards whose bills are paid and which are not connected", () => {
 
   it("is listed beside the debts as a card with its monthly bill, and counted in the loans left out of the total", () => {
     const { total, rows } = unsavedDebts(ctx, NO_INPUTS);
-    expect(rows).toEqual([{ name: "Esimerkkipankki Kortti", monthlyCents: card!.monthlyCents, card: true }]);
+    expect(rows).toEqual([{ debtId: `card_bill:${card!.key}`, name: "Esimerkkipankki Kortti", monthlyCents: card!.monthlyCents, card: true }]);
     expect(total).toMatchObject({ count: 1, names: ["Esimerkkipankki Kortti"] });
     expect(buildHoldings(ctx, [], NO_INPUTS).unsavedLoans).toMatchObject({ count: 1, rows });
     expect(buildHoldings(ctx, [], { ...NO_INPUTS, loans: [savedCard(card!.key)] }).unsavedLoans).toBeUndefined();

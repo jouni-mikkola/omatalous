@@ -12,6 +12,7 @@ import { Segmented } from "../../components/ui/Segmented.tsx";
 import { date, language, money } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
 import { SETTINGS_ANCHOR } from "../../routes.ts";
+import { useReportLoaded } from "./use-settings-page.ts";
 import { t } from "../../text.ts";
 import type { Meta, ReportsData } from "../../types.ts";
 
@@ -98,10 +99,12 @@ type YearChoice = "this" | "last";
  * Asetukset > Tiedot: the rows of this year or last year against the tax return, an export of the member's own accounts and
  * not a report. It reads the report `taxYear` of the server for the whole calendar year (the server stops at today).
  */
-export function TaxYear({ meta }: { meta: Meta }) {
+export function TaxYear({ meta, onLoaded }: { meta: Meta; onLoaded?: (failed: boolean) => void }) {
   const [choice, setChoice] = useState<YearChoice>("this");
   const year = Number(meta.today.slice(0, 4)) - (choice === "last" ? 1 : 0);
   const { data, error } = useApi<Pick<ReportsData, "taxYear">>(`/api/reports${query({ from: `${year}-01-01`, to: `${year}-12-31`, scope: "own", reports: "taxYear" })}`);
+  // the page scrolls to an address that names this card once it has its rows: until then it draws nothing to scroll to
+  useReportLoaded(data !== null || error !== null, onLoaded, error !== null);
   if (!data) {
     return error ? (
       <Section id={SETTINGS_ANCHOR.taxYear} title={t("tax.title")}>

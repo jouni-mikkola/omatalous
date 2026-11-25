@@ -78,3 +78,19 @@ test("the tax sheet prints alone and the page comes back after", async ({ browse
   expect(seen.problems).toEqual([]);
   await context.close();
 });
+
+test("the address of the tax sheet scrolls to it once its rows are there, on a wide page and a phone", async ({ browser }) => {
+  for (const [width, height] of [[1280, 600], [390, 700]] as const) {
+    const context = await browser.newContext({ storageState: STATE, viewport: { width, height } });
+    const page = await context.newPage();
+    const seen = watch(page);
+    await page.goto("/#/overview");
+    await page.goto("/#/settings/data#verovuosi");
+    await expect(page.locator("#verovuosi").locator("table").first(), `at ${width} px`).toBeVisible();
+    await expect(page.locator("#verovuosi"), `at ${width} px the address brings the sheet`).toBeInViewport();
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("#verovuosi"), `at ${width} px the sheet stays in sight`).toBeInViewport();
+    expect(seen.problems).toEqual([]);
+    await context.close();
+  }
+});

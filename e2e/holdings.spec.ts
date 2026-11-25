@@ -269,7 +269,10 @@ test("a loan's name opens the report Lainat, the sums of the block stand on one 
   await expect(foot.locator(".st-row").nth(1).locator(".st-num")).toContainText("saldo puuttuu");
   // the missing balance is a link to the list of debts in Tarkistettavat, where it is typed
   const missing = foot.locator(".st-row").nth(1).getByRole("link", { name: "saldo puuttuu" });
-  await expect(missing).toHaveAttribute("href", "#/review?item=loan-terms");
+  await expect(missing).toHaveAttribute("href", /^#\/review\?item=loan-terms%3A.+/);
+  // each debt has its own address, so that the last debt of the foot does not open the first one's question
+  const hrefs = await foot.getByRole("link", { name: "saldo puuttuu" }).evaluateAll((links) => links.map((a) => a.getAttribute("href")));
+  expect(new Set(hrefs).size, "each debt links to its own question").toBe(hrefs.length);
   const edges = [...(await rights(lainat.locator(".st-num"))), ...(await rights(foot.locator(".st-num")))];
   expect(edges.length).toBeGreaterThanOrEqual(4);
   expect(new Set(edges).size, `the sums of Lainat and the foot end at ${edges.join(", ")}`).toBe(1);
@@ -314,12 +317,14 @@ test("a loan's name opens the report Lainat, the sums of the block stand on one 
   await expect(page.locator("#lainat").getByRole("heading", { name: "Lainat" })).toBeInViewport();
   await expect(page.locator("#lainat").getByRole("button", { name: "Kodin laina", exact: true })).toHaveAttribute("aria-expanded", "true");
 
-  // the missing balance opens Tarkistettavat at the first debt's question
+  // the missing balance opens Tarkistettavat at that debt's own question, also the last debt's, not the first one's
   await page.goto("/#/overview");
-  await missing.click();
-  await expect(page).toHaveURL(/#\/review\?item=loan-terms$/);
-  await expect(page.locator(".review-item").getByRole("heading", { level: 2 })).toContainText("Kerro lainan saldo");
-  await expect(page.locator(".review-debt").first()).toBeVisible();
+  const last = foot.locator(".st-row").filter({ has: page.getByRole("link", { name: "saldo puuttuu" }) }).last();
+  const lastName = (await last.locator(".st-name").innerText()).split(" · ")[0]!;
+  await last.getByRole("link", { name: "saldo puuttuu" }).click();
+  await expect(page).toHaveURL(/#\/review\?item=loan-terms%3A/);
+  await expect(page.locator(".review-item").getByRole("heading", { level: 2 })).toContainText("Kysymys 1 /");
+  await expect(page.locator(".review-debt .review-debt-name").first()).toContainText(lastName);
 
   expect(seen.problems).toEqual([]);
   await context.close();

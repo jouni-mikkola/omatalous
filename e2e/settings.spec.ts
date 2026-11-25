@@ -192,6 +192,8 @@ test("every address of Asetukset lands on the card it names, on the target that 
     ["/#/settings?section=maintenance", "#/settings/server#yllapito", "yllapito"],
     ["/#/settings/members", "#/settings/members", null],
     ["/#/settings/data", "#/settings/data", null],
+    // the tax year loads its own rows: the page scrolls to it once they are there
+    ["/#/settings/data#verovuosi", "#/settings/data#verovuosi", "verovuosi"],
     // an address from the time the cards were on three targets: it opens the target that has the card now
     ["/#/settings/household#salasana", "#/settings/security#salasana", "salasana"],
     ["/#/settings/household#kirjautuminen", "#/settings/security#kirjautuminen", "kirjautuminen"],
@@ -274,6 +276,21 @@ test("a member's targets have their own cards and none of the admin's, and Hae n
   await expect(page.getByRole("heading", { name: "Turvallisuusloki", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Talouden jäsenet", exact: true })).toHaveCount(0);
   await expect(page.locator("#kirjautuminen")).toBeInViewport();
+  expect(seen.problems).toEqual([]);
+  await context.close();
+});
+
+test("the security log is folded on Turvallisuus, and open when the address names it", async ({ browser }) => {
+  const { context, page, seen, hash } = await admin(browser);
+  await page.goto("/#/overview");
+  await page.goto("/#/settings/security");
+  await expect.poll(hash).toBe("#/settings/security");
+  await expect(page.getByRole("heading", { name: "Turvallisuusloki", exact: true })).toBeVisible();
+  await expect(page.locator("#turvallisuusloki")).toHaveJSProperty("open", false);
+  await page.goto("/#/overview");
+  await page.goto("/#/settings/security#turvallisuusloki");
+  await expect.poll(hash).toBe("#/settings/security#turvallisuusloki");
+  await expect(page.locator("#turvallisuusloki")).toHaveJSProperty("open", true);
   expect(seen.problems).toEqual([]);
   await context.close();
 });

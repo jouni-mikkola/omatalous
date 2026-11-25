@@ -111,6 +111,9 @@ export const CONNECT_BANK_HASH = hashOf({ page: `settings/${FIRST_TARGET}`, para
 /** Where a debt's missing balance is typed: Tarkistettavat opens at Täydennä lainat (the item `loan-terms` of the server). */
 export const LOAN_TERMS_HASH = hashOf({ page: "review", params: new URLSearchParams({ item: "loan-terms" }) });
 
+/** Where one debt's missing balance is typed: Tarkistettavat opens at that debt's own question (`debtId` of an unsaved debt, the `loan-terms:<debt>` item). */
+export const loanTermsHash = (debtId: string): string => hashOf({ page: "review", params: new URLSearchParams({ item: `loan-terms:${debtId}` }) });
+
 /** The address of a card of Asetukset by its anchor: the card's target is looked up, so a link names only the card. */
 export function settingsCardHash(anchor: string, params?: URLSearchParams): string {
   return settingsHash(targetOfCard(anchor) ?? FIRST_TARGET, anchor, params);

@@ -1158,6 +1158,7 @@
    "paymentCents": 28900,
    "rows": [
     {
+     "debtId": "proposal:out:demo-f48a367fb4660d6ca0aa621d:Nordea Rahoitus Suomi Oy#28900",
      "name": "Nordea Rahoitus Suomi Oy",
      "monthlyCents": 28900,
      "card": false
