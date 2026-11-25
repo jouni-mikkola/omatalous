@@ -19,7 +19,6 @@ export function HomeSkeleton() {
             <li key={id} data-fig={id}>
               <span className="sk-bar" />
               <span className="sk-bar sk-fig" />
-              <span className="home-gauge" />
               <span className="sk-bar" />
             </li>
           ))}
@@ -27,14 +26,16 @@ export function HomeSkeleton() {
         <span className="sk-bar sk-flow" />
       </section>
       {/* the blocks in the page's own order and places */}
-      <section className="card home-coming" aria-hidden="true">
-        <span className="sk-bar sk-line" />
-        <span className="sk-bar sk-coming" />
-      </section>
-      <section className="card holdings" aria-hidden="true">
-        <span className="sk-bar sk-line" />
-        <span className="sk-bar sk-holdings" />
-      </section>
+      <div className="front-rail">
+        <section className="card home-coming" aria-hidden="true">
+          <span className="sk-bar sk-line" />
+          <span className="sk-bar sk-coming" />
+        </section>
+        <section className="card holdings" aria-hidden="true">
+          <span className="sk-bar sk-line" />
+          <span className="sk-bar sk-holdings" />
+        </section>
+      </div>
       <span className="sr-only">{t("load.loading")}</span>
     </div>
   );

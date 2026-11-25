@@ -58,9 +58,6 @@ function summaryIn(d: Data, today = TODAY) {
 }
 
 /** The three figures as a reader sees them: label, figure and the lines under it. */
-const fillOf = (container: HTMLElement, id: string) => container.querySelector<HTMLElement>(`[data-fig=${id}] .home-gauge-fill`)!;
-const markOf = (container: HTMLElement, id: string) => container.querySelector<HTMLElement>(`[data-fig=${id}] .home-gauge-mark`);
-const size = (el: HTMLElement) => el.style.getPropertyValue("inline-size");
 const figuresIn = (container: HTMLElement) =>
   [...container.querySelectorAll(".home-figs > li")].map((li) => ({
     id: li.getAttribute("data-fig"),
@@ -109,9 +106,10 @@ describe("Yhteenveto's month", () => {
     const euros = (id: string) => Number(flat(summary.querySelector(`[data-fig=${id}] .fig`)?.textContent).replace(/[^\d−-]/g, "").replace("−", "-"));
     expect([euros("income"), euros("spent"), euros("result")]).toEqual([4120, 1700, 2270]);
     expect(Math.abs(euros("income") - euros("spent") - 300 + 151 - euros("result"))).toBeLessThanOrEqual(1);
-    // the same words in Tulojen käyttö show the same euros: 150,60 drawn on credit is 151 € there too
-    const part = (key: string) => flat(summary.querySelector(`.home-flow-list [data-part=${key}] .home-flow-sum`)?.textContent);
-    expect([part("saved"), part("credit-left")]).toEqual(["300 €", "151 €"]);
+    // the same parts in Tulojen käyttö are named without a sum: the terms above tell it once
+    const part = (key: string) => summary.querySelector(`.home-flow-list [data-part=${key}]`);
+    expect([part("saved"), part("credit-left")].map((li) => [li?.querySelector(".home-flow-name")?.textContent, flat(li?.querySelector(".home-flow-sum")?.textContent)])).toEqual([["Säästöön siirretty", ""], ["Nostettu luottoa", ""]]);
+    expect(flat([...summary.querySelectorAll(".home-flow-list")].map((list) => list.textContent).join(" "))).not.toMatch(/151|300 €/);
   });
 
   // 150 € taken out of savings was 149 € under Käteen jäi, the remainder that made the whole euros add up
@@ -122,7 +120,7 @@ describe("Yhteenveto's month", () => {
     const summary = summaryIn(data({ totals, overview } as never));
     expect([...summary.querySelectorAll("[data-fig=result] .home-fig-term")].map((el) => flat(el.textContent))).toEqual(["Otettu säästöistä 150 €"]);
     // the page tells one sum for it: the 150 € under Käteen jäi, and the gap sentence names no second one
-    expect(flat(summary.querySelector("[data-part=gap]")?.textContent)).toBe("Menot ylittivät tulot 142 €. Ero otettiin säästöistä.");
+    expect(flat(summary.querySelector("[data-part=gap]")?.textContent)).toBe("Menot ylittivät tulot 142 €. Ero otettiin säästöistä. Käteen jäi on se, mitä tileille jäi menojen jälkeen, nostetut rahat mukaan lukien.");
     expect(summary.textContent).not.toMatch(/säästöistä 142/);
     // and no share is told: of the income alone the shares of this month add to more than 100 %
     expect([...summary.querySelectorAll(".home-flow-share")].map((el) => flat(el.textContent)).filter((s) => s !== "")).toEqual([]);
@@ -231,38 +229,10 @@ describe("Yhteenveto's month", () => {
     expect(container.querySelector("[data-fig=income]")?.classList.contains("home-short")).toBe(false);
   });
 
-  it("draws Tulot, Menot and Käteen jäi on one scale, the longest sum the bars and their comparisons hold", () => {
+  it("draws no bar under a figure, the comparison is its line", () => {
     const container = summaryIn(data());
-    expect(figuresIn(container).map((f) => size(fillOf(container, f.id!)))).toEqual(["100%", "36.4%", "51.5%"]);
-    // the same day of last month: Tulot 3 800 €, Käteen jäi 1 900 €, on the scale of 4 120 €; Menot has none to draw
-    expect(figuresIn(container).map((f) => markOf(container, f.id!)?.style.getPropertyValue("inset-inline-start") ?? null)).toEqual(["92.2%", null, "46.1%"]);
-  });
-
-  it("the same sum kept and short are not the same bar: a negative Käteen jäi fills from the far end in the problem tone", () => {
-    const kept = summaryIn(data({ totals: totalsOf(190000, 100000, 20000, 0), comparable: false } as never));
-    const short = summaryIn(data({ totals: totalsOf(100000, 150000, 20000, 0), comparable: false } as never));
-    // +700 € and −700 € are the same length; the end they fill from and the tone tell them apart
-    expect(size(fillOf(kept, "result"))).toBe("17%");
-    expect(size(fillOf(short, "result"))).toBe("17%");
-    expect(fillOf(kept, "result").hasAttribute("data-deficit")).toBe(false);
-    expect(fillOf(kept, "result").closest(".home-gauge")?.getAttribute("data-tone")).toBe("income");
-    expect(fillOf(short, "result").hasAttribute("data-deficit")).toBe(true);
-    expect(fillOf(short, "result").closest(".home-gauge")?.getAttribute("data-tone")).toBe("debt");
-  });
-
-  it("draws the comparison of a negative Käteen jäi from the same end, and leaves it out when last month was on the other side of zero", () => {
-    const short = { overview: { income: { cents: 100000, earnedCents: 100000 }, months: [{ month: "2026-11", incomeCents: 100000, spendCents: 170000, fromSavingsCents: 0, complete: false }] }, totals: totalsOf(100000, 150000, 20000, 0) };
-    // last month short by 500 €: both on the scale of Menot's 1 700 €
-    const both = summaryIn(data({ ...short, previousTotals: totalsOf(100000, 130000, 20000, 0) } as never));
-    expect(size(fillOf(both, "result"))).toBe("41.2%");
-    expect(markOf(both, "result")?.style.getPropertyValue("inset-inline-end")).toBe("29.4%");
-    expect(markOf(both, "result")?.style.getPropertyValue("inset-inline-start")).toBe("");
-    // last month kept 1 900 €: a mark of a surplus on a bar of a shortfall is not drawn, its line stays
-    const other = summaryIn(data({ ...short, previousTotals: totalsOf(380000, 140000, 20000, 30000) } as never));
-    expect(markOf(other, "result")).toBeNull();
-    expect(figuresIn(other)[2]!.lines).toEqual(["Viime kuussa samaan päivään 1 900 €"]);
-    // the comparison of Tulot stays
-    expect(markOf(other, "income")).not.toBeNull();
+    expect(container.querySelector(".home-figs [class*=home-gauge], .home-figs .home-band")).toBeNull();
+    expect(figuresIn(container)[2]!.lines).toEqual(["Viime kuussa samaan päivään 1 900 €"]);
   });
 
   it("tells where the income went as the bridge of Raportit does: each part with its sum", () => {
@@ -275,13 +245,16 @@ describe("Yhteenveto's month", () => {
       sum: flat(li.querySelector(".home-flow-sum")?.textContent),
     }));
     expect(parts).toEqual([
+      { part: "income", name: "Tulot", sum: "" },
       { part: "consumption", name: "Kulutus", sum: "1 500 €" },
       { part: "debt", name: "Maksettu velanhoito", sum: "200 €" },
-      { part: "saved", name: "Säästöön siirretty", sum: "300 €" },
-      { part: "left", name: "Käteen jäi", sum: "2 120 €" },
+      { part: "saved", name: "Säästöön siirretty", sum: "" },
+      { part: "left", name: "Käteen jäi", sum: "" },
     ]);
-    expect(container.querySelectorAll(".home-flow-bar > span").length).toBe(4);
-    expect(container.querySelector("[data-bar=sources]")).toBeNull();
+    // two bars, Tuli (the income alone) and Meni, each named
+    expect(barOf(container, "in").map((s) => s.part)).toEqual(["income"]);
+    expect(barOf(container, "out").length).toBe(4);
+    expect([...container.querySelectorAll(".home-flow-side-name")].map((el) => el.textContent)).toEqual(["Tuli", "Meni"]);
   });
 
   it("tells the debt service as interest, what is not split, a subtotal and the repayments, in the order of the bridge", () => {
@@ -289,30 +262,33 @@ describe("Yhteenveto's month", () => {
     const container = summaryIn(data({ overview, split: { interestCents: 5000, principalCents: 12000, unsplitCents: 3000 } } as never));
     const parts = [...container.querySelectorAll(".home-flow-list > li")].map((li) => [li.getAttribute("data-part"), li.querySelector(".home-flow-name")?.textContent, flat(li.querySelector(".home-flow-sum")?.textContent)]);
     expect(parts).toEqual([
+      ["income", "Tulot", ""],
       ["consumption", "Kulutus", "1 500 €"],
       ["interest", "Korot ja luottokulut", "50 €"],
       ["debt", "Velanhoito, erittelemättä", "30 €"],
       ["subtotal", "Välisumma", "2 540 €"],
       ["principal", "Lyhennykset", "120 €"],
-      ["saved", "Säästöön siirretty", "300 €"],
-      ["left", "Käteen jäi", "2 120 €"],
+      ["saved", "Säästöön siirretty", ""],
+      ["left", "Käteen jäi", ""],
     ]);
   });
 
-  const barOf = (container: HTMLElement, which: string) =>
-    [...container.querySelectorAll<HTMLElement>(`[data-bar=${which}] > span`)].map((s) => ({ part: s.getAttribute("data-part"), tone: s.getAttribute("data-tone"), share: Number.parseFloat(s.style.getPropertyValue("flex-grow")) }));
+  function barOf(container: HTMLElement, which: string) {
+    return [...container.querySelectorAll<HTMLElement>(`[data-bar=${which}] > span`)].map((s) => ({ part: s.getAttribute("data-part"), tone: s.getAttribute("data-tone"), share: Number.parseFloat(s.style.getPropertyValue("flex-grow")) }));
+  }
   const rowsOf = (container: HTMLElement) => [...container.querySelectorAll(".home-flow-list > li")].map((li) => [li.getAttribute("data-part"), flat(li.querySelector(".home-flow-name")?.textContent), flat(li.querySelector(".home-flow-sum")?.textContent)]);
 
-  it("when spending is more than the income and savings covered the rest, a bar of the sources is drawn above the parts", () => {
+  it("when spending is more than the income and savings covered the rest, the bar of what came in has the sources and the bar of what went out the parts", () => {
     // 1 500 € out of 1 000 € income: 200 € came out of savings, 300 € from the accounts
     const container = summaryIn(data({ totals: totalsOf(100000, 150000, 0, -20000) } as never));
-    const sources = barOf(container, "sources");
+    const sources = barOf(container, "in");
     expect(sources.map((s) => s.part)).toEqual(["income", "savings", "accounts"]);
     expect(sources.map((s) => s.tone)).toEqual(["income", "neutral", "neutral"]);
     expect(sources.map((s) => Math.round(s.share * 1000) / 1000)).toEqual([0.667, 0.133, 0.2]);
-    expect(barOf(container, "parts").map((s) => s.part)).toEqual(["consumption"]);
-    // the cover is one sentence under the list, not rows whose shares would read as a total above 100 %
-    expect(rowsOf(container)).toEqual([["consumption", "Kulutus", "1 500 €"]]);
+    expect(barOf(container, "out").map((s) => s.part)).toEqual(["consumption"]);
+    // the sources are named under their bar without a sum or a share (the sentence under the bars tells the sums, and shares of the income alone would read as a total above 100 %)
+    expect(rowsOf(container)).toEqual([["income", "Tulot", ""], ["savings", "Säästöistä", ""], ["accounts", "Tileiltä tai korteilta", ""], ["consumption", "Kulutus", "1 500 €"]]);
+    expect([...container.querySelectorAll(".home-flow-share")].map((el) => flat(el.textContent)).filter((s) => s !== "")).toEqual([]);
     expect(flat(container.querySelector("[data-part=gap]")?.textContent)).toBe("Menot ylittivät tulot 500 €. Rahat tulivat säästöistä 200 € ja tileiltä tai korteilta 300 €.");
   });
 
@@ -321,11 +297,18 @@ describe("Yhteenveto's month", () => {
     expect(container.querySelector("[data-part=gap]")).toBeNull();
   });
 
-  it("when credit covered the gap the sources bar names the credit before the accounts", () => {
+  it("when credit covered the gap the bar of what came in names the credit before the accounts", () => {
     const container = summaryIn(data({ totals: { ...totalsOf(100000, 150000, 0, 0), borrowedCents: 40000, leftCents: -10000 } } as never));
-    expect(barOf(container, "sources").map((s) => s.part)).toEqual(["income", "credit", "accounts"]);
-    expect(rowsOf(container).map((r) => r[0])).toEqual(["consumption"]);
+    expect(barOf(container, "in").map((s) => s.part)).toEqual(["income", "credit", "accounts"]);
+    expect(rowsOf(container).map((r) => r[0])).toEqual(["income", "credit", "accounts", "consumption"]);
     expect(flat(container.querySelector("[data-part=gap]")?.textContent)).toBe("Menot ylittivät tulot 500 €. Rahat tulivat luotosta 400 € ja tileiltä tai korteilta 100 €.");
+  });
+
+  // credit drew 800 € against a gap of 500 €: 300 € stayed, and Käteen jäi +300 € beside "Menot ylittivät tulot" needs its words
+  it("says what Käteen jäi is when credit covered the gap and money stayed over", () => {
+    const container = summaryIn(data({ totals: { ...totalsOf(100000, 150000, 0, 0), borrowedCents: 80000, leftCents: 30000 } } as never));
+    expect(flat(container.querySelector("[data-fig=result] .fig")?.textContent)).toBe("300 €");
+    expect(flat(container.querySelector("[data-part=gap]")?.textContent)).toBe("Menot ylittivät tulot 500 €. Rahat tulivat luotosta 800 €. Käteen jäi on se, mitä tileille jäi menojen jälkeen, nostetut rahat mukaan lukien.");
   });
 
   // 1 928 € stayed of 3 428 € income and 200 € taken out of savings: the list names the 200 €, and the shares are of the 3 628 € together
@@ -333,7 +316,7 @@ describe("Yhteenveto's month", () => {
     // Tulot 3 428, Menot 1 700 (the consumption and the debt), Käteen jäi 1 928: the 200 € between them is the savings drawn
     const overview = { income: { cents: 342800, earnedCents: 342800 }, months: [{ month: "2026-11", incomeCents: 342800, spendCents: 170000, fromSavingsCents: 0, complete: false }] };
     const container = summaryIn(data({ totals: totalsOf(342800, 150000, 20000, -20000), overview } as never));
-    expect(rowsOf(container)).toEqual([["savings-left", "Otettu säästöistä", "200 €"], ["consumption", "Kulutus", "1 500 €"], ["debt", "Maksettu velanhoito", "200 €"], ["left", "Käteen jäi", "1 928 €"]]);
+    expect(rowsOf(container)).toEqual([["income", "Tulot", ""], ["savings-left", "Otettu säästöistä", ""], ["consumption", "Kulutus", "1 500 €"], ["debt", "Maksettu velanhoito", "200 €"], ["left", "Käteen jäi", ""]]);
     const shares = [...container.querySelectorAll(".home-flow-share")].map((el) => Number.parseInt(flat(el.textContent), 10)).filter((n) => !Number.isNaN(n));
     expect(shares.reduce((sum, n) => sum + n, 0)).toBe(100);
   });
@@ -344,16 +327,16 @@ describe("Yhteenveto's month", () => {
     const overview = { income: { cents: 342800, earnedCents: 342800 }, months: [{ month: "2026-11", incomeCents: 342800, spendCents: 170000, fromSavingsCents: 0, complete: false }] };
     const container = summaryIn(data({ totals: totalsOf(342800, 150000, 20000, -20040), overview } as never));
     expect([...container.querySelectorAll("[data-fig=result] .home-fig-term")].map((el) => flat(el.textContent))).toEqual(["Otettu säästöistä 200 €"]);
-    expect(rowsOf(container)).toEqual([["savings-left", "Otettu säästöistä", "200 €"], ["consumption", "Kulutus", "1 500 €"], ["debt", "Maksettu velanhoito", "200 €"], ["left", "Käteen jäi", "1 928 €"]]);
+    expect(rowsOf(container)).toEqual([["income", "Tulot", ""], ["savings-left", "Otettu säästöistä", ""], ["consumption", "Kulutus", "1 500 €"], ["debt", "Maksettu velanhoito", "200 €"], ["left", "Käteen jäi", ""]]);
     expect(container.querySelector(".home-flow-list [data-part=saved]")).toBeNull();
-    expect(flat(container.querySelector(".home-flow-list")?.textContent)).not.toContain("−");
+    expect(flat([...container.querySelectorAll(".home-flow-list")].map((list) => list.textContent).join(" "))).not.toContain("−");
   });
 
   it("a negative credit term shows as credit paid back: the same euros under Käteen jäi and in the list, and no row of credit drawn", () => {
     const overview = { income: { cents: 100000, earnedCents: 100000 }, months: [{ month: "2026-11", incomeCents: 100000, spendCents: 50000, fromSavingsCents: 0, complete: false }] };
     const container = summaryIn(data({ totals: { ...totalsOf(100000, 50000, 0, 0), borrowedCents: -40000, leftCents: 10000 }, overview } as never));
     expect([...container.querySelectorAll("[data-fig=result] .home-fig-term")].map((el) => flat(el.textContent))).toEqual(["Luottoa maksettu takaisin 400 €"]);
-    expect(rowsOf(container)).toEqual([["consumption", "Kulutus", "500 €"], ["repaid", "Luottoa maksettu takaisin", "400 €"], ["left", "Käteen jäi", "100 €"]]);
+    expect(rowsOf(container)).toEqual([["income", "Tulot", ""], ["consumption", "Kulutus", "500 €"], ["repaid", "Luottoa maksettu takaisin", ""], ["left", "Käteen jäi", ""]]);
     expect(container.querySelector(".home-flow-list [data-part=credit-left]")).toBeNull();
   });
 
@@ -369,11 +352,13 @@ describe("Yhteenveto's sum left to the payday", () => {
     const { container } = render(createElement(Now, { data: d }));
     return container.querySelector<HTMLElement>("[data-tile=left]")!;
   };
+  /** The question of the section the figure answers: its heading, named by the section. */
+  const questionOf = (figure: HTMLElement) => figure.closest("section")!.querySelector("h2")?.textContent;
 
   it("is the one link to the table of Laskut, with the sum a day and the payday", () => {
     const el = left(data());
     expect(el.getAttribute("href")).toBe("#/bills#laskut-taulukko");
-    expect(el.querySelector(".home-fig-label")?.textContent).toBe("Käytettävissä palkkapäivään");
+    expect(questionOf(el)).toBe("Käytettävissä palkkapäivään");
     expect(flat(el.querySelector(".fig")?.textContent)).toBe("3 100 €");
     expect(flat(el.querySelector(".home-fig-line")?.textContent)).toBe("221 € päivässä, palkkapäivä 25.11.");
   });
@@ -386,17 +371,43 @@ describe("Yhteenveto's sum left to the payday", () => {
     it("is the sum left on the payday after the everyday spending, with the payday and no sum a day", () => {
       const el = withRunway(runway());
       expect(el.getAttribute("href")).toBe("#/bills#laskut-taulukko");
-      expect(el.querySelector(".home-fig-label")?.textContent).toBe("Jää palkkapäivänä");
+      expect(questionOf(el)).toBe("Jää palkkapäivänä 25.11.");
       expect(flat(el.querySelector(".fig")?.textContent)).toBe("2 711 €");
-      expect(flat(el.querySelector(".home-fig-line")?.textContent)).toBe("palkkapäivä 25.11.");
+      expect(el.querySelector(".home-fig-line")).toBeNull();
       expect(el.classList.contains("home-short")).toBe(false);
+    });
+
+    const ledgerOf = (r: Runway, sum: { balanceCents: number; paymentsCents: number; cardDebtCents: number; freeCents: number }) => {
+      const d = data();
+      const container = render(createElement(Now, { data: { ...d, nyt: nytOf(true), home: { ...d.home, runway: { leftOnPayday: r, sum } } } as never })).container;
+      return { figure: flat(container.querySelector("[data-tile=left] .fig")?.textContent), rows: [...container.querySelectorAll(".home-ledger > div")].map((row) => [row.getAttribute("data-row"), flat(row.querySelector("dd")?.textContent)]) };
+    };
+    /** "−1 500,00 €" as cents, for the check that the rows reconcile with the figure. */
+    const centsOf = (text: string) => Math.round(Number(text.replace(/[^\d,−-]/g, "").replace("−", "-").replace(",", ".")) * 100);
+
+    it("shows the parts of the sum beside it to the cent, a part that is 0 left out, and they add up to the figure", () => {
+      // 5 000 on the accounts less 1 500 of payments and 200 of card debt is 3 300 free; less 389,50 of everyday spending and 120,34 on cards 2 790,16 is left
+      const { figure, rows } = ledgerOf(runway({ freeCents: 330000, everydayCents: 38950, billedCents: 12034, leftCents: 279016 }), { balanceCents: 500000, paymentsCents: 150000, cardDebtCents: 20000, freeCents: 330000 });
+      expect(rows).toEqual([["balance", "5 000,00 €"], ["payments", "−1 500,00 €"], ["cards", "−200,00 €"], ["everyday", "−389,50 €"], ["billed", "−120,34 €"]]);
+      expect(rows.reduce((sum, [, shown]) => sum + centsOf(shown!), 0)).toBe(279016);
+      expect(figure).toBe("2 790 €");
+      // a part that is 0 has no row
+      expect(ledgerOf(runway({ freeCents: 350000, everydayCents: 100000, billedCents: 0, leftCents: 250000 }), { balanceCents: 500000, paymentsCents: 150000, cardDebtCents: 0, freeCents: 350000 }).rows.map((r) => r[0])).toEqual(["balance", "payments", "everyday"]);
+    });
+
+    it("tells each row to the cent, so the rows read the sum of the figure and not a euro or two over it", () => {
+      // 1 000,60 less 200,20 less 200,20 is 600,20: rounded one by one the rows would read 1 001, 200 and 200 and add up to 601
+      const { figure, rows } = ledgerOf(runway({ freeCents: 80040, everydayCents: 20020, billedCents: 0, leftCents: 60020 }), { balanceCents: 100060, paymentsCents: 20020, cardDebtCents: 0, freeCents: 80040 });
+      expect(figure).toBe("600 €");
+      expect(rows).toEqual([["balance", "1 000,60 €"], ["payments", "−200,20 €"], ["everyday", "−200,20 €"]]);
+      expect(rows.reduce((sum, [, shown]) => sum + centsOf(shown!), 0)).toBe(60020);
     });
 
     it("below zero is the problem colour and says no more than the figure", () => {
       const el = withRunway(runway({ leftCents: -213761 }));
       expect(el.classList.contains("home-short")).toBe(true);
       expect(flat(el.querySelector(".fig")?.textContent)).toBe("−2 138 €");
-      expect(flat(el.querySelector(".home-fig-line")?.textContent)).toBe("palkkapäivä 25.11.");
+      expect(el.querySelector(".home-fig-line")).toBeNull();
     });
 
     it("on the payday says so", () => {

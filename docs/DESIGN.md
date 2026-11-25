@@ -60,7 +60,7 @@ colours stay apart for a reader with a colour vision deficiency. When a token fa
 ## Components
 
 - Table: every list of rows is `components/table/Table.tsx`. A page writes cells and never a `<table>`. Under 600 px a
-  row becomes a block. A row is 32 px high (`--row-h`) with a hairline under it, and Tapahtumat shows at least twelve
+  row becomes a block, except in a table of three columns or fewer, or with `keepColumns`, which keeps its columns while they fit. A row is 32 px high (`--row-h`) with a hairline under it, and Tapahtumat shows at least twelve
   rows on a 1440 x 900 screen.
 - Table toolbar: a table whose columns define something to choose, or that has more than ten rows to search, has one toolbar above it (`components/table/Toolbar.tsx`,
   `styles/toolbar.css`). On the left stand a search box and filter chips with the number of rows each leaves ("Kaikki 21").

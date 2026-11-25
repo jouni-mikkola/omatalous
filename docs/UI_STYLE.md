@@ -20,7 +20,7 @@ with it. A new word for a thing already named here is not added: the term below 
 | The section of accounts and debts | *Varat ja velat* | *Varallisuus* |
 | What a period left on the accounts: income and credit drawn, less spending, debt service and what went to savings (more when savings were drawn on) | *Käteen jäi*, on every page that shows it; the registry and the money flows doc call it *Tulos* | *Tulos* as a label, *Yli jäi*, *Jäännös*, *jäämä* |
 | Income and spending as short labels (a table, a row of figures) | *Tulot*, *Menot*, *Erotus* | *Maksettu*, *Saatu*, *Ero* |
-| The pays of a month on Laskut less its bills and its regular saving | *Laskujen jälkeen* | *Erotus* (that is income less spending) |
+| The pays of a month on Laskut less its bills and its regular saving | *Laskujen jälkeen*; as the column head of Tulevat kuukaudet on Yhteenveto, *Jää* | *Erotus* (that is income less spending) |
 | The sums of the filtered rows on Tapahtumat, own transfers left out | *Menot*, *Tulot*, *Erotus*, and *Säästöön siirretty* or *Otettu säästöistä* for what the rows move to or from savings, named as on Yhteenveto | *Rahaa ulos*, *Rahaa sisään* |
 | Taking a bank connection into use | *yhdistä* (a bank, an account), *Yhdistä uudelleen* | *linkitä*, *liitä* (*liitä osoite* stays: that is pasting text) |
 | How long a bank connection is valid | *suostumus* (*Uusi suostumus*), the connection *vanhenee* | *lupa*, *consent*, *yhteyden päättyminen* |
@@ -48,6 +48,7 @@ with it. A new word for a thing already named here is not added: the term below 
 | How sure an estimate is | *Arvio on epävarma*, *suuntaa antava*, *luotettava* | *Varmuus keskitaso*, *Peruste*, *Vaikutus* |
 | The usual level of a payer, a bill or the savings rate | *tavallisesti* | *normaali* |
 | The bills before payday without the card's bill | *Muut laskut ennen palkkapäivää* (the card's bill is *Korttivelka*) | *Maksut ennen palkkapäivää* beside a figure that holds the card |
+| The card debt that no bill before payday holds, beside *Laskut ennen palkkapäivää* (which holds the card's bill) in the working of the sum left on payday | *Korttivelka laskujen lisäksi* | *Korttivelka* alone there, which reads as the card's bill the line above already holds |
 | A month that has not ended, or whose figures cover only a part of it | *kesken* (the month has not ended: "Lokakuu, kesken"), *vajaa* (it has ended but the accounts do not cover it from its start) | *tänään* as the label of a running month, *keskeneräinen* |
 | A month with all its days | *päättynyt kuukausi* | *valmis kuukausi*, *täysi kuukausi*, *kokonainen kuukausi* |
 | Confirming | the verb that names the act: *Poista*, *Tallenna*, *Peruuta* | *Kyllä*, *Ei*, *OK* |

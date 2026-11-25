@@ -290,10 +290,10 @@ test("a loan's name opens the report Lainat, the sums of the block stand on one 
   expect(figures!.x, "the figures stand at the right of the name").toBeGreaterThanOrEqual(name!.x + name!.width - 1);
   expect(figures!.height, "two rows of 32 px and the hairline between").toBeLessThanOrEqual(66);
 
-  // width: Tilit and Lainat side by side from 900 px, the cards across under both; under each other below it, down to a
-  // phone, with nothing scrolling sideways
+  // width: Tilit and Lainat side by side from 900 px up to 1039 px, the cards across under both; from 1040 px the block stands in
+  // the narrow rail and the groups are under each other, as they are below 900 px, down to a phone, with nothing scrolling sideways
   const boxes = async () => Promise.all(["Tilit", "Lainat", "Luottokortit"].map(async (name) => (await groupOf(page, name).boundingBox())!));
-  for (const [width, side] of [[1280, true], [1000, true], [900, true], [899, false], [700, false], [390, false]] as const) {
+  for (const [width, side] of [[1280, false], [1040, false], [1039, true], [1000, true], [900, true], [899, false], [700, false], [390, false]] as const) {
     await page.setViewportSize({ width, height: 900 });
     const [t, l, c] = await boxes();
     expect(c!.y, `at ${width} px the cards are under the other two`).toBeGreaterThanOrEqual(Math.max(t!.y + t!.height, l!.y + l!.height) - 2);

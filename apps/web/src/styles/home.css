@@ -1,41 +1,37 @@
-/* Yhteenveto: the month (Tulot, Menot, Tulos and the use of the income), the months and the bills, the largest categories and the accounts, cards and loans.
+/* Yhteenveto: what is left on the payday, the month (Tulot, Menot, Tulos and the use of the income), the coming months and the accounts, cards and loans.
    Sections are told apart by a heading and a hairline (the `.card` rule), so nothing here has a box. A block keeps its place from the first frame: the loading frame uses the same classes, so the page
    does not move when the answer lands. */
 
 @layer pages {
-/* the month: one period named once, three figures in the order the money moves, the last the largest */
+/* the month: one period named once, three figures in the order the money moves */
 .home-summary { display: grid; gap: var(--sp-24); padding-block: var(--sp-16) var(--sp-8); border-block-start: var(--hairline) solid var(--border); }
 .home-period { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-4) var(--sp-16); }
 .home-period h2 { margin: 0; }
 .home-range { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); }
-.home-figs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr); margin: 0; padding: 0; list-style: none; }
-.home-figs > li { display: grid; align-content: start; justify-items: start; gap: var(--sp-8); min-inline-size: 0; padding-inline: var(--sp-16); border-inline-start: var(--hairline) solid var(--grid); }
+/* each figure is three rows (label, figure, notes) of a subgrid of the row of figures, so the figures stand on one line when a label wraps */
+.home-figs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.6fr); grid-template-rows: auto auto auto; row-gap: var(--sp-8); margin: 0; padding: 0; list-style: none; }
+.home-figs > li { display: grid; grid-row: span 3; grid-template-rows: subgrid; align-content: start; justify-items: start; min-inline-size: 0; padding-inline: var(--sp-16); border-inline-start: var(--hairline) solid var(--grid); }
 .home-figs > li:first-child { padding-inline-start: 0; border-inline-start: 0; }
-.home-figs .fig-m { font-weight: var(--w-strong); }
-/* Tulos is the number the page was opened for: its display size is set with the other one in base.css */
-.home-figs > li[data-fig="result"] .fig-l { font-weight: var(--w-strong); }
+.home-figs .fig-l { font-weight: var(--w-strong); }
+.home-fig-notes { display: grid; justify-items: start; gap: var(--sp-4); }
+/* the three figures are in the size of the mockup (--fs-fig-l); the display size is the sum left on the payday (.home-now) */
 .home-fig-label { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); }
 .home-fig-line { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
 /* a term between Menot and Tulos (moved to or from savings, credit): a sum of the month's, so it reads in the text colour, not the muted one of a comparison */
 .home-fig-term { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text); }
 .home-short .fig { color: var(--bad); }
 
-/* a figure's bar: its length on the scale it shares with its comparison, the same day of last month as a mark, the usual level to this day as a band */
-.home-gauge { --tone: var(--role-neutral); position: relative; display: block; inline-size: 100%; block-size: var(--bar-h); background: var(--surface-2); }
 .home-summary [data-tone="income"] { --tone: var(--role-income); }
 .home-summary [data-tone="spending"] { --tone: var(--role-spending); }
 .home-summary [data-tone="kept"] { --tone: var(--role-kept); }
 .home-summary [data-tone="debt"] { --tone: var(--role-debt); }
 .home-summary [data-tone="neutral"] { --tone: var(--role-neutral); }
-.home-gauge-fill { display: block; block-size: 100%; background: var(--tone); }
-/* a figure below zero fills from the far end, the other way from a surplus */
-.home-gauge-fill[data-deficit] { margin-inline-start: auto; }
-.home-gauge-mark { position: absolute; inset-block: calc(var(--sp-4) * -1); inline-size: calc(var(--hairline) * 2); margin-inline-start: calc(var(--hairline) * -1); background: var(--text); }
-.home-gauge-mark[data-deficit] { margin-inline: 0 calc(var(--hairline) * -1); }
-.home-band { position: absolute; inset-block: calc(var(--sp-4) * -1); background: var(--estimate-fill); border-inline: var(--hairline) solid var(--estimate-edge); }
 
-/* where the income went: one bar in the order of the flows, then each part with its share and its sum */
-.home-flow { display: grid; gap: var(--sp-8); }
+/* where the income went: two bars on one scale, Tuli and Meni, each with its parts under it with their share and their sum */
+.home-flow { display: grid; gap: var(--sp-12); }
+.home-flow-side { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); column-gap: var(--sp-12); row-gap: var(--sp-8); align-items: center; }
+.home-flow-side-name { font-weight: var(--w-strong); }
+.home-flow-side > .home-flow-list { grid-column: 2; }
 .home-flow h3 { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: var(--w-strong); }
 .home-flow-bar { display: flex; gap: var(--hairline); block-size: calc(var(--bar-h) * 2); background: var(--surface-2); }
 .home-flow-bar > span { flex-grow: 0; flex-shrink: 1; flex-basis: 0; min-inline-size: calc(var(--hairline) * 2); background: var(--tone); }
@@ -47,34 +43,63 @@
 .home-flow-sum { font-weight: var(--w-strong); text-align: end; white-space: nowrap; }
 
 /* what is left to the payday, with the bills it is made of */
+.home-now { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); row-gap: var(--sp-16); align-items: start; }
+.home-answer { min-inline-size: 0; padding-inline-end: var(--sp-32); }
 .home-left { display: grid; justify-items: start; gap: var(--sp-4); min-block-size: var(--tap-min); color: var(--text); text-decoration: none; }
-.home-left .fig-m { font-weight: var(--w-strong); }
-a.home-left:hover .home-fig-label { text-decoration: underline; }
+.home-left .fig-l { font-weight: var(--w-strong); }
+/* the working of that sum, one row to a part */
+/* a thin vertical rule stands between the answer and its working */
+.home-ledger { display: grid; margin: 0; padding: 0 0 0 var(--sp-32); border-inline-start: var(--hairline) solid var(--grid); }
+.home-ledger > div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-16); padding: var(--sp-8) 0; border-block-end: var(--hairline) solid var(--grid); }
+.home-ledger dt { color: var(--text-2); }
+.home-ledger dd { margin: 0; white-space: nowrap; font-weight: var(--w-strong); }
+/* the page's question is its first heading (an h2, named by the section): heading size and weight, in the text colour, the figure under it */
+.home-now .home-fig-label { margin-block-end: var(--sp-4); font-size: var(--fs-h2); font-weight: var(--w-strong); color: var(--text); }
+a.home-left:hover .fig-l { text-decoration: underline; }
 
 /* the lowest balance of the next days, one line under the sum left to the payday */
 .home-low { margin: var(--sp-8) 0 0; font-size: var(--fs-body); line-height: var(--lh-body); }
+.home-low-sum[data-short] { color: var(--bad); }
 .home-low-label { font-weight: var(--w-strong); }
 .home-low-status { color: var(--text-2); }
 
-/* a phone: Tulot and Menot side by side while two fit (at a large text size they stand one under the other), Tulos under them across the width at the size that fits at any text size */
+/* a phone: each figure is a row, its label at the left and the figure at the right, its notes under both */
 @media (max-width: 40rem) {
-  .home-figs { grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); column-gap: var(--sp-16); row-gap: var(--sp-12); }
-  .home-figs > li { padding: 0; border-inline-start: 0; }
-  .home-figs > li[data-fig="result"] { grid-column: 1 / -1; padding-block-start: var(--sp-12); border-block-start: var(--hairline) solid var(--grid); }
-  .home-figs > li[data-fig="result"] .fig-l { font-size: var(--fs-fig-l); line-height: var(--lh-fig-l); }
+  .home-figs { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; row-gap: 0; }
+  .home-figs > li { grid-row: auto; grid-template-rows: none; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--sp-16); row-gap: var(--sp-4); align-items: baseline; padding: var(--sp-12) 0; border-inline-start: 0; border-block-end: var(--hairline) solid var(--grid); }
+  .home-figs > li > .fig { grid-column: 2; grid-row: 1; justify-self: end; }
+  .home-figs > li > .home-fig-notes { grid-column: 1 / -1; }
+  .home-now { grid-template-columns: minmax(0, 1fr); }
+  .home-answer { padding-inline-end: 0; }
+  .home-ledger { padding-inline-start: 0; border-inline-start: 0; }
+  .home-flow-side { grid-template-columns: minmax(0, 1fr); }
+  .home-flow-side > .home-flow-list { grid-column: 1; }
+  .home-now .fig-l { font-size: var(--fs-fig-l); line-height: var(--lh-fig-l); }
 }
 .home-detail { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); max-inline-size: 72ch; }
 
-/* wide: what is left to the payday and the month on the left, the coming months beside both, the accounts under them.
-   The order in the source is the order a phone reads: the dense flow lets the coming months, which come third, fill
-   the right of the two rows the payday figure and the month open. With no payday figure they stand across the page. */
+/* the coming months and the accounts stand in one rail */
+.front-rail { display: grid; gap: var(--gap); align-content: start; min-inline-size: 0; }
+/* from 1040 px the rail is a narrow column: the accounts, the cards and the loans stand under each other, not side by side */
+@media (min-width: 1040px) {
+  .front-rail .holding-groups.holding-groups { grid-template-columns: minmax(0, 1fr); }
+  .front-rail .holding-groups.holding-groups > * { padding-inline: 0; border-inline-start: 0; border-top: 1px solid var(--border); }
+  .front-rail .holding-groups.holding-groups > :first-child { border-top: 0; }
+}
+/* wide: what is left to the payday and the month on the left, the rail beside both with the coming months and the accounts under them.
+   The order in the source is the order a phone reads: the dense flow lets the rail, which comes third, fill
+   the right of the two rows the payday figure and the month open. With no payday figure it stands across the page. */
 @media (min-width: 1040px) {
   .front { grid-auto-flow: row dense; }
+  /* the rail is taller than the payday figure: its extra height goes to the month's row, so the figure and the month stay together */
+  .front:has(> .home-now) { grid-template-rows: auto 1fr; }
   .front > .home-now, .front > .home-summary { grid-column: 1 / 8; }
-  .front > .home-now ~ .home-coming { grid-column: 8 / -1; grid-row: span 2; }
+  .front > .home-now ~ .front-rail { grid-column: 8 / -1; grid-row: span 2; }
 }
-/* a month's bills with the estimated part beside them are two figures in one cell: the second goes under the first where the cell is too narrow, as at a large text size on a phone */
+/* a month's bills with the estimate under them, and a pay that is an estimate, are two lines in one cell, the second small and muted like the second line of a row */
 .home-coming .rt td.num { white-space: normal; }
+.home-coming-note { display: block; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; color: var(--text-2); }
+.home-coming .home-coming-after { font-weight: var(--w-strong); }
 .home-coming-wait { display: block; block-size: calc(var(--row-h-roomy) * 4); }
 
 /* the buffer line at the foot of Varat ja velat: the months, and under its drill the two sums they divide */
@@ -92,12 +117,10 @@ a.home-left:hover .home-fig-label { text-decoration: underline; }
 .home-skeleton .sk-bar { margin-block: var(--sp-4); }
 .home-skeleton .sk-line { block-size: var(--lh-body); inline-size: min(16rem, 100%); }
 .home-skeleton .home-figs .sk-bar { margin: 0; inline-size: 60%; block-size: var(--lh-label); }
-.home-skeleton .home-figs .sk-fig { inline-size: 80%; block-size: var(--lh-fig-m); }
-.home-skeleton .home-figs > li[data-fig="result"] .sk-fig { block-size: var(--lh-display); }
-.home-skeleton .home-figs .home-gauge { margin: 0; inline-size: 100%; }
+.home-skeleton .home-figs .sk-fig { inline-size: 80%; block-size: var(--lh-fig-l); }
 .home-skeleton .sk-flow { block-size: calc(var(--row-h-roomy) * 4); }
 /* each block as high as it is when loaded, so the page keeps its length */
-.home-skeleton .home-now .sk-fig { inline-size: 40%; block-size: var(--lh-fig-m); }
+.home-skeleton .home-now .sk-fig { inline-size: 40%; block-size: var(--lh-display); }
 .home-skeleton .sk-coming { block-size: calc(var(--row-h-roomy) * 5); }
 .home-skeleton .sk-holdings { block-size: calc(var(--row-h-roomy) * 8); }
 }

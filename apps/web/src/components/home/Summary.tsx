@@ -5,7 +5,6 @@ import { answerMoney, completeMonths, dateRange, language, monthLong, percent } 
 import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
-import { percentBetween, percentOf } from "./shared.ts";
 
 type Data = DashboardData & { nyt: NonNullable<DashboardData["nyt"]> };
 type Tone = "income" | "spending" | "kept" | "debt" | "neutral";
@@ -42,42 +41,10 @@ function spentLine(data: Data, today: string): string | null {
   return null;
 }
 
-/**
- * A figure's bar: its length against the scale all three figures share, and the comparison as a mark or a band. A figure
- * below zero fills from the far end of the bar, so a shortfall never looks like the same sum kept.
- */
-interface Gauge {
-  cents: number;
-  scaleCents: number;
-  tone: Tone;
-  /** The same figure a month before to the same day, or the usual level's band, on the bar's scale. */
-  markCents: number | null;
-  band: { lowCents: number; highCents: number } | null;
-}
-
-function Bar({ gauge }: { gauge: Gauge }) {
-  const { cents, scaleCents, tone, markCents, band } = gauge;
-  const deficit = cents < 0;
-  return (
-    <span className="home-gauge" data-tone={tone} aria-hidden="true">
-      <span className="home-gauge-fill" data-deficit={deficit || undefined} ref={css({ "inline-size": percentOf(Math.abs(cents), scaleCents) })} />
-      {band && <span className="home-band" ref={css({ "inset-inline-start": percentOf(band.lowCents, scaleCents), "inline-size": percentBetween(band.lowCents, band.highCents, scaleCents) })} />}
-      {markCents !== null && <span className="home-gauge-mark" data-deficit={deficit || undefined} ref={css({ [deficit ? "inset-inline-end" : "inset-inline-start"]: percentOf(Math.abs(markCents), scaleCents) })} />}
-    </span>
-  );
-}
-
-/** The longest of the sums the bars draw, with their comparisons: one scale for Tulot, Menot and Tulos. */
-const scaleOf = (...cents: (number | null)[]) => Math.max(1, ...cents.map((c) => Math.abs(c ?? 0)));
-
-/** The comparison of a figure, or null when it is on the other side of zero: a mark of a shortfall on a bar of a surplus says nothing. */
-const sameSign = (cents: number, comparison: number | null) => (comparison !== null && (cents < 0) === (comparison < 0) ? comparison : null);
-
 interface Item {
   id: "income" | "spent" | "result";
   label: string;
   cents: number;
-  gauge: Gauge;
   line: string | null;
   /** A second line under the first: the part of the income that is earned. */
   extra?: string;
@@ -106,7 +73,7 @@ function shownTerms(totals: Data["totals"]): { saved: number; credit: number } {
 }
 
 function itemsOf(data: Data, today: string): Item[] {
-  const { totals, previousTotals, comparable, overview, home } = data;
+  const { totals, previousTotals, comparable, overview } = data;
   // the figures are the ones the chart of the months draws (Tulot, Menot of the running month), so the page tells one sum for each
   const incomeCents = overview.income.cents;
   const spentCents = overview.months.at(-1)?.spendCents ?? data.nyt.pace.spentCents;
@@ -115,17 +82,12 @@ function itemsOf(data: Data, today: string): Item[] {
   const previousLine = (cents: number | null) => (cents === null ? null : t(previousWords(data, today), { sum: answerMoney(cents) }));
   const previousIncome = sameDay(previousTotals.incomeCents);
   const previousResult = sameDay(previousTotals.leftCents);
-  const pace = home.pace;
-  const previousSpent = data.pace.previous?.toToday ?? null;
-  const spentMark = pace ? null : previousSpent;
   const earned = overview.income.earnedCents;
-  const scaleCents = scaleOf(incomeCents, spentCents, totals.leftCents, previousIncome, previousResult, spentMark, pace?.highCents ?? null);
   return [
     {
       id: "income",
       label: t("home.fig_income"),
       cents: incomeCents,
-      gauge: { cents: incomeCents, scaleCents, tone: "income", markCents: previousIncome, band: null },
       line: previousLine(previousIncome),
       extra: earned !== overview.income.cents ? t("home.tile_income_earned", { sum: answerMoney(earned) }) : undefined,
     },
@@ -133,20 +95,12 @@ function itemsOf(data: Data, today: string): Item[] {
       id: "spent",
       label: t("home.fig_spent"),
       cents: spentCents,
-      gauge: {
-        cents: spentCents,
-        scaleCents,
-        tone: "spending",
-        markCents: spentMark,
-        band: pace ? { lowCents: pace.lowCents, highCents: pace.highCents } : null,
-      },
       line: spentLine(data, today),
     },
     {
       id: "result",
       label: t("home.fig_result"),
       cents: totals.leftCents,
-      gauge: { cents: totals.leftCents, scaleCents, tone: totals.leftCents < 0 ? "debt" : "income", markCents: sameSign(totals.leftCents, previousResult), band: null },
       line: previousLine(previousResult),
       terms: termsOf(totals),
     },
@@ -174,9 +128,14 @@ function gapSentence(view: BridgeView, shown: { saved: number; credit: number })
     cover.accountsCents >= 50 ? t("rpt.gap_accounts", { sum: answerMoney(cover.accountsCents) }) : null,
   ].filter((p): p is string => p !== null);
   // money moved to savings or credit paid back is no spending: the lead then says transfers too
+  // Käteen jäi counts the money drawn as well, so beside a gap it is told what it is, not left to read against the gap
+  const left = t("home.gap_left");
   const lead = t(view.totals.savedCents > 0 || cover.creditRepaidCents > 0 ? "home.gap_lead_transfers" : "home.gap_lead", { sum: answerMoney(cover.gapCents) });
-  if (savingsOnly) return `${lead} ${t("home.gap_from_savings")}`;
-  return parts.length === 0 ? lead : `${lead} ${t("home.gap_cover", { parts: new Intl.ListFormat(localeOf(language()), { type: "conjunction" }).format(parts) })}`;
+  if (savingsOnly) return `${lead} ${t("home.gap_from_savings")} ${left}`;
+  if (parts.length === 0) return `${lead} ${left}`;
+  const covered = `${lead} ${t("home.gap_cover", { parts: new Intl.ListFormat(localeOf(language()), { type: "conjunction" }).format(parts) })}`;
+  // credit that covered the gap can leave money over: Käteen jäi is then above 0 beside a gap, and the line says what it is
+  return view.totals.leftCents > 0 ? `${covered} ${left}` : covered;
 }
 
 const FLOW_TONE: Record<string, Tone> = { income: "income", consumption: "spending", interest: "debt", debt: "debt", principal: "debt", subtotal: "neutral", saved: "kept", repaid: "neutral", left: "income", credit: "neutral", savings: "neutral", accounts: "neutral" };
@@ -193,54 +152,79 @@ function flowLabel(key: string, split: boolean): string {
     case "repaid": return t("home.bridge_repaid");
     case "savings-left": return t("home.bridge_savings_left");
     case "credit-left": return t("home.bridge_credit_left");
+    case "income": return t("home.fig_income");
+    case "credit": return t("home.source_credit");
+    case "savings": return t("home.source_savings");
+    case "accounts": return t("home.source_accounts");
     default: return t("home.fig_result");
   }
 }
 
+/** The parts of the bar of what came in (Tuli); every other part is on the bar of what went out (Meni). */
+const IN_KEYS: readonly string[] = ["income", "credit-left", "savings-left", ...COVER_KEYS];
+
+type BridgeFigureOf = BridgeView["figures"][number];
+type BridgePiecesOf = BridgeView["parts"];
+
+/** One bar with its name at the left and its parts named under it. */
+function FlowSide({ side, name, pieces, figures, view, euros }: { side: "in" | "out"; name: string; pieces: BridgePiecesOf; figures: BridgeFigureOf[]; view: BridgeView; euros: Record<string, number> }) {
+  const sharesShown = view.cover.gapCents < 50;
+  return (
+    <div className="home-flow-side" data-side={side}>
+      <span className="home-flow-side-name">{name}</span>
+      <span className="home-flow-bar" data-bar={side} aria-hidden="true">
+        {pieces.filter((p) => p.share > 0).map((p) => (
+          <span key={p.key} data-part={p.key} data-tone={FLOW_TONE[p.key] ?? "neutral"} ref={css({ "flex-grow": p.share })} />
+        ))}
+      </span>
+      <FlowList figures={figures} view={view} euros={euros} sharesShown={sharesShown} side={side} />
+    </div>
+  );
+}
+
+/** The parts under a bar (or alone): the name, the share of the income and the sum, which a part that is a figure of the strip does not have. */
+function FlowList({ figures, view, euros, sharesShown, side }: { figures: BridgeFigureOf[]; view: BridgeView; euros: Record<string, number>; sharesShown: boolean; side: "in" | "out" | "all" }) {
+  return (
+    <ul className="home-flow-list" data-side={side}>
+      {figures.map((f) => (
+        <li key={f.key} data-part={f.key}>
+          <span className="home-flow-swatch" data-tone={FLOW_TONE[f.key] ?? "neutral"} aria-hidden="true" />
+          <span className="home-flow-name">{flowLabel(f.key, view.debtSplit)}</span>
+          <span className="home-flow-share num">{sharesShown && f.incomeUnits !== null ? percent(f.incomeUnits / 100) : ""}</span>
+          <span className="home-flow-sum num">{f.key === "left" || IN_KEYS.includes(f.key) || f.key in euros ? "" : answerMoney(f.cents)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 /**
- * Tulojen käyttö: the bar of where the month's income went, in the order of the flows (consumption, debt, savings, what
- * stayed), and under it each part with its sum and its share of the income. All of it is `bridgeView` of the same totals
- * as the three figures above, the one calculation of the bridge on Raportit, so the parts add up to the figures. When
- * the spending was more than the income, a second bar above the first draws what paid for it: the income, then the credit,
- * the savings and the accounts that covered the rest, told in one sentence under the list: the spending over the income and
- * what paid it; the list then has no share column, as its shares of the income alone would add to more than 100 %. With no income, or a part
- * below zero, no bar is drawn and the parts stand as a list alone.
+ * Tulojen käyttö: two bars on one scale, Tuli (the income, and what covered the rest: credit, savings, the accounts) and Meni
+ * (consumption, debt, savings, what stayed), each with its parts named under it. A part that is already a figure of the
+ * month's strip (Tulot, Käteen jäi, and the terms under it: savings moved or taken out, credit drawn or paid back) is named
+ * without its sum, so each sum stands once; the sums of what covered a gap are told in the one sentence under the bars, and
+ * with a gap the parts have no share column, as shares of the income alone would add to more than 100 %. All of it is
+ * `bridgeView` of the same totals as the three figures above, the one calculation of the bridge on Raportit. With no income,
+ * or a part below zero, no bar is drawn and the parts stand as a list alone.
  */
 function Flow({ view, shown }: { view: BridgeView; shown: { saved: number; credit: number } }) {
-  // a part named like a term under Tulos shows the euros that term shows, and no row stands where its term is not shown
+  // a part named like a term under Tulos stands only where its term is shown, and it has no sum of its own: the term tells it
   const euros: Record<string, number> = { saved: shown.saved, "savings-left": -shown.saved, "credit-left": shown.credit, repaid: -shown.credit };
-  const rows = view.figures
-    .filter((f) => f.key !== "income" && !COVER_KEYS.includes(f.key) && f.cents !== 0 && (!(f.key in euros) || euros[f.key]! > 0))
-    .map((f) => ({ ...f, cents: f.key in euros ? euros[f.key]! : f.cents }));
+  const figures = view.figures.filter((f) => f.cents !== 0 && (!(f.key in euros) || euros[f.key]! > 0));
   const gap = gapSentence(view, shown);
-  const sharesShown = view.cover.gapCents < 50;
+  // the income alone is the bar of what came in when it paid everything
+  const came = view.sources.length > 0 ? view.sources : [{ key: "income" as const, cents: view.totals.incomeCents, share: 1 }];
   return (
     <section className="home-flow" aria-labelledby="home-flow-h">
       <h3 id="home-flow-h">{t("home.bridge_where")}</h3>
-      {view.draws && view.sources.length > 0 && (
-        <span className="home-flow-bar" data-bar="sources" aria-hidden="true">
-          {view.sources.filter((p) => p.share > 0).map((p) => (
-            <span key={p.key} data-part={p.key} data-tone={FLOW_TONE[p.key] ?? "neutral"} ref={css({ "flex-grow": p.share })} />
-          ))}
-        </span>
+      {view.draws ? (
+        <>
+          <FlowSide side="in" name={t("home.bridge_in")} pieces={came} figures={figures.filter((f) => IN_KEYS.includes(f.key))} view={view} euros={euros} />
+          <FlowSide side="out" name={t("home.bridge_out")} pieces={view.parts} figures={figures.filter((f) => !IN_KEYS.includes(f.key))} view={view} euros={euros} />
+        </>
+      ) : (
+        <FlowList figures={figures.filter((f) => f.key !== "income" && !COVER_KEYS.includes(f.key))} view={view} euros={euros} sharesShown={view.cover.gapCents < 50} side="all" />
       )}
-      {view.draws && (
-        <span className="home-flow-bar" data-bar="parts" aria-hidden="true">
-          {view.parts.filter((p) => p.share > 0).map((p) => (
-            <span key={p.key} data-part={p.key} data-tone={FLOW_TONE[p.key] ?? "neutral"} ref={css({ "flex-grow": p.share })} />
-          ))}
-        </span>
-      )}
-      <ul className="home-flow-list">
-        {rows.map((f) => (
-          <li key={f.key} data-part={f.key}>
-            <span className="home-flow-swatch" data-tone={FLOW_TONE[f.key] ?? "neutral"} aria-hidden="true" />
-            <span className="home-flow-name">{flowLabel(f.key, view.debtSplit)}</span>
-            <span className="home-flow-share num">{sharesShown && f.incomeUnits !== null ? percent(f.incomeUnits / 100) : ""}</span>
-            <span className="home-flow-sum num">{answerMoney(f.cents)}</span>
-          </li>
-        ))}
-      </ul>
       {gap && <p className="home-detail" data-part="gap">{gap}</p>}
     </section>
   );
@@ -251,8 +235,8 @@ const monthHeading = (month: string) => monthLong(month).replace(/^./u, (c) => c
 
 /**
  * The top of Yhteenveto: one period named once (the month and the days it has run), then Tulot, Menot and Tulos in the
- * order the money moves, Tulos the largest, each with its comparison drawn on its own bar: a mark at the same day of last
- * month, and for Menot the band of the usual level to this day when the history gives one. Below them the use of the
+ * order the money moves, each with its comparison as a line: the same day of last month, and for Menot the usual level to this
+ * day when the history gives one. Below them the use of the
  * income (Flow). The figures are `totals` of the dashboard answer, the same period and the same calculation the bridge
  * has, so nothing is added up here. The payday figure belongs to the bills (Bills), which it is made of.
  */
@@ -270,11 +254,12 @@ export function Summary({ data, today }: { data: Data; today: string }) {
         {items.map((item) => (
           <li key={item.id} data-fig={item.id} className={item.id === "result" && item.cents < 0 ? "home-short" : undefined}>
             <span className="home-fig-label">{item.label}</span>
-            <Figure text={answerMoney(item.cents)} size={item.id === "result" ? "l" : "m"} />
-            <Bar gauge={item.gauge} />
-            {item.terms?.map((term) => <span key={term} className="home-fig-term">{term}</span>)}
-            {item.line && <span className="home-fig-line">{item.line}</span>}
-            {item.extra && <span className="home-fig-line">{item.extra}</span>}
+            <Figure text={answerMoney(item.cents)} size="l" />
+            <span className="home-fig-notes">
+              {item.terms?.map((term) => <span key={term} className="home-fig-term">{term}</span>)}
+              {item.line && <span className="home-fig-line">{item.line}</span>}
+              {item.extra && <span className="home-fig-line">{item.extra}</span>}
+            </span>
           </li>
         ))}
       </ul>

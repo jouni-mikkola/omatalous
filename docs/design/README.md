@@ -29,17 +29,17 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
     to the same day.
   - Käteen jäi: income less spending and what moved to savings (`totals.leftCents`), against the same day of last month.
   - Tulojen käyttö under them: the bar of the income by where it went, as `bridgeView` gives it, each part with its share
-    and its sum. No bar without income, or with a part below zero (ADR 0014); the parts then stand as a list. When the
+    and, unless it is a figure of the strip above, its sum. No bar without income, or with a part below zero (ADR 0014); the parts then stand as a list. When the
     spending was over the income, the money that paid the gap (credit, savings, the accounts) is one sentence under the
     list, not rows with shares that would add to more than 100 %. A term between Menot and Käteen jäi (*Otettu
-    säästöistä*) is its own sum to the euro, the same under Käteen jäi and in the list; it may differ from the rounded
+    säästöistä*) is named in the list without a sum; its sum to the euro is the one under Käteen jäi, and it may differ from the rounded
     figures by a euro.
 - Nyt, the first block: what is left on the payday (`home.runway.leftOnPayday`, *Jää palkkapäivänä*): the accounts less the
   bills and own transfers before it, the card debt and the everyday spending of the days to it, with the payday. While
   the everyday spending cannot be expected (`leftOnPayday` has no figure) it is what is left after the bills alone
   (`nyt.left`, *Käytettävissä palkkapäivään*) with the sum a day. The figure links to the bills table of Laskut, which
   lists what it takes off. Under it stands one line, the lowest balance of the next 60 days (`home.lowPoint`), only when
-  it falls on the payday or after it: *Alin saldo 60 pv: 13.12., arviolta 300 €*. With no figure the line says why,
+  it falls after the payday: *Alin saldo 60 pv: 13.12., arviolta 300 €*. With no figure the line says why,
   as core gives it: the reasons of the figure above, *Liian lyhyt historia*, *Lisää kortin tiliote* (links to the
   statement of a card) or *Laskun summa puuttuu* (links to Laskut; a bill with no sum within the 60 days, or with no
   day). A card paid by a bill that holds its purchases in no category is no reason: the bill's sum is spread over the
@@ -61,7 +61,7 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
   figure the line says why, as core gives it (`bufferGap`): *Ei saldoa*, *Liian lyhyt historia* or *Ei menoja*. A net
   below zero is shown as it is, as negative months.
 - No chart and no list of categories on the first page: the categories of the month are in Raportit > Menot.
-- At 1440 px Nyt and the month stand on the left and the coming months beside them, then the accounts across the page.
+- At 1440 px Nyt and the month stand on the left and the coming months and the accounts in a column beside them.
   A phone reads Nyt, the month, the coming months and the accounts in one column, no taller than 2600 px.
 - Not shown: notices (a dot on the user menu leads to Asetukset > Turvallisuus), questions (Tarkistettavat, the
   header's link), explaining sentences, goals.

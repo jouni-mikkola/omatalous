@@ -166,7 +166,7 @@ test("every page reads the count and none but Tarkistettavat the queue; the mark
 
   await page.goto("/#/overview");
   await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.getByRole("region", { name: "Jää palkkapäivänä", exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("region", { name: /^Jää palkkapäivänä \d/ })).toBeVisible({ timeout: 15_000 });
   expect(called, "Yhteenveto reads the count").toContain("/api/review/count");
   await page.waitForLoadState("networkidle");
   for (const address of ["bills", "transactions", "reports", "settings"]) {

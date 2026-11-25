@@ -64,7 +64,7 @@ test("the app is installable: a manifest with icons the browser accepts and a se
 
 test("Yhteenveto opens with no network after one visit and says when its figures were fetched", async ({ browser }) => {
   const { context, page } = await signedInContext(browser);
-  const months = page.getByRole("region", { name: "Jää palkkapäivänä", exact: true });
+  const months = page.getByRole("region", { name: /^Jää palkkapäivänä \d/ });
   await expect(months).toBeVisible({ timeout: 15_000 });
   // what the page kept: who is signed in, the shell's answer, the questions and the figures of the month
     expect(await kept(page)).toEqual(expect.arrayContaining(["/api/auth/state", "/api/meta", "/api/review/count", expect.stringMatching(/^\/api\/dashboard\?/)]));
@@ -89,7 +89,7 @@ test("Yhteenveto opens with no network after one visit and says when its figures
 
 test("logout empties the kept figures, and with no session and no network there is nothing to open", async ({ browser }) => {
   const { context, page } = await signedInContext(browser);
-  await expect(page.getByRole("region", { name: "Jää palkkapäivänä", exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("region", { name: /^Jää palkkapäivänä \d/ })).toBeVisible({ timeout: 15_000 });
   await expect.poll(() => kept(page)).toEqual(expect.arrayContaining(["/api/meta"]));
 
   await page.locator(".user-menu > summary").click();
@@ -99,7 +99,7 @@ test("logout empties the kept figures, and with no session and no network there 
 
   await openOffline(context, page);
   await expect(page.getByText("Palvelimeen ei saada yhteyttä")).toBeVisible();
-  await expect(page.getByRole("region", { name: "Jää palkkapäivänä", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: /^Jää palkkapäivänä \d/ })).toHaveCount(0);
   expect(await kept(page)).toBeNull();
   await context.close();
 });
@@ -114,7 +114,7 @@ test("a lost session and another user's sign-in empty what the last user's visit
   await admin.close();
   try {
     const { context, page } = await signedInContext(browser);
-    await expect(page.getByRole("region", { name: "Jää palkkapäivänä", exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("region", { name: /^Jää palkkapäivänä \d/ })).toBeVisible({ timeout: 15_000 });
     await expect.poll(() => kept(page)).toEqual(expect.arrayContaining(["/api/meta"]));
 
     // the session ends without a logout in the page (it ran out, or the cookie was cleared): the next visit finds no user

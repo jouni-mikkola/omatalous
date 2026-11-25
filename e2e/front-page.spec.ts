@@ -56,11 +56,21 @@ for (const width of [390, 1440] as const) {
     expect(await monthFigure(page, "result"), "Käteen jäi").toBe(whole(totals.leftCents));
     expect(cents(await page.locator("[data-tile=left] .fig").innerText()), "what is left on payday").toBe(whole(leftOnPayday.leftCents));
     const [, paydayMonth, paydayDay] = leftOnPayday.payday.date.split("-").map(Number);
-    expect(plain(await page.locator("[data-tile=left] .home-fig-line").innerText())).toBe(leftOnPayday.days > 0 ? `palkkapäivä ${paydayDay}.${paydayMonth}.` : "Palkkapäivä tänään");
-    // the lowest balance of the next days under it, when it falls on the payday or after it: core's day and sum, or core's reason. It is no link
+    // the payday stands in the question, the heading of the figure's section, and in a line too when it is today
+    const question = page.getByRole("heading", { name: `Jää palkkapäivänä ${paydayDay}.${paydayMonth}.`, level: 2 });
+    await expect(question).toHaveCount(1);
+    await expect(page.getByRole("region", { name: `Jää palkkapäivänä ${paydayDay}.${paydayMonth}.` })).toHaveCount(1);
+    if (leftOnPayday.days === 0) expect(plain(await page.locator("[data-tile=left] .home-fig-line").innerText())).toBe("Palkkapäivä tänään");
+    // its working beside it: every row is a field of the answer to the cent with its sign, and a part that is 0 has no row
+    const { sum } = home.runway;
+    const parts: Record<string, number> = { balance: sum.balanceCents, payments: -sum.paymentsCents, cards: -sum.cardDebtCents, everyday: -leftOnPayday.everydayCents, billed: -leftOnPayday.billedCents };
+    const rows = await page.locator(".home-ledger [data-row]").evaluateAll((els) => els.map((el) => [el.getAttribute("data-row"), el.querySelector("dd")?.textContent ?? ""] as const));
+    expect(rows.map(([key]) => key)).toEqual(Object.keys(parts).filter((key) => key === "balance" || parts[key] !== 0));
+    for (const [key, text] of rows) expect(cents(text), `the ledger row ${key}`).toBe(parts[key!]);
+    // the lowest balance of the next days under it, when it falls after the payday: core's day and sum, or core's reason. It is no link
     const { lowPoint } = home;
     const low = page.locator(".home-now .home-low");
-    if (lowPoint.known && lowPoint.date < leftOnPayday.payday.date) {
+    if (lowPoint.known && lowPoint.date <= leftOnPayday.payday.date) {
       await expect(low).toHaveCount(0);
     } else {
       await expect(low).toHaveCount(1);
@@ -68,7 +78,7 @@ for (const width of [390, 1440] as const) {
       if (lowPoint.known) {
         expect(cents(text.split("arviolta ")[1]!), "the lowest balance").toBe(whole(lowPoint.cents));
         const [, month, day] = lowPoint.date.split("-").map(Number);
-        expect(text).toContain(`Alin saldo ${lowPoint.days} pv: ${day}.${month}.,`);
+        expect(text).toContain(`Saldo on alimmillaan ${day}.${month}.,`);
       } else {
         expect(text).toMatch(new RegExp(`^Alin saldo ${lowPoint.days} pv: \\D+$`));
       }
@@ -85,7 +95,7 @@ for (const width of [390, 1440] as const) {
     const classes = await page.locator(".home-now, .home-summary, .home-coming, .holdings").evaluateAll((els) => els.map((e) => e.getAttribute("class") ?? ""));
     const order = classes.map((c) => c.split(" ").find((name) => /^home-|^holdings$/.test(name)));
     expect(order).toEqual(["home-now", "home-summary", "home-coming", "holdings"]);
-    expect(await page.locator("main .card h2").allInnerTexts()).toEqual(["Tulevat kuukaudet", "Varat ja velat"]);
+    expect(await page.locator("main .card h2").allInnerTexts()).toEqual([`Jää palkkapäivänä ${paydayDay}.${paydayMonth}.`, "Tulevat kuukaudet", "Varat ja velat"]);
     await expect(page.locator("main .notice, main .home-notice")).toHaveCount(0);
     // the buffer line at the foot of Varat ja velat: core's months, and its drill holds the two sums they divide, or core's reason
     const buffer = page.locator(".holdings .home-buffer");
@@ -113,20 +123,27 @@ for (const width of [390, 1440] as const) {
   });
 }
 
-test("at 390 px Tulot and Menot stand side by side, Käteen jäi under them, and Käteen jäi is on the first screen", async ({ browser }) => {
+test("at 390 px each figure of the month is a row, its label at the left and the figure at the right, and Käteen jäi is on the first screen", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await open(context);
   const boxes = await Promise.all((await page.locator(".home-figs > li").all()).map(async (item) => (await item.boundingBox())!));
   expect(boxes).toHaveLength(3);
-  expect(boxes[1]!.y, "Menot beside Tulot").toBe(boxes[0]!.y);
-  expect(boxes[1]!.x, "Menot after Tulot").toBeGreaterThan(boxes[0]!.x);
+  expect(boxes[1]!.y, "Menot under Tulot").toBeGreaterThan(boxes[0]!.y);
+  expect(boxes[1]!.x, "Menot as far left as Tulot").toBe(boxes[0]!.x);
   expect(boxes[2]!.y, "Käteen jäi under them").toBeGreaterThan(boxes[1]!.y);
+  for (const item of await page.locator(".home-figs > li").all()) {
+    const label = (await item.locator(".home-fig-label").boundingBox())!;
+    const figure = (await item.locator(".fig").boundingBox())!;
+    const row = (await item.boundingBox())!;
+    expect(figure.x, "the figure at the right of its label").toBeGreaterThanOrEqual(label.x + label.width - 1);
+    expect(figure.x + figure.width, "at the right edge of the row").toBeCloseTo(row.x + row.width, 0);
+  }
   const result = boxes[2]!;
   expect(result.y + result.height, "Käteen jäi ends on the first screen").toBeLessThanOrEqual(844);
   await context.close();
 });
 
-test("at 1440 px Tulot, Menot and Käteen jäi stand on one row with Käteen jäi the last and the largest", async ({ browser }) => {
+test("at 1440 px Tulot, Menot and Käteen jäi stand on one row with Käteen jäi the last, all three in one figure size", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
   const page = await open(context);
   const boxes = await Promise.all((await page.locator(".home-figs > li").all()).map(async (item) => (await item.boundingBox())!));
@@ -135,9 +152,46 @@ test("at 1440 px Tulot, Menot and Käteen jäi stand on one row with Käteen jä
   expect(boxes[0]!.x).toBeLessThan(boxes[1]!.x);
   expect(boxes[1]!.x).toBeLessThan(boxes[2]!.x);
   const size = (id: string) => page.locator(`[data-fig=${id}] .fig`).evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
-  expect(await size("result"), "Käteen jäi is the largest figure").toBeGreaterThan(await size("income"));
+  expect(await size("result"), "Käteen jäi is a figure like the other two").toBe(await size("income"));
+  expect(await size("spent"), "and so is Menot").toBe(await size("income"));
+  // a label that wraps does not move its figure: the three stand on one line
+  const figureTops = await Promise.all(["income", "spent", "result"].map(async (id) => (await page.locator(`[data-fig=${id}] .fig`).boundingBox())!.y));
+  expect(figureTops[1]).toBe(figureTops[0]);
+  expect(figureTops[2]).toBe(figureTops[0]);
   await context.close();
 });
+
+test("at 1440 px the coming months and the accounts stand in one column beside the month, and the answer is set off from its working by a thin vertical rule", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
+  const page = await open(context);
+  const box = async (selector: string) => (await page.locator(selector).boundingBox())!;
+  const summary = await box(".home-summary");
+  const coming = await box(".home-coming");
+  const holdings = await box(".holdings");
+  expect(coming.x, "the coming months beside the month").toBeGreaterThanOrEqual(summary.x + summary.width - 1);
+  expect(holdings.x, "the accounts in the same column").toBe(coming.x);
+  expect(holdings.y, "under the coming months").toBeGreaterThanOrEqual(coming.y + coming.height - 1);
+  // the table keeps its four columns in the rail
+  await expect(page.locator(".home-coming .rt-wrap[data-block]")).toHaveCount(0);
+  const heads = plain(await page.locator(".home-coming thead").innerText());
+  for (const name of ["Kuukausi", "Tulot", "Laskut", "Jää"]) expect(heads).toContain(name);
+  expect(heads.indexOf("Tulot"), "Tulot before Laskut").toBeLessThan(heads.indexOf("Laskut"));
+  await expect(page.locator(".home-coming a"), "the figure of Nyt is the one way to Laskut").toHaveCount(0);
+  expect(await page.locator(".home-ledger").evaluate((el) => parseFloat(getComputedStyle(el).borderInlineStartWidth)), "the rule between the answer and its working").toBeGreaterThan(0);
+  await context.close();
+});
+
+for (const width of [1040, 1440, 390] as const) {
+  test(`at ${width} px the four columns of the coming months fit their room: no sideways scroll, no blocks`, async ({ browser }) => {
+    const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 } });
+    const page = await open(context);
+    await expect(page.locator(".home-coming .rt-wrap[data-block]")).toHaveCount(0);
+    const room = await page.locator(".home-coming .rt-wrap").evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth, table: (el.firstElementChild as HTMLElement).scrollWidth }));
+    expect(room.scroll, "the wrapper scrolls sideways").toBeLessThanOrEqual(room.client);
+    expect(room.table, "the table is wider than its room").toBeLessThanOrEqual(room.client);
+    await context.close();
+  });
+}
 
 test("the coming months tell the figures the month heads of Laskut tell", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
@@ -151,7 +205,7 @@ test("the coming months tell the figures the month heads of Laskut tell", async 
   const rows = page.locator(".home-coming tbody tr");
   await expect(rows).toHaveCount(3);
   for (const [i, month] of shown.entries()) {
-    const [, bills, income, after] = await rows.nth(i).locator("th, td").allInnerTexts();
+    const [, income, bills, after] = await rows.nth(i).locator("th, td").allInnerTexts();
     expect(sums(bills!)[0], `${month.month}: the bills`).toBe(month.billsCents);
     if (month.estimateCents > 0) expect(sums(bills!)[1], `${month.month}: their estimated part`).toBe(month.estimateCents);
     if (month.incomeCents > 0) expect(sums(income!)[0], `${month.month}: the pays`).toBe(month.incomeCents);
