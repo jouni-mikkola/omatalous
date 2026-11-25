@@ -153,7 +153,7 @@ export const FI_REPORTS_5 = {
   "rpt.lead_shared_many": "Tämän kuun yhteiset menot vaativat {count} maksua, yhteensä {sum}.",
   "rpt.debt_paid": "Velanhoito, korot mukaan lukien",
   "rpt.debt_drawn": "Uutta luottoa otettu",
-  "rpt.leaks": "Korot ja kulut",
+  "rpt.leaks": "Pankkikulut ja muistutusmaksut",
   "rpt.bl_aria": "Tilien ja korttien saldo päivittäin",
   "rpt.bl_readout": "Saldo päivältä",
   "rpt.bl_balance": "Saldo",

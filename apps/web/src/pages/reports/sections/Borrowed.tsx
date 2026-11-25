@@ -1,4 +1,4 @@
-// Decision: whether the debt paid and the credit drawn in the period, and what interest and fees cost, are a habit to stop
+// Decision: whether the debt paid and the credit drawn in the period, and what bank fees and late fees cost, are a habit to stop
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
 import { money } from "../../../format.ts";
 import { FigureRow } from "../holdings/FigureRow.tsx";
@@ -6,7 +6,7 @@ import type { ReportSection, SectionProps } from "../types.ts";
 import { t } from "../../../text.ts";
 import "../../../styles/statement.css";
 
-/** The period's debt paid, new credit drawn and interest and fees: a row for each that is above zero. New credit opens its rows. */
+/** The period's debt paid, new credit drawn and bank and late fees: a row for each that is above zero. New credit opens its rows. */
 function Borrowed({ ctx }: SectionProps) {
   const r = ctx.data.categories;
   const draws = `#/transactions?category=credit_draw&from=${ctx.range.from}&to=${ctx.range.to}`;

@@ -150,7 +150,7 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.lead_shared_many": "This month's shared spending takes {count} payments, {sum} in all.",
   "rpt.debt_paid": "Debt service, interest included",
   "rpt.debt_drawn": "New credit drawn",
-  "rpt.leaks": "Interest and fees",
+  "rpt.leaks": "Bank fees and late fees",
   "rpt.bl_aria": "Balance of accounts and cards by day",
   "rpt.bl_readout": "Balance by day",
   "rpt.bl_balance": "Balance",
