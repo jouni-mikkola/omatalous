@@ -313,6 +313,20 @@ describe("the extra monthly payments of the debt-free choice", () => {
     }
   });
 
+  it("starts each scenario where the path does and names the same month for the debts' own payments, with a card paid in full among them", () => {
+    // the card's whole 800 € is due 15.11.2026: it is owed, and no debt the extra money pays
+    const card = loan({ id: "card", kind: "card", repayment: "bullet", rateBp: 0, balanceCents: 80_000, endDate: "2026-11-15" });
+    const r = run([annuity({ id: "a", balanceCents: 1_000_000, paymentCents: 20_000 }), card]).loans;
+    const path = r.path!;
+    expect(path.balanceCents[0]).toBe(1_080_000);
+    expect(r.extra.length).toBeGreaterThan(0);
+    for (const s of r.extra) {
+      expect(s.owedCents[0], `${s.extraCents} on day 0`).toBe(path.balanceCents[0]);
+      // the months earlier are counted from the month the path ends, the one 'Ei lisää' shows
+      expect(s.monthsEarlier).toBe(Number(path.payoff!.slice(0, 4)) * 12 + Number(path.payoff!.slice(5, 7)) - (Number(s.debtFreeDate.slice(0, 4)) * 12 + Number(s.debtFreeDate.slice(5, 7))));
+    }
+  });
+
   it("is empty while a debt has no plan, so no date tells a part of the debt as all of it", () => {
     const r = run([annuity({ id: "a", balanceCents: 1_000_000, paymentCents: 20_000 }), loan({ id: "no-rate", balanceCents: 100_000 })]).loans;
     expect(r.path).toBeNull();

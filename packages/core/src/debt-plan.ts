@@ -3,9 +3,11 @@
  * which debt that money goes to; the plan shows when each debt ends and what it saves.
  *
  * The extra money first fills the buffer up to `debtPlanBufferMonths` of usual spending, then goes to the dearest debt
- * by its yearly cost (`debtCost`), fees in. A debt that costs nothing, or whose cost is not known, takes none. When a
- * debt ends, its payment joins the extra money. A euro goes either to the buffer or to a debt, never both: a card's debt
- * is already out of the buffer, so the plan does not count the card's payment from cash twice.
+ * by its yearly cost (`debtCost`), fees in. A debt that costs nothing, or whose cost is not known, takes none. Every
+ * debt keeps paying its own payment until it ends, with and without the extra money, and an ended debt's own payment
+ * is not passed on: only the extra money moves to the next debt when its target ends, so what the plan saves is the
+ * extra money's alone. A euro goes either to the buffer or to a debt, never both: a card's debt is already out of the
+ * buffer, so the plan does not count the card's payment from cash twice.
  *
  * Each payment is the loan's own (`payments` of `loan-schedule.ts`), at its rate in force, with the extra money on top,
  * so a single loan gets what `loanWhatIf` gives it for the same payment. An annuity with a rate path sets its payment
@@ -16,7 +18,8 @@ import { partCents } from "./account-use.ts";
 import { addMonthsToDate } from "./dates.ts";
 import { debtCost, type DebtCost } from "./debt-cost.ts";
 import { type Debt, partly } from "./debt-part.ts";
-import { divRound, dueDates, type Instalments, MAX_LOAN_PAYMENTS, typedPayment } from "./loan-plan.ts";
+import { pathPayments } from "./loan-path.ts";
+import { dueDates, type Instalments, MAX_LOAN_PAYMENTS, typedPayment } from "./loan-plan.ts";
 import { annuityPayment, loanSchedule, type Payment, paymentOf, payments, paymentToEnd, rateMilliAt, resetsPayment, schedulePlan } from "./loan-schedule.ts";
 import { loanBalanceOn } from "./loans.ts";
 import { THRESHOLDS } from "./thresholds.ts";
@@ -63,8 +66,6 @@ interface Lane {
   plan: Instalments;
   /** The payment of the plan in force, as `payments` reads it: the whole payment, or the repayment of a plan that pays interest on top. */
   planned: number;
-  /** The whole payment spread over a month: what joins the extra money when the debt ends. */
-  monthly: number;
   fee: number;
   /** The yearly cost of a debt that takes extra money, null for one that takes none. */
   rateMilli: number | null;
@@ -96,9 +97,6 @@ function asLoan(debt: Debt): Loan {
   };
 }
 
-/** The whole payment of a plan's payment: with its interest, or the repayment of a plan that pays its interest on top. */
-const wholePayment = (p: Payment): number => (p.interestCents ?? 0) + p.amortisationCents;
-
 /** The lane of a debt that owes, null when it owes nothing, or the debt as unknown when it has no plan to follow. */
 function laneOf(debt: Debt, day: IsoDate, cost: DebtCost): Lane | "unknown" | null {
   const loan = asLoan(debt);
@@ -123,7 +121,6 @@ function laneOf(debt: Debt, day: IsoDate, cost: DebtCost): Lane | "unknown" | nu
     loan,
     plan,
     planned,
-    monthly: divRound(wholePayment(next), plan.months),
     fee: cut ? partCents(fee, cut.part) : fee,
     rateMilli: takes ? cost.rateMilli : null,
     owed: start.balanceCents,
@@ -147,13 +144,13 @@ interface Run {
  * The debts paid due date by due date from `day`. The extra money of a month is in hand from the month's first day on
  * (the plan's day and the same day of each month after it) and pays a due date after that day. It fills the buffer's
  * gap first, then goes to the first debt of `order` that still owes, on that debt's due dates, at most what ends it.
- * `roll` adds each ended debt's payment to the extra money. A debt's payments stop once it owes nothing.
+ * A debt's payments stop once it owes nothing.
  *
  * An annuity that `resets` sets its payment again when the rate of an interval changes. Until it takes extra money it
  * aims at its last due date. After that it keeps its payment, or with `aims` (the ends of a run that kept it) the term
  * is that end: the whole payment ends the loan there and the extra money it took last time is part of it.
  */
-function run(lanes: readonly Lane[], day: IsoDate, order: readonly Lane[], extraCents: number, gapCents: number, roll: boolean, aims: ReadonlyMap<string, IsoDate> | null): Run | null {
+function run(lanes: readonly Lane[], day: IsoDate, order: readonly Lane[], extraCents: number, gapCents: number, aims: ReadonlyMap<string, IsoDate> | null): Run | null {
   const balance = new Map(lanes.map((l) => [l.id, { ...l.start, payment: l.planned, rateMilli: l.startRateMilli, took: 0, shortened: false }]));
   const events = lanes.flatMap((lane) => [...dueDates(lane.loan, lane.plan.months)].filter((d) => d > lane.start.after).map((date) => ({ date, lane })));
   events.sort((a, b) => a.date.localeCompare(b.date) || order.indexOf(a.lane) - order.indexOf(b.lane));
@@ -161,7 +158,6 @@ function run(lanes: readonly Lane[], day: IsoDate, order: readonly Lane[], extra
   const trace: Run["trace"] = [];
   let costCents = 0;
   let cash = 0;
-  let freed = 0;
   let month = 0;
   let bufferCents = 0;
   let bufferFullDate: IsoDate | null = null;
@@ -169,11 +165,10 @@ function run(lanes: readonly Lane[], day: IsoDate, order: readonly Lane[], extra
     const at = balance.get(lane.id)!;
     if (at.balanceCents <= 0) continue;
     for (let inflow = addMonthsToDate(day, month); inflow < date && month < MAX_LOAN_PAYMENTS; inflow = addMonthsToDate(day, ++month)) {
-      const income = extraCents + freed;
-      const toBuffer = Math.min(income, gapCents - bufferCents);
+      const toBuffer = Math.min(extraCents, gapCents - bufferCents);
       bufferCents += toBuffer;
       if (toBuffer > 0 && bufferCents === gapCents) bufferFullDate = inflow;
-      cash += income - toBuffer;
+      cash += extraCents - toBuffer;
     }
     const aim = lane.resets && at.shortened ? (aims?.get(lane.id) ?? null) : null;
     const loan = aim === null ? lane.loan : { ...lane.loan, endDate: aim };
@@ -199,11 +194,7 @@ function run(lanes: readonly Lane[], day: IsoDate, order: readonly Lane[], extra
     trace.push({ date, id: lane.id, balanceCents: paid.balanceCents });
     at.took = take;
     if (take > 0) at.shortened = true;
-    if (paid.balanceCents <= 0) {
-      ends.set(lane.id, date);
-      // the payment in force is freed: one an annuity set again, or the plan's own
-      if (roll) freed += lane.plan.withInterest ? divRound(at.payment, lane.plan.months) : lane.monthly;
-    }
+    if (paid.balanceCents <= 0) ends.set(lane.id, date);
   }
   // a debt the plan does not end is no plan to tell
   return ends.size === lanes.length ? { ends, costCents, bufferCents, bufferFullDate, trace } : null;
@@ -213,18 +204,30 @@ const latest = (ends: Map<string, IsoDate>): IsoDate => [...ends.values()].reduc
 
 /** A run with extra money that shortens each debt as `loanWhatIf` does: first keeping each payment, then against the ends found. */
 function shortened(lanes: readonly Lane[], day: IsoDate, order: readonly Lane[], extraCents: number, gapCents: number): Run | null {
-  const probe = run(lanes, day, order, extraCents, gapCents, true, null);
-  return probe === null ? null : run(lanes, day, order, extraCents, gapCents, true, probe.ends);
+  const probe = run(lanes, day, order, extraCents, gapCents, null);
+  return probe === null ? null : run(lanes, day, order, extraCents, gapCents, probe.ends);
 }
 
-/** What the lanes owe on `day` and on the same day of each month after it, to the first of those days on or after `end`. */
-function owedByMonth(lanes: readonly Lane[], trace: Run["trace"], day: IsoDate, end: IsoDate): number[] {
-  const owed = new Map(lanes.map((l) => [l.id, l.start.balanceCents]));
+/** A debt the plan leaves alone that still owes, with its balance after each payment of its own plan: the payments `debtPath` draws. */
+interface FixedDebt {
+  id: string;
+  start: number;
+  list: Payment[];
+}
+
+/**
+ * What the lanes and the fixed debts owe on `day` and on the same day of each month after it, to the first of those days
+ * on or after `end`. The fixed debts are a card paid in full and the like: not in the plan but owed, so the line starts
+ * where `debtPath`'s does.
+ */
+function owedByMonth(lanes: readonly Lane[], fixed: readonly FixedDebt[], trace: Run["trace"], day: IsoDate, end: IsoDate): number[] {
+  const owed = new Map([...lanes.map((l) => [l.id, l.start.balanceCents] as const), ...fixed.map((f) => [f.id, f.start] as const)]);
+  const steps = [...trace, ...fixed.flatMap((f) => f.list.map((p) => ({ date: p.date, id: f.id, balanceCents: p.balanceCents })))].sort((a, b) => a.date.localeCompare(b.date));
   const months: number[] = [];
   let i = 0;
   for (let k = 0; k <= MAX_LOAN_PAYMENTS; k++) {
     const date = addMonthsToDate(day, k);
-    for (; i < trace.length && trace[i]!.date <= date; i++) owed.set(trace[i]!.id, trace[i]!.balanceCents);
+    for (; i < steps.length && steps[i]!.date <= date; i++) owed.set(steps[i]!.id, steps[i]!.balanceCents);
     months.push([...owed.values()].reduce((a, b) => a + b, 0));
     if (date >= end) break;
   }
@@ -234,13 +237,15 @@ function owedByMonth(lanes: readonly Lane[], trace: Run["trace"], day: IsoDate, 
 /** The plan of `payoffPlan` with what the debts owe on each of the months from `day` to the last of them. */
 interface ExtraPlan {
   plan: PayoffPlan;
+  /** The due date that pays the last debt owed, a card paid in full among them: `plan.debtFreeDate`, or later when a debt the plan leaves alone ends after it. */
+  debtFreeDate: IsoDate;
   /** What the debts owe on `day` and on the same day of each month after it, ending with the first that owes nothing. */
   owedCents: number[];
 }
 
 /**
  * The debt-free plan with `extraCents` more a month from `day`: the buffer first, then the dearest debt first (the
- * avalanche), each ended debt's payment rolled into the next. `costOf` gives each debt's cost, which the caller prices once.
+ * avalanche), the extra money of an ended debt going on to the next. `costOf` gives each debt's cost, which the caller prices once.
  *
  * Null when no debt owes, and when a debt that owes has no plan to follow (no payment, no rate, or a plan that never
  * ends): the others alone would tell a part of the debt as all of it. A card paid in full is no debt to pay down.
@@ -252,9 +257,15 @@ export function payoffPlan(debts: readonly Debt[], day: IsoDate, extraCents: num
 /** `payoffPlan` with the way down month by month, which a chart of the extra money draws. */
 export function extraPlan(debts: readonly Debt[], day: IsoDate, extraCents: number, buffer: PlanBuffer, costOf: (debt: Debt) => DebtCost | null = (debt) => debtCost(debt, day)): ExtraPlan | null {
   const lanes: Lane[] = [];
+  const fixed: FixedDebt[] = [];
   for (const debt of debts) {
     const cost = costOf(debt);
-    if (cost === null) continue;
+    if (cost === null) {
+      // owed but no debt to pay down (a card paid in full): the plan leaves it alone, and the line of what is owed still has it
+      const own = pathPayments(debt, day, 0);
+      if (own !== null && typeof own !== "string") fixed.push({ id: debt.id, ...own });
+      continue;
+    }
     const lane = laneOf(debt, day, cost);
     if (lane === "unknown") return null;
     if (lane !== null) lanes.push(lane);
@@ -264,12 +275,13 @@ export function extraPlan(debts: readonly Debt[], day: IsoDate, extraCents: numb
   const byCost = [...takers].sort((a, b) => b.rateMilli! - a.rateMilli! || a.owed - b.owed || a.id.localeCompare(b.id));
   const bySize = [...takers].sort((a, b) => a.owed - b.owed || b.rateMilli! - a.rateMilli! || a.id.localeCompare(b.id));
   const gapCents = Math.max(0, THRESHOLDS.debtPlanBufferMonths.value * buffer.spendCents - buffer.netCents);
-  const base = run(lanes, day, byCost, 0, 0, false, null);
+  const base = run(lanes, day, byCost, 0, 0, null);
   const avalanche = shortened(lanes, day, byCost, extraCents, gapCents);
   const snowball = shortened(lanes, day, bySize, extraCents, gapCents);
   if (base === null || avalanche === null || snowball === null) return null;
   const rest = lanes.filter((l) => l.rateMilli === null);
   const debtFreeDate = latest(avalanche.ends);
+  const lastOwedDate = fixed.flatMap((f) => f.list.at(-1)?.date ?? []).reduce((a, b) => (b > a ? b : a), debtFreeDate);
   return {
     plan: {
       debtFreeDate,
@@ -280,7 +292,8 @@ export function extraPlan(debts: readonly Debt[], day: IsoDate, extraCents: numb
       debts: [...byCost, ...rest].map((l, i) => ({ id: l.id, order: l.rateMilli === null ? null : i + 1, endDate: avalanche.ends.get(l.id)!, baseEndDate: base.ends.get(l.id)! })),
       snowballExtraCents: snowball.costCents - avalanche.costCents,
     },
-    owedCents: owedByMonth(lanes, avalanche.trace, day, debtFreeDate),
+    debtFreeDate: lastOwedDate,
+    owedCents: owedByMonth(lanes, fixed, avalanche.trace, day, lastOwedDate),
   };
 }
 

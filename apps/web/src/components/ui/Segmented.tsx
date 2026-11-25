@@ -10,7 +10,7 @@ export interface SegmentedOption<T extends string> {
   hint?: string;
 }
 
-/** Two or three choices that exclude each other, all in sight, the chosen one pressed: Oma/Koko talous, 3 kk/6 kk/12 kk. More choices, or choices that are pages or views of one subject, are `Tabs`. */
+/** Two to four choices that exclude each other, all in sight, the chosen one pressed: Oma/Koko talous, 3 kk/6 kk/12 kk. More choices, or choices that are pages or views of one subject, are `Tabs`. */
 export function Segmented<T extends string>({ label, value, options, onChange, className, busy }: {
   label: string;
   value: T | null;

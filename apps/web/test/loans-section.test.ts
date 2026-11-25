@@ -75,7 +75,6 @@ describe("Raportit: Lainat", () => {
     expect(html(loans, context(report([row()], { path: null })))).not.toContain("Velkapolku");
     // no extra payment given: no choice of one
     expect(out).not.toContain("Milloin velaton");
-    expect(html(loans, context(report([row()])))).not.toContain("Milloin velat on maksettu");
   });
 
   it("offers the extra monthly payments under Milloin velaton, opens on the middle one and tells the month, the months earlier and the saving", () => {

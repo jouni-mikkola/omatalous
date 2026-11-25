@@ -164,8 +164,7 @@ export interface LoansReport {
   /** Korot ja kulut 12 kk: the sum of the rows' `cost.next12`, null while any debt that owes has none. */
   cost12: Cost12Total;
   /**
-   * The way out of debt on the debts' own payments, the payment of each ended debt rolled into the dearest next, with
-   * the Puskuri buffer filled first (`payoffPlan` at no extra money). Null while `cost12` is, so never a debt-free
+   * The way out of debt on the debts' own payments, with the Puskuri buffer filled first (`payoffPlan` at no extra money). Null while `cost12` is, so never a debt-free
    * date of a part of the debts.
    */
   plan: PayoffPlan | null;
@@ -247,13 +246,14 @@ function extraScenarios(debts: readonly Debt[], day: IsoDate, path: DebtPath, bu
   return EXTRA_STEPS_CENTS.flatMap((extraCents) => {
     const scenario = extraPlan(debts, day, extraCents, buffer, costOf);
     if (scenario === null || scenario.owedCents.length > path.days.length) return [];
-    const { plan, owedCents } = scenario;
-    const monthsEarlier = monthIndex(monthOf(plan.baseDebtFreeDate)) - monthIndex(monthOf(plan.debtFreeDate));
+    const { plan, owedCents, debtFreeDate } = scenario;
+    // the same day 'Ei lisää' names: the path's last payment, a card paid in full among them
+    const monthsEarlier = monthIndex(monthOf(path.payoff ?? path.days.at(-1)!)) - monthIndex(monthOf(debtFreeDate));
     if (monthsEarlier <= 0 && plan.savedCents <= 0) return [];
     return [
       {
         extraCents,
-        debtFreeDate: plan.debtFreeDate,
+        debtFreeDate,
         monthsEarlier,
         savedCents: plan.savedCents,
         bufferCents: plan.bufferCents,
