@@ -19,6 +19,8 @@ test("a month chart: its table is folded, a pick opens it on that month and Esca
   await page.keyboard.press("Enter");
   await expect(fold).toHaveAttribute("open", "");
   await expect(fold.locator("table.rt tbody tr")).toHaveCount(1);
+  // the first Escape lets go of the readout, the second of the pick
+  await page.keyboard.press("Escape");
   await page.keyboard.press("Escape");
   await expect(fold.locator(".rt-filter")).toHaveCount(0);
   expect(seen.problems).toEqual([]);
