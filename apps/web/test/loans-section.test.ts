@@ -28,7 +28,7 @@ const row = (over: Partial<LoanRow> = {}): LoanRow =>
 const NO_PATH: NonNullable<LoansReport["path"]> = { days: [day], balanceCents: [0], interestCents: [0], tops: [0], payoff: null, moves: [] };
 const report = (rows: LoanRow[], over: Partial<LoansReport> = {}) => ({
   day, saved: rows.length, loans: rows, unsaved: [], total: { cents: 12_000_000, unknown: [] }, totalKnown: true, interest: { cents: 380_000, unknown: [] }, interestKnown: true,
-  withoutRate: 0, cost12: { cents: 380_000, interestCents: 380_000, feeCents: 0 }, plan: null, consolidation: null, payments: { monthlyCents: 100_000, counted: 1, unknown: 0, bullets: 0 }, monthly: { cents: 100_000, unknown: 0 }, path: NO_PATH, maybeTwice: [], overdraftTwice: [], ended: [], ...over,
+  withoutRate: 0, cost12: { cents: 380_000, interestCents: 380_000, feeCents: 0 }, plan: null, consolidation: null, payments: { monthlyCents: 100_000, counted: 1, unknown: 0, bullets: 0 }, monthly: { cents: 100_000, unknown: 0 }, path: NO_PATH, extra: [], maybeTwice: [], overdraftTwice: [], ended: [], ...over,
 });
 const balanceData = {
   months: ["2026-09", "2026-10"], total: [100_000, 120_000], monthChange: [null, 20_000], missing: [], accountsLessDebt: [null, -11_880_000], lowest: null, peak: null,
@@ -73,7 +73,24 @@ describe("Raportit: Lainat", () => {
     expect(out).toContain("Viimeinen laina on maksettu joulukuussa 2026. Velkaa on nyt 120 000 €, ja korkoa tulee sen päälle vielä 3 000 €. Jos viitekorko nousee prosenttiyksikön, korkoa tulee arviolta 1 000 € enemmän.");
     expect(out).not.toContain("ei ole kuvassa");
     expect(html(loans, context(report([row()], { path: null })))).not.toContain("Velkapolku");
+    // no extra payment given: no choice of one
+    expect(out).not.toContain("Milloin velaton");
     expect(html(loans, context(report([row()])))).not.toContain("Milloin velat on maksettu");
+  });
+
+  it("offers the extra monthly payments under Milloin velaton, opens on the middle one and tells the month, the months earlier and the saving", () => {
+    const path: NonNullable<LoansReport["path"]> = {
+      days: ["2026-10-11", "2026-11-11", "2026-12-11"], balanceCents: [12_000_000, 6_000_000, 0], interestCents: [300_000, 100_000, 0], tops: [12_300_000, 6_100_000, 0],
+      payoff: "2026-12-01", moves: [],
+    };
+    const scenario = (extraCents: number, debtFreeDate: string, monthsEarlier: number, savedCents: number): LoansReport["extra"][number] => ({
+      extraCents, debtFreeDate, monthsEarlier, savedCents, bufferCents: 0, bufferFullDate: null, owedCents: [12_000_000, 3_000_000, 0],
+    });
+    const extra = [scenario(5_000, "2026-12-01", 1, 10_000), scenario(10_000, "2026-11-01", 2, 25_000), scenario(20_000, "2026-11-01", 3, 40_000)];
+    const out = html(loans, context(report([row()], { path, extra })));
+    expect(out).toContain("Milloin velaton");
+    expect(words(out)).toContain("100 € lisää kuussa: viimeinen laina on maksettu marraskuussa 2026. Se on 2 kuukautta aiemmin. Korkoja ja kuluja jää 250 € vähemmän.");
+    expect(words(out)).toContain("Ei lisää 50 € lisää 100 € lisää 200 € lisää");
   });
 
   it("tells a rate with two decimals through the one percent formatter", () => {

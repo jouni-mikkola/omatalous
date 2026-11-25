@@ -290,3 +290,33 @@ describe("the payments of a month over every debt the page lists", () => {
   });
 });
 
+describe("the extra monthly payments of the debt-free choice", () => {
+  it("gives each extra payment an earlier end, a saving and the debt of each day of the path, below the debts' own", () => {
+    const r = run([annuity({ id: "a", balanceCents: 1_000_000, paymentCents: 20_000 })]).loans;
+    const path = r.path!;
+    expect(r.extra.map((s) => s.extraCents)).toEqual([5_000, 10_000, 20_000]);
+    for (const [i, s] of r.extra.entries()) {
+      expect(s.debtFreeDate < r.plan!.baseDebtFreeDate, `${s.extraCents} ends earlier`).toBe(true);
+      expect(s.monthsEarlier).toBeGreaterThan(0);
+      expect(s.savedCents).toBeGreaterThan(0);
+      expect(s.owedCents).toHaveLength(path.days.length);
+      expect(s.owedCents[0]).toBe(path.balanceCents[0]);
+      expect(s.owedCents.at(-1)).toBe(0);
+      s.owedCents.forEach((owed, k) => {
+        expect(owed, `${s.extraCents} on day ${k}`).toBeLessThanOrEqual(path.balanceCents[k]!);
+        if (k > 0) expect(owed).toBeLessThanOrEqual(s.owedCents[k - 1]!);
+      });
+      if (i > 0) {
+        expect(s.debtFreeDate <= r.extra[i - 1]!.debtFreeDate).toBe(true);
+        expect(s.savedCents).toBeGreaterThan(r.extra[i - 1]!.savedCents);
+      }
+    }
+  });
+
+  it("is empty while a debt has no plan, so no date tells a part of the debt as all of it", () => {
+    const r = run([annuity({ id: "a", balanceCents: 1_000_000, paymentCents: 20_000 }), loan({ id: "no-rate", balanceCents: 100_000 })]).loans;
+    expect(r.path).toBeNull();
+    expect(r.extra).toEqual([]);
+  });
+});
+

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { debtCost } from "../src/debt-cost.ts";
-import { consolidationBasis, consolidationCost, payoffPlan } from "../src/debt-plan.ts";
+import { consolidationBasis, consolidationCost, extraPlan, payoffPlan } from "../src/debt-plan.ts";
 import { annuityPayment, loanSchedule, loanWhatIf } from "../src/loan-schedule.ts";
 import { settledCardLoan } from "../src/loans.ts";
 import type { IsoDate, Loan } from "../src/types.ts";
@@ -158,5 +158,26 @@ describe("consolidation", () => {
   it("is shown for two dear debts or one very dear, and never for cheap ones", () => {
     expect(consolidationBasis([credit, home], START)).toBeNull();
     expect(consolidationBasis([card], START)!.debtIds).toEqual(["card"]);
+  });
+});
+
+describe("extraPlan", () => {
+  it("is payoffPlan with what the debts owe each month, from today to the first month that owes nothing", () => {
+    const one = loan({ repayment: "annuity", paymentCents: 18_871, endDate: "2031-01-15" });
+    const base = extraPlan([one], START, 0, FULL)!;
+    const more = extraPlan([one], START, 10_000, FULL)!;
+    expect(more.plan).toEqual(payoffPlan([one], START, 10_000, FULL));
+    expect(base.owedCents[0]).toBe(1_000_000);
+    expect(more.owedCents[0]).toBe(1_000_000);
+    expect(base.owedCents.at(-1)).toBe(0);
+    expect(more.owedCents.at(-1)).toBe(0);
+    expect(more.owedCents.length).toBeLessThan(base.owedCents.length);
+    // the extra money pays the debt down faster from the first month on
+    expect(base.owedCents[1]! - more.owedCents[1]!).toBeGreaterThanOrEqual(10_000);
+    expect(more.owedCents.every((owed, k) => owed <= base.owedCents[k]!)).toBe(true);
+  });
+
+  it("has no plan where payoffPlan has none", () => {
+    expect(extraPlan([], START, 10_000, FULL)).toBeNull();
   });
 });

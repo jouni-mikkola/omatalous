@@ -139,6 +139,8 @@ interface Run {
   costCents: number;
   bufferCents: number;
   bufferFullDate: IsoDate | null;
+  /** What each debt owed after each of its due dates, in the order of the dates. */
+  trace: { date: IsoDate; id: string; balanceCents: number }[];
 }
 
 /**
@@ -156,6 +158,7 @@ function run(lanes: readonly Lane[], day: IsoDate, order: readonly Lane[], extra
   const events = lanes.flatMap((lane) => [...dueDates(lane.loan, lane.plan.months)].filter((d) => d > lane.start.after).map((date) => ({ date, lane })));
   events.sort((a, b) => a.date.localeCompare(b.date) || order.indexOf(a.lane) - order.indexOf(b.lane));
   const ends = new Map<string, IsoDate>();
+  const trace: Run["trace"] = [];
   let costCents = 0;
   let cash = 0;
   let freed = 0;
@@ -193,6 +196,7 @@ function run(lanes: readonly Lane[], day: IsoDate, order: readonly Lane[], extra
     costCents += (paid.interestCents ?? 0) + lane.fee;
     at.balanceCents = paid.balanceCents;
     at.after = date;
+    trace.push({ date, id: lane.id, balanceCents: paid.balanceCents });
     at.took = take;
     if (take > 0) at.shortened = true;
     if (paid.balanceCents <= 0) {
@@ -202,7 +206,7 @@ function run(lanes: readonly Lane[], day: IsoDate, order: readonly Lane[], extra
     }
   }
   // a debt the plan does not end is no plan to tell
-  return ends.size === lanes.length ? { ends, costCents, bufferCents, bufferFullDate } : null;
+  return ends.size === lanes.length ? { ends, costCents, bufferCents, bufferFullDate, trace } : null;
 }
 
 const latest = (ends: Map<string, IsoDate>): IsoDate => [...ends.values()].reduce((a, b) => (b > a ? b : a));
@@ -213,6 +217,27 @@ function shortened(lanes: readonly Lane[], day: IsoDate, order: readonly Lane[],
   return probe === null ? null : run(lanes, day, order, extraCents, gapCents, true, probe.ends);
 }
 
+/** What the lanes owe on `day` and on the same day of each month after it, to the first of those days on or after `end`. */
+function owedByMonth(lanes: readonly Lane[], trace: Run["trace"], day: IsoDate, end: IsoDate): number[] {
+  const owed = new Map(lanes.map((l) => [l.id, l.start.balanceCents]));
+  const months: number[] = [];
+  let i = 0;
+  for (let k = 0; k <= MAX_LOAN_PAYMENTS; k++) {
+    const date = addMonthsToDate(day, k);
+    for (; i < trace.length && trace[i]!.date <= date; i++) owed.set(trace[i]!.id, trace[i]!.balanceCents);
+    months.push([...owed.values()].reduce((a, b) => a + b, 0));
+    if (date >= end) break;
+  }
+  return months;
+}
+
+/** The plan of `payoffPlan` with what the debts owe on each of the months from `day` to the last of them. */
+interface ExtraPlan {
+  plan: PayoffPlan;
+  /** What the debts owe on `day` and on the same day of each month after it, ending with the first that owes nothing. */
+  owedCents: number[];
+}
+
 /**
  * The debt-free plan with `extraCents` more a month from `day`: the buffer first, then the dearest debt first (the
  * avalanche), each ended debt's payment rolled into the next. `costOf` gives each debt's cost, which the caller prices once.
@@ -221,6 +246,11 @@ function shortened(lanes: readonly Lane[], day: IsoDate, order: readonly Lane[],
  * ends): the others alone would tell a part of the debt as all of it. A card paid in full is no debt to pay down.
  */
 export function payoffPlan(debts: readonly Debt[], day: IsoDate, extraCents: number, buffer: PlanBuffer, costOf: (debt: Debt) => DebtCost | null = (debt) => debtCost(debt, day)): PayoffPlan | null {
+  return extraPlan(debts, day, extraCents, buffer, costOf)?.plan ?? null;
+}
+
+/** `payoffPlan` with the way down month by month, which a chart of the extra money draws. */
+export function extraPlan(debts: readonly Debt[], day: IsoDate, extraCents: number, buffer: PlanBuffer, costOf: (debt: Debt) => DebtCost | null = (debt) => debtCost(debt, day)): ExtraPlan | null {
   const lanes: Lane[] = [];
   for (const debt of debts) {
     const cost = costOf(debt);
@@ -239,14 +269,18 @@ export function payoffPlan(debts: readonly Debt[], day: IsoDate, extraCents: num
   const snowball = shortened(lanes, day, bySize, extraCents, gapCents);
   if (base === null || avalanche === null || snowball === null) return null;
   const rest = lanes.filter((l) => l.rateMilli === null);
+  const debtFreeDate = latest(avalanche.ends);
   return {
-    debtFreeDate: latest(avalanche.ends),
-    baseDebtFreeDate: latest(base.ends),
-    savedCents: base.costCents - avalanche.costCents,
-    bufferCents: avalanche.bufferCents,
-    bufferFullDate: avalanche.bufferFullDate,
-    debts: [...byCost, ...rest].map((l, i) => ({ id: l.id, order: l.rateMilli === null ? null : i + 1, endDate: avalanche.ends.get(l.id)!, baseEndDate: base.ends.get(l.id)! })),
-    snowballExtraCents: snowball.costCents - avalanche.costCents,
+    plan: {
+      debtFreeDate,
+      baseDebtFreeDate: latest(base.ends),
+      savedCents: base.costCents - avalanche.costCents,
+      bufferCents: avalanche.bufferCents,
+      bufferFullDate: avalanche.bufferFullDate,
+      debts: [...byCost, ...rest].map((l, i) => ({ id: l.id, order: l.rateMilli === null ? null : i + 1, endDate: avalanche.ends.get(l.id)!, baseEndDate: base.ends.get(l.id)! })),
+      snowballExtraCents: snowball.costCents - avalanche.costCents,
+    },
+    owedCents: owedByMonth(lanes, avalanche.trace, day, debtFreeDate),
   };
 }
 
