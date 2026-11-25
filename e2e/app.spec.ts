@@ -333,7 +333,7 @@ test("the lead of Tapahtumat names the biggest day and links a payee for the mon
     const seen = watch(page);
     await page.goto("/#/transactions");
     const lead = page.getByRole("region", { name: "Tämä kuukausi" });
-    await expect(lead.locator(".tx-lead-day")).toContainText(/^Suurin päivä .+: .+ €, \d+ /);
+    await expect(lead.locator(".tx-lead-day")).toContainText(/^Suurin päivä .+:.+€,\s*\d+\s+tapahtum/);
     const link = lead.locator(".tx-lead-list a").first();
     if (phone) {
       // closed: the day's sentence is the summary and the payees wait behind it
