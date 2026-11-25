@@ -70,8 +70,8 @@ test("Lataa CSV saves the rows as the table shows them, in its order, with the f
   };
   const names = lines.slice(1).map((l) => l[col("Kategoria")]!.replace(/"/g, ""));
   names.forEach((name, i) => expect(shown[i]![0], "the file's order is the table's").toContain(name));
-  for (const [file, printed] of sums("Yhteensä", 1)) expect(Math.abs(Number(file!.replace(",", ".")) - num(printed!)), `${printed} in the file`).toBeLessThanOrEqual(0.5);
-  for (const [file, printed] of sums("Keskimäärin kuussa", 2)) expect(Math.abs(Number(file!.replace(",", ".")) - num(printed!)), `${printed} in the file`).toBeLessThanOrEqual(0.5);
+  for (const [file, printed] of sums("Yhteensä", 2)) expect(Math.abs(Number(file!.replace(",", ".")) - num(printed!)), `${printed} in the file`).toBeLessThanOrEqual(0.5);
+  for (const [file, printed] of sums("Keskimäärin kuussa", 3)) expect(Math.abs(Number(file!.replace(",", ".")) - num(printed!)), `${printed} in the file`).toBeLessThanOrEqual(0.5);
   await context.close();
 });
 

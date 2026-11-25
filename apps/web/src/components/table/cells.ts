@@ -37,6 +37,30 @@ export function sparkGeometry(values: readonly (number | null)[], w: number, h: 
   return { d, dot, usualY: usual === null || usual === undefined ? null : y(usual) };
 }
 
+/**
+ * The axis of a column of spans: zero to the highest end, so a whole bar and a step share one scale and a small step is
+ * not drawn larger than it is. Only geometry: the ends are the server's.
+ */
+export function spanAxis(ends: readonly number[]): { lo: number; hi: number } {
+  const hi = Math.max(0, ...ends);
+  return { lo: 0, hi: hi > 0 ? hi : 1 };
+}
+
+/**
+ * Where a bar that starts at an offset lies in its cell, as shares of the axis (0 to 1): from `from` to `to`, whichever is
+ * lower first. A bar with no `from` starts at the axis. A span too short to see keeps `MIN_SPAN` so a small step is drawn.
+ */
+export function spanGeometry(from: number | null, to: number, axis: { lo: number; hi: number }): { left: number; width: number } {
+  const reach = axis.hi - axis.lo;
+  if (!(reach > 0)) return { left: 0, width: 0 };
+  const start = Math.min(from ?? axis.lo, to);
+  const end = Math.max(from ?? axis.lo, to);
+  const left = Math.min(1 - MIN_SPAN, Math.max(0, (start - axis.lo) / reach));
+  return { left, width: Math.min(1 - left, Math.max(MIN_SPAN, (end - start) / reach)) };
+}
+
+const MIN_SPAN = 0.006;
+
 /** What a rise means for the household: spending up is bad, income or savings up is good, a neutral figure has no tone. */
 export type Meaning = "spend" | "gain" | "neutral";
 

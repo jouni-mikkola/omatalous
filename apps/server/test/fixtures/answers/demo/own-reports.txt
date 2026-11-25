@@ -4455,6 +4455,9 @@
   "categoryMonths": 0,
   "cardGap": false,
   "last": null,
+  "changes": [
+   null
+  ],
   "categories": [
    {
     "category": "housing",
@@ -4465,6 +4468,7 @@
     "totalCents": 105000,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "Sato",
@@ -4484,6 +4488,7 @@
     "totalCents": 28900,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "Nordea Rahoitus Suomi Oy",
@@ -4503,6 +4508,7 @@
     "totalCents": 15605,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "K-Market",
@@ -4537,6 +4543,7 @@
     "totalCents": 14230,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "If Vahinkovakuutus Oy",
@@ -4556,6 +4563,7 @@
     "totalCents": 10932,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "Wolt",
@@ -4575,6 +4583,7 @@
     "totalCents": 6470,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "HSL",
@@ -4594,6 +4603,7 @@
     "totalCents": 5900,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "Elixia",
@@ -4613,6 +4623,7 @@
     "totalCents": 5784,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "Neste",
@@ -4632,6 +4643,7 @@
     "totalCents": 4198,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "OpenAI",
@@ -4661,6 +4673,7 @@
     "totalCents": 3288,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "Alko",
@@ -4680,6 +4693,7 @@
     "totalCents": 1805,
     "typicalCents": null,
     "lastDiffCents": null,
+    "lastOff": false,
     "payees": [
      {
       "name": "Espresso House",

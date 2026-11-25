@@ -215,6 +215,16 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 .rt-spark path { stroke: var(--series-1); }
 .rt-spark circle { fill: var(--series-1); }
 .rt-spark-usual { stroke: var(--text-2); stroke-width: 1; stroke-dasharray: 3 3; }
+/* the last value stands off the usual level: the dot says so, the line does not change */
+.rt-spark[data-off] circle { fill: var(--rise); }
+
+/* a bar that starts at an offset (SpanCell): the track is the axis, the bar lies on it from its own start */
+.rt-span { position: relative; display: block; min-inline-size: 6rem; block-size: 0.875rem; }
+.rt-span > span { position: absolute; inset-block: 0.125rem; background: var(--series-1); border-radius: var(--radius-s); }
+.rt-span[data-tone="rise"] > span { background: var(--rise); }
+.rt-span[data-tone="fall"] > span { background: var(--fall); }
+/* the usual month and the month are totals in a neutral ink, so blue means only less */
+.rt-span[data-tone="usual"] > span, .rt-span[data-tone="whole"] > span { background: var(--muted); }
 
 /* the row a chart's picked mark leaves: a chip with the row's name, and its x as the way back to every row */
 .rt-filter { margin: 0 0 var(--sp-8); }

@@ -21,7 +21,7 @@ describe("Menot kategorioittain: every figure opens the rows it is the sum of", 
     expect(rowsHref(ctx, "groceries", undefined, "K-Market")).toBe("#/transactions?category=groceries&merchant=K-Market&from=2026-01-15&to=2026-03-20");
   });
   // the page has a section a household without credit draws or an add-on still sees
-  it("the page starts with the categories", () => {
-    expect(page.sections[0]!.id).toBe("kategoriat");
+  it("the page starts with what changed from the usual month, and the categories follow", () => {
+    expect(page.sections.slice(0, 2).map((s) => s.id)).toEqual(["mika-muuttui", "kategoriat"]);
   });
 });

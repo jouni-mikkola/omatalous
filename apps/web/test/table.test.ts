@@ -8,9 +8,9 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { MerchantAvatar } from "../src/components/MerchantAvatar.tsx";
-import { barShare, deltaTone, sparkGeometry } from "../src/components/table/cells.ts";
+import { barShare, deltaTone, sparkGeometry, spanAxis, spanGeometry } from "../src/components/table/cells.ts";
 import { nextSort, sortBy, sortMessage, sortRows } from "../src/components/table/sort.ts";
-import { BarCell, DeltaChip, MarkCell, SortHead, SparkCell } from "../src/components/table/Cells.tsx";
+import { BarCell, DeltaChip, MarkCell, SortHead, SpanCell, SparkCell } from "../src/components/table/Cells.tsx";
 
 describe("an inline bar", () => {
   it("fills its share of the column's scale, 0 to 1", () => {
@@ -43,6 +43,29 @@ describe("a sparkline", () => {
     );
     expect(html).toContain('aria-label="12 kuukautta"');
     expect(html).toContain("rt-spark-usual");
+  });
+});
+
+describe("a bar that starts at an offset", () => {
+  it("lies between its ends on one scale that starts at zero, the lower end first", () => {
+    const axis = spanAxis([5000, 5297, 5664]);
+    expect(axis).toEqual({ lo: 0, hi: 5664 });
+    const step = spanGeometry(5297, 5000, axis);
+    expect(step.left).toBeCloseTo(5000 / 5664, 9);
+    expect(step.width).toBeCloseTo(297 / 5664, 9);
+    // a whole starts at zero and is as long as its figure; a step of no length is still drawn
+    expect(spanGeometry(null, 5664, axis)).toEqual({ left: 0, width: 1 });
+    expect(spanGeometry(null, 2832, axis).width).toBeCloseTo(0.5, 9);
+    expect(spanGeometry(5000, 5000, axis).width).toBeGreaterThan(0);
+    expect(spanGeometry(null, 7, spanAxis([7])).width).toBeGreaterThan(0);
+    expect(spanAxis([]).hi).toBe(1);
+  });
+
+  it("is hidden from readers and sets its place through the CSSOM", () => {
+    const html = renderToStaticMarkup(createElement(SpanCell, { from: 10, to: 20, axis: { lo: 0, hi: 40 }, tone: "rise" }));
+    expect(html).toContain('aria-hidden="true"');
+    expect(html).toContain('data-tone="rise"');
+    expect(html).not.toContain("style=");
   });
 });
 
