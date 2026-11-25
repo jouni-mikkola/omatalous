@@ -81,7 +81,7 @@ describe("Yhteiset menot: the lead", () => {
     expect(text).toBe("Tämän kuun yhteiset menot vaativat 2 maksua, yhteensä 120 €.");
   });
 
-  it("says nothing when nobody pays anybody", async () => {
-    expect(await say([pool([{ owner: "u1", over: 0 }, { owner: "u2", over: 0 }])])).toBe("");
+  it("says there is nothing to settle when nobody pays anybody", async () => {
+    expect(await say([pool([{ owner: "u1", over: 0 }, { owner: "u2", over: 0 }])])).toBe("Tässä kuussa ei ole tasattavaa.");
   });
 });
