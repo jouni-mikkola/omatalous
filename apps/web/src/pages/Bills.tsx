@@ -174,10 +174,10 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
                   <section className="card span-12" aria-labelledby="bills-months-h">
                     <h2 id="bills-months-h">{t("bills.chart")}</h2>
                     <MonthColumns
-                      months={calendar.months.map((m) => ({ month: m.month, complete: true, parts: [m.monthlyBillsCents, m.lessOftenCents], totalCents: m.billsCents }))}
+                      months={calendar.months.map((m) => ({ month: m.month, complete: true, parts: [m.regularCents, m.lessOftenCents], totalCents: m.billsCents }))}
                       series={[
-                        { key: "monthly", label: t("bills.series_monthly") },
-                        { key: "less-often", label: t("bills.series_less_often") },
+                        { key: "regular", label: t("bills.series_regular") },
+                        { key: "rare", label: t("bills.series_rare") },
                       ]}
                       tone="spending"
                       usual={null}

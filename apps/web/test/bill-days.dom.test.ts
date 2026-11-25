@@ -39,6 +39,27 @@ describe("Laskut: the days of the picked month", () => {
     expect(numbers).toEqual(["1", "5", "10", "15", "20", "25", "30"]);
   });
 
+  it("keeps the smallest bill at least 2 px high and a day with none at 0", () => {
+    const { container } = render(createElement(BillDays, { month: december }));
+    const bars = [...container.querySelectorAll<HTMLElement>(".bill-day > i")];
+    expect(bars[9]!.style.getPropertyValue("min-block-size")).toBe("2px");
+    expect(bars[1]!.style.getPropertyValue("min-block-size")).toBe("0px");
+  });
+
+  it("names the pay days in the strip's name, and only when there are some", () => {
+    const { rerender } = render(createElement(BillDays, { month: december }));
+    expect(screen.getByRole("img", { name: "Laskut päivittäin, joulukuu 2026, palkka 15." })).toBeTruthy();
+    rerender(createElement(BillDays, { month: month("2026-12", []) }));
+    expect(screen.getByRole("img", { name: "Laskut päivittäin, joulukuu 2026" })).toBeTruthy();
+  });
+
+  it("holds the name of a pay at the first and last days of the month to the edge of the strip", () => {
+    const edge = month("2026-12", [bill({ date: "2026-12-01", payee: "Esimerkki Oy", cents: 1, kind: "income" }), bill({ date: "2026-12-31", payee: "Esimerkki Oy", cents: 1, kind: "income" })]);
+    const { container } = render(createElement(BillDays, { month: edge }));
+    expect(container.querySelectorAll(".bill-day-first")).toHaveLength(1);
+    expect(container.querySelectorAll(".bill-day-last")).toHaveLength(1);
+  });
+
   it("draws no height in a month with no bill left", () => {
     const { container } = render(createElement(BillDays, { month: month("2026-12", []) }));
     expect([...container.querySelectorAll<HTMLElement>(".bill-day > i")].every((bar) => bar.style.getPropertyValue("block-size") === "0%")).toBe(true);

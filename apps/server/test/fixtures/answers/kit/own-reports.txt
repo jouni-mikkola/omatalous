@@ -755,6 +755,7 @@
       "category": "insurance",
       "kind": "bill",
       "seriesId": "out:chk:If Vahinkovakuutus Oy",
+      "rare": true,
       "state": "paid",
       "date": "2026-10-05",
       "cents": 14230
@@ -845,6 +846,7 @@
     "monthlyBillsCount": 2,
     "monthlyBillsCents": 5280,
     "lessOftenCents": 0,
+    "regularCents": 5280,
     "billDays": [
      {
       "date": "2026-10-18",
@@ -973,7 +975,8 @@
     "afterCents": 77623,
     "monthlyBillsCount": 6,
     "monthlyBillsCents": 211300,
-    "lessOftenCents": 63077,
+    "lessOftenCents": 0,
+    "regularCents": 274377,
     "billDays": [
      {
       "date": "2026-11-02",
@@ -1114,6 +1117,7 @@
     "monthlyBillsCount": 6,
     "monthlyBillsCents": 210147,
     "lessOftenCents": 0,
+    "regularCents": 210147,
     "billDays": [
      {
       "date": "2026-12-02",
@@ -1169,6 +1173,7 @@
       "category": "insurance",
       "kind": "bill",
       "seriesId": "out:chk:If Vahinkovakuutus Oy",
+      "rare": true,
       "date": "2027-01-05",
       "cents": 14230,
       "state": "known"
@@ -1259,6 +1264,7 @@
     "monthlyBillsCount": 6,
     "monthlyBillsCents": 210439,
     "lessOftenCents": 14230,
+    "regularCents": 210439,
     "billDays": [
      {
       "date": "2027-01-02",
@@ -1395,6 +1401,7 @@
     "monthlyBillsCount": 6,
     "monthlyBillsCents": 210504,
     "lessOftenCents": 0,
+    "regularCents": 210504,
     "billDays": [
      {
       "date": "2027-02-02",
@@ -1531,6 +1538,7 @@
     "monthlyBillsCount": 6,
     "monthlyBillsCents": 212176,
     "lessOftenCents": 0,
+    "regularCents": 212176,
     "billDays": [
      {
       "date": "2027-03-02",
@@ -1586,6 +1594,7 @@
       "category": "insurance",
       "kind": "bill",
       "seriesId": "out:chk:If Vahinkovakuutus Oy",
+      "rare": true,
       "date": "2027-04-05",
       "cents": 14230,
       "state": "known"
@@ -1676,6 +1685,7 @@
     "monthlyBillsCount": 6,
     "monthlyBillsCents": 204657,
     "lessOftenCents": 14230,
+    "regularCents": 204657,
     "billDays": [
      {
       "date": "2027-04-02",
@@ -1812,6 +1822,7 @@
     "monthlyBillsCount": 6,
     "monthlyBillsCents": 203799,
     "lessOftenCents": 0,
+    "regularCents": 203799,
     "billDays": [
      {
       "date": "2027-05-02",
@@ -1948,6 +1959,7 @@
     "monthlyBillsCount": 6,
     "monthlyBillsCents": 203997,
     "lessOftenCents": 0,
+    "regularCents": 203997,
     "billDays": [
      {
       "date": "2027-06-02",
@@ -2003,6 +2015,7 @@
       "category": "insurance",
       "kind": "bill",
       "seriesId": "out:chk:If Vahinkovakuutus Oy",
+      "rare": true,
       "date": "2027-07-05",
       "cents": 14230,
       "state": "known"
@@ -2093,6 +2106,7 @@
     "monthlyBillsCount": 6,
     "monthlyBillsCents": 204371,
     "lessOftenCents": 14230,
+    "regularCents": 204371,
     "billDays": [
      {
       "date": "2027-07-02",
@@ -2229,6 +2243,7 @@
     "monthlyBillsCount": 6,
     "monthlyBillsCents": 203552,
     "lessOftenCents": 0,
+    "regularCents": 203552,
     "billDays": [
      {
       "date": "2027-08-02",
@@ -2365,6 +2380,7 @@
     "monthlyBillsCount": 6,
     "monthlyBillsCents": 203588,
     "lessOftenCents": 0,
+    "regularCents": 203588,
     "billDays": [
      {
       "date": "2027-09-02",

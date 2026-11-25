@@ -39,6 +39,8 @@ interface BillRow {
   seriesId: string | null;
   /** A bill, loan payment or saving that comes every month: a series of a monthly cadence, or a plan that pays each month. A long view folds these. */
   monthly?: true;
+  /** A bill of the rare ones the year's figure adds up (`rareSeries` and the typed-in bills of `rareOccurrences`): the part of a month `lessOftenCents` holds. */
+  rare?: true;
   /**
    * A card, or an account the balance does not count, pays it: no account the balance counts is charged, so it is in no
    * sum of the month (a card's bill holds it, as Nyt takes it).
@@ -86,8 +88,10 @@ interface BillMonth {
   /** The rows of `monthly` that are bills or loan payments still to pay, not on a card: how many, and what they add up to. */
   monthlyBillsCount: number;
   monthlyBillsCents: number;
-  /** The month's bills still to pay that do not come every month (`billsCents` less `monthlyBillsCents`): the other part of the picture of the months. */
+  /** The month's rare bills still to pay (`rare` rows, not on a card): the part of `yearlyCents` that falls in the month, less what is paid. */
   lessOftenCents: number;
+  /** The rest of `billsCents`: the regular bills and loan payments, and the next bill of a card. With `lessOftenCents` it is `billsCents`, to the cent. */
+  regularCents: number;
   /** `billsCents` by day, date ascending, only the days with a bill still to pay: the days of the picked month's strip. Their sum is `billsCents`. */
   billDays: { date: IsoDate; cents: number }[];
 }
@@ -195,6 +199,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       kind: getCategory(s.category).kind === "savings" ? ("saving" as const) : ("bill" as const),
       seriesId: s.id,
       ...(s.cadence === "monthly" ? { monthly: true as const } : {}),
+      ...(rare.has(s.id) ? { rare: true as const } : {}),
       ...offOf(s),
       ...(namedByLoan(s, rowsOf(s)) ? { loanSeries: true as const } : {}),
     };
@@ -221,7 +226,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
   const { occurrences, isDuplicate } = rareOccurrences(ctx, inputs);
   for (const b of expectedBillRows(ctx, inputs.expectedBills.filter((e) => !isDuplicate(e.name)), today, windowEnd)) {
     if (b.amountCents <= 0) unknowns.push({ days: [b.date], open: false, kind: "bill", onCard: false });
-    else rows.push({ date: b.date, payee: b.name, category: b.category, cents: b.amountCents, state: "known", kind: "bill", seriesId: null });
+    else rows.push({ date: b.date, payee: b.name, category: b.category, cents: b.amountCents, state: "known", kind: "bill", seriesId: null, rare: true });
   }
 
   // the next bill of a card whose balance is known, as the window of Nyt has it; the bills after it are the card's spending
@@ -326,7 +331,8 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       afterCents: found.pays.length === 0 || unknownsIn(unknowns, month) > 0 ? null : incomeCents - knownCents - estimateCents - savingCents,
       monthlyBillsCount: count((r) => r.monthly === true && toPay(r) && !r.onCard),
       monthlyBillsCents: sum((r) => r.monthly === true && toPay(r) && !r.onCard),
-      lessOftenCents: sum((r) => r.monthly !== true && toPay(r) && !r.onCard),
+      lessOftenCents: sum((r) => r.rare === true && toPay(r) && !r.onCard),
+      regularCents: sum((r) => r.rare !== true && toPay(r) && !r.onCard),
       billDays: [...new Set(own.filter((r) => toPay(r) && !r.onCard).map((r) => r.date))].map((date) => ({ date, cents: sum((r) => toPay(r) && !r.onCard && r.date === date) })),
     };
   });

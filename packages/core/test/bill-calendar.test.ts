@@ -378,19 +378,49 @@ describe("the bill calendar", () => {
       expect(november.rows.find((r) => r.payee === "Esimerkki Vakuutus")!.monthly).toBeUndefined();
     });
 
-    it("splits a month's bills into the monthly and the rest, and by day, each to the cent", () => {
+    it("splits a month's bills into the regular and the rare, and by day, each to the cent", () => {
       const { cal } = run([...household(), ...saving()]);
       for (const m of cal.months) {
-        expect(m.monthlyBillsCents + m.lessOftenCents, m.month).toBe(m.billsCents);
+        expect(m.regularCents + m.lessOftenCents, m.month).toBe(m.billsCents);
         expect(m.billDays.reduce((total, d) => total + d.cents, 0), m.month).toBe(m.billsCents);
         expect(m.billDays.map((d) => d.date), m.month).toEqual([...new Set(m.billDays.map((d) => d.date))].sort());
         expect(m.billDays.every((d) => monthOf(d.date) === m.month && d.cents > 0), m.month).toBe(true);
       }
-      // November: the quarterly insurance is the part that does not come every month, and it falls on its own day
+      // November: the quarterly insurance is the rare part, and it falls on its own day
       const november = cal.months[1]!;
       expect(november.lessOftenCents).toBe(INSURANCE);
+      expect(november.regularCents).toBe(november.billsCents - INSURANCE);
       const due = november.rows.find((r) => r.payee === "Esimerkki Vakuutus")!.date;
       expect(november.billDays.find((d) => d.date === due)?.cents).toBeGreaterThanOrEqual(INSURANCE);
+    });
+
+    it("holds the rare part of the months to the rare bills of the year's figure, the card's next bill and the typed ones counted as that figure counts them", () => {
+      const today = "2026-10-09";
+      const card: Account = { id: "card", name: "Luottokortti", iban: null, currency: "EUR", type: "credit_card" };
+      const billDays = MONTHS.map((m) => `${m}-20`).filter((d) => d <= today);
+      const purchases = MONTHS.map((m) => tx({ accountId: "card", bookingDate: `${m}-08`, amountCents: -30_000, merchant: "Esimerkki Kauppa", category: "shopping" }));
+      const payments = billDays.flatMap((d) => [
+        tx({ accountId: "own", bookingDate: d, amountCents: -30_000, merchant: "Oma siirto", category: "transfer", categorySource: "transfer", isTransfer: true }),
+        tx({ accountId: "card", bookingDate: d, amountCents: 30_000, merchant: "Oma siirto", category: "transfer", categorySource: "transfer", isTransfer: true }),
+      ]);
+      const balances: BalanceInput[] = [
+        { id: "own", name: "Käyttötili", type: "checking", balanceCents: 500_000, ownerName: null, balanceAt: `${today}T06:00:00Z` },
+        { id: "card", name: "Luottokortti", type: "credit_card", balanceCents: -41_200, ownerName: null, balanceAt: `${today}T06:00:00Z` },
+      ];
+      const TYPED = 30_000;
+      const rows = [...household(), ...purchases, ...payments].filter((t) => t.bookingDate <= today);
+      const cal = billCalendar(createContext(rows, [own, card], today), withBills(typedBill("Esimerkki Ajoneuvovero", TYPED, "2026-12-19", "quarterly")), balances);
+      const all = rowsOf(cal);
+      // the card's bill is a regular bill; the typed-in quarterly one and the quarterly insurance are the rare ones
+      expect(all.find((r) => r.payee === "Luottokortti")!.rare).toBeUndefined();
+      expect(all.find((r) => r.payee === "Esimerkki Ajoneuvovero")!.rare).toBe(true);
+      expect(cal.months[0]!.regularCents).toBeGreaterThanOrEqual(41_200);
+      // the year's rare part is the year's figure, less the rare bills already paid
+      const lessOften = cal.months.reduce((total, m) => total + m.lessOftenCents, 0);
+      const paidRare = all.filter((r) => r.rare === true && r.state === "paid" && !r.onCard).reduce((total, r) => total + r.cents, 0);
+      expect(cal.yearlyCents).toBe(4 * INSURANCE + 4 * TYPED);
+      expect(lessOften + paidRare).toBe(cal.yearlyCents);
+      for (const m of cal.months) expect(m.regularCents + m.lessOftenCents, m.month).toBe(m.billsCents);
     });
 
     it("gives no figure for what is left in the month of a bill whose sum is not known, and the other months theirs", () => {
