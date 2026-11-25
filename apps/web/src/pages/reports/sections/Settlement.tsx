@@ -218,7 +218,7 @@ export const section: ReportSection = {
   order: 65,
   page: "reports",
   reports: [],
-  // only a user who is weighted in a joint account has a share to settle
-  visible: (ctx) => ctx.meta.accounts.some((a) => a.use && isJoint(a.use) && a.use.users.some((u) => u.userId === ctx.meta.user.id && u.weight > 0)),
+  // only a user who is weighted in a joint account has a share to settle, and only once a member has said the split (ADR 0017): until then there is nothing to settle by
+  visible: (ctx) => ctx.meta.accounts.some((a) => a.use && a.use.split !== "unknown" && isJoint(a.use) && a.use.users.some((u) => u.userId === ctx.meta.user.id && u.weight > 0)),
   Component: Settlements,
 };
