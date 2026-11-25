@@ -163,6 +163,7 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
   /* in a block the name has little room to give: the arrow is 44 px high and 32 px wide, as wide as it was before */
   .rt-wrap[data-block] .rt-drill { inline-size: calc(var(--tap-floor) + var(--sp-8)); margin: calc(-1 * var(--reach-pad, 0px)) 0; }
 }
+@media (max-width: 640px) and (not (pointer: coarse)) { .rt-drill, .rt-wrap[data-block] .rt-drill { inline-size: var(--tap-phone); } }
 .rt-wrap[data-block] .rt tbody tr:has(+ .rt-detail), .rt-wrap[data-block] .rt tbody tr:has(+ .rt-subrow) { border-bottom-color: transparent; }
 .rt-wrap[data-block] .rt tbody tr:last-child:has(+ tfoot) { border-bottom: 0; }
 .rt-wrap[data-block] .rt tr > :is(th[scope="row"], td:first-child) { grid-column: 1; }

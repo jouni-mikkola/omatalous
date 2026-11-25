@@ -30,8 +30,18 @@ test("every address of the app opens its page, and an old address is rewritten t
   // Asetukset with no target opens the first one
   await page.goto("/#/settings");
   await expect.poll(hash(page), "#/settings opens Pankit ja tilit").toBe("#/settings/banks");
-  // no page in the address, a page that does not exist
-  for (const empty of ["/", "/#/", "/#/nowhere"]) {
+  // a page that does not exist says so and leads to Yhteenveto; the address stays as typed
+  await page.goto("/#/nowhere");
+  await expect(page).toHaveTitle(/^Sivua ei löydy/);
+  await expect(page.getByRole("heading", { name: "Sivua ei löydy", level: 1 })).toHaveCount(1);
+  await expect(page.getByRole("heading", { name: "Sivua ei löydy", level: 2 })).toBeVisible();
+  await expect(page.locator("header [aria-current]")).toHaveCount(0);
+  await expect(page.getByRole("toolbar", { name: "Aikaväli" })).toHaveCount(0);
+  expect(await page.evaluate(() => window.location.hash)).toBe("#/nowhere");
+  await page.getByRole("link", { name: "Avaa Yhteenveto" }).click();
+  await expect.poll(hash(page), "the link opens Yhteenveto").toBe("#/overview");
+  // no page in the address
+  for (const empty of ["/", "/#/"]) {
     await page.goto(empty);
     await expect(page).toHaveTitle(/^Yhteenveto/);
     await expect.poll(hash(page), `${empty} opens Yhteenveto`).toBe("#/overview");

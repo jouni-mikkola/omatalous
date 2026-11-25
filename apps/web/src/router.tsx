@@ -11,7 +11,6 @@ import {
   createRoute,
   createRouter,
   lazyRouteComponent,
-  Navigate,
   redirect,
 
 } from "@tanstack/react-router";
@@ -22,6 +21,7 @@ import { Loading } from "./components/Loading.tsx";
 import { ADD_ON_TARGET, type Route, redirectRoute, SETTINGS_TARGETS, type SettingsTarget } from "./routes.ts";
 import { parseSearch, searchOf, stringifySearch } from "./search.ts";
 import { ExtensionPage } from "./ExtensionPage.tsx";
+import { NotFound } from "./NotFound.tsx";
 import { Shell } from "./Shell.tsx";
 import { t } from "./text.ts";
 
@@ -158,7 +158,7 @@ export const router = createRouter({
   // not shown (docs/UI_STYLE.md): only the server's own sentence (an ApiError) is, anything else (a render error, a chunk that
   // is gone) reads as the catalogue's general failure
   defaultErrorComponent: ({ error }) => <ErrorCard message={error instanceof ApiError ? error.message : t("app.error")} onRetry={() => window.location.reload()} />,
-  defaultNotFoundComponent: () => <Navigate to="/overview" replace />,
+  defaultNotFoundComponent: NotFound,
   scrollRestoration: false,
 });
 
