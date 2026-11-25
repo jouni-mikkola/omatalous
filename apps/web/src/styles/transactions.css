@@ -79,6 +79,7 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 @media (max-width: 600px) {
   .tx-lead.card { padding-block: var(--sp-8) var(--sp-12); }
 }
+@media (max-width: 640px), (pointer: coarse) { .tx-lead-list a { display: inline-flex; align-items: center; min-block-size: var(--tap-min); } }
 .tx-lead-fold > summary { cursor: pointer; }
 .tx-lead-fold[open] > summary { margin-block-end: var(--sp-12); }
 .tx-lead-parts { display: flex; flex-wrap: wrap; gap: var(--sp-12) var(--sp-24); }
