@@ -10,6 +10,7 @@ export const FI_SET_RC = {
   "set.rc.still_coming": "Tulee vielä",
   "set.rc.connect_the_bank_again": "Yhdistä pankki uudelleen",
   "set.rc.open_the_account": "Avaa tilin tiedot",
+  "set.rc.open_members": "Avaa Jäsenet",
   "set.rc.connect_the_paying_account": "Yhdistä tili, jolta maksat kortin",
   "set.rc.connect_the_card": "Yhdistä kortti",
   "set.rc.add_the_card_debt": "Lisää kortin velka",

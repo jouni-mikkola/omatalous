@@ -117,9 +117,7 @@ export function LoanTermsChoices({ item, meta, busy, onAnswer, onHold, onReload 
   const open = item.debts.filter((d) => !closed.some((c) => c.id === d.id));
   const done = open.length === 0;
   // forms filled from rows share the connected loan accounts: with two of them in the list, neither takes one by itself
-  const fromRows = (debts: readonly LoanTermsDebt[]) => debts.filter((d) => d.source === "proposal" || d.source === "ended" || d.source === "card_bill" || (d.source === "card_gap" && d.accountId === null)).length;
-  const [oneAtOpen] = useState(() => fromRows(item.debts) <= 1);
-  const ownsAccount = oneAtOpen && fromRows(open) <= 1;
+  const [ownsAccount] = useState(() => item.fromRows <= 1);
 
   // the form that had the focus is gone: the focus goes to the line it closed into, or to Seuraava at the end
   useEffect(() => {
@@ -148,12 +146,15 @@ export function LoanTermsChoices({ item, meta, busy, onAnswer, onHold, onReload 
   return (
     <div className="review-debts">
       <p className="review-debt-totals" aria-live="polite">
+        {/* each debt is its own question, so the figures are of the list as it was read: they say nothing once this debt is answered */}
         {!done && (
-          <span>
-            {t(item.noBalance > 0 ? "holdings.debts_known" : "holdings.debts_total")} {item.debtsCents === null ? "–" : money(item.debtsCents)}
-          </span>
+          <>
+            <span>
+              {t(item.noBalance > 0 ? "holdings.debts_known" : "holdings.debts_total")} {item.debtsCents === null ? "–" : money(item.debtsCents)}
+            </span>
+            <span>{t("set.rc.lt_no_balance", { count: item.noBalance })}</span>
+          </>
         )}
-        <span>{t("set.rc.lt_no_balance", { count: done ? 0 : item.noBalance })}</span>
       </p>
       {loans.error && !loans.data && (
         <Notice tone="error" className="review-error" as="p">
