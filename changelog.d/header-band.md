@@ -1,2 +1,2 @@
 section: Look
-- The header shows the user's name with a chevron instead of the initials, and the count of open questions is an outlined figure.
+- The header shows the user name with a chevron instead of initials, and the open-question count is outlined.
