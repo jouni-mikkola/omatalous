@@ -269,7 +269,7 @@ describe("the frame of a monthly chart", () => {
     expect(monthAxisLabels([-100_000, 0, 100_000], 100_000, false)(-100_000).replace(/\s/g, " ")).toBe("−1 000".replace(/\s/g, " "));
     // a step that is not whole thousands keeps the full number on a phone
     expect(monthAxisLabels([0, 25_000, 50_000], 25_000, true)(50_000)).toMatch(/^500 €$/);
-    expect(monthAxisLabels([0, 250_000, 500_000], 250_000, true)(500_000)).toMatch(/^5 000 €$/);
+    expect(monthAxisLabels([0, 250_000, 500_000], 250_000, true)(500_000)).toMatch(/^5\s000\s€$/);
   });
 
   it("writes a clipped sum in whole euros, and in thousands on a phone, and stops its column 6 px past the plot", () => {
