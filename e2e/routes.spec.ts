@@ -32,7 +32,11 @@ test("every address of the app opens its page, and an old address is rewritten t
   await expect.poll(hash(page), "#/settings opens Pankit ja tilit").toBe("#/settings/banks");
   // a page that does not exist says so and leads to Yhteenveto; the address stays as typed
   await page.goto("/#/nowhere");
-  await expect(page.getByRole("heading", { name: "Sivua ei löydy" })).toBeVisible();
+  await expect(page).toHaveTitle(/^Sivua ei löydy/);
+  await expect(page.getByRole("heading", { name: "Sivua ei löydy", level: 1 })).toHaveCount(1);
+  await expect(page.getByRole("heading", { name: "Sivua ei löydy", level: 2 })).toBeVisible();
+  await expect(page.locator("header [aria-current]")).toHaveCount(0);
+  await expect(page.getByRole("toolbar", { name: "Aikaväli" })).toHaveCount(0);
   expect(await page.evaluate(() => window.location.hash)).toBe("#/nowhere");
   await page.getByRole("link", { name: "Avaa Yhteenveto" }).click();
   await expect.poll(hash(page), "the link opens Yhteenveto").toBe("#/overview");

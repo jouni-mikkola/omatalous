@@ -91,7 +91,8 @@ export function Shell() {
     if (shownPage.current !== page) reloadReview();
     shownPage.current = page;
   }, [page, reloadReview]);
-  const pageName = pages.find((e) => e.id === page)?.label;
+  // an unknown address names itself: the tab title and the heading say so, and no tab is the current one
+  const pageName = known ? pages.find((e) => e.id === page)?.label : t("notfound.title");
   // Tarkistettavat carries its count in the title and the heading, the same one the header's mark shows
   // what a choice of the user menu (the language, signing out) could not do
   const [reportQuestion, setReportQuestion] = useState<string | null>(null);
@@ -237,7 +238,7 @@ export function Shell() {
   const effectiveScope: Scope = hasHousehold ? (scope ?? (m.accounts.length ? "own" : "household")) : "own";
   const period = periodFor(page, params.get("period"), m.opening);
   const range = periodRange(period, m.today, m.opening);
-  const presets = shellPeriodsOf(page, m.today, reportQuestion ?? params.get("q"));
+  const presets = !known ? [] : shellPeriodsOf(page, m.today, reportQuestion ?? params.get("q"));
   const consents = consentNotices(m.connections, m.accounts);
   // whoever can open the Enable Banking application: an admin for the shared one, the user for their own
   const canLinkAccounts = user.role === "admin" || m.bank.source === "user";
@@ -307,7 +308,7 @@ export function Shell() {
       </a>
       <header className="topbar">
         <div className="topbar-in">
-          <PageLink id="overview" className="brand" current={page === "overview"}>
+          <PageLink id="overview" className="brand" current={known && page === "overview"}>
             <span className="brand-mark" aria-hidden="true">
               <i />
               <i />
