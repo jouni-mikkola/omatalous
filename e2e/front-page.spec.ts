@@ -176,7 +176,7 @@ test("at 1440 px the coming months and the accounts stand in one column beside t
   const heads = plain(await page.locator(".home-coming thead").innerText());
   for (const name of ["Kuukausi", "Tulot", "Laskut", "Jää"]) expect(heads).toContain(name);
   expect(heads.indexOf("Tulot"), "Tulot before Laskut").toBeLessThan(heads.indexOf("Laskut"));
-  await expect(page.locator(".home-coming .card-head a")).toHaveAttribute("href", "#/bills#laskut-taulukko");
+  await expect(page.locator(".home-coming a"), "the figure of Nyt is the one way to Laskut").toHaveCount(0);
   expect(await page.locator(".home-ledger").evaluate((el) => parseFloat(getComputedStyle(el).borderInlineStartWidth)), "the rule between the answer and its working").toBeGreaterThan(0);
   await context.close();
 });

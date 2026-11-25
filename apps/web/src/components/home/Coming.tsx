@@ -8,7 +8,6 @@ import type { ReportsData, Scope } from "../../types.ts";
 import { nothingToCome } from "../bills/calendar-rows.ts";
 import { Notice } from "../ui/Notice.tsx";
 import { Table } from "../table/Table.tsx";
-import { billsHref } from "./Now.tsx";
 
 type Calendar = ReportsData["billCalendar"];
 type Month = Calendar["months"][number];
@@ -80,10 +79,7 @@ export function Coming({ scope }: { scope: Scope }) {
   const calendar = answer.data?.billCalendar;
   return (
     <section className="card home-coming" aria-labelledby="home-coming-h">
-      <div className="card-head home-coming-head">
-        <h2 id="home-coming-h">{t("home.coming_title")}</h2>
-        <a href={billsHref}>{t("nav.bills")}</a>
-      </div>
+      <h2 id="home-coming-h">{t("home.coming_title")}</h2>
       {answer.error && !calendar ? <Notice tone="error">{answer.error}</Notice> : calendar ? <ComingMonths calendar={calendar} /> : <span className="home-coming-wait" aria-hidden="true" />}
     </section>
   );

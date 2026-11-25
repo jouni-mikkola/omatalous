@@ -94,8 +94,6 @@ a.home-left:hover .fig-l { text-decoration: underline; }
   .front > .home-now, .front > .home-summary { grid-column: 1 / 8; }
   .front > .home-now ~ .front-rail { grid-column: 8 / -1; grid-row: span 2; }
 }
-/* the head of the coming months: the name and the link to Laskut */
-.home-coming-head a { font-size: var(--fs-body); line-height: var(--lh-body); }
 /* a month's bills with the estimate under them, and a pay that is an estimate, are two lines in one cell, the second small and muted like the second line of a row */
 .home-coming .rt td.num { white-space: normal; }
 .home-coming-note { display: block; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; color: var(--text-2); }

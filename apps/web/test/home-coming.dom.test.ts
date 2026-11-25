@@ -8,7 +8,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { marksBySubject } from "@banking/core";
 import { BillsTable } from "../src/components/bills/BillsTable.tsx";
 import { Coming, ComingMonths } from "../src/components/home/Coming.tsx";
-import { billsHref } from "../src/components/home/Now.tsx";
 import { billItems } from "../src/components/bills/items.ts";
 import type { ReportsData } from "../src/types.ts";
 import { bill, calendar, month } from "./bill-calendar-fixture.ts";
@@ -236,14 +235,14 @@ describe("Laskut: the unknown bills a month head counts", () => {
 });
 
 describe("Tulevat kuukaudet, the block", () => {
-  it("asks for the bill calendar of the scope, shows it under its heading and links to Laskut from its head", async () => {
+  it("asks for the bill calendar of the scope, shows it under its heading and has no link: the figure of Nyt is the one way to Laskut", async () => {
     const seen = stubApi({ "GET /api/reports": { billCalendar: answer() } });
     render(createElement(Coming, { scope: "household" }));
     const region = screen.getByRole("region", { name: "Tulevat kuukaudet" });
     await waitFor(() => expect(within(region).getAllByRole("row").length).toBeGreaterThan(1));
     expect(seen).toHaveLength(1);
     expect(seen[0]!.path).toBe("/api/reports");
-    expect(within(region).getAllByRole("link").map((a) => [a.textContent, a.getAttribute("href")])).toEqual([["Laskut", billsHref]]);
+    expect(within(region).queryAllByRole("link")).toEqual([]);
   });
 
   it("shows the error of a failed answer and no figure", async () => {
