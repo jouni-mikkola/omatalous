@@ -33,8 +33,8 @@ async function addEndedRows(t: Setup, userId: string, accountId: string) {
 
 /** The debts Täydennä lainat lists for the signed-in member. */
 async function debtsOf(caller: Setup["admin"]) {
-  const list = ((await caller.call("GET", "/api/review")).body.items as { kind: string; debts?: { source: string; key: string; name: string; lastDate: string }[] }[]).find((i) => i.kind === "loan_terms_list");
-  return list?.debts ?? [];
+  const items = (await caller.call("GET", "/api/review")).body.items as { kind: string; debts?: { source: string; key: string; name: string; lastDate: string }[] }[];
+  return items.flatMap((i) => (i.kind === "loan_terms_list" ? (i.debts ?? []) : []));
 }
 
 async function withEndedRows() {

@@ -13,7 +13,7 @@ type Item = { id: string; kind: string; cents: number; [field: string]: unknown 
 type Debt = { id: string; source: string; key: string | null; [field: string]: unknown };
 
 /** The rows of Täydennä lainat a user is asked, none when the item is not in the queue. */
-const listed = (items: Item[]): Debt[] => (items.find((i) => i.kind === "loan_terms_list")?.debts as Debt[] | undefined) ?? [];
+const listed = (items: Item[]): Debt[] => items.flatMap((i) => (i.kind === "loan_terms_list" ? (i.debts as Debt[]) : []));
 
 const MONTHS = [3, 4, 5, 6, 7, 8, 9].map((m) => `2026-${String(m).padStart(2, "0")}`);
 const raw = (bookingDate: string, cents: number, counterparty: string): RawTransaction => ({
@@ -43,7 +43,7 @@ describe("the question of a card that is not connected", () => {
     expect(card).toMatchObject({ name: "Esimerkkipankki Kortti", id: `card_bill:${card!.key}`, kind: "card", owedCents: null });
     expect(card!.monthlyCents as number).toBeGreaterThan(40_000);
     const items = (await t.admin.call("GET", "/api/review")).body.items as Item[];
-    expect(items[0]).toMatchObject({ kind: "loan_terms_list", id: "loan-terms", noBalance: 1 });
+    expect(items[0]).toMatchObject({ kind: "loan_terms_list", id: expect.stringMatching(/^loan-terms:/), noBalance: 1 });
   });
 
   it("goes with a card saved as a loan linked to its bills, and with Ei ole velan maksu", async () => {

@@ -38,7 +38,9 @@ const debtOf = (over: Partial<LoanTermsDebt>): LoanTermsDebt => ({
   savedCards: [],
   ...over,
 });
-const listOf = (debts: LoanTermsDebt[], debtsCents: number | null = null, noBalance = 0) => ({ kind: "loan_terms_list", id: "loan-terms", cents: 0, debts, debtsCents, noBalance }) as unknown as ReviewItem;
+// the server sends a question a debt; the rows of these tests may hold several, as the page still draws a list
+const fromRowsOf = (debts: LoanTermsDebt[]) => debts.filter((d) => d.source === "proposal" || d.source === "ended" || d.source === "card_bill" || (d.source === "card_gap" && d.accountId === null)).length;
+const listOf = (debts: LoanTermsDebt[], debtsCents: number | null = null, noBalance = 0) => ({ kind: "loan_terms_list", id: `loan-terms:${debts[0]?.id ?? "none"}`, cents: 0, debts, debtsCents, noBalance, fromRows: fromRowsOf(debts) }) as unknown as ReviewItem;
 const show = (items: ReviewItem[], meta = metaOf(), reload = () => {}) => render(createElement(Review, { meta, queue: { data: { items }, error: null, reload } }));
 const savedLoan = (over: Partial<Loan>): Loan => ({ id: "loan-7", name: "Asuntolaina", lender: null, kind: "mortgage", grantedCents: null, balanceCents: 15_000_000, balanceDate: "2026-10-01", rateBp: null, reference: null, marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: 90_000, endDate: null, limitCents: null, seriesKey: null, ...over }) as Loan;
 const plain = (s: string | null | undefined) => (s ?? "").replace(/\s/g, " ");
@@ -55,7 +57,7 @@ describe("Täydennä lainat", () => {
       debtOf({ id: "loan-8", source: "loan", name: "Autolaina", loanId: "loan-8", kind: "car", owedCents: 1_200_000, gaps: ["payment"] }),
     ];
     show([listOf(debts, null, 1)]);
-    expect(document.querySelector(".review-item")!.textContent).toContain("Täydennä lainat");
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toContain("Kerro lainan saldo");
     const names = [...document.querySelectorAll(".review-debt-name")].map((h) => plain(h.textContent));
     // a loan the rows show reads payee, the kind guessed and the monthly payment
     expect(names).toEqual([plain("Esimerkkipankki · Asuntolaina · 861,41 €/kk"), plain("Autolaina · Jäljellä 12 000,00 €")]);
@@ -100,9 +102,9 @@ describe("Täydennä lainat", () => {
     expect(reloads).toBe(1);
     // the focus moves from the form that is gone to the line it closed into
     await waitFor(() => expect(document.activeElement).toBe(line), T);
-    // the totals are what the queue read again tells
+    // the question that was answered stays as it was asked, though the queue read again has the other debt's question only
     view.rerender(createElement(Review, { meta: metaOf(), queue: { data: { items: [listOf(debts.slice(1), 31_000_000, 0)] }, error: null, reload: () => {} } }));
-    expect(totals()).toBe(plain("Velat yhteensä 310 000,00 €Ilman saldoa 0"));
+    expect(totals()).toBe(plain("Velat yhteensä 300 000,00 €Ilman saldoa 0"));
     expect(screen.getByText(/^Jäljellä [^·]+ · korko 3,5/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Seuraava" })).toBeNull();
   });
@@ -164,8 +166,8 @@ describe("Täydennä lainat", () => {
     expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ kind: "mortgage", reference: "euribor_12", marginBp: null, rateReviewDate: "2027-03-14", rateBp: null, balanceCents: 10_000_000, balanceDate: "2026-10-12", seriesKey: "k" });
     // the saved loan's balance and its rate counted now (2,31 % on 13.3.2026 and the margin)
     await screen.findByText(/^Jäljellä 100\s000,00\s€ · korko 2,96/, {}, T);
-    // the end: what was saved and how many lack a balance, no total of the page's own
-    expect(totals()).toBe("Ilman saldoa 0");
+    // the end: this debt is answered and the list's figures are not shown, as other debts may still lack a balance
+    expect(totals()).toBe("");
     expect(screen.queryByLabelText(/^Marginaali/)).toBeNull();
     // the queue read again after the save no longer has the item: it stays until Seuraava
     view.rerender(createElement(Review, { meta, queue: { data: { items: items.slice(1) }, error: null, reload: () => {} } }));
