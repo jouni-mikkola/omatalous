@@ -103,7 +103,7 @@ export const FI_BILLS = {
   "bills.monthly_fold": "Kuukausittaiset laskut, {count} kpl",
   "bills.paid_fold": "Maksetut laskut, {count} kpl",
   "bills.card_fold": "Kortilla, {count} kpl",
-  "bills.fig_reserve": "Varaus harvoille laskuille",
+  "bills.fig_reserve": "Varaus kuussa",
   "bills.kind_paid": "Maksettu {month}",
   "bills.kind_coming": "Tulossa {month}",
   "bills.kind_count": "Laskuja",
