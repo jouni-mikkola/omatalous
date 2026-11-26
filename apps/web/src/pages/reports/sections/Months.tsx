@@ -81,8 +81,8 @@ function Months({ ctx }: SectionProps) {
   if (error && !dashboard) return <Notice tone="error">{error}</Notice>;
   if (!dashboard) return <Panel><Empty>{t("rpt.loading")}</Empty></Panel>;
   if (dashboard.overview.months.length === 0) return null;
-  // a month's two bars have one look: solid only when the spending and the income report both count the month complete
-  const incomeWhole = ctx.data.income ? new Set(ctx.data.income.months.flatMap((m) => (m.complete ? [m.month] : []))) : undefined;
+  // a month's two bars have one look: solid unless the spending or the income report counts the month incomplete; a month the income report leaves out stays solid
+  const incomePartial = ctx.data.income ? new Set(ctx.data.income.months.flatMap((m) => (m.complete ? [] : [m.month]))) : undefined;
   const columns: Column<Month>[] = [
     { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName({ ...m, unknown: m.incomeCents === null && m.spendCents === null }, ctx.running) },
     { key: "income", label: t("home.months_income"), kind: "money", precision: "euros", cents: (m) => m.incomeCents },
@@ -93,7 +93,7 @@ function Months({ ctx }: SectionProps) {
       <ChartWithTable
         title={t("table.folded_months")}
         rows={dashboard.overview.months.length}
-        chart={<MonthBars overview={dashboard.overview} today={ctx.meta.today} incomeWhole={incomeWhole} />}
+        chart={<MonthBars overview={dashboard.overview} today={ctx.meta.today} incomePartial={incomePartial} />}
         table={<Table<Month> caption={t("rpt.sec_cashflow")} rows={dashboard.overview.months} rowKey={(m) => m.month} columns={columns} search={false} />}
       />
     </Panel>

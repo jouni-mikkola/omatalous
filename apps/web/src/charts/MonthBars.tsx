@@ -54,11 +54,11 @@ function monthRows(m: Month, running: boolean): { name: string; value: string }[
  * the usual month's spending as a dashed line across them (`overview.usualSpendCents`). The running month and a month
  * the accounts do not cover from its 1st are hatched with a dashed edge and the key says so, as their sums are not a
  * month's. A month has one look for both its bars: it is solid only when the spending report counts it complete and, given
- * `incomeWhole` (the months the income report counts complete), the income report does too. A sum far above the others (more than twice the third quartile) does not set the axis: its bar is cut 6 px
+ * `incomePartial` (the months the income report counts incomplete), the income report does not either. A sum far above the others (more than twice the third quartile) does not set the axis: its bar is cut 6 px
  * past the top with a break, and the sum is written above it. The year stands under each January only. Each month is a link to its rows in Tapahtumat; pointing at it or its keyboard focus reads
  * out its sums. Every value is a field of the answer: nothing is added up here.
  */
-export function MonthBars({ overview, today, incomeWhole }: { overview: Overview; today: string; incomeWhole?: ReadonlySet<string> }) {
+export function MonthBars({ overview, today, incomePartial }: { overview: Overview; today: string; incomePartial?: ReadonlySet<string> }) {
   const [ref, measured] = useWidth<HTMLDivElement>();
   const [at, setAt] = useState<number | null>(null);
   const hatch = `mbh-${useId().replace(/\W/g, "")}`;
@@ -138,7 +138,7 @@ export function MonthBars({ overview, today, incomeWhole }: { overview: Overview
             <ValueAxis ticks={[...y.ticks]} y={y} width={f.innerW} height={f.innerH} label={axisLabel} bare />
             {at !== null && <rect className="pick-band" x={x.step * at} y={0} width={x.step} height={f.innerH} />}
             {months.map((m, i) => {
-              const whole = m.complete && !running(i) && (incomeWhole === undefined || incomeWhole.has(m.month));
+              const whole = m.complete && !running(i) && !incomePartial?.has(m.month);
               const left = x.x(i);
               return (
                 <g key={m.month} className={whole ? "mb-month" : "mb-month mb-partial"}>

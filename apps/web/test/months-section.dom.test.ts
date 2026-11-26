@@ -96,6 +96,17 @@ describe("Tulot ja menot", () => {
     expect(sixth.querySelector(".mb-spend-part")).not.toBeNull();
   });
 
+  it("leaves a complete month solid when the income report does not cover it", async () => {
+    fresh();
+    stubApi({ "GET /api/dashboard": { overview: overview() } });
+    const narrow = { ...ctx, data: { income: { months: MONTHS.slice(6).map((m) => ({ month: m.month, complete: true })) } } } as unknown as ReportContext;
+    const view = render(createElement(section.Component, { ctx: narrow }));
+    await waitFor(() => expect(view.container.querySelector("svg a")).not.toBeNull());
+    const groups = [...view.container.querySelectorAll(".mb-month")];
+    // months 1 to 5 lie outside the income report and are complete for spending: solid
+    expect(groups.slice(1, 6).every((g) => g.querySelector(".mb-income") !== null && g.querySelector(".mb-spend-part") === null)).toBe(true);
+  });
+
   it("draws the usual month as a line and names it at the line's end, and leaves both out without one", async () => {
     const usual = await show({ overview: overview() });
     expect(usual.querySelector(".mb-usual")).not.toBeNull();

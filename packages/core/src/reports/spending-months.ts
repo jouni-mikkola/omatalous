@@ -51,7 +51,7 @@ interface SpendingChangeStep {
   /** The category's id and name; null for the step of the categories with no level (`withoutLevel`) and for the one last step that holds the gaps of all the others, which is there only when they do not cancel out. */
   category: string | null;
   label: string | null;
-  /** The step is what the categories with no level (a card connected late, a category with under `MIN_COMPARE_MONTHS` months) spent in the month: it has no gap, the whole sum is the step. Absent on every other step. */
+  /** The step is what the categories with no level (in practice those of a card connected late, which have too few months for a level) spent in the month: it has no gap, the whole sum is the step. Absent on every other step. */
   withoutLevel?: true;
   /** The gap in cents: above zero is more than the category's level. */
   cents: number;
