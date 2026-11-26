@@ -1,7 +1,7 @@
 // Decision: how the month stands: what came in, what went out, what is left of it, and where the income went
-import { bridgeView, localeOf, MIN_COMPARE_MONTHS, monthEnd, previousRange, type BridgeView } from "@banking/core";
+import { bridgeView, MIN_COMPARE_MONTHS, monthEnd, previousRange, type BridgeView } from "@banking/core";
 import { css } from "../../css.ts";
-import { answerMoney, completeMonths, dateRange, language, monthLong, percent } from "../../format.ts";
+import { answerMoney, completeMonths, dateRange, monthLong, percent } from "../../format.ts";
 import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
@@ -116,33 +116,6 @@ function drawnSums(view: BridgeView, shown: { saved: number; credit: number }): 
   return { drawnSavings: shown.saved < 0 ? -shown.saved : cover.savingsCents, drawnCredit: shown.credit > 0 ? shown.credit : cover.creditCents };
 }
 
-/**
- * The spending over the income and what paid it, in one sentence (the parts use the words of Raportit's `rpt.gap_credit`, `rpt.gap_savings` and `rpt.gap_accounts`), or null when the income
- * paid everything. The gap and its parts are `cover` of the bridge: the sums of the sources bar. The page tells one sum for
- * what was taken out of savings or drawn on credit, the one under Käteen jäi (`shown`): when savings alone covered the gap the
- * sentence names no sum for them, and otherwise it names that sum, not the part of it that went to the gap.
- */
-function gapSentence(view: BridgeView, shown: { saved: number; credit: number }): string | null {
-  const { cover } = view;
-  if (cover.gapCents < 50) return null;
-  const savingsOnly = cover.savingsCents >= 50 && cover.creditCents < 50 && cover.accountsCents < 50;
-  const { drawnSavings, drawnCredit } = drawnSums(view, shown);
-  const parts = [
-    cover.creditCents >= 50 ? t("rpt.gap_credit", { sum: answerMoney(drawnCredit) }) : null,
-    cover.savingsCents >= 50 && !savingsOnly ? t("rpt.gap_savings", { sum: answerMoney(drawnSavings) }) : null,
-    cover.accountsCents >= 50 ? t("rpt.gap_accounts", { sum: answerMoney(cover.accountsCents) }) : null,
-  ].filter((p): p is string => p !== null);
-  // money moved to savings or credit paid back is no spending: the lead then says transfers too
-  // Käteen jäi counts the money drawn as well, so beside a gap it is told what it is, not left to read against the gap
-  const left = t("home.gap_left");
-  const lead = t(view.totals.savedCents > 0 || cover.creditRepaidCents > 0 ? "home.gap_lead_transfers" : "home.gap_lead", { sum: answerMoney(cover.gapCents) });
-  if (savingsOnly) return `${lead} ${t("home.gap_from_savings")} ${left}`;
-  if (parts.length === 0) return `${lead} ${left}`;
-  const covered = `${lead} ${t("home.gap_cover", { parts: new Intl.ListFormat(localeOf(language()), { type: "conjunction" }).format(parts) })}`;
-  // credit that covered the gap can leave money over: Käteen jäi is then above 0 beside a gap, and the line says what it is
-  return view.totals.leftCents > 0 ? `${covered} ${left}` : covered;
-}
-
 const FLOW_TONE: Record<string, Tone> = { income: "income", consumption: "spending", interest: "debt", debt: "debt", principal: "debt", subtotal: "neutral", saved: "kept", repaid: "neutral", left: "income", credit: "neutral", savings: "neutral", accounts: "neutral" };
 
 /** The debt service is told whole (*Maksettu velanhoito*) or, beside its interest and repayments, as what no evidence splits. */
@@ -208,7 +181,7 @@ function FlowList({ figures, view, euros, sums, sharesShown, side }: { figures: 
  * (consumption, debt, savings, what stayed), each with its parts named under it. A part that is already a figure of the
  * month's strip (Tulot, Käteen jäi, and the terms under it: savings moved or taken out, credit drawn or paid back) is named
  * without its sum, so each sum stands once. Beside a gap the bar of what came in is the exception: its parts (the income and what
- * covered the gap) each have the sum the sentence under the bars tells, so the bar reads like Meni, and
+ * covered the gap) each have its sum, so the bar reads like Meni, and
  * with a gap the parts have no share column, as shares of the income alone would add to more than 100 %. All of it is
  * `bridgeView` of the same totals as the three figures above, the one calculation of the bridge on Raportit. With no income,
  * or a part below zero, no bar is drawn and the parts stand as a list alone.
@@ -217,8 +190,7 @@ function Flow({ view, shown }: { view: BridgeView; shown: { saved: number; credi
   // a part named like a term under Tulos stands only where its term is shown, and it has no sum of its own: the term tells it
   const euros: Record<string, number> = { saved: shown.saved, "savings-left": -shown.saved, "credit-left": shown.credit, repaid: -shown.credit };
   const figures = view.figures.filter((f) => f.cents !== 0 && (!(f.key in euros) || euros[f.key]! > 0));
-  const gap = gapSentence(view, shown);
-  // beside a gap the bar of what came in names each source with its sum, the sums the sentence under the bars tells
+  // beside a gap the bar of what came in names each source with its sum
   const { drawnSavings, drawnCredit } = drawnSums(view, shown);
   const sums: Record<string, number> = view.sources.length > 0 && view.cover.gapCents >= 50 ? { income: view.totals.incomeCents, credit: drawnCredit, savings: drawnSavings, accounts: view.cover.accountsCents } : {};
   // the income alone is the bar of what came in when it paid everything
@@ -234,7 +206,6 @@ function Flow({ view, shown }: { view: BridgeView; shown: { saved: number; credi
       ) : (
         <FlowList figures={figures.filter((f) => f.key !== "income" && !COVER_KEYS.includes(f.key))} view={view} euros={euros} sums={{}} sharesShown={view.cover.gapCents < 50} side="all" />
       )}
-      {gap && <p className="home-detail" data-part="gap">{gap}</p>}
     </section>
   );
 }

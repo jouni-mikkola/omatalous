@@ -119,8 +119,9 @@ describe("Yhteenveto's month", () => {
     const overview = { income: { cents: 396600, earnedCents: 396600 }, months: [{ month: "2026-11", incomeCents: 396600, spendCents: 410783, fromSavingsCents: 0, complete: false }] };
     const summary = summaryIn(data({ totals, overview } as never));
     expect([...summary.querySelectorAll("[data-fig=result] .home-fig-term")].map((el) => flat(el.textContent))).toEqual(["Otettu säästöistä 150 €"]);
-    // the page tells one sum for it: the 150 € under Käteen jäi, and the gap sentence names no second one
-    expect(flat(summary.querySelector("[data-part=gap]")?.textContent)).toBe("Menot ylittivät tulot 142 €. Ero otettiin säästöistä. Käteen jäi on se, mitä tileille jäi menojen jälkeen, nostetut rahat mukaan lukien.");
+    // the page tells one sum for it: the 150 € under Käteen jäi, and no second one is told
+    expect(summary.querySelector("[data-part=gap]")).toBeNull();
+    expect(summary.textContent).not.toContain("Menot ylittivät tulot");
     expect(summary.textContent).not.toMatch(/säästöistä 142/);
     // and no share is told: of the income alone the shares of this month add to more than 100 %
     expect([...summary.querySelectorAll(".home-flow-share")].map((el) => flat(el.textContent)).filter((s) => s !== "")).toEqual([]);
@@ -129,7 +130,7 @@ describe("Yhteenveto's month", () => {
   it("names the sum taken out of savings as under Käteen jäi when something else covered the gap too", () => {
     // 1 500 € out of 1 000 € income: 200 € out of savings (all of it in the gap), 300 € from the accounts
     const container = summaryIn(data({ totals: totalsOf(100000, 150000, 0, -20000) } as never));
-    expect(flat(container.querySelector("[data-part=gap]")?.textContent)).toContain("säästöistä 200 €");
+    expect(container.querySelector("[data-part=gap]")).toBeNull();
     expect(flat(container.querySelector("[data-fig=result] .home-fig-term")?.textContent)).toBe("Otettu säästöistä 200 €");
   });
 
@@ -289,7 +290,8 @@ describe("Yhteenveto's month", () => {
     // the sources are named under their bar with their sums, as the parts of Meni are, and with no share (shares of the income alone would read as a total above 100 %)
     expect(rowsOf(container)).toEqual([["income", "Tulot", "1 000 €"], ["savings", "Säästöistä", "200 €"], ["accounts", "Tileiltä tai korteilta", "300 €"], ["consumption", "Kulutus", "1 500 €"]]);
     expect([...container.querySelectorAll(".home-flow-share")].map((el) => flat(el.textContent)).filter((s) => s !== "")).toEqual([]);
-    expect(flat(container.querySelector("[data-part=gap]")?.textContent)).toBe("Menot ylittivät tulot 500 €. Rahat tulivat säästöistä 200 € ja tileiltä tai korteilta 300 €.");
+    expect(container.querySelector("[data-part=gap]")).toBeNull();
+    expect(container.textContent).not.toContain("Menot ylittivät tulot");
   });
 
   it("says nothing of a gap when the income paid everything", () => {
@@ -301,14 +303,15 @@ describe("Yhteenveto's month", () => {
     const container = summaryIn(data({ totals: { ...totalsOf(100000, 150000, 0, 0), borrowedCents: 40000, leftCents: -10000 } } as never));
     expect(barOf(container, "in").map((s) => s.part)).toEqual(["income", "credit", "accounts"]);
     expect(rowsOf(container)).toEqual([["income", "Tulot", "1 000 €"], ["credit", "Luotosta", "400 €"], ["accounts", "Tileiltä tai korteilta", "100 €"], ["consumption", "Kulutus", "1 500 €"]]);
-    expect(flat(container.querySelector("[data-part=gap]")?.textContent)).toBe("Menot ylittivät tulot 500 €. Rahat tulivat luotosta 400 € ja tileiltä tai korteilta 100 €.");
+    expect(container.querySelector("[data-part=gap]")).toBeNull();
   });
 
-  // credit drew 800 € against a gap of 500 €: 300 € stayed, and Käteen jäi +300 € beside "Menot ylittivät tulot" needs its words
-  it("says what Käteen jäi is when credit covered the gap and money stayed over", () => {
+  // credit drew 800 € against a gap of 500 €: 300 € stayed
+  it("tells no sentence about the gap when credit covered it and money stayed over", () => {
     const container = summaryIn(data({ totals: { ...totalsOf(100000, 150000, 0, 0), borrowedCents: 80000, leftCents: 30000 } } as never));
     expect(flat(container.querySelector("[data-fig=result] .fig")?.textContent)).toBe("300 €");
-    expect(flat(container.querySelector("[data-part=gap]")?.textContent)).toBe("Menot ylittivät tulot 500 €. Rahat tulivat luotosta 800 €. Käteen jäi on se, mitä tileille jäi menojen jälkeen, nostetut rahat mukaan lukien.");
+    expect(container.querySelector("[data-part=gap]")).toBeNull();
+    expect(container.textContent).not.toContain("Käteen jäi on se");
   });
 
   // 1 928 € stayed of 3 428 € income and 200 € taken out of savings: the list names the 200 €, and the shares are of the 3 628 € together
