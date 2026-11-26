@@ -332,6 +332,19 @@ describe("lowPoint with a card", () => {
     expect(walked.line.find((c) => c.date === "2026-11-14")!.cents).toBe(-14_000 + 300_000 - 4 * DAILY);
   });
 
+  it("reads the payday's figure and range from the walk when a small income lands before the payday", () => {
+    const interest = ["2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"].map((m) => tx({ accountId: own.id, bookingDate: `${m}-30`, amountCents: 468, merchant: "Pankki", category: "investment_income" }));
+    const { walked, runway } = walk([...pays(), ...rents(), ...interest, ...shopping("2026-03-01", 4000, ["2026-07", "2026-08", "2026-09"])], [bal(900_000)]);
+    if (!walked.known || !runway.known) throw new Error("no figure");
+    const atPayday = walked.line.find((c) => c.date === runway.payday.date)!;
+    expect([atPayday.cents, atPayday.lowCents, atPayday.highCents]).toEqual([runway.leftCents, runway.lowCents, runway.highCents]);
+    // the income is in the balance of the days after the payday
+    const without = walk([...pays(), ...rents(), ...shopping("2026-03-01", 4000, ["2026-07", "2026-08", "2026-09"])], [bal(900_000)]).walked;
+    if (!without.known) throw new Error("no figure");
+    const dayAfter = addDays(runway.payday.date, 1);
+    expect(walked.line.find((c) => c.date === dayAfter)!.cents - without.line.find((c) => c.date === dayAfter)!.cents).toBe(468);
+  });
+
   it("keeps the lowest balance at or under Jää palkkapäivänä and Käytettävissä inside the payday window", () => {
     const rows = [...pays(), ...rents(), ...cardShopping(), ...statements()].filter((t) => t.bookingDate <= TODAY);
     const { point, runway } = walk(rows, balBoth(200_000), undefined, NO_INPUTS, [own, card]);
