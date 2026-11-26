@@ -14,7 +14,7 @@ export const EN_SHELL: Record<keyof typeof FI_SHELL, string> = {
   "nav.review_open": "open",
   "kind.now": "Now",
   "kind.estimate": "Estimate",
-  "kind.usual": "Usual",
+  "kind.usual": "Expected",
   // the header
   "shell.skip": "Skip to content",
   "shell.main_menu": "Main menu",
