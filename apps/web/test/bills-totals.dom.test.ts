@@ -37,6 +37,20 @@ describe("Laskut: the totals that end the open month", () => {
     ]);
   });
 
+  it("names a total in its row header and gives it no button for details", () => {
+    const items = billItems({ series: [], typed: [], cancelled: new Set(), marks: marksBySubject([]), today: "2026-10-11" });
+    const controls = { markOf: () => null, busy: false, set: () => {}, clear: () => {} };
+    const open = month("2026-10", [bill({ date: "2026-10-20", payee: "Sähköyhtiö" })], { knownCents: 6420, billsCents: 6420, savingCents: 15_000 });
+    const { container } = render(createElement(BillsTable, { calendar: calendar([open, month("2026-11", [bill()])]), items, controls, label: (id: string) => id, scope: "own", onRemoved: () => {} }));
+    const rows = [...container.querySelectorAll("tr.bill-total")];
+    expect(rows).toHaveLength(2);
+    for (const tr of rows) {
+      expect(tr.querySelector("th[scope=row] .bill-total-name"), "the name stands in the row header").not.toBeNull();
+      expect(tr.querySelector(".rt-drill"), "no button for details").toBeNull();
+    }
+    expect(container.querySelectorAll("tr:not(.bill-total) .rt-drill").length, "the other rows keep theirs").toBeGreaterThan(0);
+  });
+
   it("leaves out the totals nothing is behind", () => {
     const totals = totalsOf(month("2026-10", [bill({ date: "2026-10-20", payee: "Sähköyhtiö" })], { knownCents: 6420, billsCents: 6420 }));
     expect(totals).toEqual([expect.stringMatching(/^Tulossa Arvio 64,20/)]);

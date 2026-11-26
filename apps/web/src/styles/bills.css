@@ -96,7 +96,10 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .bill-table tr.bill-total > * { font-weight: var(--w-strong); }
 .bill-total-name { display: inline-flex; align-items: center; gap: var(--sp-8); }
 .bill-table td.bill-total-coming, .bill-table td.bill-total-saving { color: var(--accent-ink); }
-.rt-wrap[data-block] .rt.bill-table > tbody > tr.bill-total > th { display: none; }
+/* on a phone the name stands in the row header over the two columns it leaves empty, and the sum at the end of the line */
+.rt-wrap[data-block] .rt.bill-table > tbody > tr.bill-total > :is(td:nth-child(2), td:nth-child(3), td:nth-child(5)) { display: none; }
+.rt-wrap[data-block] .rt.bill-table > tbody > tr.bill-total > th[scope="row"] { grid-column: 1 / 3; grid-row: 1; }
+.rt-wrap[data-block] .rt.bill-table > tbody > tr.bill-total > td[data-rt="main"] { grid-column: 3; grid-row: 1; }
 /* a row's divider line lies over the top padding of the next row, so a row takes its 44 px and not 45: seven rows and two totals are 9 px of a long page */
 .rt-wrap[data-block] .rt.bill-table > tbody > tr:has(> th[scope="row"]):not(:last-child) { margin-block-end: -1px; }
 /* twelve month heads make the long list of a phone: the opener is 44 px high inside its head whatever the band around it, so the band keeps 4 px above and below, not 8 */

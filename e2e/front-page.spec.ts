@@ -174,8 +174,8 @@ test("at 1440 px the coming months and the accounts stand in one column beside t
   // the table keeps its four columns in the rail
   await expect(page.locator(".home-coming .rt-wrap[data-block]")).toHaveCount(0);
   const heads = plain(await page.locator(".home-coming thead").innerText());
-  for (const name of ["Kuukausi", "Tulot", "Laskut", "Laskujen jälkeen"]) expect(heads).toContain(name);
-  expect(heads.indexOf("Tulot"), "Tulot before Laskut").toBeLessThan(heads.indexOf("Laskut"));
+  for (const name of ["Kuukausi", "Tulot", "Tulossa", "Laskujen jälkeen"]) expect(heads).toContain(name);
+  expect(heads.indexOf("Tulot"), "Tulot before Tulossa").toBeLessThan(heads.indexOf("Tulossa"));
   await expect(page.locator(".home-coming a"), "the figure of Nyt is the one way to Laskut").toHaveCount(0);
   expect(await page.locator(".home-ledger").evaluate((el) => parseFloat(getComputedStyle(el).borderInlineStartWidth)), "the rule between the answer and its working").toBeGreaterThan(0);
   await context.close();
@@ -222,7 +222,8 @@ test("the coming months tell the figures the month heads of Laskut tell", async 
   const total = cents(await page.locator("#laskut-taulukko td.bill-total-coming").innerText());
   for (const month of shown) {
     const at = billCalendar.months.indexOf(month);
-    expect(headsOpen[at] ? total : sums(allHeads[at]!)[0], `${month.month}: Laskut' head`).toBe(month.billsCents);
+    // a closed head names each figure, so Tulossa is read by its name: a paid sum may stand before it
+    expect(headsOpen[at] ? total : sums(plain(allHeads[at]!).match(/Tulossa [^A-Za-zäö]*/)?.[0] ?? "")[0], `${month.month}: Laskut' head`).toBe(month.billsCents);
   }
   await context.close();
 });

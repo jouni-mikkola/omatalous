@@ -93,6 +93,7 @@ export const FI_BILLS = {
   "bills.total_saving": "Säästöön",
   "bills.sum_paid": "Maksettu {sum}",
   "bills.sum_coming": "Tulossa {sum}",
+  "bills.sum_saving": "Säästöön {sum}",
   "bills.sum_essential": "Asuminen ja välttämättömät {sum}",
   "bills.sum_debt": "Lainojen ja korttien erät {sum}",
   "bills.sum_contract": "Leasing ja jäsenyydet {sum}",

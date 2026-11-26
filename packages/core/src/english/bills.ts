@@ -91,6 +91,7 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "bills.total_saving": "To savings",
   "bills.sum_paid": "Paid {sum}",
   "bills.sum_coming": "Coming {sum}",
+  "bills.sum_saving": "To savings {sum}",
   "bills.sum_essential": "Housing and essentials {sum}",
   "bills.sum_debt": "Loan and card payments {sum}",
   "bills.sum_contract": "Leasing and memberships {sum}",

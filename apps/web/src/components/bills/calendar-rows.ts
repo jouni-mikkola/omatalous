@@ -23,7 +23,7 @@ export type CalRow =
   | { key: string; kind: "total"; total: "paid" | "coming" | "saving"; figure: TotalFigure; cents: number };
 
 /** What a total is, as the chips say: `now` is charged already, `estimate` is still to come. */
-export type TotalFigure = "now" | "estimate";
+type TotalFigure = "now" | "estimate";
 
 export interface CalGroup {
   key: string;

@@ -95,8 +95,8 @@ const KINDS = [
 
 /**
  * The sums of a month's head, all core's: pays and what is left after the bills and the saving, and while the month is closed
- * the bills still to come (*Tulossa*, `billsCents`) and the paid ones (*Maksettu*, `paidCents`), which an open month tells in the
- * two totals that close its rows. The sum left is there while something is
+ * the paid bills (*Maksettu*, `paidCents`), the ones still to come (*Tulossa*, `billsCents`) and the saving still to come (*Säästöön*,
+ * `savingCents`), which an open month tells in the totals that close its rows. The sum left is there while something is
  * still to come, below 0 when no pay comes; it is a status while a bill's sum is not known, and nothing in a month with nothing
  * left to come. A bill whose sum or day
  * is not known is in no month's sum, so a month's head carries the count of the ones that leave its sum after the bills unknown
@@ -109,9 +109,10 @@ function MonthSums({ month, unknownCount, open }: { month: CalMonth; unknownCoun
   const afterKnown = !nothingToCome(month) && month.afterCents !== null;
   return (
     <span className="bill-sums" data-closed={open ? undefined : ""}>
-      {/* what is still to pay comes first, as in the bills column of the front page: both read `billsCents` */}
-      {!open && <span className={afterKnown ? undefined : "bill-line"}>{t("bills.sum_coming", { sum: money(month.billsCents) })}</span>}
+      {/* the same order as the open month's totals: what is paid, what is still to pay (the bills column of the front page reads it too), the saving still to come */}
       {!open && paid && <span>{t("bills.sum_paid", { sum: money(month.paidCents) })}</span>}
+      {!open && <span className={afterKnown ? undefined : "bill-line"}>{t("bills.sum_coming", { sum: money(month.billsCents) })}</span>}
+      {!open && month.savingCents > 0 && <span>{t("bills.sum_saving", { sum: money(month.savingCents) })}</span>}
       {open && <span className="bill-kinds">{KINDS.map(([code, field]) => month[field] > 0 && <span key={field}>{t(code, { sum: money(month[field]) })}</span>)}</span>}
       {unknownCount > 0 && <span>{tn(unknownCount, "bills.unknown_one", "bills.unknown_many")}</span>}
       {month.incomeCents > 0 && <span>{t("bills.sum_income", { sum: money(month.incomeCents) })}</span>}
@@ -202,8 +203,20 @@ export function BillsTable({
       label: t("table.day"),
       kind: "date",
       rowHead: true,
-      cell: (r) => (r.kind === "row" ? dayMonth(r.bill.date) : r.kind === "ended" ? (r.item.series ? date(r.item.series.lastDate) : "–") : ""),
-      className: (r) => (r.kind === "total" ? "bill-total-day" : ""),
+      cell: (r) =>
+        r.kind === "row" ? (
+          dayMonth(r.bill.date)
+        ) : r.kind === "ended" ? (
+          r.item.series ? date(r.item.series.lastDate) : "–"
+        ) : r.kind === "total" ? (
+          // a total has no day: its name and kind stand in the row header
+          <span className="bill-total-name">
+            {rowName(r)}
+            <KindChip kind={r.figure} />
+          </span>
+        ) : (
+          ""
+        ),
     },
     {
       key: "payee",
@@ -215,10 +228,7 @@ export function BillsTable({
         r.kind === "fold" ? (
           <span className="bill-fold">{rowName(r)}</span>
         ) : r.kind === "total" ? (
-          <span className="bill-total-name">
-            {rowName(r)}
-            <KindChip kind={r.figure} />
-          </span>
+          ""
         ) : (
           <MarkCell name={rowName(r)} mark={<MerchantAvatar name={rowName(r)} person={r.kind === "row" && r.bill.kind === "income"} size="m" />}>
             <span className="sub-merchant">{rowName(r)}</span>
@@ -296,7 +306,7 @@ export function BillsTable({
         rowProps={(r) => (foldedRows.has(r.key) ? { id: foldedRowId(r.key) } : {})}
         open={open}
         onOpen={setOpen}
-        drill={(r) => <Drill r={r} name={rowName(r)} controls={marking} scope={scope} onRemove={(b) => setRemoving({ id: b.id, name: b.name })} onWrong={(series) => setWrong({ series, name: rowName(r) })} />}
+        drill={(r) => (r.kind === "total" ? null : <Drill r={r} name={rowName(r)} controls={marking} scope={scope} onRemove={(b) => setRemoving({ id: b.id, name: b.name })} onWrong={(series) => setWrong({ series, name: rowName(r) })} />)}
         drillLabel={(r) => t("bills.details", { name: rowName(r) })}
       />
       </div>
@@ -330,9 +340,8 @@ function Folded({ bills, name }: { bills: CalBill[]; name: string }) {
  * bill typed in: when it repeats and its next day, and its removal. Any other row (a pay, a loan payment, a saving) shows
  * the payments of its payee.
  */
-function Drill({ r, name, controls, scope, onRemove, onWrong }: { r: CalRow; name: string; controls: MarkControls; scope: Scope; onRemove: (b: TypedBill) => void; onWrong: (s: Series) => void }) {
+function Drill({ r, name, controls, scope, onRemove, onWrong }: { r: Exclude<CalRow, { kind: "total" }>; name: string; controls: MarkControls; scope: Scope; onRemove: (b: TypedBill) => void; onWrong: (s: Series) => void }) {
   if (r.kind === "fold") return <Folded bills={r.bills} name={name} />;
-  if (r.kind === "total") return null;
   const i = r.item;
   const typed = r.kind === "row" ? r.typed : null;
   if (typed) {
