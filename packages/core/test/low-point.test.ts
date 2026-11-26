@@ -364,8 +364,8 @@ describe("lowPoint's line and steps", () => {
     // 1.11. opens at 500 € and its rent takes it to -400 €; 13.11. is at -400 € until its pay lifts it to 2 600 €
     expect(walked.line).toEqual([...days("2026-10-26", 6, 50_000), flatCorner("2026-11-01", 50_000), ...days("2026-11-01", 13, -40_000), flatCorner("2026-11-13", 260_000)]);
     expect(walked.steps).toEqual([
-      { date: "2026-11-01", payee: "Sato Oyj", cents: -90_000, estimate: false, afterCents: -40_000 },
-      { date: "2026-11-13", payee: "Esimerkki Oy", cents: 300_000, estimate: false, afterCents: 260_000 },
+      { date: "2026-11-01", payee: "Sato Oyj", cents: -90_000, estimate: false, afterCents: -40_000, rowAfterCents: -40_000 },
+      { date: "2026-11-13", payee: "Esimerkki Oy", cents: 300_000, estimate: false, afterCents: 260_000, rowAfterCents: 260_000 },
     ]);
     expectLineHolds(walked);
   });
