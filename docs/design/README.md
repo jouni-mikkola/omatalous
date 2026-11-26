@@ -16,7 +16,7 @@ one sum: what is left on payday after the bills and the everyday spending before
 
 ## 1. Questions and views
 
-Ranked by how often asked. Four tabs: Yhteenveto, Laskut, Tapahtumat, Raportit. Tarkistettavat is the header's link.
+Ranked by how often asked. Five tabs: Yhteenveto, Tapahtumat, Laskut, Varat ja velat, Raportit. Tarkistettavat is the header's link.
 
 ### 1.1 Yhteenveto: how much can we still spend before payday?
 Direction, 11.11.2026: an overview on one screen at 1440 px.
@@ -189,7 +189,7 @@ Deleted with its code, styles, tests and texts unless it says "moves".
 - Five years of data: every view reads the current period and the usual window only; the rows list pages by 100; Vuosi
   shows the last 12 months against the 12 before, with a year picker.
 - Phone, 390 px: the answer fits the first screen with its comparison. Lists become blocks of two lines (name and sum,
-  date and category). The four tabs sit at the bottom. No sideways scroll.
+  date and category). The five tabs sit at the bottom. No sideways scroll.
 
 ## 5. Later
 

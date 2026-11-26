@@ -41,6 +41,28 @@ for (const width of [390, 320]) {
   });
 }
 
+// A page that holds an add-on module has its tab after the five: the bar still fits one row at the narrowest phone. The module is
+// not loaded in the e2e install, so a tab like its own is added to the bar the way the shell draws it.
+test("320 px: the tab bar with an add-on module's tab after the five stays in one row inside the screen", async ({ browser }) => {
+  const { context, page } = await phone(browser, 320);
+  await page.goto("/#/overview");
+  await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
+  await page.locator("nav.nav").evaluate((nav) => {
+    const extra = nav.lastElementChild!.cloneNode(false) as HTMLAnchorElement;
+    extra.removeAttribute("aria-current");
+    extra.textContent = "Lisäosa";
+    nav.append(extra);
+  });
+  await expect(tabs(page)).toHaveCount(6);
+  const boxes = await tabs(page).evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ top: Math.round(r.top), width: r.width, right: r.right })));
+  expect(new Set(boxes.map((b) => b.top)).size, "one row").toBe(1);
+  for (const b of boxes) expect(b.width).toBeGreaterThanOrEqual(TAP);
+  expect(Math.max(...boxes.map((b) => b.right))).toBeLessThanOrEqual(320);
+  expect(await tabs(page).evaluateAll((els) => els.filter((e) => e.scrollWidth > e.clientWidth).map((e) => e.textContent))).toEqual([]);
+  expect(await overflow(page)).toBeLessThanOrEqual(0);
+  await context.close();
+});
+
 test("390 px: the bar draws Varat for Varat ja velat, the user button shows the initials and keeps the full name", async ({ browser }) => {
   const { context, page } = await phone(browser);
   await page.goto("/#/overview");
@@ -73,7 +95,10 @@ for (const width of [390, 1440]) {
     await expect(page.locator('nav.nav [aria-current="page"]')).toHaveCount(0);
     await expect(review(page)).toHaveAttribute("aria-current", "page");
     // on its own page the count is the queue's; on the others it is the count the header asked for
-    await expect(review(page).locator(".nav-count")).toHaveText(/^\d+/);
+    const queue = ((await (await context.request.get("/api/review")).json()) as { items: unknown[] }).items.length;
+    expect(queue, "the demo household has open questions").toBeGreaterThan(0);
+    await expect(review(page).locator(".nav-count")).toHaveText(new RegExp(`^${queue}(\\D|$)`));
+    await expect(page.locator(".review-item").getByRole("heading", { level: 2 })).toContainText(`/ ${queue}`);
     for (const [n, address] of ADDRESSES.entries()) {
       await expect(tabs(page).nth(n)).toBeVisible();
       await tabs(page).nth(n).click();
