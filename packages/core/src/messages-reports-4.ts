@@ -5,18 +5,10 @@
  * Generated entries are plain one-line rows so the coverage test can read them.
  */
 export const FI_REPORTS_4 = {
-  "rpt.st_no_compare": "Vertailujaksolta ei ole tietoja samoilta tileiltä.",
-  "rpt.st_year": "Sarake 12 kuukautta on {months} ajalta {range}.",
-  "rpt.st_caption": "Menot kategorioittain",
-  "rpt.st_search": "Hae kategoriaa",
-  "rpt.st_summary": "{count}, yhteensä {total}{oneoff}.",
-  "rpt.st_drill": "Tapahtumat: {label}",
   "rpt.st_part": "Osa",
   "rpt.sec_parts": "Kategorioiden osat",
   "rpt.u_category": "kategoria",
   "rpt.u_categories": "kategoriaa",
-  "rpt.st_why": "Menot yhteensä",
-  "rpt.st_oneoffs": "Kertaostot",
   "rpt.bal_saved_unlinked": "Tallennetut lainat, joita ei ole liitetty tiliin",
   "rpt.bal_saved": "Tallennetut lainat",
   "rpt.bal_lowest": "Alin saldo {date} <b>{amount}</b>.",

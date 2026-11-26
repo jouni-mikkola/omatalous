@@ -1,7 +1,6 @@
 // Decision: is the household spending more than it earns, month after month, and is this month on its usual course
-import { localeOf } from "@banking/core";
 import { MonthBars } from "../../../charts/MonthBars.tsx";
-import { answerMoney, language, monthLong } from "../../../format.ts";
+import { answerMoney, monthLong } from "../../../format.ts";
 import { spentLabel, t } from "../../../text.ts";
 import type { ReportsData } from "../../../types.ts";
 import type { ReactNode } from "react";
@@ -10,42 +9,54 @@ import { ChartWithTable } from "../../../components/table/selection.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { monthName } from "../month-name.ts";
 import { partialMonths } from "../partial-months.ts";
+import { KeyValue, type Fact } from "../../../components/table/KeyValue.tsx";
 import { Tiles, type TileItem } from "../../../components/Tiles.tsx";
 import { Lead } from "../Lead.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
-/** The gap of the complete months and what paid it, in one sentence: the paying parts above zero, in the order credit, savings, accounts and cards. */
-function gapText(gap: NonNullable<ReportsData["cashflowMonths"]["gap"]>): string {
-  const parts = [
-    gap.creditCents > 0 ? t("rpt.gap_credit", { sum: answerMoney(gap.creditCents) }) : null,
-    gap.savingsCents > 0 ? t("rpt.gap_savings", { sum: answerMoney(gap.savingsCents) }) : null,
-    gap.accountsCents > 0 ? t("rpt.gap_accounts", { sum: answerMoney(gap.accountsCents) }) : null,
-  ].filter((p): p is string => p !== null);
-  const sum = answerMoney(gap.gapCents);
-  return parts.length === 0 ? t("rpt.gap_lead", { sum }) : t("rpt.gap_cover", { sum, parts: new Intl.ListFormat(localeOf(language()), { type: "conjunction" }).format(parts) });
+type Gap = NonNullable<ReportsData["cashflowMonths"]["gap"]>;
+
+/** The gap of the complete months as a tile, and what paid it as facts: the paying parts above zero, in the order credit, savings, accounts and cards. */
+function gapTile(gap: Gap): { tile: TileItem; sources: Fact[] } {
+  const sources: Fact[] = [
+    [t("rpt.gap_credit"), answerMoney(gap.creditCents)],
+    [t("rpt.gap_savings"), answerMoney(gap.savingsCents)],
+    [t("rpt.gap_accounts"), answerMoney(gap.accountsCents)],
+  ];
+  const paid = [gap.creditCents, gap.savingsCents, gap.accountsCents];
+  return { tile: { label: t("rpt.gap_tile"), figure: answerMoney(gap.gapCents), note: t("rpt.gap_tile_note") }, sources: sources.filter((_, i) => paid[i]! > 0) };
 }
 
 /**
- * What the complete months of the period came to: a sentence, the gap and what paid it when they took more than they
- * earned, else that the income covered them, and under it the strip of their income, their spending and the usual
- * month. Each figure is said once: the sentence names only the gap. Nothing without a complete month.
+ * What the complete months of the period came to, as tiles: the gap when they took more than they earned, with what paid
+ * it under them (else a sentence that the income covered them), then their income, their spending and the usual month.
+ * Each figure is said once. Nothing without a complete month or a gap.
  */
 export function CashflowLead({ ctx }: SectionProps) {
   const overview = ctx.data.cashflowMonths;
   if (!overview) return null;
   const { completeTotals: complete, gap, usualSpendCents } = overview;
-  if (complete === null) return gap ? <Lead>{gapText(gap)}</Lead> : null;
+  const gapParts = gap ? gapTile(gap) : null;
+  const sources = gapParts && gapParts.sources.length > 0 && (
+    <>
+      <p className="strip-note">{t("rpt.gap_sources")}</p>
+      <KeyValue items={gapParts.sources} />
+    </>
+  );
+  if (complete === null) return gapParts ? <><Tiles items={[gapParts.tile]} />{sources}</> : null;
   const count = String(complete.months);
   const { peak } = complete;
   const items: TileItem[] = [
+    ...(gapParts ? [gapParts.tile] : []),
     { label: t("rpt.strip_income", { months: count }), figure: answerMoney(complete.incomeCents), note: t("rpt.strip_income_average", { sum: answerMoney(complete.averageIncomeCents) }) },
     { label: t("rpt.strip_spent", { months: count }), figure: answerMoney(complete.spendCents), note: peak ? t("rpt.strip_spent_peak", { month: monthLong(peak.month), sum: answerMoney(peak.spendCents) }) : undefined },
     ...(usualSpendCents === null ? [] : [{ label: t("rpt.strip_usual"), figure: answerMoney(usualSpendCents), note: t("rpt.strip_usual_note", { months: String(overview.usualMonths) }) }]),
   ];
   return (
     <>
-      <Lead>{gap ? gapText(gap) : t("rpt.lead_flows")}</Lead>
+      {!gap && <Lead>{t("rpt.lead_flows")}</Lead>}
       <Tiles items={items} />
+      {sources}
     </>
   );
 }

@@ -129,7 +129,7 @@ describe("Tulot ja menot", () => {
 
   it("leaves the sentence to the page's lead: the section draws only the bars", async () => {
     const container = await show({ overview: overview({ gap: { gapCents: 123400, creditCents: 50000, savingsCents: 73400, accountsCents: 0 } }) });
-    expect(flat(container.textContent)).not.toContain("ylittivät tulot");
+    expect(flat(container.textContent)).not.toContain("Menot yli tulojen");
     expect(container.querySelector(".q-lead")).toBeNull();
   });
 
@@ -171,17 +171,26 @@ describe("Tulot ja menot: the sentence the page opens with", () => {
     return flat(view.container.querySelector(".q-lead")?.textContent);
   }
 
-  it("says the gap of the complete months and what paid it, naming only the parts above zero", async () => {
-    const text = await lead({ overview: overview({ gap: { gapCents: 123400, creditCents: 50000, savingsCents: 73400, accountsCents: 0 } }) });
-    expect(text).toContain("ylittivät tulot 1 234 €");
-    expect(text).toContain("rahat tulivat luotosta 500 € ja säästöistä 734 €.");
-    expect(text).not.toContain("tileiltä");
+  function gapShown(gap: Record<string, number>, more: Record<string, unknown> = {}) {
+    fresh();
+    const view = render(createElement(CashflowLead, { ctx: ctxOf(overview({ gap, ...more })) }));
+    return flat(view.container.textContent);
+  }
+
+  it("gives the gap of the complete months as a tile and what paid it as facts, naming only the parts above zero", () => {
+    const text = gapShown({ gapCents: 123400, creditCents: 50000, savingsCents: 73400, accountsCents: 0 });
+    expect(stripItems()[0]).toBe("Menot yli tulojen 1 234 € Menot ja säästöön siirretty raha, päättyneet kuukaudet");
+    expect(text).toContain("Rahat tulivat");
+    expect(text).toContain("Luotosta 500 €");
+    expect(text).toContain("Säästöistä 734 €");
+    expect(text).not.toContain("Tileiltä");
+    expect(document.querySelector(".q-lead")).toBeNull();
   });
 
-  it("says the gap alone when nothing is known to have paid it", async () => {
-    const text = await lead({ overview: overview({ gap: { gapCents: 20000, creditCents: 0, savingsCents: 0, accountsCents: 0 } }) });
-    expect(text).toContain("ylittivät tulot 200 €");
-    expect(text).not.toContain("rahat tulivat");
+  it("gives the gap tile alone when nothing is known to have paid it", () => {
+    const text = gapShown({ gapCents: 20000, creditCents: 0, savingsCents: 0, accountsCents: 0 });
+    expect(stripItems()[0]).toContain("Menot yli tulojen 200 €");
+    expect(text).not.toContain("Rahat tulivat");
   });
 
   it("says the income covered the complete months when they have no gap, and gives their figures once, in the strip", async () => {
@@ -199,11 +208,10 @@ describe("Tulot ja menot: the sentence the page opens with", () => {
     expect(stripItems().slice(0, 2)).toEqual(["Tulot, 3 kk 12 345 € Keskimäärin 4 115 € kuussa", "Menot, 3 kk 9 876 € Suurin kuukausi syyskuu 2026, 4 000 €"]);
   });
 
-  it("draws the strip under the gap sentence when the months took more than they earned", async () => {
-    const text = await lead({ overview: overview({ gap: { gapCents: 20000, creditCents: 0, savingsCents: 0, accountsCents: 0 } }) });
-    expect(text).toContain("ylittivät tulot 200 €");
-    expect(stripItems()).toHaveLength(3);
-    expect(stripItems()[0]).toBe("Tulot, 10 kk 40 050 € Keskimäärin 4 005 € kuussa");
+  it("draws the income, spending and usual month tiles after the gap tile", () => {
+    gapShown({ gapCents: 20000, creditCents: 0, savingsCents: 0, accountsCents: 0 });
+    expect(stripItems()).toHaveLength(4);
+    expect(stripItems()[1]).toBe("Tulot, 10 kk 40 050 € Keskimäärin 4 005 € kuussa");
   });
 
   it("draws two figures when there is no usual month, and names no dearest month of a single one", async () => {

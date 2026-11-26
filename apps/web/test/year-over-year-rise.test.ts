@@ -1,23 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { datumOf, largestRise } from "../src/pages/reports/sections/YearOverYear.tsx";
+import { datumOf } from "../src/pages/reports/sections/YearOverYear.tsx";
 import { t } from "../src/text.ts";
-
-// a loan that began this year is a fixed cost: the slope leaves it out, the table and the total have it
-const rows = [
-  { category: "groceries", changeCents: 350_00 },
-  { category: "consumer_credit", changeCents: 4_200_00 },
-  { category: "clothing", changeCents: -900_00 },
-  { category: "fees", changeCents: 7_00 },
-];
-
-describe("the largest rise the year comparison names", () => {
-  it("is the largest rise of the table, a fixed cost too", () => {
-    expect(largestRise(rows)?.category).toBe("consumer_credit");
-  });
-  it("is none when nothing rose by 100 € or more", () => {
-    expect(largestRise(rows.filter((r) => r.changeCents < 100_00))).toBeUndefined();
-  });
-});
 
 describe("the figure beside the title of the year comparison", () => {
   const months = (n: number) => Array.from({ length: 12 }, (_, i) => (i < n ? 1 : null));

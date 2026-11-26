@@ -2,18 +2,10 @@
 import type { FI_REPORTS_4 } from "../messages-reports-4.ts";
 
 export const EN_REPORTS_4: Record<keyof typeof FI_REPORTS_4, string> = {
-  "rpt.st_no_compare": "The comparison period has no data from the same accounts.",
-  "rpt.st_year": "The 12 months column covers {months}, {range}.",
-  "rpt.st_caption": "Spending by category",
-  "rpt.st_search": "Search categories",
-  "rpt.st_summary": "{count}, total {total}{oneoff}.",
-  "rpt.st_drill": "Transactions: {label}",
   "rpt.st_part": "Part",
   "rpt.sec_parts": "Parts of each category",
   "rpt.u_category": "category",
   "rpt.u_categories": "categories",
-  "rpt.st_why": "Total spending",
-  "rpt.st_oneoffs": "One-off purchases",
   "rpt.bal_saved_unlinked": "Saved loans not linked to an account",
   "rpt.bal_saved": "Saved loans",
   "rpt.bal_lowest": "Lowest balance {date} <b>{amount}</b>.",

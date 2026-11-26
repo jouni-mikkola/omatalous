@@ -22,7 +22,7 @@ export function ReportPanel({ id, title, datum, actions, children }: { id: strin
  * with the figure. A chart's rows stand under it as a table (ADR 0018) unless another table of the page carries them; pointing at a mark of the chart reads
  * it out, and a click on it keeps only that mark's row in the table. A part that is a table already has no `table`.
  */
-export function QuestionChart({ id, question, answer, table, children, wide }: { id: string; question: string; answer: ReactNode; table?: ReactNode; children?: ReactNode; wide?: boolean }) {
+export function QuestionChart({ id, question, answer, table, children, wide }: { id: string; question: string; answer?: ReactNode; table?: ReactNode; children?: ReactNode; wide?: boolean }) {
   return (
     <figure className={wide ? "qc qc-wide" : "qc"} aria-labelledby={`${id}-q`}>
       <figcaption className="qc-head">
@@ -30,7 +30,7 @@ export function QuestionChart({ id, question, answer, table, children, wide }: {
           <h3 id={`${id}-q`} className="qc-q">
             {question}
           </h3>
-          <p className="qc-a">{answer}</p>
+          {answer && <p className="qc-a">{answer}</p>}
         </div>
       </figcaption>
       <ChartWithTable chart={children} table={table ? <ChartQuestion.Provider value={question}>{table}</ChartQuestion.Provider> : undefined} />
