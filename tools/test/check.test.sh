@@ -92,6 +92,19 @@ t_scenarios_run_once() {
   check "sh: the summary counts one job per scenario and the suite run whole" grep -q 'sh ok (4 scenario jobs from 2 suites, 1 suites whole' "$W/out"
 }
 
+# CHECK_SHARD cuts the jobs of the sh step into parts that add up to all of them
+t_shard_cuts_the_shell_jobs() {
+  world; fake_alpha; fake_beta; fake_plain
+  CHECK_SHARD=1/2 run_check sh
+  check "sh shard: part 1 is green" test "$(cat "$W/rc")" = 0
+  local one
+  one=$(ran)
+  : >"$RUNLOG"
+  CHECK_SHARD=2/2 run_check sh
+  check "sh shard: part 2 is green" test "$(cat "$W/rc")" = 0
+  check "sh shard: the two parts are the six jobs, each once" test "$(printf '%s\n' "$one$(ran)" | tr ',' '\n' | sed '/^$/d' | sort | tr '\n' ',')" = "alpha.test.sh t_one,alpha.test.sh t_one_more,alpha.test.sh t_two,beta.test.sh t_x,beta.test.sh t_y,plain.test.sh plain,"
+}
+
 # a red run keeps what --rerun needs, and --rerun names each failure FLAKE (passes alone) or REAL (fails alone)
 t_rerun_names_flake_and_real() {
   world; fake_alpha
