@@ -52,8 +52,8 @@ test("every address of the app opens its page, and an old address is rewritten t
     ["recurring", "#/bills", /^Laskut/],
     ["recurring#kuukaudet", "#/bills#kuukaudet", /^Laskut/],
     ["categories", "#/transactions?view=merchants", /^Tapahtumat/],
-    ["categories?tab=rules", "#/transactions?view=merchants#saannot", /^Tapahtumat/],
-    ["rules", "#/transactions?view=merchants#saannot", /^Tapahtumat/],
+    ["categories?tab=rules", "#/transactions?view=rules", /^Tapahtumat/],
+    ["rules", "#/transactions?view=rules", /^Tapahtumat/],
     ["settings?section=security", "#/settings/security#turvallisuusloki", /^Asetukset/],
     ["overview?period=12m", "#/reports?period=12m", /^Raportit/],
   ] as const) {

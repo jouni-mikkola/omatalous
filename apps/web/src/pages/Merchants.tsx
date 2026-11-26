@@ -8,10 +8,8 @@ import { MerchantFilters } from "./transactions/FilterChips.tsx";
 import { date, money } from "../format.ts";
 import { t, tn } from "../text.ts";
 import { navigate } from "../hooks.ts";
-import { RULES_ANCHOR } from "../routes.ts";
 import type { Meta, Scope } from "../types.ts";
 import { type Column, Table } from "../components/table/Table.tsx";
-import { Rules } from "./Rules.tsx";
 import "../styles/categories.css";
 import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
@@ -33,10 +31,9 @@ interface MerchantItem {
 const LIMIT = 200;
 
 /**
- * The Kauppiaat tab of Tapahtumat: every merchant of a period with the category its rows go to, and the rules under
- * the table. The filters live in the address (`q`, `category`, `from`, `to`), so a link from another page can open a month.
+ * The Kauppiaat tab of Tapahtumat: every merchant of a period with the category its rows go to. The filters live in the address (`q`, `category`, `from`, `to`), so a link from another page can open a month.
  */
-export function Merchants({ meta, params, scope, anchor }: { meta: Meta; params: URLSearchParams; scope: Scope; anchor?: string }) {
+export function Merchants({ meta, params, scope }: { meta: Meta; params: URLSearchParams; scope: Scope }) {
   const filters = {
     q: params.get("q") ?? "",
     category: params.get("category") ?? "",
@@ -91,15 +88,6 @@ export function Merchants({ meta, params, scope, anchor }: { meta: Meta; params:
   useEffect(() => {
     void load(false);
   }, [load]);
-
-  // an old address to the rules (#/rules, ?tab=rules) lands here with an anchor: scroll once the table above has its height
-  const scrolledFor = useRef<string | undefined>(undefined);
-  const loaded = items !== null || loadError !== null;
-  useEffect(() => {
-    if (anchor !== RULES_ANCHOR || !loaded || scrolledFor.current === anchor) return;
-    scrolledFor.current = anchor;
-    document.getElementById(RULES_ANCHOR)?.scrollIntoView({ block: "start" });
-  }, [anchor, loaded]);
 
   // `what` and the merchant name the button that was pressed: a category change and a removed rule are two actions on one row
   const edit = async (m: MerchantItem, what: "category" | "rule", fn: () => Promise<{ changed: number }>, patch: Partial<MerchantItem>) => {
@@ -250,7 +238,6 @@ export function Merchants({ meta, params, scope, anchor }: { meta: Meta; params:
         {!items && !loadError && <Empty>{t("mer.loading")}</Empty>}
         {items && items.length >= LIMIT && <div className="small muted">{t("mer.cut", { count: LIMIT })}</div>}
       </div>
-      <Rules meta={meta} />
     </>
   );
 }

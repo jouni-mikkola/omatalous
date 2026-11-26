@@ -136,6 +136,8 @@ export function TotalsStrip({ totals, income, today, onPick }: { totals: Totals;
   const inSeries = series === "in";
   const histTitle = t(inSeries ? "tx.hist_in" : "tx.hist_out", { unit: hist ? unitTitle(hist.unit) : "" });
   const phone = usePhone();
+  // Käteen jäi says nearly what Erotus says, so it takes Erotus's place when it differs from it
+  const shownResult = totals.leftCents !== undefined && totals.leftCents !== null && totals.leftCents !== totals.netCents;
   const picture = hist && hist.bins.length > 1 && (
     <figure className="tx-hist">
       <figcaption className="tx-hist-head">
@@ -174,7 +176,7 @@ export function TotalsStrip({ totals, income, today, onPick }: { totals: Totals;
               <Figure text={`${totals.inCents > 0 ? "+" : ""}${money(totals.inCents, false)}`} size="s" />
             </dd>
           </div>
-          {totals.netCents !== undefined && totals.netCents !== null && (
+          {totals.netCents !== undefined && totals.netCents !== null && !shownResult && (
             <div>
               <dt>{t("tx.difference")}</dt>
               <dd>
@@ -190,7 +192,7 @@ export function TotalsStrip({ totals, income, today, onPick }: { totals: Totals;
               </dd>
             </div>
           )}
-          {totals.leftCents !== undefined && totals.leftCents !== null && totals.leftCents !== totals.netCents && (
+          {shownResult && totals.leftCents != null && (
             <div>
               <dt>{t("tx.result")}</dt>
               <dd>

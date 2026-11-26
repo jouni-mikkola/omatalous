@@ -1,8 +1,22 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { answerMoney, clockTime, date, dateRange, dayHeading, dayMonth, percent, signedMoney, dateTime, eurosText, localDay, money, parseEuros, parseRate, rateText, roundedShares, rowMoney, seriesName, setLanguage, setTimeZone, shareText, timeZone } from "../src/format.ts";
+import { answerMoney, clockTime, date, dateRange, dayHeading, dayMonth, initialsOf, percent, signedMoney, dateTime, eurosText, localDay, money, parseEuros, parseRate, rateText, roundedShares, rowMoney, seriesName, setLanguage, setTimeZone, shareText, timeZone } from "../src/format.ts";
 import { seriesId } from "@banking/core";
 import { addedOn } from "../src/pages/settings/Members.tsx";
 import { factLine } from "../src/pages/settings/SecondFactor.tsx";
+
+describe("initialsOf", () => {
+  it("takes the first letter of the first and the last word, or two letters of one word", () => {
+    expect(initialsOf("Aino Virtanen")).toBe("AV");
+    expect(initialsOf("  liisa  Meikäläinen-Virtanen von Äänekoski ")).toBe("LÄ");
+    expect(initialsOf("Kalle")).toBe("KA");
+    expect(initialsOf("Anna-Liisa")).toBe("AL");
+    expect(initialsOf("Anna-Liisa Virtanen")).toBe("AV");
+    expect(initialsOf("\"Aino\" (Virtanen)")).toBe("AV");
+    expect(initialsOf("-Eeva")).toBe("EE");
+    expect(initialsOf(" - ")).toBe("");
+    expect(initialsOf("")).toBe("");
+  });
+});
 
 describe("the texts of amount and rate inputs", () => {
   it("writes cents and hundredths of a percent as the household types them, with plain spaces", () => {

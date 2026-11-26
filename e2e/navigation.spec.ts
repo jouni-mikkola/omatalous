@@ -41,6 +41,24 @@ for (const width of [390, 320]) {
   });
 }
 
+test("390 px: the bar draws Varat for Varat ja velat, the user button shows the initials and keeps the full name", async ({ browser }) => {
+  const { context, page } = await phone(browser);
+  await page.goto("/#/overview");
+  await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
+  const balances = tabs(page).nth(3);
+  // what is drawn: the label is hidden and the short text is the ::after content
+  const drawn = await balances.evaluate((el) => {
+    const label = el.querySelector<HTMLElement>(".nav-label");
+    return { label: label ? getComputedStyle(label).display : "", after: getComputedStyle(el, "::after").content };
+  });
+  expect(drawn).toEqual({ label: "none", after: '"Varat"' });
+  await expect(balances).toHaveAccessibleName("Varat ja velat");
+  await expect(page.locator(".user-menu summary .user-initials")).toHaveText("EA");
+  await expect(page.locator(".user-menu summary .user-name")).toHaveText("E2E Admin");
+  await expect(page.locator(".user-menu summary")).toHaveAccessibleName(/E2E Admin/);
+  await context.close();
+});
+
 for (const width of [390, 1440]) {
   test(`${width} px: the tabs are in sight by name, each opens its page, and Tarkistettavat carries the count of open items`, async ({ browser }) => {
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 }, ...(width < 641 ? { isMobile: true, hasTouch: true } : {}) });

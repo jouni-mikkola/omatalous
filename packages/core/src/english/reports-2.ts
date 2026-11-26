@@ -7,7 +7,7 @@ export const EN_REPORTS_2: Record<keyof typeof FI_REPORTS_2, string> = {
   "rep.q_known": "{percent}% of the last 12 complete months' spending is categorised",
   "rep.q_short_title": "There is little history yet",
   "rep.q_short_detail": "Transactions start on {date}. Comparisons get firmer with three months of history.",
-  "rep.q_uncat_detail": "{amount} is uncategorised{top}. Categorise it under Merchants and rules.",
+  "rep.q_uncat_detail": "{amount} is uncategorised{top}. Categorise it under Transactions > Merchants.",
   "rep.q_uncat_top": ", largest: {names}",
   "rep.q_gap_title": "{name}: {days} days without transactions ({range})",
   "rep.q_gap_detail": "If the account had activity, fetch the transactions again.",

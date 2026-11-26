@@ -156,7 +156,7 @@ describe("pnpm strings on this repository", () => {
     "Yritä uudelleen",
     "Sinulle jaetut tilit näkyvät kohdassa Koko talous.", // pages/Overview.tsx
     "Maksettu yhteensä", // pages/Transactions.tsx
-    "Tapahtumat ja kauppiaat",
+    "Tapahtumien näkymät",
     "Näytä jakso",
     "Ei kauppiaita näillä rajauksilla.", // pages/Merchants.tsx
     "Kauppias (tarkka)", // pages/Rules.tsx

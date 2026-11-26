@@ -76,27 +76,30 @@ describe("redirectRoute", () => {
   });
 });
 
-describe("redirectRoute: the merchants are the Kauppiaat view of Tapahtumat, the rules under them", () => {
-  it("the view and the rules under it are addresses of their own", () => {
+describe("redirectRoute: the merchants are the Kauppiaat view of Tapahtumat and the rules its Säännöt view", () => {
+  it("the two views are addresses of their own", () => {
     expect(redirectRoute(route("transactions", "view=merchants"))).toBeNull();
-    expect(redirectRoute(route("transactions", "view=merchants&from=2026-09-01&category=groceries", "saannot"))).toBeNull();
+    expect(redirectRoute(route("transactions", "view=rules"))).toBeNull();
+    expect(redirectRoute(route("transactions", "view=merchants&from=2026-09-01&category=groceries"))).toBeNull();
     expect(redirectRoute(route("transactions", "group=merchant"))).toBeNull();
   });
 
-  it("the pages the merchants and the rules once were open the view", () => {
+  it("the pages the merchants and the rules once were open the views", () => {
     expect(landing("categories", "")).toBe("#/transactions?view=merchants");
-    expect(landing("categories", "tab=rules")).toBe("#/transactions?view=merchants#saannot");
-    expect(landing("rules", "scope=household")).toBe("#/transactions?scope=household&view=merchants#saannot");
+    expect(landing("categories", "tab=rules")).toBe("#/transactions?view=rules");
+    expect(landing("rules", "scope=household")).toBe("#/transactions?scope=household&view=rules");
   });
 
-  it("the rules card that was on Asetukset opens the rules under the merchants", () => {
+  it("the rules card that was on Asetukset and the anchor under the merchants open the rules", () => {
     for (const role of ["member", "admin"] as const) {
-      expect(hashOf(redirectRoute(route("settings/household", "", "saannot"), role)!)).toBe("#/transactions?view=merchants#saannot");
+      expect(hashOf(redirectRoute(route("settings/household", "", "saannot"), role)!)).toBe("#/transactions?view=rules");
     }
+    expect(hashOf(redirectRoute(route("transactions", "view=merchants&from=2026-09-01", "saannot"))!)).toBe("#/transactions?view=rules&from=2026-09-01");
+    expect(hashOf(redirectRoute(route("transactions", "", "saannot"))!)).toBe("#/transactions?view=rules");
   });
 
   it("settles in one step, for a member and an admin", () => {
-    for (const [page, query, anchor] of [["categories", ""], ["rules", ""], ["settings/household", "", "saannot"]] as const) {
+    for (const [page, query, anchor] of [["categories", ""], ["rules", ""], ["settings/household", "", "saannot"], ["transactions", "view=merchants", "saannot"]] as const) {
       for (const role of ["member", "admin"] as const) expect(redirectRoute(redirectRoute(route(page, query, anchor), role)!, role)).toBeNull();
     }
   });

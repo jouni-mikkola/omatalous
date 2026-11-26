@@ -71,7 +71,7 @@ first page does), so a refund lowers Menot, the rows of a loan account and the m
 short payment's fee is spent, and what lands on savings is saved. It names that sum *Säästöön siirretty* (or *Otettu
 säästöistä* when it is negative), as an amount with no sign, since the name says the direction. Erotus less that sum is Tulos
 of the same rows, and the strip tells it after that term (`leftCents` of `totalsOf`, not added up in the browser) when it
-differs from Erotus.
+differs from Erotus, and then in place of Erotus, which it nearly repeats. When it is the same as Erotus only Erotus is shown.
 The chart's count for a day is the rows that spend (Menot) or bring in (Tulot), as the lead above the list counts them. The days of the list and its
 histogram add up the same flows by booking day, so the bars add up to the strip. A card bill whose statement is read
 stands at what its rows leave of it, and the purchases of the statement stand on their own days, as on the first page,
@@ -1175,7 +1175,7 @@ nothing. Each window answers whether that member's own money lasts to the pay.
 - Fix an account's type under *Asetukset > Tilit*. The type decides how transfers and savings are read.
 - Set one category for a merchant under *Tapahtumat > Kauppiaat*. It applies to every row of that
   merchant, old and new, and removing the merchant's rule returns it to the built-in rules and the trade register.
-- Write your own rules under the merchant table of *Tapahtumat > Kauppiaat*. A rule is plain words, such as a merchant's name, and
+- Write your own rules under *Tapahtumat > Säännöt*. A rule is plain words, such as a merchant's name, and
   matches whole words. Case does not matter, and ä and å match a, ö matches o.
 
 A category you set by hand never changes by itself, not even after an update.

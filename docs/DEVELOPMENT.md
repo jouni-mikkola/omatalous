@@ -210,8 +210,7 @@ module that needs one is added as an extension (the extension files of the serve
 2. The module's routes in their own `Hono` app, mounted at `/api/<id>` behind the flag. While the flag is off they
    answer 404 like an unknown path.
 3. Its page is listed by `extensionPages` in `apps/web/src/extensions.ts` only while the flag is on. `/api/meta` carries
-   the resolved flags. On a wide screen it follows the tabs; on a phone it is in the user menu and takes no place in
-   the tab bar.
+   the resolved flags. It is a tab after the others, in the header of a wide screen and in the tab bar of a phone.
 
 ### New bank
 

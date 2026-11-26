@@ -26,7 +26,7 @@ test("the answers a member gave are listed with the rules: change one, restore t
     else answers[at]!.role = body.role;
     await route.fulfill({ json: { ok: true } });
   });
-  await page.goto("/#/transactions?view=merchants#saannot");
+  await page.goto("/#/transactions?view=rules");
   const card = page.locator(".card").filter({ has: page.getByRole("heading", { name: "Maksajat", exact: true }) });
   await expect(card.locator(".question-row")).toHaveCount(2);
   const ville = card.locator(".question-row").filter({ hasText: "Esimerkki Ville" });
