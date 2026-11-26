@@ -2,6 +2,7 @@
 /**
  * What `pnpm check` prints about the vitest step, from vitest's JSON result (tools/check.sh writes it).
  *   node tools/check/report.mjs <vitest.json>     line 1 is the summary, the following lines the failures and the slow tests
+ *   node tools/check/report.mjs <vitest.json> --files   and then the slowest files, to see where the time of a run goes
  *
  * Line 1 and the "run it alone once" lines are read by the landing script, so their wording stays as it is.
  */
@@ -13,10 +14,12 @@ import { fileURLToPath } from "node:url";
 export const SLOW_MS = 2000;
 /** How many slow tests are named. */
 export const SLOW_SHOWN = 3;
+/** How many files `--files` names. */
+const FILES_SHOWN = 20;
 
 /**
  * @typedef {{ status?: string, title?: string, fullName?: string, duration?: number | null, failureMessages?: string[] }} Assertion
- * @typedef {{ name: string, status?: string, message?: string, assertionResults?: Assertion[] }} FileResult
+ * @typedef {{ name: string, status?: string, message?: string, startTime?: number, endTime?: number, assertionResults?: Assertion[] }} FileResult
  * @typedef {{ numTotalTests: number, numFailedTests?: number, numPendingTests?: number, testResults: FileResult[] }} Result
  */
 
@@ -37,6 +40,21 @@ export function slowTests(r, cwd, minMs = SLOW_MS, n = SLOW_SHOWN) {
     }
   }
   return out.sort((a, b) => b.ms - a.ms).slice(0, n);
+}
+
+/**
+ * The files that took longest, as `{ file, ms }`: the span vitest recorded for the file, else the sum of its tests.
+ * @param {Result} r @param {string} cwd
+ */
+export function slowFiles(r, cwd, n = FILES_SHOWN) {
+  return r.testResults
+    .map((f) => {
+      const span = typeof f.startTime === "number" && typeof f.endTime === "number" ? f.endTime - f.startTime : 0;
+      const tests = (f.assertionResults ?? []).reduce((sum, a) => sum + (a.duration ?? 0), 0);
+      return { file: f.name.replace(cwd, ""), ms: span || tests };
+    })
+    .sort((a, b) => b.ms - a.ms)
+    .slice(0, n);
 }
 
 /** @param {Result} r @param {string} cwd the repository root with a trailing slash. @returns {string[]} */
@@ -82,5 +100,11 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   } catch {
     process.exit(2);
   }
-  console.log(report(r, process.cwd() + "/").join("\n"));
+  const cwd = process.cwd() + "/";
+  const lines = report(r, cwd);
+  if (process.argv.includes("--files")) {
+    lines.push(`slowest ${FILES_SHOWN} test files:`);
+    for (const f of slowFiles(r, cwd)) lines.push(`  ${(f.ms / 1000).toFixed(1)} s ${f.file}`);
+  }
+  console.log(lines.join("\n"));
 }

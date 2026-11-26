@@ -128,8 +128,15 @@ export function proveAccount(h: GeneratedHousehold, accountId: string): Reconcil
   return reconcile(account, rows, h.anchors.get(accountId) ?? [], { historyFrom, foreignDays: [], today: h.today });
 }
 
-/** Households that cover the spec's axes: every member count, each joint, loan and card shape, and each event on its own. */
-export function generatedSet(seed = 1): GeneratedHousehold[] {
+const sets = new Map<number, readonly GeneratedHousehold[]>();
+
+/**
+ * Households that cover the spec's axes: every member count, each joint, loan and card shape, and each event on its own.
+ * Made once per seed and shared by the tests of a worker, so a test reads them and never changes them.
+ */
+export function generatedSet(seed = 1): readonly GeneratedHousehold[] {
+  const known = sets.get(seed);
+  if (known) return known;
   const out: GeneratedHousehold[] = [];
   for (const members of [1, 2, 3, 4] as const) {
     out.push(generateHousehold({ members }, seed));
@@ -137,5 +144,6 @@ export function generatedSet(seed = 1): GeneratedHousehold[] {
     out.push(generateHousehold({ members, joint: "said", loan: "savings", cards: "unconnected", events: ["benefit-rule", "payment-app", "namesake", "member-fee", "refund"] }, seed));
   }
   out.push(generateHousehold({ members: 2, joint: "said", loan: "joint", cards: "connected" }, seed));
+  sets.set(seed, Object.freeze(out));
   return out;
 }

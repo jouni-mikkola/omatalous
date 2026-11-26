@@ -177,7 +177,7 @@ change cannot weaken the check that judges it: the fix of a detector merges befo
 - Tables: every list of rows is `components/table/Table.tsx` (columns, groups, a total, a drill; `KeyValue` for the facts of
   one subject). A page writes cells and never a `<table>`, a column sorts only in a complete list read by size, and under
   600 px of room a row becomes a block, never a sideways scroll (a table of three columns or fewer, or one with `keepColumns`, keeps its columns while they fit). A view nobody needs is deleted with its code, styles, tests
-  and texts, never hidden behind a switch or a fold. `e2e/table-views.spec.ts` checks every view at 390 and 1440 px.
+  and texts, never hidden behind a switch or a fold. `e2e/route-walk.spec.ts` checks every view at 390 and 1440 px.
 - Table toolbar: `Toolbar.tsx` is the one toolbar of a table. A column opts in with `search`, `chips`, `group` or `csv`.
   `model.ts` runs the sorting on TanStack Table v9. A page never writes a toolbar.
 - Table view: `view` and `onView` of `Table` keep the reader's view in the address (`view.ts`). Without them the view

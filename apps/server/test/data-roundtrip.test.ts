@@ -387,15 +387,7 @@ describe("a hostile file is refused and changes nothing", () => {
       source: "c",
     }));
 
-  it("a file of 50 001 balance days is taken whole", async () => {
-    const { a, b } = await pair();
-    const file = await exportOf(a.admin);
-    const key = file.accountBalances[0].account_key;
-    const before = (await b.db.all("SELECT 1 FROM account_balances")).length;
-    await importFile(b.admin, { ...file, accountBalances: balanceRows(key, 50_001) });
-    expect(await b.db.all("SELECT 1 FROM account_balances")).toHaveLength(before + 50_001);
-  }, 120_000);
-
+  // far past the 50 000 rows of the other stores: a file of 50 001 balance days is taken whole too
   it("500 000 balance rows pass the dry run, within the session's 64 MiB", async () => {
     const { a, b } = await pair();
     const file = await exportOf(a.admin);
