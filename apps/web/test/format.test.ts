@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { answerMoney, clockTime, date, dateRange, dayHeading, dayMonth, initialsOf, percent, signedMoney, dateTime, eurosText, localDay, money, parseEuros, parseRate, rateText, roundedShares, rowMoney, seriesName, setLanguage, setTimeZone, shareText, timeZone } from "../src/format.ts";
+import { answerMoney, monthInside, monthStarting, clockTime, date, dateRange, dayHeading, dayMonth, initialsOf, percent, signedMoney, dateTime, eurosText, localDay, money, parseEuros, parseRate, rateText, roundedShares, rowMoney, seriesName, setLanguage, setTimeZone, shareText, timeZone } from "../src/format.ts";
 import { seriesId } from "@banking/core";
 import { addedOn } from "../src/pages/settings/Members.tsx";
 import { factLine } from "../src/pages/settings/SecondFactor.tsx";
@@ -229,6 +229,18 @@ describe("the language of sums and dates", () => {
     setLanguage("fi");
     expect(date("2026-10-09", "2027-06-01")).toBe("9.10.2026");
     expect(dayHeading("2026-10-12", "2026-10-30")).toBe("ma 12.10.");
+  });
+});
+
+describe("a month named inside a sentence", () => {
+  afterEach(() => setLanguage("fi"));
+
+  it("is lower case after a word and capitalised at the start, without the year", () => {
+    expect(monthInside("2026-11")).toBe("marraskuussa");
+    expect(monthStarting("2026-12")).toBe("Joulukuussa");
+    setLanguage("en");
+    expect(monthInside("2026-11")).toBe("November");
+    expect(monthStarting("2026-12")).toBe("December");
   });
 });
 

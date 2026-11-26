@@ -60,11 +60,15 @@ describe("tokens.css contrast, the one look, light", () => {
     expect(below(7, TEXTS, TINTS)).toEqual([]);
   });
 
-  it("the ground right of today (--ahead-fill, the accent at 4.5 %) keeps the text at 7 to 1 on the page and on a surface", () => {
+  it("the ground right of today (--ahead-fill, the accent at a low alpha) keeps the text at 7 to 1 on the page and on a surface", () => {
+    // the alpha is the token's own, read from the generated stylesheet
+    const alpha = Number(/--ahead-fill:[^;]*\/\s*([\d.]+)\)/.exec(readFileSync(new URL("../src/styles/tokens.css", import.meta.url), "utf8"))?.[1]);
+    expect(alpha).toBeGreaterThan(0);
+    expect(alpha).toBeLessThan(1);
     // the alpha colour has no #rrggbb of its own: mix the accent over the ground the way the browser does, in sRGB
     const mixed = (ground: Name): string => {
       const channel = (c: string, i: number) => parseInt(c.slice(1 + 2 * i, 3 + 2 * i), 16);
-      return `#${[0, 1, 2].map((i) => Math.round(channel(HEX.accent, i) * 0.045 + channel(HEX[ground], i) * 0.955).toString(16).padStart(2, "0")).join("")}`;
+      return `#${[0, 1, 2].map((i) => Math.round(channel(HEX.accent, i) * alpha + channel(HEX[ground], i) * (1 - alpha)).toString(16).padStart(2, "0")).join("")}`;
     };
     const grounds: Name[] = ["page", "surface"];
     const texts: Name[] = ["text", "text-2", "muted", "accent-ink"];

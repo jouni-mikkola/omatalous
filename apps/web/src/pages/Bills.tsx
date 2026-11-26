@@ -26,7 +26,7 @@ import { KindCard } from "../components/KindCard.tsx";
 import { ChartWithTable } from "../components/table/selection.tsx";
 import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
-import { answerMoney, dayMonth, monthLong, monthStarting } from "../format.ts";
+import { answerMoney, dayMonth, monthInside, monthLong, monthStarting } from "../format.ts";
 import { useApi } from "../hooks.ts";
 import { t, tn } from "../text.ts";
 import type { Meta, Recurring as Series, ReportsData, Scope } from "../types.ts";
@@ -93,7 +93,7 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
   const listed = items.length > 0 || calendar.months.some((m) => m.rows.length > 0);
   // the open month: what is paid of it (now), what is still to come (estimate); the bills a month the series run at is the usual
   const open = calendar.months[0]!;
-  const month = monthStarting(open.month);
+  const month = monthInside(open.month);
 
   return (
     <div className={`page-grid ${recurring.loading || reports.loading ? "loading" : ""}`}>
@@ -135,16 +135,13 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
             date={dayMonth(monthEnd(open.month))}
             label={t("bills.kind_coming", { month })}
             figure={answerMoney(open.billsCents)}
-            rows={calendar.next ? [{ label: monthLong(calendar.next.month), value: answerMoney(calendar.next.billsCents) }] : []}
+            rows={[...(calendar.next ? [{ label: monthStarting(calendar.next.month), value: answerMoney(calendar.next.billsCents) }] : []), { label: t("bills.kind_year"), value: answerMoney(calendar.billsCents) }]}
           />
           <KindCard
             kind="usual"
-            label={t("bills.kind_usual")}
+            label={t("rep.fixed_figure")}
             figure={answerMoney(fixedCosts.monthlyCents)}
-            rows={[
-              { label: t("bills.kind_year"), value: answerMoney(calendar.billsCents) },
-              ...(calendar.yearlyCents > 0 ? [{ label: t("bills.fig_reserve"), value: answerMoney(calendar.reserveMonthlyCents) }] : []),
-            ]}
+            rows={calendar.yearlyCents > 0 ? [{ label: t("bills.fig_reserve"), value: answerMoney(calendar.reserveMonthlyCents) }] : []}
           />
         </div>
         {calendar.unknownCount > 0 && <p className="bills-lead bills-unknown">{tn(calendar.unknownCount, "bills.unknown_one", "bills.unknown_many")}</p>}

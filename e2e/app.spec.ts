@@ -542,9 +542,10 @@ test("Toistuvat is Laskut: the old address opens the new page, and Yhteenveto li
   // what the page holds: the year's figure and the one table of the months, and no old tile or list
   await page.goto("/#/bills");
   for (const heading of ["Tulevat maksut", "Laskut, sopimukset ja tilaukset"]) await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
-  // the head holds the three cards of the kinds, the usual one with the figure of the next twelve months, and no link to a report; under it the months in one picture
+  // the head holds the three cards of the kinds, the estimate one with the figure of the next twelve months, and no link to a report; under it the months in one picture
   await expect(page.locator("#laskut-taulukko .card-datum")).toHaveCount(0);
-  await expect(page.locator("#tulossa .kind-usual")).toContainText(/Laskut kuussa.+12 kuukaudessa/);
+  await expect(page.locator("#tulossa .kind-estimate")).toContainText(/12 kuukaudessa/);
+  await expect(page.locator("#tulossa .kind-usual")).toContainText(/Kiinteät menot kuussa/);
   await expect(page.getByRole("img", { name: "Laskut kuukausittain, 12 kuukautta" })).toBeVisible();
   await expect(page.locator("#laskut-taulukko").getByRole("link", { name: "Kiinteät menot", exact: true })).toHaveCount(0);
   for (const gone of ["Seuraavaksi erääntyy", "Tilaukset", "Sopimukset ja laskut", "Harvoin tulevat laskut", "Tulevat laskut", "Hinnanmuutokset"]) await expect(page.getByRole("heading", { name: gone, exact: true })).toHaveCount(0);

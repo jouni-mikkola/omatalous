@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { join } from "node:path";
 import { openBillFolds, overflow, watch } from "./helpers.ts";
 
-// Laskut on a phone: the three cards of the kinds (Nyt, Arvio, Tavallinen) share one row at 100 % and keep their text inside, the
+// Laskut on a phone: the three cards of the kinds (Nyt, Arvio, Tavallinen) are stacked full-width rows on a phone (one row on a wide screen) with each name on one line at 100 %, and keep their text inside, the
 // days of the rows start at one x whatever a row carries beside its day (a status, "Kortilla"), and nothing a finger taps stands
 // closer than 12 px to the screen edge. Runs on the demo household that e2e/run.mjs makes.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
@@ -22,7 +22,7 @@ for (const { width, scale } of [{ width: 390, scale: 100 }, { width: 390, scale:
       await page.addStyleTag({ content: `html { font-size: ${scale}%; }` });
       expect(await page.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize))).toBeCloseTo((14 * scale) / 100, 1);
     }
-    // the cards: Nyt, Arvio, Tavallinen in that order, in one row at the normal text size, and the text of none runs out of its card
+    // the cards: Nyt, Arvio, Tavallinen in that order, stacked on a phone and in one row on a wide screen, and the text of none runs out of its card
     const cards = page.locator(".kind-cards .kind-card");
     await expect(cards).toHaveCount(3);
     await expect(cards.locator(".kind-chip")).toHaveText(["Nyt", "Arvio", "Tavallinen"]);
@@ -32,7 +32,13 @@ for (const { width, scale } of [{ width: 390, scale: 100 }, { width: 390, scale:
       expect(b.left, "a card's left edge").toBeGreaterThanOrEqual(0);
       expect(b.right, "a card's right edge").toBeLessThanOrEqual(width);
     }
-    if (scale === 100) expect(new Set(boxes.map((b) => b.top)), "the three cards share a row").toHaveProperty("size", 1);
+    if (phone) expect(new Set(boxes.map((b) => b.top)), "the three cards are stacked").toHaveProperty("size", 3);
+    else expect(new Set(boxes.map((b) => b.top)), "the three cards share a row").toHaveProperty("size", 1);
+    if (phone && scale === 100) {
+      // a name stays on one line: its height is under one and a half lines
+      const wrapped = await cards.locator(".kind-label").evaluateAll((els) => els.filter((el) => el.getBoundingClientRect().height > parseFloat(getComputedStyle(el).lineHeight) * 1.5).map((el) => el.textContent));
+      expect(wrapped, "a card's name wraps").toEqual([]);
+    }
     // one month starts open; on a phone each closed month's head is one line: its name and one figure, a target of a finger's size
     await expect(page.locator("#laskut-taulukko .bill-month[aria-expanded=true]")).toHaveCount(1);
     if (phone) {
