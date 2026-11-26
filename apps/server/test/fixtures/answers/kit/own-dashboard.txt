@@ -1332,103 +1332,116 @@
      "payee": "Sanoma Media Finland",
      "cents": -3290,
      "estimate": false,
-     "afterCents": 173633
+     "afterCents": 173633,
+     "rowAfterCents": 173633
     },
     {
      "date": "2026-10-20",
      "payee": "Elisa",
      "cents": -1990,
      "estimate": false,
-     "afterCents": 171643
+     "afterCents": 171643,
+     "rowAfterCents": 171643
     },
     {
      "date": "2026-10-23",
      "payee": "Acme",
      "cents": 352000,
      "estimate": false,
-     "afterCents": 523643
+     "afterCents": 523643,
+     "rowAfterCents": 523643
     },
     {
      "date": "2026-11-02",
      "payee": "Sato",
      "cents": -105000,
      "estimate": false,
-     "afterCents": 418643
+     "afterCents": 418643,
+     "rowAfterCents": 418643
     },
     {
      "date": "2026-11-05",
      "payee": "Nordea Bank Abp",
      "cents": -61240,
      "estimate": false,
-     "afterCents": 357403
+     "afterCents": 357403,
+     "rowAfterCents": 357403
     },
     {
      "date": "2026-11-08",
      "payee": "Helsingin Kaupunki",
      "cents": -27990,
      "estimate": false,
-     "afterCents": 329413
+     "afterCents": 329413,
+     "rowAfterCents": 329413
     },
     {
      "date": "2026-11-12",
      "payee": "Helen",
      "cents": -11790,
      "estimate": true,
-     "afterCents": 217237
+     "afterCents": 217237,
+     "rowAfterCents": 217237
     },
     {
      "date": "2026-11-18",
      "payee": "Sanoma Media Finland",
      "cents": -3290,
      "estimate": false,
-     "afterCents": 184522
+     "afterCents": 184522,
+     "rowAfterCents": 184522
     },
     {
      "date": "2026-11-20",
      "payee": "Elisa",
      "cents": -1990,
      "estimate": false,
-     "afterCents": 174878
+     "afterCents": 174878,
+     "rowAfterCents": 174878
     },
     {
      "date": "2026-11-25",
      "payee": "Acme",
      "cents": 352000,
      "estimate": false,
-     "afterCents": 512371
+     "afterCents": 512371,
+     "rowAfterCents": 512371
     },
     {
      "date": "2026-12-02",
      "payee": "Sato",
      "cents": -105000,
      "estimate": false,
-     "afterCents": 373891
+     "afterCents": 373891,
+     "rowAfterCents": 373891
     },
     {
      "date": "2026-12-05",
      "payee": "Nordea Bank Abp",
      "cents": -61240,
      "estimate": false,
-     "afterCents": 309068
+     "afterCents": 309068,
+     "rowAfterCents": 309068
     },
     {
      "date": "2026-12-08",
      "payee": "Helsingin Kaupunki",
      "cents": -27990,
      "estimate": false,
-     "afterCents": 267480
+     "afterCents": 267480,
+     "rowAfterCents": 267480
     },
     {
      "date": "2026-12-12",
      "payee": "Helen",
      "cents": -10637,
      "estimate": true,
-     "afterCents": 239299
+     "afterCents": 239299,
+     "rowAfterCents": 239299
     }
    ],
    "startCents": 176923,
    "cardDebtCents": 63077,
-   "everydayPerDayCents": 0,
    "spending": [
     {
      "date": "2026-11-12",
