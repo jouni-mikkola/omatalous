@@ -101,7 +101,7 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "bills.monthly_fold": "Monthly bills, {count}",
   "bills.paid_fold": "Paid bills, {count}",
   "bills.card_fold": "On card, {count}",
-  "bills.fig_reserve": "Set aside a month for rare bills",
+  "bills.fig_reserve": "Reserve for rare bills",
   "bills.kind_paid": "Paid in {month}",
   "bills.kind_coming": "Coming in {month}",
   "bills.kind_count": "Bills",

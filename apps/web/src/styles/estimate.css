@@ -23,25 +23,30 @@
 .kind-date { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums; }
 
 .kind-cards { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); gap: var(--sp-12); }
-.kind-card { display: flex; flex-direction: column; gap: var(--sp-4); min-inline-size: 0; padding: var(--sp-12) var(--sp-16) var(--sp-12); background: var(--surface); border: var(--hairline) solid var(--grid); border-block-start: var(--tick) solid var(--text); }
+.kind-card { display: flex; flex-direction: column; gap: var(--sp-4); min-inline-size: 0; padding: var(--sp-8) var(--sp-12) var(--sp-8); background: var(--surface); border: var(--hairline) solid var(--grid); border-block-start: var(--tick) solid var(--text); }
 .kind-estimate { border-block-start: var(--tick) dashed var(--accent-ink); }
 .kind-usual { background: none; border-block-start: var(--tick) solid var(--grid); }
-.kind-label { margin-block-start: var(--sp-8); font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); }
+/* the chip and the name of the figure share a line while they fit, and the name drops under the chip when it does not */
+.kind-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-8); }
+.kind-label { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); }
 .kind-estimate .fig { color: var(--accent-ink); }
 .kind-usual .fig { color: var(--muted); font-weight: var(--w-regular); }
-.kind-rows { margin: var(--sp-8) 0 0; border-block-start: var(--hairline) solid var(--grid); }
-.kind-rows > div { display: flex; justify-content: space-between; gap: var(--sp-8); padding: var(--sp-4) 0; border-block-end: var(--hairline) solid var(--grid); font-size: var(--fs-body); line-height: var(--lh-body); }
+/* the smaller figures of a kind share a line, and wrap to the next when the card is narrow */
+.kind-rows { display: flex; flex-wrap: wrap; gap: 0 var(--sp-16); margin: 0; }
+.kind-rows > div { display: flex; gap: var(--sp-8); font-size: var(--fs-body); line-height: var(--lh-body); }
 .kind-rows dt { color: var(--text-2); min-inline-size: 0; }
 .kind-rows dd { margin: 0; font-weight: var(--w-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .kind-estimate .kind-rows dd { color: var(--accent-ink); }
 .kind-usual .kind-rows dd { color: var(--muted); font-weight: var(--w-regular); }
-/* three cards share a phone's width, so the figure steps down and a row's name sits over its sum */
+/* three cards share a phone's width, so the figure steps down, the chip's date wraps under it when it must and a row's name sits over its sum */
 @media (max-width: 640px) {
   .kind-cards { gap: var(--sp-8); }
-  .kind-card { padding: var(--sp-8) var(--sp-8) var(--sp-8); }
-  .kind-head { flex-direction: column; align-items: flex-start; gap: 0; }
+  .kind-card { gap: 0; padding: var(--sp-4) var(--sp-8) var(--sp-8); }
+  .kind-head { flex-wrap: wrap; gap: 0 var(--sp-4); min-block-size: 0; }
+  .kind-chip { padding: 0 var(--sp-4); line-height: var(--lh-label); }
   .kind-card .fig-l { font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); }
   .kind-label, .kind-rows > div { font-size: var(--fs-label); line-height: var(--lh-label); }
+  .kind-rows { flex-direction: column; }
   .kind-rows > div { flex-direction: column; gap: 0; }
 }
 }
