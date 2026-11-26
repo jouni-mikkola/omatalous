@@ -13,7 +13,7 @@ test("the figure under the Arvio chip is what the server says is still to come, 
   const answer = await context.request.get("/api/reports?scope=own&reports=billCalendar,fixedCosts");
   expect(answer.ok()).toBe(true);
   const { billCalendar, fixedCosts } = (await answer.json()) as {
-    billCalendar: { months: { paidCents: number; billsCents: number }[] };
+    billCalendar: { months: { paidCents: number; billsCents: number }[]; next: { billsCents: number } | null };
     fixedCosts: { monthlyCents: number };
   };
   const open = billCalendar.months[0]!;
@@ -33,10 +33,12 @@ test("the figure under the Arvio chip is what the server says is still to come, 
   const now = await figure("now");
   const estimate = await figure("estimate");
   expect(now, "Nyt: paid this month").toBe(euros(open.paidCents));
-  expect(estimate, "Arvio: still to come this month").toBe(euros(open.billsCents));
+  // with nothing left this month the card shows the next month with bills
+  const unpaidCents = open.billsCents === 0 && billCalendar.next ? billCalendar.next.billsCents : open.billsCents;
+  expect(estimate, "Arvio: still unpaid").toBe(euros(unpaidCents));
   expect(await figure("usual"), "Tavallinen: the bills a month").toBe(euros(fixedCosts.monthlyCents));
   // each is rounded to a euro, so the two add up to the month's bills within a euro
-  expect(Math.abs(now + estimate - (open.paidCents + open.billsCents)), "Nyt and Arvio against the month").toBeLessThanOrEqual(100);
+  expect(Math.abs(now + estimate - (open.paidCents + unpaidCents)), "Nyt and Arvio against the month").toBeLessThanOrEqual(100);
   await context.close();
 });
 
@@ -55,8 +57,8 @@ test("the two totals that end the open month are the server's paid and still-to-
 
   const coming = table.locator("tr.bill-total").filter({ has: page.locator("td.bill-total-coming") });
   await expect(coming).toHaveCount(1);
-  await expect(coming).toContainText("Tulossa");
-  expect(cents(await coming.locator("td.bill-total-coming").innerText()), `${open.month}: Tulossa`).toBe(open.billsCents);
+  await expect(coming).toContainText("Maksamatta");
+  expect(cents(await coming.locator("td.bill-total-coming").innerText()), `${open.month}: Maksamatta`).toBe(open.billsCents);
 
   // Maksettu is there only when a charge is made
   const paid = table.locator("tr.bill-total").filter({ has: page.locator("td.bill-total-paid") });

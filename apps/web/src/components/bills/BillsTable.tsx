@@ -5,7 +5,7 @@
  * chips or sorting. A row is a bill, a loan payment, a pay or a regular saving with its day, its amount and whether the
  * day and the amount are known (Tiedossa), the amount an estimate (Summa arvioitu) or paid (Maksettu). A bill a card pays says so in the
  * status and is in no sum. An open month's rows end in two totals, each with the chip of its kind: Maksettu (`paidCents`, Nyt,
- * only while a charge is made) and Tulossa (`billsCents`, Arvio). The head of a month carries core's sums (`incomeCents`,
+ * only while a charge is made) and Maksamatta (`billsCents`, Arvio). The head of a month carries core's sums (`incomeCents`,
  * `afterCents`, and while it is closed `billsCents` and `paidCents`) and, while the month is open, the bills by kind
  * (`essentialCents`, `debtCents`, `contractCents`, `optionalCents`); the page adds up nothing. The running month's name
  * is followed by *kesken*, every later month's by the Arvio chip. In a month that holds a bill whose sum is not known the sum of what is left is a
@@ -95,7 +95,7 @@ const KINDS = [
 
 /**
  * The sums of a month's head, all core's: pays and what is left after the bills and the saving, and while the month is closed
- * the paid bills (*Maksettu*, `paidCents`), the ones still to come (*Tulossa*, `billsCents`) and the saving still to come (*Säästöön*,
+ * the paid bills (*Maksettu*, `paidCents`), the ones still to come (*Maksamatta*, `billsCents`) and the saving still to come (*Säästöön*,
  * `savingCents`), which an open month tells in the totals that close its rows. The sum left is there while something is
  * still to come, below 0 when no pay comes; it is a status while a bill's sum is not known, and nothing in a month with nothing
  * left to come. A bill whose sum or day

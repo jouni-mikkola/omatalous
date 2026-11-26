@@ -259,14 +259,14 @@ const tab = (/** @type {Page} */ page, /** @type {string} */ name) => page.getBy
 
 /**
  * The first month of the Laskut table with bills in it: a group head carries core's sum of the month's bills, and once a
- * bill of a month is still to pay, "Tulossa": a closed month says it in its head, an open one in the total that ends its rows.
+ * bill of a month is still to pay, "Maksamatta": a closed month says it in its head, an open one in the total that ends its rows.
  * A month with nothing to pay is passed.
  */
 async function billsMonth(/** @type {Locator} */ list) {
   for (const group of await list.locator("tr.rt-group").all()) {
     const open = (await group.locator("button[aria-expanded=true]").count()) > 0;
     const text = open ? await group.locator("xpath=following-sibling::tr[contains(@class,'bill-total')][1]").textContent() : await group.textContent();
-    const head = /Tulossa ([\d ,]+ €)/.exec(plain(text ?? ""));
+    const head = /Maksamatta ([\d ,]+ €)/.exec(plain(text ?? ""));
     if (head && cents(/** @type {string} */ (head[1])) > 0) return { month: group, head };
   }
   throw new Error("Laskut: no month has a sum of bills still to pay");
