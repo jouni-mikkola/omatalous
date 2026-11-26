@@ -115,9 +115,23 @@ describe("the bill calendar", () => {
     expect(october).toMatchObject({ knownCents: 0, estimateCents: 0 });
     // the charges made are the month's paid sum, to the cent, and a month to come has none
     expect(october.paidCents).toBe(power("2026-10") + MUSIC + RENT);
+    expect(october.paidCount).toBe(3);
+    expect(cal.months.slice(1).every((m) => m.paidCount === 0)).toBe(true);
     expect(cal.months.slice(1).every((m) => m.paidCents === 0)).toBe(true);
     // the same charge, a month on, is a bill to come
     expect(cal.months[1]!.knownCents).toBeGreaterThan(0);
+  });
+
+  it("has the running month's paid sum and its sum still to come add up to the month's bills, to the cent", () => {
+    // the 8th: the rent and the music are charged, the electricity of the 10th is still to come
+    const { cal } = run(household(), NO_INPUTS, "2026-10-08");
+    const open = cal.months[0]!;
+    const billRows = open.rows.filter((r) => (r.kind === "bill" || r.kind === "loan") && !r.onCard);
+    expect(open.paidCents).toBe(RENT + MUSIC);
+    expect(open.billsCents).toBeGreaterThan(0);
+    expect(open.billsCents).toBe(billRows.filter((r) => r.state !== "paid").reduce((total, r) => total + r.cents, 0));
+    expect(open.paidCents + open.billsCents).toBe(billRows.reduce((total, r) => total + r.cents, 0));
+    expect(open.paidCount).toBe(2);
   });
 
   it("takes the charge of the same month last year for a varying monthly bill, so the winter costs more", () => {

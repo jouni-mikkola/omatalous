@@ -19,7 +19,7 @@ with it. A new word for a thing already named here is not added: the term below 
 | Account balances less card debt (and loans, when known) | *Varat velkojen jälkeen* | *Nettovarat*, *Netto*, *Tileillä*, *Varallisuus* |
 | The section of accounts and debts | *Varat ja velat* | *Varallisuus* |
 | What a period left on the accounts: income and credit drawn, less spending, debt service and what went to savings (more when savings were drawn on) | *Käteen jäi*, on every page that shows it; the registry and the money flows doc call it *Tulos* | *Tulos* as a label, *Yli jäi*, *Jäännös*, *jäämä* |
-| Income and spending as short labels (a table, a row of figures) | *Tulot*, *Menot*, *Erotus* | *Maksettu*, *Saatu*, *Ero* |
+| Income and spending as short labels (a table, a row of figures) | *Tulot*, *Menot*, *Erotus* | *Maksettu*, *Saatu*, *Ero* (*Maksettu* is the state of a bill, next row) |
 | The pays of a month on Laskut less its bills and its regular saving | *Laskujen jälkeen*, also as the column head of Tulevat kuukaudet on Yhteenveto | *Erotus* (that is income less spending) |
 | The sums of the filtered rows on Tapahtumat, own transfers left out | *Menot*, *Tulot*, *Erotus*, and *Säästöön siirretty* or *Otettu säästöistä* for what the rows move to or from savings, named as on Yhteenveto; *Käteen jäi* takes the place of *Erotus* when it differs from it | *Rahaa ulos*, *Rahaa sisään* |
 | Taking a bank connection into use | *yhdistä* (a bank, an account), *Yhdistä uudelleen* | *linkitä*, *liitä* (*liitä osoite* stays: that is pasting text) |
@@ -35,6 +35,8 @@ with it. A new word for a thing already named here is not added: the term below 
 | A link to a balance that is missing | *Lisää saldo*, *Lisää saldot* | *Tallenna saldo* as a link |
 | What a month usually costs | *tavallinen* ("Tavallinen 2 825 € (viime 6 kuukauden keskiarvo)"), for income *tavalliset tulot* (the mean earned income, in Tulot's month table; *säännölliset tulot* is the median of the regular series and stands in Tulot alone). The text names what it rests on. In Saldot and Velat the word is *yleensä* ("Yleensä 2 825 €") | *odotettu*, *odotetut tulot*, *normaali*, *keskitaso* |
 | The range a figure usually moves in | *tavallisesti 2 700–3 260 €* | *vaihteluväli*, *prosenttipiste*, *5.–95. prosenttipiste* |
+| What a figure is: happened, expected, usual (ADR 0030) | the chips *Nyt* (with the date), *Arvio* (with the date it is for) and *Tavallinen*, always in that order | *Ennuste*, *Odotettu*, *Toteutunut* as the name of a kind |
+| The state of a bill in the month: paid, still to come | *Maksettu* and *Tulossa* with the month in the inessive and in lower case (*Maksettu marraskuussa*, *Tulossa marraskuussa*) | *Avoinna*, *Erääntyvä* as the name of a state |
 | A forecast in a report (Saldot) | the reader as subject, a rounded figure and a plain range: "Sinulle jää noin 4 800 €. Se voi olla 3 900–5 700 €." Columns *Arvio*, *Alin*, *Ylin* | *Todennäköisin*, *Todennäköinen väli*, *Säästöön kertynyt* |
 | The parts a report figure is made of | *Mistä luku koostuu* | *Luvun osat* |
 | The difference to the usual in a report table | *Yli tai alle*, the total *Yhteensä* | *Erotus* in the reports of Saldot and Velat |

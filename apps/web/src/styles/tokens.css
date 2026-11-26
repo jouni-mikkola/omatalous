@@ -74,6 +74,7 @@
   --plate-edge: oklch(0.15 0 0 / 0.14);
   --estimate-fill: oklch(0.465 0.14 259.5 / 0.12);
   --estimate-edge: oklch(0.465 0.14 259.5);
+  --ahead-fill: oklch(0.465 0.14 259.5 / 0.045);
   --balance-fill: oklch(0.465 0.14 259.5 / 0.1);
   --backdrop: oklch(0.222 0.03 261.3 / 0.4);
   --sp-4: 0.25rem;

@@ -1,8 +1,8 @@
 /**
  * Decision: what is coming in the next twelve months, and which bill, contract or subscription to drop.
  *
- * Laskut answers with a sentence on what the next month and the dearest one cost, three figures (the year's bills, what the
- * next month leaves, what to set aside a month for the bills that come less often), the twelve months in one picture
+ * Laskut answers with three cards of the kinds of a figure (Nyt: the bills paid this month, Arvio: what is still to come,
+ * Tavallinen: what a month of the twelve costs and what to set aside for the bills that come less often), the twelve months in one picture
  * (MonthColumns: the bills that come every month and the rest), the picked month by day (BillDays) and one table in the
  * order of the calendar: a group for each of the twelve months, with the bills, the pays and the regular saving of the month
  * and what is left after the bills (BillsTable). A month picked on the picture opens in the table. A bill the history cannot
@@ -12,21 +12,21 @@
  * (`seriesMarkSubject`); an old one on a merchant still covers every series of it. Instalment plans and loans are asked
  * in Tarkistettavat, never here.
  */
-import { cancelledSubjects, countingMark, type MarkKind, marksBySubject, NO_INPUTS, seriesMarkSubject, type UserMark } from "@banking/core";
+import { cancelledSubjects, countingMark, type MarkKind, marksBySubject, monthEnd, NO_INPUTS, seriesMarkSubject, type UserMark } from "@banking/core";
 import { useState } from "react";
 import { api, query } from "../api.ts";
 import { MonthColumns } from "../charts/forms/MonthColumns.tsx";
 import { BillDays } from "../components/bills/BillDays.tsx";
 import { BillForm } from "../components/bills/BillForm.tsx";
 import { BillsTable, type MarkControls } from "../components/bills/BillsTable.tsx";
-import { nothingToCome, startOpenMonth } from "../components/bills/calendar-rows.ts";
+import { startOpenMonth } from "../components/bills/calendar-rows.ts";
 import { billItems } from "../components/bills/items.ts";
 import { ErrorCard } from "../components/ErrorCard.tsx";
-import { Figure } from "../components/Figure.tsx";
+import { KindCard } from "../components/KindCard.tsx";
 import { ChartWithTable } from "../components/table/selection.tsx";
 import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
-import { answerMoney, monthLong, monthStarting } from "../format.ts";
+import { answerMoney, dayMonth, monthInside, monthLong, monthStarting } from "../format.ts";
 import { useApi } from "../hooks.ts";
 import { t, tn } from "../text.ts";
 import type { Meta, Recurring as Series, ReportsData, Scope } from "../types.ts";
@@ -37,7 +37,7 @@ import "../styles/statement.css";
 export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
   const recurring = useApi<{ series: Series[]; marks: UserMark[] }>(`/api/recurring${query({ scope })}`);
   // the calendar of the twelve months, and the bills typed in, which are the `upcoming` report's list
-  const reports = useApi<ReportsData>(`/api/reports${query({ scope, reports: "billCalendar,upcoming" })}`);
+  const reports = useApi<ReportsData>(`/api/reports${query({ scope, reports: "billCalendar,upcoming,fixedCosts" })}`);
   // what the last save answered: fresher than the list the page was loaded with
   const [saved, setSaved] = useState<UserMark[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -59,7 +59,7 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
   if (!recurring.data || !reports.data) return <BillsLoading />;
 
   const { series } = recurring.data;
-  const { billCalendar: calendar, upcoming } = reports.data;
+  const { billCalendar: calendar, upcoming, fixedCosts } = reports.data;
   const label = (id: string) => meta.categories.find((c) => c.id === id)?.label ?? id;
   const markList = saved ?? recurring.data.marks;
   const marks = marksBySubject(markList);
@@ -91,11 +91,9 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
   };
   const items = billItems({ series, typed: upcoming.manual, cancelled, marks, today: meta.today });
   const listed = items.length > 0 || calendar.months.some((m) => m.rows.length > 0);
-  // the month the lead already named says its sum once
-  const dearest = calendar.dearest && calendar.dearest.month !== calendar.next?.month ? calendar.dearest : null;
-  // what the month after today's leaves, told while it is known and something is still to come
-  const following = calendar.months[1];
-  const afterKnown = following !== undefined && !nothingToCome(following) && following.afterCents !== null;
+  // the open month: what is paid of it (now), what is still to come (estimate); the bills a month the series run at is the usual
+  const open = calendar.months[0]!;
+  const month = monthInside(open.month);
 
   return (
     <div className={`page-grid ${recurring.loading || reports.loading ? "loading" : ""}`}>
@@ -130,37 +128,23 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
             {t("bills.added", { name: added })}
           </p>
         )}
-        {(calendar.next || dearest || calendar.unknownCount > 0) && (
-          <p className="bills-lead">
-            {calendar.next &&
-              (calendar.next.debtCents > 0
-                ? t("bills.due_debt", { month: monthStarting(calendar.next.month), bills: answerMoney(calendar.next.billsCents), debt: answerMoney(calendar.next.debtCents) })
-                : t("bills.due", { month: monthStarting(calendar.next.month), bills: answerMoney(calendar.next.billsCents) }))}
-            {dearest && ` ${t("bills.dearest", { month: monthLong(dearest.month), bills: answerMoney(dearest.billsCents) })}`}
-            {calendar.unknownCount > 0 && <span className="bills-unknown">{tn(calendar.unknownCount, "bills.unknown_one", "bills.unknown_many")}</span>}
-          </p>
-        )}
-        <div className="key-figures bills-figures">
-          <div className="kf">
-            <span className="kf-label">{t("bills.fig_year")}</span>
-            <Figure text={answerMoney(calendar.billsCents)} size="l" />
-            <span className="kf-sub">{t("bills.fig_year_per", { perMonth: answerMoney(calendar.perMonthCents) })}</span>
-          </div>
-          {following && afterKnown && (
-            <div className="kf">
-              <span className="kf-label">{t("bills.fig_after", { month: monthStarting(following.month) })}</span>
-              <Figure text={answerMoney(following.afterCents!)} size="l" />
-              {following.incomeCents > 0 && <span className="kf-sub">{t("bills.sum_income", { sum: answerMoney(following.incomeCents) })}</span>}
-            </div>
-          )}
-          {calendar.yearlyCents > 0 && (
-            <div className="kf">
-              <span className="kf-label">{t("bills.fig_reserve")}</span>
-              <Figure text={answerMoney(calendar.reserveMonthlyCents)} size="l" />
-              <span className="kf-sub">{t("bills.fig_reserve_year", { sum: answerMoney(calendar.yearlyCents) })}</span>
-            </div>
-          )}
+        <div className="kind-cards">
+          <KindCard kind="now" date={dayMonth(meta.today)} label={t("bills.kind_paid", { month })} figure={answerMoney(open.paidCents)} rows={[{ label: t("bills.kind_count"), value: String(open.paidCount) }]} />
+          <KindCard
+            kind="estimate"
+            date={dayMonth(monthEnd(open.month))}
+            label={t("bills.kind_coming", { month })}
+            figure={answerMoney(open.billsCents)}
+            rows={[...(calendar.next ? [{ label: monthStarting(calendar.next.month), value: answerMoney(calendar.next.billsCents) }] : []), { label: t("bills.kind_year"), value: answerMoney(calendar.billsCents) }]}
+          />
+          <KindCard
+            kind="usual"
+            label={t("rep.fixed_figure")}
+            figure={answerMoney(fixedCosts.monthlyCents)}
+            rows={calendar.yearlyCents > 0 ? [{ label: t("bills.fig_reserve"), value: answerMoney(calendar.reserveMonthlyCents) }] : []}
+          />
         </div>
+        {calendar.unknownCount > 0 && <p className="bills-lead bills-unknown">{tn(calendar.unknownCount, "bills.unknown_one", "bills.unknown_many")}</p>}
       </section>
       {markError && <Notice tone="error">{markError}</Notice>}
       {listed ? (

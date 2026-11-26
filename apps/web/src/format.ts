@@ -301,9 +301,15 @@ export function monthLong(month: string): string {
 /** "marraskuu 2026" as "marraskuussa 2026" (in English "November 2026"): for a sentence that says what happened in the month. */
 export const monthLongIn = (month: string): string => (lang === "en" ? monthLong(month) : monthLong(month).replace(/^(\S+)/, "$1ssa"));
 
+/** "2026-12" as "joulukuussa" (in English "December"): the month alone, to follow a word that says what falls in it. */
+export function monthInside(month: string): string {
+  const word = monthLongIn(month).replace(/\s\d{4}$/, "");
+  return lang === "en" ? word : word.toLowerCase();
+}
+
 /** "2026-12" as "Joulukuussa" (in English "December"): the month alone, to start a sentence that says what falls in it. */
 export function monthStarting(month: string): string {
-  const word = monthLongIn(month).replace(/\s\d{4}$/, "");
+  const word = monthInside(month);
   return word.charAt(0).toUpperCase() + word.slice(1);
 }
 

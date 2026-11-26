@@ -70,6 +70,8 @@ interface BillMonth {
   billsCents: number;
   /** The bills and loan payments already charged this month (state "paid"), the ones on a card left out: in no sum above, so the running month's head tells them next to `billsCents`. 0 in a month to come. */
   paidCents: number;
+  /** How many bills and loan payments `paidCents` adds up. */
+  paidCount: number;
   /**
    * `billsCents` by what the bills are for (`costKindOf`): the four add up to it, to the cent. A bill whose sum is not known is in none of
    * them, as it is in no `billsCents`; the month's count of those is `unknownsIn`.
@@ -104,12 +106,8 @@ interface BillCalendar {
   months: BillMonth[];
   /** The bills still to pay of the twelve months, the months' `billsCents` together. */
   billsCents: number;
-  /** `billsCents` over the twelve months, rounded to a cent: what the bills take in an average month. */
-  perMonthCents: number;
-  /** The month after today's, whose bills are all still to come, with the loan and card payments among them (`debtCents`). Null when it has no bills. */
-  next: { month: string; billsCents: number; debtCents: number } | null;
-  /** The month with the most bills still to pay, the first when two tie. Null when no month has bills. */
-  dearest: { month: string; billsCents: number } | null;
+  /** The month after today's, whose bills are all still to come. Null when it has no bills. */
+  next: { month: string; billsCents: number } | null;
   /**
    * The rare bills of the same twelve months and what to set aside each month for them. As `billsCents` does, it leaves out a bill that
    * a card or an account the balance does not count pays (the card's own bill is a row of the months), and it keeps a bill paid this month.
@@ -313,6 +311,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
     const kindCents = (kind: CostKind) => sum((r) => (bill(r, "known") || bill(r, "estimate")) && costKindOf(r.category, r.kind === "loan") === kind);
     const [essentialCents, debtCents, contractCents, optionalCents] = COST_KINDS.map(kindCents) as [number, number, number, number];
     const paidCents = sum((r) => (r.kind === "bill" || r.kind === "loan") && r.state === "paid" && !r.onCard);
+    const paidCount = count((r) => (r.kind === "bill" || r.kind === "loan") && r.state === "paid" && !r.onCard);
     const savingCents = sum(saving);
     const incomeCents = sum((r) => r.kind === "income");
     return {
@@ -324,6 +323,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       incomeCents,
       billsCents: knownCents + estimateCents,
       paidCents,
+      paidCount,
       essentialCents,
       debtCents,
       contractCents,
@@ -338,15 +338,12 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
   });
   const billsCents = months.reduce((total, m) => total + m.billsCents, 0);
   const following = months[1]!;
-  const dearest = months.reduce<BillMonth | null>((most, m) => (m.billsCents > (most?.billsCents ?? 0) ? m : most), null);
   return {
     from: today,
     to: windowEnd,
     months,
     billsCents,
-    perMonthCents: Math.round(billsCents / YEAR_MONTHS),
-    next: following.billsCents > 0 ? { month: following.month, billsCents: following.billsCents, debtCents: following.debtCents } : null,
-    dearest: dearest ? { month: dearest.month, billsCents: dearest.billsCents } : null,
+    next: following.billsCents > 0 ? { month: following.month, billsCents: following.billsCents } : null,
     ...rareYearCounted(occurrences, today, balances),
     unknownCount: unknowns.length,
     unknowns,
