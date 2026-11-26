@@ -120,7 +120,8 @@ a.home-left:hover .fig-l { text-decoration: underline; }
 /* with the saving column a month has five columns: the head "Laskujen jälkeen" may wrap and the gap between columns is 8 px, so they keep their columns in the narrow rail and on a phone */
 .home-coming .rt th.num { white-space: normal; }
 /* where the five columns do not fit (a phone under 390 px) a month is a block of up to five lines: a tighter card keeps the page within its height */
-.home-coming .rt-wrap[data-block] .rt tr { padding-block: var(--sp-8); }
+.home-coming .rt-wrap[data-block] .rt tr { padding-block: var(--sp-4); }
+.home-coming .rt-wrap[data-block] .rt td[data-label] { padding-top: 0; }
 .home-coming .rt:has(thead th:nth-child(5)) :is(th, td):not(:first-child) { padding-left: var(--sp-8); }
 .home-coming-note { display: block; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; color: var(--text-2); }
 .home-coming .home-coming-after { font-weight: var(--w-strong); }
