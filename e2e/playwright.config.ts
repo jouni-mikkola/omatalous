@@ -12,13 +12,16 @@ if (!own) throw new Error(`There are ${servers.length} servers and more workers:
 Object.assign(process.env, { E2E_BASE_URL: own.base, E2E_DIR: own.dir, E2E_SETUP_CODE: own.setupCode, E2E_FAKE_BANK: own.fakeBank });
 
 const TIMING_SPEC = "transactions-perf.spec.ts";
+const WALK_SPEC = "route-walk.spec.ts";
 
 export default defineConfig({
   testDir: ".",
   // the specs of one file run in order; the files are shared out among the workers, and each worker has its own server
   workers: servers.length,
   projects: [
-    { name: "app", testMatch: "*.spec.ts", testIgnore: ["private/**", "first-evening/**", "years/**", TIMING_SPEC] },
+    { name: "app", testMatch: "*.spec.ts", testIgnore: ["private/**", "first-evening/**", "years/**", TIMING_SPEC, WALK_SPEC] },
+    // the route walks are the longest tests: --shard cuts the tests into runs of neighbours, which would put all of them in one shard, so they are a project of their own that CI runs on one runner
+    { name: "walks", testMatch: WALK_SPEC },
     // the timing of the list of Tapahtumat under a slowed processor runs alone, after the projects above: the workers of the
     // others share the machine's cores, and a limit of one second has no room for their load
     { name: "timing", testMatch: TIMING_SPEC, dependencies: ["app", ...(process.env.E2E_SKIP_PRIVATE ? [] : ["private"])] },

@@ -5,7 +5,7 @@ name: full
 #   check   the whole of `pnpm check`, in eight legs side by side: knip, the privacy scan, the types and the lint; a third
 #           of the test files each; a quarter of the shell suites' jobs each, with the self-tests of the tools (CI runs them always)
 #   build   `pnpm build` and the bundle budgets
-#   e2e     the browser tests (`pnpm e2e`) on the built app in six legs (five parts of the app project and the timing project alone), one retry for a flake
+#   e2e     the browser tests (`pnpm e2e`) on the built app in seven legs (five parts of the app project, the route walks and the timing project alone), one retry for a flake
 #   proof   tools/ci/local-proof.sh: the image, its smoke test, the container checks, the signature of the newest
 #           release, an upgrade rehearsal from the public releases in tools/ci/upgrade-baselines.txt, and the drills
 #   scope   decides whether proof runs: always on main and by hand; on a pull request only when it changes what the
@@ -126,7 +126,8 @@ jobs:
           bash tools/check.sh --rerun "${dir%/}" || echo "check: rerun ended with $?"
 
   e2e:
-    # six runners with servers of their own: the app project in five parts (Playwright --shard) and the timing project alone.
+    # seven runners with servers of their own: the app project in five parts (Playwright --shard), the route walks and the timing project alone.
+    # --shard cuts the tests in file order into runs of neighbours, so the five long walks would all land in one shard: they have a project of their own.
     # Playwright keeps a project and the projects that depend on it in one shard, so --shard on both would run all in one;
     # --no-deps runs the timing project without the app project, which on its own runner it no longer shares cores with.
     if: ${{ github.repository == 'jouni-mikkola/omatalous' }}
@@ -146,6 +147,8 @@ jobs:
             args: --project=app --shard=4/5
           - id: 5
             args: --project=app --shard=5/5
+          - id: walks
+            args: --project=walks
           - id: timing
             args: --project=timing --no-deps
     steps:

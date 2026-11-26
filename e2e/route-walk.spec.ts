@@ -226,8 +226,8 @@ const oneLink: Check = {
   },
 };
 
-// Each walk is its own test and the file runs in parallel mode, so that --shard and the workers share the walks out one by one
-// instead of taking the file whole. The checks of a width are split over two walks; each walk opens its routes anew, and every
+// Each walk is its own test and the file runs in parallel mode, so that the workers take the walks one by one instead of the
+// file whole (CI runs this file as the project `walks`, apart from the shards of the app project). The checks of a width are split over two walks; each walk opens its routes anew, and every
 // check still reads every route it names. The first walk of a width reads the console, as the first look at the page.
 test.describe.configure({ mode: "parallel" });
 
