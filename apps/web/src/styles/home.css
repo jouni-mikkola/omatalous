@@ -58,8 +58,6 @@
 a.home-left:hover .fig-l { text-decoration: underline; }
 .home-wide, .home-breakdown { grid-column: 1 / -1; min-inline-size: 0; }
 .home-wide > .home-ledger { padding-inline-start: 0; border-inline-start: 0; }
-.kind-link { color: inherit; text-decoration: none; }
-.kind-link:hover .fig-l { text-decoration: underline; }
 .home-breakdown { margin-block-start: 0; }
 
 /* the balance of the days to the payday: a block of its own under Nyt, and under the month where the page is one column (below) */

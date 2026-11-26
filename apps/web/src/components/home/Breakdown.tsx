@@ -26,7 +26,7 @@ interface Part {
 function partsOf(low: Low, runway: Runway): Part[] | null {
   const found = paydayParts(low, runway.payday.date, runway.leftCents);
   if (!found) return null;
-  const rows: Part[] = [{ key: "balance", name: t("home.ledger_balance"), state: <KindChip kind="now" />, cents: low.startCents + low.cardDebtCents }];
+  const rows: Part[] = [{ key: "balance", name: t("home.ledger_balance"), state: <KindChip kind="now" />, cents: found.balanceCents }];
   if (low.cardDebtCents > 0) rows.push({ key: "debt", name: t("home.ledger_cards"), state: null, cents: -low.cardDebtCents });
   const dates = [...new Set([...found.steps, ...found.spending].map((r) => r.date))].sort();
   for (const date of dates) {

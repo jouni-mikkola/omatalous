@@ -292,5 +292,5 @@ export function paydayParts(low: Extract<LowPoint, { known: true }>, payday: Iso
   const steps = low.steps.filter((s) => s.date < payday || (s.date === payday && s.cents < 0));
   const spending = low.spending.filter((p) => p.date <= payday);
   const total = [...steps, ...spending].reduce((n, r) => n + r.cents, low.startCents);
-  return total === leftCents ? { steps, spending } : null;
+  return total === leftCents ? { balanceCents: low.startCents + low.cardDebtCents, steps, spending } : null;
 }

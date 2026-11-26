@@ -30,6 +30,9 @@
 .kind-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-8); }
 .kind-label { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); }
 .kind-estimate .fig { color: var(--accent-ink); }
+.kind-link { color: inherit; text-decoration: none; }
+.kind-link:hover .fig-l { text-decoration: underline; }
+.kind-note { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
 .kind-usual .fig { color: var(--muted); font-weight: var(--w-regular); }
 /* the smaller figures of a kind share a line, and wrap to the next when the card is narrow */
 .kind-rows { display: flex; flex-wrap: wrap; gap: 0 var(--sp-16); margin: 0; }

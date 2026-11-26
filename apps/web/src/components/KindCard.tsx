@@ -14,7 +14,7 @@ export function KindCard({ kind, date, label, figure, rows, link, note }: { kind
       {note && (
         <>
           {" "}
-          <span className="home-fig-line">{note}</span>
+          <span className="kind-note">{note}</span>
         </>
       )}
     </>

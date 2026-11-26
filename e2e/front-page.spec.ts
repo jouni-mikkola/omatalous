@@ -60,7 +60,7 @@ for (const width of [390, 1440] as const) {
     const question = page.getByRole("heading", { name: `Jää palkkapäivänä ${paydayDay}.${paydayMonth}.`, level: 2 });
     await expect(question).toHaveCount(1);
     await expect(page.getByRole("region", { name: `Jää palkkapäivänä ${paydayDay}.${paydayMonth}.` })).toHaveCount(1);
-    if (leftOnPayday.days === 0) expect(plain(await page.locator("[data-tile=left] .home-fig-line").innerText())).toBe("Palkkapäivä tänään");
+    if (leftOnPayday.days === 0) expect(plain(await page.locator("[data-tile=left] .kind-note").innerText())).toBe("Palkkapäivä tänään");
     // the two cards: Nyt is the accounts today, Arvio the figure on the payday, in whole euros as the server gives them
     const { sum } = home.runway;
     expect(cents(await page.locator(".kind-now .fig").innerText()), "the accounts today").toBe(whole(sum.balanceCents));
