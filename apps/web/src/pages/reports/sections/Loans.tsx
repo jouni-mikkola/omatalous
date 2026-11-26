@@ -300,7 +300,7 @@ function Loans({ ctx }: SectionProps) {
           : money(0, false);
   const items: [label: string, value: string][] = [
     [t("rpt.ln_payments_month"), monthly],
-    ...(less === undefined ? [] : [[accountsLessDebt().label, less === null ? DASH : money(less, false)] as [string, string]]),
+    ...(less === undefined ? [] : [[accountsLessDebt().label, less === null || r.unsaved.length > 0 ? DASH : money(less, false)] as [string, string]]),
   ];
   const lines = notes(r, less !== undefined, new Set(ctx.meta.accounts.map((a) => a.id)));
   // the limit of a connected card is the account's own: a card at a part shows the viewer's part of what is used, and no limit beside it
