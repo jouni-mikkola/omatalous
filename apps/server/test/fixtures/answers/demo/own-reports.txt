@@ -5934,5 +5934,20 @@
    }
   ],
   "fresh": []
+ },
+ "cashflowMonths": {
+  "months": [
+   {
+    "month": "2026-10",
+    "incomeCents": 0,
+    "spendCents": 202112,
+    "fromSavingsCents": 0,
+    "complete": false,
+    "againstUsual": null
+   }
+  ],
+  "usualSpendCents": null,
+  "usualMonths": 0,
+  "completeTotals": null
  }
 }
