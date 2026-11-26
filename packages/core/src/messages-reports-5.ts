@@ -69,6 +69,8 @@ export const FI_REPORTS_5 = {
   "rpt.ln_fix_remove": "Jos kyse on samasta velasta, {remove} kohdassa Varat ja velat > Lainat, niin laskemme sen vain kerran.",
   "rpt.ln_twice": "{same}: {sides}. {fix}",
   "rpt.ln_overdraft": "Jos tallentamasi laina näkyy myös pankin tiedoissa, se on luvussa {label} kahdesti. Silloin oikea luku on lainan verran suurempi.",
+  "rpt.ln_path_missing": "Saldo puuttuu {count} velasta, joten velkapolkua ei voi laskea.",
+  "rpt.ln_less_without": "{amount}, ilman {count} velkaa",
   "rpt.ln_path_last": "Viimeinen laina on maksettu {month}.",
   "rpt.ln_path_now": "Velkaa on nyt {debt}, ja korkoa tulee sen päälle vielä {interest}.",
   "rpt.ln_path_up": "Jos viitekorko nousee prosenttiyksikön, korkoa tulee arviolta {amount} enemmän.",

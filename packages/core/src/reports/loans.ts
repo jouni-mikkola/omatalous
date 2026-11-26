@@ -177,8 +177,8 @@ export interface LoansReport {
   monthly: MonthlyPayments;
   /**
    * The loans from the day to the day they are paid (`debtPath`): what is owed and the interest still to come, with a
-   * line for each move of `RATE_SHIFTS_BP`. The Lainat chart draws it. Null when a debt that owes cannot be projected:
-   * the path of the rest would tell a part as the whole.
+   * line for each move of `RATE_SHIFTS_BP`. The Lainat chart draws it. Null when a debt that owes cannot be projected,
+   * and while `unsaved` has a row (a debt with no balance): the path of the rest would tell a part as the whole.
    */
   path: DebtPath | null;
   /**
@@ -312,7 +312,7 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
   // a buffer nothing tells is no step before the debts: the plan keeps its dates for the debts alone
   const cash = bufferCash(ctx, balances, inputs);
   const buffer = { netCents: cash.netCents ?? 0, spendCents: cash.netCents === null ? 0 : (cash.spendExpected ?? 0) };
-  const path = debtPath(debts.loans, day, RATE_SHIFTS_BP);
+  const path = unsaved.rows.length > 0 ? null : debtPath(debts.loans, day, RATE_SHIFTS_BP);
   const plan = cost12.cents === null ? null : payoffPlan(debts.loans, day, 0, buffer, costOf);
   return {
     day,

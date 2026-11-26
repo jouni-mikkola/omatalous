@@ -249,6 +249,7 @@ interface Note {
 function notes(r: LoansReport, less: boolean, own: ReadonlySet<string>): Note[] {
   const typists = new Map(r.loans.flatMap((l): [string, string][] => (l.typedBy ? [[l.id, l.typedBy]] : [])));
   return [
+    ...(r.unsaved.length > 0 ? [{ key: "path-missing", text: t("rpt.ln_path_missing", { count: r.unsaved.length }), offers: [{ label: t("rpt.ln_fill"), href: LOAN_TERMS_HASH }] }] : []),
     ...r.maybeTwice.map((twin) => {
       const links = offers(twin, own, typists);
       return { key: `twice ${idsOf(twin)}`, text: twice(twin, links.length > 0, removers(twin, typists)), warn: true, offers: links };
@@ -300,7 +301,7 @@ function Loans({ ctx }: SectionProps) {
           : money(0, false);
   const items: [label: string, value: string][] = [
     [t("rpt.ln_payments_month"), monthly],
-    ...(less === undefined ? [] : [[accountsLessDebt().label, less === null ? DASH : money(less, false)] as [string, string]]),
+    ...(less === undefined ? [] : [[accountsLessDebt().label, less === null ? DASH : r.unsaved.length > 0 ? t("rpt.ln_less_without", { amount: money(less, false), count: r.unsaved.length }) : money(less, false)] as [string, string]]),
   ];
   const lines = notes(r, less !== undefined, new Set(ctx.meta.accounts.map((a) => a.id)));
   // the limit of a connected card is the account's own: a card at a part shows the viewer's part of what is used, and no limit beside it

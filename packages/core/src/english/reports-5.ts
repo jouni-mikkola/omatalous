@@ -66,6 +66,8 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.ln_fix_remove": "If it is the same debt, {remove} under Assets and debts > Loans and it is counted once.",
   "rpt.ln_twice": "{same}: {sides}. {fix}",
   "rpt.ln_overdraft": "If the loan you saved also shows in the bank's data, it is in the figure {label} twice. The right figure is then higher by the amount of the loan.",
+  "rpt.ln_path_missing": "The balance is missing for {count} debts, so the debt path cannot be worked out.",
+  "rpt.ln_less_without": "{amount}, without {count} debts",
   "rpt.ln_path_last": "The last loan is paid off in {month}.",
   "rpt.ln_path_now": "Debt is now {debt}, with {interest} more interest to come.",
   "rpt.ln_path_up": "If the reference rate rises by a percentage point, interest is about {amount} higher.",
