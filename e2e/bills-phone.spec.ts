@@ -71,7 +71,8 @@ for (const { width, scale } of [{ width: 390, scale: 100 }, { width: 390, scale:
     // and their folded rows opened, so the rows a card pays ("Kortilla") and the paid ones are among them
     await openBillFolds(page.locator("#laskut-taulukko"));
     // the sums of a month's head stay inside the page, wrapped when the room is short
-    await expect(page.locator(".bill-sums").first()).toBeVisible();
+    // a month that holds nothing to tell has an empty head
+    await expect(page.locator(".bill-sums:not(:empty)").first()).toBeVisible();
     const sums = await page.locator(".bill-sums > span").evaluateAll((els) => els.map((el) => ({ text: el.textContent?.trim() ?? "", right: el.getBoundingClientRect().right })));
     for (const s of sums) expect(s.right, `${s.text}: right edge`).toBeLessThanOrEqual(width);
     const found = await rows.evaluateAll((els) =>

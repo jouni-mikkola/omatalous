@@ -52,7 +52,9 @@ function laskutHeads(cal: ReturnType<typeof answer>): string[] {
   const items = billItems({ series: [], typed: [], cancelled: new Set(), marks: marksBySubject([]), today: "2026-11-11" });
   const controls = { markOf: () => null, busy: false, set: () => {}, clear: () => {} };
   const { container, unmount } = render(createElement(BillsTable, { calendar: cal, items, controls, label: (id: string) => id, scope: "own", onRemoved: () => {} }));
-  const heads = [...container.querySelectorAll(".bill-sums")].map((e) => flat(e.textContent));
+  // the open month tells what is paid and what is to come in the totals that end its rows, so they stand with its head
+  const totals = [...container.querySelectorAll("tr.bill-total")].map((tr) => `${tr.querySelector(".bill-total-name")!.firstChild!.textContent} ${tr.querySelector("td.bill-total-sum")!.textContent}`).join(" ");
+  const heads = [...container.querySelectorAll(".bill-sums")].map((e) => flat(`${e.textContent} ${e.hasAttribute("data-closed") ? "" : totals}`));
   unmount();
   return heads;
 }
@@ -75,9 +77,9 @@ describe("Tulevat kuukaudet", () => {
     trs.forEach((tr, i) => {
       const [, income, billsCell, after] = cells(tr);
       const head = heads[i]!;
-      // the bills with their estimated part under them ("josta arvio"), as the head says them ("arviota")
-      const [bills, estimate] = billsCell!.split(" josta arvio ");
-      expect(head).toContain(estimate === undefined ? `Laskut ${bills}` : `Laskut ${bills} (arviota ${estimate})`);
+      // the bills with their estimated part under them ("josta arvio"); Laskut tells the bills as Tulossa
+      const [bills] = billsCell!.split(" josta arvio ");
+      expect(head).toContain(`Tulossa ${bills}`);
       if (income !== "–") expect(head).toContain(`Tulot ${income}`);
       if (after === "Ei tiedossa") expect(head).toContain("Laskujen jälkeen: ei tiedossa");
       else expect(head).toContain(`Laskujen jälkeen ${after}`);
