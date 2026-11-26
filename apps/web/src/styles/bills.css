@@ -54,9 +54,11 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .rt-wrap[data-block] .bill-sums > .bill-kinds { justify-content: flex-start; min-inline-size: 0; }
 /* a closed month on a phone is one line, its name and one figure; the opened month tells every figure */
 .rt-wrap[data-block] .bill-sums[data-closed] > :not(.bill-line) { display: none; }
-/* a row on a phone is two lines: the day and the sum, then the payee and the status, with no name of a column before them */
+/* a row on a phone: the day and the sum, then the payee and the status, then the category as a small line; no name of a column stands before them, and the payee reads from the left, as the base block rule right-aligns every cell with a label */
 .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td[data-label]::before { display: none; }
-.rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(2) { display: block; grid-column: 1; grid-row: 2; padding-top: 0; }
+.rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(2) { display: block; grid-column: 1; grid-row: 2; padding-top: 0; text-align: left; }
+.rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(3) { display: block; grid-column: 1 / -1; grid-row: 3; padding-top: 0; text-align: left; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(3):empty { display: none; }
 .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(5) { display: block; grid-column: 2; grid-row: 2; padding-top: 0; text-align: right; }
 .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(5):empty { display: none; }
 /* a phone with the text at its usual size has room for the status under the sum: a row is then 2 lines beside the day and the payee; a larger text keeps the rows above */
@@ -64,7 +66,8 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 @container (min-width: 20em) {
   .rt-wrap[data-block] .rt.bill-table > tbody > tr:has(> th[scope="row"]) { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; padding-block: var(--sp-4); }
   .rt-wrap[data-block] .rt.bill-table > tbody > tr > th[scope="row"] { grid-column: 1; grid-row: 1 / span 2; }
-  .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(2) { grid-column: 2; grid-row: 1 / span 2; }
+  .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(2) { grid-column: 2; grid-row: 1; }
+  .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(3) { grid-column: 2; grid-row: 2; }
   .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td[data-rt="main"] { grid-column: 3; grid-row: 1; }
   .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(5) { grid-column: 3; grid-row: 2; }
   /* the head of a month: its name and, beside it, its sums one under the other */
