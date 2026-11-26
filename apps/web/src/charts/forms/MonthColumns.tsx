@@ -104,6 +104,8 @@ export function MonthColumns({
   const capped = new Set(y.clipped.flatMap((k) => (y(values[k]!) < 0 || y(values[k]!) > f.innerH ? [present[k]!] : [])));
   const x = band(months.length, f.innerW, 0.72);
   const whole = (m: MonthColumn) => m.complete && m.month !== running;
+  // a month with its paid parts shows its state in its parts, so it is never drawn as a month that is not whole
+  const apart = (m: MonthColumn) => !whole(m) && !m.paid;
   // the readout names the picked month, else the last whole one, so the series are always named next to their colours
   const restingAt = resting === null ? -1 : months.findIndex((m) => m.month === resting);
   const shown = at ?? (restingAt >= 0 ? restingAt : (lastWhole(months.map((m) => whole(m) && m.totalCents !== null)) ?? months.length - 1));
@@ -144,7 +146,7 @@ export function MonthColumns({
           parts={rows(shownMonth)}
           note={note(shownMonth)}
           compare={compare(shownMonth)}
-          partialKey={months.some((m) => !whole(m) && m.totalCents !== null)}
+          partialKey={months.some((m) => apart(m) && m.totalCents !== null)}
         />
       ) : (
         <div className="readout-line" />
@@ -167,9 +169,9 @@ export function MonthColumns({
               let up = 0;
               let down = 0;
               // paid parts first, filled, then the parts to come on top, hatched
-              const segments = [...(m.paid ?? []).map((v, k) => ({ v, k, coming: false })), ...m.parts.map((v, k) => ({ v, k, coming: m.paid ? true : !whole(m) }))];
+              const segments = [...(m.paid ?? []).map((v, k) => ({ v, k, coming: false })), ...m.parts.map((v, k) => ({ v, k, coming: m.paid ? true : apart(m) }))];
               return (
-                <g key={m.month} className={whole(m) ? "ms-month" : "ms-month ms-partial"}>
+                <g key={m.month} className={apart(m) ? "ms-month ms-partial" : "ms-month"}>
                   {segments.map(({ v, k, coming }) => {
                     if (v === 0) return null;
                     const from = v > 0 ? up : down;

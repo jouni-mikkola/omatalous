@@ -313,6 +313,7 @@ describe("Laskut: the months chart with paid and coming parts", () => {
     // a month with nothing paid is all hatched, and no month is drawn as a month that is not whole
     expect(container.querySelectorAll("g.ms-month")[1]!.querySelectorAll("rect:not(.ms-coming)")).toHaveLength(0);
     expect(container.querySelectorAll("g.ms-partial")).toHaveLength(0);
+    expect(container.querySelector(".key-partial")).toBeNull();
   });
 
   it("stacks the paid parts under the parts to come, each as high as its sum", () => {

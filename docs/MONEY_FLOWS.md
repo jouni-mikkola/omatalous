@@ -566,7 +566,7 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   was. A loan with no margin or review day keeps its typed payment. A charge made this
   month is *paid* and no part of what is still to come; the month's `paidCents` adds those bills and loan payments up (a
   card's left out), so the running month's rows end in two totals, *Maksettu* and *Tulossa* (`billsCents`), instead of a *Laskut* that
-  would read 0 over paid bills, and a month with nothing left to come has no *Laskujen jälkeen*; a loan a series paid this month has that charge as its row of the
+  would read 0 over paid bills (the chart's column of a month is those two stacked: `paidCents` filled, `billsCents` hatched, each split into the regular and the rare bills, and `wholeBillsCents` is the two together; a saving is no part of the column), and a month with nothing left to come has no *Laskujen jälkeen*; a loan a series paid this month has that charge as its row of the
   month and no payment of its plan besides. A loan with one payment at its last day has a row on that day for what is
   owed. A bill typed in under the name of a rare bill the history found counts once, as the found one. A loan a series
   pays is the series' row. A pay that is late, money from people and a settlement between members are no income row. A
