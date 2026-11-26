@@ -1,0 +1,39 @@
+// Decision: what the page's key figures come to, and whether each is better or worse than what it is set against
+import { Figure } from "./Figure.tsx";
+import "../styles/tiles.css";
+
+/** A signed difference the caller wrote (for example "+120 €") and whether it is good news; the tile computes neither. */
+interface TileDelta {
+  text: string;
+  good: boolean;
+}
+
+/** One tile: its name, the figure as the answer wrote it, an optional delta chip and one line that sets it against something. */
+export interface TileItem {
+  label: string;
+  figure: string;
+  delta?: TileDelta;
+  note?: string;
+}
+
+/**
+ * The two or three key figures of a page in one row separated by hairlines. The labels, figures and notes of the tiles
+ * each stand on one line across the row; on a phone each tile is a row. The figures, deltas and their colours are the
+ * caller's own: the tiles add up and compare nothing.
+ */
+export function Tiles({ items }: { items: readonly TileItem[] }) {
+  return (
+    <ul className="strip" data-count={items.length}>
+      {items.map((item) => (
+        <li key={item.label} className="strip-item">
+          <span className="strip-label">{item.label}</span>
+          <span className="strip-figure">
+            <Figure text={item.figure} size="l" />
+            {item.delta && <span className={`strip-delta ${item.delta.good ? "good" : "bad"}`}>{item.delta.text}</span>}
+          </span>
+          {item.note && <span className="strip-note">{item.note}</span>}
+        </li>
+      ))}
+    </ul>
+  );
+}
