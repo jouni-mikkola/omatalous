@@ -35,7 +35,7 @@ describe("Buffer", () => {
     const net = -150_000;
     const spend = 300_000;
     const { container } = render(createElement(Buffer, { direction: direction({ bufferMonths: net / spend, bufferNetCents: net, bufferSpendCents: spend }) }));
-    expect(flat(container.textContent)).toBe("Ei puskuria: rahat eivät riitä laskuihin ja korttivelkaan");
+    expect(flat(container.textContent)).toBe("Ei puskuria");
     expect(container.querySelector("details")).toBeNull();
     expect(container.querySelector(".st-row")).toBeNull();
     expect(container.textContent).not.toMatch(/\d/);

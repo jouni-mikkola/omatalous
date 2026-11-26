@@ -120,7 +120,7 @@ export const FI_OVERVIEW = {
   "home.days_estimate": "{payee}, arvio",
   "home.buffer": "Puskuri {months} kk",
   "home.buffer_label": "Puskuri",
-  "home.buffer_none": "Ei puskuria: rahat eivät riitä laskuihin ja korttivelkaan",
+  "home.buffer_none": "Ei puskuria",
   "home.buffer_no_balance": "Ei saldoa",
   "home.buffer_history": "Liian lyhyt historia",
   "home.buffer_no_spending": "Ei menoja",
