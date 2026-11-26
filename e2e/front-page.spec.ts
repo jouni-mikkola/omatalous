@@ -193,9 +193,9 @@ test("at 1440 px the coming months and the accounts stand in one column beside t
   // the table keeps its columns in the rail
   await expect(page.locator(".home-coming .rt-wrap[data-block]")).toHaveCount(0);
   const heads = plain(await page.locator(".home-coming thead").innerText());
-  for (const name of ["Kuukausi", "Tulot", "Tulossa", "Laskujen jälkeen"]) expect(heads).toContain(name);
-  if (heads.includes("Säästöön")) expect(heads.indexOf("Tulossa"), "Tulossa before Säästöön").toBeLessThan(heads.indexOf("Säästöön"));
-  expect(heads.indexOf("Tulot"), "Tulot before Tulossa").toBeLessThan(heads.indexOf("Tulossa"));
+  for (const name of ["Kuukausi", "Tulot", "Maksamatta", "Laskujen jälkeen"]) expect(heads).toContain(name);
+  if (heads.includes("Säästöön")) expect(heads.indexOf("Maksamatta"), "Maksamatta before Säästöön").toBeLessThan(heads.indexOf("Säästöön"));
+  expect(heads.indexOf("Tulot"), "Tulot before Maksamatta").toBeLessThan(heads.indexOf("Maksamatta"));
   await expect(page.locator(".home-coming a"), "the figure of Nyt is the one way to Laskut").toHaveCount(0);
   await context.close();
 });
@@ -224,7 +224,7 @@ test("the coming months tell the figures the month heads of Laskut tell", async 
   const rows = page.locator(".home-coming tbody tr");
   await expect(rows).toHaveCount(3);
   for (const [i, month] of shown.entries()) {
-    // Säästöön stands between Tulossa and Laskujen jälkeen in a month list where one of the months has a saving
+    // Säästöön stands between Maksamatta and Laskujen jälkeen in a month list where one of the months has a saving
     const cellTexts = await rows.nth(i).locator("th, td").allInnerTexts();
     const [, income, bills] = cellTexts;
     const after = cellTexts[cellTexts.length - 1];
@@ -246,8 +246,8 @@ test("the coming months tell the figures the month heads of Laskut tell", async 
   const total = cents(await page.locator("#laskut-taulukko td.bill-total-coming").innerText());
   for (const month of shown) {
     const at = billCalendar.months.indexOf(month);
-    // a closed head names each figure, so Tulossa is read by its name: a paid sum may stand before it
-    expect(headsOpen[at] ? total : sums(plain(allHeads[at]!).match(/Tulossa [^A-Za-zäö]*/)?.[0] ?? "")[0], `${month.month}: Laskut' head`).toBe(month.billsCents);
+    // a closed head names each figure, so Maksamatta is read by its name: a paid sum may stand before it
+    expect(headsOpen[at] ? total : sums(plain(allHeads[at]!).match(/Maksamatta [^A-Za-zäö]*/)?.[0] ?? "")[0], `${month.month}: Laskut' head`).toBe(month.billsCents);
   }
   await context.close();
 });
