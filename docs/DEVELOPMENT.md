@@ -126,7 +126,7 @@ principal figure `main`; use `kind: "money"` with `cents` for amounts. Pass tota
   (the `rowKey` of each mark's row) to `ReadoutLayer` so a click filters the table ([ADR 0023](adr/0023-chart-and-table-together.md)).
   Delete a view nobody needs, with its code and everything that belongs to it. Keep no hidden copy and no setting to restore it.
 
-`apps/web/test/table.test.ts` guards the single table implementation. `e2e/table-views.spec.ts` checks visibility,
+`apps/web/test/table.test.ts` guards the single table implementation. `e2e/route-walk.spec.ts` checks visibility,
 sideways scrolling and axe at 390 and 1440 px, and `e2e/table-sort.spec.ts` the toolbar, the sort and the opened row. Add a new view to that coverage and inspect screenshots
 at both widths. The decision is [ADR 0018](adr/0018-one-table-delete-redundant-views.md).
 

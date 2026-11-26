@@ -381,7 +381,7 @@ test("a target draws no empty cards while its data is on the way, only the loadi
   await context.close();
 });
 
-test("Turvallisuus shows its cards when one read fails, and after a few seconds when one never answers", async ({ browser }) => {
+test("Turvallisuus shows its cards when one read fails", async ({ browser }) => {
   const { context, page } = await admin(browser);
   // one read fails: that card says so itself and the others work
   await page.route("**/api/security/sessions", (route) => route.fulfill({ status: 500, json: { error: "Palvelin ei vastannut." } }));
@@ -391,19 +391,7 @@ test("Turvallisuus shows its cards when one read fails, and after a few seconds 
   await expect(page.getByRole("heading", { name: "Omat istunnot" })).toBeVisible();
   await expect(page.getByText("Palvelin ei vastannut.")).toBeVisible();
   await expect(page.getByText("Ladataan…")).toHaveCount(0);
-  await page.unroute("**/api/security/sessions");
-
-  // one read never answers: the cards are drawn after 4 s at the latest
-  await page.route("**/api/security/sessions", () => new Promise(() => {}));
-  await page.reload();
-  await expect(page.getByRole("heading", { name: "Salasana", exact: true })).toBeVisible({ timeout: 8000 });
-  await expect(page.getByRole("heading", { name: "Kaksivaiheinen kirjautuminen", exact: true })).toBeVisible();
-  await page.unroute("**/api/security/sessions");
-
-  // the same when the security log never answers
-  await page.route("**/api/security/events*", () => new Promise(() => {}));
-  await page.reload();
-  await expect(page.getByRole("heading", { name: "Omat istunnot", exact: true })).toBeVisible({ timeout: 8000 });
+  // the waits for a read that never answers are in settings.dom.test.ts, with the clock moved
   await context.close();
 });
 

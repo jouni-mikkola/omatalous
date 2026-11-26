@@ -2,8 +2,8 @@
  * Asetukset on the real server: the household adds and removes a member, changes the password and ends a device's
  * session, and each answer shows on the page.
  */
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { openApp, startServer } from "./dom-kit.ts";
 
 const T = { timeout: 15000 };
@@ -70,6 +70,22 @@ describe("Turvallisuus", () => {
     expect(server.seen.some((s) => s.path === "/api/security/sessions")).toBe(true);
     fireEvent.click(await screen.findByRole("button", { name: "Vaihda salasana" }, T));
     expect(await screen.findAllByLabelText(/salasana/i)).not.toHaveLength(0);
+  }, 60000);
+
+  // one read never answers: the cards are drawn after 4 s at the latest (the clock is moved, not waited for)
+  it.each([
+    ["/api/security/sessions", ["Salasana", "Kaksivaiheinen kirjautuminen"]],
+    ["/api/security/events", ["Omat istunnot"]],
+  ])("shows the cards after 4 s when %s never answers", async (silent, headings) => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+    onTestFinished(() => void vi.useRealTimers());
+    await startServer();
+    const answering = globalThis.fetch;
+    vi.stubGlobal("fetch", (input: string, init?: RequestInit) => (new URL(input, "http://localhost").pathname === silent ? new Promise(() => {}) : answering(input, init)));
+    await openApp("#/settings/security", "Asetukset");
+    expect(screen.queryByRole("heading", { name: headings[0]! })).toBeNull();
+    await act(async () => void vi.advanceTimersByTime(4000));
+    for (const name of headings) await screen.findByRole("heading", { name }, T);
   }, 60000);
 });
 

@@ -3,7 +3,7 @@ import { writeFileSync } from "node:fs";
 import { tempDir } from "../lib/tmp-kit.ts";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { report, SLOW_MS, slowTests } from "./report.mjs";
+import { report, SLOW_MS, slowFiles, slowTests } from "./report.mjs";
 
 const CWD = "/repo/";
 type T = { status: string; title: string; fullName: string; duration: number | null; failureMessages: string[] };
@@ -33,6 +33,18 @@ describe("check: the vitest step's report", () => {
       "  slow 3.2 s: b/test/y.test.ts > suite c",
       "  slow 2.6 s: b/test/y.test.ts > suite d",
     ]);
+  });
+
+  it("names the slowest files by their recorded span, else by the sum of their tests, and --files prints them after the report", () => {
+    const spanned = { ...file("a/test/x.test.ts", [test("a", 100)]), startTime: 1000, endTime: 4000 };
+    const summed = file("b/test/y.test.ts", [test("b", 1500), test("c", 1500)]);
+    const r = result([spanned, summed, file("c/test/z.test.ts", [test("d", 10)])]);
+    expect(slowFiles(r as never, CWD, 2)).toEqual([{ file: "a/test/x.test.ts", ms: 3000 }, { file: "b/test/y.test.ts", ms: 3000 }]);
+    const path = join(tempDir("report-"), "r.json");
+    writeFileSync(path, JSON.stringify(r));
+    const out = spawnSync(process.execPath, [join(import.meta.dirname, "report.mjs"), path, "--files"], { encoding: "utf8", cwd: "/" }).stdout.split("\n");
+    expect(out.slice(0, 2)).toEqual(["4 tests in 3 files", "slowest 20 test files:"]);
+    expect(out).toContain("  3.0 s /repo/a/test/x.test.ts");
   });
 
   it("a test that did not run (no duration) is not slow", () => {

@@ -301,7 +301,7 @@ step_tests() {
   rc=$?
   # The JSON result gives test names and messages without the progress output. Line 1 of the output is the
   # summary, the rest the failures and then the slowest tests over 2 s (tools/check/report.mjs).
-  out=$(node tools/check/report.mjs "$json")
+  out=$(node tools/check/report.mjs "$json" ${CI:+--files})
   if [[ -z $out ]] && ((CHANGED && rc == 0)); then
     finish tests 0 "no test file imports a changed file"
   elif [[ -z $out ]]; then

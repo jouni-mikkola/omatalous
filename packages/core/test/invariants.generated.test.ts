@@ -16,7 +16,8 @@ const LONG = 60_000;
 /** The set and one household with no reference day, which only the proof check reads. */
 const UNPROVEN: Spec = { members: 2, joint: "said", loan: "checking", cards: "connected", reference: false };
 let all: Violation[] | null = null;
-const households = (): GeneratedHousehold[] => [...generatedSet(), generateHousehold(UNPROVEN, 1)];
+let made: GeneratedHousehold[] | null = null;
+const households = (): GeneratedHousehold[] => (made ??= [...generatedSet(), generateHousehold(UNPROVEN, 1)]);
 const violations = (): Violation[] => {
   if (all) return all;
   const twin = generateHousehold({ ...UNPROVEN, reference: true }, 1);
