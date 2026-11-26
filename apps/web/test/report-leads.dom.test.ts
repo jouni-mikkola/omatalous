@@ -13,7 +13,7 @@ const lead = (Lead: (props: { ctx: ReportContext }) => unknown, data: Record<str
 
 describe("Menot kategorioittain: the lead", () => {
   const categories = (more: Record<string, unknown>) => ({ categories: { totalCents: 250_000, debtPaidCents: 0, creditDrawnCents: 0, ...more } });
-  const say = (more: Record<string, unknown>) => lead(spending.Lead, categories(more));
+  const say = (more: Record<string, unknown>) => lead(spending.Lead!, categories(more));
 
   it("says the spending, adding the debt paid and the credit drawn when there are any", () => {
     expect(say({})).toBe("Menoihin meni 2 500 €.");
