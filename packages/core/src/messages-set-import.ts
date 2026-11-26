@@ -16,7 +16,7 @@ export const FI_SET_IMPORT = {
   "set.imp.parts_of_transactions": "Tapahtumien osat",
   "set.imp.loans": "Lainat",
   "set.imp.loan_payment_parts": "Lainojen kuukausierien osat",
-  "set.imp.expected_bills": "Tulossa olevat laskut",
+  "set.imp.expected_bills": "Tulevat laskut",
   "set.imp.monthly_spending_goal": "Kuukauden menotavoite",
   "set.imp.category_spending_goals": "Kategorioiden menotavoitteet",
   "set.imp.inputs_of_the_savings_tips": "Säästövinkkien lähtötiedot",

@@ -22,7 +22,7 @@ const capital = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slic
 const note = (text: string) => <span className="home-coming-note">{text}</span>;
 
 /**
- * The bills of a month still to come, with the estimated part under them when there is one: *Tulossa*, the figure Laskut' month head and
+ * The bills of a month still to come, with the estimated part under them when there is one: *Maksamatta*, the figure Laskut' month head and
  * its total give under that name. Bills already paid (the running month) are in no part of it, so the column never reads 0 for them.
  */
 const billsCell = (m: Month) => (m.estimateCents > 0 ? <>{money(m.billsCents)} {note(t("home.coming_estimate", { estimate: money(m.estimateCents) }))}</> : money(m.billsCents));
