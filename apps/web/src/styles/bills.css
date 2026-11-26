@@ -98,7 +98,7 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .bill-table td.bill-total-coming { color: var(--accent-ink); }
 .rt-wrap[data-block] .rt.bill-table > tbody > tr.bill-total > th { display: none; }
 /* a row's divider line lies over the top padding of the next row, so a row takes its 44 px and not 45: seven rows and two totals are 9 px of a long page */
-.rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group, .rt-detail, .rt-subrow, :last-child) { margin-block-end: -1px; }
+.rt-wrap[data-block] .rt.bill-table > tbody > tr:has(> th[scope="row"]):not(:last-child) { margin-block-end: -1px; }
 /* twelve month heads make the long list of a phone: the opener is 44 px high inside its head whatever the band around it, so the band keeps 4 px above and below, not 8 */
 .rt-wrap[data-block] .rt.bill-table tr.rt-group:not(:has(.bill-subfold)) { padding-block: var(--sp-4); }
 .rt-wrap[data-block] .rt.bill-table tr.rt-group:not(:has(.bill-subfold)) > th { --reach-pad: var(--sp-4); }
