@@ -41,9 +41,15 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 /* the kinds of an open month stand close together and in a quieter tone, as parts of the bills' sum */
 .bill-sums > .bill-kinds { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0 var(--sp-4); color: var(--text-2); }
 .bill-kinds > span { white-space: nowrap; }
+/* the month's own figures stand on one line like a closed month's; the split of the bills is a line under them */
+.bill-sums > .bill-kinds { order: 1; flex-basis: 100%; }
+/* the payee has the room the category does not need, so a name is not cut while the category column stands empty */
+.rt-wrap:not([data-block]) .rt.bill-table :is(th, td).bill-payee { width: 42%; }
+.rt-wrap:not([data-block]) .rt.bill-table :is(th, td).bill-category { width: 20%; }
 .rt-wrap[data-block] .rt.bill-table tr.rt-group { grid-template-columns: minmax(0, 1fr); }
 .rt-wrap[data-block] .rt.bill-table tr.rt-group > td:not([data-label]) { grid-column: 1; grid-row: 2; text-align: left; }
 .rt-wrap[data-block] .bill-sums { justify-content: flex-start; }
+.rt-wrap[data-block] .bill-sums > .bill-kinds { order: 0; flex-basis: auto; }
 .rt-wrap[data-block] .bill-sums > span, .rt-wrap[data-block] .bill-kinds > span { white-space: normal; }
 .rt-wrap[data-block] .bill-sums > .bill-kinds { justify-content: flex-start; min-inline-size: 0; }
 /* a closed month on a phone is one line, its name and one figure; the opened month tells every figure */
