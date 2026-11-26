@@ -44,6 +44,13 @@ export function fallBackToFinnish(): void {
 
 export const language = (): Language => lang;
 
+/** The letters a phone's user button shows: the first letter of the first and the last word of the name, or the first two of a single word. */
+export function initialsOf(name: string): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  const letters = words.length > 1 ? [words[0]!, words[words.length - 1]!].map((w) => Array.from(w)[0]) : Array.from(words[0] ?? "").slice(0, 2);
+  return letters.join("").toLocaleUpperCase(localeOf(lang));
+}
+
 const num0 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 0 });
 
 /** The month stems of core, "tammi" to "joulu". */

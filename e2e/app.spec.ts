@@ -195,7 +195,7 @@ test("a period belongs to one page: Yhteenveto has no period, Raportit five, and
   await context.close();
 });
 
-test("Tapahtumat has Lista and Kauppiaat: old addresses open Kauppiaat, the rules sit under the table, a period narrows it", async ({ browser }) => {
+test("Tapahtumat has Lista, Kauppiaat and Säännöt: old addresses open Kauppiaat or Säännöt, the rules are a tab of their own, a period narrows the merchants", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);
@@ -206,34 +206,35 @@ test("Tapahtumat has Lista and Kauppiaat: old addresses open Kauppiaat, the rule
   await page.goto("/#/transactions");
   await expect(page.getByRole("navigation", { name: "Päävalikko" }).getByRole("link", { name: "Kategoriat" })).toHaveCount(0);
 
-  // the old addresses are rewritten, so Back skips them; the rules ones end at the rules
-  for (const [old, now] of [
-    ["categories", "#/transactions?view=merchants"],
-    ["categories?tab=merchants", "#/transactions?view=merchants"],
-    ["categories?tab=rules", "#/transactions?view=merchants#saannot"],
-    ["rules", "#/transactions?view=merchants#saannot"],
+  // the old addresses are rewritten, so Back skips them; the rules ones end at the Säännöt tab
+  for (const [old, now, tab] of [
+    ["categories", "#/transactions?view=merchants", "Kauppiaat"],
+    ["categories?tab=merchants", "#/transactions?view=merchants", "Kauppiaat"],
+    ["categories?tab=rules", "#/transactions?view=rules", "Säännöt"],
+    ["rules", "#/transactions?view=rules", "Säännöt"],
+    ["transactions?view=merchants#saannot", "#/transactions?view=rules", "Säännöt"],
+    ["settings/household#saannot", "#/transactions?view=rules", "Säännöt"],
   ] as const) {
     await page.goto("/#/reports");
     await page.goto(`/#/${old}`);
     await expect.poll(hash, `${old} is rewritten`).toBe(now);
     await expect(page).toHaveTitle(/^Tapahtumat/);
-    await expect(page.getByRole("button", { name: "Kauppiaat", exact: true })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: tab, exact: true })).toHaveAttribute("aria-pressed", "true");
     await page.goBack();
     expect(page.url(), `Back from ${old} skips the old address`).toMatch(/#\/reports$/);
   }
 
-  // the rules address opens at the rules card, below a table that is longer than the screen
+  // the rules address opens the Säännöt tab: the rules in sight, the merchant table not on the page
   await page.goto("/#/reports");
   await page.goto("/#/rules");
   const rules = page.getByRole("heading", { name: "Säännöt" });
   await expect(rules).toBeInViewport();
-  await page.goto("/#/transactions?view=merchants");
+  await expect(page.locator("table.merchant-table")).toHaveCount(0);
+  expect(await page.getByRole("group", { name: "Tapahtumat ja kauppiaat" }).getByRole("button").allInnerTexts()).toEqual(["Lista", "Kauppiaat", "Säännöt"]);
+  // the Kauppiaat tab has the table and no rules
+  await page.getByRole("button", { name: "Kauppiaat", exact: true }).click();
   await expect(rows.first()).toBeVisible();
-  // only the hash changed, so the page is still scrolled to the rules
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await expect(rules).not.toBeInViewport();
-  const [tableBox, rulesBox] = [await page.locator("table.merchant-table").boundingBox(), await rules.boundingBox()];
-  expect(rulesBox!.y, "the rules are under the table").toBeGreaterThan(tableBox!.y + tableBox!.height);
+  await expect(rules).toHaveCount(0);
   await expect(page.locator("table.merchant-table thead th")).toHaveText(["Kauppias", "Kategoria", "Tapahtumia", "Yhteensä", "Tavallisesti kuussa", "Viimeksi"]);
   for (const cell of await page.locator("table.merchant-table td[data-label='Tavallisesti kuussa']").allInnerTexts()) expect(cell.trim(), "the monthly figure is euros or a dash").toMatch(/€|–/);
   const all = await rows.count();
@@ -319,7 +320,9 @@ test("the merchants of the month on Tapahtumat, and a merchant there has a summa
   // without a merchant filter there is no summary, and the strip holds the figures, once each
   await page.goto("/#/transactions?period=all");
   await expect(page.getByRole("region", { name: /^Yhteenveto:/ })).toHaveCount(0);
-  for (const term of ["Menot", "Tulot", "Erotus"]) await expect(page.getByRole("region", { name: "Rajattujen tapahtumien summat" }).locator("dt", { hasText: new RegExp(`^${term}$`) })).toHaveCount(1);
+  for (const term of ["Menot", "Tulot", "Käteen jäi"]) await expect(page.getByRole("region", { name: "Rajattujen tapahtumien summat" }).locator("dt", { hasText: new RegExp(`^${term}$`) })).toHaveCount(1);
+  // the demo data moves money to savings, so Käteen jäi is shown and takes Erotus's place
+  await expect(page.getByRole("region", { name: "Rajattujen tapahtumien summat" }).locator("dt", { hasText: /^Erotus$/ })).toHaveCount(0);
   await expect(page.getByText(/omia siirtoja ei lasketa/)).toHaveCount(0);
   expect(seen.problems).toEqual([]);
   await context.close();

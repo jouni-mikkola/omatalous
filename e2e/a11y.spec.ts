@@ -320,8 +320,14 @@ for (const width of [390, 1100, 1440]) {
     try {
       const page = await context.newPage();
       await page.goto("/#/overview");
-      const small = page.locator(".user-menu summary .user-name");
+      // a phone shows the initials, the name stays as the button's name
+      const phoneWidth = width < 641;
+      const small = page.locator(phoneWidth ? ".user-menu summary .user-initials" : ".user-menu summary .user-name");
       await small.waitFor({ state: "visible" });
+      if (phoneWidth) {
+        await expect(small).toHaveText("LP");
+        await expect(page.locator(".user-menu summary")).toContainText(name);
+      }
       const bar = await page.locator(".topbar").boundingBox();
       expect(bar!.height).toBeLessThanOrEqual(49);
       // the bar of a build with more pages leaves less room: the name must give way by itself, not wrap

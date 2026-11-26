@@ -7,11 +7,11 @@ export interface Route {
   /** The page id in the address (`#/<id>`). */
   page: string;
   params: URLSearchParams;
-  /** The part after a second `#` (`#/transactions?view=merchants#saannot`): a spot on the page to scroll to. */
+  /** The part after a second `#` (`#/settings/security#securityLog`): a spot on the page to scroll to. */
   anchor?: string;
 }
 
-/** The Säännöt card under the merchant table (Tapahtumat > Kauppiaat). */
+/** The Säännöt card (Tapahtumat > Säännöt); an address that ends in it opens that view. */
 export const RULES_ANCHOR = "saannot";
 
 /** The cards of Asetukset that an address can name, as anchors on the page. */
@@ -140,21 +140,18 @@ function opened(route: Route, role: "admin" | "member"): Route {
   return { page: `settings/${FIRST_TARGET}`, params: route.params };
 }
 
-/** The value of `view` in the address of Tapahtumat that opens the merchants, with the rules under them. */
-const VIEW_MERCHANTS = "merchants";
-
 /**
  * Where an address of the merchants or the rules from another time opens: the Kauppiaat view of Tapahtumat
- * (`?view=merchants`), the rules at its `#saannot`. The merchants were a page of their own (`#/categories`,
- * `?tab=rules`, `#/rules`), and the rules were for a while a card of Asetukset > Talous (`#/settings/household#saannot`).
+ * (`?view=merchants`), the rules in its Säännöt view (`?view=rules`). The merchants were a page of their own
+ * (`#/categories`, `?tab=rules`, `#/rules`), the rules were for a while a card of Asetukset > Talous
+ * (`#/settings/household#saannot`) and then under the merchants (`#/transactions?view=merchants#saannot`).
  */
 function merchantsView(route: Route): Route {
   const params = new URLSearchParams(route.params);
   params.delete("tab");
-  params.set("view", VIEW_MERCHANTS);
   const rules = route.page !== "categories" || route.params.get("tab") === "rules";
-  const anchor = rules ? RULES_ANCHOR : route.anchor;
-  return { page: "transactions", params, ...(anchor ? { anchor } : {}) };
+  params.set("view", rules ? "rules" : "merchants");
+  return { page: "transactions", params };
 }
 
 /** The card of Varat ja velat that tells the loans, as the anchor of its section. */
@@ -221,7 +218,7 @@ export function parseHash(hash: string): Route {
  * `#/settings/household#<card of a module>` from before the add-on target) opens the target that has the card.
  *
  * Old addresses that are still rewritten: the merchants and the rules (`#/categories`, `#/rules`, the rules card that
- * was on Asetukset), which are the Kauppiaat view of Tapahtumat (`merchantsView`); the bare `#/settings#<card>` of
+ * was on Asetukset), which are the Kauppiaat and Säännöt views of Tapahtumat (`merchantsView`; so is any address of Tapahtumat that ends in `#saannot`); the bare `#/settings#<card>` of
  * 1.0.0, which opens the target that has the card; Lisää (`#/more`), which opens Yhteenveto; Toistuvat
  * (`#/recurring`), which became Laskut (`#/bills`); Kuukausi of Raportit (`#/reports?q=kuukausi`, `#/reports#kuukausi`,
  * `#/reports?month=`), which opens Yhteenveto; and the technical page and Ylläpito of Asetukset (`?section=technical`,
@@ -243,6 +240,7 @@ export function redirectRoute(route: Route, role: "admin" | "member" = "member")
     params.delete("section");
     return opened({ page: "settings/server", params, ...(section === "maintenance" ? { anchor: SETTINGS_ANCHOR.maintenance } : {}) }, role);
   }
+  if (route.page === "transactions" && route.anchor === RULES_ANCHOR) return merchantsView({ ...route, page: "rules" });
   if (route.page === "categories" || route.page === "rules" || ((route.page === "settings" || route.page.startsWith("settings/")) && route.anchor === RULES_ANCHOR)) return merchantsView(route);
   // an address that names a card on another target (a link from before the card moved) opens the card's own target
   const home = route.page === "settings" || route.page.startsWith("settings/") ? targetOfCard(route.anchor) : undefined;

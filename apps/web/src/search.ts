@@ -30,7 +30,7 @@ const COMMON = {
   [DRILL_PARAM]: perTable,
 } satisfies Record<string, Field>;
 
-const TRANSACTION_VIEWS = ["merchants"] as const;
+const TRANSACTION_VIEWS = ["merchants", "rules"] as const;
 const TRANSACTION_KINDS = ["income"] as const;
 
 /** The filters of Tapahtumat and the merchant list under it. */

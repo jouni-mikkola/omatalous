@@ -9,7 +9,7 @@ import { Link, Outlet, useNavigate, useRouterState, useSearch } from "@tanstack/
 import { type ComponentProps, lazy, Suspense, useEffect, useRef, useState } from "react";
 import { api } from "./api.ts";
 import { CONTROL_PANEL, consentNoticeText, consentNotices } from "./consent-notices.ts";
-import { dateTime, count } from "./format.ts";
+import { dateTime, count, initialsOf } from "./format.ts";
 import { MetaContext, navigate, useApi } from "./hooks.ts";
 import { markAllCurrent, holdFiguresFor, forgetFigures, useFiguresFrom } from "./offline.ts";
 import { failureText, footText } from "./open-sync.ts";
@@ -350,6 +350,7 @@ export function Shell() {
             <summary>
               <span className="sr-only">{t("shell.user_menu")} </span>
               <span className="user-name" title={user.displayName}>{user.displayName}</span>
+              <span className="user-initials" aria-hidden="true">{initialsOf(user.displayName)}</span>
               {news > 0 && <span className="notice-dot" aria-hidden="true" />}
               {news > 0 && <span className="sr-only">{" "}{tn(news, "notice.news_one", "notice.news_many")} </span>}
               <svg className="user-chevron" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false">

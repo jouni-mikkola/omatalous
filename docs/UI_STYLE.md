@@ -21,7 +21,7 @@ with it. A new word for a thing already named here is not added: the term below 
 | What a period left on the accounts: income and credit drawn, less spending, debt service and what went to savings (more when savings were drawn on) | *Käteen jäi*, on every page that shows it; the registry and the money flows doc call it *Tulos* | *Tulos* as a label, *Yli jäi*, *Jäännös*, *jäämä* |
 | Income and spending as short labels (a table, a row of figures) | *Tulot*, *Menot*, *Erotus* | *Maksettu*, *Saatu*, *Ero* |
 | The pays of a month on Laskut less its bills and its regular saving | *Laskujen jälkeen*, also as the column head of Tulevat kuukaudet on Yhteenveto | *Erotus* (that is income less spending) |
-| The sums of the filtered rows on Tapahtumat, own transfers left out | *Menot*, *Tulot*, *Erotus*, and *Säästöön siirretty* or *Otettu säästöistä* for what the rows move to or from savings, named as on Yhteenveto | *Rahaa ulos*, *Rahaa sisään* |
+| The sums of the filtered rows on Tapahtumat, own transfers left out | *Menot*, *Tulot*, *Erotus*, and *Säästöön siirretty* or *Otettu säästöistä* for what the rows move to or from savings, named as on Yhteenveto; *Käteen jäi* takes the place of *Erotus* when it differs from it | *Rahaa ulos*, *Rahaa sisään* |
 | Taking a bank connection into use | *yhdistä* (a bank, an account), *Yhdistä uudelleen* | *linkitä*, *liitä* (*liitä osoite* stays: that is pasting text) |
 | How long a bank connection is valid | *suostumus* (*Uusi suostumus*), the connection *vanhenee* | *lupa*, *consent*, *yhteyden päättyminen* |
 | Getting new data from the bank | *Hae nyt* (the action), *päivitetty* (the state), *Päivitykset* (the log) | *Haettu*, *Päivitykset* |
@@ -153,7 +153,7 @@ A category change says the rule it made.
 
 - The header has the pages, Tarkistettavat and the user menu.
 - Tarkistettavat shows the count of open questions. The page shows the same number.
-- The user menu has the pages a module adds (on a phone only: a wider screen has them in the header), Asetukset, the other language (a button named in that language) and Kirjaudu ulos. The password is in Asetukset > Turvallisuus.
+- The user menu has Asetukset, the other language (a button named in that language) and Kirjaudu ulos. The password is in Asetukset > Turvallisuus. A module's pages are tabs after the five, at every width. The button shows the name; on a phone it shows the initials (first letter of the first and last word), and its accessible name stays the whole name.
 - The app has five tabs: Yhteenveto, Tapahtumat, Laskut, Varat ja velat and Raportit (`docs/design/README.md`). On a phone the tab bar has the same five, with *Varat* for Varat ja velat. Tarkistettavat is a link at the right of the header, on a phone in the top row.
 - Every report is under Raportit. Asetukset is in the user menu, and the old `#/more` opens Yhteenveto.
 - The foot of the page is the app, its version and its links, in the muted colour. It wraps on a phone. It has no date, and a fetch that went well leaves no line in it. While a fetch runs it says so. When the bank holds the next fetch back or an account was left out, it says that with the time of the last fetch (`Päivitetty 23.10. klo 6.02. Pankki sallii seuraavan haun 23.10. klo 18.00`), in the secondary text colour. Only a failed fetch is above the page, in a `Notice`.

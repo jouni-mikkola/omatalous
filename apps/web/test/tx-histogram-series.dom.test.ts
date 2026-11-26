@@ -38,15 +38,15 @@ describe("the figures of the strip", () => {
 
   it("names what was taken out of savings and shows its amount with no sign, then Käteen jäi", () => {
     strip({ savedCents: -200_00, leftCents: 1030_00 });
-    expect(terms().map(([word]) => word)).toEqual(["Menot", "Tulot", "Erotus", "Otettu säästöistä", "Käteen jäi"]);
-    expect(terms()[3]![1]).toMatch(/^200\s€$/);
-    expect(terms()[3]![1]).not.toMatch(/[-−+]/);
-    expect(terms()[4]![1]).toMatch(/^\+1\s030\s€$/);
+    expect(terms().map(([word]) => word)).toEqual(["Menot", "Tulot", "Otettu säästöistä", "Käteen jäi"]);
+    expect(terms()[2]![1]).toMatch(/^200\s€$/);
+    expect(terms()[2]![1]).not.toMatch(/[-−+]/);
+    expect(terms()[3]![1]).toMatch(/^\+1\s030\s€$/);
   });
 
   it("shows the amount moved to savings with no sign, and leaves Käteen jäi out when it is the Erotus", () => {
     strip({ savedCents: 300_00, leftCents: 530_00 });
-    expect(terms()[3]).toEqual(["Säästöön siirretty", expect.stringMatching(/^300\s€$/)]);
+    expect(terms()[2]).toEqual(["Säästöön siirretty", expect.stringMatching(/^300\s€$/)]);
     cleanup();
     strip({ savedCents: 0, leftCents: 830_00 });
     expect(terms().map(([word]) => word)).toEqual(["Menot", "Tulot", "Erotus"]);
@@ -58,6 +58,7 @@ describe("the histogram's direction switch", () => {
     render(createElement(TotalsStrip, { totals, income: false, today: "2026-10-13", onPick: () => {} }));
     expect(readout()).toContain("menot");
     expect(readout()).toContain("50,00");
+    expect(readout()).toContain("1 tapahtuma");
     expect(screen.getByRole("button", { name: t("tx.spending") }).getAttribute("aria-pressed")).toBe("true");
   });
 

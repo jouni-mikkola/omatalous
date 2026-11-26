@@ -8,6 +8,7 @@ import { navigate, useApi } from "../hooks.ts";
 import { t, tn } from "../text.ts";
 import type { CategoryUndo, Meta, Scope } from "../types.ts";
 import { Merchants } from "./Merchants.tsx";
+import { Rules } from "./Rules.tsx";
 import { type DaySum, type ListedRow, PAGE_ROWS, pageOf, rowChips, RowsSkeleton, TxTable, usePhone } from "./TransactionRows.tsx";
 import { listPeriodOf, periodOf, periodParams } from "./transactions/DateRange.tsx";
 import { accountLooks } from "./transactions/Marks.tsx";
@@ -97,26 +98,27 @@ function Facts({ facts }: { facts: [string, string][] }) {
 const count = (n: number): string => n.toLocaleString(LOCALE);
 
 /**
- * Two views: the list of payments by day, which opens on the running month, and the merchants with the rules under
- * them (`?view=merchants`), the one place that adds up the rows by merchant. The merchant list takes a period
- * (`from`, `to`) that the list shares, so a merchant's rows open for the period its figures add up.
+ * Three views: the list of payments by day, which opens on the running month, the merchants (`?view=merchants`), the
+ * one place that adds up the rows by merchant, and the rules (`?view=rules`). The merchant list takes a period
+ * (`from`, `to`) that the list shares, so a merchant's rows open for the period its figures add up; the rules view
+ * keeps it in the address for the way back.
  */
-export function Transactions({ meta, params, scope, anchor }: { meta: Meta; params: URLSearchParams; scope: Scope; anchor?: string }) {
+export function Transactions({ meta, params, scope }: { meta: Meta; params: URLSearchParams; scope: Scope }) {
   // the table parts load while the first answer is on its way, so the rows come with their toolbar
   useEffect(() => void loadTableParts(), []);
-  const merchants = params.get("view") === "merchants";
-  // the period the open view shows; the other view opens on the same one
-  const range = merchants ? periodOf(params) : listPeriodOf(params, meta.today);
+  const view = params.get("view") === "merchants" ? "merchants" : params.get("view") === "rules" ? "rules" : "transactions";
+  // the period the open view shows; the other views open on the same one
+  const range = view === "transactions" ? listPeriodOf(params, meta.today) : periodOf(params);
   return (
     <div className="stack">
       <Segmented
         className="view-tabs"
         label={t("tx.tabs")}
-        value={merchants ? "merchants" : "transactions"}
-        options={[{ value: "transactions", label: t("tx.tab_list") }, { value: "merchants", label: t("tx.tab_merchants") }]}
-        onChange={(v) => navigate("transactions", v === "merchants" ? { view: "merchants", ...range } : periodParams(range))}
+        value={view}
+        options={[{ value: "transactions", label: t("tx.tab_list") }, { value: "merchants", label: t("tx.tab_merchants") }, { value: "rules", label: t("tx.tab_rules") }]}
+        onChange={(v) => navigate("transactions", v === "transactions" ? periodParams(range) : { view: v, ...range })}
       />
-      {merchants ? <Merchants meta={meta} params={params} scope={scope} anchor={anchor} /> : <TransactionList meta={meta} params={params} scope={scope} />}
+      {view === "merchants" ? <Merchants meta={meta} params={params} scope={scope} /> : view === "rules" ? <Rules meta={meta} /> : <TransactionList meta={meta} params={params} scope={scope} />}
     </div>
   );
 }

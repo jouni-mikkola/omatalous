@@ -20,6 +20,7 @@ export const FI_TRANSACTIONS = {
   "tx.tabs": "Tapahtumat ja kauppiaat",
   "tx.tab_list": "Lista",
   "tx.tab_merchants": "Kauppiaat",
+  "tx.tab_rules": "Säännöt",
   "tx.note_remember": "Muutos koskee myös kauppiaan muita ja tulevia tapahtumia.",
   "tx.note_only": "Muutos koskee vain tätä tapahtumaa.",
   "tx.own_ask": "Muuta oman siirron kategoria?",

@@ -60,6 +60,7 @@
 .user-menu summary { max-width: 100%; list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px; border-radius: var(--radius-m); }
 /* the name and a chevron; a long name stays on one line of the bar and is cut with an ellipsis */
 .user-menu summary .user-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.user-initials { display: none; }
 .user-chevron { flex: none; }
 .user-menu[open] .user-chevron { transform: rotate(180deg); }
 .user-menu summary::-webkit-details-marker { display: none; }
@@ -79,6 +80,9 @@
   .user-menu summary, .review-link { min-height: var(--tap-min); }
   .review-link { padding: 0 var(--sp-4); gap: var(--sp-4); }
   .user-menu summary { padding: var(--sp-4); }
+  /* the name gives way to the initials; it stays in the page as the button's name */
+  .user-menu summary .user-name { position: absolute; width: 1px; height: 1px; clip: rect(0 0 0 0); }
+  .user-menu summary .user-initials { display: inline; font-weight: 600; white-space: nowrap; }
   .nav-count { padding: 0 var(--sp-4); }
   /* the view switch, the word with its count (up to three digits) and the user need the whole row: the mark gives way */
   .topbar-in:has(.scope-toggle) .brand { display: none; }

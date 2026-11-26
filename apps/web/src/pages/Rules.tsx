@@ -22,7 +22,7 @@ const FIELD_LABEL = labelTable<CategoryRule["field"]>({
   any: () => t("rule.field_any"),
 });
 
-/** Tapahtumat > Kauppiaat, under the merchants: the rules that give a row its category, and the answers about payers under them. */
+/** Tapahtumat > Säännöt: the rules that give a row its category, and the answers about payers under them. */
 export function Rules({ meta }: { meta: Meta }) {
   const { data, error: loadError, reload } = useApi<{ rules: CategoryRule[] }>("/api/rules");
   const [field, setField] = useState<CategoryRule["field"]>("merchant");
