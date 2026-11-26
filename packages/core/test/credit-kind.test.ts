@@ -113,6 +113,8 @@ describe("the question of the kind", () => {
     const holdings = buildHoldings(ctx, [], NO_INPUTS);
     expect(holdings.unsavedLoans?.rows).toEqual(listed);
     expect(loansReport(ctx, [], NO_INPUTS).unsaved).toEqual(listed);
+    // no payoff date or interest of a path that leaves this debt out
+    expect(loansReport(ctx, [], NO_INPUTS).path).toBeNull();
   });
 
   it("carries asked after En tiedä at this payment, and only then: the row and the totals stay", () => {
