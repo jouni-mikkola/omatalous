@@ -12,6 +12,8 @@ import { ErrorCard } from "../components/ErrorCard.tsx";
 import { Button } from "../components/ui/Button.tsx";
 import { useApi } from "../hooks.ts";
 import { periodRange } from "../period.ts";
+import { dayMonth } from "../format.ts";
+import { KindChip } from "../components/KindChip.tsx";
 import type { DashboardData, Meta, Scope } from "../types.ts";
 import "../styles/home.css";
 import { t } from "../text.ts";
@@ -79,7 +81,7 @@ export function Overview({
       )}
       <div className="front-rail">
         <Coming scope={scope} />
-        <Holdings holdings={data.holdings} meta={meta} ahead={data.ahead} net={false} buffer={<Buffer direction={data.home.direction} />} />
+        <Holdings holdings={data.holdings} meta={meta} ahead={data.ahead} net={false} chip={<KindChip kind="now" date={dayMonth(meta.today)} />} buffer={<Buffer direction={data.home.direction} />} />
       </div>
     </div>
   );

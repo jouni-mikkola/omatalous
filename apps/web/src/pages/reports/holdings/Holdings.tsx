@@ -275,7 +275,7 @@ function Loans({ holdings, known }: { holdings: Answer; known: boolean }) {
  * (null) on a page whose own title says it; `buffer`: the line Yhteenveto adds at the foot; `loansListed`: the page lists the
  * loans in the report Lainat, so the block leaves out the Lainat group and the debts total (Lainat gives the same sum).
  */
-export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), buffer, loansListed = false, net = true }: { holdings: Answer; meta: Meta; ahead?: Ahead | null; title?: string | null; buffer?: ReactNode; loansListed?: boolean; net?: boolean }) {
+export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), buffer, chip, loansListed = false, net = true }: { holdings: Answer; meta: Meta; ahead?: Ahead | null; title?: string | null; buffer?: ReactNode; chip?: ReactNode; loansListed?: boolean; net?: boolean }) {
   const { accounts, accountsCents, cards, debtCents, unsavedLoans, netCents } = holdings;
   const loans = loansListed ? [] : holdings.loans;
   const groups = [accounts.length, cards.length, loans.length].filter((n) => n > 0).length;
@@ -295,7 +295,7 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), b
   return (
     <section className="card holdings" aria-labelledby={title === null ? undefined : "holdings-h"} aria-label={title === null ? t("holdings.title") : undefined}>
       <div className="card-head tb">
-        <div className="card-name">{title !== null && <h2 id="holdings-h">{title}</h2>}</div>
+        <div className="card-name">{title !== null && <h2 id="holdings-h">{title}</h2>}{chip}</div>
         {/* what the household has net, the accounts less the debts (core's netCents): a dash while the debt total is unknown, and none while a debt has no balance, as the figure would be too high */}
         {net && lackingDebts(holdings) === 0 && (netCents !== null || (accountsCents !== null && debtCents === null)) && (
           <div className="card-datum">

@@ -51,11 +51,11 @@ describe("Breakdown", () => {
     const { container } = render(createElement(Breakdown, { low, runway, otherwise: null }));
     const rows = [...container.querySelectorAll("tbody tr")].map(cellsOf);
     expect(rows.map((r) => [r[0], r[r.length - 1]])).toEqual([
-      ["Tilien saldo nyt", "1 400,00 €"],
+      ["Tilien saldo", "1 400,00 €"],
       ["Korttivelka laskujen lisäksi", "−200,00 €"],
       ["Arvioitu kulutus 10.–12.12.", "−300,00 €"],
       ["Vuokra", "−600,00 €"],
-      ["Sähkö, arvio", "−45,50 €"],
+      ["Sähkö", "−45,50 €"],
       ["Arvioitu kulutus 13.12.", "−20,00 €"],
     ]);
     const total = cellsOf(container.querySelector("tfoot tr")!);

@@ -1,7 +1,6 @@
 // Decision: which payments and which expected spending take the money in the accounts to the sum left on the payday
 import { paydayParts } from "@banking/core";
 import type { ReactNode } from "react";
-import { stepName } from "../../charts/forms/BalanceSteps.tsx";
 import { dateRange, rowMoney } from "../../format.ts";
 import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
@@ -35,7 +34,7 @@ function partsOf(low: Low, runway: Runway): Part[] | null {
       rows.push({ key: `${date}:spent:${i}`, name: p.kind === "everyday" ? t("home.days_spent", { range: dateRange(p.since, p.until) }) : t("home.days_cards"), state: <Estimate mark="line">{t("kind.estimate")}</Estimate>, cents: p.cents });
     }
     for (const [i, s] of found.steps.entries()) {
-      if (s.date === date) rows.push({ key: `${date}:${i}`, name: stepName(s), state: s.estimate ? <Estimate mark="line">{t("bills.status_estimate")}</Estimate> : t("bills.status_known"), cents: s.cents });
+      if (s.date === date) rows.push({ key: `${date}:${i}`, name: s.payee, state: s.estimate ? <Estimate mark="line">{t("bills.status_estimate")}</Estimate> : t("bills.status_known"), cents: s.cents });
     }
   }
   return rows;
@@ -50,7 +49,7 @@ export function Breakdown({ low, runway, otherwise }: { low: NonNullable<Dashboa
   const rows = low.known ? partsOf(low, runway) : null;
   if (!rows) return <>{otherwise}</>;
   const columns: Column<Part>[] = [
-    { key: "name", label: t("home.col_payee"), kind: "text", rowHead: true, cell: (r) => r.name },
+    { key: "name", label: t("home.col_part"), kind: "text", rowHead: true, cell: (r) => r.name },
     { key: "state", label: t("row.status"), kind: "text", cell: (r) => r.state },
     { key: "sum", label: t("home.col_sum"), kind: "money", main: true, precision: "cents", cents: (r) => r.cents },
   ];

@@ -5,6 +5,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   // Yhteenveto
   "home.today": "today",
   "home.col_payee": "Payee",
+  "home.col_part": "Item",
   "home.col_sum": "Amount",
   "home.show_payments": "Show payments",
   "home.category_left": "{label}: {spent}, {left} left.",
@@ -96,8 +97,8 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.low_known": "Lowest balance {date}, about",
   "home.fig_runway": "Left on payday",
   "home.breakdown": "Basis",
-  "home.range": "Range",
-  "home.ledger_balance": "On the accounts now",
+  "home.range": "It may be",
+  "home.ledger_balance": "On the accounts",
   "home.ledger_payments": "Bills before payday",
   "home.ledger_cards": "Card debt besides the bills",
   "home.ledger_everyday": "Expected spending for {days} days",

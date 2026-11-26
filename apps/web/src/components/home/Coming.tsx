@@ -6,6 +6,7 @@ import { useApi } from "../../hooks.ts";
 import { t, tn } from "../../text.ts";
 import type { ReportsData, Scope } from "../../types.ts";
 import { nothingToCome } from "../bills/calendar-rows.ts";
+import { KindChip } from "../KindChip.tsx";
 import { Notice } from "../ui/Notice.tsx";
 import { Table } from "../table/Table.tsx";
 
@@ -83,6 +84,7 @@ export function Coming({ scope }: { scope: Scope }) {
   return (
     <section className="card home-coming" aria-labelledby="home-coming-h">
       <h2 id="home-coming-h">{t("home.coming_title")}</h2>
+      <KindChip kind="estimate" />
       {answer.error && !calendar ? <Notice tone="error">{answer.error}</Notice> : calendar ? <ComingMonths calendar={calendar} /> : <span className="home-coming-wait" aria-hidden="true" />}
     </section>
   );
