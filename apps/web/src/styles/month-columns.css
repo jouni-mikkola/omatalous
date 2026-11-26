@@ -30,7 +30,7 @@
 .ms-key.ms-s2 { --key: var(--series-4); }
 .ms-income .ms-key.ms-s0 { --key: var(--role-income); }
 .ms-key { background: var(--key); }
-.ms-key.ms-coming { background: repeating-linear-gradient(45deg, var(--key) 0 2px, transparent 2px 5px); outline: 1px dashed var(--key); outline-offset: -1px; }
+.ms-key.ms-coming { background: repeating-linear-gradient(45deg, var(--key) 0 var(--hairline), transparent var(--hairline) var(--sp-4)); outline: var(--hairline) dashed var(--key); outline-offset: -1px; }
 @media (forced-colors: active) {
   .month-columns .ms-month:not(.ms-partial) rect:is(.ms-s0, .ms-s1, .ms-s2):not(.ms-coming) { fill: CanvasText; }
   .month-columns .ms-month rect.ms-coming { stroke: CanvasText; stroke-width: 1; stroke-dasharray: 3 2; }
