@@ -77,8 +77,8 @@ for (const { width, scale } of [{ width: 390, scale: 100 }, { width: 390, scale:
     const found = await rows.evaluateAll((els) =>
       els.flatMap((row) => {
         const cell = row.querySelector<HTMLElement>("th[scope=row]");
-        // the one row that stands for a later month's monthly bills has no day
-        if (!cell?.textContent?.trim()) return [];
+        // the one row that stands for a later month's monthly bills has no day, and the totals that end an open month have no day to line up
+        if (!cell?.textContent?.trim() || row.classList.contains("bill-total")) return [];
         const range = document.createRange();
         range.selectNodeContents(cell);
         const first = range.getClientRects()[0];
