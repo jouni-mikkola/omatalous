@@ -68,7 +68,7 @@ export function ComingMonths({ calendar }: { calendar: Calendar }) {
         csv={false}
         search={false}
       />
-      <p className="home-detail">{t("home.coming_note")}</p>
+      <p className="home-coming-foot">{t("home.coming_note")}</p>
       {unknownBills > 0 && <p className="home-detail">{tn(unknownBills, "bills.unknown_one", "bills.unknown_many")}</p>}
     </>
   );
