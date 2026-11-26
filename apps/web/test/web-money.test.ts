@@ -10,9 +10,7 @@ import { describe, expect, it } from "vitest";
  */
 const MONEY = /[a-zA-Z]Cents\s*[-+]\s*[a-zA-Z.]*Cents|reduce\(.*(?:Cents|\bcents\()|\+=\s*[a-zA-Z.]*Cents/g;
 
-const KNOWN: Record<string, number> = {
-  "components/next-days-line.ts": 1,
-};
+const KNOWN: Record<string, number> = {};
 
 const SRC = new URL("../src/", import.meta.url).pathname;
 const files = (dir: string): string[] =>

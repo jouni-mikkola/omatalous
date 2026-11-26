@@ -50,8 +50,6 @@
 .coverage-notices { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--sp-8); max-width: 70ch; color: var(--muted); font-size: var(--fs-body); line-height: var(--lh-prose); }
 .recommendation { margin: 0; max-width: 70ch; line-height: var(--lh-prose); }
 .q-method, .q-accounts { margin: 0 0 var(--sp-12); max-width: 70ch; line-height: var(--lh-prose); }
-/* the link to the notes stands alone, not in a sentence: on a phone it needs the height of a target */
-.q-quality { display: inline-flex; align-items: center; }
 /* wide enough, the period switch sits at the right end of the tab row and one line runs under both */
 @media (min-width: 1100px) {
   .q-bar { flex-direction: row; align-items: center; gap: var(--sp-16); border-bottom: var(--hairline) solid var(--border); }
