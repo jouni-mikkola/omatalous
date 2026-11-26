@@ -28,7 +28,7 @@ with it. A new word for a thing already named here is not added: the term below 
 | The queue of questions the app cannot answer | *Tarkistettavat* (the name), *kysymys* (one item) | *tarkistus*, *tarkistettu* |
 | The app's own check of its work | *tarkistaa* ("Tarkistimme 21 asiaa") | *Tarkistettu* |
 | A suggestion that saves money | *Säästövinkki* | *optimoi*, *optimointi* |
-| The user's rule that sorts into a category | *Sääntö*; *Kauppiaat ja säännöt* | *Muistisääntö*, *Hakusääntö* |
+| The user's rule that sorts into a category | *Sääntö*; *Säännöt* (a tab of Tapahtumat) | *Muistisääntö*, *Hakusääntö* |
 | A person without a login | *jäsen ilman kirjautumista* | *Jäsen ilman tunnusta* (short form: *ilman kirjautumista*) |
 | All accounts of the household | *Koko talous* | *Kaikki tilit* |
 | The user's own name for an account | *Tilin nimi* (also the label of the field) | *Oma nimi* |

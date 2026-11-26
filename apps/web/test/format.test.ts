@@ -8,7 +8,12 @@ describe("initialsOf", () => {
   it("takes the first letter of the first and the last word, or two letters of one word", () => {
     expect(initialsOf("Aino Virtanen")).toBe("AV");
     expect(initialsOf("  liisa  Meikäläinen-Virtanen von Äänekoski ")).toBe("LÄ");
-    expect(initialsOf("Jouni")).toBe("JO");
+    expect(initialsOf("Kalle")).toBe("KA");
+    expect(initialsOf("Anna-Liisa")).toBe("AL");
+    expect(initialsOf("Anna-Liisa Virtanen")).toBe("AV");
+    expect(initialsOf("\"Aino\" (Virtanen)")).toBe("AV");
+    expect(initialsOf("-Eeva")).toBe("EE");
+    expect(initialsOf(" - ")).toBe("");
     expect(initialsOf("")).toBe("");
   });
 });

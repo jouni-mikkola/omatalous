@@ -10,7 +10,7 @@ export const FI_REPORTS_2 = {
   "rep.q_known": "{percent} % viimeisen 12 kuukauden menoista on luokiteltu",
   "rep.q_short_title": "Historiaa on vasta vähän",
   "rep.q_short_detail": "Tapahtumat alkavat {date}. Vertailut tarkentuvat, kun historiaa on kolme kuukautta.",
-  "rep.q_uncat_detail": "Luokittelematta {amount}{top}. Luokittele ne kohdassa Kauppiaat ja säännöt.",
+  "rep.q_uncat_detail": "Luokittelematta {amount}{top}. Luokittele ne kohdassa Tapahtumat > Kauppiaat.",
   "rep.q_uncat_top": ", suurimmat: {names}",
   "rep.q_gap_title": "{name}: {days} päivää ilman tapahtumia ({range})",
   "rep.q_gap_detail": "Jos tilillä oli liikettä, hae tapahtumat uudelleen.",

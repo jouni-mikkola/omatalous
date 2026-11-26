@@ -150,7 +150,7 @@ Deleted with its code, styles, tests and texts unless it says "moves".
 | Tapahtumat tiles and weekly chart | `pages/Transactions.tsx`, `pages/transactions/` | Whole-history totals compare with nothing |
 | Row marks | `components/MerchantAvatar.tsx`, `BankLogo.tsx` in rows, category chip icons, amount bars | Four marks repeat the text |
 | Merchants view | `pages/Merchants.tsx` | Taken back: it is the Kauppiaat view of Tapahtumat, as in 1.0.0 |
-| Rules page | `pages/Rules.tsx` | Taken back: the rules are under the merchants |
+| Rules page | `pages/Rules.tsx` | Taken back: Säännöt is a tab of Tapahtumat |
 | Laskut timeline and sums | `components/bills/Timeline.tsx`, `PriceSteps.tsx`, `ContractPanel.tsx` | Tulossa keeps the list only |
 | Raportit menu and 7 pages | `pages/Reports.tsx`, `pages/reports/pages/*`, `pages/reports/Verdict.tsx`, core `reports/conclusions/` | Kuukausi and Lisää replace them |
 | Report sections that go | `pages/reports/sections/` Pivot, FixedVariable, Drift, SpendingChange, SpendingTable, Food, Buffer, Cashflow, LongForecast, Income, FixedCosts, PriceChange, DataQuality, CategoryGoals | Folded into Kuukausi (Income is its income row), Tulossa or Tarkistettavat, or answer nothing. ThisMonth, Balances, Loans, Borrowed, Settlement, TaxYear and YearOverYear stay, in Kuukausi or Lisää. FixedCosts came back on 12.11.2026 as one table, without its price changes, overlapping services and ended payments |
@@ -220,7 +220,7 @@ Each proof is a test or a screenshot at 390 and 1440 px attached to the PR. `pnp
 - done when: the tiles, the chart, `MerchantAvatar.tsx`, logos, chip icons and amount bars are gone from rows; a 390 px shot shows the first row on the first screen.
 - locks: transactions, table
 - after: none
-### D5 Fold Merchants and Rules (taken back: Tapahtumat has Lista and Kauppiaat, the rules under the merchants)
+### D5 Fold Merchants and Rules (taken back: Tapahtumat has the tabs Lista, Kauppiaat and Säännöt)
 - why: a merchant list is a grouping of rows; rules are a setting.
 - done when (as it stands): `pages/Merchants.tsx` is the Kauppiaat tab of Tapahtumat and `pages/Rules.tsx` is its Säännöt tab; the old addresses of both and of the rules card of Asetukset lead there (`routes.ts`, test).
 - locks: transactions, settings, routes

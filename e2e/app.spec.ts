@@ -230,7 +230,7 @@ test("Tapahtumat has Lista, Kauppiaat and Säännöt: old addresses open Kauppia
   const rules = page.getByRole("heading", { name: "Säännöt" });
   await expect(rules).toBeInViewport();
   await expect(page.locator("table.merchant-table")).toHaveCount(0);
-  expect(await page.getByRole("group", { name: "Tapahtumat ja kauppiaat" }).getByRole("button").allInnerTexts()).toEqual(["Lista", "Kauppiaat", "Säännöt"]);
+  expect(await page.getByRole("group", { name: "Tapahtumien näkymät" }).getByRole("button").allInnerTexts()).toEqual(["Lista", "Kauppiaat", "Säännöt"]);
   // the Kauppiaat tab has the table and no rules
   await page.getByRole("button", { name: "Kauppiaat", exact: true }).click();
   await expect(rows.first()).toBeVisible();

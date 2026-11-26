@@ -17,7 +17,7 @@ export const FI_TRANSACTIONS = {
   "tx.repeats": "Toistuu",
   "tx.next_expected": "Seuraava arvio",
   "tx.summary_of": "Yhteenveto: {merchant}",
-  "tx.tabs": "Tapahtumat ja kauppiaat",
+  "tx.tabs": "Tapahtumien näkymät",
   "tx.tab_list": "Lista",
   "tx.tab_merchants": "Kauppiaat",
   "tx.tab_rules": "Säännöt",

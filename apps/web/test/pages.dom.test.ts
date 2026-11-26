@@ -35,16 +35,16 @@ describe("Tapahtumat", () => {
   it("has the Lista, Kauppiaat and Säännöt views, and Kauppiaat lists each merchant once", async () => {
     await startServer();
     await openApp("#/transactions?view=merchants", "Tapahtumat");
-    const views = await screen.findByRole("group", { name: "Tapahtumat ja kauppiaat" }, T);
+    const views = await screen.findByRole("group", { name: "Tapahtumien näkymät" }, T);
     expect(within(views).getAllByRole("button").map((o) => `${o.textContent}:${o.getAttribute("aria-pressed")}`)).toEqual(["Lista:false", "Kauppiaat:true", "Säännöt:false"]);
     expect(window.location.hash).toBe("#/transactions?view=merchants");
-    expect(screen.queryByRole("heading", { name: "Säännöt" }), "the rules are a view of their own").toBeNull();
     const names = await waitFor(() => {
       const cells = [...document.querySelectorAll("table.merchant-table tbody th")].map((th) => th.textContent ?? "");
       expect(cells.length).toBeGreaterThan(5);
       return cells;
     }, T);
     expect(new Set(names).size).toBe(names.length);
+    expect(screen.queryByRole("heading", { name: "Säännöt" }), "the rules are a view of their own").toBeNull();
   }, 60000);
 
   it("lists the rules in their own view, where the rules card of Asetukset leads too, and adds a rule", async () => {

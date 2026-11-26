@@ -44,6 +44,10 @@ test("390 px: rows sit under day groups, newest first, each a block of the merch
   const terms = await strip.locator("dt").allInnerTexts();
   expect(terms.slice(0, 2)).toEqual(["Menot", "Tulot"]);
   expect(terms[2], "Erotus, or what the rows move to savings when Käteen jäi takes its place").toMatch(/^(Erotus|Säästöön siirretty|Otettu säästöistä)$/);
+  if (terms[2] !== "Erotus") {
+    expect(terms[3], "Käteen jäi follows a savings term").toBe("Käteen jäi");
+    expect(terms, "Erotus is not shown beside a savings term").not.toContain("Erotus");
+  }
   await expect(strip.locator("dd").last()).toBeInViewport();
 
   // "ma 12.10." (a day of an earlier year has the year too), the weekday is the date's, and the days run backwards

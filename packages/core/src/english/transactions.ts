@@ -15,7 +15,7 @@ export const EN_TRANSACTIONS: Record<keyof typeof FI_TRANSACTIONS, string> = {
   "tx.repeats": "Repeats",
   "tx.next_expected": "Next expected",
   "tx.summary_of": "Summary: {merchant}",
-  "tx.tabs": "Transactions and merchants",
+  "tx.tabs": "Transaction views",
   "tx.tab_list": "List",
   "tx.tab_merchants": "Merchants",
   "tx.tab_rules": "Rules",
