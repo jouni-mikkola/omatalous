@@ -13,6 +13,7 @@ export * from "./account-use.ts";
 export * from "./shared.ts";
 export { holdersIn, nameOf, samePerson, userNameOf } from "./person-names.ts";
 export { isEarnedIncome } from "./analysis/income.ts";
+export { paydayParts } from "./low-point.ts";
 export { MIN_PAYS } from "./analysis/pay-estimate.ts";
 // what an add-on module tells of a row's money a level under its category (the server's extensions.ts)
 export type { RowParts as CategoryRowParts } from "./analysis/row-parts.ts";
