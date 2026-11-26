@@ -2,10 +2,10 @@ name: full
 
 # The heavy tier, on GitHub. No check runs on a developer's machine any more: what ci.yml leaves out runs here.
 #
-#   check   the whole of `pnpm check`: knip, the privacy scan, the types, every test file and shell suite, and the
-#           self-tests of the tools (CI runs them always)
+#   check   the whole of `pnpm check`, in eight legs side by side: knip, the privacy scan, the types and the lint; a third
+#           of the test files each; a quarter of the shell suites' jobs each, with the self-tests of the tools (CI runs them always)
 #   build   `pnpm build` and the bundle budgets
-#   e2e     the browser tests (`pnpm e2e`) on the built app, one retry for a flake
+#   e2e     the browser tests (`pnpm e2e`) on the built app in six legs (five parts of the app project and the timing project alone), one retry for a flake
 #   proof   tools/ci/local-proof.sh: the image, its smoke test, the container checks, the signature of the newest
 #           release, an upgrade rehearsal from the public releases in tools/ci/upgrade-baselines.txt, and the drills
 #   scope   decides whether proof runs: always on main and by hand; on a pull request only when it changes what the
@@ -71,9 +71,33 @@ jobs:
           echo "proof=$proof" >>"$GITHUB_OUTPUT"
 
   check:
+    # eight runners side by side (CHECK_SHARD, tools/check.sh): the types and the lint, the tests in three parts, the shell
+    # suites in four. Together they run what `pnpm check` runs; knip and the privacy scan run once, beside the types. The
+    # result of the job is success only when every leg is.
     if: ${{ github.repository == 'jouni-mikkola/omatalous' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    strategy:
+      # a red leg does not cancel the others: each names its own failures
+      fail-fast: false
+      matrix:
+        include:
+          - steps: types lint
+            once: true
+          - steps: tests
+            shard: 1/3
+          - steps: tests
+            shard: 2/3
+          - steps: tests
+            shard: 3/3
+          - steps: sh
+            shard: 1/4
+          - steps: sh
+            shard: 2/4
+          - steps: sh
+            shard: 3/4
+          - steps: sh
+            shard: 4/4
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -85,9 +109,14 @@ jobs:
           node-version: 24.22.2
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: pnpm check
+      - name: Knip and the privacy scan
+        if: ${{ matrix.once }}
+        run: pnpm -s knip && node tools/privacy/scan.mjs --local
+      - name: tools/check.sh ${{ matrix.steps }}
         id: check
-        run: pnpm check
+        env:
+          CHECK_SHARD: ${{ matrix.shard }}
+        run: bash tools/check.sh ${{ matrix.steps }}
       - name: Flake or real
         if: ${{ failure() && steps.check.conclusion == 'failure' }}
         timeout-minutes: 10
@@ -97,9 +126,28 @@ jobs:
           bash tools/check.sh --rerun "${dir%/}" || echo "check: rerun ended with $?"
 
   e2e:
+    # six runners with servers of their own: the app project in five parts (Playwright --shard) and the timing project alone.
+    # Playwright keeps a project and the projects that depend on it in one shard, so --shard on both would run all in one;
+    # --no-deps runs the timing project without the app project, which on its own runner it no longer shares cores with.
     if: ${{ github.repository == 'jouni-mikkola/omatalous' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: 1
+            args: --project=app --shard=1/5
+          - id: 2
+            args: --project=app --shard=2/5
+          - id: 3
+            args: --project=app --shard=3/5
+          - id: 4
+            args: --project=app --shard=4/5
+          - id: 5
+            args: --project=app --shard=5/5
+          - id: timing
+            args: --project=timing --no-deps
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -112,22 +160,33 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Build
         run: pnpm build
+      - name: Playwright version
+        id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >>"$GITHUB_OUTPUT"
+      - name: Browser cache
+        id: browser-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      # the browser and its system libraries are installed only on a cache miss; the runner image has the libraries Chromium needs
       - name: Browser
+        if: ${{ steps.browser-cache.outputs.cache-hit != 'true' }}
         run: pnpm exec playwright install --with-deps chromium
       - name: pnpm e2e
         env:
           E2E_RETRY: '1'
           E2E_WORKERS: '3'
-        run: pnpm e2e
-      # after the browser tests, so a budget over its limit does not hide their result
+        run: pnpm e2e ${{ matrix.args }}
+      # after the browser tests, so a budget over its limit does not hide their result; every leg builds the same bundle, so one runs the budgets
       - name: Bundle budgets
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && matrix.id == 1 }}
         run: pnpm budgets
       - name: Traces of the failed tests
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: e2e-traces
+          name: e2e-traces-${{ matrix.id }}
           path: test-results/e2e/
           retention-days: 7
           if-no-files-found: ignore

@@ -27,8 +27,9 @@
 # the output of a red `pnpm e2e` in FILE, page spec, and prints FLAKE (passes alone), REAL (fails alone) or NOT RUN (the rerun selected no test) for each with the
 # number of kept red runs (check.* beside DIR) it failed in. Exit 1 when one is REAL (tools/check/rerun.mjs).
 # CHECK_SHARD=<i>/<n> runs part i of n of the test files: the tests step passes it to vitest as --shard, which cuts the
-# files it would run (with --changed too) into n parts that add up to all of them. ci.yml runs two on two runners. The
-# other steps do not read it, and neither does a rerun, which names its files.
+# files it would run (with --changed too) into n parts that add up to all of them. The sh step runs every n-th of its
+# jobs, starting at the i-th. ci.yml runs two parts of the tests on two runners, full.yml three of the tests and four of the
+# shell suites. The other steps do not read it, and neither does a rerun, which names its files.
 # One line per step. A failing step adds the failing names and the first lines of each failure. The tests step also
 # names the three slowest tests over 2 s (tools/check/report.mjs), so one near vitest's 5 s timeout shows before it
 # fails. The full logs of a failing run stay in a temp directory named at the end. Exit code 1 when any step fails.
@@ -393,6 +394,15 @@ step_sh() {
     fi
   done
   sh_order ${whole[@]+"${whole[@]}"} ${scenarios[@]+"${scenarios[@]}"}
+  # one part of the jobs (CHECK_SHARD): every n-th job of the order, so the parts add up to all of them and the heavy jobs are spread
+  if [[ -n ${CHECK_SHARD:-} ]]; then
+    local part=() k=0
+    for line in ${ORDERED[@]+"${ORDERED[@]}"}; do
+      (((k % ${CHECK_SHARD#*/}) + 1 == ${CHECK_SHARD%/*})) && part+=("$line")
+      k=$((k + 1))
+    done
+    ORDERED=(${part[@]+"${part[@]}"})
+  fi
   for line in ${ORDERED[@]+"${ORDERED[@]}"}; do n=$((n + 1)); printf -v id '%02d' "$n"; list+=("$id $line"); done
   ((${#list[@]})) && sh_run "$GIVE" "$JOBS" "$SELF" "${list[@]}"
   # the jobs of this run for --rerun: id, suite, scenario filter (tab separated)
