@@ -63,8 +63,7 @@ removes the example data.
 The app walks you through it after the first login. You register a free Enable Banking app, once for the whole
 household, and then log in at your bank. [Connecting a bank](ENABLE_BANKING.md) has the steps.
 
-After the first fetch Omatalous fetches at 6.15 and 18.15. The connections
-are under *Asetukset > Pankit ja tilit*.
+After the first fetch, Omatalous fetches at 6.15 and 18.15. The connections are under *Asetukset > Pankit ja tilit*.
 
 ## 5. Add the household
 
