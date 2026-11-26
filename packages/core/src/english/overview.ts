@@ -95,7 +95,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.coming_saving": "To savings",
   "home.low_known": "Lowest balance {date}, about",
   "home.fig_runway": "Left on payday",
-  "home.breakdown": "What the figure is made of",
+  "home.breakdown": "Basis",
   "home.range": "Range",
   "home.ledger_balance": "On the accounts now",
   "home.ledger_payments": "Bills before payday",

@@ -42,7 +42,7 @@ function partsOf(low: Low, runway: Runway): Part[] | null {
 
 /**
  * "Mistä luku koostuu": the walk of core's `lowPoint` to the payday as rows that add up, to the cent, from the accounts of the
- * Nyt card to the figure of the Arvio card, which is the total. Folded on a phone. Nothing when the walk is not known or its
+ * Nyt card to the figure of the Arvio card, which is the total. Folded: the page is held to its height. Nothing when the walk is not known or its
  * rows do not make the figure (`breakdownShown` says so, and the page shows its ledger then).
  */
 export function Breakdown({ low, runway }: { low: NonNullable<DashboardData["home"]["lowPoint"]>; runway: Runway }) {
@@ -53,9 +53,8 @@ export function Breakdown({ low, runway }: { low: NonNullable<DashboardData["hom
     { key: "state", label: t("row.status"), kind: "text", cell: (r) => r.state },
     { key: "sum", label: t("home.col_sum"), kind: "money", main: true, precision: "cents", cents: (r) => r.cents },
   ];
-  const open = typeof window === "undefined" || typeof window.matchMedia !== "function" || window.matchMedia("(min-width: 40.01rem)").matches;
   return (
-    <details className="chart-fold home-breakdown" open={open || undefined}>
+    <details className="chart-fold home-breakdown">
       <summary>{t("home.breakdown")}</summary>
       <Table<Part>
         caption={t("home.breakdown")}
