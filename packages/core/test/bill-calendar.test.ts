@@ -122,6 +122,18 @@ describe("the bill calendar", () => {
     expect(cal.months[1]!.knownCents).toBeGreaterThan(0);
   });
 
+  it("has the running month's paid sum and its sum still to come add up to the month's bills, to the cent", () => {
+    // the 8th: the rent and the music are charged, the electricity of the 10th is still to come
+    const { cal } = run(household(), NO_INPUTS, "2026-10-08");
+    const open = cal.months[0]!;
+    const billRows = open.rows.filter((r) => (r.kind === "bill" || r.kind === "loan") && !r.onCard);
+    expect(open.paidCents).toBe(RENT + MUSIC);
+    expect(open.billsCents).toBeGreaterThan(0);
+    expect(open.billsCents).toBe(billRows.filter((r) => r.state !== "paid").reduce((total, r) => total + r.cents, 0));
+    expect(open.paidCents + open.billsCents).toBe(billRows.reduce((total, r) => total + r.cents, 0));
+    expect(open.paidCount).toBe(2);
+  });
+
   it("takes the charge of the same month last year for a varying monthly bill, so the winter costs more", () => {
     const { ctx, cal } = run(household());
     const usual = typical(ctx, "Esimerkki Energia");

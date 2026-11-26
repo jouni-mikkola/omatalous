@@ -11,7 +11,8 @@ import { startServer } from "./server.mjs";
 const ADMIN = { username: "e2e-admin", displayName: "E2E Admin", password: "e2e-salasana-123456" };
 const FETCH = { "X-Requested-With": "fetch" };
 // Raised from 1800 on purpose: the page gained a twelve-month chart and the picked month's days strip above the table, which are
-// about 500 px on a phone with the three figures in one row and the strip compact. The table of the months is unchanged.
+// about 500 px on a phone with the three cards of the kinds in one row and the strip compact. The table of the months is unchanged.
+// The cards hold their row at 390 px on every day, whatever the sums are.
 const MAX_HEIGHT = 2250;
 const month = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Helsinki", year: "numeric", month: "2-digit" }).format(new Date());
 const DAYS = [
@@ -71,6 +72,9 @@ for (const { day, open } of DAYS) {
       const card = page.locator("#laskut-taulukko .bill-subfold").filter({ hasText: /Kortilla, \d+ kpl/ });
       await expect(card).toHaveCount(1);
       await expect(card).toHaveAttribute("aria-expanded", "false");
+      const cardTops = await page.locator(".kind-cards .kind-card").evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
+      expect(cardTops, "the three cards of the kinds").toHaveLength(3);
+      expect(new Set(cardTops).size, "the cards share one row").toBe(1);
       const height = await page.evaluate(() => document.documentElement.scrollHeight);
       console.log(`Laskut at 390 px on ${today}: ${height} px`);
       expect(height, "page height at 390 px").toBeLessThanOrEqual(MAX_HEIGHT);

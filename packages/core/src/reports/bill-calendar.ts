@@ -106,12 +106,8 @@ interface BillCalendar {
   months: BillMonth[];
   /** The bills still to pay of the twelve months, the months' `billsCents` together. */
   billsCents: number;
-  /** `billsCents` over the twelve months, rounded to a cent: what the bills take in an average month. */
-  perMonthCents: number;
-  /** The month after today's, whose bills are all still to come, with the loan and card payments among them (`debtCents`). Null when it has no bills. */
-  next: { month: string; billsCents: number; debtCents: number } | null;
-  /** The month with the most bills still to pay, the first when two tie. Null when no month has bills. */
-  dearest: { month: string; billsCents: number } | null;
+  /** The month after today's, whose bills are all still to come. Null when it has no bills. */
+  next: { month: string; billsCents: number } | null;
   /**
    * The rare bills of the same twelve months and what to set aside each month for them. As `billsCents` does, it leaves out a bill that
    * a card or an account the balance does not count pays (the card's own bill is a row of the months), and it keeps a bill paid this month.
@@ -342,15 +338,12 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
   });
   const billsCents = months.reduce((total, m) => total + m.billsCents, 0);
   const following = months[1]!;
-  const dearest = months.reduce<BillMonth | null>((most, m) => (m.billsCents > (most?.billsCents ?? 0) ? m : most), null);
   return {
     from: today,
     to: windowEnd,
     months,
     billsCents,
-    perMonthCents: Math.round(billsCents / YEAR_MONTHS),
-    next: following.billsCents > 0 ? { month: following.month, billsCents: following.billsCents, debtCents: following.debtCents } : null,
-    dearest: dearest ? { month: dearest.month, billsCents: dearest.billsCents } : null,
+    next: following.billsCents > 0 ? { month: following.month, billsCents: following.billsCents } : null,
     ...rareYearCounted(occurrences, today, balances),
     unknownCount: unknowns.length,
     unknowns,

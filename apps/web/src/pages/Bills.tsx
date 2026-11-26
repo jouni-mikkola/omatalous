@@ -12,7 +12,7 @@
  * (`seriesMarkSubject`); an old one on a merchant still covers every series of it. Instalment plans and loans are asked
  * in Tarkistettavat, never here.
  */
-import { cancelledSubjects, countingMark, type MarkKind, marksBySubject, NO_INPUTS, seriesMarkSubject, type UserMark } from "@banking/core";
+import { cancelledSubjects, countingMark, type MarkKind, marksBySubject, monthEnd, NO_INPUTS, seriesMarkSubject, type UserMark } from "@banking/core";
 import { useState } from "react";
 import { api, query } from "../api.ts";
 import { MonthColumns } from "../charts/forms/MonthColumns.tsx";
@@ -26,7 +26,7 @@ import { KindCard } from "../components/KindCard.tsx";
 import { ChartWithTable } from "../components/table/selection.tsx";
 import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
-import { answerMoney, monthLong, monthStarting } from "../format.ts";
+import { answerMoney, dayMonth, monthLong, monthStarting } from "../format.ts";
 import { useApi } from "../hooks.ts";
 import { t, tn } from "../text.ts";
 import type { Meta, Recurring as Series, ReportsData, Scope } from "../types.ts";
@@ -37,7 +37,7 @@ import "../styles/statement.css";
 export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
   const recurring = useApi<{ series: Series[]; marks: UserMark[] }>(`/api/recurring${query({ scope })}`);
   // the calendar of the twelve months, and the bills typed in, which are the `upcoming` report's list
-  const reports = useApi<ReportsData>(`/api/reports${query({ scope, reports: "billCalendar,upcoming" })}`);
+  const reports = useApi<ReportsData>(`/api/reports${query({ scope, reports: "billCalendar,upcoming,fixedCosts" })}`);
   // what the last save answered: fresher than the list the page was loaded with
   const [saved, setSaved] = useState<UserMark[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -59,7 +59,7 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
   if (!recurring.data || !reports.data) return <BillsLoading />;
 
   const { series } = recurring.data;
-  const { billCalendar: calendar, upcoming } = reports.data;
+  const { billCalendar: calendar, upcoming, fixedCosts } = reports.data;
   const label = (id: string) => meta.categories.find((c) => c.id === id)?.label ?? id;
   const markList = saved ?? recurring.data.marks;
   const marks = marksBySubject(markList);
@@ -91,7 +91,7 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
   };
   const items = billItems({ series, typed: upcoming.manual, cancelled, marks, today: meta.today });
   const listed = items.length > 0 || calendar.months.some((m) => m.rows.length > 0);
-  // the open month: what is paid of it (now), what is still to come (estimate); the twelve months' level is the usual
+  // the open month: what is paid of it (now), what is still to come (estimate); the bills a month the series run at is the usual
   const open = calendar.months[0]!;
   const month = monthStarting(open.month);
 
@@ -129,9 +129,10 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
           </p>
         )}
         <div className="kind-cards">
-          <KindCard kind="now" label={t("bills.kind_paid", { month })} figure={answerMoney(open.paidCents)} rows={[{ label: t("bills.kind_count"), value: String(open.paidCount) }]} />
+          <KindCard kind="now" date={dayMonth(meta.today)} label={t("bills.kind_paid", { month })} figure={answerMoney(open.paidCents)} rows={[{ label: t("bills.kind_count"), value: String(open.paidCount) }]} />
           <KindCard
             kind="estimate"
+            date={dayMonth(monthEnd(open.month))}
             label={t("bills.kind_coming", { month })}
             figure={answerMoney(open.billsCents)}
             rows={calendar.next ? [{ label: monthLong(calendar.next.month), value: answerMoney(calendar.next.billsCents) }] : []}
@@ -139,7 +140,7 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
           <KindCard
             kind="usual"
             label={t("bills.kind_usual")}
-            figure={answerMoney(calendar.perMonthCents)}
+            figure={answerMoney(fixedCosts.monthlyCents)}
             rows={[
               { label: t("bills.kind_year"), value: answerMoney(calendar.billsCents) },
               ...(calendar.yearlyCents > 0 ? [{ label: t("bills.fig_reserve"), value: answerMoney(calendar.reserveMonthlyCents) }] : []),
