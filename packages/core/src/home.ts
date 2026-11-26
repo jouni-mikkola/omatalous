@@ -61,8 +61,8 @@ interface HomePace {
   highCents: number;
   /** Where the month stands against that range. */
   position: "below" | "within" | "above";
-  /** The month's end as the base months spent the rest of it; null for a month with no day left. */
-  end: { lowCents: number; highCents: number } | null;
+  /** The month's end as the base months spent the rest of it; null for a month with no day left. `pointCents` is the one figure inside that range: what the month has cost plus the expected spending on the days left. */
+  end: { lowCents: number; highCents: number; pointCents: number } | null;
   /** How many complete months the expected month is read from. */
   months: number;
 }
@@ -134,7 +134,9 @@ function homePace(pace: MonthPace): HomePace | null {
   if (!expected || day === 0) return null;
   const lowCents = expected.low[day - 1]!;
   const highCents = expected.high[day - 1]!;
-  const end = pace.projection ? { lowCents: pace.projection.low.at(-1)!, highCents: pace.projection.high.at(-1)! } : null;
+  const end = pace.projection
+    ? { lowCents: pace.projection.low.at(-1)!, highCents: pace.projection.high.at(-1)!, pointCents: pace.currentTotal + expected.curve.at(-1)! - expected.toToday }
+    : null;
   return {
     month: pace.month,
     day,

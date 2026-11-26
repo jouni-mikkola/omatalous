@@ -1697,7 +1697,8 @@
    "position": "within",
    "end": {
     "lowCents": 319392,
-    "highCents": 331178
+    "highCents": 331178,
+    "pointCents": 326840
    },
    "months": 6
   },

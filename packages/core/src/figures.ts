@@ -205,6 +205,15 @@ export const FIGURES = {
     additive: false,
     pages: ["Yhteenveto"],
   },
+  paceEnd: {
+    name: "Menot kuun lopussa",
+    definition: "A point estimate of the running month's Menot at its end: what the month has cost so far plus the expected spending (Odotettu) on the days left. It lies in the range from the lower to the upper quartile of the base months. Nothing on the last day of the month or without an expected month.",
+    source: { file: "home.ts", fn: "homePace", field: "end.pointCents" },
+    unit: "cents",
+    scope: "own",
+    additive: false,
+    pages: ["Yhteenveto"],
+  },
   usualSpend: {
     name: "Tavalliset menot",
     definition: "The row of Varat ja velat: the expected spending (Odotettu) of the running month, all its days, so the buffer and the row read one figure. One-offs are left out.",
