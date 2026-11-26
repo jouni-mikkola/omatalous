@@ -3,6 +3,15 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.8.1
+
+Look
+
+- Mikä muuttui opens with a step named Ei vertailukohtaa when there is nothing to compare with.
+- The count of debts without a balance in Tarkistettavat matches the first page.
+- Crowded month names under a chart no longer overlap.
+- Tapahtumat on a phone takes less room for its totals strip.
+
 ## 1.8.0
 
 - Yhteenveto draws the balance of the days to the payday as a step line.
