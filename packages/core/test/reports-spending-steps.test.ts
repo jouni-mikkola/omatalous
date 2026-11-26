@@ -55,15 +55,25 @@ describe("reports: spending steps", () => {
 });
 
 describe("reports: the steps of a household whose card was connected late", () => {
-  it("start from the usual month while the card's categories have no level, and their gaps are in the last step", () => {
+  it("start from the levels that exist, which is the column of the averages added up, and show what the categories with no level spent as their own step", () => {
     const s = buildReports({ ctx: lateCardContext("2026-08"), range: { from: "2026-01-01", to: "2026-10-09" }, balances: [] }, ["spendingMonths"]).spendingMonths;
     const shown = s.changes.flatMap((c, i) => (c ? [{ c, i }] : []));
     expect(shown.length).toBe(s.complete.filter(Boolean).length);
+    const withLevel = s.categories.filter((x) => x.typicalCents !== null);
+    const without = s.categories.filter((x) => x.typicalCents === null);
+    expect(without.map((x) => x.category).sort()).toEqual(["card_bill", "groceries", "restaurants"]);
+    const column = withLevel.reduce((sum, x) => sum + x.typicalCents!, 0);
     for (const { c, i } of shown) {
-      expect(c.startCents).toBe(s.typicalCents);
+      // the start row is the column it is named after, exactly
+      expect(c.startCents).toBe(column);
       expect(c.endCents).toBe(s.totals[i]);
       expect(c.startCents + c.steps.reduce((sum, st) => sum + st.cents, 0)).toBe(c.endCents);
       for (const st of c.steps.filter((x) => x.category !== null)) expect(st.category).toBe("housing");
+      // the categories with no level are one step of their whole sum in the month, before the rest
+      const unlevelled = c.steps.filter((st) => st.withoutLevel);
+      const spent = without.reduce((sum, x) => sum + (x.values[i] ?? 0), 0);
+      expect(unlevelled.map((st) => st.cents)).toEqual(spent === 0 ? [] : [spent]);
+      for (const st of unlevelled) expect(st).toMatchObject({ category: null, label: null });
     }
   });
 });

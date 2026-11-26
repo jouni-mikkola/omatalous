@@ -23,7 +23,7 @@ const completeTotals = { months: 10, incomeCents: 4005000, averageIncomeCents: 4
 const overview = (more: Record<string, unknown> = {}) => ({ months: MONTHS, usualSpendCents: 214900, usualMonths: 10, completeTotals, categories, ...more });
 const stripItems = () => [...document.querySelectorAll(".strip-item")].map((li) => [...li.children].map((c) => flat(c.textContent)).join(" "));
 
-const ctx = { meta: { today: TODAY, accounts: [{ id: "acc-1" }], sharedAccounts: [] }, scope: "own", data: { income: { monthlyCents: 396000 } } } as unknown as ReportContext;
+const ctx = { meta: { today: TODAY, accounts: [{ id: "acc-1" }], sharedAccounts: [] }, scope: "own", data: { income: { monthlyCents: 396000, months: MONTHS.map((m) => ({ month: m.month, complete: true })) } } } as unknown as ReportContext;
 
 /** The answer is cached by its path: each show starts with an empty cache and no earlier view, so it reads its own. */
 function fresh() {
@@ -73,19 +73,38 @@ describe("Tulot ja menot", () => {
     expect(flat(groups[11]!.querySelector("text")?.textContent)).toBe("marraskesken");
   });
 
-  // a card joining in a month leaves its spending partial and its income whole: Tulolajit draws the month solid, so its income bar is too
-  it("hatches an income bar only where the income report does not count the month complete", async () => {
+  // a month has one look: spending partial or income partial hatches both of its bars
+  it("hatches both bars of a month that either report does not count complete", async () => {
     fresh();
     stubApi({ "GET /api/dashboard": { overview: overview() } });
     const incomeCtx = { ...ctx, data: { income: { monthlyCents: 396000, months: MONTHS.map((m, i) => ({ month: m.month, complete: i < 11 })) } } } as unknown as ReportContext;
     const view = render(createElement(section.Component, { ctx: incomeCtx }));
     await waitFor(() => expect(view.container.querySelector("svg a")).not.toBeNull());
     const [first, ...rest] = [...view.container.querySelectorAll(".mb-month")];
-    expect(first!.querySelector(".mb-income")).not.toBeNull();
-    expect(first!.querySelector(".mb-income-part")).toBeNull();
+    // the first month is complete for income but not for spending: both bars hatched
+    expect(first!.querySelector(".mb-income")).toBeNull();
+    expect(first!.querySelector(".mb-income-part")).not.toBeNull();
     expect(first!.querySelector(".mb-spend-part")).not.toBeNull();
     // the running month is hatched in both bars
     expect(rest.at(-1)!.querySelector(".mb-income-part")).not.toBeNull();
+    // a month the spending report counts complete but the income report does not: both hatched too
+    const incomeLate = { ...incomeCtx, data: { income: { months: MONTHS.map((m, i) => ({ month: m.month, complete: i !== 5 })) } } } as unknown as ReportContext;
+    const other = render(createElement(section.Component, { ctx: incomeLate }));
+    await waitFor(() => expect(other.container.querySelector("svg a")).not.toBeNull());
+    const sixth = other.container.querySelectorAll(".mb-month")[5]!;
+    expect(sixth.querySelector(".mb-income-part")).not.toBeNull();
+    expect(sixth.querySelector(".mb-spend-part")).not.toBeNull();
+  });
+
+  it("leaves a complete month solid when the income report does not cover it", async () => {
+    fresh();
+    stubApi({ "GET /api/dashboard": { overview: overview() } });
+    const narrow = { ...ctx, data: { income: { months: MONTHS.slice(6).map((m) => ({ month: m.month, complete: true })) } } } as unknown as ReportContext;
+    const view = render(createElement(section.Component, { ctx: narrow }));
+    await waitFor(() => expect(view.container.querySelector("svg a")).not.toBeNull());
+    const groups = [...view.container.querySelectorAll(".mb-month")];
+    // months 1 to 5 lie outside the income report and are complete for spending: solid
+    expect(groups.slice(1, 6).every((g) => g.querySelector(".mb-income") !== null && g.querySelector(".mb-spend-part") === null)).toBe(true);
   });
 
   it("draws the usual month as a line and names it at the line's end, and leaves both out without one", async () => {

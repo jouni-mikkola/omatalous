@@ -27,7 +27,8 @@
  *     nothing known, so it is no debt without a balance in the figures at the top;
  *   "En tiedä" sets a card aside until its monthly bill, or the sum of its missing bills, rises (`cardUnknownAsked`).
  *   The figures at the top are the queue's own: what the household owes as the debt pages count it (`debtsOf`), null
- *   while a loan's balance is dated after the day, and how many debts of the list have no balance.
+ *   while a loan's balance is dated after the day, and how many debts have no balance, the count of the first page
+ *   (`debtsWithoutBalance`).
  * - `loan_drift`, a payment of a saved loan's series that the loan's plan did not expect (core `loanDrift`): the loan's
  *   form opens with the payment the bank took, and the item goes when the loan is saved after that row or a later payment
  *   fits. A loan listed in Täydennä lainat has no drift asked.
@@ -40,6 +41,7 @@ import {
   billCents,
   debtPayments,
   debtsOf,
+  debtsWithoutBalance,
   endedCredits,
   hasMonthly,
   hasReferenceRate,
@@ -124,7 +126,7 @@ export interface LoanTermsListItem {
   debts: LoanTermsDebt[];
   /** What the household owes in all, null while a loan's balance is dated after the day (`totalKnown`). */
   debtsCents: number | null;
-  /** How many debts of the list have no balance. */
+  /** How many debts show "saldo puuttuu" on the first page (core `debtsWithoutBalance`). */
   noBalance: number;
   /** How many debts waiting in all are filled from rows (a proposal, an ended credit, a card's bills, a card with no account). */
   fromRows: number;
@@ -298,9 +300,6 @@ function oneRowPerCard(saved: readonly Listed[], unconnected: readonly Listed[])
   };
 }
 
-/** A connected card whose purchases are missing: what it owes is its account's balance, which no row of the list lacks. */
-const connectedGap = (d: LoanTermsDebt): boolean => d.source === "card_gap" && d.accountId !== null;
-
 /**
  * Täydennä lainat, or nothing when no debt lacks a fact. Only the member's own loans and accounts are read: an account
  * another member shared is left out of the debts before they are worked out, so another member's loan or card is never
@@ -312,7 +311,8 @@ export const loanTermsListItems = async (_s: Services, _userId: string, view: Ow
   if (!listed.length) return [];
   const all = debtsOf(view.ctx, view.balances, view.inputs);
   const debts = listed.map(({ seriesId: _series, yearCents: _year, ...row }): LoanTermsDebt => row);
-  const noBalance = debts.filter((d) => d.owedCents === null && !connectedGap(d) && d.source !== "ended").length;
+  // the count the first page and Varat ja velat show as "saldo puuttuu", not a count of this list's own rows
+  const noBalance = debtsWithoutBalance(view.ctx, view.balances, view.inputs, proposalsOf(view.ctx, view));
   // forms filled from rows share the connected loan accounts: with two of them waiting, neither takes one by itself
   const fromRows = debts.filter((d) => d.source === "proposal" || d.source === "ended" || d.source === "card_bill" || (d.source === "card_gap" && d.accountId === null)).length;
   // one question a debt, the largest payments first; each carries the totals the answers move

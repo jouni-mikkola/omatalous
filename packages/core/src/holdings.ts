@@ -253,6 +253,16 @@ function rankedByCost<R extends object>(items: readonly { row: R; cost: DebtCost
   return [...costing, ...unknown, ...free].map((item, at) => ({ ...item.row, costClass: item.cost?.costClass ?? null, costRank: at < costing.length ? at + 1 : null }));
 }
 
+/**
+ * How many debts show "saldo puuttuu" on Yhteenveto and Varat ja velat: the loans and cards nobody saved or connected
+ * (`unsavedLoans.rows`, one that was answered included) and the saved loans whose balance is not known on the day.
+ * Tarkistettavat's "Ilman saldoa" is this count, read from the same holdings.
+ */
+export function debtsWithoutBalance(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs, proposals?: readonly LoanProposal[]): number {
+  const { loans, unsavedLoans: unsaved } = buildHoldings(ctx, balances, inputs, proposals);
+  return (unsaved?.rows.length ?? 0) + loans.filter((l) => l.leftCents === null && !l.paidOff).length;
+}
+
 /** A loan with nothing left is paid off when its account has had no row for this many days. */
 const PAID_QUIET_DAYS = 90;
 

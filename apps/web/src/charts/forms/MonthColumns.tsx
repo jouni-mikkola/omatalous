@@ -109,7 +109,7 @@ export function MonthColumns({
   const compare = (m: MonthColumn) => usualComparison(tone === "income" ? "income" : "spend", m.against, tone === "income");
   const capEnd = (sum: number) => (sum > 0 ? -CAP_OVERSHOOT : f.innerH + CAP_OVERSHOOT);
   const capDir = (sum: number) => (sum > 0 ? -1 : 1);
-  const places = monthNamePlaces(months.map((_, i) => x.centre(i)), x.step, f.innerW, months.map((m) => monthLabel(m.month)), printed, shown);
+  const places = monthNamePlaces(months.map((_, i) => x.centre(i)), x.step, f.innerW, months.map((m) => monthLabel(m.month)), printed);
   const place = (i: number) => places[i]!;
   const keys = months.map((m) => m.month);
   return (

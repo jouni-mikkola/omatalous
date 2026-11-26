@@ -53,12 +53,12 @@ function monthRows(m: Month, running: boolean): { name: string; value: string }[
  * Income and spending of the last twelve months as a pair of bars a month (`overview.months`), on one value axis, with
  * the usual month's spending as a dashed line across them (`overview.usualSpendCents`). The running month and a month
  * the accounts do not cover from its 1st are hatched with a dashed edge and the key says so, as their sums are not a
- * month's. A bar is hatched for its own sum: a card that joins in a month leaves its spending partial but not its income
- * (`incomeWhole`, the months the income report counts complete), so that month's income bar is solid as it is in the income chart. A sum far above the others (more than twice the third quartile) does not set the axis: its bar is cut 6 px
+ * month's. A month has one look for both its bars: it is solid only when the spending report counts it complete and, given
+ * `incomePartial` (the months the income report counts incomplete), the income report does not either. A sum far above the others (more than twice the third quartile) does not set the axis: its bar is cut 6 px
  * past the top with a break, and the sum is written above it. The year stands under each January only. Each month is a link to its rows in Tapahtumat; pointing at it or its keyboard focus reads
  * out its sums. Every value is a field of the answer: nothing is added up here.
  */
-export function MonthBars({ overview, today, incomeWhole = new Set<string>() }: { overview: Overview; today: string; incomeWhole?: ReadonlySet<string> }) {
+export function MonthBars({ overview, today, incomePartial }: { overview: Overview; today: string; incomePartial?: ReadonlySet<string> }) {
   const [ref, measured] = useWidth<HTMLDivElement>();
   const [at, setAt] = useState<number | null>(null);
   const hatch = `mbh-${useId().replace(/\W/g, "")}`;
@@ -96,7 +96,7 @@ export function MonthBars({ overview, today, incomeWhole = new Set<string>() }: 
   const top = (v: number) => capY(Math.min(y(v), y(0)), f.innerH);
   const height = (v: number) => Math.abs(capY(y(v), f.innerH) - y(0));
   const title = (m: Month) => monthLong(m.month);
-  const places = monthNamePlaces(months.map((_, i) => x.centre(i)), x.step, f.innerW, months.map((m) => monthLabel(m.month)), printed, shown);
+  const places = monthNamePlaces(months.map((_, i) => x.centre(i)), x.step, f.innerW, months.map((m) => monthLabel(m.month)), printed);
   const place = (i: number) => places[i]!;
   // the break across a cut bar, and its sum on the side of the pair's middle so two cut bars do not collide; the sums are drawn after every bar, so a neighbour never covers one
   const capEnd = (sum: number) => (sum > 0 ? -CAP_OVERSHOOT : f.innerH + CAP_OVERSHOOT);
@@ -138,13 +138,12 @@ export function MonthBars({ overview, today, incomeWhole = new Set<string>() }: 
             <ValueAxis ticks={[...y.ticks]} y={y} width={f.innerW} height={f.innerH} label={axisLabel} bare />
             {at !== null && <rect className="pick-band" x={x.step * at} y={0} width={x.step} height={f.innerH} />}
             {months.map((m, i) => {
-              const whole = m.complete && !running(i);
-              const incomeIsWhole = whole || (!running(i) && incomeWhole.has(m.month));
+              const whole = m.complete && !running(i) && !incomePartial?.has(m.month);
               const left = x.x(i);
               return (
                 <g key={m.month} className={whole ? "mb-month" : "mb-month mb-partial"}>
                   {m.incomeCents !== null && (
-                    <rect className={incomeIsWhole ? "mb-income" : "mb-income-part"} fill={incomeIsWhole ? undefined : `url(#${hatch}-income)`} x={left} y={top(m.incomeCents)} width={bar} height={height(m.incomeCents)} />
+                    <rect className={whole ? "mb-income" : "mb-income-part"} fill={whole ? undefined : `url(#${hatch}-income)`} x={left} y={top(m.incomeCents)} width={bar} height={height(m.incomeCents)} />
                   )}
                   {m.spendCents !== null && (
                     <rect className={whole ? "mb-spend" : "mb-spend-part"} fill={whole ? undefined : `url(#${hatch}-spend)`} x={left + bar + 2} y={top(m.spendCents)} width={bar} height={height(m.spendCents)} />

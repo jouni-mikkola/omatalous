@@ -31,18 +31,38 @@ const RIGHT_EDGE = 4;
 /**
  * Where each month's name stands. A name is centred under its column, except when the slots are narrower than a name
  * needs (under 44 px): the newest month's name, a long one such as "marras" with "kesken" under it, then ends at the plot's
- * edge, and the readout's month, when it is within 44 px of the newest, ends just before it. The two names sit side by
- * side instead of one over the other.
+ * edge. Any printed name whose box would run into the next printed one (the readout's month beside the newest) ends
+ * just before it instead. A name that then falls off the plot's start (the running month first, the picked one beside it)
+ * starts at the plot's start, and the names after it move right as far as they must, so the names sit side by side.
  */
-export function monthNamePlaces(centres: readonly number[], slot: number, innerW: number, names: readonly string[], printed: ReadonlySet<number>, named: number | null): { x: number; anchor: "middle" | "end" }[] {
-  const places = centres.map((x) => ({ x, anchor: "middle" as "middle" | "end" }));
+export function monthNamePlaces(centres: readonly number[], slot: number, innerW: number, names: readonly string[], printed: ReadonlySet<number>): { x: number; anchor: "middle" | "start" | "end" }[] {
+  const places = centres.map((x) => ({ x, anchor: "middle" as "middle" | "start" | "end" }));
   const last = centres.length - 1;
-  if (slot >= MONTH_LABEL_ROOM || !printed.has(last)) return places;
+  if (slot >= MONTH_LABEL_ROOM) return places;
   const edge = innerW + RIGHT_EDGE;
-  places[last] = { x: edge, anchor: "end" };
-  if (named !== null && named < last && (last - named) * slot < MONTH_LABEL_ROOM) {
-    const half = ((names[named] ?? "").length * LABEL_CHAR_W) / 2;
-    places[named] = { x: Math.min(centres[named]! + half, edge - (names[last] ?? "").length * LABEL_CHAR_W - 3), anchor: "end" };
+  if (printed.has(last)) places[last] = { x: edge, anchor: "end" };
+  // from the right: a name that reaches into the one after it ends 3 px before it
+  let limit = Infinity;
+  for (let i = last; i >= 0; i--) {
+    if (!printed.has(i)) continue;
+    const width = (names[i] ?? "").length * LABEL_CHAR_W;
+    const place = places[i]!;
+    const right = place.anchor === "end" ? place.x : place.x + width / 2;
+    if (right > limit && limit - width >= 0) places[i] = { x: limit, anchor: "end" };
+    limit = (places[i]!.anchor === "end" ? places[i]!.x : places[i]!.x + width / 2) - width - 3;
+  }
+  // from the left: nothing starts before the plot or inside the name before it; a name pinned at the end stays
+  let floor = 0;
+  for (let i = 0; i <= last; i++) {
+    if (!printed.has(i)) continue;
+    const width = (names[i] ?? "").length * LABEL_CHAR_W;
+    const place = places[i]!;
+    if (place.anchor !== "end") {
+      const left = place.x - width / 2;
+      if (left < floor) places[i] = { x: floor, anchor: "start" };
+    }
+    const now = places[i]!;
+    floor = (now.anchor === "end" ? now.x : now.anchor === "start" ? now.x + width : now.x + width / 2) + 3;
   }
   return places;
 }

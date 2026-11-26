@@ -68,6 +68,19 @@ describe("Menot kategorioittain: Mikä muuttui", () => {
     expect(plain(document.querySelector(".mc-note")?.textContent ?? null)).toContain("suuria ostoja");
   });
 
+  it("names the step of the categories with no level \"Ei vertailukohtaa\"", () => {
+    const withStep: NonNullable<Report["changes"][number]> = {
+      startCents: 100_000,
+      steps: [{ category: null, label: null, withoutLevel: true, cents: 7_000, fromCents: 100_000, toCents: 107_000 }],
+      endCents: 107_000,
+    };
+    show(report([null, null, null, null, withStep, null]));
+    const table = screen.getByRole("table", { name: "Mikä muuttui: syyskuu 2026" });
+    const rows = Array.from(table.querySelectorAll("tbody tr")).map((tr) => plain(tr.textContent));
+    expect(rows[1]).toContain("Ei vertailukohtaa");
+    expect(rows[1]).toContain("70 €");
+  });
+
   it("has no rest row when the server sends none because the other gaps cancel out", () => {
     const whole: NonNullable<Report["changes"][number]> = {
       startCents: 100_000,
