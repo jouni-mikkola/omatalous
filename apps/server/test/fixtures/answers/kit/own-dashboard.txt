@@ -1425,6 +1425,75 @@
      "estimate": true,
      "afterCents": 239299
     }
+   ],
+   "startCents": 176923,
+   "cardDebtCents": 63077,
+   "everydayPerDayCents": 0,
+   "spending": [
+    {
+     "date": "2026-11-12",
+     "since": "2026-11-08",
+     "until": "2026-11-11",
+     "kind": "everyday",
+     "cents": -100386,
+     "afterCents": 229027
+    },
+    {
+     "date": "2026-11-18",
+     "since": "2026-11-12",
+     "until": "2026-11-17",
+     "kind": "everyday",
+     "cents": -29425,
+     "afterCents": 187812
+    },
+    {
+     "date": "2026-11-20",
+     "since": "2026-11-18",
+     "until": "2026-11-19",
+     "kind": "everyday",
+     "cents": -7654,
+     "afterCents": 176868
+    },
+    {
+     "date": "2026-11-25",
+     "since": "2026-11-20",
+     "until": "2026-11-24",
+     "kind": "everyday",
+     "cents": -14507,
+     "afterCents": 160371
+    },
+    {
+     "date": "2026-12-02",
+     "since": "2026-11-25",
+     "until": "2026-12-01",
+     "kind": "everyday",
+     "cents": -33480,
+     "afterCents": 478891
+    },
+    {
+     "date": "2026-12-05",
+     "since": "2026-12-02",
+     "until": "2026-12-04",
+     "kind": "everyday",
+     "cents": -3583,
+     "afterCents": 370308
+    },
+    {
+     "date": "2026-12-08",
+     "since": "2026-12-05",
+     "until": "2026-12-07",
+     "kind": "everyday",
+     "cents": -13598,
+     "afterCents": 295470
+    },
+    {
+     "date": "2026-12-12",
+     "since": "2026-12-08",
+     "until": "2026-12-11",
+     "kind": "everyday",
+     "cents": -17544,
+     "afterCents": 249936
+    }
    ]
   },
   "pace": {

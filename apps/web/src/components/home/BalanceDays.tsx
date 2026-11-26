@@ -24,7 +24,7 @@ function rowsOf(low: KnownLowPoint): DayRow[] {
       let name = t("home.days_cards");
       if (p.kind === "everyday") {
         const range = p.since === p.until ? dayMonth(p.since) : `${dayMonth(p.since)}–${dayMonth(p.until)}`;
-        name = rateStated ? t("home.days_spent", { range }) : t("home.days_spent_rate", { range, sum: answerMoney(low.everydayPerDayCents) });
+        name = rateStated || low.everydayPerDayCents <= 0 ? t("home.days_spent", { range }) : t("home.days_spent_rate", { range, sum: answerMoney(low.everydayPerDayCents) });
         rateStated = true;
       }
       rows.push({ key: `${date}:spent:${i}`, date: p.since, name, cents: p.cents, afterCents: p.afterCents });
