@@ -1,7 +1,7 @@
 // Decision: on which day before the payday the money is tightest, and which bill takes it there
 import { addDays } from "@banking/core";
 import { useWidth } from "../../hooks.ts";
-import { answerMoney, dayMonth, signedMoney } from "../../format.ts";
+import { answerMoney, dayMonth, language, signedMoney } from "../../format.ts";
 import { rangeText } from "../../format-range.ts";
 import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
@@ -200,7 +200,7 @@ export function BalanceSteps({ low, payday, past }: { low: KnownLowPoint; payday
                 {l.text}
               </text>
             ))}
-            <circle className="qc-dot" cx={x.x(first)} cy={y(line[0]!.cents)} r={4} />
+            <circle className="qc-dot" cx={x.x(today)} cy={y(line[0]!.cents)} r={4} />
             {lowCorner && (
               <g>
                 <circle className="qc-low" cx={x.x(lowCorner.date)} cy={y(lowCorner.cents)} r={5} />

@@ -107,7 +107,7 @@ export interface Home {
   /**
    * The counted accounts' balance at the end of each day from the last pay that came to today, date ascending, as
    * `balanceWalk` gives it (Saldot's own figure). The last point is today's balance, `runway.sum.balanceCents`; the line of
-   * `lowPoint` starts from it less the cards' debt. null without a pay that came, a balance of every counted account or a
+   * `lowPoint` starts from it less the cards' debt. null without a pay that came (the payday has no pay estimate), a balance of every counted account or a
    * day before today, and when the range does not include today.
    */
   balancePast: BalancePoint[] | null;
