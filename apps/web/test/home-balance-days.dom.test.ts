@@ -69,6 +69,17 @@ describe("BalanceDays", () => {
     expect([...c.querySelectorAll(".readout-part")].map((p) => flat(p.textContent))).toEqual(["Saldo 300 €", "tavallisesti 120–480 €", "Vuokra −600 €"]);
   });
 
+  it("names no payment on a phone, only the payday, as the readout and the table hold the payments", () => {
+    const measured = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth");
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 390 });
+    try {
+      expect([...view().querySelectorAll(".qc-end-sub")].map((e) => flat(e.textContent))).toEqual(["palkkapäivä 14.12."]);
+    } finally {
+      if (measured) Object.defineProperty(HTMLElement.prototype, "clientWidth", measured);
+      else delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;
+    }
+  });
+
   it("names the biggest payment at its step and draws the payday as a rule only inside the days", () => {
     const c = view();
     expect([...c.querySelectorAll(".qc-end-sub")].map((e) => flat(e.textContent))).toEqual(["palkkapäivä 14.12.", "Vuokra 600 €"]);

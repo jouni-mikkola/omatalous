@@ -60,7 +60,7 @@ describe("Tulot ja menot", () => {
     expect(links[10]!.getAttribute("href")).toBe("#/transactions?from=2026-10-01&to=2026-10-31");
     expect(links[11]!.getAttribute("href")).toBe("#/transactions?from=2026-11-01&to=2026-11-11");
     // the link names the month and its two sums, so a reader who cannot see the bars hears them
-    expect(flat(links[11]!.getAttribute("aria-label"))).toMatch(/^Marraskuu 2026.*Tulot 4 011 €.*Menot ilman säästöistä maksettua 3 011 €.*kesken/i);
+    expect(flat(links[11]!.getAttribute("aria-label"))).toMatch(/^Marraskuu 2026.*Tulot 4 011 €.*Menot 3 011 €.*kesken/i);
     // the year stands under the first month and under January
     const years = [...container.querySelectorAll("svg text tspan")].map((s) => s.textContent).filter((s) => /^\d{4}$/.test(s ?? ""));
     expect(years).toEqual(["2025", "2026"]);
@@ -115,7 +115,7 @@ describe("Tulot ja menot", () => {
     const readout = flat(container.querySelector(".readout-line")?.textContent);
     expect(readout).toContain("lokakuu 2026");
     expect(readout).toContain("Tulot 4 010 €");
-    expect(readout).toContain("Menot ilman säästöistä maksettua 3 010 €");
+    expect(readout).toContain("Menot 3 010 €");
     expect(readout).toContain("menot 861 € yli tavallisen");
   });
 

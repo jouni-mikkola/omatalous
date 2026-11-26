@@ -13,6 +13,7 @@ import { BALANCES_ID } from "./ids.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { listsLoans, overdraftTwice } from "./Loans.tsx";
 import { accountsLessDebt, sameDebtTwice } from "../parts.tsx";
+import { lackingDebts } from "../../../components/net-label.ts";
 import { rich, t } from "../../../text.ts";
 
 /** The saved loans of the rows. A loan linked to an account is in the accounts' total already, so with one the row says which loans its figure holds. */
@@ -26,7 +27,8 @@ export function BalancesLead({ ctx }: SectionProps) {
   const debt = r.debt.cents !== null && r.debt.cents > 0;
   // a move under a euro is no move
   const moved = r.change !== null && Math.abs(r.change.cents) >= 100 ? r.change : null;
-  const key = `rpt.lead_bal${moved ? (moved.cents > 0 ? "_up" : "_down") : ""}${debt ? "_debt" : ""}` as const;
+  // while a debt has no known balance the debt total is incomplete, so the lead names no debt sum
+  const key = `rpt.lead_bal${moved ? (moved.cents > 0 ? "_up" : "_down") : ""}${debt && lackingDebts(r.holdings) === 0 ? "_debt" : ""}` as const;
   return (
     <Lead>
       {t(key, {
@@ -117,7 +119,8 @@ function Balances({ ctx }: SectionProps) {
               <dl className="st-rows balance-rows">
                 <FigureRow label={t("rpt.bal_row")}>{money(r.total[last]!)}</FigureRow>
                 <FigureRow label={savedLabel(ctx.data.loans.loans.some((l) => l.linkedAccount !== null))}>{money(r.debt.savedCents)}</FigureRow>
-                <FigureRow label={accountsLessDebt().label}>{money(r.accountsLessDebt[last]!)}</FigureRow>
+                {/* while a debt has no balance the figure would be too high, and Holdings names its own net with what it lacks */}
+                {lackingDebts(r.holdings) === 0 && <FigureRow label={accountsLessDebt().label}>{money(r.accountsLessDebt[last]!)}</FigureRow>}
               </dl>
               {(maybeTwice.length > 0 || overdrafts.length > 0) && (
                 <ul className="loans-notes">

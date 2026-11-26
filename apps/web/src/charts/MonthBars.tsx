@@ -4,7 +4,7 @@ import { monthEnd } from "@banking/core";
 import { answerMoney, money, monthLabel, monthLong } from "../format.ts";
 import { useWidth } from "../hooks.ts";
 import { hashOf } from "../routes.ts";
-import { t } from "../text.ts";
+import { spentLabel, t } from "../text.ts";
 import type { DashboardData } from "../types.ts";
 import { CategoryTick, ValueAxis } from "./Axes.tsx";
 import { crisp, LABEL_Y } from "./draw.ts";
@@ -43,7 +43,7 @@ function monthRows(m: Month, running: boolean): { name: string; value: string }[
   const compare = usualComparison("spend", m.againstUsual, false);
   return [
     { name: t("home.months_income"), value: m.incomeCents === null ? "–" : money(m.incomeCents, false) },
-    { name: t("home.fig_spent"), value: m.spendCents === null ? "–" : money(m.spendCents, false) },
+    { name: spentLabel(Boolean(m.fromSavingsCents)), value: m.spendCents === null ? "–" : money(m.spendCents, false) },
     ...(running ? [{ name: t("home.months_running"), value: "" }] : !m.complete && m.spendCents !== null ? [{ name: t("home.months_partial"), value: "" }] : []),
     ...(compare ? [{ name: compare, value: "" }] : []),
   ];
@@ -115,7 +115,7 @@ export function MonthBars({ overview, today, incomePartial }: { overview: Pick<O
           title={title(months[shown])}
           parts={[
             { name: t("home.months_income"), value: months[shown].incomeCents === null ? "–" : answerMoney(months[shown].incomeCents), swatch: <span className="mb-key-income" /> },
-            { name: t("home.fig_spent"), value: months[shown].spendCents === null ? "–" : answerMoney(months[shown].spendCents), swatch: <span className="mb-key-spend" /> },
+            { name: spentLabel(Boolean(months[shown].fromSavingsCents)), value: months[shown].spendCents === null ? "–" : answerMoney(months[shown].spendCents), swatch: <span className="mb-key-spend" /> },
           ]}
           note={running(shown) ? t("home.months_running") : !months[shown].complete && months[shown].spendCents !== null ? t("home.months_partial") : undefined}
           compare={usualComparison("spend", months[shown].againstUsual, false)}

@@ -29,7 +29,7 @@ import { Figure } from "../../../components/Figure.tsx";
 import { CardFace } from "./CardFace.tsx";
 import { CreditArc } from "./CreditArc.tsx";
 import { FigureRow } from "./FigureRow.tsx";
-import { netLabelOf } from "../../../components/net-label.ts";
+import { lackingDebts, netLabelOf } from "../../../components/net-label.ts";
 import { cardMasks, cardsOwe, dearWord, maskedNames, reconcileTitle } from "./holding-rows.ts";
 import "../../../styles/statement.css";
 import "../../../styles/holdings.css";
@@ -285,7 +285,6 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), b
   const columns = `holding-groups holding-groups-${groups}`;
   // the debts of the block are more than the loans only when a card owes: then they have their own line at its foot
   const debts = loans.length > 0 && cardsOwe(cards);
-  // loans nobody saved: `netCents` holds no debt for them, so its name says so
   const netLabel = netLabelOf(holdings);
   // the day most balances are from, said once, beside the heading of Tilit when one of its accounts has a balance, else beside that of the cards
   const common = commonDay([...accounts, ...cards], meta.today);
@@ -297,8 +296,8 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), b
     <section className="card holdings" aria-labelledby={title === null ? undefined : "holdings-h"} aria-label={title === null ? t("holdings.title") : undefined}>
       <div className="card-head tb">
         <div className="card-name">{title !== null && <h2 id="holdings-h">{title}</h2>}</div>
-        {/* what the household has net, the accounts less the debts (core's netCents): a dash while the debt total is unknown */}
-        {net && (netCents !== null || (accountsCents !== null && debtCents === null)) && (
+        {/* what the household has net, the accounts less the debts (core's netCents): a dash while the debt total is unknown, and none while a debt has no balance, as the figure would be too high */}
+        {net && lackingDebts(holdings) === 0 && (netCents !== null || (accountsCents !== null && debtCents === null)) && (
           <div className="card-datum">
             {netLabel && <span className="datum-label">{netLabel}</span>}
             <Figure text={netCents === null ? "–" : money(netCents, false)} size="s" />

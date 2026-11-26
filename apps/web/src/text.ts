@@ -5,6 +5,9 @@ import { count, language } from "./format.ts";
 /** A text with a count: the code for one and the code for many, both with the hole `{count}` (the count in the language's grouping). */
 export const tn = (n: number, one: MessageCode, many: MessageCode, params: Record<string, string | number> = {}): string => messageIn(language(), n === 1 ? one : many, { ...params, count: count(n) } as never);
 
+/** The name of a month's spending: plain "Menot", and the long name only when debt paid from savings is left out of it. */
+export const spentLabel = (fromSavings: boolean): string => messageIn(language(), fromSavings ? "home.fig_spent" : "home.months_spend");
+
 /** The name of a figure of core's FIGURES in the member's language (the ones a page names in a label). */
 export const figureName = (key: "due" | "ownTransfers" | "free" | "netWorth"): string => messageIn(language(), `figure.${key}`);
 

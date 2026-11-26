@@ -59,8 +59,8 @@ export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: stri
   const last = line[line.length - 1]!.date;
   const narrow = width < NARROW;
   const values = line.flatMap((c) => [c.cents, c.lowCents, c.highCents]);
-  // a phone gets a smaller plot, so the page stays short (the roadmap's N11)
-  const options = narrow ? { minHeight: 92, tallest: 92, ratio: 0.3 } : { minHeight: 200, tallest: 280, ratio: 0.3 };
+  // a phone gets a lower plot, so the page stays short
+  const options = narrow ? { minHeight: 160, tallest: 160, ratio: 0.3 } : { minHeight: 200, tallest: 280, ratio: 0.3 };
   const margin = { top: 20, right: 8, bottom: BOTTOM };
   const draft = frame(width, { ...margin, left: 48 }, options);
   const y0 = linear(values, [draft.innerH, 0], { target: tickTarget(draft.innerH) });
@@ -106,7 +106,8 @@ export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: stri
     if (fits < sum.length + 5) return null;
     return { text: `${name} ${sum}`, x: right ? px + 6 : px - 6, y: corners.length > 1 ? (top + bottom) / 2 : bottom - 8, anchor: right ? "start" : "end" } as const;
   };
-  const stepLabels = named.flatMap((s) => {
+  // on a phone only the payday and the lowest point are named: the payments are in the readout and the table
+  const stepLabels = (narrow ? [] : named).flatMap((s) => {
     const label = stepLabel(s);
     return label ? [{ key: `${s.date}:${s.payee}`, ...label }] : [];
   });
