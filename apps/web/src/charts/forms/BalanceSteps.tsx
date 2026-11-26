@@ -1,7 +1,8 @@
 // Decision: on which day before the payday the money is tightest, and which bill takes it there
 import { addDays } from "@banking/core";
 import { useWidth } from "../../hooks.ts";
-import { answerMoney, dayMonth, language, money, signedMoney } from "../../format.ts";
+import { answerMoney, dayMonth, signedMoney } from "../../format.ts";
+import { rangeText } from "../../format-range.ts";
 import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 import { CategoryTick, ValueAxis } from "../Axes.tsx";
@@ -30,12 +31,6 @@ const BOTTOM = LABEL_Y + 4;
 const DAY_LABEL_W = 48;
 /** How many payments are named in the picture; the rest are in the readout and the table. */
 const NAMED_STEPS = 2;
-
-/** "2 700–3 260 €": the low end without its sign of currency in Finnish, as the glossary writes a range. */
-export function rangeText(low: number, high: number): string {
-  const lowText = language() === "en" ? money(low, false) : money(low, false).replace(/\s€$/, "");
-  return t("home.days_range", { low: lowText, high: money(high, false) });
-}
 
 /** The name of a payment or a pay, with its estimate said. */
 export function stepName(s: Step): string {

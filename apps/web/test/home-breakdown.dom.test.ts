@@ -7,7 +7,6 @@ import { createElement } from "react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { KnownLowPoint } from "../src/charts/forms/BalanceSteps.tsx";
 import { Breakdown, type Runway } from "../src/components/home/Breakdown.tsx";
-import { breakdownShown } from "../src/components/home/breakdown-shown.ts";
 
 beforeAll(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
@@ -49,7 +48,7 @@ const runway = { known: true, from: "2026-12-10", payday: { date: "2026-12-14", 
 
 describe("Breakdown", () => {
   it("starts at the accounts of the Nyt card and its rows add up to the figure of the Arvio card, which is the total", () => {
-    const { container } = render(createElement(Breakdown, { low, runway }));
+    const { container } = render(createElement(Breakdown, { low, runway, otherwise: null }));
     const rows = [...container.querySelectorAll("tbody tr")].map(cellsOf);
     expect(rows.map((r) => [r[0], r[r.length - 1]])).toEqual([
       ["Tilien saldo nyt", "1 400,00 €"],
@@ -65,9 +64,9 @@ describe("Breakdown", () => {
     expect(centsOf(total[total.length - 1]!)).toBe(runway.leftCents);
   });
 
-  it("has no rows when they do not make the figure", () => {
-    expect(breakdownShown(low, runway)).toBe(true);
-    expect(breakdownShown(low, { ...runway, leftCents: leftCents + 1 })).toBe(false);
-    expect(render(createElement(Breakdown, { low, runway: { ...runway, leftCents: leftCents + 1 } })).container.querySelector("table")).toBeNull();
+  it("has no rows when they do not make the figure, and shows what it is given instead", () => {
+    const { container } = render(createElement(Breakdown, { low, runway: { ...runway, leftCents: leftCents + 1 }, otherwise: createElement("p", { className: "instead" }, "ledger") }));
+    expect(container.querySelector("table")).toBeNull();
+    expect(container.querySelector(".instead")?.textContent).toBe("ledger");
   });
 });

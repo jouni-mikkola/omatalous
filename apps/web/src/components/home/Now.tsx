@@ -5,9 +5,8 @@ import { hashOf } from "../../routes.ts";
 import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
-import { rangeText } from "../../charts/forms/BalanceSteps.tsx";
+import { rangeText } from "../../format-range.ts";
 import { KindCard } from "../KindCard.tsx";
-import { breakdownShown } from "./breakdown-shown.ts";
 import { LowPoint } from "./LowPoint.tsx";
 
 // the table of the breakdown is the heavy part of the page and folded, so it loads on its own
@@ -86,6 +85,11 @@ export function Now({ data }: { data: Data }) {
   const ownReason = runway?.known || left.known ? null : left.reason;
   const lowHidden = lowPoint?.known ? payday !== null && lowPoint.date <= payday : lowPoint?.reason === ownReason;
   const lowLine = <LowPoint lowPoint={lowHidden ? null : lowPoint} />;
+  const ledger = runway?.known && sum ? (
+    <div className="home-wide">
+      <Ledger runway={runway} sum={sum} />
+    </div>
+  ) : null;
   return (
     <section className="card home-now" aria-labelledby="home-now-h">
       {runway?.known && sum ? (
@@ -104,14 +108,12 @@ export function Now({ data }: { data: Data }) {
             />
           </div>
           <div className="home-wide">{lowLine}</div>
-          {lowPoint && breakdownShown(lowPoint, runway) ? (
+          {lowPoint ? (
             <Suspense fallback={null}>
-              <Breakdown low={lowPoint} runway={runway} />
+              <Breakdown low={lowPoint} runway={runway} otherwise={ledger} />
             </Suspense>
           ) : (
-            <div className="home-wide">
-              <Ledger runway={runway} sum={sum} />
-            </div>
+            ledger
           )}
         </>
       ) : (

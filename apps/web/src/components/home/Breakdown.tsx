@@ -8,6 +8,7 @@ import type { DashboardData } from "../../types.ts";
 import { Estimate } from "../Estimate.tsx";
 import { KindChip } from "../KindChip.tsx";
 import { type Column, Table } from "../table/Table.tsx";
+import "../../styles/home.css";
 
 export type Runway = Extract<NonNullable<DashboardData["home"]["runway"]>["leftOnPayday"], { known: true }>;
 type Low = Extract<NonNullable<DashboardData["home"]["lowPoint"]>, { known: true }>;
@@ -42,12 +43,12 @@ function partsOf(low: Low, runway: Runway): Part[] | null {
 
 /**
  * "Mistä luku koostuu": the walk of core's `lowPoint` to the payday as rows that add up, to the cent, from the accounts of the
- * Nyt card to the figure of the Arvio card, which is the total. Folded: the page is held to its height. Nothing when the walk is not known or its
- * rows do not make the figure (`breakdownShown` in breakdown-shown.ts says so, and the page shows its ledger then).
+ * Nyt card to the figure of the Arvio card, which is the total. Folded: the page is held to its height. When the walk is not known or its
+ * rows do not make the figure it shows `otherwise`, the page's ledger. The page loads this module on its own, so the first page does not carry the table.
  */
-export function Breakdown({ low, runway }: { low: NonNullable<DashboardData["home"]["lowPoint"]>; runway: Runway }) {
+export function Breakdown({ low, runway, otherwise }: { low: NonNullable<DashboardData["home"]["lowPoint"]>; runway: Runway; otherwise: ReactNode }) {
   const rows = low.known ? partsOf(low, runway) : null;
-  if (!rows) return null;
+  if (!rows) return <>{otherwise}</>;
   const columns: Column<Part>[] = [
     { key: "name", label: t("home.col_payee"), kind: "text", rowHead: true, cell: (r) => r.name },
     { key: "state", label: t("row.status"), kind: "text", cell: (r) => r.state },
