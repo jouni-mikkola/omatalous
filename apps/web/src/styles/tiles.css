@@ -1,4 +1,6 @@
 /* the key figures of a page (Tiles of components/Tiles.tsx): columns of one subgrid so each tile's label, figure and note stand on one line across the row, even when a label wraps */
+
+@layer pages {
 .strip { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: var(--sp-4); }
 .strip[data-count="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .strip-item { display: grid; grid-row: span 3; grid-template-rows: subgrid; padding-inline: var(--sp-24); border-inline-start: var(--hairline) solid var(--grid); }
@@ -16,4 +18,5 @@
   .strip-item .fig { font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); }
   .strip-label { grid-column: 1; grid-row: 1; }
   .strip-note { grid-column: 1 / -1; }
+}
 }
