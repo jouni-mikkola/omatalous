@@ -79,7 +79,7 @@ test.describe("the bills chart on the 15th", () => {
       return (await cell.count()) === 0 ? 0 : cents(await cell.first().innerText());
     };
     // the chart's parts are whole euros, the table's total has cents: each part of a state may be off by half a euro
-    for (const [word, kind] of [["maksettu", "paid"], ["tulossa", "coming"]] as const) {
+    for (const [word, kind] of [["maksettu", "paid"], ["maksamatta", "coming"]] as const) {
       const chart = ofState(word);
       expect(chart.count, `${word} parts of the chart`).toBeGreaterThan(0);
       expect(Math.abs(chart.cents - (await total(kind))), `${word} parts of the chart against the table's total`).toBeLessThanOrEqual(50 * chart.count);
