@@ -187,6 +187,10 @@ build_ca "$WORK" # the builds of the baseline and of its update.sh run no tests 
 
 log "baseline $B as a git install"
 git init -q --bare "$REMOTE"
+# The push of the whole history would start a gc in the background, whose commit-graph temp file a local clone then
+# hardlinks while it changes ("hardlink different from source").
+git -C "$REMOTE" config receive.autogc false
+git -C "$REMOTE" config gc.auto 0
 git -C "$SRC" push -q "$REMOTE" HEAD:refs/heads/ci
 git clone -q --branch ci "$REMOTE" "$DIR"
 git clone -q --branch ci "$REMOTE" "$DEV"
