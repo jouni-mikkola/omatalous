@@ -250,7 +250,7 @@ export function BillsTable({
       main: true,
       precision: "cents",
       cents: (r) => (r.kind === "row" ? r.bill.cents : r.kind === "fold" || r.kind === "total" ? r.cents : r.item.cents),
-      className: (r) => (r.kind === "total" ? `bill-total-sum bill-total-${r.total}` : ""),
+      className: (r) => (r.kind === "total" ? `bill-total-sum bill-total-${r.total} bill-total-${r.figure}` : ""),
       cell: (r) => (r.kind === "row" && r.bill.kind === "income" ? `+${money(r.bill.cents)}` : r.kind === "row" ? money(r.bill.cents) : r.kind === "fold" || r.kind === "total" ? money(r.cents) : money(r.item.cents)),
     },
     {

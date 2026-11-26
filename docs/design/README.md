@@ -67,10 +67,10 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
 - Not shown: notices (a dot on the user menu leads to Asetukset > Turvallisuus), questions (Tarkistettavat, the
   header's link), explaining sentences, goals.
 ```
- Jää palkkapäivänä 2 710 €                 Tulevat kuukaudet   Laskut     Tulot    Jälkeen
- palkkapäivä 25.11.                         Marraskuu 2026      1 500 €  3 000 €  1 400 €
-                                             Joulukuu 2026         800 €        –      −800 €
- Marraskuu 2026          1.–11.11.           Tammikuu 2027         900 €  3 100 €  Ei tiedossa
+ Jää palkkapäivänä 2 710 €                 Tulevat kuukaudet   Tulot    Tulossa  Säästöön  Laskujen jälkeen
+ palkkapäivä 25.11.                         Marraskuu 2026    3 000 €  1 500 €     150 €           1 350 €
+                                             Joulukuu 2026           –    800 €         –            −800 €
+ Marraskuu 2026          1.–11.11.           Tammikuu 2027     3 100 €    900 €         –       Ei tiedossa
  Tulot            Menot                       Käteen jäi
  3 900 €          2 018 €                     1 482 €
  ▇▇▇▇▇▇▇▇▇▇▇▇     ▇▇▇▇▇▇▇▇ ░░░░░░░░           ▇▇▇▇▇▇▇▇

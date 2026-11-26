@@ -150,6 +150,28 @@ describe("Tulevat kuukaudet", () => {
     expect([...container.querySelectorAll("tbody tr")].map((tr) => cells(tr)[0])).toEqual(["Joulukuu 2026", "Tammikuu 2027", "Helmikuu 2027"]);
   });
 
+  it("has no Säästöön column while no shown month has a saving", () => {
+    const { container } = render(createElement(ComingMonths, { calendar: answer() }));
+    expect(cells(container.querySelector("thead tr")!)).toEqual(["Kuukausi", "Tulot", "Tulossa", "Laskujen jälkeen"]);
+  });
+
+  it("adds a Säästöön column when a shown month has a saving, so that Tulot − Tulossa − Säästöön = Laskujen jälkeen in each row", () => {
+    const cal = calendar([
+      month("2026-11", rows("2026-11"), { knownCents: 120000, estimateCents: 30000, billsCents: 150000, incomeCents: 300000, savingCents: 15000, afterCents: 135000 }),
+      month("2026-12", rows("2026-12"), { knownCents: 80000, billsCents: 80000, incomeCents: 310000, afterCents: 230000 }),
+    ]);
+    const { container } = render(createElement(ComingMonths, { calendar: cal }));
+    expect(cells(container.querySelector("thead tr")!)).toEqual(["Kuukausi", "Tulot", "Tulossa", "Säästöön", "Laskujen jälkeen"]);
+    const cents = (text: string) => Math.round(parseFloat(text.replace("−", "-").replace(/[^\d,-]/g, "").replace(",", ".")) * 100);
+    const trs = [...container.querySelectorAll("tbody tr")];
+    expect(cells(trs[0]!)).toEqual(["Marraskuu 2026", "3 000,00 €", "1 500,00 € josta arvio 300,00 €", "150,00 €", "1 350,00 €"]);
+    expect(cells(trs[1]!)[3]).toBe("–");
+    for (const tr of trs) {
+      const [, income, bills, saving, after] = cells(tr);
+      expect(cents(income!) - cents(bills!.split(" josta")[0]!) - (saving === "–" ? 0 : cents(saving!)), tr.textContent).toBe(cents(after!));
+    }
+  });
+
   it("keeps the row of an empty month between two that have something to come", () => {
     const cal = calendar([
       month("2026-11", rows("2026-11"), { knownCents: 80000, billsCents: 80000, afterCents: -80000 }),

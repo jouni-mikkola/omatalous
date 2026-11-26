@@ -37,6 +37,15 @@ describe("Laskut: the totals that end the open month", () => {
     ]);
   });
 
+  it("colours a total by its figure: the saving charged like Maksettu, the saving to come like Tulossa", () => {
+    const items = billItems({ series: [], typed: [], cancelled: new Set(), marks: marksBySubject([]), today: "2026-10-11" });
+    const controls = { markOf: () => null, busy: false, set: () => {}, clear: () => {} };
+    const open = month("2026-10", [bill({ date: "2026-10-20", payee: "Sähköyhtiö" })], { knownCents: 6420, billsCents: 6420, paidCents: 6420, paidCount: 1, savingPaidCents: 20_000, savingCents: 15_000 });
+    const { container } = render(createElement(BillsTable, { calendar: calendar([open, month("2026-11", [bill()])]), items, controls, label: (id: string) => id, scope: "own", onRemoved: () => {} }));
+    const classes = [...container.querySelectorAll("tr.bill-total td.bill-total-sum")].map((td) => `${td.parentElement!.querySelector(".bill-total-name")!.firstChild!.textContent}: ${td.classList.contains("bill-total-estimate") ? "estimate" : "plain"}`);
+    expect(classes).toEqual(["Maksettu: plain", "Säästöön: plain", "Tulossa: estimate", "Säästöön: estimate"]);
+  });
+
   it("names a total in its row header and gives it no button for details", () => {
     const items = billItems({ series: [], typed: [], cancelled: new Set(), marks: marksBySubject([]), today: "2026-10-11" });
     const controls = { markOf: () => null, busy: false, set: () => {}, clear: () => {} };
