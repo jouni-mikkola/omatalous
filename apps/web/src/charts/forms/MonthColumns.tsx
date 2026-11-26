@@ -1,7 +1,8 @@
 // Decision: how the period's money moved month by month, and which months fall away from the usual level
 import { useId } from "react";
 import { useWidth } from "../../hooks.ts";
-import { answerMoney, monthLabel, monthLong } from "../../format.ts";
+import { daysInMonth } from "@banking/core";
+import { answerMoney, dayMonth, monthLabel, monthLong } from "../../format.ts";
 import { t } from "../../text.ts";
 import { CategoryTick, ValueAxis } from "../Axes.tsx";
 import { crisp, LABEL_Y } from "../draw.ts";
@@ -26,6 +27,8 @@ interface MonthColumn {
   complete: boolean;
   /** One sum per series, in the order of `series`; a column stacks them from the bottom (a negative one from zero downwards). */
   parts: readonly number[];
+  /** The part of each series already paid, in the order of `series`: drawn filled under `parts`, which are then what is still to come and drawn hatched with a dashed edge. A month whose `paid` is set is never drawn as a month that is not whole. */
+  paid?: readonly number[];
   /** The month's total as the report gives it: the axis and the readout read it, nothing is added up here for them. Null in a month the data does not reach: no column, and the readout says "–". */
   totalCents: number | null;
   /** The month's gap to `usual` as the report gives it (null in a month that is not whole or the same to the euro); the readout words it. */
@@ -60,6 +63,8 @@ export function MonthColumns({
   running,
   resting = null,
   label,
+  today = null,
+  states = null,
 }: {
   months: readonly MonthColumn[];
   series: readonly MonthColumnsSeries[];
@@ -72,6 +77,10 @@ export function MonthColumns({
   resting?: string | null;
   /** What the chart is, for a screen reader's name of it. */
   label: string;
+  /** The day (`YYYY-MM-DD`) a rule is drawn at, with the ground right of it tinted. The month of the day must be one of `months`. */
+  today?: string | null;
+  /** The words of a column's paid and coming parts, for the readout, when the months have `paid`. */
+  states?: { paid: string; coming: string } | null;
 }) {
   const [ref, measured] = useWidth<HTMLDivElement>();
   const [at, setAt] = useReadout();
@@ -102,10 +111,20 @@ export function MonthColumns({
   const printed = printedMonths(months.length, x.step, new Set(runningAt < 0 ? [] : [runningAt]), shown);
   const firstPrinted = Math.min(...printed);
   const yearOf = (i: number) => (printed.has(i) && i !== runningAt && (i === firstPrinted || months[i]!.month.endsWith("-01")) ? months[i]!.month.slice(0, 4) : null);
-  const rows = (m: MonthColumn) => [
+  const rows = (m: MonthColumn) =>
+    m.paid && states
+      ? [
+          ...(["paid", "coming"] as const).flatMap((state) =>
+            series.flatMap((s, k) => {
+              const value = (state === "paid" ? m.paid : m.parts)![k] ?? 0;
+              return value === 0 ? [] : [{ name: `${s.label}, ${states[state].toLowerCase()}`, value: answerMoney(value), swatch: <span className={`ms-key ms-s${k}${state === "coming" ? " ms-coming" : ""}`} /> }];
+            }),
+          ),
+        ]
+      : [
     ...series.map((s, k) => ({ name: s.label, value: m.totalCents === null ? "–" : answerMoney(m.parts[k] ?? 0), swatch: <span className={`ms-key ms-s${k}`} /> })),
     ...(series.length > 1 ? [{ name: t("rpt.total"), value: m.totalCents === null ? "–" : answerMoney(m.totalCents), swatch: null }] : []),
-  ];
+        ];
   const note = (m: MonthColumn) => (whole(m) || m.totalCents === null ? undefined : t(m.month === running ? "home.months_running" : "home.months_partial"));
   const shownMonth = months[shown];
   const compare = (m: MonthColumn) => usualComparison(tone === "income" ? "income" : "spend", m.against, tone === "income");
@@ -114,6 +133,9 @@ export function MonthColumns({
   const places = monthNamePlaces(months.map((_, i) => x.centre(i)), x.step, f.innerW, months.map((m) => monthLabel(m.month)), printed);
   const place = (i: number) => places[i]!;
   const keys = months.map((m) => m.month);
+  // the day's place in its month's band: the rule stands where the day falls between the month's first and last day
+  const todayAt = today === null ? -1 : months.findIndex((m) => m.month === today.slice(0, 7));
+  const todayX = todayAt < 0 ? 0 : x.step * (todayAt + (Number(today!.slice(8, 10)) - 0.5) / daysInMonth(today!.slice(0, 7)));
   return (
     <div className={`chart month-columns ms-${tone}`} ref={ref}>
       {shownMonth ? (
@@ -138,14 +160,17 @@ export function MonthColumns({
               ))}
             </defs>
             <ValueAxis ticks={[...y.ticks]} y={y} width={f.innerW} height={f.innerH} label={axisLabel} bare />
+            {todayAt >= 0 && <rect className="ms-ground" x={todayX} y={0} width={Math.max(0, f.innerW - todayX)} height={f.innerH} pointerEvents="none" />}
             {at !== null && <rect className="pick-band" x={x.step * at} y={0} width={x.step} height={f.innerH} pointerEvents="none" />}
             {months.map((m, i) => {
               // a sum above zero stacks up from zero and one below it stacks down from zero
               let up = 0;
               let down = 0;
+              // paid parts first, filled, then the parts to come on top, hatched
+              const segments = [...(m.paid ?? []).map((v, k) => ({ v, k, coming: false })), ...m.parts.map((v, k) => ({ v, k, coming: m.paid ? true : !whole(m) }))];
               return (
                 <g key={m.month} className={whole(m) ? "ms-month" : "ms-month ms-partial"}>
-                  {m.parts.map((v, k) => {
+                  {segments.map(({ v, k, coming }) => {
                     if (v === 0) return null;
                     const from = v > 0 ? up : down;
                     const to = from + v;
@@ -153,7 +178,7 @@ export function MonthColumns({
                     else down = to;
                     const top = capY(y(Math.max(from, to)), f.innerH);
                     const bottom = capY(y(Math.min(from, to)), f.innerH);
-                    return <rect key={series[k]!.key} className={`ms-s${k}`} fill={whole(m) ? undefined : `url(#${hatch}-${k})`} x={x.x(i)} y={top} width={x.width} height={Math.max(0, bottom - top)} />;
+                    return <rect key={`${series[k]!.key}${coming ? "-coming" : ""}`} className={coming ? `ms-s${k} ms-coming` : `ms-s${k}`} fill={coming ? `url(#${hatch}-${k})` : undefined} x={x.x(i)} y={top} width={x.width} height={Math.max(0, bottom - top)} />;
                   })}
                   {capped.has(i) && <CapBreak x={x.x(i)} width={x.width} end={capEnd(m.totalCents!)} dir={capDir(m.totalCents!)} />}
                   <CategoryTick x={x.centre(i)} base={f.innerH} long={printed.has(i)} />
@@ -178,6 +203,12 @@ export function MonthColumns({
             })}
             {/* after every column, so a neighbour never covers a sum */}
             {months.map((m, i) => capped.has(i) && <CapSum key={m.month} x={x.centre(i)} end={capEnd(m.totalCents!)} dir={capDir(m.totalCents!)} text={capSum(m.totalCents!, narrow)} />)}
+            {todayAt >= 0 && <line className="ms-today" x1={crisp(todayX)} x2={crisp(todayX)} y1={-TOP / 2} y2={f.innerH} />}
+            {todayAt >= 0 && (
+              <text className="ms-today-label" x={todayX + 4} y={-(TOP / 2) + 4} pointerEvents="none">
+                {t("kind.now")} {dayMonth(today!)}
+              </text>
+            )}
             {usual && <line className="ms-usual" x1={0} x2={f.innerW} y1={crisp(capY(y(usual.cents), f.innerH))} y2={crisp(capY(y(usual.cents), f.innerH))} />}
             {usual && <UsualLabel innerW={f.innerW} above={TOP} text={narrow ? usual.short : usual.label} />}
           </g>

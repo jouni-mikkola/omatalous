@@ -8,22 +8,35 @@
 .month-columns rect.ms-s2 { stroke: var(--series-4); }
 .month-columns.ms-income rect.ms-s0 { stroke: var(--role-income); }
 /* a partial month's rect takes its fill from the hatching pattern attribute */
-.month-columns .ms-month:not(.ms-partial) rect.ms-s0 { fill: var(--role-spending); }
-.month-columns .ms-month:not(.ms-partial) rect.ms-s1 { fill: var(--series-2); }
-.month-columns .ms-month:not(.ms-partial) rect.ms-s2 { fill: var(--series-4); }
-.month-columns.ms-income .ms-month:not(.ms-partial) rect.ms-s0 { fill: var(--role-income); }
+.month-columns .ms-month:not(.ms-partial) rect.ms-s0:not(.ms-coming) { fill: var(--role-spending); }
+.month-columns .ms-month:not(.ms-partial) rect.ms-s1:not(.ms-coming) { fill: var(--series-2); }
+.month-columns .ms-month:not(.ms-partial) rect.ms-s2:not(.ms-coming) { fill: var(--series-4); }
+.month-columns.ms-income .ms-month:not(.ms-partial) rect.ms-s0:not(.ms-coming) { fill: var(--role-income); }
 .month-columns .ms-month rect { stroke-width: 0; }
-.month-columns .ms-partial rect { stroke-width: 1; stroke-dasharray: 3 2; }
+.month-columns .ms-partial rect, .month-columns .ms-month rect.ms-coming { stroke-width: 1; stroke-dasharray: 3 2; }
 .month-columns line.ms-hatch { stroke-width: 2; }
 .month-columns line.ms-s0 { stroke: var(--role-spending); }
 .month-columns line.ms-s1 { stroke: var(--series-2); }
 .month-columns line.ms-s2 { stroke: var(--series-4); }
 .month-columns.ms-income line.ms-s0 { stroke: var(--role-income); }
 .month-columns .ms-usual { stroke: var(--text-2); stroke-width: 1; stroke-dasharray: 6 3; pointer-events: none; }
+.month-columns .ms-ground { fill: var(--ahead-fill); }
+.month-columns .ms-today { stroke: var(--text); stroke-width: 1; pointer-events: none; }
+.month-columns .ms-today-label { fill: var(--text); }
 .month-columns .ms-pick { fill: var(--text); font-weight: var(--w-strong); }
 .ms-key { display: inline-block; inline-size: var(--sp-12); block-size: var(--sp-12); flex: none; }
-.ms-key.ms-s0 { background: var(--role-spending); }
-.ms-key.ms-s1 { background: var(--series-2); }
-.ms-key.ms-s2 { background: var(--series-4); }
-.ms-income .ms-key.ms-s0 { background: var(--role-income); }
+.ms-key.ms-s0 { --key: var(--role-spending); }
+.ms-key.ms-s1 { --key: var(--series-2); }
+.ms-key.ms-s2 { --key: var(--series-4); }
+.ms-income .ms-key.ms-s0 { --key: var(--role-income); }
+.ms-key { background: var(--key); }
+.ms-key.ms-coming { background: repeating-linear-gradient(45deg, var(--key) 0 2px, transparent 2px 5px); outline: 1px dashed var(--key); outline-offset: -1px; }
+@media (forced-colors: active) {
+  .month-columns .ms-month:not(.ms-partial) rect:is(.ms-s0, .ms-s1, .ms-s2):not(.ms-coming) { fill: CanvasText; }
+  .month-columns .ms-month rect.ms-coming { stroke: CanvasText; stroke-width: 1; stroke-dasharray: 3 2; }
+  .month-columns line.ms-hatch { stroke: CanvasText; }
+  .month-columns .ms-today { stroke: CanvasText; }
+  .month-columns .ms-ground { fill: none; }
+  .ms-key { forced-color-adjust: none; }
+}
 }

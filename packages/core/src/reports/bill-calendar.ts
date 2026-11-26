@@ -74,6 +74,11 @@ interface BillMonth {
   paidCents: number;
   /** How many bills and loan payments `paidCents` adds up. */
   paidCount: number;
+  /** The rare bills (`rare` rows) among `paidCents`; with `paidRegularCents` it is `paidCents`, to the cent. */
+  paidLessOftenCents: number;
+  paidRegularCents: number;
+  /** The month's bills and loan payments, paid and still to pay: `paidCents` and `billsCents` together, the whole height of the month's column in the chart. */
+  wholeBillsCents: number;
   /**
    * `billsCents` by what the bills are for (`costKindOf`): the four add up to it, to the cent. A bill whose sum is not known is in none of
    * them, as it is in no `billsCents`; the month's count of those is `unknownsIn`.
@@ -313,6 +318,8 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
     const kindCents = (kind: CostKind) => sum((r) => (bill(r, "known") || bill(r, "estimate")) && costKindOf(r.category, r.kind === "loan") === kind);
     const [essentialCents, debtCents, contractCents, optionalCents] = COST_KINDS.map(kindCents) as [number, number, number, number];
     const paidCents = sum((r) => (r.kind === "bill" || r.kind === "loan") && r.state === "paid" && !r.onCard);
+    const paidBill = (r: BillRow) => (r.kind === "bill" || r.kind === "loan") && r.state === "paid" && !r.onCard;
+    const paidLessOftenCents = sum((r) => paidBill(r) && r.rare === true);
     const paidCount = count((r) => (r.kind === "bill" || r.kind === "loan") && r.state === "paid" && !r.onCard);
     const savingCents = sum(saving);
     const savingPaidCents = sum((r) => r.kind === "saving" && r.state === "paid" && !r.onCard);
@@ -328,6 +335,9 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       billsCents: knownCents + estimateCents,
       paidCents,
       paidCount,
+      paidLessOftenCents,
+      paidRegularCents: paidCents - paidLessOftenCents,
+      wholeBillsCents: paidCents + knownCents + estimateCents,
       essentialCents,
       debtCents,
       contractCents,

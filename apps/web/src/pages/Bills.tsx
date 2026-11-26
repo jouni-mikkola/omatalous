@@ -158,14 +158,16 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
                   <section className="card span-12" aria-labelledby="bills-months-h">
                     <h2 id="bills-months-h">{t("bills.chart")}</h2>
                     <MonthColumns
-                      months={calendar.months.map((m) => ({ month: m.month, complete: true, parts: [m.regularCents, m.lessOftenCents], totalCents: m.billsCents }))}
+                      months={calendar.months.map((m) => ({ month: m.month, complete: true, paid: [m.paidRegularCents, m.paidLessOftenCents], parts: [m.regularCents, m.lessOftenCents], totalCents: m.wholeBillsCents }))}
                       series={[
                         { key: "regular", label: t("bills.series_regular") },
                         { key: "rare", label: t("bills.series_rare") },
                       ]}
                       tone="spending"
-                      usual={null}
-                      running={calendar.months[0]!.paidCents > 0 ? calendar.months[0]!.month : null}
+                      usual={fixedCosts.monthlyCents > 0 ? { cents: fixedCosts.monthlyCents, label: `${t("kind.usual")} ${answerMoney(fixedCosts.monthlyCents)}`, short: `${t("kind.usual")} ${answerMoney(fixedCosts.monthlyCents)}` } : null}
+                      today={meta.today}
+                      states={{ paid: t("bills.total_paid"), coming: t("bills.total_coming") }}
+                      running={calendar.months[0]!.month}
                       resting={shown.month}
                       label={t("bills.chart_label")}
                     />
