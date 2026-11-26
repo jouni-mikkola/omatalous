@@ -39,21 +39,21 @@ describe("Varat ja velat: the tiles", () => {
     flat(renderToStaticMarkup(createElement(BalancesTiles as never, { ctx: { data: balances(more), meta: { today: "2026-11-11", accounts: [], sharedAccounts: [] } } } as never)).replace(/<[^>]*>/g, " "));
 
   it("shows the balance of the newest day, how it moved and what is owed", () => {
-    expect(say({})).toBe("Saldo nyt 1 200 €");
-    expect(say({ debt: { cents: 30_000 } })).toBe("Saldo nyt 1 200 € Velkaa 300 €");
-    expect(say({ change: { cents: 20_000, from: "2026-09-30" } })).toBe("Saldo nyt 1 200 € +200 € 30.9. jälkeen");
-    expect(say({ change: { cents: -20_000, from: "2026-09-30" }, debt: { cents: 30_000 } })).toBe("Saldo nyt 1 200 € −200 € 30.9. jälkeen Velkaa 300 €");
+    expect(say({})).toBe("Tilien ja korttien saldo 1 200 €");
+    expect(say({ debt: { cents: 30_000 } })).toBe("Tilien ja korttien saldo 1 200 € Velkaa 300 €");
+    expect(say({ change: { cents: 20_000, from: "2026-09-30" } })).toBe("Tilien ja korttien saldo 1 200 € +200 € 30.9. jälkeen");
+    expect(say({ change: { cents: -20_000, from: "2026-09-30" }, debt: { cents: 30_000 } })).toBe("Tilien ja korttien saldo 1 200 € −200 € 30.9. jälkeen Velkaa 300 €");
   });
 
   it("names no debt sum while the balance of a debt is missing", () => {
     const lacking = (count: number) => ({ debt: { cents: 30_000 }, holdings: { unsavedLoans: { count, rows: [] } } });
-    expect(say(lacking(1))).toBe("Saldo nyt 1 200 €");
-    expect(say({ ...lacking(4), change: { cents: 20_000, from: "2026-09-30" } })).toBe("Saldo nyt 1 200 € +200 € 30.9. jälkeen");
-    expect(say({ debt: { cents: 30_000 }, holdings: { unsavedFewPayments: 1 } })).toBe("Saldo nyt 1 200 €");
+    expect(say(lacking(1))).toBe("Tilien ja korttien saldo 1 200 €");
+    expect(say({ ...lacking(4), change: { cents: 20_000, from: "2026-09-30" } })).toBe("Tilien ja korttien saldo 1 200 € +200 € 30.9. jälkeen");
+    expect(say({ debt: { cents: 30_000 }, holdings: { unsavedFewPayments: 1 } })).toBe("Tilien ja korttien saldo 1 200 €");
   });
 
   it("leaves a move under a euro unsaid, and says nothing without an account or a known day", () => {
-    expect(say({ change: { cents: 99, from: "2026-09-30" } })).toBe("Saldo nyt 1 200 €");
+    expect(say({ change: { cents: 99, from: "2026-09-30" } })).toBe("Tilien ja korttien saldo 1 200 €");
     expect(say({ accounts: [] })).toBe("");
     expect(say({ daily: { from: "2026-09-01", cents: [null, null] } })).toBe("");
   });
