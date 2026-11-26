@@ -6,7 +6,7 @@ import { auditTables, openAll, openDrills } from "./table-audit.ts";
 import { A11Y_ROUTES, type Check, ONE_LINK_ROUTES, TABLE_ROUTES, walk } from "./walk.ts";
 
 // Decision: whether every page of the app, at the width of a phone and of a desktop, can be used by anyone: the Version 1.0
-// check (S14). Each route is opened once per width and every check reads that one load, so a red walk lists all of its
+// check (S14). Each route is opened once per walk, and every check of a walk reads that one load, so a red walk lists all of its
 // problems, `check: route: problem`, rather than the first. The order is the order of the checks below: those that read the
 // page as it loads come first, those that open details and drills last.
 //

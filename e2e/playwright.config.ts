@@ -24,7 +24,7 @@ export default defineConfig({
     { name: "walks", testMatch: WALK_SPEC },
     // the timing of the list of Tapahtumat under a slowed processor runs alone, after the projects above: the workers of the
     // others share the machine's cores, and a limit of one second has no room for their load
-    { name: "timing", testMatch: TIMING_SPEC, dependencies: ["app", ...(process.env.E2E_SKIP_PRIVATE ? [] : ["private"])] },
+    { name: "timing", testMatch: TIMING_SPEC, dependencies: ["app", "walks", ...(process.env.E2E_SKIP_PRIVATE ? [] : ["private"])] },
     // the First evening check starts a server of its own and runs for minutes: a local check (`pnpm first-evening`), not part of the suite or of CI
     ...(process.env.E2E_FIRST_EVENING ? [{ name: "first-evening", testMatch: "first-evening/*.spec.ts", workers: 1 }] : []),
     // the list of Tapahtumat on five years of rows (100 000 or more) starts a server of its own and loads them: a local check (`pnpm e2e:years`), like the one above
