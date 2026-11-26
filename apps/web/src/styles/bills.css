@@ -96,6 +96,9 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .bill-table tr.bill-total > * { font-weight: var(--w-strong); }
 .bill-total-name { display: inline-flex; align-items: center; gap: var(--sp-8); }
 .bill-table td.bill-total-coming, .bill-table td.bill-total-saving { color: var(--accent-ink); }
+/* the table's heading is one line with no tool beside it, so it keeps no 52 px band: twelve months and the totals of the open one make a long page */
+/* important, as marks.css, outside the layers, sets the band's height */
+#laskut-taulukko .card-head.tb > * { min-height: 0 !important; padding-block: var(--sp-4) !important; }
 /* on a phone the name stands in the row header over the two columns it leaves empty, and the sum at the end of the line */
 .rt-wrap[data-block] .rt.bill-table > tbody > tr.bill-total > :is(td:nth-child(2), td:nth-child(3), td:nth-child(5)) { display: none; }
 .rt-wrap[data-block] .rt.bill-table > tbody > tr.bill-total > th[scope="row"] { grid-column: 1 / 3; grid-row: 1; }
