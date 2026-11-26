@@ -74,6 +74,23 @@ export type LowPoint =
       line: LowPointCorner[];
       /** The payments and pays of the walk, date ascending; within a day the calendar's order (`billCalendar`), the bills of a card shown only by them last. */
       steps: LowPointStep[];
+      /**
+       * The balance of today after the cards' debt that no bill of the walk holds, and that debt: what the table starts
+       * from, so its balance column adds up row by row with `spending` and `steps`.
+       */
+      startCents: number;
+      cardDebtCents: number;
+      /** The expected everyday spending of the counted accounts a day over the days looked at: stated once, not on every row. */
+      everydayPerDayCents: number;
+      /**
+       * The spending taken off between two step days, date ascending: before the steps of `date`, for the days `since`
+       * to `until`. `afterCents` is the balance once the row is taken off, so the balance of the earlier step day (or
+       * `startCents`) plus the sums of the rows before a step day is the balance before that day's steps. "everyday" is what
+       * the counted accounts pay themselves; "cards" is what the cards' purchases that no bill of the walk holds take (the
+       * lump on the day after the payday, and a card's purchases on its bill's day), in the gaps that begin before that day.
+       * After it the cards' purchases are part of the everyday row.
+       */
+      spending: LowPointSpending[];
     };
 
 /** A corner of the balance line of `lowPoint`. */
@@ -82,6 +99,17 @@ interface LowPointCorner {
   cents: number;
   lowCents: number;
   highCents: number;
+}
+
+/** Expected spending taken off between two days of the steps. */
+interface LowPointSpending {
+  date: IsoDate;
+  since: IsoDate;
+  until: IsoDate;
+  kind: "everyday" | "cards";
+  /** Negative. */
+  cents: number;
+  afterCents: number;
 }
 
 /** A payment or a pay the balance of `lowPoint` steps by. */
@@ -217,6 +245,32 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
     line.push(paid);
     if (!same(paid, landed)) line.push(landed);
   }
-  const steps = moves.map((m) => ({ ...m, afterCents: heldOn(m.date) + paidIn(m.date) - spentAt(m.date).cents }));
-  return { known: true, date: point.date, cents: point.cents, lowCents: lowest, highCents: highest, days, line, steps };
+  const afterOf = (day: IsoDate) => heldOn(day) + paidIn(day) - spentAt(day).cents;
+  const steps = moves.map((m) => ({ ...m, afterCents: afterOf(m.date) }));
+
+  // the spending between the days of the steps, from the same walk: each row is the change of the spending taken off
+  const spending: LowPointSpending[] = [];
+  const ownAt = (day: IsoDate) => ownCost(from, addDays(day, -1)).cents;
+  let since: IsoDate = from;
+  let running = startCents;
+  let spentThen = 0;
+  let ownThen = 0;
+  for (const date of [...new Set(steps.map((s) => s.date))]) {
+    const total = spentAt(date).cents;
+    const own = ownAt(date);
+    const until = date > since ? addDays(date, -1) : since;
+    // from the day after the payday on, the cards' purchases are daily spending like the rest
+    const parts: [LowPointSpending["kind"], number][] = since < afterPayday ? [["everyday", own - ownThen], ["cards", total - spentThen - (own - ownThen)]] : [["everyday", total - spentThen]];
+    for (const [kind, delta] of parts) {
+      if (delta === 0) continue;
+      running -= delta;
+      spending.push({ date, since, until, kind, cents: -delta, afterCents: running });
+    }
+    since = date;
+    running = afterOf(date);
+    spentThen = total;
+    ownThen = own;
+  }
+  const everydayPerDayCents = Math.round(ownCost(from, last).cents / days);
+  return { known: true, date: point.date, cents: point.cents, lowCents: lowest, highCents: highest, days, line, steps, startCents, cardDebtCents: ahead.balance.cardDebtCents, everydayPerDayCents, spending };
 }
