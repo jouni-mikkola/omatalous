@@ -96,7 +96,7 @@ export function Now({ data }: { data: Data }) {
         <>
           <h2 id="home-now-h" className="sr-only">{label}</h2>
           <div className="kind-cards">
-            <KindCard kind="now" label={t("home.ledger_balance")} figure={answerMoney(sum.balanceCents)} rows={[]} />
+            <KindCard kind="now" date={dayMonth(runway.from)} label={t("home.ledger_balance")} figure={answerMoney(sum.balanceCents)} rows={[]} />
             <KindCard
               kind="estimate"
               date={dayMonth(runway.payday.date)}

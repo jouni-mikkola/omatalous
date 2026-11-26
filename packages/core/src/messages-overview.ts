@@ -7,6 +7,7 @@ export const FI_OVERVIEW = {
   // Yhteenveto
   "home.today": "tänään",
   "home.col_payee": "Saaja",
+  "home.col_part": "Kohta",
   "home.col_sum": "Summa",
   "home.show_payments": "Näytä maksut",
   "home.category_left": "{label}: {spent}, jäljellä {left}.",
@@ -99,8 +100,8 @@ export const FI_OVERVIEW = {
   "home.low_known": "Saldo on alimmillaan {date}, arviolta",
   "home.fig_runway": "Jää palkkapäivänä",
   "home.breakdown": "Mistä luku koostuu",
-  "home.range": "Väli",
-  "home.ledger_balance": "Tilien saldo nyt",
+  "home.range": "Se voi olla",
+  "home.ledger_balance": "Tilien saldo",
   "home.ledger_payments": "Laskut ennen palkkapäivää",
   "home.ledger_cards": "Korttivelka laskujen lisäksi",
   "home.ledger_everyday": "Arvioitu kulutus {days} päivältä",
