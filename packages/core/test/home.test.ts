@@ -115,6 +115,16 @@ describe("home.pace", () => {
     expect(pace!.lowCents).toBeLessThanOrEqual(pace!.highCents);
   });
 
+  it("gives the month's end as one point inside the quartile range", () => {
+    for (const rows of [dear, steady]) {
+      const dash = buildDashboard(createContext(rows, [own], TODAY), RANGE, [bal(200_000)], NO_INPUTS);
+      const end = dash.home.pace!.end!;
+      expect(end.pointCents).toBe(dash.pace.currentTotal + dash.pace.expected!.curve.at(-1)! - dash.pace.expected!.toToday);
+      expect(end.pointCents).toBeGreaterThanOrEqual(end.lowCents);
+      expect(end.pointCents).toBeLessThanOrEqual(end.highCents);
+    }
+  });
+
   it("is quiet when the month goes as expected", () => {
     const { pace } = homeOf(steady);
     expect(pace!.position).toBe("within");

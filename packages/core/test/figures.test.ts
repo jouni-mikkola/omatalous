@@ -164,6 +164,20 @@ const ANSWERS: Record<FigureKey, Answers> = {
       pace: dash.pace.expected?.diffCents ?? null,
     };
   },
+  paceEnd: (h) => {
+    const dash = buildDashboard(contextOf(h), running(h), h.balances, h.inputs);
+    const { expected } = dash.pace;
+    return {
+      home: dash.home.pace?.end?.pointCents ?? null,
+      byHand:
+        expected && dash.home.pace?.end
+          ? Math.min(
+              dash.home.pace.end.highCents,
+              Math.max(dash.home.pace.end.lowCents, dash.pace.currentTotal + expected.curve.at(-1)! - expected.toToday),
+            )
+          : null,
+    };
+  },
   fixed: (h) => {
     const ctx = contextOf(h);
     return {
