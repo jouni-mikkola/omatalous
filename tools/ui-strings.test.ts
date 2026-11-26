@@ -147,7 +147,7 @@ describe("pnpm strings on this repository", () => {
   const repo = collect();
   const text = repo.map((r) => r.text).join("\n");
 
-  // twenty sentences of six pages, a dashboard card, the sentence builders of core, the server and the relay
+  // seventeen sentences of six pages, a dashboard card, the sentence builders of core, the server and the relay
   const PARTS = [
     "Kirjaudu sisään", // pages/Auth.tsx
     "Salasanat eivät täsmää.",
@@ -160,9 +160,6 @@ describe("pnpm strings on this repository", () => {
     "Näytä jakso",
     "Ei kauppiaita näillä rajauksilla.", // pages/Merchants.tsx
     "Kauppias (tarkka)", // pages/Rules.tsx
-    "Palkkapäivään asti", // components/NextDays.tsx
-    "Emme tiedä palkkapäivääsi.",
-    "Emme tiedä tilin saldoa.",
     "Kirjoita sana tai kauppiaan nimi.", // core categorize
     "Edellisen jakson tiedot eivät kata samoja tilejä.", // core reports
     "Väärä käyttäjätunnus tai salasana.", // server
@@ -171,8 +168,8 @@ describe("pnpm strings on this repository", () => {
     "Tämä sivu ei aseta evästeitä", // relay/privacy
   ];
 
-  it("has twenty sentences picked from the pages, core, the server and the relay", () => {
-    expect(PARTS).toHaveLength(20);
+  it("has seventeen sentences picked from the pages, core, the server and the relay", () => {
+    expect(PARTS).toHaveLength(17);
     for (const part of PARTS) expect(text, part).toContain(part);
   });
 

@@ -1,4 +1,3 @@
-apps/web/src/styles/ahead.css  px=24
 apps/web/src/styles/auth.css  px=11
 apps/web/src/styles/bank-picker.css  px=10
 apps/web/src/styles/banks.css  px=16

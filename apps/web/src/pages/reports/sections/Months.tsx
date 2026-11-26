@@ -10,7 +10,8 @@ import { ChartWithTable } from "../../../components/table/selection.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { monthName } from "../month-name.ts";
 import { partialMonths } from "../partial-months.ts";
-import { Lead, Strip, type StripItem } from "../Lead.tsx";
+import { Tiles, type TileItem } from "../../../components/Tiles.tsx";
+import { Lead } from "../Lead.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
 /** The gap of the complete months and what paid it, in one sentence: the paying parts above zero, in the order credit, savings, accounts and cards. */
@@ -36,7 +37,7 @@ export function CashflowLead({ ctx }: SectionProps) {
   if (complete === null) return gap ? <Lead>{gapText(gap)}</Lead> : null;
   const count = String(complete.months);
   const { peak } = complete;
-  const items: StripItem[] = [
+  const items: TileItem[] = [
     { label: t("rpt.strip_income", { months: count }), figure: answerMoney(complete.incomeCents), note: t("rpt.strip_income_average", { sum: answerMoney(complete.averageIncomeCents) }) },
     { label: t("rpt.strip_spent", { months: count }), figure: answerMoney(complete.spendCents), note: peak ? t("rpt.strip_spent_peak", { month: monthLong(peak.month), sum: answerMoney(peak.spendCents) }) : undefined },
     ...(usualSpendCents === null ? [] : [{ label: t("rpt.strip_usual"), figure: answerMoney(usualSpendCents), note: t("rpt.strip_usual_note", { months: String(overview.usualMonths) }) }]),
@@ -44,7 +45,7 @@ export function CashflowLead({ ctx }: SectionProps) {
   return (
     <>
       <Lead>{gap ? gapText(gap) : t("rpt.lead_flows")}</Lead>
-      <Strip items={items} />
+      <Tiles items={items} />
     </>
   );
 }
