@@ -18,6 +18,7 @@ import { incomeReport } from "./income.ts";
 import { loansReport } from "./loans.ts";
 import { monthLeadReport } from "./month-lead.ts";
 import { buildHousing } from "../housing.ts";
+import { cashflowMonthsReport } from "../overview.ts";
 import { spendingChangeReport } from "./spending-change.ts";
 import { spendingMonthsReport } from "./spending-months.ts";
 import { billCalendar } from "./bill-calendar.ts";
@@ -50,6 +51,8 @@ export const REPORTS = {
   spendingMonths: ({ ctx, range, lang }: ReportInput) => spendingMonthsReport(ctx, range, lang),
   fixedCosts: ({ ctx, inputs, lang }: ReportInput) => fixedCostsReport(ctx, inputs, lang),
   monthLead: ({ ctx }: ReportInput) => monthLeadReport(ctx),
+  // Tulot ja menot: the bars, the usual month and the complete months' sums over the period, as Yhteenveto has them for twelve months
+  cashflowMonths: ({ ctx, range, lang }: ReportInput) => cashflowMonthsReport(ctx, range, lang),
 } as const;
 
 export type ReportId = keyof typeof REPORTS;

@@ -50,7 +50,7 @@ function monthRows(m: Month, running: boolean): { name: string; value: string }[
 }
 
 /**
- * Income and spending of the last twelve months as a pair of bars a month (`overview.months`), on one value axis, with
+ * Income and spending of the months it is given (Yhteenveto's last twelve, Raportit's period) as a pair of bars a month (`overview.months`), on one value axis, with
  * the usual month's spending as a dashed line across them (`overview.usualSpendCents`). The running month and a month
  * the accounts do not cover from its 1st are hatched with a dashed edge and the key says so, as their sums are not a
  * month's. A month has one look for both its bars: it is solid only when the spending report counts it complete and, given
@@ -58,7 +58,7 @@ function monthRows(m: Month, running: boolean): { name: string; value: string }[
  * past the top with a break, and the sum is written above it. The year stands under each January only. Each month is a link to its rows in Tapahtumat; pointing at it or its keyboard focus reads
  * out its sums. Every value is a field of the answer: nothing is added up here.
  */
-export function MonthBars({ overview, today, incomePartial }: { overview: Overview; today: string; incomePartial?: ReadonlySet<string> }) {
+export function MonthBars({ overview, today, incomePartial }: { overview: Pick<Overview, "months" | "usualSpendCents">; today: string; incomePartial?: ReadonlySet<string> }) {
   const [ref, measured] = useWidth<HTMLDivElement>();
   const [at, setAt] = useState<number | null>(null);
   const hatch = `mbh-${useId().replace(/\W/g, "")}`;
@@ -88,6 +88,9 @@ export function MonthBars({ overview, today, incomePartial }: { overview: Overvi
   const running = (i: number) => i === months.length - 1 && months[i]!.month === today.slice(0, 7);
   // the readout names the picked month, else the last whole one; the running month keeps its name, which says "kesken"
   const wholeMonth = (m: Month, i: number) => m.complete && !running(i) && (m.incomeCents !== null || m.spendCents !== null);
+  // a month's two bars have one look, and the key names it when the chart draws one such month
+  const solid = (m: Month, i: number) => m.complete && !running(i) && !incomePartial?.has(m.month);
+  const anyPartial = months.some((m, i) => !solid(m, i) && (m.incomeCents !== null || m.spendCents !== null));
   const shown = at ?? lastWhole(months.map(wholeMonth)) ?? months.length - 1;
   const runningAt = months.findIndex((_, i) => running(i));
   const printed = printedMonths(months.length, x.step, new Set(runningAt < 0 ? [] : [runningAt]), shown);
@@ -116,6 +119,7 @@ export function MonthBars({ overview, today, incomePartial }: { overview: Overvi
           ]}
           note={running(shown) ? t("home.months_running") : !months[shown].complete && months[shown].spendCents !== null ? t("home.months_partial") : undefined}
           compare={usualComparison("spend", months[shown].againstUsual, false)}
+          partialKey={anyPartial}
         />
       ) : (
         <div className="readout-line" />
@@ -138,7 +142,7 @@ export function MonthBars({ overview, today, incomePartial }: { overview: Overvi
             <ValueAxis ticks={[...y.ticks]} y={y} width={f.innerW} height={f.innerH} label={axisLabel} bare />
             {at !== null && <rect className="pick-band" x={x.step * at} y={0} width={x.step} height={f.innerH} />}
             {months.map((m, i) => {
-              const whole = m.complete && !running(i) && !incomePartial?.has(m.month);
+              const whole = solid(m, i);
               const left = x.x(i);
               return (
                 <g key={m.month} className={whole ? "mb-month" : "mb-month mb-partial"}>

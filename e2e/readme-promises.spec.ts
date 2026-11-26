@@ -20,7 +20,7 @@ test("what the README says about Lisää, English and statement files holds on t
     await expect(page.getByRole("heading", { name: "Vuosivertailu" })).toBeVisible();
     await page.goto("/#/reports?q=tulot");
     await expect(page.getByRole("heading", { name: "Tulolajit" })).toBeVisible();
-    await expect(page.getByText("Kuukaudet taulukkona")).toBeVisible();
+    await expect(page.getByText("Kuukaudet taulukkona").first()).toBeVisible();
     await openChartFolds(page);
     await expect(page.getByRole("table", { name: "Tulot kuukausittain" })).toBeVisible();
     // a table of more than ten rows downloads as CSV

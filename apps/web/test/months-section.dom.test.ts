@@ -17,13 +17,15 @@ const monthsOf = (n: number) =>
   });
 
 const MONTHS = monthsOf(12).map((month, i) => ({ month, incomeCents: 400000 + i * 100, spendCents: 300000 + i * 100, complete: i > 0 && i < 11, againstUsual: i > 0 && i < 11 ? { cents: 300000 + i * 100 - 214900, side: "more" as const } : null }));
-const categories = { rows: [], otherCents: 0, otherCount: 0, totalCents: 0, fromSavingsCents: 0, usualMonths: 0 };
 // what the server adds up over the ten complete months of MONTHS: the page prints these and sums nothing
 const completeTotals = { months: 10, incomeCents: 4005000, averageIncomeCents: 400500, spendCents: 3005500, peak: { month: "2026-10", spendCents: 301000 } };
-const overview = (more: Record<string, unknown> = {}) => ({ months: MONTHS, usualSpendCents: 214900, usualMonths: 10, completeTotals, categories, ...more });
+const overview = (more: Record<string, unknown> = {}) => ({ months: MONTHS, usualSpendCents: 214900, usualMonths: 10, completeTotals, ...more });
 const stripItems = () => [...document.querySelectorAll(".strip-item")].map((li) => [...li.children].map((c) => flat(c.textContent)).join(" "));
 
-const ctx = { meta: { today: TODAY, accounts: [{ id: "acc-1" }], sharedAccounts: [] }, scope: "own", data: { income: { monthlyCents: 396000, months: MONTHS.map((m) => ({ month: m.month, complete: true })) } } } as unknown as ReportContext;
+const incomeOf = (complete: (i: number) => boolean) => ({ monthlyCents: 396000, months: MONTHS.map((m, i) => ({ month: m.month, complete: complete(i) })) });
+// the page's answer holds `cashflowMonths` for the chosen period: the section asks for nothing of its own
+const ctxOf = (cashflowMonths: unknown, income: unknown = incomeOf(() => true)) => ({ meta: { today: TODAY, accounts: [{ id: "acc-1" }], sharedAccounts: [] }, scope: "own", running: "2026-11", data: { income, cashflowMonths } }) as unknown as ReportContext;
+const ctx = ctxOf(overview());
 
 /** The answer is cached by its path: each show starts with an empty cache and no earlier view, so it reads its own. */
 function fresh() {
@@ -31,11 +33,12 @@ function fresh() {
   queryClient.clear();
 }
 
-async function show(answer: unknown) {
+async function show(answer: { overview: unknown }, income?: unknown) {
   fresh();
-  stubApi({ "GET /api/dashboard": answer });
-  const view = render(createElement(section.Component, { ctx }));
+  const seen = stubApi({});
+  const view = render(createElement(section.Component, { ctx: ctxOf(answer.overview, income) }));
   await waitFor(() => expect(view.container.querySelector("svg a")).not.toBeNull());
+  expect(seen).toEqual([]);
   return view.container;
 }
 
@@ -75,12 +78,8 @@ describe("Tulot ja menot", () => {
 
   // a month has one look: spending partial or income partial hatches both of its bars
   it("hatches both bars of a month that either report does not count complete", async () => {
-    fresh();
-    stubApi({ "GET /api/dashboard": { overview: overview() } });
-    const incomeCtx = { ...ctx, data: { income: { monthlyCents: 396000, months: MONTHS.map((m, i) => ({ month: m.month, complete: i < 11 })) } } } as unknown as ReportContext;
-    const view = render(createElement(section.Component, { ctx: incomeCtx }));
-    await waitFor(() => expect(view.container.querySelector("svg a")).not.toBeNull());
-    const [first, ...rest] = [...view.container.querySelectorAll(".mb-month")];
+    const container = await show({ overview: overview() }, incomeOf((i) => i < 11));
+    const [first, ...rest] = [...container.querySelectorAll(".mb-month")];
     // the first month is complete for income but not for spending: both bars hatched
     expect(first!.querySelector(".mb-income")).toBeNull();
     expect(first!.querySelector(".mb-income-part")).not.toBeNull();
@@ -88,21 +87,16 @@ describe("Tulot ja menot", () => {
     // the running month is hatched in both bars
     expect(rest.at(-1)!.querySelector(".mb-income-part")).not.toBeNull();
     // a month the spending report counts complete but the income report does not: both hatched too
-    const incomeLate = { ...incomeCtx, data: { income: { months: MONTHS.map((m, i) => ({ month: m.month, complete: i !== 5 })) } } } as unknown as ReportContext;
-    const other = render(createElement(section.Component, { ctx: incomeLate }));
-    await waitFor(() => expect(other.container.querySelector("svg a")).not.toBeNull());
-    const sixth = other.container.querySelectorAll(".mb-month")[5]!;
+    const other = await show({ overview: overview() }, incomeOf((i) => i !== 5));
+    const sixth = other.querySelectorAll(".mb-month")[5]!;
     expect(sixth.querySelector(".mb-income-part")).not.toBeNull();
     expect(sixth.querySelector(".mb-spend-part")).not.toBeNull();
   });
 
   it("leaves a complete month solid when the income report does not cover it", async () => {
-    fresh();
-    stubApi({ "GET /api/dashboard": { overview: overview() } });
-    const narrow = { ...ctx, data: { income: { months: MONTHS.slice(6).map((m) => ({ month: m.month, complete: true })) } } } as unknown as ReportContext;
-    const view = render(createElement(section.Component, { ctx: narrow }));
-    await waitFor(() => expect(view.container.querySelector("svg a")).not.toBeNull());
-    const groups = [...view.container.querySelectorAll(".mb-month")];
+    const narrow = { months: MONTHS.slice(6).map((m) => ({ month: m.month, complete: true })) };
+    const container = await show({ overview: overview() }, narrow);
+    const groups = [...container.querySelectorAll(".mb-month")];
     // months 1 to 5 lie outside the income report and are complete for spending: solid
     expect(groups.slice(1, 6).every((g) => g.querySelector(".mb-income") !== null && g.querySelector(".mb-spend-part") === null)).toBe(true);
   });
@@ -141,17 +135,38 @@ describe("Tulot ja menot", () => {
 
   it("is nothing with no month", async () => {
     fresh();
-    stubApi({ "GET /api/dashboard": { overview: overview({ months: [] }) } });
-    const view = render(createElement(section.Component, { ctx }));
-    await waitFor(() => expect(view.container.innerHTML).toBe(""));
+    const view = render(createElement(section.Component, { ctx: ctxOf(overview({ months: [] })) }));
+    expect(view.container.innerHTML).toBe("");
+  });
+
+  it("draws the months of the chosen period and asks for nothing of its own", async () => {
+    const year = Array.from({ length: 12 }, (_, i) => ({ month: `2025-${String(i + 1).padStart(2, "0")}`, incomeCents: 400000, spendCents: 350000, fromSavingsCents: 0, complete: true, againstUsual: null }));
+    const container = await show({ overview: overview({ months: year, completeTotals: { ...completeTotals, months: 12 } }) });
+    const links = [...container.querySelectorAll("svg a")];
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(year.map((m) => `#/transactions?from=${m.month}-01&to=${m.month}-${m.month === "2025-02" ? "28" : ["04", "06", "09", "11"].includes(m.month.slice(5)) ? "30" : "31"}`));
+    expect(container.querySelector(".key-partial")).toBeNull();
+  });
+
+  it("names the hatching in the chart's legend when a month is hatched, and only then", async () => {
+    const partial = await show({ overview: overview() });
+    expect(flat(partial.querySelector(".readout-line .key-partial")?.parentElement?.textContent)).toBe("Vajaa tai kesken oleva kuukausi");
+    const whole = await show({ overview: overview({ months: MONTHS.map((m) => ({ ...m, complete: true })).slice(1, 11) }) });
+    expect(whole.querySelector(".key-partial")).toBeNull();
+  });
+
+  // a card with no purchases in a month leaves the spending report's month partial and the income report's whole
+  it("draws a month whole for income and partial for spending hatched in both bars", async () => {
+    const container = await show({ overview: overview({ months: MONTHS.map((m, i) => ({ ...m, complete: i > 0 && i < 11 && i !== 5 })) }) }, incomeOf(() => true));
+    const sixth = container.querySelectorAll(".mb-month")[5]!;
+    expect(sixth.querySelector(".mb-income-part")).not.toBeNull();
+    expect(sixth.querySelector(".mb-spend-part")).not.toBeNull();
   });
 });
 
 describe("Tulot ja menot: the sentence the page opens with", () => {
-  async function lead(answer: unknown) {
+  async function lead(answer: { overview: unknown }) {
     fresh();
-    stubApi({ "GET /api/dashboard": answer });
-    const view = render(createElement(CashflowLead, { ctx }));
+    const view = render(createElement(CashflowLead, { ctx: ctxOf(answer.overview) }));
     await waitFor(() => expect(view.container.querySelector(".q-lead")).not.toBeNull());
     return flat(view.container.querySelector(".q-lead")?.textContent);
   }
@@ -199,11 +214,7 @@ describe("Tulot ja menot: the sentence the page opens with", () => {
 
   it("is nothing when no month is complete", async () => {
     fresh();
-    const seen = stubApi({ "GET /api/dashboard": { overview: overview({ months: MONTHS.map((m) => ({ ...m, complete: false })), completeTotals: null }) } });
-    const view = render(createElement(CashflowLead, { ctx }));
-    await waitFor(() => expect(seen.length).toBe(1));
-    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
-    await new Promise((done) => setTimeout(done, 0));
+    const view = render(createElement(CashflowLead, { ctx: ctxOf(overview({ months: MONTHS.map((m) => ({ ...m, complete: false })), completeTotals: null })) }));
     expect(view.container.querySelector(".q-lead")).toBeNull();
   });
 });
