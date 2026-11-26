@@ -3,6 +3,13 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.8.3
+
+Look
+
+- Laskut gives the payee column more room, and an open month's head keeps its sums on one line with the split of the bills under them.
+- Tulolajit draws incomplete months hatched, like Tulot ja menot, and hatches the months its average leaves out.
+
 ## 1.8.2
 
 Money and reports
