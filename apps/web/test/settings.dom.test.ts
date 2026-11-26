@@ -85,7 +85,8 @@ describe("Turvallisuus", () => {
     await openApp("#/settings/security", "Asetukset");
     expect(screen.queryByRole("heading", { name: headings[0]! })).toBeNull();
     await act(async () => void vi.advanceTimersByTime(4000));
-    for (const name of headings) await screen.findByRole("heading", { name }, T);
+    // a short limit, so a fallback that grew past 4 s fails here
+    for (const name of headings) await screen.findByRole("heading", { name }, { timeout: 500 });
   }, 60000);
 });
 
