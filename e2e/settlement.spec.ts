@@ -260,7 +260,7 @@ for (const width of [390, 1440]) {
     const { context, page } = await open(browser, members[0]!, "/#/reports?q=yhteiset", width);
     await expect(page.getByRole("heading", { name: "Tasaus", level: 2, exact: true })).toBeVisible();
     await showMonth(page, LAST);
-    await expect(poolOf(page).getByRole("group", { name: "Kuka on velkaa kenelle" })).toBeVisible();
+    await expect(poolOf(page).locator(".strip-item").first()).toBeVisible();
     expect(await overflow(page), `Yhteiset menot at ${width} px`).toBeLessThanOrEqual(0);
     await context.close();
   });

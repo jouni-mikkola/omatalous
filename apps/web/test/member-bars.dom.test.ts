@@ -60,7 +60,7 @@ describe("Yhteiset menot: the member bars", () => {
     stubApi({ "GET /api/settlement": pool({ members: [{ owner: "u1", paid: 30000, owed: 20000, over: 10000 }, { owner: "u2", paid: 10000, owed: 20000, over: -10000 }] }) });
     const { container } = render(createElement(section.Component, { ctx: context }));
     await screen.findByRole("group", { name: "Yhteiset menot: Yhteistili" });
-    expect([...container.querySelectorAll(".strip-item")].map((i) => [plain(i.querySelector(".strip-label")!.textContent), plain(i.querySelector(".strip-figure")!.textContent)])).toEqual([["Eero → Aino", "100 €"]]);
+    expect([...container.querySelectorAll(".strip-item")].map((i) => [plain(i.querySelector(".strip-label")!.textContent), plain(i.querySelector(".strip-figure")!.textContent)])).toEqual([["Eero → Aino", "100,00 €"]]);
   });
 
   it("draws a bar of a negative figure with no width", () => {

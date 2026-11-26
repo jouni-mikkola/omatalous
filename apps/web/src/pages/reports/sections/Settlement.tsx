@@ -15,7 +15,7 @@ import { hasNothing, holderNameOf } from "./settlement-text.ts";
 import { Notice } from "../../../components/ui/Notice.tsx";
 import { Empty } from "../../../components/ui/Empty.tsx";
 import { t } from "../../../text.ts";
-export interface Answer {
+interface Answer {
   month: string;
   pools: { accountId: string; name: string; firstMonth: string | null; names: Record<string, string>; removed: string[]; labels: Record<string, string>; settlement: Settlement }[];
 }
