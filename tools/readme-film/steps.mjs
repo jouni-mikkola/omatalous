@@ -63,6 +63,9 @@ export function englishDays(/** @type {string} */ text) {
   return { text: `${m[1]}${m[2] ? `–${m[2]}` : ""} ${month}`, days: m[2] ? Number(m[2]) - Number(m[1]) + 1 : 1 };
 }
 
+/** A sum as the page shows it: whole euros stay whole ("4 893 €"), cents stay cents. */
+const shown = (/** @type {string} */ text) => (/,\d{2}/.test(text) ? euros(cents(text)) : euros(cents(text)).replace(/,00 €$/, " €"));
+
 /** Text with the page's spaces made plain. */
 const plain = (/** @type {string | null} */ t) => (t ?? "").replace(/[\s  ]+/g, " ").trim();
 
@@ -254,6 +257,18 @@ class Film {
 /** A tab of the main navigation. */
 const tab = (/** @type {Page} */ page, /** @type {string} */ name) => page.getByRole("navigation", { name: "Päävalikko" }).getByRole("link", { name, exact: true });
 
+/**
+ * The first month of the Laskut table with bills in it: a group head carries core's sum of the month's bills, and once a
+ * bill of a month is paid it says "Maksamatta" (unpaid) for those still to pay. A month with nothing to pay is passed.
+ */
+async function billsMonth(/** @type {Locator} */ list) {
+  for (const group of await list.locator("tr.rt-group").all()) {
+    const head = /(Laskut|Maksamatta) ([\d ,]+ €)/.exec(plain(await group.textContent()));
+    if (head && cents(/** @type {string} */ (head[2])) > 0) return { month: group, head };
+  }
+  throw new Error("Laskut: no month has a sum of bills in its head");
+}
+
 /** The computer's screen: from the empty first page to Raportit. */
 async function desk(/** @type {Film} */ film) {
   const { page } = film;
@@ -279,21 +294,27 @@ async function desk(/** @type {Film} */ film) {
   const count = plain(await page.locator(".tx-totals-count").textContent());
   const span = plain(await page.locator(".tx-totals-span").textContent());
   const rows = Number(/^(\d[\d ]*) tapahtumaa$/.exec(count)?.[1]?.replace(/ /g, ""));
-  const dates = /(\d{1,2}\.\d{1,2}\.\d{4})–(\d{1,2}\.\d{1,2}\.\d{4})$/.exec(span);
+  // the span within the year of today has no year: "1.–26.11."
+  const dates = /^\d{1,2}\.(?:–\d{1,2}\.)?\d{1,2}\.$/.test(span);
   if (!rows || !dates) throw new Error(`Tapahtumat shows "${count}" and "${span}"`);
-  const unsorted = await page.evaluate(async (/** @type {number} */ total) => {
+  // the list opens on the month so far, which is what the span names
+  const [, first, last, spanMonth] = /** @type {RegExpExecArray} */ (/^(\d{1,2})\.(?:–(\d{1,2})\.)?(\d{1,2})\.$/.exec(span));
+  const year = new Date().getFullYear();
+  const iso = (/** @type {string} */ d) => `${year}-${String(spanMonth).padStart(2, "0")}-${d.padStart(2, "0")}`;
+  const period = { from: iso(/** @type {string} */ (first)), to: iso(last ?? /** @type {string} */ (first)) };
+  const unsorted = await page.evaluate(async ([total, period]) => {
     /** @type {{ merchant?: string | null, category?: string | null }[]} */
     const all = [];
     while (all.length < total) {
-      const res = await fetch(`/api/transactions?limit=500&offset=${all.length}`);
+      const res = await fetch(`/api/transactions?from=${period.from}&to=${period.to}&limit=500&offset=${all.length}`);
       const page = /** @type {{ items: { merchant?: string | null, category?: string | null }[] }} */ (await res.json());
       if (!page.items.length) break;
       all.push(...page.items);
     }
     return { read: all.length, without: all.filter((t) => !t.merchant || !t.category).length };
-  }, rows);
+  }, /** @type {[number, { from: string, to: string }]} */ ([rows, period]));
   if (unsorted.read !== rows || unsorted.without) throw new Error(`Tapahtumat: ${unsorted.without} of ${unsorted.read} rows lack a payee or a category`);
-  await film.say(`Tapahtumat: ${rows} transactions from ${englishDate(/** @type {string} */ (dates[1]))} to ${englishDate(/** @type {string} */ (dates[2]))}, each with a payee and a category.`);
+  await film.say(`Tapahtumat: ${rows} transactions, ${englishDays(span).text}, each with a payee and a category.`);
   await film.shoot(1200);
   // a closed row holds the payee, the category and the amount; the bank's text is in the API's rows and in the opened row
   const bankText = await page.evaluate(async () => {
@@ -302,6 +323,10 @@ async function desk(/** @type {Film} */ film) {
     return Object.fromEntries(body.items.map((t) => [t.merchant ?? "", t.description || t.counterparty || ""]));
   });
   const visible = page.locator("tbody tr").filter({ has: page.locator(".tx-name") });
+  // the totals above the table take most of the screen: the page scrolls to the rows, and back after them
+  const firstTop = await visible.first().boundingBox();
+  const toRows = firstTop ? Math.max(0, Math.round(firstTop.y - 240)) : 0;
+  if (toRows) await film.scroll(toRows);
   let picked = null;
   for (const row of await visible.all()) {
     const name = plain(await row.locator(".tx-name").textContent());
@@ -312,7 +337,7 @@ async function desk(/** @type {Film} */ film) {
     // the payee is a word of the bank's text, which says more: not a payee the bank sent in a field of its own
     const words = name.toUpperCase().split(/[^\p{L}\d]+/u).filter((w) => w.length > 2);
     const upper = text.toUpperCase();
-    if (category && category !== "Omat siirrot" && text.length > name.length + 4 && !upper.startsWith(name.toUpperCase()) && words.some((w) => upper.includes(w))) {
+    if (category && category !== "Omat siirrot" && text.length > name.length + 4 && words.some((w) => upper.includes(w))) {
       picked = row;
       break;
     }
@@ -323,44 +348,52 @@ async function desk(/** @type {Film} */ film) {
   await film.glide(film.beside(/** @type {Box} */ (film.marks[1])));
   await film.read();
   film.marks = [];
+  if (toRows) await film.scroll(-toRows);
 
   // 4. Yhteenveto: what is left on payday after the bills and the everyday spending before it
   await film.click(tab(page, "Yhteenveto"));
   const answer = page.locator('[data-tile="left"]');
   await answer.waitFor({ state: "visible" });
   const left = plain(await answer.locator(".fig").textContent());
-  const payday = /palkkapäivä (\d{1,2}\.\d{1,2}\.)/.exec(plain(await answer.locator(".home-fig-label").textContent()))?.[1];
+  const payday = /palkkapäivänä (\d{1,2}\.\d{1,2}\.)/.exec(plain(await page.locator("#home-now-h").textContent()))?.[1];
   if (!payday) throw new Error("Yhteenveto names no payday");
   film.marks = [await film.box(answer)];
-  await film.say(`Yhteenveto: ${euros(cents(left))} is left on payday, ${englishDate(payday)}, after the bills and the everyday spending before it.`);
+  await film.say(`Yhteenveto: ${shown(left)} is left on payday, ${englishDate(payday)}, after the bills and the everyday spending before it.`);
   await film.glide(film.beside(await film.box(answer.locator(".fig"))));
   await film.read({ poster: true });
 
-  // 5. from the figure to the bills behind it
-  await film.click(answer.locator('a[href*="laskut-taulukko"]'));
+  // 5. from the figure to the bills behind it: the figure is the link
+  film.marks = [];
+  await film.click(answer);
   const list = page.locator("#laskut-taulukko");
   await list.waitFor({ state: "visible" });
-  // the first group of the table is the month of today, its head carries core's sum of the month's bills
-  const month = list.locator("tr.rt-group").first();
-  const sum = /Laskut ([\d ,]+ €)/.exec(plain(await month.textContent()))?.[1];
-  if (!sum) throw new Error("Laskut: the month of today has no sum of bills in its head");
+  const { month, head } = await billsMonth(list);
+  // the page above the table is long: the table scrolls up to the top, and the page back after it
+  const monthTop = await month.boundingBox();
+  const toTable = monthTop && monthTop.y > SIZE.page - 200 ? Math.round(monthTop.y - 200) : 0;
+  if (toTable) await film.scroll(toTable);
+  const sum = /** @type {string} */ (head[2]);
   film.marks = [await film.box(month)];
-  await film.say(`Laskut (bills): the month's bills are listed by day, ${euros(cents(sum))} in all.`);
+  await film.say(`Laskut (bills): the first month with bills lists them by day, ${shown(sum)}${head[1] === "Laskut" ? " in all" : " still unpaid"}.`);
   await film.glide(film.beside(/** @type {Box} */ (film.marks[0])));
   await film.read();
   film.marks = [];
+  if (toTable) await film.scroll(-toTable);
 
-  // 6. Raportit: the days of the month so far by category, against what those days usually cost (core expectedFor)
+  // 6. Raportit opens on Tulot ja menot: the complete months' income and spending, and what a usual month costs
   await film.click(tab(page, "Raportit"));
-  const heading = page.getByRole("heading", { level: 2 }).filter({ hasText: /^\p{L}+ \d{4}$/u }).first();
-  await heading.waitFor({ state: "visible" });
-  const sums = plain(await page.locator("p", { hasText: /^Menot/ }).first().textContent());
-  const m = /^Menot ([\d ]+ €), yleensä ([\d ]+ €)/.exec(sums);
-  if (!m) throw new Error(`Raportit says "${sums}"`);
-  const days = englishDays(plain(await page.getByText(/^\d{1,2}\.(?:–\d{1,2}\.)?\d{1,2}\.$/).first().textContent()));
-  await film.say(`Raportit by category: ${m[1]} spent ${days.text}, against a usual ${m[2]} for ${days.days > 1 ? "those days" : "that day"}.`);
+  const strip = page.locator("ul.strip").first();
+  await strip.waitFor({ state: "visible" });
+  const items = await strip.locator("li").all();
+  if (items.length !== 3) throw new Error(`Raportit: the strip has ${items.length} figures, not 3`);
+  const [income, spent, usual] = await Promise.all(items.map(async (li) => plain(await li.locator(".fig").textContent())));
+  const months = /^Menot, (\d+) kk$/.exec(plain(await /** @type {Locator} */ (items[1]).locator(".strip-label").textContent()))?.[1];
+  if (!months) throw new Error("Raportit: the spending figure names no number of months");
+  film.marks = [await film.box(strip)];
+  await film.say(`Raportit, Tulot ja menot: in ${months} months income was ${shown(/** @type {string} */ (income))} and spending ${shown(/** @type {string} */ (spent))}; a usual month costs ${shown(/** @type {string} */ (usual))}.`);
   // the phone's part follows with no click under this caption
   await film.read({}, 0);
+  film.marks = [];
 }
 
 /** The phone's screen: Yhteenveto, then a tap on the bills before payday and a scroll to their rows. */
@@ -373,12 +406,12 @@ async function phone(/** @type {Film} */ film) {
   await film.say("The same pages on a phone, with the tabs at the bottom.");
   // a finger's tap has no glide before it
   await film.read({}, CLICK_MS - GLIDE_MS);
-  await film.click(answer.locator('a[href*="laskut-taulukko"]'));
+  await film.click(answer);
   const list = page.locator("#laskut-taulukko");
   await list.waitFor({ state: "visible" });
   await film.shoot(700);
   // the head of the month of today below the header that scrolls away
-  const month = list.locator("tr.rt-group").first();
+  const { month } = await billsMonth(list);
   const top = await month.boundingBox();
   const header = await page.locator("header.topbar").boundingBox();
   if (!top) throw new Error("Laskut on the phone has no month");

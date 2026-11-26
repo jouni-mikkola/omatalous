@@ -7,7 +7,7 @@ due before it.
 
 <picture>
   <source media="(prefers-reduced-motion: reduce)" srcset="docs/images/tour-still.png">
-  <img src="docs/images/tour.png" alt="The app with the example household: the example data is loaded, the transactions get payees and categories, Yhteenveto takes the bills before payday from the balance, Laskut lists those bills, Raportit opens a category's rows, and the same pages show on a phone" width="1000">
+  <img src="docs/images/tour.png" alt="The app with the example household: the example data is loaded, the transactions get payees and categories, Yhteenveto shows the sum left on payday after the bills before it, Laskut lists the month's bills by day, Raportit shows income and spending by month, and the same pages show on a phone" width="1000">
 </picture>
 
 <img src="docs/images/overview-phone.png" alt="Yhteenveto on a phone, with the example household" width="260">
