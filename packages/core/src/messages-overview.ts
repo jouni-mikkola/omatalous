@@ -104,7 +104,7 @@ export const FI_OVERVIEW = {
   "home.ledger_balance": "Tilien saldo",
   "home.ledger_payments": "Laskut ennen palkkapäivää",
   "home.ledger_cards": "Korttivelka laskujen lisäksi",
-  "home.ledger_everyday": "Arvioitu kulutus {days} päivältä",
+  "home.ledger_everyday": "Arvioitu kulutus tililtä {days} päivältä",
   "home.ledger_billed": "Kortilla arvioidut ostot laskuun asti",
   "home.coming_none": "Ei tulevia laskuja eikä palkkoja.",
   "home.low_label": "Alin saldo {days} pv:",

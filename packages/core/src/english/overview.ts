@@ -101,7 +101,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.ledger_balance": "On the accounts",
   "home.ledger_payments": "Bills before payday",
   "home.ledger_cards": "Card debt besides the bills",
-  "home.ledger_everyday": "Expected spending for {days} days",
+  "home.ledger_everyday": "Expected spending from the accounts for {days} days",
   "home.ledger_billed": "Card purchases expected up to the bill",
   "home.coming_none": "No bills or pays to come.",
   "home.low_label": "Lowest balance in {days} days:",

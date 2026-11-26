@@ -151,9 +151,11 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
   if (unknownPaymentBy(calendar, last)) return { known: false, reason: "bills", days };
   // a card's bill beyond the payday window holds the debt that is taken off whole from today: it is no row of the walk
   const heldByDebt = new Set(ahead.upcoming.flatMap((r) => (r.source === "card" && r.basis === "balance" && r.cents && r.date > ahead.to ? [`${r.date}|${r.name}|${Math.abs(r.cents)}`] : [])));
+  // an income before the payday is no pay the runway waits for and the runway counts none: the walk leaves it out too, so
+  // the line at the payday is Jää palkkapäivänä to the cent
   const rows = calendar.months
     .flatMap((m) => m.rows)
-    .filter((r) => r.state !== "paid" && !r.onCard && r.date >= from && r.date <= last && !(r.seriesId === null && r.kind === "bill" && heldByDebt.has(`${r.date}|${r.payee}|${r.cents}`)));
+    .filter((r) => r.state !== "paid" && !r.onCard && r.date >= from && r.date <= last && !(r.kind === "income" && r.date < runway.payday.date) && !(r.seriesId === null && r.kind === "bill" && heldByDebt.has(`${r.date}|${r.payee}|${r.cents}`)));
   // the bills of a card shown only by them, which the bill calendar leaves out. `upcoming` reaches Laskut's 30 days and
   // `rows` the payday window, which can be longer: the window's rows after the 30 days complete the list, none twice
   const thirty = addDays(from, AHEAD_DAYS);
