@@ -32,11 +32,12 @@
 .ms-key { background: var(--key); }
 .ms-key.ms-coming { background: repeating-linear-gradient(45deg, var(--key) 0 var(--hairline), transparent var(--hairline) var(--sp-4)); outline: var(--hairline) dashed var(--key); outline-offset: -1px; }
 @media (forced-colors: active) {
-  .month-columns .ms-month:not(.ms-partial) rect:is(.ms-s0, .ms-s1, .ms-s2):not(.ms-coming) { fill: CanvasText; }
   .month-columns .ms-month rect.ms-coming { stroke: CanvasText; stroke-width: 1; stroke-dasharray: 3 2; }
   .month-columns line.ms-hatch { stroke: CanvasText; }
   .month-columns .ms-today { stroke: CanvasText; }
   .month-columns .ms-ground { fill: none; }
   .ms-key { forced-color-adjust: none; }
+  /* the chart draws a coming part's hatch and edge in the text colour, so its key does too */
+  .ms-key.ms-coming { background: repeating-linear-gradient(45deg, CanvasText 0 var(--hairline), transparent var(--hairline) var(--sp-4)); outline-color: CanvasText; }
 }
 }

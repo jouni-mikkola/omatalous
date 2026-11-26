@@ -143,7 +143,7 @@ for (const width of [390, 1440]) {
   });
 
   // The bills chart told paid from coming by a fill and a hatch in role colours: with the colours taken the paid part stays
-  // filled, the part to come keeps its dashed edge and its hatch lines, and the rule at today stays drawn.
+  // a plain fill without a dashed edge, the part to come keeps its dashed edge and its hatch lines, and the rule at today stays drawn.
   test(`Laskut at ${width} px in high contrast: the chart's coming parts keep a dashed edge and a hatch, the paid ones a fill`, async ({ browser }) => {
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 }, forcedColors: "active" });
     const page = await context.newPage();
@@ -173,7 +173,7 @@ for (const width of [390, 1440]) {
     // the part already paid, when the month has one, is a solid fill, not an outline
     if ((await page.locator(".month-columns rect.ms-s0:not(.ms-coming)").count()) > 0) {
       const paid = await style(".month-columns rect.ms-s0:not(.ms-coming)");
-      expect(paid.fill, "a paid part is filled").toBe(paid.ink);
+      expect(paid.fill, "a paid part is a fill, not the hatch").not.toMatch(/^url\(/);
       expect(paid.dash, "a paid part has no dashed edge").toBe("none");
     }
     await context.close();

@@ -76,6 +76,7 @@ interface BillMonth {
   paidCount: number;
   /** The rare bills (`rare` rows) among `paidCents`; with `paidRegularCents` it is `paidCents`, to the cent. */
   paidLessOftenCents: number;
+  /** The paid bills that are not rare: `paidCents` less `paidLessOftenCents`. */
   paidRegularCents: number;
   /** The month's bills and loan payments, paid and still to pay: `paidCents` and `billsCents` together, the whole height of the month's column in the chart. */
   wholeBillsCents: number;
@@ -317,10 +318,10 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
     const estimateCents = sum((r) => bill(r, "estimate"));
     const kindCents = (kind: CostKind) => sum((r) => (bill(r, "known") || bill(r, "estimate")) && costKindOf(r.category, r.kind === "loan") === kind);
     const [essentialCents, debtCents, contractCents, optionalCents] = COST_KINDS.map(kindCents) as [number, number, number, number];
-    const paidCents = sum((r) => (r.kind === "bill" || r.kind === "loan") && r.state === "paid" && !r.onCard);
     const paidBill = (r: BillRow) => (r.kind === "bill" || r.kind === "loan") && r.state === "paid" && !r.onCard;
+    const paidCents = sum(paidBill);
     const paidLessOftenCents = sum((r) => paidBill(r) && r.rare === true);
-    const paidCount = count((r) => (r.kind === "bill" || r.kind === "loan") && r.state === "paid" && !r.onCard);
+    const paidCount = count(paidBill);
     const savingCents = sum(saving);
     const savingPaidCents = sum((r) => r.kind === "saving" && r.state === "paid" && !r.onCard);
     const incomeCents = sum((r) => r.kind === "income");
