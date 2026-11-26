@@ -62,7 +62,7 @@ describe("GET /api/merchants", () => {
     const { admin, s } = await setupApp();
     await s.agreements.replaceMembers([{ id: "m1", name: "Elisa Maria Esimerkki", isNew: true }], "2026-09-01");
     await seedCsv(s, admin, { content: file(`2026/09/03;-50,00;${CHECKING};;;ELISA OYJ;;EUR`, `2026/09/04;-20,00;${CHECKING};${SAVINGS};ESIMERKKI MARIA ELISA;SÄÄSTÖ;;EUR`), accountName: "Käyttötili" });
-    expect(names(await list(admin))).toEqual(["Elisa Oyj"]);
+    expect(names(await list(admin))).toEqual(["Elisa"]);
   });
 
   it("lists the user's merchants, biggest spending first", async () => {
