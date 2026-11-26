@@ -71,7 +71,7 @@ export function Overview({
         <>
           <Now data={{ ...data, nyt }} />
           {/* under Nyt on a wide screen, under the month on a phone (home.css) */}
-          {data.home.lowPoint?.known && data.home.lowPoint.line.length > 1 && <BalanceDays low={data.home.lowPoint} payday={paydayOf({ ...data, nyt })} />}
+          {data.home.lowPoint?.known && data.home.lowPoint.line.length > 1 && <BalanceDays low={data.home.lowPoint} payday={paydayOf({ ...data, nyt })} past={data.home.balancePast} />}
           <Summary data={{ ...data, nyt }} today={meta.today} />
         </>
       ) : (

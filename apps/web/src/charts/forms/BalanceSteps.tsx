@@ -1,7 +1,7 @@
 // Decision: on which day before the payday the money is tightest, and which bill takes it there
 import { addDays } from "@banking/core";
 import { useWidth } from "../../hooks.ts";
-import { answerMoney, dayMonth, signedMoney } from "../../format.ts";
+import { answerMoney, dayMonth, language, signedMoney } from "../../format.ts";
 import { rangeText } from "../../format-range.ts";
 import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
@@ -20,6 +20,8 @@ import "../../styles/estimate.css";
 export type KnownLowPoint = Extract<NonNullable<DashboardData["home"]["lowPoint"]>, { known: true }>;
 type Corner = KnownLowPoint["line"][number];
 type Step = KnownLowPoint["steps"][number];
+/** The balance from the last payday to today, core's `home.balancePast`. */
+export type BalancePast = NonNullable<DashboardData["home"]["balancePast"]>;
 
 /** The width the first paint draws at, before the box is measured. */
 const UNMEASURED = 640;
@@ -44,16 +46,20 @@ export function stepName(s: Step): string {
  * ring and its sum; the payday is a rule with its date; the two biggest payments are named at their step. Every figure
  * is core's; nothing is added up here. The readout line above names the series and reads out the day pointed at (by
  * default the lowest day): its balance after the day's payments, the range and the payments and pays of the day.
+ * With `past` (core's balance from the last payday to today) the line runs solid to today's dot, a rule names today (Nyt)
+ * and the ground right of it the days to come (Arvio), which are drawn dashed with the band.
  */
-export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: string | null }) {
+export function BalanceSteps({ low, payday, past }: { low: KnownLowPoint; payday: string | null; past: BalancePast | null }) {
   const [ref, measured] = useWidth<HTMLDivElement>();
   const [at, setAt] = useReadout();
   const width = measured || UNMEASURED;
   const { line, steps } = low;
-  const first = line[0]!.date;
+  const today = line[0]!.date;
+  const pastPoints = past ?? [];
+  const first = pastPoints[0]?.date ?? today;
   const last = line[line.length - 1]!.date;
   const narrow = width < NARROW;
-  const values = line.flatMap((c) => [c.cents, c.lowCents, c.highCents]);
+  const values = [...line.flatMap((c) => [c.cents, c.lowCents, c.highCents]), ...pastPoints.map((p) => p.cents)];
   // a phone gets a lower plot, so the page stays short
   const options = narrow ? { minHeight: 160, tallest: 160, ratio: 0.3 } : { minHeight: 200, tallest: 280, ratio: 0.3 };
   const margin = { top: 20, right: 8, bottom: BOTTOM };
@@ -70,9 +76,13 @@ export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: stri
   const stepsOf = (day: string) => steps.filter((s) => s.date === day);
   const lowCorner = line.find((c) => c.date === low.date && c.cents === low.cents);
   const shown = at ?? Math.max(0, days.indexOf(low.date));
+  const pastOf = (day: string) => pastPoints.find((p) => p.date === day);
   const parts = (day: string) => {
     const c = dayCorner(day);
-    if (!c) return [];
+    if (!c) {
+      const p = pastOf(day);
+      return p ? [{ name: t("home.days_balance"), value: answerMoney(p.cents), swatch: <span className="swatch bs-key-line" /> }] : [];
+    }
     return [
       { name: t("home.days_balance"), value: answerMoney(c.cents), swatch: <span className="swatch bs-key-line" /> },
       ...(c.lowCents === c.highCents ? [] : [{ name: t("home.days_usually"), value: rangeText(c.lowCents, c.highCents), swatch: <span className="swatch bs-key-band" /> }]),
@@ -109,11 +119,33 @@ export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: stri
   // a tick a week from today, every other week when a week is narrower than a label; none too close to the last day's label
   const dayW = f.innerW / Math.max(1, x.days - 1);
   const every = 7 * dayW < DAY_LABEL_W ? 14 : 7;
-  const ticks = days.flatMap((_, i) => (i === 0 || i === days.length - 1 || (i % every === 0 && (days.length - 1 - i) * dayW >= DAY_LABEL_W) ? [i] : []));
+  const todayIndex = days.indexOf(today);
+  // the first day gives way to today when they are too near for two labels
+  const fixed = [...(todayIndex > 0 && todayIndex * dayW < DAY_LABEL_W ? [] : [0]), todayIndex, days.length - 1];
+  const ticks = days.flatMap((_, i) => (fixed.includes(i) || (i % every === 0 && fixed.every((k) => Math.abs(k - i) * dayW >= DAY_LABEL_W)) ? [i] : []));
   const range = `${dayMonth(first)}–${dayMonth(last)}`;
   const label = t("home.days_aria", { range, date: dayMonth(low.date), sum: answerMoney(low.cents) });
   const shownDay = days[shown]!;
-  const atCorner = at === null ? undefined : dayCorner(days[at]!);
+  const atCorner = at === null ? undefined : dayCorner(days[at]!) ?? pastOf(days[at]!);
+  const todayX = x.x(today);
+  // past and walk meet at today: a step when the cards' debt is taken off there
+  const pastCents = [...pastPoints.map((p) => p.cents), ...(pastPoints.length > 0 && pastPoints.at(-1)!.cents !== line[0]!.cents ? [line[0]!.cents] : [])];
+  const pastX = (i: number) => (i < pastPoints.length ? x.x(pastPoints[i]!.date) : todayX);
+  const nowText = `${t("kind.now").toLocaleUpperCase(language())} ${dayMonth(today)}`;
+  const estimateText = t("kind.estimate").toLocaleUpperCase(language());
+  // the kind's word stands beside its rule unless the payday's rule is too near for it
+  const nowW = nowText.length * LABEL_CHAR_W;
+  const estimateW = estimateText.length * LABEL_CHAR_W;
+  // Nyt stands left of its rule while there is room for it on the plot, else right of it; Arvio at the plot's right edge
+  const nowLeft = todayX - 6 >= nowW;
+  const nowSpan = nowLeft ? [todayX - 6 - nowW, todayX - 6] : [todayX + 6, todayX + 6 + nowW];
+  const paydayAt = paydayIn === null ? null : x.x(paydayIn);
+  const paydayRight = paydayAt !== null && paydayAt < f.innerW * 0.7;
+  const paydayLen = paydayIn === null ? 0 : t("home.days_payday", { date: dayMonth(paydayIn) }).length * LABEL_CHAR_W;
+  const paydaySpan = paydayAt === null ? null : paydayRight ? [paydayAt + 6, paydayAt + 6 + paydayLen] : [paydayAt - 6 - paydayLen, paydayAt - 6];
+  const apart = (a: number[], b: number[] | null) => b === null || a[1]! + 8 <= b[0]! || b[1]! + 8 <= a[0]!;
+  const estimateSpan = [f.innerW - estimateW, f.innerW];
+  const estimateRoom = apart(estimateSpan, nowSpan) && apart(estimateSpan, paydaySpan);
   const lowText = narrow ? t("home.days_low_short", { sum: answerMoney(low.cents) }) : t("home.days_low", { date: dayMonth(low.date), sum: answerMoney(low.cents) });
   // the lowest sum stands under its ring, where the line never is, and over it when the axis is too close; centred unless an edge cuts it
   const lowLabel = (c: Corner) => {
@@ -134,10 +166,11 @@ export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: stri
               <g key={days[i]}>
                 <CategoryTick x={x.x(days[i]!)} base={f.innerH} long />
                 <text x={x.x(days[i]!)} y={f.innerH + LABEL_Y} textAnchor={i === 0 ? "start" : i === days.length - 1 ? "end" : "middle"}>
-                  {i === 0 ? t("home.today") : dayMonth(days[i]!)}
+                  {i === todayIndex && i === 0 ? t("home.today") : dayMonth(days[i]!)}
                 </text>
               </g>
             ))}
+            {pastPoints.length > 0 && <rect className="bs-ground" x={crisp(todayX)} y={0} width={Math.max(0, f.innerW - crisp(todayX))} height={f.innerH} />}
             <path className="est-band" d={areaPath(line.map((c) => c.lowCents), line.map((c) => c.highCents), cornerX, y)} />
             {paydayIn && (
               <g>
@@ -147,13 +180,27 @@ export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: stri
                 </text>
               </g>
             )}
-            <path className="qc-line qc-now" d={linePath(line.map((c) => c.cents), cornerX, y)} />
+            {pastPoints.length > 0 && (
+              <g>
+                <line className="kit-event-rule" x1={crisp(todayX)} x2={crisp(todayX)} y1={0} y2={f.innerH} />
+                <text className="qc-end-sub bs-kind" x={nowLeft ? todayX - 6 : todayX + 6} y={-6} textAnchor={nowLeft ? "end" : "start"}>
+                  {nowText}
+                </text>
+                {estimateRoom && (
+                  <text className="qc-end-sub bs-kind" x={f.innerW} y={-6} textAnchor="end">
+                    {estimateText}
+                  </text>
+                )}
+              </g>
+            )}
+            {pastPoints.length > 0 && <path className="qc-line qc-now bs-past" d={linePath(pastCents, pastX, y)} />}
+            <path className={pastPoints.length > 0 ? "qc-line est-line" : "qc-line qc-now"} d={linePath(line.map((c) => c.cents), cornerX, y)} />
             {stepLabels.map((l) => (
               <text key={l.key} className="qc-end-sub" x={l.x} y={l.y} dy="0.32em" textAnchor={l.anchor}>
                 {l.text}
               </text>
             ))}
-            <circle className="qc-dot" cx={x.x(first)} cy={y(line[0]!.cents)} r={4} />
+            <circle className="qc-dot" cx={x.x(today)} cy={y(line[0]!.cents)} r={4} />
             {lowCorner && (
               <g>
                 <circle className="qc-low" cx={x.x(lowCorner.date)} cy={y(lowCorner.cents)} r={5} />

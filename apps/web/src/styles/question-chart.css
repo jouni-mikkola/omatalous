@@ -71,6 +71,9 @@
 /* the balance to the payday (BalanceSteps): the line and the range of the everyday spending, named in its readout */
 .bs-key-line { background: var(--series-1); }
 .bs-key-band { background: var(--estimate-fill); }
+/* the days to come (Arvio) stand on a ground of their own, right of today's rule (Nyt) */
+.chart .bs-ground { fill: var(--estimate-fill); fill-opacity: 0.5; }
+.chart .bs-kind { font-weight: 600; letter-spacing: var(--track-name); }
 
 .qc-cap { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text); font-weight: 600; margin: 0 0 4px; }
 
