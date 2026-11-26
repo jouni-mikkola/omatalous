@@ -165,10 +165,10 @@ describe("Tulevat kuukaudet", () => {
     const cents = (text: string) => Math.round(parseFloat(text.replace("−", "-").replace(/[^\d,-]/g, "").replace(",", ".")) * 100);
     const trs = [...container.querySelectorAll("tbody tr")];
     expect(cells(trs[0]!)).toEqual(["Marraskuu 2026", "3 000,00 €", "1 500,00 € josta arvio 300,00 €", "150,00 €", "1 350,00 €"]);
-    expect(cells(trs[1]!)[3]).toBe("–");
+    expect(flat(trs[1]!.children[3]!.textContent), "a month with no saving leaves its cell empty").toBe("");
     for (const tr of trs) {
-      const [, income, bills, saving, after] = cells(tr);
-      expect(cents(income!) - cents(bills!.split(" josta")[0]!) - (saving === "–" ? 0 : cents(saving!)), tr.textContent).toBe(cents(after!));
+      const [, income, bills, saving, after] = [...tr.children].map((c) => flat(c.textContent));
+      expect(cents(income!) - cents(bills!.split(" josta")[0]!) - (saving === "" ? 0 : cents(saving!)), tr.textContent).toBe(cents(after!));
     }
   });
 

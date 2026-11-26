@@ -29,8 +29,8 @@ const billsCell = (m: Month) => (m.estimateCents > 0 ? <>{money(m.billsCents)} {
 /** The pays of a month, marked as an estimate when one of them is: the calendar's rows say which pays are known. */
 const incomeCell = (m: Month) => (m.incomeCents > 0 ? <>{money(m.incomeCents)} {m.rows.some((r) => r.kind === "income" && r.state === "estimate") && note(t("home.coming_income_estimate"))}</> : "–");
 
-/** The saving still to come of a month, as Laskut's Säästöön tells it: the part of the pays that is neither a bill nor left after them. */
-const savingCell = (m: Month) => (m.savingCents > 0 ? money(m.savingCents) : "–");
+/** The saving still to come of a month, as Laskut's Säästöön tells it: the part of the pays that is neither a bill nor left after them. A month with none leaves the cell empty, which a phone's block does not draw. */
+const savingCell = (m: Month) => (m.savingCents > 0 ? money(m.savingCents) : "");
 
 /** What is left of the pays after the bills, as Laskut's month head tells it: below 0 in a month with no pay, and a status in a month a bill with no known sum falls in, never 0. */
 const afterText = (m: Month) => (m.afterCents === null ? t("home.coming_after_unknown") : nothingToCome(m) ? "–" : money(m.afterCents));
