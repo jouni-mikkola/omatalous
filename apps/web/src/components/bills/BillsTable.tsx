@@ -208,7 +208,6 @@ export function BillsTable({
       key: "category",
       label: t("row.category_col"),
       kind: "text",
-      phone: "hide",
       headClass: "bill-category",
       className: () => "bill-category",
       cell: (r) => (r.kind === "fold" ? "" : r.kind === "ended" ? (r.item.category ? label(r.item.category) : "–") : r.bill.category ? label(r.bill.category) : kindOf(r.bill)),
