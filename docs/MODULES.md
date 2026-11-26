@@ -95,18 +95,21 @@ never in the code, the bundle, the environment or the database.
 
 ## What the host does
 
-1. **Check** (on `PUT /api/modules/code`, after each start on a new app version, once a day, at a start whose last
-   check is over an hour old, and when an admin presses Tarkista päivitys): lists the releases of
-   the code's repository through `https://api.github.com/repos/<repo>/releases` with the token, takes the five newest
-   versions that carry both assets, and for each, newest first: downloads both (HTTPS only, the token goes only to
-   `api.github.com`, a redirect is followed only to an `https` address and without the token), verifies the
-   signature, reads the manifest, checks the version and the host range, and checks every tar entry. The first that
-   passes is installed. A bundle that fails any step is refused and none of it is written outside a temporary folder
-   or run. A release older than the installed module is skipped, unless the installed one waits for another app
-   version: an old signature stays valid, so a release list without the newer ones does not bring an old bundle back.
-   The highest version installed of each id is kept in the database (settings key `module_floor`), and a release
-   below it is refused with the same exception. Removing the code keeps that floor, so a new code does not bring an
-   old bundle back either.
+1. **Check.** It runs on `PUT /api/modules/code`, after each start on a new app version, once a day, at a start whose
+   last check is over an hour old, and when an admin presses Tarkista päivitys. The host lists the releases of the
+   code's repository through `https://api.github.com/repos/<repo>/releases` with the token and takes the five newest
+   versions that carry both assets. For each, newest first, it:
+   - downloads both assets (HTTPS only; the token goes only to `api.github.com`; a redirect is followed only to an
+     `https` address and without the token);
+   - verifies the signature and reads the manifest;
+   - checks the version, the host range and every tar entry.
+
+   The first release that passes is installed. A bundle that fails any step is refused, and none of it is written
+   outside a temporary folder or run. A release older than the installed module is skipped, unless the installed one
+   waits for another app version. An old signature stays valid, so a release list without the newer ones must not
+   bring an old bundle back. The highest version installed of each id is kept in the database (settings key
+   `module_floor`), and a release below it is refused. Removing the code keeps that floor, so a new code does not
+   bring an old bundle back either.
 
    The start checks first, before it loads (`checkModuleBeforeStart`, called from `entry/node.ts` in server mode only):
    with a code and a last check (the `at` of the status) older than an hour, a release found is installed in time
