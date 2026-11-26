@@ -34,6 +34,37 @@ async function withData() {
 }
 
 describe("GET /api/merchants", () => {
+  it("lists businesses only: a person paid or paid by stays out, unless a rule moved the name to a business category", async () => {
+    const { admin, s } = await setupApp();
+    const payee = (iban: string, name: string) => `2026/09/03;-50,00;${CHECKING};${iban};${name};;;EUR`;
+    const rows = [payee("FI49 5000 9420 0287 31", "LIISA VIRTANEN"), payee("FI21 1234 5600 0007 85", "MAIJA NIEMINEN"), `2026/09/05;-44,15;${CHECKING};;;LIDL TIKKURILA;;EUR`];
+    await seedCsv(s, admin, { content: file(...rows), accountName: "Käyttötili" });
+    const all = (await admin.call("GET", "/api/transactions?limit=50")).body.items as { merchant: string; category: string }[];
+    expect(all.filter((t) => t.category === "p2p").map((t) => t.merchant).sort()).toEqual(["Liisa Virtanen", "Maija Nieminen"]);
+    expect(names(await list(admin))).toEqual(["Lidl"]);
+
+    // a rule that files the name as a business keeps it in the list
+    expect((await admin.call("PUT", "/api/merchants/category", { merchant: "Maija Nieminen", category: "shopping" })).status).toBe(200);
+    expect(names(await list(admin)).sort()).toEqual(["Lidl", "Maija Nieminen"]);
+  });
+
+  it("leaves out a person of the household whatever the category of the rows, unless a rule moved the name", async () => {
+    const { admin, s } = await setupApp();
+    await s.agreements.replaceMembers([{ id: "m1", name: "Kaisa Esimerkki", isNew: true }], "2026-09-01");
+    await seedCsv(s, admin, { content: file(`2026/09/03;-50,00;${CHECKING};${SAVINGS};KAISA ESIMERKKI;SÄÄSTÖ;;EUR`, `2026/09/05;-44,15;${CHECKING};;;LIDL TIKKURILA;;EUR`), accountName: "Käyttötili" });
+    expect(((await admin.call("GET", "/api/transactions?limit=50")).body.items as { merchant: string; category: string }[]).find((t) => t.merchant === "Kaisa Esimerkki")?.category).toBe("savings");
+    expect(names(await list(admin))).toEqual(["Lidl"]);
+    expect((await admin.call("PUT", "/api/merchants/category", { merchant: "Kaisa Esimerkki", category: "shopping" })).status).toBe(200);
+    expect(names(await list(admin)).sort()).toEqual(["Kaisa Esimerkki", "Lidl"]);
+  });
+
+  it("keeps a brand that shares a word with a household person: only a whole name is left out", async () => {
+    const { admin, s } = await setupApp();
+    await s.agreements.replaceMembers([{ id: "m1", name: "Elisa Maria Esimerkki", isNew: true }], "2026-09-01");
+    await seedCsv(s, admin, { content: file(`2026/09/03;-50,00;${CHECKING};;;ELISA OYJ;;EUR`, `2026/09/04;-20,00;${CHECKING};${SAVINGS};ESIMERKKI MARIA ELISA;SÄÄSTÖ;;EUR`), accountName: "Käyttötili" });
+    expect(names(await list(admin))).toEqual(["Elisa"]);
+  });
+
   it("lists the user's merchants, biggest spending first", async () => {
     const { admin } = await withData();
     const items = await list(admin);
