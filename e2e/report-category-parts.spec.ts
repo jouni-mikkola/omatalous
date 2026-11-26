@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { join } from "node:path";
 import { overflow, unfold, watch } from "./helpers.ts";
 
-// The parts of a category in Menot osittain of Raportit: the server's parts of a category (`categories`) stand under its name,
+// The parts of a category in Kategorioiden osat of Raportit: the server's parts of a category (`categories`) stand under its name,
 // in its order and to the cent. The shared build has none, so the answer is given a few here.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
@@ -28,7 +28,7 @@ for (const width of [1280, 390]) {
     });
     await page.goto("/#/reports?q=menot");
     await unfold(page, "osittain");
-    const parts = page.locator("#osittain").getByRole("table", { name: "Menot osittain" });
+    const parts = page.locator("#osittain").getByRole("table", { name: "Kategorioiden osat" });
     await parts.scrollIntoViewIfNeeded({ timeout: 20_000 });
     await expect(parts).toBeVisible();
     await expect(parts.locator("tbody tr:not(.rt-group) th")).toHaveText(["Osa yksi", "Osa kaksi"]);

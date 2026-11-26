@@ -65,7 +65,8 @@ describe("Menot kategorioittain: Mikä muuttui", () => {
     expect(rows[3]).toContain("Syyskuu 2026");
     expect(rows[3]).toContain("1 300 €");
     expect(table.querySelectorAll(".rt-span")).toHaveLength(4);
-    expect(plain(document.querySelector(".mc-note")?.textContent ?? null)).toContain("suuria ostoja");
+    expect(document.querySelector(".mc-note")).toBeNull();
+    expect(document.body.textContent).not.toContain("suuria ostoja");
   });
 
   it("names the step of the categories with no level \"Ei vertailukohtaa\"", () => {
