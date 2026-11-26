@@ -99,7 +99,7 @@ export function More({ meta, range, scope, params, anchor, onQuestion }: Reports
 
   return (
     <div className={loading ? "loading" : undefined}>
-      <Frame current={page.id} title={page.title} lead={<page.Lead ctx={ctx} />} pages={questions.map(reportPage)} params={open} period={periodSwitch(shown)}>
+      <Frame current={page.id} title={page.title} lead={page.Lead && <page.Lead ctx={ctx} />} pages={questions.map(reportPage)} params={open} period={periodSwitch(shown)}>
         {sections.map((s) =>
           page.fold ? (
             <FoldContext.Provider key={s.id} value={{ open: !!s.open || s.id === anchor }}>

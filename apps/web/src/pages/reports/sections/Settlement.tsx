@@ -3,6 +3,7 @@
 import type { Settlement, SettlementLine } from "@banking/core";
 import { useState } from "react";
 import { MemberBars } from "../../../charts/forms/MemberBars.tsx";
+import { Tiles } from "../../../components/Tiles.tsx";
 import { Section } from "../../../components/Section.tsx";
 import { answerMoney, date, money, monthLong } from "../../../format.ts";
 import { useApi } from "../../../hooks.ts";
@@ -10,7 +11,6 @@ import type { Meta } from "../../../types.ts";
 import { isJoint } from "../../settings/account-use.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { addMonths, isSharedCredit, monthRange, NETTED_SOURCE, settlementSums } from "@banking/core";
-import { Lead } from "../Lead.tsx";
 import { hasNothing, holderNameOf } from "./settlement-text.ts";
 import { Notice } from "../../../components/ui/Notice.tsx";
 import { Empty } from "../../../components/ui/Empty.tsx";
@@ -50,18 +50,15 @@ const LATE_SHOWN_MONTHS = 12;
 
 function LateRows({ lines }: { lines: SettlementLine[] }) {
   return (
-    <>
+    <div className="st-chips">
       {lines.map((l) => (
-        <div key={`${l.key}:${l.day}`} className="st-row">
-          <span className="st-name">{t("rpt.se_late", { month: monthLong(l.key) })}</span>
-          {/* to the cent, as every other row of the block: a sum under a euro is no ±0 */}
-          <span className="st-num">
-            {l.cents > 0 ? "+" : "−"}
-            {money(Math.abs(l.cents))}
-          </span>
-        </div>
+        // to the cent, as every other row of the block: a sum under a euro is no ±0
+        <span key={`${l.key}:${l.day}`} className="badge flush">
+          {t("rpt.se_late", { month: monthLong(l.key) })} {l.cents > 0 ? "+" : "−"}
+          {money(Math.abs(l.cents))}
+        </span>
       ))}
-    </>
+    </div>
   );
 }
 
@@ -84,27 +81,21 @@ function Pool({ pool, month, holder }: { pool: Answer["pools"][number]; month: s
   // no split told: every member reads 0,00 paid and 0,00 share, so the block of the untold sum is all there is to say
   const noSplit = untold !== 0 && s.members.every((m) => m.paid === 0 && m.owed === 0);
   const even = credits === 0 && debts === 0 && unknown.length === 0 && untold === 0;
-  const owes = even || transfers.length > 0;
   return (
     <div className="settle-pool" role="group" aria-label={t("rpt.se_group", { name: pool.name })}>
       <h3 className="use-head">
         {pool.name}
         {!s.status.open && s.status.closedOn && <span className="badge">{` ${t("rpt.se_closed", { date: date(s.status.closedOn) })}`}</span>}
       </h3>
-      {!noSplit && owes && (
+      {!noSplit && transfers.length > 0 && <Tiles items={transfers.map((x) => ({ label: `${nameOf(x.from)} → ${nameOf(x.to)}`, figure: answerMoney(x.cents) }))} />}
+      {!noSplit && (even || transfers.length > 1) && (
         <div className="st-rows" role="group" aria-label={t("rpt.se_who")}>
           {even && (
             <div className="st-row">
               <span className="st-name">{t("rpt.se_even")}</span>
             </div>
           )}
-          {transfers.map((x) => (
-            <div key={`${x.from}>${x.to}`} className="st-row">
-              <span className="st-name">{`${nameOf(x.from)} → ${nameOf(x.to)}`}</span>
-              <span className="st-num">{money(x.cents)}</span>
-            </div>
-          ))}
-          {transfers.length > 0 && (
+          {transfers.length > 1 && (
             <div className="st-row st-total">
               <span className="st-name">{t("rpt.total")}</span>
               <span className="st-num">{money(owedTotal)}</span>
@@ -141,9 +132,7 @@ function Pool({ pool, month, holder }: { pool: Answer["pools"][number]; month: s
         </details>
       )}
       {late.length > 0 && (
-        <div className="st-rows">
-          <LateRows lines={late} />
-        </div>
+        <LateRows lines={late} />
       )}
       {older.length > 0 && (
         <details className="st-rows">
@@ -170,19 +159,6 @@ function Month({ month, meta }: { month: string; meta: Meta }) {
       ))}
     </>
   );
-}
-
-/** What this month's joint spending asks of the household: one payment named, or how many payments settle it. A plain note when nobody pays anybody. */
-export function SettlementLead({ ctx }: SectionProps) {
-  const { data: answer } = useApi<Answer>(`/api/settlement?month=${ctx.meta.today.slice(0, 7)}`);
-  if (!answer) return null;
-  const moves = answer.pools.flatMap((p) => {
-    const holder = holderNameOf([...ctx.meta.accounts, ...ctx.meta.sharedAccounts].find((a) => a.id === p.accountId)?.use);
-    return settlementSums(p.settlement).transfers.map((x) => ({ from: ownerNameOf(p, x.from, holder), to: ownerNameOf(p, x.to, holder), cents: x.cents }));
-  });
-  if (moves.length === 0) return <Lead>{t("rpt.lead_shared_none")}</Lead>;
-  const [only] = moves;
-  return <Lead>{moves.length === 1 ? t("rpt.lead_shared_pay", { from: only!.from, to: only!.to, sum: answerMoney(only!.cents) }) : t("rpt.lead_shared_many", { count: moves.length, sum: answerMoney(moves.reduce((sum, x) => sum + x.cents, 0)) })}</Lead>;
 }
 
 function Settlements({ ctx }: SectionProps) {

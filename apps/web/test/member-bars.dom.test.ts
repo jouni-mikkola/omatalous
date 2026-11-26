@@ -56,6 +56,13 @@ describe("Yhteiset menot: the member bars", () => {
     expect(css).toMatch(/\.mbr-fig\s*\{[^}]*order: -1;/);
   });
 
+  it("names the payment that settles the month as a tile", async () => {
+    stubApi({ "GET /api/settlement": pool({ members: [{ owner: "u1", paid: 30000, owed: 20000, over: 10000 }, { owner: "u2", paid: 10000, owed: 20000, over: -10000 }] }) });
+    const { container } = render(createElement(section.Component, { ctx: context }));
+    await screen.findByRole("group", { name: "Yhteiset menot: Yhteistili" });
+    expect([...container.querySelectorAll(".strip-item")].map((i) => [plain(i.querySelector(".strip-label")!.textContent), plain(i.querySelector(".strip-figure")!.textContent)])).toEqual([["Eero → Aino", "100 €"]]);
+  });
+
   it("draws a bar of a negative figure with no width", () => {
     const { container } = render(createElement(MemberBars, { members: [{ key: "u1", name: "Aino", paidCents: -2000, shareCents: 4000 }], paidLabel: "Maksanut", shareLabel: "Osuus" }));
     expect([...container.querySelectorAll(".mbr-track > span")].map(widthOf)).toEqual(["0.0%", "100.0%"]);
@@ -195,11 +202,8 @@ describe("Yhteiset menot: the bars in the settlement block", () => {
     expect(plain(folded.textContent)).toContain("syyskuu 2025");
     expect(plain(folded.textContent)).not.toContain("toukokuu 2026");
     expect(plain(folded.textContent)).not.toContain("lokakuu 2025");
-    const shown = [...container.querySelectorAll(".st-rows:not(details) .st-row")].filter((r) => plain(r.textContent).startsWith("Korjaus")).map((r) => [plain(r.querySelector(".st-name")!.textContent), plain(r.querySelector(".st-num")!.textContent)]);
-    expect(shown).toEqual([
-      ["Korjaus aiempaan kuukauteen: toukokuu 2026", "+12,00 €"],
-      ["Korjaus aiempaan kuukauteen: lokakuu 2025", "+5,60 €"],
-    ]);
+    const shown = [...container.querySelectorAll(".st-chips .badge")].filter((c) => !c.closest("details")).map((c) => plain(c.textContent));
+    expect(shown).toEqual(["Korjaus aiempaan kuukauteen: toukokuu 2026 +12,00 €", "Korjaus aiempaan kuukauteen: lokakuu 2025 +5,60 €"]);
   });
 
   it("draws no bars where nobody has told the split: the untold sum is all there is", async () => {

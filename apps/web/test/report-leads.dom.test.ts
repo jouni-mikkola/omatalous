@@ -1,15 +1,11 @@
 /** The sentence each Raportit page opens with. Made-up figures only. */
-import { render, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import "./fixed-clock.ts";
 import { page as spending } from "../src/pages/reports/pages/Spending.tsx";
 import { BalancesLead } from "../src/pages/reports/sections/Balances.tsx";
-import { SettlementLead } from "../src/pages/reports/sections/Settlement.tsx";
 import type { ReportContext } from "../src/pages/reports/types.ts";
-import { queryClient } from "../src/query-client.ts";
-import { stubApi } from "./dom-kit.ts";
 
 const flat = (s: string | null | undefined) => (s ?? "").replace(/[  ]/g, " ").replace(/\s+/g, " ").trim();
 const lead = (Lead: (props: { ctx: ReportContext }) => unknown, data: Record<string, unknown>) =>
@@ -54,41 +50,5 @@ describe("Varat ja velat: the lead", () => {
     expect(say({ change: { cents: 99, from: "2026-09-30" } })).toBe("Tilien ja korttien saldo on 1 200 €.");
     expect(say({ accounts: [] })).toBe("");
     expect(say({ daily: { from: "2026-09-01", cents: [null, null] } })).toBe("");
-  });
-});
-
-describe("Yhteiset menot: the lead", () => {
-  const pool = (members: { owner: string; over: number }[]) => ({
-    accountId: "joint",
-    name: "Yhteistili",
-    firstMonth: null,
-    names: { u1: "Aino", u2: "Eero", u3: "Kaisa" },
-    removed: [],
-    labels: {},
-    settlement: { members, unknownHolder: [], untold: [] },
-  });
-
-  async function say(pools: unknown[]) {
-    queryClient.clear();
-    const seen = stubApi({ "GET /api/settlement": { month: "2026-11", pools } });
-    const ctx = { meta: { today: "2026-11-11", accounts: [], sharedAccounts: [] } } as unknown as ReportContext;
-    const view = render(createElement(SettlementLead, { ctx }));
-    await waitFor(() => expect(seen.length).toBe(1));
-    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
-    await new Promise((done) => setTimeout(done, 0));
-    return flat(view.container.textContent);
-  }
-
-  it("names the one payment that settles the month", async () => {
-    expect(await say([pool([{ owner: "u1", over: -12_000 }, { owner: "u2", over: 12_000 }])])).toBe("Tämän kuun yhteisistä menoista Aino maksaa 120 €, ja Eero saa sen.");
-  });
-
-  it("counts the payments when there are several", async () => {
-    const text = await say([pool([{ owner: "u1", over: -12_000 }, { owner: "u2", over: 7_000 }, { owner: "u3", over: 5_000 }])]);
-    expect(text).toBe("Tämän kuun yhteiset menot vaativat 2 maksua, yhteensä 120 €.");
-  });
-
-  it("says there is nothing to settle when nobody pays anybody", async () => {
-    expect(await say([pool([{ owner: "u1", over: 0 }, { owner: "u2", over: 0 }])])).toBe("Tässä kuussa ei ole tasattavaa.");
   });
 });

@@ -1,7 +1,7 @@
 // Decision: who owes whom on the joint accounts
 import "../../../styles/report-shared.css";
 import type { ReportPage } from "../types.ts";
-import { SettlementLead, section as Settlement } from "../sections/Settlement.tsx";
+import { section as Settlement } from "../sections/Settlement.tsx";
 import { t } from "../../../text.ts";
 
 export const page: ReportPage = {
@@ -9,6 +9,5 @@ export const page: ReportPage = {
   get title() {
     return t("rpt.page_shared");
   },
-  Lead: SettlementLead,
   sections: [Settlement],
 };

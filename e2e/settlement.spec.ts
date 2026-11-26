@@ -114,16 +114,13 @@ test("Raportit shows the month of the joint account: paid, share and who paid ov
   expect(a.over).not.toBe(0);
   await expect(poolOf(page)).toContainText("lukittu");
   await expect(poolOf(page)).not.toContainText("toisen tilin tuntematon raha");
-  // who owes whom: the one under the share pays the other, and the total is the sum of its rows
-  const owes = poolOf(page).getByRole("group", { name: "Kuka on velkaa kenelle" });
+  // who owes whom: the one under the share pays the other, one tile for the payment
   const debtor = a.over < 0 ? NAMES[0] : NAMES[1];
   const creditor = a.over < 0 ? NAMES[1] : NAMES[0];
-  const rows = owes.locator(".st-row:not(.st-total)").filter({ hasText: "→" });
-  await expect(rows).toHaveCount(1);
-  await expect(rows.first()).toContainText(`${debtor} → ${creditor}`);
-  const line = cents(await rows.first().locator(".st-num").innerText());
-  expect(line).toBe(Math.abs(a.over));
-  expect(cents(await owes.locator(".st-total .st-num").innerText())).toBe(line);
+  const tiles = poolOf(page).locator(".strip-item");
+  await expect(tiles).toHaveCount(1);
+  await expect(tiles.first().locator(".strip-label")).toHaveText(`${debtor} → ${creditor}`);
+  expect(cents(await tiles.first().locator(".strip-figure").innerText())).toBe(Math.abs(a.over));
   lastMonth = { a, b };
   expect(seen.problems).toEqual([]);
   await context.close();
@@ -162,7 +159,7 @@ test("a new split from a day: the closed month stays, the month after lists no c
   expect(await standing(reports.page, NAMES[1])).toEqual(lastMonth.b);
   // the current month carries the correction and names the month it corrects
   await showMonth(reports.page, monthBack(0));
-  const line = poolOf(reports.page).locator(".st-row").filter({ hasText: "Korjaus aiempaan kuukauteen" });
+  const line = poolOf(reports.page).locator(".badge").filter({ hasText: "Korjaus aiempaan kuukauteen" });
   // the new split moved the shares and no sum: the members' rows carry it, and no row of 0,00 is listed for it
   await expect(poolOf(reports.page).locator(".st-row").first()).toBeVisible();
   await expect(line).toHaveCount(0);
