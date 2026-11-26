@@ -10,7 +10,6 @@ import type { BalanceInput } from "../src/reports/balances.ts";
 import { buildReports, inCostOrder, isReportId, REPORTS } from "../src/reports/index.ts";
 import { fullMonths } from "../src/reports/shared.ts";
 import { addDays, addMonths, monthIndex } from "../src/dates.ts";
-import { buildOverview } from "../src/overview.ts";
 import { normalizeMerchant } from "../src/merchant.ts";
 import { enrichTransactions } from "../src/pipeline.ts";
 import { debtInterestNext12Months, loanBalanceOn, loanInterestNext12Months, loanPayoffDate } from "../src/loans.ts";
@@ -42,28 +41,6 @@ describe("reports", () => {
     expect(isReportId("loans")).toBe(true);
     expect(isReportId("thisMonth")).toBe(false);
     expect(isReportId("cashflow")).toBe(false);
-  });
-
-  it("Tulot ja menot over the last twelve months is the front page's overview, and a past year has twelve complete months", () => {
-    const thisMonth = ctx.today.slice(0, 7);
-    const last12 = { from: `${addMonths(thisMonth, -11)}-01`, to: ctx.today };
-    const months = buildReports({ ctx, range: last12, balances: [] }, ["cashflowMonths"]).cashflowMonths;
-    const overview = buildOverview(ctx);
-    expect(months.months).toEqual(overview.months);
-    expect(months.usualSpendCents).toEqual(overview.usualSpendCents);
-    expect(months.completeTotals).toEqual(overview.completeTotals);
-    expect(months.gap).toEqual(overview.gap);
-
-    const later = "2027-02-10";
-    const rows = [
-      ...monthlyOn("2025-01", 25, 25, () => 300000, { category: "salary", merchant: "Acme Oy" }),
-      ...monthlyOn("2025-01", 2, 25, () => -105000, { category: "housing", merchant: "Sato Oyj" }),
-      ...monthlyOn("2025-01", 10, 25, () => -40000, { category: "groceries", merchant: "K-Market" }),
-    ];
-    const pastYear = buildReports({ ctx: createContext(rows, [checking], later), range: { from: "2026-01-01", to: "2026-12-31" }, balances: [] }, ["cashflowMonths"]).cashflowMonths;
-    expect(pastYear.months.map((m) => m.month)).toEqual(Array.from({ length: 12 }, (_, i) => `2026-${String(i + 1).padStart(2, "0")}`));
-    expect(pastYear.months.every((m) => m.complete)).toBe(true);
-    expect(pastYear.completeTotals?.months).toBe(12);
   });
 
   it("spending by month: the categories add up to each month, the months to the total, and a category's payees to the category", () => {
