@@ -34,6 +34,20 @@ async function withData() {
 }
 
 describe("GET /api/merchants", () => {
+  it("lists businesses only: a person paid or paid by stays out, unless a rule moved the name to a business category", async () => {
+    const { admin, s } = await setupApp();
+    const payee = (iban: string, name: string) => `2026/09/03;-50,00;${CHECKING};${iban};${name};;;EUR`;
+    const rows = [payee("FI49 5000 9420 0287 31", "LIISA VIRTANEN"), payee("FI21 1234 5600 0007 85", "MAIJA NIEMINEN"), `2026/09/05;-44,15;${CHECKING};;;LIDL TIKKURILA;;EUR`];
+    await seedCsv(s, admin, { content: file(...rows), accountName: "Käyttötili" });
+    const all = (await admin.call("GET", "/api/transactions?limit=50")).body.items as { merchant: string; category: string }[];
+    expect(all.filter((t) => t.category === "p2p").map((t) => t.merchant).sort()).toEqual(["Liisa Virtanen", "Maija Nieminen"]);
+    expect(names(await list(admin))).toEqual(["Lidl"]);
+
+    // a rule that files the name as a business keeps it in the list
+    expect((await admin.call("PUT", "/api/merchants/category", { merchant: "Maija Nieminen", category: "shopping" })).status).toBe(200);
+    expect(names(await list(admin)).sort()).toEqual(["Lidl", "Maija Nieminen"]);
+  });
+
   it("lists the user's merchants, biggest spending first", async () => {
     const { admin } = await withData();
     const items = await list(admin);

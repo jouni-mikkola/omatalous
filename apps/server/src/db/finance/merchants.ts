@@ -258,7 +258,9 @@ export class MerchantsRepo {
 
   /**
    * The user's merchants, biggest spending first, for the category settings and the merchant list on Tapahtumat.
-   * Transfers are left out because transfer detection decides those and a rule cannot.
+   * Transfers are left out because transfer detection decides those and a rule cannot. So are the rows of the person
+   * categories (`p2p`, `p2p_in`): money to and from people is no merchant, and a name whose rows are all such drops out.
+   * A name a rule moved to another category stays.
    * `category` and `q` (matched on the folded name) narrow the list, `from` and `to` the rows it adds up, and `only`
    * the merchants. `monthlyCents` does not follow the period: it is `merchantMonthly` of `basis`, the figure Laskut and
    * the summary above a merchant's rows show too.
@@ -271,12 +273,12 @@ export class MerchantsRepo {
     const told = toldSql(f.own);
     const bills = notCardBillSql(told);
     const range = `${kept.sql}${loans.sql}${f.from ? " AND booking_date >= ?" : ""}${f.to ? " AND booking_date <= ?" : ""}${bills.sql}`;
-    const params = [...told.category.params, ...part.params, ...part.params, this.ctx.userId, ...told.moved.params, ...kept.params, ...loans.params, ...(f.from ? [f.from] : []), ...(f.to ? [f.to] : []), ...bills.params];
+    const params = [...told.category.params, ...part.params, ...part.params, this.ctx.userId, ...told.moved.params, ...told.category.params, ...kept.params, ...loans.params, ...(f.from ? [f.from] : []), ...(f.to ? [f.to] : []), ...bills.params];
     // the first row of a merchant is its most common category
     const rows = await this.ctx.db.all<{ merchant: string; cat: string; n: number; total: number; income: number; first: string; last: string }>(
       `SELECT merchant, ${told.category.sql} AS cat, COUNT(*) AS n, SUM(CASE WHEN amount_cents < 0 THEN -${part.sql} ELSE 0 END) AS total,
               SUM(CASE WHEN amount_cents > 0 THEN ${part.sql} ELSE 0 END) AS income, MIN(booking_date) AS first, MAX(booking_date) AS last
-       FROM transactions WHERE user_id = ? AND ${told.moved.sql} = 0${range}
+       FROM transactions WHERE user_id = ? AND ${told.moved.sql} = 0 AND ${told.category.sql} NOT IN ('p2p', 'p2p_in')${range}
        GROUP BY merchant, cat ORDER BY merchant, n DESC, cat`,
       params,
     );
