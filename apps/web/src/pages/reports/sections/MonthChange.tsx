@@ -65,7 +65,6 @@ function MonthChange({ ctx }: SectionProps) {
         {after !== null && <Button variant="link" onClick={() => setPicked(after)}>{t("rpt.mc_next", { month: monthLong(r.months[after]!) })}</Button>}
       </div>
       <Table<Bar> caption={t("rpt.mc_caption", { month: monthLong(month) })} rows={bars} rowKey={(b) => b.key} columns={columns} toolbar={false} csv={false} search={false} rowClassName={(b) => (b.tone === "usual" || b.tone === "whole" ? "mc-whole" : undefined)} />
-      <p className="mc-note">{t("rpt.mc_note")}</p>
     </ReportPanel>
   );
 }

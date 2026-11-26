@@ -208,7 +208,6 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.mc_step": "Change",
   "rpt.mc_levels": "Categories, monthly average",
   "rpt.mc_without_level": "No comparison",
-  "rpt.mc_note": "The usual level leaves out large purchases, the month's figure keeps them.",
   "rpt.mc_prev": "‹ {month}",
   "rpt.mc_next": "{month} ›",
   "rpt.sec_buffer": "Buffer",
