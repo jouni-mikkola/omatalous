@@ -37,7 +37,7 @@ export const FI_REPORTS_3 = {
   "rpt.yoy_span": "{from}–{to}kuu {year}",
   "rpt.yoy_datum": "Menot {amount}",
   "rpt.yoy_question": "Menot viime vuoteen verrattuna",
-  "rpt.yoy_tile": "Menot {span}",
+  "rpt.yoy_tile": "Muutos vuodessa",
   "rpt.yoy_tile_before": "Vuotta aiemmin {amount}",
   "rpt.yoy_caption": "Menot kategorioittain, kaksi vuotta",
   "rpt.category": "Kategoria",

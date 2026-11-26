@@ -57,7 +57,8 @@ describe("Vuosivertailu", () => {
   it("has no line that says what the chart leaves out or which accounts the months hold", () => {
     const { container } = draw(true);
     const text = plain(container.textContent);
-    expect(container.querySelector(".strip-delta.bad")?.textContent).toMatch(/2\s188/);
+    expect(container.querySelector(".strip-figure")?.textContent).toMatch(/2\s188/);
+    expect(container.querySelector(".strip-delta")).toBeNull();
     expect(text).toContain("Vuotta aiemmin");
     // the fixed costs are not drawn, and the three categories that are make a chart
     expect(container.querySelector(".slope-chart")).not.toBeNull();

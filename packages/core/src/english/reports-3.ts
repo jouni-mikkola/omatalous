@@ -34,7 +34,7 @@ export const EN_REPORTS_3: Record<keyof typeof FI_REPORTS_3, string> = {
   "rpt.yoy_span": "{from}–{to} {year}",
   "rpt.yoy_datum": "Spending {amount}",
   "rpt.yoy_question": "Spending compared with last year",
-  "rpt.yoy_tile": "Spending {span}",
+  "rpt.yoy_tile": "Change in a year",
   "rpt.yoy_tile_before": "A year earlier {amount}",
   "rpt.yoy_caption": "Spending by category, two years",
   "rpt.category": "Category",

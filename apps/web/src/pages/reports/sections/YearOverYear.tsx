@@ -72,7 +72,6 @@ function YearOverYear({ ctx }: SectionProps) {
         <Empty>{note}</Empty>
       </ReportPanel>
     );
-  const span = spanOf(r, past);
   // fixed costs (rent, loan instalments) are left out as in Kategoriat: on one scale they flatten every other line
   const fixed = new Set((other && data ? data : ctx.data).categories.groups.flatMap((g) => g.categories).filter((c) => c.fixedShare >= 0.5).map((c) => c.category));
   const shown = r.categories.filter((c) => !fixed.has(c.category)).slice(0, SHOWN);
@@ -83,9 +82,8 @@ function YearOverYear({ ctx }: SectionProps) {
       <Tiles
         items={[
           {
-            label: t("rpt.yoy_tile", { span }),
-            figure: money(r.ytdCents, false),
-            delta: { text: signedMoney(r.ytdChangeCents), good: r.ytdChangeCents <= 0 },
+            label: t("rpt.yoy_tile"),
+            figure: signedMoney(r.ytdChangeCents),
             note: t("rpt.yoy_tile_before", { amount: money(r.previousYtdCents, false) }),
           },
         ]}
