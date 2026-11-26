@@ -161,7 +161,7 @@ test("a new split from a day: the closed month stays, the month after lists no c
   await showMonth(reports.page, monthBack(0));
   const line = poolOf(reports.page).locator(".badge").filter({ hasText: "Korjaus aiempaan kuukauteen" });
   // the new split moved the shares and no sum: the members' rows carry it, and no row of 0,00 is listed for it
-  await expect(poolOf(reports.page).locator(".st-row").first()).toBeVisible();
+  await expect(poolOf(reports.page).locator(".mbr-member").first()).toBeVisible();
   await expect(line).toHaveCount(0);
   expect(reports.seen.problems).toEqual([]);
   await reports.context.close();

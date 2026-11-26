@@ -5,7 +5,7 @@ import { useState } from "react";
 import { MemberBars } from "../../../charts/forms/MemberBars.tsx";
 import { Tiles } from "../../../components/Tiles.tsx";
 import { Section } from "../../../components/Section.tsx";
-import { answerMoney, date, money, monthLong } from "../../../format.ts";
+import { date, money, monthLong } from "../../../format.ts";
 import { useApi } from "../../../hooks.ts";
 import type { Meta } from "../../../types.ts";
 import { isJoint } from "../../settings/account-use.ts";
@@ -87,7 +87,7 @@ function Pool({ pool, month, holder }: { pool: Answer["pools"][number]; month: s
         {pool.name}
         {!s.status.open && s.status.closedOn && <span className="badge">{` ${t("rpt.se_closed", { date: date(s.status.closedOn) })}`}</span>}
       </h3>
-      {!noSplit && transfers.length > 0 && <Tiles items={transfers.map((x) => ({ label: `${nameOf(x.from)} → ${nameOf(x.to)}`, figure: answerMoney(x.cents) }))} />}
+      {!noSplit && transfers.length > 0 && <Tiles items={transfers.map((x) => ({ label: `${nameOf(x.from)} → ${nameOf(x.to)}`, figure: money(x.cents) }))} />}
       {!noSplit && (even || transfers.length > 1) && (
         <div className="st-rows" role="group" aria-label={t("rpt.se_who")}>
           {even && (
