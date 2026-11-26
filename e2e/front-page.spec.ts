@@ -171,7 +171,7 @@ test("at 1440 px the coming months and the accounts stand in one column beside t
   expect(coming.x, "the coming months beside the month").toBeGreaterThanOrEqual(summary.x + summary.width - 1);
   expect(holdings.x, "the accounts in the same column").toBe(coming.x);
   expect(holdings.y, "under the coming months").toBeGreaterThanOrEqual(coming.y + coming.height - 1);
-  // the table keeps its four columns in the rail
+  // the table keeps its columns in the rail
   await expect(page.locator(".home-coming .rt-wrap[data-block]")).toHaveCount(0);
   const heads = plain(await page.locator(".home-coming thead").innerText());
   for (const name of ["Kuukausi", "Tulot", "Tulossa", "Laskujen jälkeen"]) expect(heads).toContain(name);
@@ -183,7 +183,7 @@ test("at 1440 px the coming months and the accounts stand in one column beside t
 });
 
 for (const width of [1040, 1440, 390] as const) {
-  test(`at ${width} px the four columns of the coming months fit their room: no sideways scroll, no blocks`, async ({ browser }) => {
+  test(`at ${width} px the columns of the coming months fit their room: no sideways scroll, no blocks`, async ({ browser }) => {
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 } });
     const page = await open(context);
     await expect(page.locator(".home-coming .rt-wrap[data-block]")).toHaveCount(0);
@@ -211,7 +211,7 @@ test("the coming months tell the figures the month heads of Laskut tell", async 
     const [, income, bills] = cellTexts;
     const after = cellTexts[cellTexts.length - 1];
     if (cellTexts.length === 5 && month.savingCents > 0) expect(sums(cellTexts[3]!)[0], `${month.month}: the saving`).toBe(month.savingCents);
-    if (cellTexts.length === 5 && month.incomeCents > 0 && month.afterCents !== null) expect(sums(income!)[0] - sums(bills!)[0] - month.savingCents, `${month.month}: the row reconciles`).toBe(month.afterCents);
+    if (cellTexts.length === 5 && month.incomeCents > 0 && month.afterCents !== null) expect(sums(income!)[0]! - sums(bills!)[0]! - month.savingCents, `${month.month}: the row reconciles`).toBe(month.afterCents);
     expect(sums(bills!)[0], `${month.month}: the bills`).toBe(month.billsCents);
     if (month.estimateCents > 0) expect(sums(bills!)[1], `${month.month}: their estimated part`).toBe(month.estimateCents);
     if (month.incomeCents > 0) expect(sums(income!)[0], `${month.month}: the pays`).toBe(month.incomeCents);
