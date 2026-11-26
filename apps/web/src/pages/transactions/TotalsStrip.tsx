@@ -17,6 +17,8 @@ import { css } from "../../css.ts";
 interface MoneyBin {
   start: string;
   count: number;
+  outCount: number;
+  inCount: number;
   inCents: number;
   outCents: number;
 }
@@ -70,7 +72,7 @@ function Histogram({ unit, bins, today, last, income, onPick }: { unit: "day" | 
   const gap = n > 60 ? 0.15 : 0.3;
   const shown = at ?? peak;
   const b = shown >= 0 ? bins[shown] : undefined;
-  const readout = b ? t(income ? "tx.readout_in" : "tx.readout_out", { bin: binName(b, unit, today), amount: money(value(b)), events: tn(b.count, "tx.event_one", "tx.event_many") }) : "";
+  const readout = b ? t(income ? "tx.readout_in" : "tx.readout_out", { bin: binName(b, unit, today), amount: money(value(b)), events: tn(income ? b.inCount : b.outCount, "tx.event_one", "tx.event_many") }) : "";
   const histTitle = t(income ? "tx.hist_in" : "tx.hist_out", { unit: unitTitle(unit) });
   return (
     <>

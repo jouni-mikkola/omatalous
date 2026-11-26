@@ -3,10 +3,10 @@ import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
 // The header and the phone's tab bar: the tabs (Yhteenveto, Tapahtumat, Laskut, Varat ja velat, Raportit), in the header of a
-// wide screen; the bar at the foot of a phone has the first four and Raportit is in the user menu there. Tarkistettavat is a
+// wide screen; the bar at the foot of a phone has the same five (it draws Varat for Varat ja velat). Tarkistettavat is a
 // link of the header with its count of open items, and Asetukset is in the user menu.
-const PHONE = ["Yhteenveto", "Tapahtumat", "Laskut", "Varat ja velat"];
-const WIDE = [...PHONE, "Raportit"];
+const PHONE = ["Yhteenveto", "Tapahtumat", "Laskut", "Varat ja velat", "Raportit"];
+const WIDE = PHONE;
 const ADDRESSES = ["#/overview", "#/transactions", "#/bills", "#/balances", "#/reports"];
 const review = (page: Page) => page.locator("header.topbar .review-link");
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
@@ -19,14 +19,14 @@ const phone = async (browser: Browser, width = 390) => {
 const tabs = (page: Page) => page.getByRole("navigation", { name: "Päävalikko" }).getByRole("link");
 
 for (const width of [390, 320]) {
-  test(`${width} px: the tab bar has four tabs and Raportit is in the user menu, each at least ${TAP} px, in one row, and nothing scrolls sideways`, async ({ browser }) => {
+  test(`${width} px: the tab bar has five tabs, each at least ${TAP} px, in one row, and nothing scrolls sideways`, async ({ browser }) => {
     const { context, page } = await phone(browser, width);
     const seen = watch(page);
     await page.goto("/#/overview");
     await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
     await expect(tabs(page)).toHaveText(PHONE);
     const boxes = await tabs(page).evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ top: Math.round(r.top), width: r.width, height: r.height, right: r.right })));
-    expect(boxes).toHaveLength(4);
+    expect(boxes).toHaveLength(5);
     expect(new Set(boxes.map((b) => b.top)).size, "one row").toBe(1);
     for (const b of boxes) {
       expect(b.width).toBeGreaterThanOrEqual(TAP);
@@ -51,12 +51,12 @@ for (const width of [390, 1440]) {
     await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
     // Tarkistettavat: its own address and title, its link the current one and no tab
     await expect(page).toHaveTitle(/^Tarkistettavat/);
-    await expect(tabs(page)).toHaveText(width < 641 ? PHONE : WIDE);
+    await expect(tabs(page)).toHaveText(WIDE);
     await expect(page.locator('nav.nav [aria-current="page"]')).toHaveCount(0);
     await expect(review(page)).toHaveAttribute("aria-current", "page");
     // on its own page the count is the queue's; on the others it is the count the header asked for
     await expect(review(page).locator(".nav-count")).toHaveText(/^\d+/);
-    for (const [n, address] of ADDRESSES.slice(0, width < 641 ? 4 : 5).entries()) {
+    for (const [n, address] of ADDRESSES.entries()) {
       await expect(tabs(page).nth(n)).toBeVisible();
       await tabs(page).nth(n).click();
       await expect.poll(() => new URL(page.url()).hash.split("?")[0]).toBe(address);
@@ -95,7 +95,7 @@ test("390 px: Tarkistettavat is a link of the top row and shows when open, Asetu
   await page.locator(".user-menu summary").tap();
   await page.locator(".user-menu .menu").getByRole("link", { name: "Asetukset" }).tap();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/settings/banks");
-  await expect(tabs(page)).toHaveCount(4);
+  await expect(tabs(page)).toHaveCount(5);
   expect(await overflow(page)).toBeLessThanOrEqual(0);
   await page.goto("/#/more");
   await expect.poll(() => new URL(page.url()).hash).toBe("#/overview");

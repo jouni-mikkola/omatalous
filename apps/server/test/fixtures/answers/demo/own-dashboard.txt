@@ -1476,91 +1476,212 @@
      "payee": "Nordea Gold (esimerkki)",
      "cents": -285586,
      "estimate": false,
-     "afterCents": 392089
+     "afterCents": 392089,
+     "rowAfterCents": 392089
     },
     {
      "date": "2026-10-15",
      "payee": "Helen",
      "cents": -4621,
      "estimate": true,
-     "afterCents": 386825
+     "afterCents": 386825,
+     "rowAfterCents": 386825
     },
     {
      "date": "2026-10-20",
      "payee": "Elisa",
      "cents": -2990,
      "estimate": false,
-     "afterCents": 383241
+     "afterCents": 383241,
+     "rowAfterCents": 383241
     },
     {
      "date": "2026-10-23",
      "payee": "Acme",
      "cents": 395000,
      "estimate": false,
-     "afterCents": 778241
+     "afterCents": 778241,
+     "rowAfterCents": 778241
     },
     {
      "date": "2026-11-02",
      "payee": "Sato",
      "cents": -105000,
      "estimate": false,
-     "afterCents": 567193
+     "afterCents": 567193,
+     "rowAfterCents": 567193
     },
     {
      "date": "2026-11-05",
      "payee": "Nordea Rahoitus Suomi Oy",
      "cents": -28900,
      "estimate": false,
-     "afterCents": 519748
+     "afterCents": 519748,
+     "rowAfterCents": 519748
     },
     {
      "date": "2026-11-06",
      "payee": "Nordnet Bank Ab",
      "cents": -15000,
      "estimate": false,
-     "afterCents": 497590
+     "afterCents": 497590,
+     "rowAfterCents": 497590
     },
     {
      "date": "2026-11-15",
      "payee": "Helen",
      "cents": -7158,
      "estimate": true,
-     "afterCents": 444495
+     "afterCents": 444495,
+     "rowAfterCents": 444495
     },
     {
      "date": "2026-11-20",
      "payee": "Elisa",
      "cents": -2990,
      "estimate": false,
-     "afterCents": 416914
+     "afterCents": 416914,
+     "rowAfterCents": 416914
     },
     {
      "date": "2026-11-25",
      "payee": "Acme",
      "cents": 395000,
      "estimate": false,
-     "afterCents": 790610
+     "afterCents": 790610,
+     "rowAfterCents": 790610
     },
     {
      "date": "2026-12-02",
      "payee": "Sato",
      "cents": -105000,
      "estimate": false,
-     "afterCents": 650825
+     "afterCents": 650825,
+     "rowAfterCents": 650825
     },
     {
      "date": "2026-12-05",
      "payee": "Nordea Rahoitus Suomi Oy",
      "cents": -28900,
      "estimate": false,
-     "afterCents": 603379
+     "afterCents": 603379,
+     "rowAfterCents": 603379
     },
     {
      "date": "2026-12-06",
      "payee": "Nordnet Bank Ab",
      "cents": -15000,
      "estimate": false,
-     "afterCents": 581221
+     "afterCents": 581221,
+     "rowAfterCents": 581221
+    }
+   ],
+   "startCents": 681443,
+   "cardDebtCents": 0,
+   "spending": [
+    {
+     "date": "2026-10-10",
+     "since": "2026-10-09",
+     "until": "2026-10-09",
+     "kind": "cards",
+     "cents": -3768,
+     "afterCents": 677675
+    },
+    {
+     "date": "2026-10-15",
+     "since": "2026-10-10",
+     "until": "2026-10-14",
+     "kind": "everyday",
+     "cents": -643,
+     "afterCents": 391446
+    },
+    {
+     "date": "2026-10-20",
+     "since": "2026-10-15",
+     "until": "2026-10-19",
+     "kind": "everyday",
+     "cents": -594,
+     "afterCents": 386231
+    },
+    {
+     "date": "2026-11-02",
+     "since": "2026-10-23",
+     "until": "2026-11-01",
+     "kind": "everyday",
+     "cents": -1238,
+     "afterCents": 777003
+    },
+    {
+     "date": "2026-11-02",
+     "since": "2026-10-23",
+     "until": "2026-11-01",
+     "kind": "cards",
+     "cents": -104810,
+     "afterCents": 672193
+    },
+    {
+     "date": "2026-11-05",
+     "since": "2026-11-02",
+     "until": "2026-11-04",
+     "kind": "everyday",
+     "cents": -18545,
+     "afterCents": 548648
+    },
+    {
+     "date": "2026-11-06",
+     "since": "2026-11-05",
+     "until": "2026-11-05",
+     "kind": "everyday",
+     "cents": -7158,
+     "afterCents": 512590
+    },
+    {
+     "date": "2026-11-15",
+     "since": "2026-11-06",
+     "until": "2026-11-14",
+     "kind": "everyday",
+     "cents": -45937,
+     "afterCents": 451653
+    },
+    {
+     "date": "2026-11-20",
+     "since": "2026-11-15",
+     "until": "2026-11-19",
+     "kind": "everyday",
+     "cents": -24591,
+     "afterCents": 419904
+    },
+    {
+     "date": "2026-11-25",
+     "since": "2026-11-20",
+     "until": "2026-11-24",
+     "kind": "everyday",
+     "cents": -21304,
+     "afterCents": 395610
+    },
+    {
+     "date": "2026-12-02",
+     "since": "2026-11-25",
+     "until": "2026-12-01",
+     "kind": "everyday",
+     "cents": -34785,
+     "afterCents": 755825
+    },
+    {
+     "date": "2026-12-05",
+     "since": "2026-12-02",
+     "until": "2026-12-04",
+     "kind": "everyday",
+     "cents": -18546,
+     "afterCents": 632279
+    },
+    {
+     "date": "2026-12-06",
+     "since": "2026-12-05",
+     "until": "2026-12-05",
+     "kind": "everyday",
+     "cents": -7158,
+     "afterCents": 596221
     }
    ]
   },

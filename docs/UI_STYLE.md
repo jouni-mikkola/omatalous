@@ -154,7 +154,7 @@ A category change says the rule it made.
 - The header has the pages, Tarkistettavat and the user menu.
 - Tarkistettavat shows the count of open questions. The page shows the same number.
 - The user menu has the pages a module adds (on a phone only: a wider screen has them in the header), Asetukset, the other language (a button named in that language) and Kirjaudu ulos. The password is in Asetukset > Turvallisuus.
-- The app has five tabs: Yhteenveto, Tapahtumat, Laskut, Varat ja velat and Raportit (`docs/design/README.md`). On a phone Raportit is in the user menu and the tab bar has the other four. Tarkistettavat is a link at the right of the header, on a phone in the top row.
+- The app has five tabs: Yhteenveto, Tapahtumat, Laskut, Varat ja velat and Raportit (`docs/design/README.md`). On a phone the tab bar has the same five, with *Varat* for Varat ja velat. Tarkistettavat is a link at the right of the header, on a phone in the top row.
 - Every report is under Raportit. Asetukset is in the user menu, and the old `#/more` opens Yhteenveto.
 - The foot of the page is the app, its version and its links, in the muted colour. It wraps on a phone. It has no date, and a fetch that went well leaves no line in it. While a fetch runs it says so. When the bank holds the next fetch back or an account was left out, it says that with the time of the last fetch (`Päivitetty 23.10. klo 6.02. Pankki sallii seuraavan haun 23.10. klo 18.00`), in the secondary text colour. Only a failed fetch is above the page, in a `Notice`.
 

@@ -7,7 +7,11 @@ import type { IsoDate } from "./types.ts";
 
 interface DayMoney {
   date: IsoDate;
+  /** The rows of the day, whatever they move. */
   count: number;
+  /** The rows that spend money and the rows that bring it in: the counts the chart's two views name. */
+  outCount: number;
+  inCount: number;
   /** Positive cents, own transfers left out. */
   inCents: number;
   outCents: number;
@@ -19,6 +23,8 @@ interface MoneyBin {
   /** The first day of the bin; a week starts on Monday, a month on its first. */
   start: IsoDate;
   count: number;
+  outCount: number;
+  inCount: number;
   inCents: number;
   outCents: number;
 }
@@ -56,11 +62,13 @@ export function moneyBins(days: readonly DayMoney[], from: IsoDate, to: IsoDate)
   const span = daysBetween(from, to) + 1;
   const unit: BinUnit = span <= DAY_BINS ? "day" : span <= WEEK_BINS * 7 ? "week" : "month";
   const bins = new Map<IsoDate, MoneyBin>();
-  for (const d of binStarts(from, to, unit)) bins.set(d, { start: d, count: 0, inCents: 0, outCents: 0 });
+  for (const d of binStarts(from, to, unit)) bins.set(d, { start: d, count: 0, outCount: 0, inCount: 0, inCents: 0, outCents: 0 });
   for (const day of days) {
     if (day.date < from || day.date > to) continue;
     const bin = bins.get(binStart(day.date, unit))!;
     bin.count += day.count;
+    bin.outCount += day.outCount;
+    bin.inCount += day.inCount;
     bin.inCents += day.inCents;
     bin.outCents += day.outCents;
   }

@@ -45,7 +45,7 @@ function shopping(from: IsoDate, cents: number, more: readonly string[] = []): T
 /** The figure of a lowest balance without the walk's line and steps, which their own tests read. */
 function figureOf(point: LowPoint): LowPoint {
   if (!point.known) return point;
-  const { line: _line, steps: _steps, ...figure } = point;
+  const { line: _line, steps: _steps, spending: _spending, startCents: _start, cardDebtCents: _debt, ...figure } = point;
   return figure as LowPoint;
 }
 
@@ -400,6 +400,65 @@ describe("lowPoint's line and steps", () => {
     const { walked } = walk(rows, balBoth(200_000), undefined, NO_INPUTS, [own, card]);
     expectLineHolds(walked);
     expect(walked.known && walked.steps.some((s) => s.date === "2026-11-09" && s.cents === -68_000)).toBe(true);
+  });
+});
+
+/**
+ * The table of the first page reads the walk as rows: the balance of the start, then for each step day its spending
+ * rows and its steps. The balance of every row, a step among them, is the one before it plus its sum, and the last step
+ * of a day ends at the day's own balance.
+ */
+function expectRowsAddUp(point: LowPoint) {
+  if (!point.known) throw new Error("no figure");
+  let running = point.startCents;
+  for (const date of [...new Set(point.steps.map((s) => s.date))]) {
+    for (const p of point.spending.filter((p) => p.date === date)) {
+      expect(p.afterCents).toBe(running + p.cents);
+      expect(p.cents).toBeLessThan(0);
+      running = p.afterCents;
+    }
+    const day = point.steps.filter((s) => s.date === date);
+    for (const s of day) {
+      running += s.cents;
+      expect(s.rowAfterCents).toBe(running);
+    }
+    expect(day[day.length - 1]!.afterCents).toBe(running);
+  }
+}
+
+describe("lowPoint's spending between the steps", () => {
+  it("is a row for each gap that adds the table's balance up", () => {
+    // 9 000 € and 40 € a day, the rent on 1.11. and the pay on 13.11.: the gaps are 26.10.–31.10. and 1.11.–12.11.
+    const { walked } = walk([...pays(), ...rents(), ...shopping("2026-03-01", 4000)], [bal(900_000)], 30);
+    if (!walked.known) throw new Error("no figure");
+    expect(walked.startCents).toBe(900_000);
+    expect(walked.cardDebtCents).toBe(0);
+    expect(walked.spending).toEqual([
+      { date: "2026-11-01", since: "2026-10-26", until: "2026-10-31", kind: "everyday", cents: -24_000, afterCents: 876_000 },
+      { date: "2026-11-13", since: "2026-11-01", until: "2026-11-12", kind: "everyday", cents: -48_000, afterCents: 738_000 },
+    ]);
+    expectRowsAddUp(walked);
+  });
+
+  it("gives each of two bills on one day its own balance, the one before it plus its sum", () => {
+    // the rent of 900 € and a bill of 80 € both fall on the 1st
+    const power = ["2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"].map((m) => tx({ accountId: own.id, bookingDate: `${m}-01`, amountCents: -8000, merchant: "Sähkö Oy", category: "utilities" }));
+    const { walked } = walk([...pays(), ...rents(), ...power, ...shopping("2026-03-01", 4000)], [bal(900_000)], 30);
+    if (!walked.known) throw new Error("no figure");
+    const first = walked.steps.filter((s) => s.date === "2026-11-01");
+    expect(first.map((s) => s.cents).sort()).toEqual([-RENT, -8000].sort());
+    expect(first[0]!.rowAfterCents).not.toBe(first[1]!.rowAfterCents);
+    expect(first[0]!.afterCents).toBe(first[1]!.afterCents);
+    expect(first[1]!.rowAfterCents).toBe(first[1]!.afterCents);
+    expectRowsAddUp(walked);
+  });
+
+  it("names the card's purchases that no bill holds as a row of their own, and the card debt of today", () => {
+    const rows = [...pays(), ...rents(), ...cardShopping(), ...statements()].filter((t) => t.bookingDate <= TODAY);
+    const { walked } = walk(rows, balBoth(200_000), undefined, NO_INPUTS, [own, card]);
+    if (!walked.known) throw new Error("no figure");
+    expect(walked.spending.length).toBeGreaterThan(0);
+    expectRowsAddUp(walked);
   });
 });
 

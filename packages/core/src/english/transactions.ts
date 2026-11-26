@@ -227,7 +227,7 @@ export const EN_TRANSACTIONS: Record<keyof typeof FI_TRANSACTIONS, string> = {
   "mer.category": "Category",
   "mer.count": "Transactions",
   "mer.total": "Total",
-  "mer.monthly": "Per month",
+  "mer.monthly": "Usually per month",
   "mer.last": "Last",
   "mer.also": "Also {list}",
   "mer.and_more": "and {count} more",
