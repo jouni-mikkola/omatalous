@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { accountDigits, merchantMonths, moneyBins } from "../src/day-bins.ts";
 
-const day = (date: string, outCents: number, inCents = 0) => ({ date, count: 1, outCents, inCents });
+const day = (date: string, outCents: number, inCents = 0) => ({ date, count: 1, outCount: outCents > 0 ? 1 : 0, inCount: inCents > 0 ? 1 : 0, outCents, inCents });
 
 describe("moneyBins", () => {
   it("keeps days up to three months, empty days included, and adds up to the days given", () => {
@@ -25,7 +25,7 @@ describe("moneyBins", () => {
 });
 
 describe("moneyBins at the ends of the calendar", () => {
-  const rows = [{ date: "2025-03-03", count: 2, inCents: 10, outCents: 700 }];
+  const rows = [{ date: "2025-03-03", count: 2, outCount: 1, inCount: 1, inCents: 10, outCents: 700 }];
   const shape = (from: string, to: string) => {
     const { unit, bins } = moneyBins(rows, from, to);
     return [unit, bins.length, bins[0]!.start, bins.at(-1)!.start, bins.filter((b) => b.count).map((b) => b.start).join()];

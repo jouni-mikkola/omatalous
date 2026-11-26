@@ -3,14 +3,14 @@ import { describe, expect, it, vi } from "vitest";
 import { openApp, startServer } from "./dom-kit.ts";
 
 const tabs = () => screen.getByRole("navigation", { name: "Päävalikko" });
-const current = () => [...tabs().querySelectorAll("[aria-current]")].map((e) => e.textContent);
+const current = () => [...tabs().querySelectorAll("[aria-current]")].map((e) => e.getAttribute("aria-label") ?? e.textContent);
 
 describe("Shell: a page carries its tab's name", () => {
   it("has the tabs Yhteenveto, Tapahtumat, Laskut, Varat ja velat and Raportit, and Tarkistettavat as a link beside them", async () => {
     await startServer();
     // the header's link shows while something is open and on its own page
     await openApp("#/review");
-    expect([...tabs().querySelectorAll("a")].map((a) => a.textContent)).toEqual(["Yhteenveto", "Tapahtumat", "Laskut", "Varat ja velat", "Raportit"]);
+    expect([...tabs().querySelectorAll("a")].map((a) => a.getAttribute("aria-label") ?? a.textContent)).toEqual(["Yhteenveto", "Tapahtumat", "Laskut", "Varat ja velat", "Raportit"]);
     const review = document.querySelector("header .review-link")!;
     expect(review.textContent).toContain("Tarkistettavat");
     expect(tabs().contains(review)).toBe(false);
@@ -60,8 +60,7 @@ describe("Shell: a page carries its tab's name", () => {
     await openApp("#/overview");
     const menu = document.querySelector(".user-menu .menu")!;
     const names = [...menu.querySelectorAll("a")].map((a) => a.textContent);
-    // Raportit is a link of the menu for a phone, whose tab bar has no room for it (a style hides it where it is a tab)
-    expect(names).toEqual(["Raportit", "Asetukset"]);
+    expect(names).toEqual(["Asetukset"]);
   }, 60000);
 
   it("links the logo to Yhteenveto by its name", async () => {
@@ -79,10 +78,10 @@ describe("Shell: a page carries its tab's name", () => {
       await startServer();
       await openApp("#/overview");
       const links = [...tabs().querySelectorAll("a")];
-      expect(links.map((a) => a.textContent)).toEqual(["Yhteenveto", "Tapahtumat", "Laskut", "Varat ja velat", "Raportit", "Esimerkki"]);
+      expect(links.map((a) => a.getAttribute("aria-label") ?? a.textContent)).toEqual(["Yhteenveto", "Tapahtumat", "Laskut", "Varat ja velat", "Raportit", "Esimerkki"]);
       expect(links.filter((a) => a.classList.contains("nav-wide-only"))).toEqual([]);
       const menu = [...document.querySelectorAll(".user-menu .menu a")];
-      expect(menu.map((a) => a.textContent)).toEqual(["Raportit", "Asetukset"]);
+      expect(menu.map((a) => a.textContent)).toEqual(["Asetukset"]);
     } finally {
       WEB_EXTENSIONS.length = 0;
     }

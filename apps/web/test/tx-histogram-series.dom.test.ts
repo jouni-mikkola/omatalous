@@ -23,9 +23,9 @@ const totals = {
   histogram: {
     unit: "day" as const,
     bins: [
-      { start: "2026-09-01", count: 1, inCents: 0, outCents: 20_00 },
-      { start: "2026-09-02", count: 1, inCents: 900_00, outCents: 50_00 },
-      { start: "2026-09-03", count: 1, inCents: 0, outCents: 0 },
+      { start: "2026-09-01", count: 1, outCount: 1, inCount: 0, inCents: 0, outCents: 20_00 },
+      { start: "2026-09-02", count: 2, outCount: 1, inCount: 1, inCents: 900_00, outCents: 50_00 },
+      { start: "2026-09-03", count: 1, outCount: 0, inCount: 0, inCents: 0, outCents: 0 },
     ],
   },
 };
@@ -36,17 +36,17 @@ describe("the figures of the strip", () => {
   const terms = () => [...document.querySelectorAll(".tx-totals-kv > div")].map((d) => [d.querySelector("dt")!.textContent, d.querySelector("dd")!.textContent]);
   const strip = (extra: object) => render(createElement(TotalsStrip, { totals: { ...totals, ...extra }, income: false, today: "2026-10-13", onPick: () => {} }));
 
-  it("names what was taken out of savings and shows its amount with no sign, then Käteen jäi", () => {
+  it("names what was taken out of savings and shows its amount with no sign, then Käteen jäi in place of Erotus", () => {
     strip({ savedCents: -200_00, leftCents: 1030_00 });
-    expect(terms().map(([word]) => word)).toEqual(["Menot", "Tulot", "Erotus", "Otettu säästöistä", "Käteen jäi"]);
-    expect(terms()[3]![1]).toMatch(/^200\s€$/);
-    expect(terms()[3]![1]).not.toMatch(/[-−+]/);
-    expect(terms()[4]![1]).toMatch(/^\+1\s030\s€$/);
+    expect(terms().map(([word]) => word)).toEqual(["Menot", "Tulot", "Otettu säästöistä", "Käteen jäi"]);
+    expect(terms()[2]![1]).toMatch(/^200\s€$/);
+    expect(terms()[2]![1]).not.toMatch(/[-−+]/);
+    expect(terms()[3]![1]).toMatch(/^\+1\s030\s€$/);
   });
 
   it("shows the amount moved to savings with no sign, and leaves Käteen jäi out when it is the Erotus", () => {
     strip({ savedCents: 300_00, leftCents: 530_00 });
-    expect(terms()[3]).toEqual(["Säästöön siirretty", expect.stringMatching(/^300\s€$/)]);
+    expect(terms()[2]).toEqual(["Säästöön siirretty", expect.stringMatching(/^300\s€$/)]);
     cleanup();
     strip({ savedCents: 0, leftCents: 830_00 });
     expect(terms().map(([word]) => word)).toEqual(["Menot", "Tulot", "Erotus"]);

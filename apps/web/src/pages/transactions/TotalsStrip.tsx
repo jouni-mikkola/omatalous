@@ -17,6 +17,8 @@ import { css } from "../../css.ts";
 interface MoneyBin {
   start: string;
   count: number;
+  outCount: number;
+  inCount: number;
   inCents: number;
   outCents: number;
 }
@@ -70,7 +72,7 @@ function Histogram({ unit, bins, today, last, income, onPick }: { unit: "day" | 
   const gap = n > 60 ? 0.15 : 0.3;
   const shown = at ?? peak;
   const b = shown >= 0 ? bins[shown] : undefined;
-  const readout = b ? t(income ? "tx.readout_in" : "tx.readout_out", { bin: binName(b, unit, today), amount: money(value(b)), events: tn(b.count, "tx.event_one", "tx.event_many") }) : "";
+  const readout = b ? t(income ? "tx.readout_in" : "tx.readout_out", { bin: binName(b, unit, today), amount: money(value(b)), events: tn(income ? b.inCount : b.outCount, "tx.event_one", "tx.event_many") }) : "";
   const histTitle = t(income ? "tx.hist_in" : "tx.hist_out", { unit: unitTitle(unit) });
   return (
     <>
@@ -172,7 +174,8 @@ export function TotalsStrip({ totals, income, today, onPick }: { totals: Totals;
               <Figure text={`${totals.inCents > 0 ? "+" : ""}${money(totals.inCents, false)}`} size="s" />
             </dd>
           </div>
-          {totals.netCents !== undefined && totals.netCents !== null && (
+          {/* Erotus and Käteen jäi are one line: the result after savings replaces the plain difference when the two differ */}
+          {totals.netCents !== undefined && totals.netCents !== null && !(totals.leftCents !== undefined && totals.leftCents !== null && totals.leftCents !== totals.netCents) && (
             <div>
               <dt>{t("tx.difference")}</dt>
               <dd>

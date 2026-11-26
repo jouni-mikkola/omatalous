@@ -229,7 +229,7 @@ export const FI_TRANSACTIONS = {
   "mer.category": "Kategoria",
   "mer.count": "Tapahtumia",
   "mer.total": "Yhteensä",
-  "mer.monthly": "Kuussa",
+  "mer.monthly": "Tavallisesti kuussa",
   "mer.last": "Viimeksi",
   "mer.also": "Myös {list}",
   "mer.and_more": "ja {count} muuta",
