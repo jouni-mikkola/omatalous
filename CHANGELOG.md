@@ -3,6 +3,19 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.8.2
+
+Money and reports
+
+- Raportit > Tulot follows the chosen period in the strip, the sentence and the months chart.
+- The charts of Tulot hatch the same incomplete months, and the legend names the hatching.
+
+Look
+
+- The summary no longer repeats the spending gap and its sources in a sentence under the bars.
+- Raportit > Menot kategorioittain no longer shows the note under Mikä muuttui.
+- The category parts card of Raportit > Menot is titled Kategorioiden osat.
+
 ## 1.8.1
 
 Look
