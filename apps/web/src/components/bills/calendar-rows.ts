@@ -19,7 +19,8 @@ export const ENDED_GROUP = "ended";
 export type CalRow =
   | { key: string; kind: "row"; bill: CalBill; item: Item | null; typed: TypedBill | null; missed?: true }
   | { key: string; kind: "fold"; month: string; bills: CalBill[]; count: number; cents: number }
-  | { key: string; kind: "ended"; item: Item };
+  | { key: string; kind: "ended"; item: Item }
+  | { key: string; kind: "total"; total: "paid" | "coming"; cents: number };
 
 export interface CalGroup {
   key: string;
@@ -77,8 +78,17 @@ const foldGroupKey = (month: string, kind: FoldKind) => `${month}:${kind}`;
 const FOLDED_ROWS = 2;
 
 /**
+ * The two totals that close an open month, each of one kind: what is paid (`paidCents`, only when a charge is made, so only
+ * the running month has it) and what is still to come (`billsCents`). Both are core's.
+ */
+function totalRows(m: CalMonth): CalRow[] {
+  const coming: CalRow = { key: `${m.month}:total:coming`, kind: "total", total: "coming", cents: m.billsCents };
+  return m.paidCents > 0 ? [{ key: `${m.month}:total:paid`, kind: "total", total: "paid", cents: m.paidCents }, coming] : [coming];
+}
+
+/**
  * The groups of the table: a month each, in the calendar's order, then what has ended. A group in `shown` lists its
- * rows in the order of the calendar; from the third month on its monthly bills are one row that opens to them, and
+ * rows in the order of the calendar, then the month's totals; from the third month on its monthly bills are one row that opens to them, and
  * everything else (a bill that comes less often, a pay, a saving, a bill a card pays) is listed. A group not in `shown`
  * has no rows. An open month with two rows or more that a card pays and are still to come, or with two paid rows or more,
  * lists the rest first, then each of those in a group of its own (`foldGroupKey`): the card's rows, then the paid ones.
@@ -107,6 +117,7 @@ export function calendarGroups(calendar: Calendar, items: readonly Item[], typed
         const own = bill.seriesId === null && bill.kind === "bill" ? (typed.find((b) => sameName(b.name, bill.payee)) ?? null) : null;
         rows.push({ key: `${m.month}:${n}`, kind: "row", bill, item, typed: own });
       });
+      rows.push(...totalRows(m));
     }
     const folds = (
       [

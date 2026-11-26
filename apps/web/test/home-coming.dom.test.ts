@@ -132,8 +132,8 @@ describe("Tulevat kuukaudet", () => {
     expect(cells(trs[1]!)[2]).toBe("800,00 €");
     // the head of the same month in Laskut tells the same: what is paid and what is unpaid
     const head = laskutHeads(cal)[0]!;
-    expect(head).toContain("Maksetut laskut 1 542,04 €");
-    expect(head).toContain("Maksamatta 400,00 €");
+    expect(head).toContain("Maksettu 1 542,04 €");
+    expect(head).toContain("Tulossa 400,00 €");
   });
 
   it("starts at the next month when the running month has everything paid and nothing to come, so no row stands empty", () => {

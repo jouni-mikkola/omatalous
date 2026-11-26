@@ -259,14 +259,17 @@ const tab = (/** @type {Page} */ page, /** @type {string} */ name) => page.getBy
 
 /**
  * The first month of the Laskut table with bills in it: a group head carries core's sum of the month's bills, and once a
- * bill of a month is paid it says "Maksamatta" (unpaid) for those still to pay. A month with nothing to pay is passed.
+ * bill of a month is still to pay, "Tulossa": a closed month says it in its head, an open one in the total that ends its rows.
+ * A month with nothing to pay is passed.
  */
 async function billsMonth(/** @type {Locator} */ list) {
   for (const group of await list.locator("tr.rt-group").all()) {
-    const head = /(Laskut|Maksamatta) ([\d ,]+ €)/.exec(plain(await group.textContent()));
-    if (head && cents(/** @type {string} */ (head[2])) > 0) return { month: group, head };
+    const open = (await group.locator("button[aria-expanded=true]").count()) > 0;
+    const text = open ? await group.locator("xpath=following-sibling::tr[contains(@class,'bill-total')][1]").textContent() : await group.textContent();
+    const head = /Tulossa ([\d ,]+ €)/.exec(plain(text ?? ""));
+    if (head && cents(/** @type {string} */ (head[1])) > 0) return { month: group, head };
   }
-  throw new Error("Laskut: no month has a sum of bills in its head");
+  throw new Error("Laskut: no month has a sum of bills still to pay");
 }
 
 /** The computer's screen: from the empty first page to Raportit. */
@@ -372,9 +375,9 @@ async function desk(/** @type {Film} */ film) {
   const monthTop = await month.boundingBox();
   const toTable = monthTop && monthTop.y > SIZE.page - 200 ? Math.round(monthTop.y - 200) : 0;
   if (toTable) await film.scroll(toTable);
-  const sum = /** @type {string} */ (head[2]);
+  const sum = /** @type {string} */ (head[1]);
   film.marks = [await film.box(month)];
-  await film.say(`Laskut (bills): the first month with bills lists them by day, ${shown(sum)}${head[1] === "Laskut" ? " in all" : " still unpaid"}.`);
+  await film.say(`Laskut (bills): the first month with bills lists them by day, ${shown(sum)} still to pay.`);
   await film.glide(film.beside(/** @type {Box} */ (film.marks[0])));
   await film.read();
   film.marks = [];

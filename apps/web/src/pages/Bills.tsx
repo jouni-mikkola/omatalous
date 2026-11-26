@@ -175,7 +175,7 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
                   <section className="card span-12" aria-labelledby="bills-days-h">
                     <div className="bills-head">
                       <h2 id="bills-days-h">{monthLong(shown.month).replace(/^./u, (c) => c.toLocaleUpperCase())}</h2>
-                      <span className="bills-days-sum">{t(shown.paidCents > 0 ? "bills.sum_unpaid" : "bills.sum_bills", { sum: answerMoney(shown.billsCents) })}</span>
+                      <span className="bills-days-sum">{t("bills.sum_coming", { sum: answerMoney(shown.billsCents) })}</span>
                     </div>
                     <BillDays month={shown} />
                   </section>
