@@ -47,6 +47,15 @@ describe("the twelve-month bars: a bar far above the others", () => {
     expect(flat(label)).toContain("60 000 €");
   });
 
+  it("names the spending Menot ilman säästöistä maksettua only for a month where savings paid a debt", () => {
+    const overview = overviewOf(3, 1);
+    overview.months[2]!.fromSavingsCents = 50_000;
+    const labels = [...show(overview).container.querySelectorAll("svg a")].map((a) => flat(a.getAttribute("aria-label")));
+    expect(labels[1]).toContain("Menot ");
+    expect(labels[1]).not.toContain("Menot ilman säästöistä maksettua");
+    expect(labels[2]).toContain("Menot ilman säästöistä maksettua");
+  });
+
   it("is not cut in a view of three months, where a usual level or two bars a month would otherwise make four values", () => {
     const { container } = show(overviewOf(3, 1));
     expect(container.querySelector("path.cap-break")).toBeNull();

@@ -110,7 +110,7 @@ export const FI_OVERVIEW = {
   "home.days_readout": "Päivän saldo",
   "home.days_balance": "Saldo",
   "home.days_usually": "tavallisesti",
-  "home.days_range": "{low} … {high}",
+  "home.days_range": "{low}–{high}",
   "home.days_low": "alimmillaan {date} {sum}",
   "home.days_low_short": "alin {sum}",
   "home.days_payday": "palkkapäivä {date}",

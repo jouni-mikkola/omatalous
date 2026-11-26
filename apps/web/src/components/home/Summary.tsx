@@ -93,7 +93,7 @@ function itemsOf(data: Data, today: string): Item[] {
     },
     {
       id: "spent",
-      label: spentLabel(overview.months.at(-1)?.fromSavingsCents),
+      label: spentLabel(Boolean(overview.months.at(-1)?.fromSavingsCents)),
       cents: spentCents,
       line: spentLine(data, today),
     },

@@ -31,7 +31,7 @@ const DAY_LABEL_W = 48;
 /** How many payments are named in the picture; the rest are in the readout and the table. */
 const NAMED_STEPS = 2;
 
-/** "2 700 … 3 260 €": the low end without its sign of currency in Finnish, as the glossary writes a range. */
+/** "2 700–3 260 €": the low end without its sign of currency in Finnish, as the glossary writes a range. */
 function rangeText(low: number, high: number): string {
   const lowText = language() === "en" ? money(low, false) : money(low, false).replace(/\s€$/, "");
   return t("home.days_range", { low: lowText, high: money(high, false) });
@@ -59,7 +59,7 @@ export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: stri
   const last = line[line.length - 1]!.date;
   const narrow = width < NARROW;
   const values = line.flatMap((c) => [c.cents, c.lowCents, c.highCents]);
-  // a phone gets a smaller plot, so the page stays short (the roadmap's N11)
+  // a phone gets a lower plot, so the page stays short
   const options = narrow ? { minHeight: 160, tallest: 160, ratio: 0.3 } : { minHeight: 200, tallest: 280, ratio: 0.3 };
   const margin = { top: 20, right: 8, bottom: BOTTOM };
   const draft = frame(width, { ...margin, left: 48 }, options);

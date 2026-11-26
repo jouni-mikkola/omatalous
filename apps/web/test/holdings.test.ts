@@ -75,9 +75,9 @@ describe("Holdings", () => {
     const rows = [{ debtId: "proposal:a", name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }, { debtId: "card_bill:b", name: "Esimerkkikauppa", monthlyCents: 20_000, card: true }];
     const unsavedLoans = { count: 2, names: [], paymentCents: 30_000, rows };
 
-    it("is named Varat korttivelan jälkeen when only loans nobody saved are left out, and each of those debts is a row with its monthly sum and a missing balance that links to that debt's own question in Tarkistettavat", () => {
+    it("shows no net figure when only loans nobody saved are left out, and each of those debts is a row with its monthly sum and a missing balance that links to that debt's own question in Tarkistettavat", () => {
       const unsaved = html(answer({ ...base, netCents: 100_000, unsavedLoans }));
-      expect(undated(unsaved)).toContain("Varat ja velat Varat korttivelan jälkeen 1 000 €");
+      expect(text(unsaved)).not.toContain("Varat korttivelan jälkeen");
       const debts = unsaved.slice(unsaved.indexOf('class="st-rows holding-foot"'));
       expect(text(debts)).toContain("Esimerkkirahoitus 100,00 €/kk · saldo puuttuu");
       expect(text(debts)).toContain("Esimerkkikauppa · Luottokortti 200,00 €/kk · saldo puuttuu");
@@ -109,17 +109,11 @@ describe("Holdings", () => {
       expect(text(renderToStaticMarkup(createElement(Holdings, { holdings: some, meta, loansListed: true })))).not.toContain("saldo puuttuu");
     });
 
-    it("counts the loans left out when the saved ones all have a balance", () => {
+    it("shows no net figure while a loan or a card nobody saved has no balance, as it would be too high", () => {
       const some = html(answer({ ...base, netCents: -11_900_000, loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000, unsavedLoans }));
-      expect(undated(some)).toContain("Varat ja velat Varat velkojen jälkeen (ilman 2 velkaa) −119 000 €");
-    });
-
-    it("counts a loan and a card nobody saved as debts together, one or more", () => {
-      const one = { count: 1, names: [], paymentCents: 10_000, rows: [rows[1]!] };
-      const net = (unsavedLoans: Answer["unsavedLoans"]) => netLabelOf({ loans: [loan()], debtCents: 12_000_000, unsavedLoans });
-      expect(net(one)).toBe("Varat velkojen jälkeen (ilman 1 velkaa)");
-      expect(net(unsavedLoans)).toBe("Varat velkojen jälkeen (ilman 2 velkaa)");
-      expect(net(undefined)).toBe("Varat velkojen jälkeen");
+      expect(text(some)).not.toContain("Varat velkojen jälkeen");
+      expect(text(some)).not.toContain("−119 000 €");
+      expect(netLabelOf({ debtCents: 12_000_000 })).toBe("Varat velkojen jälkeen");
     });
 
     it("names the loans' total as the known one when a debt without a balance is listed under it, with or without a debt row", () => {
@@ -130,15 +124,16 @@ describe("Holdings", () => {
       expect(loansTotal(answer(owing))).not.toContain("tiedossa");
     });
 
-    it("counts a lender's few payments with the loans left out and adds them to no monthly sum", () => {
+    it("shows no net figure for a lender's few payments either, and adds them to no monthly sum", () => {
       const saved = { ...base, netCents: -11_900_000, loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000 };
       const both = html(answer({ ...saved, unsavedLoans, unsavedFewPayments: 1 }));
-      expect(undated(both)).toContain("Varat ja velat Varat velkojen jälkeen (ilman 3 velkaa) −119 000 €");
+      expect(text(both)).not.toContain("Varat velkojen jälkeen");
       expect(text(both)).toContain("Esimerkkirahoitus 100,00 €/kk · saldo puuttuu");
       // a lender with no monthly figure has its row too, with no /kk
       const few = { count: 0, names: [], paymentCents: 0, rows: [{ debtId: "proposal:c", name: "Esimerkkilaina", monthlyCents: null, card: false }] };
       const alone = html(answer({ ...saved, unsavedLoans: few, unsavedFewPayments: 1 }));
-      expect(undated(alone)).toContain("Varat ja velat Varat velkojen jälkeen (ilman 1 velkaa) −119 000 €");
+      expect(text(alone)).not.toContain("Varat velkojen jälkeen");
+      expect(text(alone)).not.toContain("−119 000 €");
       expect(text(alone)).toContain("Esimerkkilaina saldo puuttuu");
       expect(text(alone)).not.toContain("/kk");
     });

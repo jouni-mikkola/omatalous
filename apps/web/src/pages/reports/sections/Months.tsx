@@ -73,7 +73,7 @@ function Months({ ctx }: SectionProps) {
   const columns: Column<Month>[] = [
     { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName({ ...m, unknown: m.incomeCents === null && m.spendCents === null }, ctx.running) },
     { key: "income", label: t("home.months_income"), kind: "money", precision: "euros", cents: (m) => m.incomeCents },
-    { key: "spend", label: spentLabel(overview.months.some((m) => m.fromSavingsCents) ? 1 : 0), kind: "money", main: true, precision: "euros", cents: (m) => m.spendCents },
+    { key: "spend", label: spentLabel(overview.months.some((m) => m.fromSavingsCents)), kind: "money", main: true, precision: "euros", cents: (m) => m.spendCents },
   ];
   return (
     <Panel>

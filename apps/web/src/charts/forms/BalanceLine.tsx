@@ -60,7 +60,7 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
     (f.innerW / Math.max(1, days.length)) * MONTH_DAYS,
   );
   // the axis starts mid-month unless the first day is a 1st: its own day is named, unless a month's name is too close
-  const startLabel = `${dayMonth(iso(0))}`;
+  const startLabel = dayMonth(iso(0));
   const nextPrinted = starts.find((s, k) => s.i > 0 && ticks[k]!.printed);
   const startNamed = starts[0]?.i !== 0 && (nextPrinted === undefined || x(nextPrinted.i) - x(0) >= (startLabel.length + 6) * LABEL_CHAR_W);
   const low = r.lowest ? dayNumber(r.lowest.day) - from : -1;
