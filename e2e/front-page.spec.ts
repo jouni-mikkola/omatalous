@@ -217,7 +217,13 @@ test("the coming months tell the figures the month heads of Laskut tell", async 
   await page.goto("/#/bills");
   await expect(page.locator(".bill-sums").first()).toBeVisible({ timeout: 15_000 });
   const allHeads = await page.locator(".bill-sums").allInnerTexts();
-  for (const month of shown) expect(sums(allHeads[billCalendar.months.indexOf(month)]!)[0], `${month.month}: Laskut' head`).toBe(month.billsCents);
+  // a closed month's head tells what is to come; the open month tells it in the total that ends its rows
+  const headsOpen = await page.locator(".bill-sums").evaluateAll((els) => els.map((el) => !el.hasAttribute("data-closed")));
+  const total = cents(await page.locator("#laskut-taulukko td.bill-total-coming").innerText());
+  for (const month of shown) {
+    const at = billCalendar.months.indexOf(month);
+    expect(headsOpen[at] ? total : sums(allHeads[at]!)[0], `${month.month}: Laskut' head`).toBe(month.billsCents);
+  }
   await context.close();
 });
 
