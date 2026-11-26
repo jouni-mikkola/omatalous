@@ -153,7 +153,7 @@ export function MonthColumns({
                     else down = to;
                     const top = capY(y(Math.max(from, to)), f.innerH);
                     const bottom = capY(y(Math.min(from, to)), f.innerH);
-                    return <rect key={series[k]!.key} className={whole(m) ? `ms-s${k}` : `ms-p${k}`} fill={whole(m) ? undefined : `url(#${hatch}-${k})`} x={x.x(i)} y={top} width={x.width} height={Math.max(0, bottom - top)} />;
+                    return <rect key={series[k]!.key} className={`ms-s${k}`} style={whole(m) ? undefined : { fill: `url(#${hatch}-${k})` }} x={x.x(i)} y={top} width={x.width} height={Math.max(0, bottom - top)} />;
                   })}
                   {capped.has(i) && <CapBreak x={x.x(i)} width={x.width} end={capEnd(m.totalCents!)} dir={capDir(m.totalCents!)} />}
                   <CategoryTick x={x.centre(i)} base={f.innerH} long={printed.has(i)} />
