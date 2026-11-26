@@ -18,6 +18,8 @@ for (const width of [390, 1440]) {
       await page.goto(`/#/${id}`);
       await expect(page.locator("main")).toBeVisible();
       await page.waitForLoadState("networkidle");
+      // Varat ja velat can still be drawing its first card when the network is idle
+      await expect(page.locator("main .card").first()).toBeVisible();
       if (SHOTS && id === "settings/banks") {
         await page.evaluate(() => scrollTo(0, 0));
         await page.screenshot({ path: join(SHOTS, `rules-top-${width}.png`) });
