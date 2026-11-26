@@ -56,6 +56,9 @@
 /* the page's question is its first heading (an h2, named by the section): heading size and weight, in the text colour, the figure under it */
 .home-now .home-fig-label { margin-block-end: var(--sp-4); font-size: var(--fs-h2); font-weight: var(--w-strong); color: var(--text); }
 a.home-left:hover .fig-l { text-decoration: underline; }
+.home-wide, .home-breakdown { grid-column: 1 / -1; min-inline-size: 0; }
+.home-wide > .home-ledger { padding-inline-start: 0; border-inline-start: 0; }
+.home-breakdown { margin-block-start: 0; }
 
 /* the balance of the days to the payday: a block of its own under Nyt, and under the month where the page is one column (below) */
 .home-days { min-inline-size: 0; }

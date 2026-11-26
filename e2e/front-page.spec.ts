@@ -60,13 +60,20 @@ for (const width of [390, 1440] as const) {
     const question = page.getByRole("heading", { name: `Jää palkkapäivänä ${paydayDay}.${paydayMonth}.`, level: 2 });
     await expect(question).toHaveCount(1);
     await expect(page.getByRole("region", { name: `Jää palkkapäivänä ${paydayDay}.${paydayMonth}.` })).toHaveCount(1);
-    if (leftOnPayday.days === 0) expect(plain(await page.locator("[data-tile=left] .home-fig-line").innerText())).toBe("Palkkapäivä tänään");
-    // its working beside it: every row is a field of the answer to the cent with its sign, and a part that is 0 has no row
+    if (leftOnPayday.days === 0) expect(plain(await page.locator("[data-tile=left] .kind-note").innerText())).toBe("Palkkapäivä tänään");
+    // the two cards: Nyt is the accounts today, Arvio the figure on the payday, in whole euros as the server gives them
     const { sum } = home.runway;
-    const parts: Record<string, number> = { balance: sum.balanceCents, payments: -sum.paymentsCents, cards: -sum.cardDebtCents, everyday: -leftOnPayday.everydayCents, billed: -leftOnPayday.billedCents };
-    const rows = await page.locator(".home-ledger [data-row]").evaluateAll((els) => els.map((el) => [el.getAttribute("data-row"), el.querySelector("dd")?.textContent ?? ""] as const));
-    expect(rows.map(([key]) => key)).toEqual(Object.keys(parts).filter((key) => key === "balance" || parts[key] !== 0));
-    for (const [key, text] of rows) expect(cents(text), `the ledger row ${key}`).toBe(parts[key!]);
+    expect(cents(await page.locator(".kind-now .fig").innerText()), "the accounts today").toBe(whole(sum.balanceCents));
+    await expect(page.locator(".kind-estimate [data-tile=left]")).toHaveCount(1);
+    // Mistä luku koostuu: its rows are in cents and add up to the Arvio figure to the cent, from the accounts of the Nyt card
+    const breakdown = page.locator(".home-breakdown");
+    await expect(breakdown).toHaveCount(1);
+    const lasts = await breakdown.locator("tbody tr, tfoot tr").evaluateAll((trs) => trs.map((tr) => [tr.classList.contains("rt-total"), tr.lastElementChild?.textContent ?? ""] as const));
+    const body = lasts.filter(([total]) => !total).map(([, text]) => cents(text));
+    const [, totalText] = lasts.find(([total]) => total)!;
+    expect(body[0], "the first row is the accounts of the Nyt card").toBe(sum.balanceCents);
+    expect(body.reduce((n, c) => n + c, 0), "the rows add up to the total").toBe(cents(totalText));
+    expect(cents(totalText), "the total is the Arvio figure to the cent").toBe(leftOnPayday.leftCents);
     // the lowest balance of the next days under it, when it falls after the payday: core's day and sum, or core's reason. It is no link
     const { lowPoint } = home;
     const low = page.locator(".home-now .home-low");
@@ -178,7 +185,6 @@ test("at 1440 px the coming months and the accounts stand in one column beside t
   if (heads.includes("Säästöön")) expect(heads.indexOf("Tulossa"), "Tulossa before Säästöön").toBeLessThan(heads.indexOf("Säästöön"));
   expect(heads.indexOf("Tulot"), "Tulot before Tulossa").toBeLessThan(heads.indexOf("Tulossa"));
   await expect(page.locator(".home-coming a"), "the figure of Nyt is the one way to Laskut").toHaveCount(0);
-  expect(await page.locator(".home-ledger").evaluate((el) => parseFloat(getComputedStyle(el).borderInlineStartWidth)), "the rule between the answer and its working").toBeGreaterThan(0);
   await context.close();
 });
 

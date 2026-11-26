@@ -1,10 +1,16 @@
 // Decision: how much of the money in the accounts is free to spend until the payday
+import { lazy, Suspense } from "react";
 import { answerMoney, dayMonth, rowMoney } from "../../format.ts";
 import { hashOf } from "../../routes.ts";
 import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
+import { rangeText } from "../../format-range.ts";
+import { KindCard } from "../KindCard.tsx";
 import { LowPoint } from "./LowPoint.tsx";
+
+// the table of the breakdown is the heavy part of the page and folded, so it loads on its own
+const Breakdown = lazy(async () => ({ default: (await import("./Breakdown.tsx")).Breakdown }));
 
 type Data = DashboardData & { nyt: NonNullable<DashboardData["nyt"]> };
 
@@ -78,18 +84,49 @@ export function Now({ data }: { data: Data }) {
   // the reason the figure's own line gives while it has no sum: an unknown lowest balance for the same reason says nothing more
   const ownReason = runway?.known || left.known ? null : left.reason;
   const lowHidden = lowPoint?.known ? payday !== null && lowPoint.date <= payday : lowPoint?.reason === ownReason;
+  const lowLine = <LowPoint lowPoint={lowHidden ? null : lowPoint} />;
+  const ledger = runway?.known && sum ? (
+    <div className="home-wide">
+      <Ledger runway={runway} sum={sum} />
+    </div>
+  ) : null;
   return (
     <section className="card home-now" aria-labelledby="home-now-h">
-      <div className="home-answer">
-        <h2 id="home-now-h" className="home-fig-label">{label}</h2>
-        <a className={`home-left${leftCents !== null && leftCents < 0 ? " home-short" : ""}`} data-tile="left" href={billsHref} aria-describedby="home-now-h">
-          {/* the space keeps the words apart in the text a screen reader reads; the grid draws none */}
-          <Figure text={leftCents === null ? "–" : answerMoney(leftCents)} size="l" />{" "}
-          {line && <span className="home-fig-line">{line}</span>}
-        </a>
-        <LowPoint lowPoint={lowHidden ? null : lowPoint} />
-      </div>
-      {runway?.known && sum && <Ledger runway={runway} sum={sum} />}
+      {runway?.known && sum ? (
+        <>
+          <h2 id="home-now-h" className="sr-only">{label}</h2>
+          <div className="kind-cards">
+            <KindCard kind="now" label={t("home.ledger_balance")} figure={answerMoney(sum.balanceCents)} rows={[]} />
+            <KindCard
+              kind="estimate"
+              date={dayMonth(runway.payday.date)}
+              label={t("home.fig_runway")}
+              figure={answerMoney(runway.leftCents)}
+              rows={Math.round(runway.lowCents / 100) === Math.round(runway.highCents / 100) ? [] : [{ label: t("home.range"), value: rangeText(runway.lowCents, runway.highCents) }]}
+              link={{ href: billsHref, tile: "left" }}
+              note={line ?? undefined}
+            />
+          </div>
+          <div className="home-wide">{lowLine}</div>
+          {lowPoint ? (
+            <Suspense fallback={null}>
+              <Breakdown low={lowPoint} runway={runway} otherwise={ledger} />
+            </Suspense>
+          ) : (
+            ledger
+          )}
+        </>
+      ) : (
+        <div className="home-answer home-wide">
+          <h2 id="home-now-h" className="home-fig-label">{label}</h2>
+          <a className={`home-left${leftCents !== null && leftCents < 0 ? " home-short" : ""}`} data-tile="left" href={billsHref} aria-describedby="home-now-h">
+            {/* the space keeps the words apart in the text a screen reader reads; the grid draws none */}
+            <Figure text={leftCents === null ? "–" : answerMoney(leftCents)} size="l" />{" "}
+            {line && <span className="home-fig-line">{line}</span>}
+          </a>
+          {lowLine}
+        </div>
+      )}
     </section>
   );
 }
