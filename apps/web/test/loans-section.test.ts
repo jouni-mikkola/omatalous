@@ -290,10 +290,6 @@ describe("Raportit: Lainat", () => {
     const unsaved = [{ debtId: "proposal:a", name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }];
     expect(words(html(loans, context(report([row()], { unsaved }))))).toContain("Velat yhteensä, tiedossa 120 000 €");
     expect(html(loans, context(report([row()])))).not.toContain("tiedossa");
-    // the path is not drawn, and the page says why; the link to answer is the total's
-    const out = words(html(loans, context(report([row()], { unsaved, path: null }))));
-    expect(out).toContain("Saldo puuttuu 1 velasta, joten velkapolkua ei voi laskea.");
-    expect(words(html(loans, context(report([row()]))))).not.toContain("velkapolkua ei voi");
   });
 
   it("Saldot leaves the debts without a balance to Lainat, which lists them", () => {

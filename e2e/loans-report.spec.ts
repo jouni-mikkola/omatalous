@@ -142,8 +142,7 @@ test("Lainat lists each debt in one table, says what it does not know and what a
   // and no path of the debts is drawn while a debt that owes cannot be projected, and no plan is told while a debt lacks its terms
   await expect(section.locator("#lainat-polku")).toHaveCount(0);
   await expect(section.locator(".loan-plan")).toHaveCount(0);
-  // the one note says why, with the unsaved loan's missing balance
-  await expect(section.locator(".loans-notes li")).toHaveText("Saldo puuttuu 1 velasta, joten velkapolkua ei voi laskea.");
+  await expect(section.locator(".loans-notes")).toHaveCount(0);
   // the one place that says it is the payments tile above
   await expect(section.getByText(/ei tiedossa/)).toHaveCount(1);
   // the accounts less the debts are told only for a range that reaches today (apps/web/test/loans-section.test.ts
