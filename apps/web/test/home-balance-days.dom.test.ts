@@ -94,7 +94,7 @@ describe("BalanceDays", () => {
       { date: "2026-12-09", cents: 130_000 },
       { date: "2026-12-10", cents: 140_000 },
     ];
-    const c = render(createElement(BalanceDays, { low: walk, payday: "2026-12-14", past })).container;
+    const c = render(createElement(BalanceDays, { low: walk, payday: "2026-12-12", past })).container;
     expect(c.querySelectorAll(".bs-past")).toHaveLength(1);
     expect(c.querySelector(".bs-past")?.getAttribute("d")?.split("L")).toHaveLength(past.length + 1);
     expect(c.querySelectorAll(".bs-ground")).toHaveLength(1);

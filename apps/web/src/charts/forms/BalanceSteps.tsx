@@ -120,7 +120,8 @@ export function BalanceSteps({ low, payday, past }: { low: KnownLowPoint; payday
   const dayW = f.innerW / Math.max(1, x.days - 1);
   const every = 7 * dayW < DAY_LABEL_W ? 14 : 7;
   const todayIndex = days.indexOf(today);
-  const fixed = [0, todayIndex, days.length - 1];
+  // the first day gives way to today when they are too near for two labels
+  const fixed = [...(todayIndex > 0 && todayIndex * dayW < DAY_LABEL_W ? [] : [0]), todayIndex, days.length - 1];
   const ticks = days.flatMap((_, i) => (fixed.includes(i) || (i % every === 0 && fixed.every((k) => Math.abs(k - i) * dayW >= DAY_LABEL_W)) ? [i] : []));
   const range = `${dayMonth(first)}–${dayMonth(last)}`;
   const label = t("home.days_aria", { range, date: dayMonth(low.date), sum: answerMoney(low.cents) });
@@ -133,7 +134,18 @@ export function BalanceSteps({ low, payday, past }: { low: KnownLowPoint; payday
   const nowText = `${t("kind.now").toLocaleUpperCase(language())} ${dayMonth(today)}`;
   const estimateText = t("kind.estimate").toLocaleUpperCase(language());
   // the kind's word stands beside its rule unless the payday's rule is too near for it
-  const estimateRoom = paydayIn === null || x.x(paydayIn) - todayX >= estimateText.length * LABEL_CHAR_W + 12;
+  const nowW = nowText.length * LABEL_CHAR_W;
+  const estimateW = estimateText.length * LABEL_CHAR_W;
+  // Nyt stands left of its rule while there is room for it on the plot, else right of it; Arvio at the plot's right edge
+  const nowLeft = todayX - 6 >= nowW;
+  const nowSpan = nowLeft ? [todayX - 6 - nowW, todayX - 6] : [todayX + 6, todayX + 6 + nowW];
+  const paydayAt = paydayIn === null ? null : x.x(paydayIn);
+  const paydayRight = paydayAt !== null && paydayAt < f.innerW * 0.7;
+  const paydayLen = paydayIn === null ? 0 : t("home.days_payday", { date: dayMonth(paydayIn) }).length * LABEL_CHAR_W;
+  const paydaySpan = paydayAt === null ? null : paydayRight ? [paydayAt + 6, paydayAt + 6 + paydayLen] : [paydayAt - 6 - paydayLen, paydayAt - 6];
+  const apart = (a: number[], b: number[] | null) => b === null || a[1]! + 8 <= b[0]! || b[1]! + 8 <= a[0]!;
+  const estimateSpan = [f.innerW - estimateW, f.innerW];
+  const estimateRoom = apart(estimateSpan, nowSpan) && apart(estimateSpan, paydaySpan);
   const lowText = narrow ? t("home.days_low_short", { sum: answerMoney(low.cents) }) : t("home.days_low", { date: dayMonth(low.date), sum: answerMoney(low.cents) });
   // the lowest sum stands under its ring, where the line never is, and over it when the axis is too close; centred unless an edge cuts it
   const lowLabel = (c: Corner) => {
@@ -171,11 +183,11 @@ export function BalanceSteps({ low, payday, past }: { low: KnownLowPoint; payday
             {pastPoints.length > 0 && (
               <g>
                 <line className="kit-event-rule" x1={crisp(todayX)} x2={crisp(todayX)} y1={0} y2={f.innerH} />
-                <text className="qc-end-sub bs-kind" x={todayX - 6} y={-6} textAnchor="end">
+                <text className="qc-end-sub bs-kind" x={nowLeft ? todayX - 6 : todayX + 6} y={-6} textAnchor={nowLeft ? "end" : "start"}>
                   {nowText}
                 </text>
                 {estimateRoom && (
-                  <text className="qc-end-sub bs-kind" x={todayX + 6} y={-6} textAnchor="start">
+                  <text className="qc-end-sub bs-kind" x={f.innerW} y={-6} textAnchor="end">
                     {estimateText}
                   </text>
                 )}
