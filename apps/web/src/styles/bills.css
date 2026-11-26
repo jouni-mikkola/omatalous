@@ -77,6 +77,8 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
   .rt-wrap[data-block] .rt.bill-table tr.rt-group { grid-template-columns: auto minmax(0, 1fr); align-items: center; }
   .rt-wrap[data-block] .rt.bill-table tr.rt-group > td:not([data-label]) { grid-column: 2; grid-row: 1; text-align: right; }
   .rt-wrap[data-block] .bill-sums, .rt-wrap[data-block] .bill-kinds { flex-direction: column; align-items: flex-end; }
+  /* the totals that close an open month are no tap target and are as high as their chip, so the two take 40 px of a long page */
+  .rt-wrap[data-block] .rt.bill-table > tbody > tr.bill-total:has(> th[scope="row"]) { padding-block: 0; }
 }
 /* twelve months, one of them open, make a long list: with a mouse a row and a month's head are as high as their line, so the page keeps within two screens */
 @media (pointer: fine) {
@@ -87,6 +89,25 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 }
 /* the one row for the monthly bills of a later month */
 .bill-fold { font-weight: var(--w-strong); }
+/* what has not happened is in the estimate's colour; the running month's head says it is not over */
+.bill-coming { color: var(--accent-ink); }
+.bill-running { font-weight: var(--w-regular); color: var(--text-2); }
+/* the two totals that close an open month: the word and its kind's chip, the sum in the weight of a figure */
+.bill-table tr.bill-total > * { font-weight: var(--w-strong); }
+.bill-total-name { display: inline-flex; align-items: center; gap: var(--sp-8); }
+/* a figure still to come is in the estimate's colour, the saving too; what is charged already stays plain */
+.bill-table td.bill-total-estimate { color: var(--accent-ink); }
+/* on a phone the name stands in the row header over the two columns it leaves empty, and the sum at the end of the line */
+.rt-wrap[data-block] .rt.bill-table > tbody > tr.bill-total > :is(td:nth-child(2), td:nth-child(3), td:nth-child(5)) { display: none; }
+.rt-wrap[data-block] .rt.bill-table > tbody > tr.bill-total > th[scope="row"] { grid-column: 1 / 3; grid-row: 1; }
+.rt-wrap[data-block] .rt.bill-table > tbody > tr.bill-total > td[data-rt="main"] { grid-column: 3; grid-row: 1; }
+/* a row's divider line lies over the top padding of the next row, so a row takes its 44 px and not 45: seven rows and two totals are 9 px of a long page */
+.rt-wrap[data-block] .rt.bill-table > tbody > tr:has(> th[scope="row"]):not(:last-child) { margin-block-end: -1px; }
+/* twelve month heads make the long list of a phone: the opener is 44 px high inside its head whatever the band around it, so the band keeps 4 px above and below, not 8 */
+.rt-wrap[data-block] .rt.bill-table tr.rt-group:not(:has(.bill-subfold)) { padding-block: var(--sp-4); }
+.rt-wrap[data-block] .rt.bill-table tr.rt-group:not(:has(.bill-subfold)) > th { --reach-pad: var(--sp-4); }
+/* on a phone an open month's name leaves the chip under it, so the sums beside them keep the room their lines need */
+.rt-wrap[data-block] .bill-month[aria-expanded="true"] { flex-wrap: wrap; max-inline-size: 7rem; }
 
 /* ── The head: the name of the page, the one secondary action and the figure of the year */
 .bills-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-8) var(--sp-12); margin: 0 0 var(--sp-16); }
@@ -109,4 +130,9 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 /* the strip is lower on a phone: the page is long with twelve months and a chart */
 @media (max-width: 640px) { .bill-days { block-size: calc(var(--bar-h) * 3 + var(--lh-label) + var(--sp-16)); } }
 .bills-unknown { display: block; margin-block-start: var(--sp-4); font-weight: var(--w-strong); }
+}
+
+/* the table's heading is one line with no tool beside it, so it keeps no 52 px band: twelve months and the totals of the open one make a long page. In the layer of the title block's own rule (marks.css), which a rule of `pages` cannot beat. */
+@layer utilities {
+#laskut-taulukko .card-head.tb > * { min-height: 0; padding-block: var(--sp-4); }
 }

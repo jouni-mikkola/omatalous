@@ -494,7 +494,7 @@ test("an expected bill is added at the head of Tulossa, shows in its one table, 
   await expect(coming.getByText("Lasku E2E-ajoneuvovero lisätty.")).toBeVisible();
   // one month starts open: the bill's month is opened from its head when it is another one
   const FI_MONTHS = ["Tammikuu", "Helmikuu", "Maaliskuu", "Huhtikuu", "Toukokuu", "Kesäkuu", "Heinäkuu", "Elokuu", "Syyskuu", "Lokakuu", "Marraskuu", "Joulukuu"];
-  const dueMonth = (p: Page) => p.locator("#laskut-taulukko").getByRole("button", { name: `${FI_MONTHS[Number(due.slice(5, 7)) - 1]} ${due.slice(0, 4)}`, exact: true });
+  const dueMonth = (p: Page) => p.locator("#laskut-taulukko").getByRole("button", { name: new RegExp(`^${FI_MONTHS[Number(due.slice(5, 7)) - 1]} ${due.slice(0, 4)}( |$|kesken|Arvio)`) });
   const showDueMonth = async (p: Page) => {
     if ((await dueMonth(p).getAttribute("aria-expanded")) === "false") await dueMonth(p).click();
     await expect(dueMonth(p)).toHaveAttribute("aria-expanded", "true");

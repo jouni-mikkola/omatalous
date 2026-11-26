@@ -52,7 +52,9 @@ function laskutHeads(cal: ReturnType<typeof answer>): string[] {
   const items = billItems({ series: [], typed: [], cancelled: new Set(), marks: marksBySubject([]), today: "2026-11-11" });
   const controls = { markOf: () => null, busy: false, set: () => {}, clear: () => {} };
   const { container, unmount } = render(createElement(BillsTable, { calendar: cal, items, controls, label: (id: string) => id, scope: "own", onRemoved: () => {} }));
-  const heads = [...container.querySelectorAll(".bill-sums")].map((e) => flat(e.textContent));
+  // the open month tells what is paid and what is to come in the totals that end its rows, so they stand with its head
+  const totals = [...container.querySelectorAll("tr.bill-total")].map((tr) => `${tr.querySelector(".bill-total-name")!.firstChild!.textContent} ${tr.querySelector("td.bill-total-sum")!.textContent}`).join(" ");
+  const heads = [...container.querySelectorAll(".bill-sums")].map((e) => flat(`${e.textContent} ${e.hasAttribute("data-closed") ? "" : totals}`));
   unmount();
   return heads;
 }
@@ -75,9 +77,9 @@ describe("Tulevat kuukaudet", () => {
     trs.forEach((tr, i) => {
       const [, income, billsCell, after] = cells(tr);
       const head = heads[i]!;
-      // the bills with their estimated part under them ("josta arvio"), as the head says them ("arviota")
-      const [bills, estimate] = billsCell!.split(" josta arvio ");
-      expect(head).toContain(estimate === undefined ? `Laskut ${bills}` : `Laskut ${bills} (arviota ${estimate})`);
+      // the bills with their estimated part under them ("josta arvio"); Laskut tells the bills as Tulossa
+      const [bills] = billsCell!.split(" josta arvio ");
+      expect(head).toContain(`Tulossa ${bills}`);
       if (income !== "–") expect(head).toContain(`Tulot ${income}`);
       if (after === "Ei tiedossa") expect(head).toContain("Laskujen jälkeen: ei tiedossa");
       else expect(head).toContain(`Laskujen jälkeen ${after}`);
@@ -123,17 +125,17 @@ describe("Tulevat kuukaudet", () => {
     expect(cells(trs[1]!)[1]).toBe("3 000,00 € arvio");
   });
 
-  it("says a running month's sum is what is unpaid when some of its bills are paid", () => {
+  it("leaves the bills already paid out of a running month's sum, as Laskut's Tulossa does", () => {
     const cal = calendar([month("2026-11", rows("2026-11"), { knownCents: 40000, billsCents: 40000, paidCents: 154204, afterCents: -40000 }), month("2026-12", rows("2026-12"), { knownCents: 80000, billsCents: 80000, afterCents: -80000 })]);
     const { container } = render(createElement(ComingMonths, { calendar: cal }));
     const trs = [...container.querySelectorAll("tbody tr")];
     expect(cells(trs[0]!)[0]).toBe("Marraskuu 2026");
-    expect(cells(trs[0]!)[2]).toBe("400,00 € maksamatta");
+    expect(cells(trs[0]!)[2]).toBe("400,00 €");
     expect(cells(trs[1]!)[2]).toBe("800,00 €");
-    // the head of the same month in Laskut tells the same: what is paid and what is unpaid
+    // the head of the same month in Laskut tells the same: what is paid and what is to come
     const head = laskutHeads(cal)[0]!;
-    expect(head).toContain("Maksetut laskut 1 542,04 €");
-    expect(head).toContain("Maksamatta 400,00 €");
+    expect(head).toContain("Maksettu 1 542,04 €");
+    expect(head).toContain("Tulossa 400,00 €");
   });
 
   it("starts at the next month when the running month has everything paid and nothing to come, so no row stands empty", () => {
@@ -146,6 +148,28 @@ describe("Tulevat kuukaudet", () => {
     ]);
     const { container } = render(createElement(ComingMonths, { calendar: cal }));
     expect([...container.querySelectorAll("tbody tr")].map((tr) => cells(tr)[0])).toEqual(["Joulukuu 2026", "Tammikuu 2027", "Helmikuu 2027"]);
+  });
+
+  it("has no Säästöön column while no shown month has a saving", () => {
+    const { container } = render(createElement(ComingMonths, { calendar: answer() }));
+    expect(cells(container.querySelector("thead tr")!)).toEqual(["Kuukausi", "Tulot", "Tulossa", "Laskujen jälkeen"]);
+  });
+
+  it("adds a Säästöön column when a shown month has a saving, so that Tulot − Tulossa − Säästöön = Laskujen jälkeen in each row", () => {
+    const cal = calendar([
+      month("2026-11", rows("2026-11"), { knownCents: 120000, estimateCents: 30000, billsCents: 150000, incomeCents: 300000, savingCents: 15000, afterCents: 135000 }),
+      month("2026-12", rows("2026-12"), { knownCents: 80000, billsCents: 80000, incomeCents: 310000, afterCents: 230000 }),
+    ]);
+    const { container } = render(createElement(ComingMonths, { calendar: cal }));
+    expect(cells(container.querySelector("thead tr")!)).toEqual(["Kuukausi", "Tulot", "Tulossa", "Säästöön", "Laskujen jälkeen"]);
+    const cents = (text: string) => Math.round(parseFloat(text.replace("−", "-").replace(/[^\d,-]/g, "").replace(",", ".")) * 100);
+    const trs = [...container.querySelectorAll("tbody tr")];
+    expect(cells(trs[0]!)).toEqual(["Marraskuu 2026", "3 000,00 €", "1 500,00 € josta arvio 300,00 €", "150,00 €", "1 350,00 €"]);
+    expect(flat(trs[1]!.children[3]!.textContent), "a month with no saving leaves its cell empty").toBe("");
+    for (const tr of trs) {
+      const [, income, bills, saving, after] = [...tr.children].map((c) => flat(c.textContent));
+      expect(cents(income!) - cents(bills!.split(" josta")[0]!) - (saving === "" ? 0 : cents(saving!)), tr.textContent).toBe(cents(after!));
+    }
   });
 
   it("keeps the row of an empty month between two that have something to come", () => {

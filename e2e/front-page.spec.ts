@@ -171,18 +171,19 @@ test("at 1440 px the coming months and the accounts stand in one column beside t
   expect(coming.x, "the coming months beside the month").toBeGreaterThanOrEqual(summary.x + summary.width - 1);
   expect(holdings.x, "the accounts in the same column").toBe(coming.x);
   expect(holdings.y, "under the coming months").toBeGreaterThanOrEqual(coming.y + coming.height - 1);
-  // the table keeps its four columns in the rail
+  // the table keeps its columns in the rail
   await expect(page.locator(".home-coming .rt-wrap[data-block]")).toHaveCount(0);
   const heads = plain(await page.locator(".home-coming thead").innerText());
-  for (const name of ["Kuukausi", "Tulot", "Laskut", "Laskujen jälkeen"]) expect(heads).toContain(name);
-  expect(heads.indexOf("Tulot"), "Tulot before Laskut").toBeLessThan(heads.indexOf("Laskut"));
+  for (const name of ["Kuukausi", "Tulot", "Tulossa", "Laskujen jälkeen"]) expect(heads).toContain(name);
+  if (heads.includes("Säästöön")) expect(heads.indexOf("Tulossa"), "Tulossa before Säästöön").toBeLessThan(heads.indexOf("Säästöön"));
+  expect(heads.indexOf("Tulot"), "Tulot before Tulossa").toBeLessThan(heads.indexOf("Tulossa"));
   await expect(page.locator(".home-coming a"), "the figure of Nyt is the one way to Laskut").toHaveCount(0);
   expect(await page.locator(".home-ledger").evaluate((el) => parseFloat(getComputedStyle(el).borderInlineStartWidth)), "the rule between the answer and its working").toBeGreaterThan(0);
   await context.close();
 });
 
 for (const width of [1040, 1440, 390] as const) {
-  test(`at ${width} px the four columns of the coming months fit their room: no sideways scroll, no blocks`, async ({ browser }) => {
+  test(`at ${width} px the columns of the coming months fit their room: no sideways scroll, no blocks`, async ({ browser }) => {
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 } });
     const page = await open(context);
     await expect(page.locator(".home-coming .rt-wrap[data-block]")).toHaveCount(0);
@@ -205,7 +206,12 @@ test("the coming months tell the figures the month heads of Laskut tell", async 
   const rows = page.locator(".home-coming tbody tr");
   await expect(rows).toHaveCount(3);
   for (const [i, month] of shown.entries()) {
-    const [, income, bills, after] = await rows.nth(i).locator("th, td").allInnerTexts();
+    // Säästöön stands between Tulossa and Laskujen jälkeen in a month list where one of the months has a saving
+    const cellTexts = await rows.nth(i).locator("th, td").allInnerTexts();
+    const [, income, bills] = cellTexts;
+    const after = cellTexts[cellTexts.length - 1];
+    if (cellTexts.length === 5 && month.savingCents > 0) expect(sums(cellTexts[3]!)[0], `${month.month}: the saving`).toBe(month.savingCents);
+    if (cellTexts.length === 5 && month.incomeCents > 0 && month.afterCents !== null) expect(sums(income!)[0]! - sums(bills!)[0]! - month.savingCents, `${month.month}: the row reconciles`).toBe(month.afterCents);
     expect(sums(bills!)[0], `${month.month}: the bills`).toBe(month.billsCents);
     if (month.estimateCents > 0) expect(sums(bills!)[1], `${month.month}: their estimated part`).toBe(month.estimateCents);
     if (month.incomeCents > 0) expect(sums(income!)[0], `${month.month}: the pays`).toBe(month.incomeCents);
@@ -217,7 +223,14 @@ test("the coming months tell the figures the month heads of Laskut tell", async 
   await page.goto("/#/bills");
   await expect(page.locator(".bill-sums").first()).toBeVisible({ timeout: 15_000 });
   const allHeads = await page.locator(".bill-sums").allInnerTexts();
-  for (const month of shown) expect(sums(allHeads[billCalendar.months.indexOf(month)]!)[0], `${month.month}: Laskut' head`).toBe(month.billsCents);
+  // a closed month's head tells what is to come; the open month tells it in the total that ends its rows
+  const headsOpen = await page.locator(".bill-sums").evaluateAll((els) => els.map((el) => !el.hasAttribute("data-closed")));
+  const total = cents(await page.locator("#laskut-taulukko td.bill-total-coming").innerText());
+  for (const month of shown) {
+    const at = billCalendar.months.indexOf(month);
+    // a closed head names each figure, so Tulossa is read by its name: a paid sum may stand before it
+    expect(headsOpen[at] ? total : sums(plain(allHeads[at]!).match(/Tulossa [^A-Za-zäö]*/)?.[0] ?? "")[0], `${month.month}: Laskut' head`).toBe(month.billsCents);
+  }
   await context.close();
 });
 

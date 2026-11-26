@@ -3,10 +3,12 @@
  *
  * Laskut' one table: the bill calendar of core, a group for each of the twelve months, in the table kit with no search,
  * chips or sorting. A row is a bill, a loan payment, a pay or a regular saving with its day, its amount and whether the
- * day and the amount are known (Tiedossa), an estimate (Arvio) or paid (Maksettu). A bill a card pays says so in the
- * status and is in no sum. The head of a month carries core's sums (`billsCents`, `estimateCents`, `incomeCents`,
- * `afterCents`) and, while the month is open, the bills by kind (`essentialCents`, `debtCents`, `contractCents`,
- * `optionalCents`); the page adds up nothing. In a month that holds a bill whose sum is not known the sum of what is left is a
+ * day and the amount are known (Tiedossa), the amount an estimate (Summa arvioitu) or paid (Maksettu). A bill a card pays says so in the
+ * status and is in no sum. An open month's rows end in two totals, each with the chip of its kind: Maksettu (`paidCents`, Nyt,
+ * only while a charge is made) and Tulossa (`billsCents`, Arvio). The head of a month carries core's sums (`incomeCents`,
+ * `afterCents`, and while it is closed `billsCents` and `paidCents`) and, while the month is open, the bills by kind
+ * (`essentialCents`, `debtCents`, `contractCents`, `optionalCents`); the page adds up nothing. The running month's name
+ * is followed by *kesken*, every later month's by the Arvio chip. In a month that holds a bill whose sum is not known the sum of what is left is a
  * status with the count of those bills, and the other months keep their figure.
  * One month starts open: the running month while a bill of it is still to pay, otherwise the next one (`startOpenMonth`); the
  * reader opens any other. On a phone a closed month's head is one line, its name and one figure (`bill-line`). An open month
@@ -20,12 +22,14 @@
  * the list and of every sum of what is coming. Whether a service is still used is asked in Tarkistettavat.
  */
 import { type MarkKind, parseSeriesId, seriesOfMarkSubject, type UserMark, unknownBillsIn } from "@banking/core";
-import { useEffect, useId, useState } from "react";
+import { type ReactNode, useEffect, useId, useState } from "react";
 import { api } from "../../api.ts";
 import { CADENCE_LABEL, dayMonth, date, money, monthLong, seriesName } from "../../format.ts";
 import { t, tn } from "../../text.ts";
 import type { Recurring as Series, Scope } from "../../types.ts";
 import { ConfirmDialog } from "../ConfirmDialog.tsx";
+import { Estimate } from "../Estimate.tsx";
+import { KindChip } from "../KindChip.tsx";
 import { MerchantAvatar } from "../MerchantAvatar.tsx";
 import { MarkCell } from "../table/Cells.tsx";
 import { DrillRows } from "../table/DrillRows.tsx";
@@ -56,10 +60,22 @@ function frequency(s: Series): string {
 
 const capital = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slice(1);
 
-/** The status of a row: whether the day and the sum are known, an estimate, or paid; a card's bill says who pays it. */
-function status(bill: CalBill): string {
+/**
+ * The status of a row: paid, known (the day and the sum), or the sum an estimate, which wears the app's one mark of an estimate. A
+ * card's bill says who pays it. What has not happened is in the estimate's colour.
+ */
+function status(bill: CalBill): ReactNode {
   if (bill.onCard) return t("bills.on_card");
-  return bill.state === "paid" ? t("bills.status_paid") : bill.state === "estimate" ? t("bills.status_estimate") : t("bills.status_known");
+  if (bill.state === "paid") return t("bills.status_paid");
+  return (
+    <span className="bill-coming">
+      {bill.state === "estimate" ? (
+        <Estimate mark="line">{t("bills.status_estimate")}</Estimate>
+      ) : (
+        t("bills.status_known")
+      )}
+    </span>
+  );
 }
 
 /** What the row is when it has no category of its own. */
@@ -78,9 +94,9 @@ const KINDS = [
 ] as const;
 
 /**
- * The sums of a month's head, all core's: bills (with the estimated part), pays and what is left after the bills and the saving.
- * "Laskut" is the bills still to pay. A month with charges already made (the running one) names what it adds up instead: the
- * paid bills (`paidCents`) and the unpaid ones, so one label never stands for two sums. The sum left is there while something is
+ * The sums of a month's head, all core's: pays and what is left after the bills and the saving, and while the month is closed
+ * the paid bills (*Maksettu*, `paidCents`), the ones still to come (*Tulossa*, `billsCents`) and the saving still to come (*Säästöön*,
+ * `savingCents`), which an open month tells in the totals that close its rows. The sum left is there while something is
  * still to come, below 0 when no pay comes; it is a status while a bill's sum is not known, and nothing in a month with nothing
  * left to come. A bill whose sum or day
  * is not known is in no month's sum, so a month's head carries the count of the ones that leave its sum after the bills unknown
@@ -91,13 +107,12 @@ const KINDS = [
 function MonthSums({ month, unknownCount, open }: { month: CalMonth; unknownCount: number; open: boolean }) {
   const paid = month.paidCents > 0;
   const afterKnown = !nothingToCome(month) && month.afterCents !== null;
-  const pay = { sum: money(month.billsCents), estimate: money(month.estimateCents) };
-  const bills = month.estimateCents > 0 ? (paid ? t("bills.sum_unpaid_estimate", pay) : t("bills.sum_bills_estimate", pay)) : paid ? t("bills.sum_unpaid", pay) : t("bills.sum_bills", pay);
   return (
     <span className="bill-sums" data-closed={open ? undefined : ""}>
-      {/* the bills still to pay come first, as in the bills column of the front page: both read `billsCents` */}
-      <span className={afterKnown ? undefined : "bill-line"}>{bills}</span>
-      {paid && <span>{t("bills.sum_paid", { sum: money(month.paidCents) })}</span>}
+      {/* the same order as the open month's totals: what is paid, what is still to pay (the bills column of the front page reads it too), the saving still to come */}
+      {!open && paid && <span>{t("bills.sum_paid", { sum: money(month.paidCents) })}</span>}
+      {!open && <span className={afterKnown ? undefined : "bill-line"}>{t("bills.sum_coming", { sum: money(month.billsCents) })}</span>}
+      {!open && month.savingCents > 0 && <span>{t("bills.sum_saving", { sum: money(month.savingCents) })}</span>}
       {open && <span className="bill-kinds">{KINDS.map(([code, field]) => month[field] > 0 && <span key={field}>{t(code, { sum: money(month[field]) })}</span>)}</span>}
       {unknownCount > 0 && <span>{tn(unknownCount, "bills.unknown_one", "bills.unknown_many")}</span>}
       {month.incomeCents > 0 && <span>{t("bills.sum_income", { sum: money(month.incomeCents) })}</span>}
@@ -180,14 +195,28 @@ export function BillsTable({
     },
   };
 
-  const rowName = (r: CalRow): string => (r.kind === "fold" ? t("bills.monthly_fold", { count: r.count }) : r.kind === "ended" ? nameOf(r.item) : r.item ? nameOf(r.item) : r.bill.payee);
+  const rowName = (r: CalRow): string =>
+    r.kind === "fold" ? t("bills.monthly_fold", { count: r.count }) : r.kind === "ended" ? nameOf(r.item) : r.kind === "total" ? t(r.total === "paid" ? "bills.total_paid" : r.total === "saving" ? "bills.total_saving" : "bills.total_coming") : r.item ? nameOf(r.item) : r.bill.payee;
   const columns: Column<CalRow>[] = [
     {
       key: "day",
       label: t("table.day"),
       kind: "date",
       rowHead: true,
-      cell: (r) => (r.kind === "row" ? dayMonth(r.bill.date) : r.kind === "ended" ? (r.item.series ? date(r.item.series.lastDate) : "–") : ""),
+      cell: (r) =>
+        r.kind === "row" ? (
+          dayMonth(r.bill.date)
+        ) : r.kind === "ended" ? (
+          r.item.series ? date(r.item.series.lastDate) : "–"
+        ) : r.kind === "total" ? (
+          // a total has no day: its name and kind stand in the row header
+          <span className="bill-total-name">
+            {rowName(r)}
+            <KindChip kind={r.figure} />
+          </span>
+        ) : (
+          ""
+        ),
     },
     {
       key: "payee",
@@ -198,6 +227,8 @@ export function BillsTable({
       cell: (r) =>
         r.kind === "fold" ? (
           <span className="bill-fold">{rowName(r)}</span>
+        ) : r.kind === "total" ? (
+          ""
         ) : (
           <MarkCell name={rowName(r)} mark={<MerchantAvatar name={rowName(r)} person={r.kind === "row" && r.bill.kind === "income"} size="m" />}>
             <span className="sub-merchant">{rowName(r)}</span>
@@ -210,7 +241,7 @@ export function BillsTable({
       kind: "text",
       headClass: "bill-category",
       className: () => "bill-category",
-      cell: (r) => (r.kind === "fold" ? "" : r.kind === "ended" ? (r.item.category ? label(r.item.category) : "–") : r.bill.category ? label(r.bill.category) : kindOf(r.bill)),
+      cell: (r) => (r.kind === "fold" || r.kind === "total" ? "" : r.kind === "ended" ? (r.item.category ? label(r.item.category) : "–") : r.bill.category ? label(r.bill.category) : kindOf(r.bill)),
     },
     {
       key: "amount",
@@ -218,8 +249,9 @@ export function BillsTable({
       kind: "money",
       main: true,
       precision: "cents",
-      cents: (r) => (r.kind === "row" ? r.bill.cents : r.kind === "fold" ? r.cents : r.item.cents),
-      cell: (r) => (r.kind === "row" && r.bill.kind === "income" ? `+${money(r.bill.cents)}` : r.kind === "row" ? money(r.bill.cents) : r.kind === "fold" ? money(r.cents) : money(r.item.cents)),
+      cents: (r) => (r.kind === "row" ? r.bill.cents : r.kind === "fold" || r.kind === "total" ? r.cents : r.item.cents),
+      className: (r) => (r.kind === "total" ? `bill-total-sum bill-total-${r.total} bill-total-${r.figure}` : ""),
+      cell: (r) => (r.kind === "row" && r.bill.kind === "income" ? `+${money(r.bill.cents)}` : r.kind === "row" ? money(r.bill.cents) : r.kind === "fold" || r.kind === "total" ? money(r.cents) : money(r.item.cents)),
     },
     {
       key: "state",
@@ -240,6 +272,7 @@ export function BillsTable({
       <button type="button" className="bill-month" aria-expanded={isOpen(g.key)} onClick={() => toggle(g.key)}>
         <span aria-hidden="true">{isOpen(g.key) ? "▾" : "▸"}</span>
         {g.month ? capital(monthLong(g.month.month)) : `${t("bills.ended")} ${g.ended}`}
+        {g.month && (g.month.month === calendar.months[0]?.month ? <span className="bill-running">{t("home.months_running")}</span> : <KindChip kind="estimate" />)}
       </button>
     );
   const rowGroups = groups.map((g) => ({
@@ -269,11 +302,11 @@ export function BillsTable({
         rowKey={(r) => r.key}
         columns={columns}
         groups={rowGroups}
-        rowClassName={(r) => (r.kind === "ended" || (r.kind === "row" && r.bill.state === "paid") ? "sub-stopped" : undefined)}
+        rowClassName={(r) => (r.kind === "ended" || (r.kind === "row" && r.bill.state === "paid") ? "sub-stopped" : r.kind === "total" ? "bill-total" : undefined)}
         rowProps={(r) => (foldedRows.has(r.key) ? { id: foldedRowId(r.key) } : {})}
         open={open}
         onOpen={setOpen}
-        drill={(r) => <Drill r={r} name={rowName(r)} controls={marking} scope={scope} onRemove={(b) => setRemoving({ id: b.id, name: b.name })} onWrong={(series) => setWrong({ series, name: rowName(r) })} />}
+        drill={(r) => (r.kind === "total" ? null : <Drill r={r} name={rowName(r)} controls={marking} scope={scope} onRemove={(b) => setRemoving({ id: b.id, name: b.name })} onWrong={(series) => setWrong({ series, name: rowName(r) })} />)}
         drillLabel={(r) => t("bills.details", { name: rowName(r) })}
       />
       </div>
@@ -307,7 +340,7 @@ function Folded({ bills, name }: { bills: CalBill[]; name: string }) {
  * bill typed in: when it repeats and its next day, and its removal. Any other row (a pay, a loan payment, a saving) shows
  * the payments of its payee.
  */
-function Drill({ r, name, controls, scope, onRemove, onWrong }: { r: CalRow; name: string; controls: MarkControls; scope: Scope; onRemove: (b: TypedBill) => void; onWrong: (s: Series) => void }) {
+function Drill({ r, name, controls, scope, onRemove, onWrong }: { r: Exclude<CalRow, { kind: "total" }>; name: string; controls: MarkControls; scope: Scope; onRemove: (b: TypedBill) => void; onWrong: (s: Series) => void }) {
   if (r.kind === "fold") return <Folded bills={r.bills} name={name} />;
   const i = r.item;
   const typed = r.kind === "row" ? r.typed : null;

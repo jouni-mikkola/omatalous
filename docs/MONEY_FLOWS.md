@@ -565,7 +565,7 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   published fixing and the margin, and with a fixing and margin that leave the rate as it is, the payment stays as it
   was. A loan with no margin or review day keeps its typed payment. A charge made this
   month is *paid* and no part of what is still to come; the month's `paidCents` adds those bills and loan payments up (a
-  card's left out), so the head of the running month tells *Maksetut laskut* and *Maksamatta* instead of a *Laskut* that
+  card's left out), so the running month's rows end in two totals, *Maksettu* and *Tulossa* (`billsCents`), instead of a *Laskut* that
   would read 0 over paid bills, and a month with nothing left to come has no *Laskujen jälkeen*; a loan a series paid this month has that charge as its row of the
   month and no payment of its plan besides. A loan with one payment at its last day has a row on that day for what is
   owed. A bill typed in under the name of a rare bill the history found counts once, as the found one. A loan a series
@@ -577,7 +577,7 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   month while one has no day; a bill far ahead leaves the near months their figure. A bill that a card or an account
   outside the balance pays holds no month.
   A series that a card or an account outside the balance pays is a row marked `onCard` and is in no sum of the month: the
-  card's bill holds it. A regular saving is a row of kind *saving*, in the month's saving and in no bill sum. The rows
+  card's bill holds it. A regular saving is a row of kind *saving*, in the month's saving (`savingCents` while it is to come, `savingPaidCents` once charged) and in no bill sum. Every row a month lists is in exactly one figure: a paid bill or loan payment in `paidCents`, one still to come in `billsCents`, a saving in `savingCents` or `savingPaidCents`, a pay in `incomeCents`, and a row a card pays in none, its status says so; so the pays less *Tulossa* and *Säästöön* are *Laskujen jälkeen*. An open month's rows end in a total each for *Maksettu*, *Tulossa* and *Säästöön* (once a saving is charged, one under *Nyt* and one under *Arvio* for the part still to come). The rows
   of the days to the payday that bills and loans and saving make, with the card bills sized by balance, add up to the
   bills of Nyt's window (*Erääntyvät maksut* and *Siirrot omille tileille*) less the own transfers, the bills of cards
   sized by their usual payment, the bills of a series of card bills and the bills that follow today's pay.

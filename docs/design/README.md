@@ -46,8 +46,9 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
   month's days and the line has its figure.
 - Tulevat kuukaudet, the third block: this month and the two after it (the running month is left out, and the block
   starts at the next, once its bills are all paid and nothing else is to come), a row each with the bills (and the estimated
-  part of them), the pays expected and what is left after the bills. Each figure is a field of the month in
-  `billCalendar` (`billsCents`, `estimateCents`, `incomeCents`, `afterCents`), the answer Laskut's month heads read, so
+  part of them), the pays expected, the saving still to come (a column only while a shown month has one) and what is
+  left after the bills. Each figure is a field of the month in
+  `billCalendar` (`billsCents`, `estimateCents`, `incomeCents`, `savingCents`, `afterCents`), the answer Laskut's month heads read, so
   both places tell the same sums. A sum that is not known is "Ei tiedossa", never 0, in the months the unknown bill
   falls in, and a line counts the bills with no sum (`unknownCount`). The block has no link: the figure of Nyt is the way to Laskut.
 - The twelve months of income and spending (`overview.months`, with the usual month as a dashed line) are a section of
@@ -67,10 +68,10 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
 - Not shown: notices (a dot on the user menu leads to Asetukset > Turvallisuus), questions (Tarkistettavat, the
   header's link), explaining sentences, goals.
 ```
- Jää palkkapäivänä 2 710 €                 Tulevat kuukaudet   Laskut     Tulot    Jälkeen
- palkkapäivä 25.11.                         Marraskuu 2026      1 500 €  3 000 €  1 400 €
-                                             Joulukuu 2026         800 €        –      −800 €
- Marraskuu 2026          1.–11.11.           Tammikuu 2027         900 €  3 100 €  Ei tiedossa
+ Jää palkkapäivänä 2 710 €                 Tulevat kuukaudet   Tulot    Tulossa  Säästöön  Laskujen jälkeen
+ palkkapäivä 25.11.                         Marraskuu 2026    3 000 €  1 500 €     150 €           1 350 €
+                                             Joulukuu 2026           –    800 €         –            −800 €
+ Marraskuu 2026          1.–11.11.           Tammikuu 2027     3 100 €    900 €         –       Ei tiedossa
  Tulot            Menot                       Käteen jäi
  3 900 €          2 018 €                     1 482 €
  ▇▇▇▇▇▇▇▇▇▇▇▇     ▇▇▇▇▇▇▇▇ ░░░░░░░░           ▇▇▇▇▇▇▇▇

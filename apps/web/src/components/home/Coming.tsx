@@ -21,24 +21,24 @@ const capital = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slic
 const note = (text: string) => <span className="home-coming-note">{text}</span>;
 
 /**
- * The bills of a month, with the estimated part under them when there is one: the figure Laskut's month head gives. A month with bills
- * already paid (the running one) says the sum is what is unpaid, as its head does, so the column never reads 0 for paid bills.
+ * The bills of a month still to come, with the estimated part under them when there is one: *Tulossa*, the figure Laskut' month head and
+ * its total give under that name. Bills already paid (the running month) are in no part of it, so the column never reads 0 for them.
  */
-const billsCell = (m: Month) => {
-  const sum = m.paidCents > 0 ? t("home.coming_unpaid", { sum: money(m.billsCents) }) : money(m.billsCents);
-  return m.estimateCents > 0 ? <>{sum} {note(t("home.coming_estimate", { estimate: money(m.estimateCents) }))}</> : sum;
-};
+const billsCell = (m: Month) => (m.estimateCents > 0 ? <>{money(m.billsCents)} {note(t("home.coming_estimate", { estimate: money(m.estimateCents) }))}</> : money(m.billsCents));
 
 /** The pays of a month, marked as an estimate when one of them is: the calendar's rows say which pays are known. */
 const incomeCell = (m: Month) => (m.incomeCents > 0 ? <>{money(m.incomeCents)} {m.rows.some((r) => r.kind === "income" && r.state === "estimate") && note(t("home.coming_income_estimate"))}</> : "–");
+
+/** The saving still to come of a month, as Laskut's Säästöön tells it: the part of the pays that is neither a bill nor left after them. A month with none leaves the cell empty, which a phone's block does not draw. */
+const savingCell = (m: Month) => (m.savingCents > 0 ? money(m.savingCents) : "");
 
 /** What is left of the pays after the bills, as Laskut's month head tells it: below 0 in a month with no pay, and a status in a month a bill with no known sum falls in, never 0. */
 const afterText = (m: Month) => (m.afterCents === null ? t("home.coming_after_unknown") : nothingToCome(m) ? "–" : money(m.afterCents));
 
 /**
- * Tulevat kuukaudet: this month and the two after it (the running month is left out once its bills are all paid and nothing else is to come), each with the bills (and the estimated part of them), the pays
+ * Tulevat kuukaudet: this month and the two after it (the running month is left out once its bills are all paid and nothing else is to come), each with the bills still to come (and the estimated part of them), the pays
  * expected and what is left after the bills. Every figure is a field of the month in `billCalendar`, the answer Laskut's
- * month heads read, so a month has the same sums in both places: `billsCents`, `estimateCents`, `incomeCents` and
+ * month heads read, so a month has the same sums in both places: `billsCents`, `estimateCents`, `savingCents`, `incomeCents` and
  * `afterCents`, which is null in a month a bill with no known sum falls in (`unknowns`), and in every month while a bill has no day. Nothing is added up here.
  * A month with nothing to come between two that have something keeps its row; with no month that has anything (or none at all) the
  * block says so in one line.
@@ -50,6 +50,8 @@ export function ComingMonths({ calendar }: { calendar: Calendar }) {
   const months = calendar.months.slice(first, first + COMING_MONTHS);
   // only the bills that leave a shown month's sum after the bills unknown, each once; one of a later month is not counted
   const unknownBills = unknownBillsIn(calendar, months.map((m) => m.month));
+  // a row reconciles: the pays less the bills and the saving are what is left after them, so a column for the saving stands when a shown month has one
+  const hasSaving = months.some((m) => m.savingCents > 0);
   return (
     <>
       <Table<Month>
@@ -59,7 +61,8 @@ export function ComingMonths({ calendar }: { calendar: Calendar }) {
         columns={[
           { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => capital(monthLong(m.month)) },
           { key: "income", label: t("home.coming_income"), kind: "money", cents: (m) => m.incomeCents, cell: incomeCell },
-          { key: "bills", label: t("nav.bills"), kind: "money", main: true, cents: (m) => m.billsCents, cell: billsCell },
+          { key: "bills", label: t("home.coming_bills"), kind: "money", main: true, cents: (m) => m.billsCents, cell: billsCell },
+          ...(hasSaving ? [{ key: "saving", label: t("home.coming_saving"), kind: "money" as const, cents: (m: Month) => m.savingCents, cell: savingCell }] : []),
           { key: "after", label: t("home.coming_after"), kind: "money", cents: (m) => m.afterCents, cell: afterText, className: () => "home-coming-after" },
         ]}
         keepColumns

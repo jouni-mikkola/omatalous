@@ -39,3 +39,33 @@ test("the figure under the Arvio chip is what the server says is still to come, 
   expect(Math.abs(now + estimate - (open.paidCents + open.billsCents)), "Nyt and Arvio against the month").toBeLessThanOrEqual(100);
   await context.close();
 });
+
+test("the two totals that end the open month are the server's paid and still-to-come sums, each under its kind's chip", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
+  const answer = await context.request.get("/api/reports?scope=own&reports=billCalendar");
+  expect(answer.ok()).toBe(true);
+  const { billCalendar } = (await answer.json()) as { billCalendar: { months: { month: string; paidCents: number; billsCents: number }[] } };
+  const page = await context.newPage();
+  await page.goto("/#/bills");
+  const table = page.locator("#laskut-taulukko");
+  await expect(table.locator(".bill-month[aria-expanded=true]")).toHaveCount(1);
+  // the month the table opened: the months stand in the calendar's order, a name each
+  const opened = await table.locator(".bill-month").filter({ hasText: /\d{4}/ }).evaluateAll((els) => els.map((el) => el.getAttribute("aria-expanded") === "true"));
+  const open = billCalendar.months[opened.indexOf(true)]!;
+
+  const coming = table.locator("tr.bill-total").filter({ has: page.locator("td.bill-total-coming") });
+  await expect(coming).toHaveCount(1);
+  await expect(coming).toContainText("Tulossa");
+  expect(cents(await coming.locator("td.bill-total-coming").innerText()), `${open.month}: Tulossa`).toBe(open.billsCents);
+
+  // Maksettu is there only when a charge is made
+  const paid = table.locator("tr.bill-total").filter({ has: page.locator("td.bill-total-paid") });
+  if (open.paidCents > 0) {
+    await expect(paid).toHaveCount(1);
+    await expect(paid).toContainText("Maksettu");
+    expect(cents(await paid.locator("td.bill-total-paid").innerText()), `${open.month}: Maksettu`).toBe(open.paidCents);
+  } else {
+    await expect(paid).toHaveCount(0);
+  }
+  await context.close();
+});
