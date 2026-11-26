@@ -169,7 +169,13 @@ const ANSWERS: Record<FigureKey, Answers> = {
     const { expected } = dash.pace;
     return {
       home: dash.home.pace?.end?.pointCents ?? null,
-      byHand: expected && dash.home.pace?.end ? dash.pace.currentTotal + expected.curve.at(-1)! - expected.toToday : null,
+      byHand:
+        expected && dash.home.pace?.end
+          ? Math.min(
+              dash.home.pace.end.highCents,
+              Math.max(dash.home.pace.end.lowCents, dash.pace.currentTotal + expected.curve.at(-1)! - expected.toToday),
+            )
+          : null,
     };
   },
   fixed: (h) => {
