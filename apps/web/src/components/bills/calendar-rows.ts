@@ -20,7 +20,10 @@ export type CalRow =
   | { key: string; kind: "row"; bill: CalBill; item: Item | null; typed: TypedBill | null; missed?: true }
   | { key: string; kind: "fold"; month: string; bills: CalBill[]; count: number; cents: number }
   | { key: string; kind: "ended"; item: Item }
-  | { key: string; kind: "total"; total: "paid" | "coming"; cents: number };
+  | { key: string; kind: "total"; total: "paid" | "coming" | "saving"; figure: TotalFigure; cents: number };
+
+/** What a total is, as the chips say: `now` is charged already, `estimate` is still to come. */
+export type TotalFigure = "now" | "estimate";
 
 export interface CalGroup {
   key: string;
@@ -78,12 +81,19 @@ const foldGroupKey = (month: string, kind: FoldKind) => `${month}:${kind}`;
 const FOLDED_ROWS = 2;
 
 /**
- * The two totals that close an open month, each of one kind: what is paid (`paidCents`, only when a charge is made, so only
- * the running month has it) and what is still to come (`billsCents`). Both are core's.
+ * The totals that close an open month, one for each figure of core's that the rows above add up to: what is paid (`paidCents`) and
+ * the saving charged (`savingPaidCents`), both only when a charge is made, so only the running month has them, then what is still to
+ * come (`billsCents`) and the saving still to come (`savingCents`), each only when the month has it. Every listed row is in one of them
+ * (or in the head's pays, or is a card's and in none), so the pays less the two to come are the sum left after the bills.
  */
 function totalRows(m: CalMonth): CalRow[] {
-  const coming: CalRow = { key: `${m.month}:total:coming`, kind: "total", total: "coming", cents: m.billsCents };
-  return m.paidCents > 0 ? [{ key: `${m.month}:total:paid`, kind: "total", total: "paid", cents: m.paidCents }, coming] : [coming];
+  const total = (total: "paid" | "coming" | "saving", figure: TotalFigure, cents: number): CalRow => ({ key: `${m.month}:total:${total}:${figure}`, kind: "total", total, figure, cents });
+  return [
+    ...(m.paidCents > 0 ? [total("paid", "now", m.paidCents)] : []),
+    ...(m.savingPaidCents > 0 ? [total("saving", "now", m.savingPaidCents)] : []),
+    total("coming", "estimate", m.billsCents),
+    ...(m.savingCents > 0 ? [total("saving", "estimate", m.savingCents)] : []),
+  ];
 }
 
 /**

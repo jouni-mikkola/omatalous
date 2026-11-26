@@ -195,7 +195,7 @@ export function BillsTable({
   };
 
   const rowName = (r: CalRow): string =>
-    r.kind === "fold" ? t("bills.monthly_fold", { count: r.count }) : r.kind === "ended" ? nameOf(r.item) : r.kind === "total" ? t(r.total === "paid" ? "bills.total_paid" : "bills.total_coming") : r.item ? nameOf(r.item) : r.bill.payee;
+    r.kind === "fold" ? t("bills.monthly_fold", { count: r.count }) : r.kind === "ended" ? nameOf(r.item) : r.kind === "total" ? t(r.total === "paid" ? "bills.total_paid" : r.total === "saving" ? "bills.total_saving" : "bills.total_coming") : r.item ? nameOf(r.item) : r.bill.payee;
   const columns: Column<CalRow>[] = [
     {
       key: "day",
@@ -217,7 +217,7 @@ export function BillsTable({
         ) : r.kind === "total" ? (
           <span className="bill-total-name">
             {rowName(r)}
-            <KindChip kind={r.total === "paid" ? "now" : "estimate"} />
+            <KindChip kind={r.figure} />
           </span>
         ) : (
           <MarkCell name={rowName(r)} mark={<MerchantAvatar name={rowName(r)} person={r.kind === "row" && r.bill.kind === "income"} size="m" />}>

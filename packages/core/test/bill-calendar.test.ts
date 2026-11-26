@@ -315,6 +315,24 @@ describe("the bill calendar", () => {
       expect(cal.billsCents).toBe(cal.months.reduce((total, m) => total + rowSum(m.rows.filter((r) => (r.kind === "bill" || r.kind === "loan") && r.state !== "paid" && !r.onCard)), 0));
     });
 
+    it("has every row a month lists in exactly one of its figures, so the figures of the head add up to the rows", () => {
+      const { cal } = run([...household(), ...saving()]);
+      // the running month has a saving already charged, the months after it one still to come
+      expect(cal.months[0]!.savingPaidCents).toBe(20_000);
+      expect(cal.months[1]!.savingCents).toBe(20_000);
+      for (const m of cal.months) {
+        const listed = (keep: (r: (typeof m.rows)[number]) => boolean) => rowSum(m.rows.filter((r) => !r.onCard && keep(r)));
+        const bill = (r: (typeof m.rows)[number]) => r.kind === "bill" || r.kind === "loan";
+        expect(m.paidCents, `${m.month}: paid bills and loans`).toBe(listed((r) => bill(r) && r.state === "paid"));
+        expect(m.billsCents, `${m.month}: bills and loans to come`).toBe(listed((r) => bill(r) && r.state !== "paid"));
+        expect(m.savingCents, `${m.month}: saving to come`).toBe(listed((r) => r.kind === "saving" && r.state !== "paid"));
+        expect(m.savingPaidCents, `${m.month}: saving charged`).toBe(listed((r) => r.kind === "saving" && r.state === "paid"));
+        expect(m.incomeCents, `${m.month}: pays`).toBe(listed((r) => r.kind === "income"));
+        expect(m.paidCents + m.billsCents + m.savingCents + m.savingPaidCents + m.incomeCents, `${m.month}: no row in two figures`).toBe(listed(() => true));
+        if (m.afterCents !== null) expect(m.incomeCents - m.billsCents - m.savingCents, `${m.month}: after the bills`).toBe(m.afterCents);
+      }
+    });
+
     it("has what is left after the bills as the pays less the bills and the regular saving, to the cent", () => {
       const { ctx, cal } = run([...household(), ...saving()]);
       for (const m of cal.months) expect(m.afterCents, m.month).toBe(m.incomeCents - m.billsCents - m.savingCents);

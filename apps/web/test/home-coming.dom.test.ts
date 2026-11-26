@@ -125,14 +125,14 @@ describe("Tulevat kuukaudet", () => {
     expect(cells(trs[1]!)[1]).toBe("3 000,00 € arvio");
   });
 
-  it("says a running month's sum is what is unpaid when some of its bills are paid", () => {
+  it("leaves the bills already paid out of a running month's sum, as Laskut's Tulossa does", () => {
     const cal = calendar([month("2026-11", rows("2026-11"), { knownCents: 40000, billsCents: 40000, paidCents: 154204, afterCents: -40000 }), month("2026-12", rows("2026-12"), { knownCents: 80000, billsCents: 80000, afterCents: -80000 })]);
     const { container } = render(createElement(ComingMonths, { calendar: cal }));
     const trs = [...container.querySelectorAll("tbody tr")];
     expect(cells(trs[0]!)[0]).toBe("Marraskuu 2026");
-    expect(cells(trs[0]!)[2]).toBe("400,00 € maksamatta");
+    expect(cells(trs[0]!)[2]).toBe("400,00 €");
     expect(cells(trs[1]!)[2]).toBe("800,00 €");
-    // the head of the same month in Laskut tells the same: what is paid and what is unpaid
+    // the head of the same month in Laskut tells the same: what is paid and what is to come
     const head = laskutHeads(cal)[0]!;
     expect(head).toContain("Maksettu 1 542,04 €");
     expect(head).toContain("Tulossa 400,00 €");

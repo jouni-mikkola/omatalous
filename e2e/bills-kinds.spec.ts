@@ -53,13 +53,13 @@ test("the two totals that end the open month are the server's paid and still-to-
   const opened = await table.locator(".bill-month").filter({ hasText: /\d{4}/ }).evaluateAll((els) => els.map((el) => el.getAttribute("aria-expanded") === "true"));
   const open = billCalendar.months[opened.indexOf(true)]!;
 
-  const coming = table.locator("tr.bill-total").filter({ has: page.locator(".kind-chip-estimate") });
+  const coming = table.locator("tr.bill-total").filter({ has: page.locator("td.bill-total-coming") });
   await expect(coming).toHaveCount(1);
   await expect(coming).toContainText("Tulossa");
   expect(cents(await coming.locator("td.bill-total-coming").innerText()), `${open.month}: Tulossa`).toBe(open.billsCents);
 
   // Maksettu is there only when a charge is made
-  const paid = table.locator("tr.bill-total").filter({ has: page.locator(".kind-chip-now") });
+  const paid = table.locator("tr.bill-total").filter({ has: page.locator("td.bill-total-paid") });
   if (open.paidCents > 0) {
     await expect(paid).toHaveCount(1);
     await expect(paid).toContainText("Maksettu");

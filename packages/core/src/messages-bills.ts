@@ -90,6 +90,7 @@ export const FI_BILLS = {
   "bills.status_missed": "Ei tullut",
   "bills.total_paid": "Maksettu",
   "bills.total_coming": "Tulossa",
+  "bills.total_saving": "Säästöön",
   "bills.sum_paid": "Maksettu {sum}",
   "bills.sum_coming": "Tulossa {sum}",
   "bills.sum_essential": "Asuminen ja välttämättömät {sum}",

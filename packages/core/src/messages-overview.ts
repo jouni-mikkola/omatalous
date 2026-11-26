@@ -94,7 +94,7 @@ export const FI_OVERVIEW = {
   "home.coming_after_unknown": "Ei tiedossa",
   "home.coming_estimate": "josta arvio {estimate}",
   "home.coming_income_estimate": "arvio",
-  "home.coming_unpaid": "{sum} maksamatta",
+  "home.coming_bills": "Tulossa",
   "home.low_known": "Saldo on alimmillaan {date}, arviolta",
   "home.ledger_balance": "Tilien saldo nyt",
   "home.ledger_payments": "Laskut ennen palkkapäivää",
