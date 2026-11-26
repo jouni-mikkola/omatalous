@@ -97,6 +97,7 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .rt-wrap[data-block] .rt.bill-table > tbody > tr.bill-total > th { display: none; }
 /* twelve month heads make the long list of a phone: the opener is 44 px high inside its head whatever the band around it, so the band keeps 4 px above and below, not 8 */
 .rt-wrap[data-block] .rt.bill-table tr.rt-group:not(:has(.bill-subfold)) { padding-block: var(--sp-4); }
+.rt-wrap[data-block] .rt.bill-table tr.rt-group:not(:has(.bill-subfold)) > th { --reach-pad: var(--sp-4); }
 /* on a phone an open month's name leaves the chip under it, so the sums beside them keep the room their lines need */
 .rt-wrap[data-block] .bill-month[aria-expanded="true"] { flex-wrap: wrap; max-inline-size: 9rem; }
 
