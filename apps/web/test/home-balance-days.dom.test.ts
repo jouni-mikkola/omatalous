@@ -51,7 +51,7 @@ describe("BalanceDays", () => {
   it("reads out the lowest day while nothing is pointed at: its balance, its range and its payments", () => {
     const c = view();
     expect(flat(c.querySelector(".readout-title")?.textContent)).toBe("13.12.");
-    expect([...c.querySelectorAll(".readout-part")].map((p) => flat(p.textContent))).toEqual(["Saldo 300 €", "tavallisesti 120–480 €", "Vuokra −600 €"]);
+    expect([...c.querySelectorAll(".readout-part")].map((p) => flat(p.textContent))).toEqual(["Saldo 300 €", "tavallisesti 120 … 480 €", "Vuokra −600 €"]);
   });
 
   it("names the biggest payment at its step and draws the payday as a rule only inside the days", () => {

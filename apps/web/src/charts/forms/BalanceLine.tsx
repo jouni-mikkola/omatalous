@@ -4,7 +4,7 @@ import { useWidth } from "../../hooks.ts";
 import { dayMonth, money } from "../../format.ts";
 import { t } from "../../text.ts";
 import { CategoryTick, ValueAxis } from "../Axes.tsx";
-import { LABEL_Y } from "../draw.ts";
+import { LABEL_CHAR_W, LABEL_Y } from "../draw.ts";
 import { decimate } from "../kit/decimate.ts";
 import { axisRoom, frame, tickTarget } from "../kit/layout.ts";
 import { LiveReadout, ReadoutLayer, useReadout } from "../kit/Readout.tsx";
@@ -59,6 +59,10 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
     starts.map((s) => s.month),
     (f.innerW / Math.max(1, days.length)) * MONTH_DAYS,
   );
+  // the axis starts mid-month unless the first day is a 1st: its own day is named, unless a month's name is too close
+  const startLabel = `${dayMonth(iso(0))}`;
+  const nextPrinted = starts.find((s, k) => s.i > 0 && ticks[k]!.printed);
+  const startNamed = starts[0]?.i !== 0 && (nextPrinted === undefined || x(nextPrinted.i) - x(0) >= (startLabel.length + 6) * LABEL_CHAR_W);
   const low = r.lowest ? dayNumber(r.lowest.day) - from : -1;
   const lowAt = low >= 0 && low < days.length && days[low] != null ? low : -1;
   const title = (i: number) => dayMonth(iso(i));
@@ -80,6 +84,11 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
                 )}
               </g>
             ))}
+            {startNamed && (
+              <text x={x(0)} y={f.innerH + LABEL_Y} textAnchor="start">
+                {startLabel}
+              </text>
+            )}
             {y.domain[0] === 0 && <path className="qc-area" d={areaPath(days.map((v) => (v === null ? null : 0)), days, x, y)} />}
             <path className="qc-line qc-now" d={linePath(days, x, y, keep)} />
             {days.map((v, i) => (v !== null && i !== last && days[i - 1] == null && days[i + 1] == null ? <circle key={i} className="qc-dot" cx={x(i)} cy={y(v)} r={3} /> : null))}

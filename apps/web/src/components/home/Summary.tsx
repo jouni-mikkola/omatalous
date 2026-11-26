@@ -2,7 +2,7 @@
 import { bridgeView, MIN_COMPARE_MONTHS, monthEnd, previousRange, type BridgeView } from "@banking/core";
 import { css } from "../../css.ts";
 import { answerMoney, completeMonths, dateRange, monthLong, percent } from "../../format.ts";
-import { t } from "../../text.ts";
+import { spentLabel, t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
 
@@ -93,7 +93,7 @@ function itemsOf(data: Data, today: string): Item[] {
     },
     {
       id: "spent",
-      label: t("home.fig_spent"),
+      label: spentLabel(overview.months.at(-1)?.fromSavingsCents),
       cents: spentCents,
       line: spentLine(data, today),
     },

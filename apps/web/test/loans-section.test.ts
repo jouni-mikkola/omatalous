@@ -225,6 +225,9 @@ describe("Raportit: Lainat", () => {
     const saldot = html(balances, context(report([row()])));
     expect(rowsOf(saldot)).toEqual(["Tilien ja korttien saldo 1 200,00 €", "Tallennetut lainat 120 000,00 €", "Tilit miinus velat -118 800,00 €"]);
     expect(saldot).not.toContain("Asunnon ja sijoitusten arvo");
+    // while a debt has no balance the sum is no plain figure: the row is left out
+    const lacking = { ...balanceData, holdings: { ...balanceData.holdings, unsavedLoans: { count: 2, rows: [] } } };
+    expect(rowsOf(html(balances, context(report([row()]), "own", lacking)))).toEqual(["Tilien ja korttien saldo 1 200,00 €", "Tallennetut lainat 120 000,00 €"]);
     // the change and its day are the page's lead sentence, not a figure beside the panel's name
     expect(saldot).not.toContain("jälkeen");
     // the figures are rows with no "tänään" of their own; the table of the months under the chart marks its row of today

@@ -33,7 +33,7 @@ describe("Menot kategorioittain: the lead", () => {
 
 describe("Varat ja velat: the lead", () => {
   const daily = (last: number) => ({ from: "2026-09-01", cents: [null, 100_000, last] });
-  const balances = (more: Record<string, unknown>) => ({ balances: { accounts: [{}], daily: daily(120_000), debt: { cents: null }, change: null, ...more } });
+  const balances = (more: Record<string, unknown>) => ({ balances: { accounts: [{}], daily: daily(120_000), debt: { cents: null }, change: null, holdings: {}, ...more } });
   const say = (more: Record<string, unknown>) => lead(BalancesLead, balances(more));
 
   it("says the balance of the newest day, how it moved and what is owed", () => {
@@ -41,6 +41,12 @@ describe("Varat ja velat: the lead", () => {
     expect(say({ debt: { cents: 30_000 } })).toBe("Tilien ja korttien saldo on 1 200 €, ja velkaa on 300 €.");
     expect(say({ change: { cents: 20_000, from: "2026-09-30" } })).toBe("30.9. jälkeen tilien ja korttien saldo on noussut 200 € ja on nyt 1 200 €.");
     expect(say({ change: { cents: -20_000, from: "2026-09-30" }, debt: { cents: 30_000 } })).toBe("30.9. jälkeen tilien ja korttien saldo on laskenut 200 € ja on nyt 1 200 €. Velkaa on 300 €.");
+  });
+
+  it("says a debt is at least its known sum while the balance of a debt is missing", () => {
+    const lacking = (count: number) => ({ debt: { cents: 30_000 }, holdings: { unsavedLoans: { count, rows: [] } } });
+    expect(say(lacking(1))).toBe("Tilien ja korttien saldo on 1 200 €. Velkaa on vähintään 300 €, yhden velan saldo puuttuu.");
+    expect(say({ ...lacking(4), change: { cents: 20_000, from: "2026-09-30" } })).toBe("30.9. jälkeen tilien ja korttien saldo on noussut 200 € ja on nyt 1 200 €. Velkaa on vähintään 300 €, 4 velan saldo puuttuu.");
   });
 
   it("leaves a move under a euro unsaid, and says nothing without an account or a known day", () => {
