@@ -249,7 +249,7 @@ interface Note {
 function notes(r: LoansReport, less: boolean, own: ReadonlySet<string>): Note[] {
   const typists = new Map(r.loans.flatMap((l): [string, string][] => (l.typedBy ? [[l.id, l.typedBy]] : [])));
   return [
-    ...(r.unsaved.length > 0 ? [{ key: "path-missing", text: t("rpt.ln_path_missing", { count: r.unsaved.length }), offers: [{ label: t("rpt.ln_fill"), href: LOAN_TERMS_HASH }] }] : []),
+    ...(r.unsaved.length > 0 ? [{ key: "path-missing", text: t("rpt.ln_path_missing", { count: r.unsaved.length }) }] : []),
     ...r.maybeTwice.map((twin) => {
       const links = offers(twin, own, typists);
       return { key: `twice ${idsOf(twin)}`, text: twice(twin, links.length > 0, removers(twin, typists)), warn: true, offers: links };
