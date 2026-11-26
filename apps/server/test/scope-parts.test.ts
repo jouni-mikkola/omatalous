@@ -396,7 +396,8 @@ describe("access and use are two matters", () => {
     expect(september.outCents).toBe(sum(jointCents(out), hers) + 2000 + 2500);
     expect(september.items.find((t: { amountCents: number }) => t.amountCents === -2500)).toMatchObject({ accountId: "aino-own", category: "p2p", isTransfer: false });
     expect((await get(aino, `/api/transactions?${SEPTEMBER}&category=p2p`)).items.map((t: { amountCents: number }) => t.amountCents)).toEqual([-2500]);
-    expect((await get(aino, "/api/merchants")).items.find((m: { merchant: string }) => m.merchant === "Korhonen Eero")).toMatchObject({ totalCents: 2500, category: "p2p" });
+    // a person is no merchant: Kauppiaat leaves the name out
+    expect((await get(aino, "/api/merchants")).items.find((m: { merchant: string }) => m.merchant === "Korhonen Eero")).toBeUndefined();
     const moved = (csv: string) => csv.split("\n").filter((line) => line.includes(";-25;")).map((line) => line.trim().endsWith(";kyllä"));
     expect(moved(await get(aino, `/api/export/transactions.csv?${SEPTEMBER}`))).toEqual([false]);
 

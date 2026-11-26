@@ -7,38 +7,37 @@ import { type Column, Table } from "../../../components/table/Table.tsx";
 import { FigureRow } from "../holdings/FigureRow.tsx";
 import { Holdings } from "../holdings/Holdings.tsx";
 import { answerMoney, date, money, monthLong, moneyIn, plural, signedMoney } from "../../../format.ts";
-import { Lead } from "../Lead.tsx";
+import { Tiles, type TileItem } from "../../../components/Tiles.tsx";
 import "../../../styles/statement.css";
 import { BALANCES_ID } from "./ids.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { listsLoans, overdraftTwice } from "./Loans.tsx";
 import { accountsLessDebt, sameDebtTwice } from "../parts.tsx";
 import { lackingDebts } from "../../../components/net-label.ts";
-import { rich, t } from "../../../text.ts";
+import { t } from "../../../text.ts";
 
 /** The saved loans of the rows. A loan linked to an account is in the accounts' total already, so with one the row says which loans its figure holds. */
 const savedLabel = (linked: boolean) => t(linked ? "rpt.bal_saved_unlinked" : "rpt.bal_saved");
 
-/** What the accounts and cards hold on the newest day, how that moved from the day the report counts from, and what is owed when it is known. */
-export function BalancesLead({ ctx }: SectionProps) {
+/** What the accounts and cards hold on the newest day, how that moved from the day the report counts from (a chip), and what is owed when it is known. */
+export function BalancesTiles({ ctx }: SectionProps) {
   const r = ctx.data.balances;
   const at = r.daily.cents.findLastIndex((v) => v !== null);
   if (at < 0 || r.accounts.length === 0) return null;
   const debt = r.debt.cents !== null && r.debt.cents > 0;
   // a move under a euro is no move
   const moved = r.change !== null && Math.abs(r.change.cents) >= 100 ? r.change : null;
-  // while a debt has no known balance the debt total is incomplete, so the lead names no debt sum
-  const key = `rpt.lead_bal${moved ? (moved.cents > 0 ? "_up" : "_down") : ""}${debt && lackingDebts(r.holdings) === 0 ? "_debt" : ""}` as const;
-  return (
-    <Lead>
-      {t(key, {
-        amount: answerMoney(r.daily.cents[at]!),
-        change: answerMoney(Math.abs(moved?.cents ?? 0)),
-        date: date(moved?.from),
-        debt: answerMoney(r.debt.cents ?? 0),
-      })}
-    </Lead>
-  );
+  const items: TileItem[] = [
+    {
+      label: t("rpt.bal_tile_now"),
+      figure: answerMoney(r.daily.cents[at]!),
+      delta: moved ? { text: signedMoney(moved.cents), good: moved.cents > 0 } : undefined,
+      note: moved ? t("rpt.bal_tile_since", { date: date(moved.from) }) : undefined,
+    },
+  ];
+  // while a debt has no known balance the debt total is incomplete, so no debt sum is named
+  if (debt && lackingDebts(r.holdings) === 0) items.push({ label: t("rpt.bal_tile_debt"), figure: answerMoney(r.debt.cents!) });
+  return <Tiles items={items} />;
 }
 
 /** The credits the household answered "Maksettu pois" for, each with the day of its last payment (the server's list, latest first): ended, no debt, and not gone from the page. */
@@ -66,12 +65,12 @@ function Balances({ ctx }: SectionProps) {
   // the month in progress has no end yet: its point is the balance of today
   const lastIsToday = last >= 0 && r.months[last] === ctx.running;
   const { maybeTwice, overdraftTwice: overdrafts } = ctx.data.loans;
-  // the balance of the newest day and its change are the page's sentence above: the answer says only what that leaves out
-  const lowest = r.lowest && rich("rpt.bal_lowest", { date: date(r.lowest.day), amount: money(r.lowest.cents, false) });
-  // the highest day of the chart's line beside today's balance on it, told only while the two differ
+  // the balance of the newest day and its change are the tiles above the page: these two say only what they leave out
+  const lowest: TileItem[] = r.lowest ? [{ label: t("rpt.bal_tile_low"), figure: answerMoney(r.lowest.cents), note: date(r.lowest.day) }] : [];
+  // the highest day of the chart's line, told only while it differs from today's balance on it
   const now = lastIsToday ? (r.daily.cents.at(-1) ?? null) : null;
-  const peak = r.peak && now !== null && r.peak.cents !== now ? rich("rpt.bal_peak", { date: date(r.peak.day), peak: money(r.peak.cents, false), now: money(now, false) }) : null;
-  const answer = peak && lowest ? <>{peak} {lowest}</> : (peak ?? lowest);
+  const peak: TileItem[] = r.peak && now !== null && r.peak.cents !== now ? [{ label: t("rpt.bal_tile_peak"), figure: answerMoney(r.peak.cents), note: date(r.peak.day) }] : [];
+  const extremes = [...lowest, ...peak];
   const monthRows = r.months.map((_, i) => i);
   const tableColumns: Column<number>[] = [
     {
@@ -130,7 +129,8 @@ function Balances({ ctx }: SectionProps) {
               )}
             </>
           )}
-          <QuestionChart id="saldot-kaavio" question={t("rpt.bal_q_trend")} answer={answer} table={tableView}>
+          {extremes.length > 0 && <Tiles items={extremes} />}
+          <QuestionChart id="saldot-kaavio" question={t("rpt.bal_q_trend")} table={tableView}>
             <BalanceLine r={r} />
           </QuestionChart>
           <hr className="qc-rule" />
@@ -141,7 +141,7 @@ function Balances({ ctx }: SectionProps) {
           {r.missing.length > 0 && (
             <>
               <hr className="qc-rule" />
-              <QuestionChart id="saldot-puuttuvat" question={t("rpt.bal_q_missing")} answer={t(r.missing.length === 1 ? "rpt.bal_missing_one" : "rpt.bal_missing_many", { count: plural(r.missing.length, t("rpt.u_account"), t("rpt.u_accounts")) })}>
+              <QuestionChart id="saldot-puuttuvat" question={t("rpt.bal_q_missing")} answer={<span className="strip-delta bad">{t("rpt.bal_missing", { count: plural(r.missing.length, t("rpt.u_account"), t("rpt.u_accounts")) })}</span>}>
                 <dl className="st-rows balance-rows">
                   {r.missing.map((m) => (
                     <FigureRow key={m.accountId} label={m.name}>

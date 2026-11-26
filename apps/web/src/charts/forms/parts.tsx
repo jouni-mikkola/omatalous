@@ -30,7 +30,7 @@ export function QuestionChart({ id, question, answer, table, children, wide }: {
           <h3 id={`${id}-q`} className="qc-q">
             {question}
           </h3>
-          {answer && <p className="qc-a">{answer}</p>}
+          {answer != null && <p className="qc-a">{answer}</p>}
         </div>
       </figcaption>
       <ChartWithTable chart={children} table={table ? <ChartQuestion.Provider value={question}>{table}</ChartQuestion.Provider> : undefined} />
