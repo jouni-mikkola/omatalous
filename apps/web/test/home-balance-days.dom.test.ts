@@ -5,14 +5,22 @@
  */
 import { cleanup, render } from "@testing-library/react";
 import { createElement } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { KnownLowPoint } from "../src/charts/forms/BalanceSteps.tsx";
 import { BalanceDays } from "../src/components/home/BalanceDays.tsx";
+
+// a range of this year has no year, so the clock stands in the year of the dates of the tests
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-12-01T12:00:00Z"));
+});
+afterAll(() => vi.useRealTimers());
 
 const flat = (s: string | null | undefined) => (s ?? "").replace(/[  ]/g, " ").replace(/\s+/g, " ").trim();
 const corner = (date: string, cents: number, lowCents = cents, highCents = cents) => ({ date, cents, lowCents, highCents });
 
-// today 10.12., the rent on 13.12. takes the balance to its lowest, the pay lands on 14.12.
+// today 10.12. with 200 € of card debt, the rent on 13.12. takes the balance to its lowest, the pay lands on 14.12.
+// The spending between the days is rows of its own, and on 14.12. a card's purchases of 30 € besides 20 €.
 const walk: KnownLowPoint = {
   known: true,
   date: "2026-12-13",
@@ -30,8 +38,15 @@ const walk: KnownLowPoint = {
     corner("2026-12-14", 225_000, 205_000, 245_000),
   ],
   steps: [
-    { date: "2026-12-13", payee: "Vuokra", cents: -60_000, estimate: false, afterCents: 30_000 },
-    { date: "2026-12-14", payee: "Palkka", cents: 200_000, estimate: true, afterCents: 225_000 },
+    { date: "2026-12-13", payee: "Vuokra", cents: -60_000, estimate: false, afterCents: 30_000, rowAfterCents: 30_000 },
+    { date: "2026-12-14", payee: "Palkka", cents: 200_000, estimate: true, afterCents: 225_000, rowAfterCents: 225_000 },
+  ],
+  startCents: 120_000,
+  cardDebtCents: 20_000,
+  spending: [
+    { date: "2026-12-13", since: "2026-12-10", until: "2026-12-12", kind: "everyday", cents: -30_000, afterCents: 90_000 },
+    { date: "2026-12-14", since: "2026-12-13", until: "2026-12-13", kind: "everyday", cents: -2_000, afterCents: 28_000 },
+    { date: "2026-12-14", since: "2026-12-13", until: "2026-12-13", kind: "cards", cents: -3_000, afterCents: 25_000 },
   ],
 };
 
@@ -60,12 +75,16 @@ describe("BalanceDays", () => {
     expect(view("2027-01-23").querySelector(".kit-event-rule")).toBeNull();
   });
 
-  it("folds the payments and pays under the picture, one row each, an estimate said", () => {
+  it("folds the payments, pays and spending under the picture, each balance the one before plus the row's sum", () => {
     const c = view();
     expect(flat(c.querySelector(".chart-fold-title")?.textContent)).toBe("Maksut taulukkona");
-    expect(flat(c.querySelector(".chart-fold-count")?.textContent)).toBe("2 riviä");
+    expect(flat(c.querySelector(".chart-fold-count")?.textContent)).toBe("6 riviä");
     expect([...c.querySelectorAll("tbody tr")].map(cells)).toEqual([
+      ["10.12.", "Korttivelka laskujen lisäksi", "−200,00 €", "1 200,00 €"],
+      ["10.12.", "Arvioitu kulutus 10.–12.12.", "−300,00 €", "900,00 €"],
       ["13.12.", "Vuokra", "−600,00 €", "300,00 €"],
+      ["13.12.", "Arvioitu kulutus 13.12.", "−20,00 €", "280,00 €"],
+      ["13.12.", "Korttiostot, arvio", "−30,00 €", "250,00 €"],
       ["14.12.", "Palkka, arvio", "2 000,00 €", "2 250,00 €"],
     ]);
   });
