@@ -666,7 +666,7 @@ by *Menojen muutos*.
 ## The days to the payday
 
 The block *Erääntyvät maksut* on Yhteenveto answers one question: does the account cover what is due before the pay
-comes. `cashAhead` in `analysis/ahead.ts` owns its figures, and the block (`components/next-days.ts`) only words them. Laskut lists `upcoming`, the next 30 days, in the groups of `upcomingGroups`: to the window's last day, after the pay, and
+comes. `cashAhead` in `analysis/ahead.ts` owns its figures. Laskut lists `upcoming`, the next 30 days, in the groups of `upcomingGroups`: to the window's last day, after the pay, and
 what a credit card is charged, each with its sum, sent by `GET /api/ahead`.
 
 - **The payday** is the nearest coming pay among the regular incomes whose usual amount is at least half the largest

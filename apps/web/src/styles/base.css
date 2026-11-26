@@ -164,12 +164,6 @@ td.better { color: var(--good); }
 .badge { display: inline-block; margin-left: 8px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--surface); color: var(--text-2); font-size: var(--fs-label); line-height: 18px; white-space: nowrap; }
 .badge.flush { margin-left: 0; }
 .badge.warn { background: var(--warn-bg); color: var(--text); }
-/* a payee with the word varaus after it (PendingPayee): the name is cut with an ellipsis first, the word keeps its line */
-.payee-pending { display: flex; align-items: center; min-width: 0; }
-.payee-pending > :first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.payee-pending > .badge { flex: none; white-space: nowrap; }
-/* in a table that sizes its columns by their text a cell may not grow with the name: the name is cut instead */
-td:has(> .payee-pending) { max-width: 0; }
 .badge.good { background: var(--good-bg); color: var(--text); }
 .badge.bad { background: var(--bad-bg); color: var(--bad); }
 
