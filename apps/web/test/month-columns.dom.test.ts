@@ -292,3 +292,75 @@ describe("Raportit: the months chart and the table under it", () => {
     expect(bodyRows()).toHaveLength(3);
   });
 });
+
+describe("Laskut: the months chart with paid and coming parts", () => {
+  const BILLS = [
+    { month: "2026-10", complete: true, paid: [200000, 30000], parts: [50000, 40000], totalCents: 320000 },
+    { month: "2026-11", complete: true, paid: [0, 0], parts: [250000, 0], totalCents: 250000 },
+  ];
+  const kinds = (more: Partial<Parameters<typeof MonthColumns>[0]> = {}) =>
+    render(createElement(MonthColumns, props({ months: BILLS, tone: "spending", usual: { cents: 260000, label: "Tavallinen 2 600 €", short: "Tavallinen 2 600 €" }, running: "2026-10", today: "2026-10-16", states: { paid: "Maksettu", coming: "Tulossa" }, ...more })));
+
+  it("draws the paid parts filled and the parts to come hatched with a dashed edge, in the colour of their series", () => {
+    const { container } = kinds();
+    const month = container.querySelectorAll("g.ms-month")[0]!;
+    const filled = [...month.querySelectorAll("rect:not(.ms-coming)")];
+    const coming = [...month.querySelectorAll("rect.ms-coming")];
+    expect(filled.map((r) => r.getAttribute("class"))).toEqual(["ms-s0", "ms-s1"]);
+    expect(coming.map((r) => r.getAttribute("class"))).toEqual(["ms-s0 ms-coming", "ms-s1 ms-coming"]);
+    expect(filled.every((r) => r.getAttribute("fill") === null)).toBe(true);
+    expect(coming.every((r) => /^url\(#.+-[01]\)$/.test(r.getAttribute("fill")!))).toBe(true);
+    // a month with nothing paid is all hatched, and no month is drawn as a month that is not whole
+    expect(container.querySelectorAll("g.ms-month")[1]!.querySelectorAll("rect:not(.ms-coming)")).toHaveLength(0);
+    expect(container.querySelectorAll("g.ms-partial")).toHaveLength(0);
+    expect(container.querySelector(".key-partial")).toBeNull();
+  });
+
+  it("stacks the paid parts under the parts to come, each as high as its sum", () => {
+    const { container } = kinds();
+    const rects = [...container.querySelectorAll("g.ms-month")[0]!.querySelectorAll("rect")];
+    const [paidRegular, paidRare, comingRegular, comingRare] = rects.map((r) => ({ y: num(r, "y"), h: num(r, "height") }));
+    // each part ends where the one under it starts
+    expect(paidRare!.y + paidRare!.h).toBeCloseTo(paidRegular!.y, 5);
+    expect(comingRegular!.y + comingRegular!.h).toBeCloseTo(paidRare!.y, 5);
+    expect(comingRare!.y + comingRare!.h).toBeCloseTo(comingRegular!.y, 5);
+    expect(paidRegular!.h / paidRare!.h).toBeCloseTo(200000 / 30000, 0);
+    expect(comingRegular!.h / comingRare!.h).toBeCloseTo(50000 / 40000, 0);
+  });
+
+  it("names every part of the resting month in the readout, with its state, and adds no total", () => {
+    const { container } = kinds({ resting: "2026-10" });
+    const readout = plain(container.querySelector(".readout-line")!.textContent);
+    expect(readout).toContain("Ansiotulot, maksettu 2 000 €");
+    expect(readout).toContain("Muut tulot, maksettu 300 €");
+    expect(readout).toContain("Ansiotulot, tulossa 500 €");
+    expect(readout).toContain("Muut tulot, tulossa 400 €");
+    expect(readout).not.toContain("Yhteensä");
+    expect(container.querySelectorAll(".readout-line .ms-key.ms-coming")).toHaveLength(2);
+  });
+
+  it("leaves out a part that is nothing", () => {
+    const { container } = kinds({ resting: "2026-11" });
+    const readout = plain(container.querySelector(".readout-line")!.textContent);
+    expect(readout).toContain("Ansiotulot, tulossa 2 500 €");
+    expect(readout).not.toContain("maksettu");
+    expect(readout).not.toContain("Muut tulot");
+  });
+
+  it("draws one rule at today inside its month, with the ground right of it, and none without a day", () => {
+    const { container } = kinds();
+    const rule = container.querySelector("line.ms-today")!;
+    const ground = container.querySelector("rect.ms-ground")!;
+    const x = num(rule, "x1");
+    expect(Math.abs(num(ground, "x") - x)).toBeLessThanOrEqual(1);
+    // the 16th of 31 days falls inside the first of two bands
+    const second = num(container.querySelectorAll("g.ms-month")[1]!.querySelector("rect"), "x");
+    expect(x).toBeGreaterThan(0);
+    expect(x).toBeLessThan(second);
+    expect(plain(container.querySelector("text.ms-today-label")!.textContent)).toBe("Nyt 16.10.");
+    cleanup();
+    const none = kinds({ today: null });
+    expect(none.container.querySelector("line.ms-today")).toBeNull();
+    expect(none.container.querySelector("rect.ms-ground")).toBeNull();
+  });
+});

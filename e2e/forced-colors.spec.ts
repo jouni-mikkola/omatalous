@@ -141,4 +141,41 @@ for (const width of [390, 1440]) {
     expect(plain, "a plain cell").not.toContain("underline");
     await context.close();
   });
+
+  // The bills chart told paid from coming by a fill and a hatch in role colours: with the colours taken the paid part stays
+  // a plain fill without a dashed edge, the part to come keeps its dashed edge and its hatch lines, and the rule at today stays drawn.
+  test(`Laskut at ${width} px in high contrast: the chart's coming parts keep a dashed edge and a hatch, the paid ones a fill`, async ({ browser }) => {
+    const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 }, forcedColors: "active" });
+    const page = await context.newPage();
+    await page.goto("/#/bills");
+    await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
+    await expect(page.locator(".month-columns rect.ms-coming").first()).toBeVisible();
+    expect(await page.evaluate(() => matchMedia("(forced-colors: active)").matches), "forced colours are on").toBe(true);
+    const style = (selector: string) =>
+      page.locator(selector).first().evaluate((el) => {
+        const s = getComputedStyle(el);
+        const probe = document.createElement("span");
+        probe.style.color = "CanvasText";
+        document.body.append(probe);
+        const ink = getComputedStyle(probe).color;
+        probe.remove();
+        return { fill: s.fill, stroke: s.stroke, strokeWidth: Number.parseFloat(s.strokeWidth), dash: s.strokeDasharray, ink };
+      });
+    const coming = await style(".month-columns rect.ms-coming");
+    expect(coming.dash, "dashed edge of a coming part").not.toBe("none");
+    expect(coming.strokeWidth, "edge of a coming part").toBeGreaterThanOrEqual(1);
+    expect(coming.stroke, "edge of a coming part is the text colour").toBe(coming.ink);
+    expect(coming.fill, "the hatch").toMatch(/^url\(/);
+    const hatch = await style(".month-columns line.ms-hatch");
+    expect(hatch.stroke, "hatch lines are the text colour").toBe(hatch.ink);
+    const rule = await style(".month-columns line.ms-today");
+    expect(rule.stroke, "the rule at today").toBe(rule.ink);
+    // the part already paid, when the month has one, is a solid fill, not an outline
+    if ((await page.locator(".month-columns rect.ms-s0:not(.ms-coming)").count()) > 0) {
+      const paid = await style(".month-columns rect.ms-s0:not(.ms-coming)");
+      expect(paid.fill, "a paid part is a fill, not the hatch").not.toMatch(/^url\(/);
+      expect(paid.dash, "a paid part has no dashed edge").toBe("none");
+    }
+    await context.close();
+  });
 }

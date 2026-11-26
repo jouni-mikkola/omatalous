@@ -132,6 +132,9 @@ describe("the bill calendar", () => {
     expect(open.billsCents).toBe(billRows.filter((r) => r.state !== "paid").reduce((total, r) => total + r.cents, 0));
     expect(open.paidCents + open.billsCents).toBe(billRows.reduce((total, r) => total + r.cents, 0));
     expect(open.paidCount).toBe(2);
+    // the chart's column: the paid part by kind and the whole month are the figures the head tells, never added up in the page
+    expect(open.paidRegularCents + open.paidLessOftenCents).toBe(open.paidCents);
+    expect(open.wholeBillsCents).toBe(open.paidCents + open.billsCents);
   });
 
   it("takes the charge of the same month last year for a varying monthly bill, so the winter costs more", () => {
@@ -453,6 +456,9 @@ describe("the bill calendar", () => {
       expect(cal.yearlyCents).toBe(4 * INSURANCE + 4 * TYPED);
       expect(lessOften + paidRare).toBe(cal.yearlyCents);
       for (const m of cal.months) expect(m.regularCents + m.lessOftenCents, m.month).toBe(m.billsCents);
+      // the paid part splits the same way, and the card's bill is regular
+      for (const m of cal.months) expect(m.paidRegularCents + m.paidLessOftenCents, m.month).toBe(m.paidCents);
+      expect(cal.months.reduce((total, m) => total + m.paidLessOftenCents, 0)).toBe(paidRare);
     });
 
     it("gives no figure for what is left in the month of a bill whose sum is not known, and the other months theirs", () => {
