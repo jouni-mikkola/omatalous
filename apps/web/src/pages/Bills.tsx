@@ -166,6 +166,7 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
                       tone="spending"
                       usual={fixedCosts.monthlyCents > 0 ? { cents: fixedCosts.monthlyCents, label: `${t("kind.usual")} ${answerMoney(fixedCosts.monthlyCents)}`, short: `${t("kind.usual")} ${answerMoney(fixedCosts.monthlyCents)}` } : null}
                       today={meta.today}
+                      keepHeight
                       states={{ paid: t("bills.total_paid"), coming: t("bills.total_coming") }}
                       running={calendar.months[0]!.month}
                       resting={shown.month}
