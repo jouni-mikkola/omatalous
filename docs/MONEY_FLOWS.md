@@ -70,8 +70,8 @@ merchant's rows, so a refund lowers Menot there too and adds nothing to Tulot. T
 first page does), so a refund lowers Menot, the rows of a loan account and the moves between own accounts are neutral, a
 short payment's fee is spent, and what lands on savings is saved. It names that sum *Säästöön siirretty* (or *Otettu
 säästöistä* when it is negative), as an amount with no sign, since the name says the direction. Erotus less that sum is Tulos
-of the same rows, and the strip tells it after that term (`leftCents` of `totalsOf`, not added up in the browser) in place of
-Erotus when the two differ.
+of the same rows, and the strip tells it after that term (`leftCents` of `totalsOf`, not added up in the browser) when it
+differs from Erotus.
 The chart's count for a day is the rows that spend (Menot) or bring in (Tulot), as the lead above the list counts them. The days of the list and its
 histogram add up the same flows by booking day, so the bars add up to the strip. A card bill whose statement is read
 stands at what its rows leave of it, and the purchases of the statement stand on their own days, as on the first page,

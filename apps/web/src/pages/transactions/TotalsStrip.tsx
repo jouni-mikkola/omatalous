@@ -174,8 +174,7 @@ export function TotalsStrip({ totals, income, today, onPick }: { totals: Totals;
               <Figure text={`${totals.inCents > 0 ? "+" : ""}${money(totals.inCents, false)}`} size="s" />
             </dd>
           </div>
-          {/* Erotus and Käteen jäi are one line: the result after savings replaces the plain difference when the two differ */}
-          {totals.netCents !== undefined && totals.netCents !== null && !(totals.leftCents !== undefined && totals.leftCents !== null && totals.leftCents !== totals.netCents) && (
+          {totals.netCents !== undefined && totals.netCents !== null && (
             <div>
               <dt>{t("tx.difference")}</dt>
               <dd>

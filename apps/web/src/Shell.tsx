@@ -313,13 +313,8 @@ export function Shell() {
           </PageLink>
           <nav className="nav" aria-label={t("shell.main_menu")}>
             {NAV.map((e) => (
-              <PageLink key={e.id} id={e.id} current={known && page === e.id} aria-label={e.short ? e.label : undefined}>
-                {e.short ? (
-                  <>
-                    <span className="nav-full" aria-hidden="true">{e.label}</span>
-                    <span className="nav-short" aria-hidden="true">{e.short}</span>
-                  </>
-                ) : e.label}
+              <PageLink key={e.id} id={e.id} current={known && page === e.id} data-short={e.short}>
+                {e.label}
               </PageLink>
             ))}
             {extensions.map((e) => (

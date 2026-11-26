@@ -3,10 +3,10 @@ import { join } from "node:path";
 import { overflow, watch } from "./helpers.ts";
 
 // The header and the phone's tab bar: the tabs (Yhteenveto, Tapahtumat, Laskut, Varat ja velat, Raportit), in the header of a
-// wide screen; the bar at the foot of a phone has the same five, with Varat for Varat ja velat. Tarkistettavat is a
+// wide screen; the bar at the foot of a phone has the same five (it draws Varat for Varat ja velat). Tarkistettavat is a
 // link of the header with its count of open items, and Asetukset is in the user menu.
-const PHONE = ["Yhteenveto", "Tapahtumat", "Laskut", "Varat", "Raportit"];
-const WIDE = ["Yhteenveto", "Tapahtumat", "Laskut", "Varat ja velat", "Raportit"];
+const PHONE = ["Yhteenveto", "Tapahtumat", "Laskut", "Varat ja velat", "Raportit"];
+const WIDE = PHONE;
 const ADDRESSES = ["#/overview", "#/transactions", "#/bills", "#/balances", "#/reports"];
 const review = (page: Page) => page.locator("header.topbar .review-link");
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
@@ -24,7 +24,7 @@ for (const width of [390, 320]) {
     const seen = watch(page);
     await page.goto("/#/overview");
     await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-    await expect(tabs(page)).toHaveText(PHONE, { useInnerText: true });
+    await expect(tabs(page)).toHaveText(PHONE);
     const boxes = await tabs(page).evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ top: Math.round(r.top), width: r.width, height: r.height, right: r.right })));
     expect(boxes).toHaveLength(5);
     expect(new Set(boxes.map((b) => b.top)).size, "one row").toBe(1);
@@ -51,7 +51,7 @@ for (const width of [390, 1440]) {
     await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
     // Tarkistettavat: its own address and title, its link the current one and no tab
     await expect(page).toHaveTitle(/^Tarkistettavat/);
-    await expect(tabs(page)).toHaveText(width < 641 ? PHONE : WIDE, { useInnerText: true });
+    await expect(tabs(page)).toHaveText(WIDE);
     await expect(page.locator('nav.nav [aria-current="page"]')).toHaveCount(0);
     await expect(review(page)).toHaveAttribute("aria-current", "page");
     // on its own page the count is the queue's; on the others it is the count the header asked for
