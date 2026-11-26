@@ -4,7 +4,7 @@
  * a joint account at the user's part and nothing of an account somebody else uses alone, the household view has every
  * row whole.
  */
-import { isKnownCategory, merchantBasis, merchantMonthly, merchantMonths, totalsOf } from "@banking/core";
+import { householdWords, isKnownCategory, merchantBasis, merchantMonthly, merchantMonths, totalsOf } from "@banking/core";
 import { Hono } from "hono";
 import type { AppEnv, Services } from "../services/context.ts";
 import { UserError } from "../platform/errors.ts";
@@ -36,6 +36,7 @@ export function merchantRoutes(s: Services) {
     const scope = parseScope(c.req.query("scope"));
     // the set and the series figures are the detection's, not a second definition: the analysis is cached per user and data version
     const { ctx, own } = await rowsInView(s, user.id, scope);
+    const household = householdWords([user.displayName, ...(await s.finance(user.id).listAccounts()).map((a) => a.holder), ...(await s.agreements.members()).map((m) => m.name)]);
     const only = habit ? new Set(ctx.recurring.filter((r) => r.kind === "habit" && r.active).map((r) => r.merchant)) : undefined;
     return c.json(
       await s.finance(user.id).merchantSummaries({
@@ -47,6 +48,7 @@ export function merchantRoutes(s: Services) {
         limit: Math.min(Math.max(queryInt(limit) ?? DEFAULT_LIMIT, 1), MAX_LIMIT),
         basis: merchantBasis(ctx),
         own,
+        household,
       }),
     );
   });

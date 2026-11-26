@@ -48,6 +48,15 @@ describe("GET /api/merchants", () => {
     expect(names(await list(admin)).sort()).toEqual(["Lidl", "Maija Nieminen"]);
   });
 
+  it("leaves out a person of the household whatever the category of the rows, unless a rule moved the name", async () => {
+    const { admin, s } = await setupApp();
+    await s.agreements.replaceMembers([{ id: "m1", name: "Kaisa Esimerkki", isNew: true }], "2026-09-01");
+    await seedCsv(s, admin, { content: file(`2026/09/03;-50,00;${CHECKING};${SAVINGS};KAISA ESIMERKKI;SÄÄSTÖ;;EUR`, `2026/09/05;-44,15;${CHECKING};;;LIDL TIKKURILA;;EUR`), accountName: "Käyttötili" });
+    expect(names(await list(admin))).toEqual(["Lidl"]);
+    expect((await admin.call("PUT", "/api/merchants/category", { merchant: "Kaisa Esimerkki", category: "shopping" })).status).toBe(200);
+    expect(names(await list(admin)).sort()).toEqual(["Kaisa Esimerkki", "Lidl"]);
+  });
+
   it("lists the user's merchants, biggest spending first", async () => {
     const { admin } = await withData();
     const items = await list(admin);

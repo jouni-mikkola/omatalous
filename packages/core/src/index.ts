@@ -42,7 +42,7 @@ export * from "./categorize-direction.ts";
 export * from "./categorize-own-rule.ts";
 export * from "./rule-key.ts";
 export * from "./industry.ts";
-export { householdWords, nameMayBePerson } from "./payee-guard.ts";
+export { householdWords, nameMayBePerson, namesHousehold } from "./payee-guard.ts";
 export { type GuessCandidate, payeeGuesser } from "./payee-guess.ts";
 export { companyForms } from "./wording.ts";
 export * from "./transfers.ts";
