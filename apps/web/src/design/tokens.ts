@@ -69,6 +69,7 @@ export const cssNames = [
   "--plate-edge",
   "--estimate-fill",
   "--estimate-edge",
+  "--ahead-fill",
   "--balance-fill",
   "--backdrop",
   "--sp-4",
@@ -213,6 +214,7 @@ export const color = {
   "plate-edge": "var(--plate-edge)",
   "estimate-fill": "var(--estimate-fill)",
   "estimate-edge": "var(--estimate-edge)",
+  "ahead-fill": "var(--ahead-fill)",
   "balance-fill": "var(--balance-fill)",
   backdrop: "var(--backdrop)",
 } as const;

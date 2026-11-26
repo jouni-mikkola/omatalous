@@ -60,6 +60,18 @@ describe("tokens.css contrast, the one look, light", () => {
     expect(below(7, TEXTS, TINTS)).toEqual([]);
   });
 
+  it("the ground right of today (--ahead-fill, the accent at 4.5 %) keeps the text at 7 to 1 on the page and on a surface", () => {
+    // the alpha colour has no #rrggbb of its own: mix the accent over the ground the way the browser does, in sRGB
+    const mixed = (ground: Name): string => {
+      const channel = (c: string, i: number) => parseInt(c.slice(1 + 2 * i, 3 + 2 * i), 16);
+      return `#${[0, 1, 2].map((i) => Math.round(channel(HEX.accent, i) * 0.045 + channel(HEX[ground], i) * 0.955).toString(16).padStart(2, "0")).join("")}`;
+    };
+    const grounds: Name[] = ["page", "surface"];
+    const texts: Name[] = ["text", "text-2", "muted", "accent-ink"];
+    const low = grounds.flatMap((g) => texts.filter((n) => ratioOf(HEX[n], mixed(g)) < 7).map((n) => `${n} on ${g} with --ahead-fill`));
+    expect(low).toEqual([]);
+  });
+
   it("the text is not pure black and the page not pure white", () => {
     expect(luminance("text")).toBeGreaterThan(0.005);
     expect(luminance("page")).toBeLessThan(0.95);

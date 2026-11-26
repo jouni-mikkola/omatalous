@@ -16,6 +16,7 @@ export const month = (key: string, rows: CalBill[], over: Partial<CalMonth> = {}
   incomeCents: 0,
   billsCents: 0,
   paidCents: 0,
+  paidCount: 0,
   essentialCents: 0,
   debtCents: 0,
   contractCents: 0,

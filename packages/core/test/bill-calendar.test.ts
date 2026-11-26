@@ -115,6 +115,8 @@ describe("the bill calendar", () => {
     expect(october).toMatchObject({ knownCents: 0, estimateCents: 0 });
     // the charges made are the month's paid sum, to the cent, and a month to come has none
     expect(october.paidCents).toBe(power("2026-10") + MUSIC + RENT);
+    expect(october.paidCount).toBe(3);
+    expect(cal.months.slice(1).every((m) => m.paidCount === 0)).toBe(true);
     expect(cal.months.slice(1).every((m) => m.paidCents === 0)).toBe(true);
     // the same charge, a month on, is a bill to come
     expect(cal.months[1]!.knownCents).toBeGreaterThan(0);

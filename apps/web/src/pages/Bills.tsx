@@ -1,8 +1,8 @@
 /**
  * Decision: what is coming in the next twelve months, and which bill, contract or subscription to drop.
  *
- * Laskut answers with a sentence on what the next month and the dearest one cost, three figures (the year's bills, what the
- * next month leaves, what to set aside a month for the bills that come less often), the twelve months in one picture
+ * Laskut answers with three cards of the kinds of a figure (Nyt: the bills paid this month, Arvio: what is still to come,
+ * Tavallinen: what a month of the twelve costs and what to set aside for the bills that come less often), the twelve months in one picture
  * (MonthColumns: the bills that come every month and the rest), the picked month by day (BillDays) and one table in the
  * order of the calendar: a group for each of the twelve months, with the bills, the pays and the regular saving of the month
  * and what is left after the bills (BillsTable). A month picked on the picture opens in the table. A bill the history cannot
@@ -19,10 +19,10 @@ import { MonthColumns } from "../charts/forms/MonthColumns.tsx";
 import { BillDays } from "../components/bills/BillDays.tsx";
 import { BillForm } from "../components/bills/BillForm.tsx";
 import { BillsTable, type MarkControls } from "../components/bills/BillsTable.tsx";
-import { nothingToCome, startOpenMonth } from "../components/bills/calendar-rows.ts";
+import { startOpenMonth } from "../components/bills/calendar-rows.ts";
 import { billItems } from "../components/bills/items.ts";
 import { ErrorCard } from "../components/ErrorCard.tsx";
-import { Figure } from "../components/Figure.tsx";
+import { KindCard } from "../components/KindCard.tsx";
 import { ChartWithTable } from "../components/table/selection.tsx";
 import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
@@ -91,11 +91,9 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
   };
   const items = billItems({ series, typed: upcoming.manual, cancelled, marks, today: meta.today });
   const listed = items.length > 0 || calendar.months.some((m) => m.rows.length > 0);
-  // the month the lead already named says its sum once
-  const dearest = calendar.dearest && calendar.dearest.month !== calendar.next?.month ? calendar.dearest : null;
-  // what the month after today's leaves, told while it is known and something is still to come
-  const following = calendar.months[1];
-  const afterKnown = following !== undefined && !nothingToCome(following) && following.afterCents !== null;
+  // the open month: what is paid of it (now), what is still to come (estimate); the twelve months' level is the usual
+  const open = calendar.months[0]!;
+  const month = monthStarting(open.month);
 
   return (
     <div className={`page-grid ${recurring.loading || reports.loading ? "loading" : ""}`}>
@@ -130,37 +128,25 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
             {t("bills.added", { name: added })}
           </p>
         )}
-        {(calendar.next || dearest || calendar.unknownCount > 0) && (
-          <p className="bills-lead">
-            {calendar.next &&
-              (calendar.next.debtCents > 0
-                ? t("bills.due_debt", { month: monthStarting(calendar.next.month), bills: answerMoney(calendar.next.billsCents), debt: answerMoney(calendar.next.debtCents) })
-                : t("bills.due", { month: monthStarting(calendar.next.month), bills: answerMoney(calendar.next.billsCents) }))}
-            {dearest && ` ${t("bills.dearest", { month: monthLong(dearest.month), bills: answerMoney(dearest.billsCents) })}`}
-            {calendar.unknownCount > 0 && <span className="bills-unknown">{tn(calendar.unknownCount, "bills.unknown_one", "bills.unknown_many")}</span>}
-          </p>
-        )}
-        <div className="key-figures bills-figures">
-          <div className="kf">
-            <span className="kf-label">{t("bills.fig_year")}</span>
-            <Figure text={answerMoney(calendar.billsCents)} size="l" />
-            <span className="kf-sub">{t("bills.fig_year_per", { perMonth: answerMoney(calendar.perMonthCents) })}</span>
-          </div>
-          {following && afterKnown && (
-            <div className="kf">
-              <span className="kf-label">{t("bills.fig_after", { month: monthStarting(following.month) })}</span>
-              <Figure text={answerMoney(following.afterCents!)} size="l" />
-              {following.incomeCents > 0 && <span className="kf-sub">{t("bills.sum_income", { sum: answerMoney(following.incomeCents) })}</span>}
-            </div>
-          )}
-          {calendar.yearlyCents > 0 && (
-            <div className="kf">
-              <span className="kf-label">{t("bills.fig_reserve")}</span>
-              <Figure text={answerMoney(calendar.reserveMonthlyCents)} size="l" />
-              <span className="kf-sub">{t("bills.fig_reserve_year", { sum: answerMoney(calendar.yearlyCents) })}</span>
-            </div>
-          )}
+        <div className="kind-cards">
+          <KindCard kind="now" label={t("bills.kind_paid", { month })} figure={answerMoney(open.paidCents)} rows={[{ label: t("bills.kind_count"), value: String(open.paidCount) }]} />
+          <KindCard
+            kind="estimate"
+            label={t("bills.kind_coming", { month })}
+            figure={answerMoney(open.billsCents)}
+            rows={calendar.next ? [{ label: monthLong(calendar.next.month), value: answerMoney(calendar.next.billsCents) }] : []}
+          />
+          <KindCard
+            kind="usual"
+            label={t("bills.kind_usual")}
+            figure={answerMoney(calendar.perMonthCents)}
+            rows={[
+              { label: t("bills.kind_year"), value: answerMoney(calendar.billsCents) },
+              ...(calendar.yearlyCents > 0 ? [{ label: t("bills.fig_reserve"), value: answerMoney(calendar.reserveMonthlyCents) }] : []),
+            ]}
+          />
         </div>
+        {calendar.unknownCount > 0 && <p className="bills-lead bills-unknown">{tn(calendar.unknownCount, "bills.unknown_one", "bills.unknown_many")}</p>}
       </section>
       {markError && <Notice tone="error">{markError}</Notice>}
       {listed ? (

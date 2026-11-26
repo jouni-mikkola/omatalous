@@ -16,6 +16,10 @@ export const FI_SHELL = {
   "nav.review": "Tarkistettavat",
   "nav.settings": "Asetukset",
   "nav.review_open": "avoinna",
+  // the three kinds of a figure: what has happened, what the app expects, what is usual (ADR 0030)
+  "kind.now": "Nyt",
+  "kind.estimate": "Arvio",
+  "kind.usual": "Tavallinen",
   // the header
   "shell.skip": "Siirry sisältöön",
   "shell.main_menu": "Päävalikko",
