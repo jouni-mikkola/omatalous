@@ -6,7 +6,8 @@ import { cleanup, render } from "@testing-library/react";
 import { createElement } from "react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { KnownLowPoint } from "../src/charts/forms/BalanceSteps.tsx";
-import { Breakdown, breakdownShown, type Runway } from "../src/components/home/Breakdown.tsx";
+import { Breakdown, type Runway } from "../src/components/home/Breakdown.tsx";
+import { breakdownShown } from "../src/components/home/breakdown-shown.ts";
 
 beforeAll(() => {
   vi.useFakeTimers({ toFake: ["Date"] });

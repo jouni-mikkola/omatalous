@@ -43,7 +43,7 @@ function partsOf(low: Low, runway: Runway): Part[] | null {
 /**
  * "Mistä luku koostuu": the walk of core's `lowPoint` to the payday as rows that add up, to the cent, from the accounts of the
  * Nyt card to the figure of the Arvio card, which is the total. Folded: the page is held to its height. Nothing when the walk is not known or its
- * rows do not make the figure (`breakdownShown` says so, and the page shows its ledger then).
+ * rows do not make the figure (`breakdownShown` in breakdown-shown.ts says so, and the page shows its ledger then).
  */
 export function Breakdown({ low, runway }: { low: NonNullable<DashboardData["home"]["lowPoint"]>; runway: Runway }) {
   const rows = low.known ? partsOf(low, runway) : null;
@@ -68,9 +68,4 @@ export function Breakdown({ low, runway }: { low: NonNullable<DashboardData["hom
       />
     </details>
   );
-}
-
-/** Whether the breakdown has rows: core's walk is known and adds up to the figure. */
-export function breakdownShown(low: DashboardData["home"]["lowPoint"], runway: Runway): boolean {
-  return !!low?.known && paydayParts(low, runway.payday.date, runway.leftCents) !== null;
 }

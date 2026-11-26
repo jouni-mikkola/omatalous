@@ -1,4 +1,5 @@
 // Decision: how much of the money in the accounts is free to spend until the payday
+import { lazy, Suspense } from "react";
 import { answerMoney, dayMonth, rowMoney } from "../../format.ts";
 import { hashOf } from "../../routes.ts";
 import { t } from "../../text.ts";
@@ -6,8 +7,11 @@ import type { DashboardData } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
 import { rangeText } from "../../charts/forms/BalanceSteps.tsx";
 import { KindCard } from "../KindCard.tsx";
-import { Breakdown, breakdownShown } from "./Breakdown.tsx";
+import { breakdownShown } from "./breakdown-shown.ts";
 import { LowPoint } from "./LowPoint.tsx";
+
+// the table of the breakdown is the heavy part of the page and folded, so it loads on its own
+const Breakdown = lazy(async () => ({ default: (await import("./Breakdown.tsx")).Breakdown }));
 
 type Data = DashboardData & { nyt: NonNullable<DashboardData["nyt"]> };
 
@@ -101,7 +105,9 @@ export function Now({ data }: { data: Data }) {
           </div>
           <div className="home-wide">{lowLine}</div>
           {lowPoint && breakdownShown(lowPoint, runway) ? (
-            <Breakdown low={lowPoint} runway={runway} />
+            <Suspense fallback={null}>
+              <Breakdown low={lowPoint} runway={runway} />
+            </Suspense>
           ) : (
             <div className="home-wide">
               <Ledger runway={runway} sum={sum} />
