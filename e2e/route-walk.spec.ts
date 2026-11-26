@@ -6,7 +6,7 @@ import { auditTables, openAll, openDrills } from "./table-audit.ts";
 import { A11Y_ROUTES, type Check, ONE_LINK_ROUTES, TABLE_ROUTES, walk } from "./walk.ts";
 
 // Decision: whether every page of the app, at the width of a phone and of a desktop, can be used by anyone: the Version 1.0
-// check (S14). Each route is opened once per width and every check reads that one load, so a red walk lists all of its
+// check (S14). Each route is opened once per walk, and every check of a walk reads that one load, so a red walk lists all of its
 // problems, `check: route: problem`, rather than the first. The order is the order of the checks below: those that read the
 // page as it loads come first, those that open details and drills last.
 //
@@ -226,15 +226,30 @@ const oneLink: Check = {
   },
 };
 
-test("every route, 390 px: the walk finds no problem", async ({ browser }) => {
+// Each walk is its own test and the file runs in parallel mode, so that the workers take the walks one by one instead of the
+// file whole (CI runs this file as the project `walks`, apart from the shards of the app project). The checks of a width are split over two walks; each walk opens its routes anew, and every
+// check still reads every route it names. The first walk of a width reads the console, as the first look at the page.
+test.describe.configure({ mode: "parallel" });
+
+test("every route, 390 px: the page as it loads", async ({ browser }) => {
   test.setTimeout(600_000);
-  expect(await walk(browser, { width: 390, console: true, checks: [axe, headings, touchSizes, focusSeen, tables(390, true), oneLink] })).toEqual([]);
+  expect(await walk(browser, { width: 390, console: true, checks: [axe, headings, touchSizes, focusSeen] })).toEqual([]);
+});
+
+test("every route, 390 px: tables and links", async ({ browser }) => {
+  test.setTimeout(600_000);
+  expect(await walk(browser, { width: 390, checks: [tables(390, true), oneLink] })).toEqual([]);
 });
 
 // 1280 px is no longer a width of its own: the image check reads the desktop width of the walk
-test("every route, 1440 px: the walk finds no problem", async ({ browser }) => {
+test("every route, 1440 px: the page as it loads", async ({ browser }) => {
   test.setTimeout(600_000);
-  expect(await walk(browser, { width: 1440, console: true, downloads: true, checks: [axe, headings, noControlInImage, focusSeen, tables(1440, false), toolbars(), oneLink] })).toEqual([]);
+  expect(await walk(browser, { width: 1440, console: true, checks: [axe, headings, noControlInImage, focusSeen] })).toEqual([]);
+});
+
+test("every route, 1440 px: tables and links", async ({ browser }) => {
+  test.setTimeout(600_000);
+  expect(await walk(browser, { width: 1440, downloads: true, checks: [tables(1440, false), toolbars(), oneLink] })).toEqual([]);
 });
 
 // a finger on a tablet's wide screen

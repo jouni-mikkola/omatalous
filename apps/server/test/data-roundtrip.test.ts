@@ -4,7 +4,6 @@ import { CATEGORY_SOURCES, PAYER_ROLES } from "@banking/core";
 import type { Db } from "../src/db/types.ts";
 import { IMPORT_BY_KEY, IMPORT_LIMITS, importStores } from "../src/services/data-import-stores.ts";
 import { exportStores, storeColumns } from "../src/db/data-export-stores.ts";
-import { perfHousehold } from "./perf-household.ts";
 import { setupApp } from "./helpers.ts";
 import { check, commit, exportOf, HEAD_KEYS, importFile, upload, type File, type Setup, type Who } from "./data-import-kit.ts";
 
@@ -550,22 +549,6 @@ describe("who may import, and what is recorded", () => {
     await kaisa.call("DELETE", `/api/data/import/${s2.body.session}`);
     expect((await check(kaisa, s2.body.session)).status).toBe(400);
   });
-});
-
-// the time of the import is in data-roundtrip.perf.test.ts
-describe("a household of PB1's size", () => {
-  it("imports into an empty instance, and a second time adds nothing", async () => {
-    const w = await perfHousehold();
-    // the administrator is aino whichever of the two ids sorts first; the empty instance has the same username
-    const file = await exportOf(w.admin);
-    expect(file.transactions.length).toBeGreaterThan(5000);
-    const empty = await setupApp();
-    expect((await empty.member("ville", "Ville")).id).toBeTruthy();
-    const first = await importFile(empty.admin, file);
-    expect(first.done.total.add).toBeGreaterThan(5000);
-    const again = await importFile(empty.admin, file);
-    expect(again.dry.total.add).toBe(0);
-  }, 180_000);
 });
 
 describe("exportedBy", () => {
