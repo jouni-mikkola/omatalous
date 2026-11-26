@@ -338,6 +338,11 @@ describe("lowPoint with a card", () => {
     if (!walked.known || !runway.known) throw new Error("no figure");
     const atPayday = walked.line.find((c) => c.date === runway.payday.date)!;
     expect([atPayday.cents, atPayday.lowCents, atPayday.highCents]).toEqual([runway.leftCents, runway.lowCents, runway.highCents]);
+    // the income is in the balance of the days after the payday
+    const without = walk([...pays(), ...rents(), ...shopping("2026-03-01", 4000, ["2026-07", "2026-08", "2026-09"])], [bal(900_000)]).walked;
+    if (!without.known) throw new Error("no figure");
+    const dayAfter = addDays(runway.payday.date, 1);
+    expect(walked.line.find((c) => c.date === dayAfter)!.cents - without.line.find((c) => c.date === dayAfter)!.cents).toBe(468);
   });
 
   it("keeps the lowest balance at or under Jää palkkapäivänä and Käytettävissä inside the payday window", () => {
