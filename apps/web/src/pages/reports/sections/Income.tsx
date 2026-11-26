@@ -9,7 +9,6 @@ import type { ReportsData } from "../../../types.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { t } from "../../../text.ts";
 import { monthName } from "../month-name.ts";
-import { partialMonths } from "../partial-months.ts";
 
 type Report = ReportsData["income"];
 type Row = Report["types"][number];
@@ -42,13 +41,11 @@ function Payers({ row }: { row: Row }) {
   return <Table<Payer> caption={t("rpt.in_payers", { label: row.label })} rows={row.payers} rowKey={(p) => p.payer} columns={columns} drill={(p) => <Payments payer={p} />} drillLabel={(p) => p.payer} toolbar={false} csv={false} />;
 }
 
-/** The average line of the chart names the months it is the mean of: the income report counts its complete months on its own rule, so the strip above may count others. */
+/** The average line of the chart names the months it is the mean of: the months the chart draws solid. */
 const averageLine = (cents: number, months: number): string => t("rpt.in_average_line", { sum: money(cents, false), months: String(months) });
 
 function Income({ ctx }: SectionProps) {
   const r = ctx.data.income;
-  // a month the spending report counts incomplete is drawn so here too: the page's charts agree on which months are whole
-  const partial = partialMonths(ctx);
   const columns: Column<Row>[] = [
     { key: "type", label: t("rpt.in_type"), kind: "text", rowHead: true, cell: (ty) => ty.label, csv: (ty) => ty.label },
     { key: "bar", label: t("rpt.fd_share"), headHidden: true, kind: "text", phone: "hide", csv: false, className: () => "in-share-bar", bar: { tone: "income", value: (ty) => ty.shareOfAll, max: 1 } },
@@ -63,7 +60,7 @@ function Income({ ctx }: SectionProps) {
         rows={r.months.length}
         chart={
           <MonthColumns
-            months={r.months.map((m, i) => ({ month: m.month, complete: m.complete && !partial.has(m.month), parts: r.kinds.map((k) => k.months[i] ?? 0), totalCents: m.totalCents, against: m.againstAverage }))}
+            months={r.months.map((m, i) => ({ month: m.month, complete: m.complete, parts: r.kinds.map((k) => k.months[i] ?? 0), totalCents: m.totalCents, against: m.againstAverage }))}
             series={r.kinds.map((k) => ({ key: k.id, label: k.label }))}
             tone="income"
             usual={r.monthlyCents === null ? null : { cents: r.monthlyCents, label: averageLine(r.monthlyCents, r.completeMonths), short: averageLine(r.monthlyCents, r.completeMonths) }}
@@ -77,7 +74,7 @@ function Income({ ctx }: SectionProps) {
             rows={r.months}
             rowKey={(m) => m.month}
             columns={[
-              { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName({ ...m, complete: m.complete && !partial.has(m.month), unknown: m.totalCents === null }, ctx.running), csv: (m) => monthName({ ...m, complete: m.complete && !partial.has(m.month), unknown: m.totalCents === null }, ctx.running) },
+              { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName({ ...m, unknown: m.totalCents === null }, ctx.running), csv: (m) => monthName({ ...m, unknown: m.totalCents === null }, ctx.running) },
               { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "cents", cents: (m) => m.totalCents },
             ]}
             search={false}
@@ -109,7 +106,7 @@ export const section: ReportSection = {
   },
   order: 20,
   page: "reports",
-  reports: ["income", "cashflowMonths"],
+  reports: ["income"],
   // a period with no money in has nothing to list
   visible: (ctx) => (ctx.data.income?.types.length ?? 0) > 0,
   open: true,

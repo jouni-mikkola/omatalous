@@ -1,4 +1,5 @@
 // Decision: how the period's money moved month by month, and which months fall away from the usual level
+import { useId } from "react";
 import { useWidth } from "../../hooks.ts";
 import { answerMoney, monthLabel, monthLong } from "../../format.ts";
 import { t } from "../../text.ts";
@@ -21,7 +22,7 @@ interface MonthColumnsSeries {
 
 interface MonthColumn {
   month: string;
-  /** The month has ended and the accounts cover it from its 1st; any other is drawn lighter with a dashed edge. */
+  /** The month has ended and the accounts cover it from its 1st; any other is drawn hatched with a dashed edge. */
   complete: boolean;
   /** One sum per series, in the order of `series`; a column stacks them from the bottom (a negative one from zero downwards). */
   parts: readonly number[];
@@ -44,7 +45,7 @@ const NARROW = 600;
 
 /**
  * One column a month (`months`), stacked by `series`, on one value axis that starts at 0. `usual` is the level the
- * months are read against, a dashed line across them. A month that is not whole is drawn lighter with a dashed edge and
+ * months are read against, a dashed line across them. A month that is not whole is drawn hatched with a dashed edge and
  * says why in its readout. Pointing at a month or stepping to it with the keys reads its sums out, and a click or
  * Enter keeps that month's row in the table under the chart (`rowKey` of that table is the month). Every figure is a
  * field of the report: only the stack's total is added up here, for the axis. A month far above the others (more than
@@ -74,6 +75,7 @@ export function MonthColumns({
 }) {
   const [ref, measured] = useWidth<HTMLDivElement>();
   const [at, setAt] = useReadout();
+  const hatch = `ms-${useId().replace(/\W/g, "")}`;
   const width = measured || UNMEASURED;
   const narrow = width < NARROW;
   // the months that have a total come first, so an index the scale calls clipped maps back to its month
@@ -128,6 +130,13 @@ export function MonthColumns({
       <svg width={f.width} height={f.height}>
         <g transform={`translate(${f.margin.left},${f.margin.top})`}>
           <g role="img" aria-label={label}>
+            <defs>
+              {series.map((s, k) => (
+                <pattern key={s.key} id={`${hatch}-${k}`} width={5} height={5} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                  <line className={`ms-hatch ms-s${k}`} x1={0} y1={0} x2={0} y2={5} />
+                </pattern>
+              ))}
+            </defs>
             <ValueAxis ticks={[...y.ticks]} y={y} width={f.innerW} height={f.innerH} label={axisLabel} bare />
             {at !== null && <rect className="pick-band" x={x.step * at} y={0} width={x.step} height={f.innerH} pointerEvents="none" />}
             {months.map((m, i) => {
@@ -144,7 +153,7 @@ export function MonthColumns({
                     else down = to;
                     const top = capY(y(Math.max(from, to)), f.innerH);
                     const bottom = capY(y(Math.min(from, to)), f.innerH);
-                    return <rect key={series[k]!.key} className={`ms-s${k}`} x={x.x(i)} y={top} width={x.width} height={Math.max(0, bottom - top)} />;
+                    return <rect key={series[k]!.key} className={`ms-s${k}`} fill={whole(m) ? undefined : `url(#${hatch}-${k})`} x={x.x(i)} y={top} width={x.width} height={Math.max(0, bottom - top)} />;
                   })}
                   {capped.has(i) && <CapBreak x={x.x(i)} width={x.width} end={capEnd(m.totalCents!)} dir={capDir(m.totalCents!)} />}
                   <CategoryTick x={x.centre(i)} base={f.innerH} long={printed.has(i)} />
