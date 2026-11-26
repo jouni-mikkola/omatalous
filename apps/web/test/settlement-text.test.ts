@@ -42,11 +42,13 @@ describe("the wording of the settlement answer", () => {
   });
 });
 
-describe("the answer under the balance chart", () => {
+describe("the lowest balance above the balance chart", () => {
   const answerOf = (balances: object) => {
     const ctx = { data: { loans: { maybeTwice: [], overdraftTwice: [], loans: [], saved: 0, unsaved: [], ended: [] }, balances }, meta: { today: "2026-10-11", accounts: [] }, running: "2026-10", scope: "own", exportHref: () => "" } as unknown as ReportContext;
     const html = renderToStaticMarkup(createElement(section.Component, { ctx })).replace(/[\s  ]+/g, " ");
-    return /<p class="qc-a">(.*?)<\/p>/.exec(html)?.[1] ?? null;
+    // the text of the tiles above the chart, tags as spaces; the chart itself no longer has an answer line
+    expect(html).not.toContain('class="qc-a"');
+    return html.split("<ul").slice(1).map((ul) => ul.split("</ul>")[0]!.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()).join(" ");
   };
   const data = {
     months: ["2026-09", "2026-10"], total: [100_000, 120_000], monthChange: [null, 20_000], missing: [], accountsLessDebt: [null, null],
@@ -55,10 +57,11 @@ describe("the answer under the balance chart", () => {
   };
   it("names the lowest balance", () => {
     expect(answerOf({ ...data, lowest: { day: "2026-10-02", cents: 5000 } })).toContain("Alin saldo");
+    expect(answerOf({ ...data, lowest: { day: "2026-10-02", cents: 5000 } })).toContain("2.10.");
   });
 
-  it("has no answer line when there is no lowest balance", () => {
-    expect(answerOf({ ...data, lowest: null })).toBe("");
+  it("has no lowest-balance tile when there is no lowest balance", () => {
+    expect(answerOf({ ...data, lowest: null })).not.toContain("Alin saldo");
   });
 });
 
