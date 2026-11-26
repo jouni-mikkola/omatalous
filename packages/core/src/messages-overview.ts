@@ -91,7 +91,6 @@ export const FI_OVERVIEW = {
   "home.coming_title": "Tulevat kuukaudet",
   "home.coming_income": "Tulot",
   "home.coming_after": "Laskujen jälkeen",
-  "home.coming_note": "Arkimenot eivät ole mukana.",
   "home.coming_after_unknown": "Ei tiedossa",
   "home.coming_estimate": "josta arvio {estimate}",
   "home.coming_income_estimate": "arvio",

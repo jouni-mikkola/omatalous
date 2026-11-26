@@ -43,10 +43,11 @@ describe("Varat ja velat: the lead", () => {
     expect(say({ change: { cents: -20_000, from: "2026-09-30" }, debt: { cents: 30_000 } })).toBe("30.9. jälkeen tilien ja korttien saldo on laskenut 200 € ja on nyt 1 200 €. Velkaa on 300 €.");
   });
 
-  it("says a debt is at least its known sum while the balance of a debt is missing", () => {
+  it("names no debt sum while the balance of a debt is missing", () => {
     const lacking = (count: number) => ({ debt: { cents: 30_000 }, holdings: { unsavedLoans: { count, rows: [] } } });
-    expect(say(lacking(1))).toBe("Tilien ja korttien saldo on 1 200 €. Velkaa on vähintään 300 €, yhden velan saldo puuttuu.");
-    expect(say({ ...lacking(4), change: { cents: 20_000, from: "2026-09-30" } })).toBe("30.9. jälkeen tilien ja korttien saldo on noussut 200 € ja on nyt 1 200 €. Velkaa on vähintään 300 €, 4 velan saldo puuttuu.");
+    expect(say(lacking(1))).toBe("Tilien ja korttien saldo on 1 200 €.");
+    expect(say({ ...lacking(4), change: { cents: 20_000, from: "2026-09-30" } })).toBe("30.9. jälkeen tilien ja korttien saldo on noussut 200 € ja on nyt 1 200 €.");
+    expect(say({ debt: { cents: 30_000 }, holdings: { unsavedFewPayments: 1 } })).toBe("Tilien ja korttien saldo on 1 200 €.");
   });
 
   it("leaves a move under a euro unsaid, and says nothing without an account or a known day", () => {

@@ -14,7 +14,7 @@ import type { ReportSection, SectionProps } from "../types.ts";
 import { listsLoans, overdraftTwice } from "./Loans.tsx";
 import { accountsLessDebt, sameDebtTwice } from "../parts.tsx";
 import { lackingDebts } from "../../../components/net-label.ts";
-import { rich, t, tn } from "../../../text.ts";
+import { rich, t } from "../../../text.ts";
 
 /** The saved loans of the rows. A loan linked to an account is in the accounts' total already, so with one the row says which loans its figure holds. */
 const savedLabel = (linked: boolean) => t(linked ? "rpt.bal_saved_unlinked" : "rpt.bal_saved");
@@ -27,16 +27,18 @@ export function BalancesLead({ ctx }: SectionProps) {
   const debt = r.debt.cents !== null && r.debt.cents > 0;
   // a move under a euro is no move
   const moved = r.change !== null && Math.abs(r.change.cents) >= 100 ? r.change : null;
-  // a debt with no known balance is no part of the sum: it is then "at least", with the count of those missing
-  const lacking = lackingDebts(r.holdings);
-  const key = `rpt.lead_bal${moved ? (moved.cents > 0 ? "_up" : "_down") : ""}${debt && lacking === 0 ? "_debt" : ""}` as const;
-  const sentence = t(key, {
-    amount: answerMoney(r.daily.cents[at]!),
-    change: answerMoney(Math.abs(moved?.cents ?? 0)),
-    date: date(moved?.from),
-    debt: answerMoney(r.debt.cents ?? 0),
-  });
-  return <Lead>{debt && lacking > 0 ? `${sentence} ${tn(lacking, "rpt.lead_debt_least_one", "rpt.lead_debt_least_many", { debt: answerMoney(r.debt.cents ?? 0) })}` : sentence}</Lead>;
+  // while a debt has no known balance the debt total is incomplete, so the lead names no debt sum
+  const key = `rpt.lead_bal${moved ? (moved.cents > 0 ? "_up" : "_down") : ""}${debt && lackingDebts(r.holdings) === 0 ? "_debt" : ""}` as const;
+  return (
+    <Lead>
+      {t(key, {
+        amount: answerMoney(r.daily.cents[at]!),
+        change: answerMoney(Math.abs(moved?.cents ?? 0)),
+        date: date(moved?.from),
+        debt: answerMoney(r.debt.cents ?? 0),
+      })}
+    </Lead>
+  );
 }
 
 /** The credits the household answered "Maksettu pois" for, each with the day of its last payment (the server's list, latest first): ended, no debt, and not gone from the page. */

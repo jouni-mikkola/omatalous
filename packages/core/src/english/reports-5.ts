@@ -168,8 +168,6 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.lead_bal_up_debt": "Since {date} the balance of accounts and cards has risen by {change} to {amount}. Debts are {debt}.",
   "rpt.lead_bal_down": "Since {date} the balance of accounts and cards has fallen by {change} to {amount}.",
   "rpt.lead_bal_down_debt": "Since {date} the balance of accounts and cards has fallen by {change} to {amount}. Debts are {debt}.",
-  "rpt.lead_debt_least_one": "Debts are at least {debt}, the balance of one debt is missing.",
-  "rpt.lead_debt_least_many": "Debts are at least {debt}, the balances of {count} debts are missing.",
   "rpt.lead_shared_pay": "For this month's shared spending, {from} pays {sum} and {to} receives it.",
   "rpt.lead_shared_none": "Nothing to settle this month.",
   "rpt.lead_shared_many": "This month's shared spending takes {count} payments, {sum} in all.",

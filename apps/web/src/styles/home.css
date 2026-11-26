@@ -117,7 +117,6 @@ a.home-left:hover .fig-l { text-decoration: underline; }
 }
 /* a month's bills with the estimate under them, and a pay that is an estimate, are two lines in one cell, the second small and muted like the second line of a row */
 .home-coming .rt td.num { white-space: normal; }
-.home-coming-foot { margin: 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
 .home-coming-note { display: block; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; color: var(--text-2); }
 .home-coming .home-coming-after { font-weight: var(--w-strong); }
 .home-coming-wait { display: block; block-size: calc(var(--row-h-roomy) * 4); }

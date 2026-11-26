@@ -88,7 +88,6 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.coming_title": "Coming months",
   "home.coming_income": "Income",
   "home.coming_after": "After bills",
-  "home.coming_note": "Everyday spending is not included.",
   "home.coming_after_unknown": "Not known",
   "home.coming_estimate": "of which estimated {estimate}",
   "home.coming_income_estimate": "estimate",
