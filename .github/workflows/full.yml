@@ -205,7 +205,16 @@ jobs:
         # the read-only token (contents: read above) lifts the 60 an hour limit of the runner's shared address on api.github.com
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: tools/ci/local-proof.sh --jobs 2 tools/ci/upgrade-baselines.txt
+        # started as root, the proof runs the drills' own install beside the rehearsal (BESIDE in local-proof.sh): its legs run as two
+        # other users, so the watchdog that counts each user's updates sees them apart. PATH and the token pass through sudo.
+        run: sudo --preserve-env=GITHUB_TOKEN env "PATH=$PATH" TMPDIR=/tmp tools/ci/local-proof.sh --jobs 2 tools/ci/upgrade-baselines.txt
+      - name: Where the time of the proof went
+        if: ${{ !cancelled() }}
+        run: |
+          for f in /tmp/local-proof.*/logs/*.log; do
+            [[ -e $f ]] || continue
+            grep -H '^phase ' "$f" | sed 's|^/tmp/local-proof\.[^/]*/logs/||' || true
+          done
       - name: Logs of the proof
         if: ${{ failure() }}
         run: |
