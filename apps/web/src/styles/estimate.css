@@ -41,10 +41,10 @@
 /* three cards share a phone's width, so the figure steps down, the chip's date wraps under it when it must and a row's name sits over its sum */
 @media (max-width: 640px) {
   .kind-cards { gap: var(--sp-8); }
-  .kind-card { gap: 0; padding: var(--sp-4) var(--sp-8) var(--sp-8); }
+  .kind-card { gap: 0; padding: var(--sp-4) var(--sp-8); }
   .kind-head { flex-wrap: wrap; gap: 0 var(--sp-4); min-block-size: 0; }
   .kind-chip { padding: 0 var(--sp-4); line-height: var(--lh-label); }
-  .kind-card .fig-l { font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); }
+  .kind-card .fig-l { font-size: var(--fs-fig-s); line-height: var(--lh-body); }
   .kind-label, .kind-rows > div { font-size: var(--fs-label); line-height: var(--lh-label); }
   .kind-rows { flex-direction: column; }
   .kind-rows > div { flex-direction: column; gap: 0; }
