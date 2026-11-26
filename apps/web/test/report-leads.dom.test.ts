@@ -13,7 +13,7 @@ import { stubApi } from "./dom-kit.ts";
 
 const flat = (s: string | null | undefined) => (s ?? "").replace(/[  ]/g, " ").replace(/\s+/g, " ").trim();
 const lead = (Lead: (props: { ctx: ReportContext }) => unknown, data: Record<string, unknown>) =>
-  flat(renderToStaticMarkup(createElement(Lead as never, { ctx: { data, meta: { today: "2026-11-11", accounts: [], sharedAccounts: [] } } as unknown as ReportContext })).replace(/<[^>]*>/g, ""));
+  flat(renderToStaticMarkup(createElement(Lead as never, { ctx: { data, meta: { today: "2026-11-11", accounts: [], sharedAccounts: [] } } as unknown as ReportContext })).replace(/<[^>]*>/g, " "));
 
 describe("Menot kategorioittain: the tiles", () => {
   const categories = (more: Record<string, unknown>) => ({ categories: { totalCents: 250_000, debtPaidCents: 0, creditDrawnCents: 0, ...more } });

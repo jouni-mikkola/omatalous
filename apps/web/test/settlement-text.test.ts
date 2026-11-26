@@ -58,7 +58,7 @@ describe("the answer under the balance chart", () => {
   });
 
   it("has no answer line when there is no lowest balance", () => {
-    expect(answerOf({ ...data, lowest: null })).toBe("");
+    expect(answerOf({ ...data, lowest: null })).toBeNull();
   });
 });
 

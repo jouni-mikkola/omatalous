@@ -174,7 +174,7 @@ describe("Tulot ja menot: the sentence the page opens with", () => {
   function gapShown(gap: Record<string, number>, more: Record<string, unknown> = {}) {
     fresh();
     const view = render(createElement(CashflowLead, { ctx: ctxOf(overview({ gap, ...more })) }));
-    return flat(view.container.textContent);
+    return flat(view.container.innerHTML.replace(/<[^>]*>/g, " "));
   }
 
   it("gives the gap of the complete months as a tile and what paid it as facts, naming only the parts above zero", () => {
