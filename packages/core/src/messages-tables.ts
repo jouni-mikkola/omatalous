@@ -47,6 +47,7 @@ export const FI_TABLES = {
   "chart.pick_hint": "{label} Enter näyttää merkin rivin taulukossa.",
   "chart.slope_keys": "{label}. Nuolinäppäimet siirtävät viivasta toiseen, Enter näyttää rivin taulukossa.",
   "chart.slope_change": "Muutos",
+  "chart.key_partial": "Vajaa tai kesken oleva kuukausi",
   "chart.what_spend": "menot",
   "chart.what_income": "tulot",
   "chart.vs_usual_less": "{what} {sum} alle tavallisen",

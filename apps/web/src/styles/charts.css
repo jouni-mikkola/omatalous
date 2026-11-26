@@ -6,6 +6,7 @@
 .readout-title { font-weight: var(--w-strong); color: var(--text); }
 .readout-part { display: inline-flex; align-items: baseline; gap: var(--sp-8); }
 .readout-part .swatch, .readout-part .ms-key, .readout-part .mb-key-income, .readout-part .mb-key-spend { align-self: center; }
+.readout-part .key-partial { align-self: center; display: inline-block; inline-size: var(--sp-12); block-size: var(--sp-12); flex: none; border: 1px dashed var(--text-2); background: repeating-linear-gradient(45deg, var(--text-2) 0 1px, transparent 1px 4px); }
 .readout-part strong { font-weight: var(--w-strong); color: var(--text); font-variant-numeric: tabular-nums lining-nums; }
 .swatch { width: 10px; height: 10px; border-radius: 1px; display: inline-block; flex: none; }
 .line-key { width: 16px; height: 2px; border-radius: 0; display: inline-block; flex: none; }

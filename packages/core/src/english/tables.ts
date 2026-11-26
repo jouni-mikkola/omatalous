@@ -45,6 +45,7 @@ export const EN_TABLES: Record<keyof typeof FI_TABLES, string> = {
   "chart.pick_hint": "{label} Enter shows the mark's row in the table.",
   "chart.slope_keys": "{label}. Arrow keys move from line to line, Enter shows the row in the table.",
   "chart.slope_change": "Change",
+  "chart.key_partial": "Partial or running month",
   "chart.what_spend": "spending",
   "chart.what_income": "income",
   "chart.vs_usual_less": "{what} {sum} under usual",

@@ -120,6 +120,7 @@ export function MonthColumns({
           parts={rows(shownMonth)}
           note={note(shownMonth)}
           compare={compare(shownMonth)}
+          partialKey={months.some((m) => !whole(m) && m.totalCents !== null)}
         />
       ) : (
         <div className="readout-line" />
