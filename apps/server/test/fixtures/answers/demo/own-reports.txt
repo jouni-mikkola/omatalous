@@ -3577,26 +3577,7 @@
    "cents": 28900,
    "unknown": 0
   },
-  "path": {
-   "days": [
-    "2026-10-09",
-    "2026-11-09"
-   ],
-   "balanceCents": [
-    285586,
-    0
-   ],
-   "interestCents": [
-    0,
-    0
-   ],
-   "tops": [
-    285586,
-    0
-   ],
-   "payoff": "2026-10-10",
-   "moves": []
-  },
+  "path": null,
   "extra": [],
   "maybeTwice": [],
   "overdraftTwice": [],

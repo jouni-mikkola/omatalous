@@ -94,6 +94,9 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
   // the open month: what is paid of it (now), what is still to come (estimate); the bills a month the series run at is the usual
   const open = calendar.months[0]!;
   const month = monthInside(open.month);
+  // nothing left to pay this month: the card shows the next month that has bills
+  const unpaid = open.billsCents === 0 && calendar.next ? calendar.next : { month: open.month, billsCents: open.billsCents };
+  const unpaidRows = unpaid.month === open.month && calendar.next ? [{ label: monthStarting(calendar.next.month), value: answerMoney(calendar.next.billsCents) }] : [];
 
   return (
     <div className={`page-grid ${recurring.loading || reports.loading ? "loading" : ""}`}>
@@ -132,10 +135,10 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
           <KindCard kind="now" date={dayMonth(meta.today)} label={t("bills.kind_paid", { month })} figure={answerMoney(open.paidCents)} rows={[{ label: t("bills.kind_count"), value: String(open.paidCount) }]} />
           <KindCard
             kind="estimate"
-            date={dayMonth(monthEnd(open.month))}
-            label={t("bills.kind_coming", { month })}
-            figure={answerMoney(open.billsCents)}
-            rows={[...(calendar.next ? [{ label: monthStarting(calendar.next.month), value: answerMoney(calendar.next.billsCents) }] : []), { label: t("bills.kind_year"), value: answerMoney(calendar.billsCents) }]}
+            date={dayMonth(monthEnd(unpaid.month))}
+            label={t("bills.kind_coming", { month: monthInside(unpaid.month) })}
+            figure={answerMoney(unpaid.billsCents)}
+            rows={[...unpaidRows, { label: t("bills.kind_year"), value: answerMoney(calendar.billsCents) }]}
           />
           <KindCard
             kind="usual"

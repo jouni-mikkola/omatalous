@@ -144,7 +144,7 @@ describe("Laskut: the table and the mark on one subscription", () => {
     const cal = calendar([month("2026-10", [bill()], { ...sums, afterCents: 413000 }), month("2026-11", [bill()], { ...sums, afterCents: 413000 }), month("2026-12", [bill()], { ...sums, afterCents: null })]);
     const out = cardOf([], [], cal);
     const heads = out.match(/<span class="bill-sums"[^>]*>.*?<\/span><\/span>/g) ?? [];
-    expect(heads.map((h) => h.match(/class="bill-line">([^<]*)</)?.[1] ?? null)).toEqual(["Laskujen jälkeen 4 130,00 €", "Laskujen jälkeen 4 130,00 €", "Tulossa 1 770,00 €"]);
+    expect(heads.map((h) => h.match(/class="bill-line">([^<]*)</)?.[1] ?? null)).toEqual(["Laskujen jälkeen 4 130,00 €", "Laskujen jälkeen 4 130,00 €", "Maksamatta 1 770,00 €"]);
     // the open month tells every figure: only the closed ones are one line
     expect(heads.map((h) => h.includes("data-closed"))).toEqual([false, true, true]);
     // each head still holds every figure, which the opened month shows
@@ -156,7 +156,7 @@ describe("Laskut: the table and the mark on one subscription", () => {
     const cal = calendar([month("2026-10", [bill()], { ...sums, afterCents: 349000 }), month("2026-11", [bill()], { ...sums, afterCents: null })], { unknownCount: 1, unknowns: [{ days: ["2026-11-05"], open: false, kind: "bill", onCard: false }] });
     const out = cardOf([], [], cal);
     // a closed month's head tells what is to come; the open month's rows end in it
-    expect(out).toContain("Tulossa 2 410,00 €");
+    expect(out).toContain("Maksamatta 2 410,00 €");
     expect(out).toMatch(/bill-total-coming[^>]*>2 410,00 €/);
     expect(out).toContain("Tulot 5 900,00 €");
     expect(out).toContain("Laskujen jälkeen 3 490,00 €");
@@ -177,7 +177,7 @@ describe("Laskut: the table and the mark on one subscription", () => {
     const cal = calendar([month("2026-10", [paid], { paidCents: 154204 }), month("2026-11", [bill()], { knownCents: 6420, billsCents: 6420, incomeCents: 0, afterCents: -6420 })]);
     const out = cardOf([], [], cal);
     expect(out).toContain(`Maksettu ${flat(money(154204))}`);
-    expect(out).toContain(`Tulossa ${flat(money(0))}`);
+    expect(out).toContain(`Maksamatta ${flat(money(0))}`);
     expect(out).not.toContain(`Laskut ${flat(money(0))}`);
     // the open month tells what is to come in the total that ends its rows
     expect(out).toContain(flat(money(6420)));
@@ -192,17 +192,17 @@ describe("Laskut: the table and the mark on one subscription", () => {
     expect(out).toMatch(new RegExp(`bill-total-paid[^>]*>${flat(money(5000))}`));
     expect(out).toMatch(new RegExp(`bill-total-coming[^>]*>${flat(money(3000))}`));
     expect(out).toMatch(/bill-total-name[^>]*>Maksettu/);
-    expect(out).toMatch(/bill-total-name[^>]*>Tulossa/);
+    expect(out).toMatch(/bill-total-name[^>]*>Maksamatta/);
   });
 
-  it("names the head of a closed month Maksettu, Tulossa, Säästöön, in that order", () => {
+  it("names the head of a closed month Maksettu, Maksamatta, Säästöön, in that order", () => {
     const cal = calendar([month("2026-10", [bill()]), month("2026-11", [bill()], { paidCents: 5000, knownCents: 1000, billsCents: 1000, savingCents: 15000, incomeCents: 10000, afterCents: -6000 })]);
     const heads = [...cardOf([], [], cal).matchAll(/<span class="bill-sums" data-closed="">(.*?)<\/span><\/span>/g)].map((m) => m[1]!);
     expect(heads).toHaveLength(1);
     const text = heads[0]!.replace(/<[^>]*>/g, " ");
     expect(text.indexOf("Maksettu")).toBeGreaterThanOrEqual(0);
-    expect(text.indexOf("Maksettu")).toBeLessThan(text.indexOf("Tulossa"));
-    expect(text.indexOf("Tulossa")).toBeLessThan(text.indexOf("Säästöön"));
+    expect(text.indexOf("Maksettu")).toBeLessThan(text.indexOf("Maksamatta"));
+    expect(text.indexOf("Maksamatta")).toBeLessThan(text.indexOf("Säästöön"));
     expect(text).toContain(`Säästöön ${flat(money(15000))}`);
   });
 
