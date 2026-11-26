@@ -13,9 +13,7 @@ const FETCH = { "X-Requested-With": "fetch" };
 // Raised from 1800 on purpose: the page gained a twelve-month chart and the picked month's days strip above the table, which are
 // about 500 px on a phone with the three cards of the kinds as compact full-width rows and the strip compact. The table of the months is unchanged.
 // The cards stay three stacked rows at 390 px on every day, whatever the sums are.
-// Raised to 2300: the open month ends in its Maksettu and Tulossa rows, two rows of about 30 px each, even though a month's head on a phone
-// is lower than it was.
-const MAX_HEIGHT = 2300;
+const MAX_HEIGHT = 2250;
 const month = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Helsinki", year: "numeric", month: "2-digit" }).format(new Date());
 const DAYS = [
   { day: 2, open: "running" },

@@ -77,6 +77,8 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
   .rt-wrap[data-block] .rt.bill-table tr.rt-group { grid-template-columns: auto minmax(0, 1fr); align-items: center; }
   .rt-wrap[data-block] .rt.bill-table tr.rt-group > td:not([data-label]) { grid-column: 2; grid-row: 1; text-align: right; }
   .rt-wrap[data-block] .bill-sums, .rt-wrap[data-block] .bill-kinds { flex-direction: column; align-items: flex-end; }
+  /* the totals that close an open month are no tap target and are as high as their chip, so the two take 40 px of a long page */
+  .rt-wrap[data-block] .rt.bill-table > tbody > tr.bill-total:has(> th[scope="row"]) { padding-block: 0; }
 }
 /* twelve months, one of them open, make a long list: with a mouse a row and a month's head are as high as their line, so the page keeps within two screens */
 @media (pointer: fine) {
@@ -95,11 +97,13 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .bill-total-name { display: inline-flex; align-items: center; gap: var(--sp-8); }
 .bill-table td.bill-total-coming { color: var(--accent-ink); }
 .rt-wrap[data-block] .rt.bill-table > tbody > tr.bill-total > th { display: none; }
+/* a row's divider line lies over the top padding of the next row, so a row takes its 44 px and not 45: seven rows and two totals are 9 px of a long page */
+.rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group, .rt-detail, .rt-subrow, :last-child) { margin-block-end: -1px; }
 /* twelve month heads make the long list of a phone: the opener is 44 px high inside its head whatever the band around it, so the band keeps 4 px above and below, not 8 */
 .rt-wrap[data-block] .rt.bill-table tr.rt-group:not(:has(.bill-subfold)) { padding-block: var(--sp-4); }
 .rt-wrap[data-block] .rt.bill-table tr.rt-group:not(:has(.bill-subfold)) > th { --reach-pad: var(--sp-4); }
 /* on a phone an open month's name leaves the chip under it, so the sums beside them keep the room their lines need */
-.rt-wrap[data-block] .bill-month[aria-expanded="true"] { flex-wrap: wrap; max-inline-size: 9rem; }
+.rt-wrap[data-block] .bill-month[aria-expanded="true"] { flex-wrap: wrap; max-inline-size: 7rem; }
 
 /* ── The head: the name of the page, the one secondary action and the figure of the year */
 .bills-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-8) var(--sp-12); margin: 0 0 var(--sp-16); }
