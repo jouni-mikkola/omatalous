@@ -70,6 +70,8 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
   .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(3) { grid-column: 2; grid-row: 2; }
   .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td[data-rt="main"] { grid-column: 3; grid-row: 1; }
   .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(5) { grid-column: 3; grid-row: 2; }
+  /* the payee line is as high as the sum beside it, so the category line under it adds no height to the row */
+  .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) .mk-plate { --mk-disc: var(--avatar-s); margin-block: calc(-1 * var(--tick) / 2); }
   /* the head of a month: its name and, beside it, its sums one under the other */
   .rt-wrap[data-block] .rt.bill-table tr.rt-group { grid-template-columns: auto minmax(0, 1fr); align-items: center; }
   .rt-wrap[data-block] .rt.bill-table tr.rt-group > td:not([data-label]) { grid-column: 2; grid-row: 1; text-align: right; }
