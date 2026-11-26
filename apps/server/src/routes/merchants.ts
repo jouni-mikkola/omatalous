@@ -36,7 +36,7 @@ export function merchantRoutes(s: Services) {
     const scope = parseScope(c.req.query("scope"));
     // the set and the series figures are the detection's, not a second definition: the analysis is cached per user and data version
     const { ctx, own } = await rowsInView(s, user.id, scope);
-    const household = householdWords([user.displayName, ...(await s.finance(user.id).listAccounts()).map((a) => a.holder), ...(await s.agreements.members()).map((m) => m.name)]);
+    const household = [user.displayName, ...(await s.finance(user.id).listAccounts()).map((a) => a.holder), ...(await s.agreements.members()).map((m) => m.name)].map((line) => householdWords([line]));
     const only = habit ? new Set(ctx.recurring.filter((r) => r.kind === "habit" && r.active).map((r) => r.merchant)) : undefined;
     return c.json(
       await s.finance(user.id).merchantSummaries({

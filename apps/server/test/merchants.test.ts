@@ -52,9 +52,17 @@ describe("GET /api/merchants", () => {
     const { admin, s } = await setupApp();
     await s.agreements.replaceMembers([{ id: "m1", name: "Kaisa Esimerkki", isNew: true }], "2026-09-01");
     await seedCsv(s, admin, { content: file(`2026/09/03;-50,00;${CHECKING};${SAVINGS};KAISA ESIMERKKI;SÄÄSTÖ;;EUR`, `2026/09/05;-44,15;${CHECKING};;;LIDL TIKKURILA;;EUR`), accountName: "Käyttötili" });
+    expect(((await admin.call("GET", "/api/transactions?limit=50")).body.items as { merchant: string; category: string }[]).find((t) => t.merchant === "Kaisa Esimerkki")?.category).toBe("savings");
     expect(names(await list(admin))).toEqual(["Lidl"]);
     expect((await admin.call("PUT", "/api/merchants/category", { merchant: "Kaisa Esimerkki", category: "shopping" })).status).toBe(200);
     expect(names(await list(admin)).sort()).toEqual(["Kaisa Esimerkki", "Lidl"]);
+  });
+
+  it("keeps a brand that shares a word with a household person: only a whole name is left out", async () => {
+    const { admin, s } = await setupApp();
+    await s.agreements.replaceMembers([{ id: "m1", name: "Elisa Maria Esimerkki", isNew: true }], "2026-09-01");
+    await seedCsv(s, admin, { content: file(`2026/09/03;-50,00;${CHECKING};;;ELISA OYJ;;EUR`, `2026/09/04;-20,00;${CHECKING};${SAVINGS};ESIMERKKI MARIA ELISA;SÄÄSTÖ;;EUR`), accountName: "Käyttötili" });
+    expect(names(await list(admin))).toEqual(["Elisa Oyj"]);
   });
 
   it("lists the user's merchants, biggest spending first", async () => {
