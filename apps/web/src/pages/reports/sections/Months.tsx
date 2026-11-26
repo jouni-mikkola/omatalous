@@ -94,7 +94,7 @@ export const section: ReportSection = {
   },
   order: 10,
   page: "reports",
-  // the sentence above reads the average month of the income report (CashflowLead)
+  // the income report is read for the months it counts incomplete (`partialMonths`), which hatch the bars
   reports: ["income", "cashflowMonths"],
   visible: (ctx) => ctx.meta.accounts.length > 0,
   open: true,

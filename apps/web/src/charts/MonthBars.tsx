@@ -50,7 +50,7 @@ function monthRows(m: Month, running: boolean): { name: string; value: string }[
 }
 
 /**
- * Income and spending of the last twelve months as a pair of bars a month (`overview.months`), on one value axis, with
+ * Income and spending of the months it is given (Yhteenveto's last twelve, Raportit's period) as a pair of bars a month (`overview.months`), on one value axis, with
  * the usual month's spending as a dashed line across them (`overview.usualSpendCents`). The running month and a month
  * the accounts do not cover from its 1st are hatched with a dashed edge and the key says so, as their sums are not a
  * month's. A month has one look for both its bars: it is solid only when the spending report counts it complete and, given

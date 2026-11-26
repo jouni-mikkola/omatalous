@@ -47,7 +47,7 @@ describe("reports", () => {
   it("Tulot ja menot over the last twelve months is the front page's overview, and a past year has twelve complete months", () => {
     const thisMonth = ctx.today.slice(0, 7);
     const last12 = { from: `${addMonths(thisMonth, -11)}-01`, to: ctx.today };
-    const months = buildReports({ ctx, range: last12 }, ["cashflowMonths"]).cashflowMonths;
+    const months = buildReports({ ctx, range: last12, balances: [] }, ["cashflowMonths"]).cashflowMonths;
     const overview = buildOverview(ctx);
     expect(months.months).toEqual(overview.months);
     expect(months.usualSpendCents).toEqual(overview.usualSpendCents);
@@ -60,7 +60,7 @@ describe("reports", () => {
       ...monthlyOn("2025-01", 2, 25, () => -105000, { category: "housing", merchant: "Sato Oyj" }),
       ...monthlyOn("2025-01", 10, 25, () => -40000, { category: "groceries", merchant: "K-Market" }),
     ];
-    const pastYear = buildReports({ ctx: createContext(rows, [checking], later), range: { from: "2026-01-01", to: "2026-12-31" } }, ["cashflowMonths"]).cashflowMonths;
+    const pastYear = buildReports({ ctx: createContext(rows, [checking], later), range: { from: "2026-01-01", to: "2026-12-31" }, balances: [] }, ["cashflowMonths"]).cashflowMonths;
     expect(pastYear.months.map((m) => m.month)).toEqual(Array.from({ length: 12 }, (_, i) => `2026-${String(i + 1).padStart(2, "0")}`));
     expect(pastYear.months.every((m) => m.complete)).toBe(true);
     expect(pastYear.completeTotals?.months).toBe(12);
