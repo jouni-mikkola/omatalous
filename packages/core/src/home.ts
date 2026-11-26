@@ -7,7 +7,7 @@
  * range of the base months, the few categories that make the difference, the findings worth acting on, and the
  * buffer. Every figure is one of the registry (`figures.ts`); the page adds up and compares no money.
  */
-import { daysBetween, monthOf } from "./dates.ts";
+import { addDays, dayNumber, daysBetween, monthOf } from "./dates.ts";
 import { type LowPoint, lowPoint } from "./low-point.ts";
 import { type BufferGap, bufferReport } from "./reports/buffer.ts";
 import type { BalanceInput, IsoDate, UserInputs } from "./types.ts";
@@ -17,6 +17,7 @@ import type { AnalysisContext } from "./analysis/context.ts";
 import { knownSpending } from "./analysis/data-quality.ts";
 import type { MonthPace } from "./analysis/forecast.ts";
 import { expectedFor } from "./analysis/expected.ts";
+import { balanceWalk } from "./analysis/balance-walk.ts";
 import { paydayOf, type Runway, runwayOf } from "./analysis/runway.ts";
 
 /**
@@ -93,11 +94,23 @@ interface HomeReliability {
   cardGap: { cents: number; cause: string } | null;
 }
 
+interface BalancePoint {
+  date: IsoDate;
+  cents: number;
+}
+
 export interface Home {
   /** null when the range does not include today. */
   runway: HomeRunway | null;
   /** The lowest balance of the next days (`LOW_POINT_DAYS`), past the next payday, with the day and a range; the reason when it cannot be said. null when the range does not include today. */
   lowPoint: LowPoint | null;
+  /**
+   * The counted accounts' balance at the end of each day from the last pay that came to today, date ascending, as
+   * `balanceWalk` gives it (Saldot's own figure). The last point is today's balance, `runway.sum.balanceCents`; the line of
+   * `lowPoint` starts from it less the cards' debt. null without a pay that came, a balance of every counted account or a
+   * day before today, and when the range does not include today.
+   */
+  balancePast: BalancePoint[] | null;
   /** null when the month has no expected figure; `paceGap` says why. */
   pace: HomePace | null;
   paceGap: PaceGap | null;
@@ -125,6 +138,20 @@ function homeRunway(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" | "dir
     payday,
     leftOnPayday: left,
   };
+}
+
+/** The counted accounts' end-of-day balance from the last pay that came to today; see `Home.balancePast`. */
+function homeBalancePast(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" | "checking" | "pays">, balances: readonly BalanceInput[]): BalancePoint[] | null {
+  const lastPay = basis.pays.at(-1);
+  if (!lastPay || !basis.ahead.balance || lastPay.date >= ctx.today) return null;
+  const walks = basis.checking.map((c) => balances.find((b) => b.id === c.id)).map((b) => (b ? balanceWalk(ctx, b) : null));
+  const points: BalancePoint[] = [];
+  for (let day = lastPay.date; day <= ctx.today; day = addDays(day, 1)) {
+    const at = walks.map((w) => w?.at(dayNumber(day)) ?? null);
+    if (at.some((cents) => cents === null)) return null;
+    points.push({ date: day, cents: at.reduce<number>((sum, cents) => sum + cents!, 0) });
+  }
+  return points;
 }
 
 /** The month so far against the expected month; null without an expected month or before the 1st. */
@@ -183,7 +210,7 @@ function homeReliability(ctx: AnalysisContext): HomeReliability {
 /** What `buildHome` reads from the dashboard's own parts, so nothing is worked out twice. */
 interface HomeInput {
   /** The window of the payments and the balance; null when the range does not include today. */
-  basis: Pick<AheadBasis, "ahead" | "direct" | "settling"> | null;
+  basis: Pick<AheadBasis, "ahead" | "direct" | "settling" | "checking" | "pays"> | null;
   pace: MonthPace;
   balances: readonly BalanceInput[];
   inputs: UserInputs;
@@ -195,6 +222,7 @@ export function buildHome(ctx: AnalysisContext, { basis, pace, balances, inputs 
   return {
     runway: basis ? homeRunway(ctx, basis) : null,
     lowPoint: basis ? lowPoint(ctx, basis, balances, inputs) : null,
+    balancePast: basis ? homeBalancePast(ctx, basis, balances) : null,
     pace: homePaced,
     paceGap: pace.expected ? null : pace.cardGap ? "cards" : "history",
     direction: homeDirection(ctx, balances, inputs),

@@ -515,6 +515,33 @@ describe("lowPoint in the dashboard answer", () => {
   });
 });
 
+describe("balancePast in the dashboard answer", () => {
+  const rows = [...pays(), ...rents(), ...shopping("2026-03-01", 4000)];
+  const ctx = createContext(rows, [own], TODAY);
+
+  it("runs a day at a time from the last pay to today and ends at the balance the walk starts from", () => {
+    const home = buildDashboard(ctx, RANGE, [bal(900_000)], NO_INPUTS).home;
+    const past = home.balancePast!;
+    expect(past[0]!.date).toBe("2026-10-15");
+    expect(past.map((p) => p.date)).toEqual(Array.from({ length: 12 }, (_, i) => addDays("2026-10-15", i)));
+    expect(past.at(-1)).toEqual({ date: TODAY, cents: 900_000 });
+    expect(past.at(-1)!.cents).toBe(home.runway!.sum!.balanceCents);
+    // each day's balance is the next day's less that day's rows
+    for (const [i, p] of past.entries()) {
+      if (i === 0) continue;
+      const day = rows.filter((r) => r.bookingDate === p.date).reduce((sum, r) => sum + r.amountCents, 0);
+      expect(p.cents - past[i - 1]!.cents).toBe(day);
+    }
+    const known = home.lowPoint as Extract<LowPoint, { known: true }>;
+    expect(known.startCents + known.cardDebtCents).toBe(past.at(-1)!.cents);
+  });
+
+  it("is null for a range without today and for an account without a balance", () => {
+    expect(buildDashboard(ctx, { from: "2026-09-01", to: "2026-09-30" }, [bal(900_000)], NO_INPUTS).home.balancePast).toBeNull();
+    expect(buildDashboard(ctx, RANGE, [{ ...bal(900_000), balanceCents: null }], NO_INPUTS).home.balancePast).toBeNull();
+  });
+});
+
 describe("lowPoint when the reason is a card's missing purchases", () => {
   // the card's rows begin in September and nothing is billed before: the base of the usual spending is too short
   const ctx = lateCardContext("2026-09", LATE_CARD_TODAY, false);

@@ -86,6 +86,26 @@ describe("BalanceDays", () => {
     expect(view("2027-01-23").querySelector(".kit-event-rule")).toBeNull();
   });
 
+  it("draws core's balance from the last payday as a solid line to today, a rule for Nyt and the ground of Arvio right of it", () => {
+    // the last point is today's balance before the cards' debt, which the walk's first corner has taken off
+    const past = [
+      { date: "2026-12-07", cents: 100_000 },
+      { date: "2026-12-08", cents: 110_000 },
+      { date: "2026-12-09", cents: 130_000 },
+      { date: "2026-12-10", cents: 140_000 },
+    ];
+    const c = render(createElement(BalanceDays, { low: walk, payday: "2026-12-14", past })).container;
+    expect(c.querySelectorAll(".bs-past")).toHaveLength(1);
+    expect(c.querySelector(".bs-past")?.getAttribute("d")?.split("L")).toHaveLength(past.length + 1);
+    expect(c.querySelectorAll(".bs-ground")).toHaveLength(1);
+    expect([...c.querySelectorAll(".bs-kind")].map((e) => flat(e.textContent))).toEqual(["NYT 10.12.", "ARVIO"]);
+    expect(c.querySelector(".est-line")).not.toBeNull();
+    expect(flat(c.querySelector('[role="img"]')?.getAttribute("aria-label"))).toBe("Tilien saldo päivittäin 7.12.–14.12. Alimmillaan 13.12., arviolta 300 €.");
+    // without the past nothing of it is drawn
+    const bare = view();
+    expect(bare.querySelector(".bs-past, .bs-ground, .bs-kind")).toBeNull();
+  });
+
   it("folds the payments, pays and spending under the picture, each balance the one before plus the row's sum", () => {
     const c = view();
     expect(flat(c.querySelector(".chart-fold-title")?.textContent)).toBe("Maksut taulukkona");

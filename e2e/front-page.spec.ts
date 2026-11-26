@@ -104,6 +104,18 @@ for (const width of [390, 1440] as const) {
     expect(order).toEqual(["home-now", "home-summary", "home-coming", "holdings"]);
     expect(await page.locator("main .card h2").allInnerTexts()).toEqual([`Jää palkkapäivänä ${paydayDay}.${paydayMonth}.`, "Saldo päivä päivältä", "Tulevat kuukaudet", "Varat ja velat"]);
     await expect(page.locator("main .notice, main .home-notice")).toHaveCount(0);
+    // Saldo päivä päivältä: core's balance from the last payday to today is a solid line ending at the balance Nyt starts from, with the rule Nyt and the ground Arvio right of it
+    if (home.balancePast) {
+      const { balancePast } = home;
+      expect(balancePast.at(-1).cents, "the past ends at today's balance").toBe(home.runway.sum.balanceCents);
+      const [, todayMonth, todayDay] = balancePast.at(-1).date.split("-").map(Number);
+      const chart = page.locator(".home-days .balance-steps");
+      await expect(chart.locator(".bs-past")).toHaveCount(1);
+      await expect(chart.locator(".bs-ground")).toHaveCount(1);
+      await expect(chart.locator(".bs-kind").first()).toHaveText(`NYT ${todayDay}.${todayMonth}.`);
+    } else {
+      await expect(page.locator(".home-days .bs-past, .home-days .bs-ground")).toHaveCount(0);
+    }
     // the buffer line at the foot of Varat ja velat: core's months, and its drill holds the two sums they divide, or core's reason
     const buffer = page.locator(".holdings .home-buffer");
     await expect(buffer).toHaveCount(1);
