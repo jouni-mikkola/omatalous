@@ -11,6 +11,7 @@ export const FI_SHELL = {
   "nav.bills": "Laskut",
   "nav.transactions": "Tapahtumat",
   "nav.balances": "Varat ja velat",
+  "nav.balances_short": "Varat",
   "nav.reports": "Raportit",
   "nav.review": "Tarkistettavat",
   "nav.settings": "Asetukset",

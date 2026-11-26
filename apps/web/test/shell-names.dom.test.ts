@@ -60,8 +60,7 @@ describe("Shell: a page carries its tab's name", () => {
     await openApp("#/overview");
     const menu = document.querySelector(".user-menu .menu")!;
     const names = [...menu.querySelectorAll("a")].map((a) => a.textContent);
-    // Raportit is a link of the menu for a phone, whose tab bar has no room for it (a style hides it where it is a tab)
-    expect(names).toEqual(["Raportit", "Asetukset"]);
+    expect(names).toEqual(["Asetukset"]);
   }, 60000);
 
   it("links the logo to Yhteenveto by its name", async () => {
@@ -82,7 +81,7 @@ describe("Shell: a page carries its tab's name", () => {
       expect(links.map((a) => a.textContent)).toEqual(["Yhteenveto", "Tapahtumat", "Laskut", "Varat ja velat", "Raportit", "Esimerkki"]);
       expect(links.filter((a) => a.classList.contains("nav-wide-only"))).toEqual([]);
       const menu = [...document.querySelectorAll(".user-menu .menu a")];
-      expect(menu.map((a) => a.textContent)).toEqual(["Raportit", "Asetukset"]);
+      expect(menu.map((a) => a.textContent)).toEqual(["Asetukset"]);
     } finally {
       WEB_EXTENSIONS.length = 0;
     }

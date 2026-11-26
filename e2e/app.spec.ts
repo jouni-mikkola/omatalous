@@ -234,8 +234,8 @@ test("Tapahtumat has Lista and Kauppiaat: old addresses open Kauppiaat, the rule
   await expect(rules).not.toBeInViewport();
   const [tableBox, rulesBox] = [await page.locator("table.merchant-table").boundingBox(), await rules.boundingBox()];
   expect(rulesBox!.y, "the rules are under the table").toBeGreaterThan(tableBox!.y + tableBox!.height);
-  await expect(page.locator("table.merchant-table thead th")).toHaveText(["Kauppias", "Kategoria", "Tapahtumia", "Yhteensä", "Kuussa", "Viimeksi"]);
-  for (const cell of await page.locator("table.merchant-table td[data-label=Kuussa]").allInnerTexts()) expect(cell.trim(), "Kuussa is euros or a dash").toMatch(/€|–/);
+  await expect(page.locator("table.merchant-table thead th")).toHaveText(["Kauppias", "Kategoria", "Tapahtumia", "Yhteensä", "Tavallisesti kuussa", "Viimeksi"]);
+  for (const cell of await page.locator("table.merchant-table td[data-label='Tavallisesti kuussa']").allInnerTexts()) expect(cell.trim(), "the monthly figure is euros or a dash").toMatch(/€|–/);
   const all = await rows.count();
 
   // the tabs: Lista is the list, and a period carries over to it

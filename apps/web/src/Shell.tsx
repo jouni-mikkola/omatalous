@@ -313,8 +313,8 @@ export function Shell() {
           </PageLink>
           <nav className="nav" aria-label={t("shell.main_menu")}>
             {NAV.map((e) => (
-              <PageLink key={e.id} id={e.id} current={known && page === e.id} className={e.id === REPORTS_ID ? "nav-reports" : undefined}>
-                {e.label}
+              <PageLink key={e.id} id={e.id} current={known && page === e.id} data-short={e.short} aria-label={e.short ? e.label : undefined}>
+                <span className="nav-label">{e.label}</span>
               </PageLink>
             ))}
             {extensions.map((e) => (
@@ -365,9 +365,6 @@ export function Shell() {
                 {LANGUAGE_NAME[otherLanguage]}
               </button>
               {news > 0 && <a href={settingsCardHash(SETTINGS_ANCHOR.notices)}>{tn(news, "notice.news_one", "notice.news_many")}</a>}
-              <PageLink id={REPORTS_ID} current={page === REPORTS_ID} className="menu-reports">
-                {t("nav.reports")}
-              </PageLink>
               <PageLink id={SETTINGS.id} current={page === SETTINGS.id}>
                 {SETTINGS.label}
               </PageLink>

@@ -78,7 +78,11 @@ export async function transactionsView(s: Services, userId: string, q: Transacti
   const countOfDay = new Map(counts.map((d) => [d.date, d.count]));
   const days = [...new Set([...countOfDay.keys(), ...flowsOfDay.keys()])].sort().map((date) => {
     const { incomeCents, expenseCents, savedCents } = totalsOf(flowsOfDay.get(date) ?? []);
-    return { date, count: countOfDay.get(date) ?? 0, inCents: incomeCents, outCents: expenseCents, savedCents };
+    // the rows that moved money each way: the chart names the count of the direction it draws, as the lead above the list does
+    const dayFlows = flowsOfDay.get(date) ?? [];
+    const outCount = dayFlows.filter((f) => totalsOf([f]).expenseCents > 0).length;
+    const inCount = dayFlows.filter((f) => totalsOf([f]).incomeCents > 0).length;
+    return { date, count: countOfDay.get(date) ?? 0, outCount, inCount, inCents: incomeCents, outCents: expenseCents, savedCents };
   });
   const { incomeCents: inCents, expenseCents: outCents, savedCents, leftCents } = totalsOf(counted.map((t) => t.flows));
   const items = stored.map((t) => ({ ...t, ...own.told.get(t.id) }));
@@ -109,7 +113,7 @@ export async function transactionsView(s: Services, userId: string, q: Transacti
     // the totals strip's histogram and each listed day's whole sums
     histogram: span && !updating ? moneyBins(days, histogramFrom(span), span.to) : null,
     // the row count of a day only feeds the histogram's bins; the day's sums are the answer
-    daySums: updating ? [] : days.filter((d) => onPage.has(d.date)).map(({ count: _count, ...sums }) => sums),
+    daySums: updating ? [] : days.filter((d) => onPage.has(d.date)).map(({ count: _count, outCount: _outCount, inCount: _inCount, ...sums }) => sums),
     items: items.map((t) => {
       const part = own.parts.get(t.accountId);
       const share = own.shares?.get(t.id);

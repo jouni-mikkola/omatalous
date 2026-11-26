@@ -23,9 +23,9 @@ const totals = {
   histogram: {
     unit: "day" as const,
     bins: [
-      { start: "2026-09-01", count: 1, inCents: 0, outCents: 20_00 },
-      { start: "2026-09-02", count: 1, inCents: 900_00, outCents: 50_00 },
-      { start: "2026-09-03", count: 1, inCents: 0, outCents: 0 },
+      { start: "2026-09-01", count: 1, outCount: 1, inCount: 0, inCents: 0, outCents: 20_00 },
+      { start: "2026-09-02", count: 2, outCount: 1, inCount: 1, inCents: 900_00, outCents: 50_00 },
+      { start: "2026-09-03", count: 1, outCount: 0, inCount: 0, inCents: 0, outCents: 0 },
     ],
   },
 };

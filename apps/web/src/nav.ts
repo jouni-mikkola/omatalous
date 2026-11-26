@@ -5,22 +5,23 @@ export interface NavEntry {
   id: string;
   /** A getter on the built-in entries: the text is read when it is drawn, in the language the member has by then. */
   readonly label: string;
+  /** What the phone's tab bar writes where the full label does not fit; the link keeps the full label as its name. */
+  readonly short?: string;
 }
 
 /**
  * The pages of the header, in the order the household reads them: Yhteenveto, Tapahtumat, Laskut, Varat ja velat, Raportit.
- * Every entry is a tab. What an add-on module adds is a tab after them. On a phone Raportit leaves the tab bar for the user
- * menu (`REPORTS_ID`), so the bar holds the other four and the module's page. Asetukset is not one of them.
+ * Every entry is a tab. What an add-on module adds is a tab after them. Asetukset is not one of them.
  */
 export const NAV: readonly NavEntry[] = [
   { id: "overview", get label() { return t("nav.overview"); } },
   { id: "transactions", get label() { return t("nav.transactions"); } },
   { id: "bills", get label() { return t("nav.bills"); } },
-  { id: "balances", get label() { return t("nav.balances"); } },
+  { id: "balances", get label() { return t("nav.balances"); }, get short() { return t("nav.balances_short"); } },
   { id: "reports", get label() { return t("nav.reports"); } },
 ];
 
-/** The entry of NAV that a phone moves to the user menu. */
+/** The Raportit entry of NAV: the pages of the reports keep its tab current. */
 export const REPORTS_ID = "reports";
 
 /**
