@@ -2,7 +2,7 @@ import { type BrowserContext, expect, type Locator, type Page, test } from "@pla
 import { join } from "node:path";
 import { overflow, OVERVIEW_TILES, watch } from "./helpers.ts";
 
-// Yhteenveto on a phone, at 320, 360 and 390 px wide: the four blocks (Nyt, the month, the coming months, the accounts) under each other, the month's figures two by two. Nothing scrolls sideways, no text is cut, every control that is tapped is 44 px high and wide, and the page is no taller than 2800 px.
+// Yhteenveto on a phone, at 320, 360 and 390 px wide: the four blocks (Nyt, the month, the coming months, the accounts) under each other, the month's figures two by two. Nothing scrolls sideways, no text is cut, every control that is tapped is 44 px high and wide, and the page is no taller than 3000 px.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 async function open(context: BrowserContext): Promise<Page> {

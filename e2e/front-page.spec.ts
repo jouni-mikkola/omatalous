@@ -9,8 +9,8 @@ import { cents, overflow, OVERVIEW_TILES, plain, watch } from "./helpers.ts";
 // one the server gives, the three fit the first screen of a phone, the blocks under them are the ones of the page, and
 // the page does not move when it has loaded.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
-/** The page's height at the two widths it is held to: the roadmap's N11. The phone's 2800 px holds the balance chart (about 340 px) that stands after the month. */
-const MAX_HEIGHT = { 1440: 1500, 390: 2800 } as const;
+/** The page's height at the two widths it is held to: the roadmap's N11. The phone's 3000 px holds the balance chart (about 340 px) that stands after the month and the answer card's rows. */
+const MAX_HEIGHT = { 1440: 1500, 390: 3000 } as const;
 /** The longest a page may change in height once its answer has landed. */
 const MAX_JUMP = 0.25;
 
