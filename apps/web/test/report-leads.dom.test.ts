@@ -17,9 +17,9 @@ describe("Menot kategorioittain: the tiles", () => {
 
   it("shows the spending, adding the debt paid and the credit drawn when there are any", () => {
     expect(say({})).toBe("Menot 2 500 €");
-    expect(say({ debtPaidCents: 80_000 })).toBe("Menot 2 500 € josta velkaa 800 € Velkojen maksu ja korot");
-    expect(say({ creditDrawnCents: 50_000 })).toBe("Menot 2 500 € Uutta luottoa 500 € Otettu jaksolla");
-    expect(say({ debtPaidCents: 80_000, creditDrawnCents: 50_000 })).toBe("Menot 2 500 € josta velkaa 800 € Velkojen maksu ja korot Uutta luottoa 500 € Otettu jaksolla");
+    expect(say({ debtPaidCents: 80_000 })).toBe("Menot 2 500 € josta velkaa 800 €");
+    expect(say({ creditDrawnCents: 50_000 })).toBe("Menot 2 500 € Uutta luottoa 500 €");
+    expect(say({ debtPaidCents: 80_000, creditDrawnCents: 50_000 })).toBe("Menot 2 500 € josta velkaa 800 € Uutta luottoa 500 €");
   });
 
   it("shows nothing when nothing was spent", () => {

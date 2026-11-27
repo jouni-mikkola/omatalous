@@ -62,7 +62,7 @@ test("Lataa CSV saves the rows as the table shows them, in its order, with the f
   const col = (name: string) => head.findIndex((h) => h.replace(/"/g, "") === name);
   expect(lines.length - 1, "one line per row shown").toBe(shown.length);
   // the table prints whole euros, the file has the sum as it is: within half a euro
-  const num = (t: string) => (t === "–" ? 0 : Number(t.replace(/[\s  €%±]/g, "").replace("-", "-").replace(",", ".")));
+  const num = (t: string) => (t === "–" ? 0 : Number(t.replace(/[\s  €%±]/g, "").replace("−", "-").replace(",", ".")));
   const sums = (name: string, at: number) => {
     const c = name.endsWith(",") ? head.findIndex((h) => h.replace(/"/g, "").startsWith(name)) : col(name);
     expect(c, `${name} is a column of the file`).toBeGreaterThanOrEqual(0);
