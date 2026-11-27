@@ -9,20 +9,20 @@ import type { ReportContext } from "../src/pages/reports/types.ts";
 
 const flat = (s: string | null | undefined) => (s ?? "").replace(/[  ]/g, " ").replace(/\s+/g, " ").trim();
 const lead = (Lead: (props: { ctx: ReportContext }) => unknown, data: Record<string, unknown>) =>
-  flat(renderToStaticMarkup(createElement(Lead as never, { ctx: { data, meta: { today: "2026-11-11", accounts: [], sharedAccounts: [] } } as unknown as ReportContext })).replace(/<[^>]*>/g, ""));
+  flat(renderToStaticMarkup(createElement(Lead as never, { ctx: { data, meta: { today: "2026-11-11", accounts: [], sharedAccounts: [] } } as unknown as ReportContext })).replace(/<[^>]*>/g, " "));
 
-describe("Menot kategorioittain: the lead", () => {
+describe("Menot kategorioittain: the tiles", () => {
   const categories = (more: Record<string, unknown>) => ({ categories: { totalCents: 250_000, debtPaidCents: 0, creditDrawnCents: 0, ...more } });
   const say = (more: Record<string, unknown>) => lead(spending.Lead!, categories(more));
 
-  it("says the spending, adding the debt paid and the credit drawn when there are any", () => {
-    expect(say({})).toBe("Menoihin meni 2 500 €.");
-    expect(say({ debtPaidCents: 80_000 })).toBe("Menoihin meni 2 500 €, josta velkojen maksuun 800 €.");
-    expect(say({ creditDrawnCents: 50_000 })).toBe("Menoihin meni 2 500 €, ja uutta luottoa otettiin 500 €.");
-    expect(say({ debtPaidCents: 80_000, creditDrawnCents: 50_000 })).toBe("Menoihin meni 2 500 €, josta velkojen maksuun 800 €, ja uutta luottoa otettiin 500 €.");
+  it("shows the spending, adding the debt paid and the credit drawn when there are any", () => {
+    expect(say({})).toBe("Menot 2 500 €");
+    expect(say({ debtPaidCents: 80_000 })).toBe("Menot 2 500 € josta velkaa 800 € Velkojen maksu ja korot");
+    expect(say({ creditDrawnCents: 50_000 })).toBe("Menot 2 500 € Uutta luottoa 500 € Otettu jaksolla");
+    expect(say({ debtPaidCents: 80_000, creditDrawnCents: 50_000 })).toBe("Menot 2 500 € josta velkaa 800 € Velkojen maksu ja korot Uutta luottoa 500 € Otettu jaksolla");
   });
 
-  it("says nothing when nothing was spent", () => {
+  it("shows nothing when nothing was spent", () => {
     expect(say({ totalCents: 0 })).toBe("");
   });
 });

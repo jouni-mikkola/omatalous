@@ -5,6 +5,7 @@ import { query } from "../../../api.ts";
 import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
 import { SlopeChart, type SlopeItem } from "../../../charts/SlopeChart.tsx";
 import { Table } from "../../../components/table/Table.tsx";
+import { Tiles } from "../../../components/Tiles.tsx";
 import { Empty } from "../../../components/ui/Empty.tsx";
 import { Notice } from "../../../components/ui/Notice.tsx";
 import { language, money, monthTick, signedMoney } from "../../../format.ts";
@@ -12,19 +13,11 @@ import { useApi } from "../../../hooks.ts";
 import type { ReportsData } from "../../../types.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { YEARS_ID } from "./ids.ts";
-import { rich, t } from "../../../text.ts";
+import { t } from "../../../text.ts";
 
 /** The categories on the slope: the twelve largest of either year; the five that moved most in colour. */
 const SHOWN = 12;
 const MOVERS = 5;
-
-/**
- * The category the sentence names: the largest rise of at least 100 € among every category of the table, fixed costs
- * too, as the total they add up to has them. The slope leaves fixed costs out only to keep its scale.
- */
-export function largestRise<C extends { changeCents: number }>(categories: readonly C[]): C | undefined {
-  return categories.filter((c) => c.changeCents >= 100_00).sort((a, b) => b.changeCents - a.changeCents)[0];
-}
 
 type Compared = Pick<ReportsData["yearOverYear"], "year" | "current" | "comparedMonths" | "ytdCents">;
 
@@ -79,24 +72,25 @@ function YearOverYear({ ctx }: SectionProps) {
         <Empty>{note}</Empty>
       </ReportPanel>
     );
-  const span = spanOf(r, past);
   // fixed costs (rent, loan instalments) are left out as in Kategoriat: on one scale they flatten every other line
   const fixed = new Set((other && data ? data : ctx.data).categories.groups.flatMap((g) => g.categories).filter((c) => c.fixedShare >= 0.5).map((c) => c.category));
   const shown = r.categories.filter((c) => !fixed.has(c.category)).slice(0, SHOWN);
   const movers = new Set([...shown].filter((c) => Math.abs(c.changeCents) >= 100_00).sort((a, b) => Math.abs(b.changeCents) - Math.abs(a.changeCents)).slice(0, MOVERS).map((c) => c.category));
   const items: SlopeItem[] = shown.map((c) => ({ key: c.category, label: ctx.label(c.category), from: c.previousCents, to: c.currentCents, change: c.changeCents, strong: movers.has(c.category), tone: c.changeCents > 0 ? "rise" : c.changeCents < 0 ? "good" : "flat" }));
-  const rose = largestRise(r.categories);
   return (
     <ReportPanel id={section.id} title={section.title} datum={datumOf(r, past)} actions={picker}>
+      <Tiles
+        items={[
+          {
+            label: t("rpt.yoy_tile"),
+            figure: signedMoney(r.ytdChangeCents),
+            note: t("rpt.yoy_tile_before", { amount: money(r.previousYtdCents, false) }),
+          },
+        ]}
+      />
       <QuestionChart
         id="vuodet-slope"
         question={past ? t("rpt.yoy_chart", { previous: r.year - 1, year: r.year }) : t("rpt.yoy_question")}
-        answer={
-          <>
-            {rich("rpt.yoy_answer", { span, amount: money(r.ytdCents, false), diff: money(Math.abs(r.ytdChangeCents), false), direction: t(r.ytdChangeCents >= 0 ? "rep.more" : "rep.less") })}
-            {rose ? ` ${t("rpt.yoy_rose", { category: ctx.label(rose.category), change: signedMoney(rose.changeCents) })}` : ""}
-          </>
-        }
         table={
           <Table
             key={r.year}

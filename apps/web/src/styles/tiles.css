@@ -3,6 +3,7 @@
 @layer pages {
 .strip { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); row-gap: var(--sp-4); }
 .strip[data-count="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.strip[data-count="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .strip-item { display: grid; grid-row: span 3; grid-template-rows: subgrid; padding-inline: var(--sp-24); border-inline-start: var(--hairline) solid var(--grid); }
 .strip-item:first-child { padding-inline-start: 0; border-inline-start: 0; }
 .strip-label, .strip-note { color: var(--text-2); }
