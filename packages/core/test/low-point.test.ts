@@ -366,16 +366,26 @@ describe("lowPoint with a card", () => {
     expect(walked.steps.filter((s) => s.date === "2026-11-20" && s.payee === card.name).map((s) => s.cents)).toEqual([-OWED]);
   });
 
-  it("adds no step of the debt when the card's next bill is a typed bill after the payday: its own row pays the card", () => {
+  it("takes only the debt beside a typed bill of the card off on the bill's day: the typed row pays its own sum", () => {
     const iban = "FI80 1234 5600 0099 11";
     const owner: Account = { ...card, iban };
-    const typedBill = { id: "typed", name: "Korttilasku", amountCents: 50_000, dueDate: "2026-11-18", cadence: "once", category: null, payeeIban: iban } as ExpectedBill;
+    const typedOn = (dueDate: string, amountCents: number) => ({ id: "typed", name: "Korttilasku", amountCents, dueDate, cadence: "once", category: null, payeeIban: iban }) as ExpectedBill;
     const rows = [...pays(), ...rents(), ...cardShopping(), ...statements("20")].filter((t) => t.bookingDate <= TODAY);
-    const { walked, basis } = walk(rows, balBoth(200_000), undefined, { ...NO_INPUTS, expectedBills: [typedBill] }, [own, owner]);
-    if (!walked.known) throw new Error("no figure");
-    expect(basis.ahead.balance!.laterCardDebts).toEqual([{ cardId: card.id, name: card.name, cents: OWED, date: "2026-11-18", typed: true }]);
-    expect(walked.steps.some((s) => s.payee === card.name)).toBe(false);
-    expect(walked.steps.filter((s) => s.date === "2026-11-18" && s.cents < 0).map((s) => s.cents)).toEqual([-50_000]);
+    const walkWith = (bill: ExpectedBill) => walk(rows, balBoth(200_000), undefined, { ...NO_INPUTS, expectedBills: [bill] }, [own, owner]);
+    // a typed bill smaller than the debt, before the predicted day: the rest of the debt is still taken off
+    const small = walkWith(typedOn("2026-11-18", 50_000));
+    if (!small.walked.known) throw new Error("no figure");
+    expect(small.basis.ahead.balance!.laterCardDebts).toEqual([{ cardId: card.id, name: card.name, cents: OWED, date: "2026-11-18", typedCents: 50_000 }]);
+    expect(small.walked.steps.filter((s) => s.date === "2026-11-18" && s.cents < 0).map((s) => s.cents)).toEqual([-50_000, -(OWED - 50_000)]);
+    // a typed bill on the predicted bill's day: paid once, the debt is not taken off beside it in full
+    const same = walkWith(typedOn("2026-11-20", 50_000));
+    if (!same.walked.known) throw new Error("no figure");
+    expect(same.walked.steps.filter((s) => s.date === "2026-11-20" && s.cents < 0).map((s) => s.cents)).toEqual([-50_000, -(OWED - 50_000)]);
+    // a typed bill that covers the debt leaves no step of it
+    const whole = walkWith(typedOn("2026-11-18", OWED));
+    if (!whole.walked.known) throw new Error("no figure");
+    expect(whole.walked.steps.some((s) => s.payee === card.name)).toBe(false);
+    expect(whole.walked.steps.filter((s) => s.date === "2026-11-18" && s.cents < 0).map((s) => s.cents)).toEqual([-OWED]);
   });
 
   it("keeps Jää palkkapäivänä told in parts when the card's bill falls on the payday itself", () => {

@@ -155,13 +155,14 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
   // a card's bill beyond the payday window holds the debt that is taken off whole from today: it is no row of the walk
   const heldByDebt = new Set(ahead.upcoming.flatMap((r) => (r.source === "card" && r.basis === "balance" && r.cents && r.date > ahead.to ? [`${r.date}|${r.name}|${Math.abs(r.cents)}`] : [])));
   // the debt of a card whose next bill falls after the payday is not in the start: it is taken off on that bill's day, in place of the bill's own row
-  // a typed bill of the card has its own row, which pays the card on that day: no step of the debt besides it
-  const laterDebts = ahead.balance.laterCardDebts.filter((d) => !d.typed && d.date >= from && d.date <= last);
+  const laterInRange = ahead.balance.laterCardDebts.filter((d) => d.date >= from && d.date <= last);
+  // the typed bills of the card keep their rows and pay their own sums: the step is the debt beside them, none twice and none lost
+  const laterDebts = laterInRange.map((d) => ({ ...d, cents: Math.max(0, d.cents - d.typedCents) })).filter((d) => d.cents > 0);
   // an income before the payday is no pay the runway waits for and the runway counts none: the walk lets it land on the
   // payday, so the line at the payday is Jää palkkapäivänä to the cent and the days after it hold the income
   const rows = calendar.months
     .flatMap((m) => m.rows)
-    .filter((r) => r.state !== "paid" && !r.onCard && r.date >= from && r.date <= last && !(r.seriesId === null && r.kind === "bill" && (heldByDebt.has(`${r.date}|${r.payee}|${r.cents}`) || laterDebts.some((d) => d.date === r.date && d.name === r.payee))))
+    .filter((r) => r.state !== "paid" && !r.onCard && r.date >= from && r.date <= last && !(r.seriesId === null && r.kind === "bill" && (heldByDebt.has(`${r.date}|${r.payee}|${r.cents}`) || laterInRange.some((d) => d.date === r.date && d.name === r.payee))))
     .map((r) => (r.kind === "income" && r.date < runway.payday.date ? { ...r, date: runway.payday.date } : r));
   // the bills of a card shown only by them, which the bill calendar leaves out. `upcoming` reaches Laskut's 30 days and
   // `rows` the payday window, which can be longer: the window's rows after the 30 days complete the list, none twice
