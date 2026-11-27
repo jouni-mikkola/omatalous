@@ -16,14 +16,15 @@ describe("Raportit > Menot kategorioittain: the tiles the page opens with", () =
   const flow = (debtPaidCents: number, creditDrawnCents: number, feesCents: number, fromSavingsCents = 0) => ({ categories: { totalCents: 500_000, debtPaidCents, creditDrawnCents, feesCents }, spendingMonths: { fromSavingsCents } });
   const lead = (data: Record<string, unknown>) => plain(renderToStaticMarkup(createElement(spending.Lead!, { ctx: context(data) })));
 
-  it("have a tile for each of the debt paid, the credit drawn and the fees that is above zero, the draw a link to its rows", () => {
-    const all = lead(flow(120_000, 50_000, 4_550));
+  it("have a tile for each of the debt paid and the credit drawn, the draw a link to its rows, and a row for fees of a hundredth of the spending or more", () => {
+    const all = lead(flow(120_000, 50_000, 6_550));
     expect(all).toContain("josta velkaa");
     expect(all).toContain("Uutta luottoa");
     expect(all).toContain("Pankkikulut ja muistutusmaksut");
     expect(all).toContain('href="#/transactions?category=credit_draw&amp;from=2026-08-01&amp;to=2026-08-31"');
-    const feesOnly = lead(flow(0, 0, 4_550));
+    const feesOnly = lead(flow(0, 0, 6_550));
     expect(feesOnly).toContain("Pankkikulut ja muistutusmaksut");
+    expect(lead(flow(0, 0, 4_550))).not.toContain("Pankkikulut ja muistutusmaksut");
     expect(feesOnly).not.toContain("josta velkaa");
     expect(feesOnly).not.toContain("Uutta luottoa");
   });
@@ -36,7 +37,7 @@ describe("Raportit > Menot kategorioittain: the tiles the page opens with", () =
 
   it("name the debt paid from savings, which the first page's Menot leave out, only when the sum is not 0", () => {
     expect(lead(flow(0, 0, 0))).not.toContain("Säästöistä maksettu");
-    expect(lead(flow(0, 0, 0, 460_00))).toMatch(/Säästöistä maksettu.*460/);
+    expect(lead(flow(0, 0, 0, 600_00))).toMatch(/Säästöistä maksettu.*600/);
   });
 });
 
