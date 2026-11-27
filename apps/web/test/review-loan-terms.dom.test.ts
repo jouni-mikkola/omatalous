@@ -220,6 +220,19 @@ describe("Täydennä lainat", () => {
     expect((await within(openRow(0)).findByLabelText<HTMLInputElement>(/^Jäljellä/, {}, T)).value).toMatch(/^5\D?000/);
   });
 
+  it("saves only the loan whose balance is filled in the form of several, and leaves the other asked", async () => {
+    queryClient.clear();
+    const seen = stubApi({ "GET /api/loans": { loans: [], fixings: {} }, "POST /api/loans": { loan: savedLoan({ id: "loan-4", name: "Esimerkkirahoitus", kind: "consumer", balanceCents: 200_000, seriesKey: "k" }) } });
+    const debt = debtOf({ id: "proposal:k", source: "proposal", name: "Esimerkkirahoitus", key: "k", kind: "consumer", monthlyCents: 25_000, latestCents: 25_000, lastDate: "2026-09-05" });
+    show([listOf([debt, { ...debt, id: "proposal:j", key: "j", name: "Toinen rahoitus" }])]);
+    fireEvent.change(await within(openRow(0)).findByLabelText(/^Jäljellä/, {}, T), { target: { value: "2 000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
+    await waitFor(() => expect(document.querySelectorAll("li.review-debt.is-done")).toHaveLength(1), T);
+    expect(seen.filter((s) => s.method === "POST")).toHaveLength(1);
+    expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ seriesKey: "k", balanceCents: 200_000 });
+    expect(within(openRow(0)).getByLabelText(/^Jäljellä/)).toBeTruthy();
+  });
+
   it("shows the error of the other forms when the loans cannot be read", async () => {
     queryClient.clear();
     stubApi({ "GET /api/loans": failing(500, { error: "Lainoja ei voitu lukea." }) });

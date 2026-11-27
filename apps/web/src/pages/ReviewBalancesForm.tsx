@@ -55,7 +55,8 @@ export function BalancesForm({ item, meta, busy, onAnswer, onHold, onReload }: {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (saving || !answer) return;
-    const filled = item.debts.filter((d) => of(d).balance.trim() !== "");
+    // a loan saved by an earlier press is never sent again
+    const filled = item.debts.filter((d) => !saved[d.id] && of(d).balance.trim() !== "");
     if (filled.length === 0) {
       setProblem(t("set.loans.loan_need_balance"));
       return;
@@ -73,16 +74,20 @@ export function BalancesForm({ item, meta, busy, onAnswer, onHold, onReload }: {
     if (Object.keys(found).length > 0) return;
     setSaving(true);
     onHold();
-    const lines: Record<string, string> = {};
+    let current: LoanTermsDebt | null = null;
     try {
       for (const { debt, body } of bodies) {
+        current = debt;
         const { loan } = await loanCalls.add(body);
-        lines[debt.id] = resultLine(loan, answer.fixings, meta.today);
-        setSaved((s) => ({ ...s, [debt.id]: lines[debt.id]! }));
+        const line = resultLine(loan, answer.fixings, meta.today);
+        setSaved((s) => ({ ...s, [debt.id]: line }));
       }
       setFinished(true);
     } catch (err) {
-      setProblem(err instanceof Error ? err.message : String(err));
+      // the loan that failed shows the error at its field; the ones saved before it stay closed
+      const message = err instanceof Error ? err.message : String(err);
+      if (current) setErrors({ [current.id]: message });
+      else setProblem(message);
     } finally {
       setSaving(false);
       loans.reload();
