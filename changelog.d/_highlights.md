@@ -1,3 +1,0 @@
-- Yhteenveto leads with one answer card for the sum left on payday.
-- Laskut, Tapahtumat, Tulot ja menot, Menot kategorioittain and Varat ja velat start with their key figures.
-- A card's debt counts against the payday only when its bill falls before it.
