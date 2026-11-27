@@ -1,6 +1,6 @@
 // Decision: which debt to pay down first, and whether the payments hold when the reference rate moves
 import { belowWhole, cardLimitCents, inCostOrder, type LoanRow, type LoansReport, type MaybeTwice, type RateScenario } from "@banking/core";
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 import { changesLoan, LoanChanges } from "../../../components/loans/LoanChanges.tsx";
 import { hasWhatIf, LoanDrill, PlanDrill } from "../../../components/loans/LoanDrill.tsx";
 import { intervalLabel, KIND_LABEL, referenceName } from "../../../components/loans/labels.ts";
@@ -12,7 +12,7 @@ import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
 import { ACCOUNT_TYPE_LABEL, date, money, monthLongIn, percent, plainNumber } from "../../../format.ts";
 import { sameDebtTwice } from "../parts.tsx";
 import { typedByText } from "../../../part.ts";
-import { LOAN_TERMS_HASH, loanEditHash, loanHash, LOANS_REPORT_ANCHOR } from "../../../routes.ts";
+import { LOAN_TERMS_HASH, loanEditHash, loanHash, loanTermsHash, LOANS_REPORT_ANCHOR } from "../../../routes.ts";
 import { dearWord } from "../holdings/holding-rows.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/loans.css";
@@ -137,7 +137,7 @@ function LoanFacts({ l, limitCents, whatIf }: { l: LoanRow; limitCents: number |
 /** A debt of the list: a saved loan or connected debt, or one nobody told the balance of. */
 type Entry = { id: string; loan: LoanRow; unsaved?: undefined } | { id: string; unsaved: LoansReport["unsaved"][number]; loan?: undefined };
 
-const Unknown = ({ children = DASH }: { children?: string }) => <span className="loan-unknown">{children}</span>;
+const Unknown = ({ children = DASH }: { children?: ReactNode }) => <span className="loan-unknown">{children}</span>;
 
 /** Core's rate of the debt, the plan's own, fees in, and the class word of a dear debt: a debt core cannot cost says nothing. */
 function rateCell(l: LoanRow) {
@@ -174,7 +174,7 @@ const columns = (rates: boolean, costs: boolean): Column<Entry>[] => [
     label: t("rpt.ln_col_balance"),
     kind: "money",
     main: true,
-    cell: (e) => (e.loan ? (e.loan.balance.cents === null ? <Unknown /> : money(e.loan.balance.cents, false)) : <Unknown>{t("holdings.balance_missing")}</Unknown>),
+    cell: (e) => (e.loan ? (e.loan.balance.cents === null ? <Unknown /> : money(e.loan.balance.cents, false)) : <Unknown>{e.unsaved.asked ? t("holdings.balance_missing") : <a href={loanTermsHash(e.unsaved.debtId)}>{t("holdings.balance_missing")}</a>}</Unknown>),
   },
   ...(rates ? [{ key: "rate", label: t("rpt.ln_col_rate"), kind: "share", cell: (e) => (e.loan ? rateCell(e.loan) : <Unknown />) } satisfies Column<Entry>] : []),
   ...(costs ? [{ key: "cost", label: t("rpt.ln_cost12"), kind: "money", cell: (e) => (e.loan?.cost?.next12 ? money(e.loan.cost.next12.cents, false) : <Unknown />) } satisfies Column<Entry>] : []),
@@ -332,6 +332,7 @@ function Loans({ ctx }: SectionProps) {
           <div>
             <div className="k">{t("rpt.ln_payments_month")}</div>
             <div className="v"><Figure text={monthly} size="m" /></div>
+            {r.monthlyUnknownNames.length > 0 && <small className="loan-about">{t("rpt.ln_payments_unknown_names", { names: listed(r.monthlyUnknownNames, and()) })}</small>}
           </div>
         </div>
       )}

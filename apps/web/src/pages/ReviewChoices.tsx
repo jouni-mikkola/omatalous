@@ -15,6 +15,8 @@ import type { Category, LoansAnswer, Meta } from "../types.ts";
 import { answerCall, answerLabel, ownerOf, ownersOf } from "./settings/account-use.ts";
 import { groupCategories, offeredCategories, payerChoices, type ReviewItem } from "./review-items.ts";
 import { Buttons, ChoiceButton, mark, plain } from "./review-buttons.tsx";
+import { BalancesForm } from "./ReviewBalancesForm.tsx";
+import { isBalancesItem } from "./review-loan-items.ts";
 import { LoanTermsChoices } from "./ReviewLoanChoices.tsx";
 import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
@@ -35,6 +37,7 @@ export function Choices({ item, meta, busy, onAnswer, onHold, onReload }: { item
     case "payer":
       return <Buttons choices={payerChoices(item)} busy={busy} label={named} onPick={(role) => onAnswer(() => payerCalls.say(item.key, role))} />;
     case "loan_terms_list":
+      if (isBalancesItem(item)) return <BalancesForm item={item} meta={meta} busy={busy} onAnswer={onAnswer} onHold={onHold} onReload={onReload} />;
       return <LoanTermsChoices item={item} meta={meta} busy={busy} onAnswer={onAnswer} onHold={onHold} onReload={onReload} />;
     case "split": {
       const account = meta.accounts.find((a) => a.id === item.accountId);

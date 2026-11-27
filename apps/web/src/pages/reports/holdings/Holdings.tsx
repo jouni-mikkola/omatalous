@@ -22,7 +22,7 @@ import { query } from "../../../api.ts";
 import { date, money, moneyIn, monthYear } from "../../../format.ts";
 import { t, tn } from "../../../text.ts";
 import { partText, typedByText } from "../../../part.ts";
-import { loanHash, loanTermsHash } from "../../../routes.ts";
+import { LOAN_TERMS_HASH, loanHash, loanTermsHash } from "../../../routes.ts";
 import type { DashboardData, Meta, ReconcileState } from "../../../types.ts";
 import { cardBankOf } from "../../../components/BankLogo.tsx";
 import { Figure } from "../../../components/Figure.tsx";
@@ -291,6 +291,9 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), b
   const stamp = common ? <span className="holding-date">{t("ahead.balance_on", { date: common })}</span> : null;
   // lenders paid every month whose loan nobody saved and cards nobody connected: the total cannot hold them, so each is told under it (the server lists them); Lainat lists them when it is shown
   const unsaved = loansListed ? [] : (unsavedLoans?.rows ?? []);
+  // the debts the total leaves out are told beside it, at its size, and lead to the one form that asks their balances
+  const lacking = lackingDebts(holdings);
+  const lackingText = tn(lacking, "rpt.bal_lacking_one", "rpt.bal_lacking_many");
 
   return (
     <section className="card holdings" aria-labelledby={title === null ? undefined : "holdings-h"} aria-label={title === null ? t("holdings.title") : undefined}>
@@ -316,6 +319,12 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), b
               <dt className="st-name st-strong">{t(unsaved.length > 0 ? "holdings.debts_known" : "holdings.debts_total")}</dt>
               <dd className="st-num st-strong">
                 {figure(debtCents)}
+                {lacking > 0 && (
+                  <>
+                    {" "}
+                    {unsaved.some((u) => !u.asked) ? <a href={LOAN_TERMS_HASH}>{lackingText}</a> : lackingText}
+                  </>
+                )}
               </dd>
             </div>
           )}
