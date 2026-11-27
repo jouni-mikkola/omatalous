@@ -1,6 +1,6 @@
 // Decision: is the household spending more than it earns, month after month, and is this month on its usual course
 import { MonthBars } from "../../../charts/MonthBars.tsx";
-import { answerMoney, monthLong } from "../../../format.ts";
+import { answerMoney, signedMoney } from "../../../format.ts";
 import { spentLabel, t } from "../../../text.ts";
 import type { ReportsData } from "../../../types.ts";
 import type { ReactNode } from "react";
@@ -11,7 +11,6 @@ import { monthName } from "../month-name.ts";
 import { partialMonths } from "../partial-months.ts";
 import { KeyValue, type Fact } from "../../../components/table/KeyValue.tsx";
 import { Tiles, type TileItem } from "../../../components/Tiles.tsx";
-import { Lead } from "../Lead.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
 type Gap = NonNullable<ReportsData["cashflowMonths"]["gap"]>;
@@ -24,13 +23,13 @@ function gapTile(gap: Gap): { tile: TileItem; sources: Fact[] } {
     [t("rpt.gap_accounts"), answerMoney(gap.accountsCents)],
   ];
   const paid = [gap.creditCents, gap.savingsCents, gap.accountsCents];
-  return { tile: { label: t("rpt.gap_tile"), figure: answerMoney(gap.gapCents), note: t("rpt.gap_tile_note") }, sources: sources.filter((_, i) => paid[i]! > 0) };
+  return { tile: { label: t("rpt.gap_tile"), figure: answerMoney(gap.gapCents), tone: "bad", note: t("rpt.gap_tile_note") }, sources: sources.filter((_, i) => paid[i]! > 0) };
 }
 
 /**
- * What the complete months of the period came to, as tiles: the gap when they took more than they earned, with what paid
- * it under them (else a sentence that the income covered them), then their income, their spending and the usual month.
- * Each figure is said once. Nothing without a complete month or a gap.
+ * What the complete months of the period came to, as tiles. The first is the answer, in colour: the gap when they took
+ * more than they earned, with what paid it under the tiles, else the income less the spending. Then their income with
+ * its average month and their spending with the usual month. Nothing without a complete month or a gap.
  */
 export function CashflowLead({ ctx }: SectionProps) {
   const overview = ctx.data.cashflowMonths;
@@ -45,16 +44,14 @@ export function CashflowLead({ ctx }: SectionProps) {
   );
   if (complete === null) return gapParts ? <><Tiles items={[gapParts.tile]} />{sources}</> : null;
   const count = String(complete.months);
-  const { peak } = complete;
+  const net: TileItem = { label: t("rpt.strip_net", { months: count }), figure: signedMoney(complete.netCents), tone: complete.netCents < 0 ? "bad" : "good", note: t("rpt.strip_average", { sum: signedMoney(complete.averageNetCents) }) };
   const items: TileItem[] = [
-    ...(gapParts ? [gapParts.tile] : []),
-    { label: t("rpt.strip_income", { months: count }), figure: answerMoney(complete.incomeCents), note: t("rpt.strip_income_average", { sum: answerMoney(complete.averageIncomeCents) }) },
-    { label: t("rpt.strip_spent", { months: count }), figure: answerMoney(complete.spendCents), note: peak ? t("rpt.strip_spent_peak", { month: monthLong(peak.month), sum: answerMoney(peak.spendCents) }) : undefined },
-    ...(usualSpendCents === null ? [] : [{ label: t("rpt.strip_usual"), figure: answerMoney(usualSpendCents), note: t("rpt.strip_usual_note", { months: String(overview.usualMonths) }) }]),
+    gapParts ? gapParts.tile : net,
+    { label: t("rpt.strip_income", { months: count }), figure: answerMoney(complete.incomeCents), note: t("rpt.strip_average", { sum: answerMoney(complete.averageIncomeCents) }) },
+    { label: t("rpt.strip_spent", { months: count }), figure: answerMoney(complete.spendCents), note: usualSpendCents === null ? undefined : t("rpt.strip_spent_usual", { sum: answerMoney(usualSpendCents) }) },
   ];
   return (
     <>
-      {!gap && <Lead>{t("rpt.lead_flows")}</Lead>}
       <Tiles items={items} />
       {sources}
     </>
@@ -74,8 +71,8 @@ function Panel({ children }: { children: ReactNode }) {
 /**
  * Tulot ja menot: the months of the chosen period as bars of income and spending (MonthBars), the running month marked
  * as not whole and the usual month's spending as a line. A month opens its rows. The months come from `cashflowMonths`,
- * which Yhteenveto's twelve months are built from too, so a month has one sum in both places. The sentence above it
- * (`CashflowLead`) says what the complete months came to.
+ * which Yhteenveto's twelve months are built from too, so a month has one sum in both places. The tiles above it
+ * (`CashflowLead`) say what the complete months came to.
  */
 function Months({ ctx }: SectionProps) {
   const overview = ctx.data.cashflowMonths;

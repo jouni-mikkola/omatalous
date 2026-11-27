@@ -29,7 +29,7 @@ describe("the income report's share of all the money in", () => {
 });
 
 describe("the overview's totals of the complete months", () => {
-  it("add up their income and spending and name the dearest of them", () => {
+  it("add up their income and spending and give the difference of the two", () => {
     const ctx = createContext(dataset(), [checking], today);
     const { months, completeTotals } = buildDashboard(ctx, { from: "2026-01-01", to: today }).overview;
     const whole = months.filter((m) => m.complete && m.incomeCents !== null && m.spendCents !== null);
@@ -41,11 +41,11 @@ describe("the overview's totals of the complete months", () => {
     expect(completeTotals!.spendCents).toBe(whole.reduce((sum, m) => sum + m.spendCents!, 0));
     // one definition: the average a month over the very months the total adds up
     expect(completeTotals!.averageIncomeCents).toBe(Math.round(completeTotals!.incomeCents / whole.length));
-    const dearest = Math.max(...whole.map((m) => m.spendCents!));
-    expect(completeTotals!.peak).toEqual({ month: whole.find((m) => m.spendCents === dearest)!.month, spendCents: dearest });
+    expect(completeTotals!.netCents).toBe(completeTotals!.incomeCents - completeTotals!.spendCents);
+    expect(completeTotals!.averageNetCents).toBe(Math.round(completeTotals!.netCents / whole.length));
   });
 
-  it("are none without a complete month, and name no dearest month of a single one", () => {
+  it("are none without a complete month, and a single month is its own average", () => {
     const none = buildDashboard(createContext([], [checking], today), { from: "2026-01-01", to: today }).overview;
     expect(none.months.some((m) => m.complete)).toBe(false);
     expect(none.completeTotals).toBeNull();
@@ -53,7 +53,8 @@ describe("the overview's totals of the complete months", () => {
     const early = "2025-10-09";
     const single = buildDashboard(createContext(dataset().filter((t) => t.bookingDate <= early), [checking], early), { from: "2025-01-01", to: early }).overview;
     expect(single.months.filter((m) => m.complete).map((m) => m.month)).toEqual(["2025-09"]);
-    expect(single.completeTotals).toMatchObject({ months: 1, peak: null });
+    expect(single.completeTotals).toMatchObject({ months: 1 });
     expect(single.completeTotals!.averageIncomeCents).toBe(single.completeTotals!.incomeCents);
+    expect(single.completeTotals!.averageNetCents).toBe(single.completeTotals!.netCents);
   });
 });
