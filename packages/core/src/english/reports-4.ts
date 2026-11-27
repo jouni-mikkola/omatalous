@@ -12,7 +12,7 @@ export const EN_REPORTS_4: Record<keyof typeof FI_REPORTS_4, string> = {
   "rpt.bal_total_est": "Balance at month end (estimate)",
   "rpt.bal_month_change": "Change from previous month",
   "rpt.bal_by_month": "Balances by month",
-  "rpt.bal_q_trend": "Balances over time",
+  "rpt.bal_q_trend": "Balances over time: accounts and credit cards",
   "rpt.bal_q_missing": "Accounts left out",
   "rpt.bal_missing": "{count} with no balance in euros, not in the sum or the chart",
   "rpt.bal_unknown": "balance unknown",
