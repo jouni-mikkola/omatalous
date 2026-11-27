@@ -397,10 +397,10 @@ test("a member sees and changes only their own loans, and the page fits a phone"
     await expect(rowOf(page, "Auton laina")).toBeVisible();
     const car = await reported(context, "Auton laina");
     await expect(rowOf(page, "Auton laina")).toContainText(wholeEuros(car.balanceCents));
-    // the typed rate is kept; with no repayment the payments tell no yearly rate, so the row has the dash, never 0 or a rate
+    // the typed rate is kept; with no repayment the payments tell no yearly rate, and with no debt that has one the table has no rate column, never 0 or a rate
     expect(car.rateBp).toBe(525);
     expect(car.rateMilli).toBeNull();
-    await expect(rateCellOf(page, "Auton laina")).toHaveText("–");
+    await expect(rateCellOf(page, "Auton laina")).toHaveCount(0);
     await openLoan(page, "Auton laina");
     await expect(drillRate(page)).toHaveText(/^5,250\s%$/);
     expect(await overflow(page)).toBeLessThanOrEqual(1);

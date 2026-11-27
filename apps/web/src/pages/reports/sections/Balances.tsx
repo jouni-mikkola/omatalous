@@ -7,37 +7,51 @@ import { type Column, Table } from "../../../components/table/Table.tsx";
 import { FigureRow } from "../holdings/FigureRow.tsx";
 import { Holdings } from "../holdings/Holdings.tsx";
 import { answerMoney, date, money, monthLong, moneyIn, plural, signedMoney } from "../../../format.ts";
+import { LOAN_TERMS_HASH } from "../../../routes.ts";
 import { Tiles, type TileItem } from "../../../components/Tiles.tsx";
 import "../../../styles/statement.css";
 import { BALANCES_ID } from "./ids.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
-import { listsLoans, overdraftTwice } from "./Loans.tsx";
-import { accountsLessDebt, sameDebtTwice } from "../parts.tsx";
-import { lackingDebts } from "../../../components/net-label.ts";
-import { t } from "../../../text.ts";
+import { listsLoans } from "./Loans.tsx";
+import { headAsks, lackingDebts, netLabelOf, showsHead } from "../../../components/net-label.ts";
+import { t, tn } from "../../../text.ts";
 
-/** The saved loans of the rows. A loan linked to an account is in the accounts' total already, so with one the row says which loans its figure holds. */
-const savedLabel = (linked: boolean) => t(linked ? "rpt.bal_saved_unlinked" : "rpt.bal_saved");
-
-/** What the accounts and cards hold on the newest day, how that moved from the day the report counts from (a chip), and what is owed when it is known. */
+/**
+ * The page's answer in one row, each figure the one of `holdings` under the name its group has below: what the accounts
+ * hold, what is owed and what is left of the first after the second. The debts say so when they are the known ones only,
+ * and then no net is told: one line under the row counts the debts that lack a balance and leads to their question.
+ */
 export function BalancesTiles({ ctx }: SectionProps) {
-  const r = ctx.data.balances;
-  const at = r.daily.cents.findLastIndex((v) => v !== null);
-  if (at < 0 || r.accounts.length === 0) return null;
-  const debt = r.debt.cents !== null && r.debt.cents > 0;
-  // a move under a euro is no move
-  const moved = r.change !== null && Math.abs(r.change.cents) >= 100 ? r.change : null;
+  const h = ctx.data.balances.holdings;
+  if (!showsHead(ctx.data.balances)) return null;
+  const lacking = lackingDebts(h);
+  const owes = h.debtCents !== null && h.debtCents > 0;
+  const netLabel = netLabelOf(h);
   const items: TileItem[] = [
-    {
-      label: t("rpt.bal_tile_now"),
-      figure: answerMoney(r.daily.cents[at]!),
-      delta: moved ? { text: signedMoney(moved.cents), good: moved.cents > 0 } : undefined,
-      note: moved ? t("rpt.bal_tile_since", { date: date(moved.from) }) : undefined,
-    },
+    { label: t("holdings.accounts_total"), figure: answerMoney(h.accountsCents!) },
+    ...(owes ? [{ label: t(lacking > 0 ? "holdings.debts_known" : "holdings.debts_total"), figure: answerMoney(h.debtCents!) }] : []),
+    // an unknown total is said, so the row never looks debt-free
+    ...(h.debtCents === null ? [{ label: t("holdings.debts_total"), figure: t("bills.after_unknown") }] : []),
+    ...(owes && lacking === 0 && h.netCents !== null && netLabel ? [{ label: netLabel, figure: answerMoney(h.netCents) }] : []),
   ];
-  // while a debt has no known balance the debt total is incomplete, so no debt sum is named
-  if (debt && lackingDebts(r.holdings) === 0) items.push({ label: t("rpt.bal_tile_debt"), figure: answerMoney(r.debt.cents!) });
-  return <Tiles items={items} />;
+  // with no debt left to ask in Tarkistettavat the line has no link
+  const asks = headAsks(ctx.data.balances);
+  return (
+    <>
+      <Tiles items={items} />
+      {lacking > 0 && (
+        <p className="bal-lacking">
+          <span>{tn(lacking, "rpt.bal_lacking_one", "rpt.bal_lacking_many")}</span>
+          {asks && (
+            <>
+              {" "}
+              <a className="btn-link" href={LOAN_TERMS_HASH}>{t("rpt.ln_fill")}</a>
+            </>
+          )}
+        </p>
+      )}
+    </>
+  );
 }
 
 /** The credits the household answered "Maksettu pois" for, each with the day of its last payment (the server's list, latest first): ended, no debt, and not gone from the page. */
@@ -64,13 +78,8 @@ function Balances({ ctx }: SectionProps) {
   const last = r.months.length - 1;
   // the month in progress has no end yet: its point is the balance of today
   const lastIsToday = last >= 0 && r.months[last] === ctx.running;
-  const { maybeTwice, overdraftTwice: overdrafts } = ctx.data.loans;
-  // the balance of the newest day and its change are the tiles above the page: these two say only what they leave out
-  const lowest: TileItem[] = r.lowest ? [{ label: t("rpt.bal_tile_low"), figure: answerMoney(r.lowest.cents), note: date(r.lowest.day) }] : [];
-  // the highest day of the chart's line, told only while it differs from today's balance on it
-  const now = lastIsToday ? (r.daily.cents.at(-1) ?? null) : null;
-  const peak: TileItem[] = r.peak && now !== null && r.peak.cents !== now ? [{ label: t("rpt.bal_tile_peak"), figure: answerMoney(r.peak.cents), note: date(r.peak.day) }] : [];
-  const extremes = [...lowest, ...peak];
+  // how far the line of the chart moved over its range, said under its heading; a move under a euro is no move
+  const moved = r.change !== null && Math.abs(r.change.cents) >= 100 ? r.change : null;
   const monthRows = r.months.map((_, i) => i);
   const tableColumns: Column<number>[] = [
     {
@@ -112,30 +121,22 @@ function Balances({ ctx }: SectionProps) {
       {/* a viewer with no account has nothing more here */}
       {r.accounts.length > 0 && (
         <>
-          {/* told for today only, as the debts are, and only to a household that saved a loan; with cents, so the three figures subtract */}
-          {lastIsToday && r.debt.savedCents > 0 && r.accountsLessDebt[last] != null && r.total[last] != null && (
-            <>
-              <dl className="st-rows balance-rows">
-                <FigureRow label={t("rpt.bal_row")}>{money(r.total[last]!)}</FigureRow>
-                <FigureRow label={savedLabel(ctx.data.loans.loans.some((l) => l.linkedAccount !== null))}>{money(r.debt.savedCents)}</FigureRow>
-                {/* while a debt has no balance the figure would be too high, and Holdings names its own net with what it lacks */}
-                {lackingDebts(r.holdings) === 0 && <FigureRow label={accountsLessDebt().label}>{money(r.accountsLessDebt[last]!)}</FigureRow>}
-              </dl>
-              {(maybeTwice.length > 0 || overdrafts.length > 0) && (
-                <ul className="loans-notes">
-                  {maybeTwice.length > 0 && <li className="warn">{t("rpt.bal_twice_see", { text: sameDebtTwice() })}</li>}
-                  {overdrafts.length > 0 && <li className="warn">{overdraftTwice()}</li>}
-                </ul>
-              )}
-            </>
-          )}
-          {extremes.length > 0 && <Tiles items={extremes} />}
-          <QuestionChart id="saldot-kaavio" question={t("rpt.bal_q_trend")} table={tableView}>
+          <QuestionChart
+            id="saldot-kaavio"
+            question={t("rpt.bal_q_trend")}
+            answer={
+              moved && (
+                <>
+                  <span className={`strip-delta ${moved.cents > 0 ? "good" : "bad"}`}>{signedMoney(moved.cents)}</span> {t("rpt.bal_since", { date: date(moved.from) })}
+                </>
+              )
+            }
+            table={tableView}
+          >
             <BalanceLine r={r} />
           </QuestionChart>
-          <hr className="qc-rule" />
-          {/* the page is named Varat ja velat, and Lainat (shown with a saved or an unsaved loan) lists the loans and their total */}
-          <Holdings holdings={r.holdings} meta={ctx.meta} title={null} loansListed={listsLoans(ctx.data.loans)} />
+          {/* the page is named Varat ja velat and its net figure is the row above the page; Lainat (shown with a saved or an unsaved loan) lists the loans and their total */}
+          <Holdings holdings={r.holdings} meta={ctx.meta} title={null} net={false} loansListed={listsLoans(ctx.data.loans)} />
           {ctx.data.loans.ended.length > 0 && <hr className="qc-rule" />}
           <EndedCredits ended={ctx.data.loans.ended} />
           {r.missing.length > 0 && (

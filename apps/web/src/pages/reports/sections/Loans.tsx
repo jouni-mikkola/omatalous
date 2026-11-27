@@ -10,14 +10,15 @@ import { DebtPath, DebtPathTable } from "../../../charts/forms/DebtPath.tsx";
 import { ExtraPlan } from "../../../components/loans/ExtraPlan.tsx";
 import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
 import { ACCOUNT_TYPE_LABEL, date, money, monthLongIn, percent, plainNumber } from "../../../format.ts";
-import { accountsLessDebt, sameDebtTwice } from "../parts.tsx";
+import { sameDebtTwice } from "../parts.tsx";
 import { typedByText } from "../../../part.ts";
 import { LOAN_TERMS_HASH, loanEditHash, loanHash, LOANS_REPORT_ANCHOR } from "../../../routes.ts";
 import { dearWord } from "../holdings/holding-rows.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/loans.css";
 import { Notice } from "../../../components/ui/Notice.tsx";
-import { t } from "../../../text.ts";
+import { figureName, t } from "../../../text.ts";
+import { headAsks } from "../../../components/net-label.ts";
 /** A figure the loan has no value for: nothing is due, nothing was drawn, or the household has not told it. */
 const DASH = "–";
 
@@ -151,7 +152,8 @@ function rateCell(l: LoanRow) {
   );
 }
 
-const columns = (): Column<Entry>[] => [
+/** The columns of the debts. `rates` and `costs`: some debt has that figure; a column that would hold only dashes is left out. */
+const columns = (rates: boolean, costs: boolean): Column<Entry>[] => [
   {
     key: "name",
     label: t("rpt.ln_col_debt"),
@@ -174,8 +176,8 @@ const columns = (): Column<Entry>[] => [
     main: true,
     cell: (e) => (e.loan ? (e.loan.balance.cents === null ? <Unknown /> : money(e.loan.balance.cents, false)) : <Unknown>{t("holdings.balance_missing")}</Unknown>),
   },
-  { key: "rate", label: t("rpt.ln_col_rate"), kind: "share", cell: (e) => (e.loan ? rateCell(e.loan) : <Unknown />) },
-  { key: "cost", label: t("rpt.ln_cost12"), kind: "money", cell: (e) => (e.loan?.cost?.next12 ? money(e.loan.cost.next12.cents, false) : <Unknown />) },
+  ...(rates ? [{ key: "rate", label: t("rpt.ln_col_rate"), kind: "share", cell: (e) => (e.loan ? rateCell(e.loan) : <Unknown />) } satisfies Column<Entry>] : []),
+  ...(costs ? [{ key: "cost", label: t("rpt.ln_cost12"), kind: "money", cell: (e) => (e.loan?.cost?.next12 ? money(e.loan.cost.next12.cents, false) : <Unknown />) } satisfies Column<Entry>] : []),
 ];
 
 /** "A", "A ja B", "A, B ja C" */
@@ -228,10 +230,10 @@ function twice(twin: MaybeTwice, linkable: boolean, others: readonly string[]): 
 /**
  * A debt that may be twice in the accounts less the debts alone: an account below zero beside a saved credit line. The
  * debt total holds it once, and removing the saved loan would take it out of that total, so the sentence tells what
- * the figure would be and advises no step. Said where the figure is: its tile here and its line in Saldot.
+ * the figure would be and advises no step. The figure is the net one at the head of the page, named as it is there.
  */
-export function overdraftTwice(): string {
-  return t("rpt.ln_overdraft", { label: accountsLessDebt().label });
+function overdraftTwice(): string {
+  return t("rpt.ln_overdraft", { label: figureName("netWorth") });
 }
 
 /** A set of saved loans is one entry of its list, so its ids are a key no other sentence has. */
@@ -245,7 +247,7 @@ interface Note {
   offers?: Offer[];
 }
 
-/** A debt that may be in a figure twice. `less`: the accounts less the debts are shown. `own`: the ids of the viewer's own accounts. */
+/** A debt that may be in a figure twice. `less`: the page tells the accounts less the debts, as it does for today. `own`: the ids of the viewer's own accounts. */
 function notes(r: LoansReport, less: boolean, own: ReadonlySet<string>): Note[] {
   const typists = new Map(r.loans.flatMap((l): [string, string][] => (l.typedBy ? [[l.id, l.typedBy]] : [])));
   return [
@@ -284,7 +286,7 @@ function Loans({ ctx }: SectionProps) {
   const b = ctx.data.balances;
   // the accounts less the debts are told for today only, as the debts are: a range that ends before today has no point for them
   const last = b.months.length - 1;
-  const less = last >= 0 && b.months[last] === ctx.running ? b.accountsLessDebt[last] : undefined;
+  const less = last >= 0 && b.months[last] === ctx.running;
   const m = r.monthly;
   // the known payments of every debt listed, with how many have no figure; with none known a dash, never 0.
   // Only bullets owe: there is no payment to add up, and a zero would hide the interest they pay
@@ -298,11 +300,7 @@ function Loans({ ctx }: SectionProps) {
         : r.payments.bullets > 0
           ? t("rpt.ln_no_payments")
           : money(0, false);
-  const items: [label: string, value: string][] = [
-    [t("rpt.ln_payments_month"), monthly],
-    ...(less === undefined ? [] : [[accountsLessDebt().label, less === null || r.unsaved.length > 0 ? DASH : money(less, false)] as [string, string]]),
-  ];
-  const lines = notes(r, less !== undefined, new Set(ctx.meta.accounts.map((a) => a.id)));
+  const lines = notes(r, less, new Set(ctx.meta.accounts.map((a) => a.id)));
   // the limit of a connected card is the account's own: a card at a part shows the viewer's part of what is used, and no limit beside it
   const limitOf = (l: LoanRow) => (l.accountType === "credit_card" && !belowWhole(l.part) ? cardLimitCents(ctx.meta.accounts.find((a) => `account:${a.id}` === l.id)?.creditLimitCents) : null);
   // the server's order, dearest first: the web never sorts the debts
@@ -313,38 +311,28 @@ function Loans({ ctx }: SectionProps) {
   const listAsks = r.unsaved.some((u) => !u.asked) || r.loans.some((l) => l.id.startsWith("account:") && l.accountType === "credit_card" && l.cost?.unknown === "rate");
   const ownUnknown = r.loans.find((l) => changesLoan(l) && l.cost?.unknown != null);
   const fillHref = listAsks ? LOAN_TERMS_HASH : ownUnknown ? loanHash(ownUnknown.id) : null;
+  // a column is shown when a debt has its figure: one of dashes alone says nothing
+  const rates = r.loans.some((l) => (l.cost?.rateMilli ?? null) !== null);
+  const costs = r.cost12.cents !== null || r.loans.some((l) => l.cost?.next12 != null);
   // a total that leaves unsaved debts out says so, as Yhteenveto's does; the cost is unknown, never the known part, while a debt lacks its terms
   const total = {
     label: t(r.unsaved.length > 0 ? "holdings.debts_known" : "holdings.debts_total"),
     cells: {
       balance: r.totalKnown ? money(r.total.cents, false) : <Unknown />,
-      cost:
-        r.cost12.cents === null ? (
-          <>
-            <Unknown />
-            {fillHref !== null && (
-              <>
-                {" "}
-                <a href={fillHref}>{t("rpt.ln_fill")}</a>
-              </>
-            )}
-          </>
-        ) : (
-          money(r.cost12.cents, false)
-        ),
+      ...(costs ? { cost: r.cost12.cents === null ? <Unknown /> : money(r.cost12.cents, false) } : {}),
     },
   };
   return (
-    <ReportPanel id={section.id} title={section.title}>
+    // the one link to what the cost waits for stands in the head, so it is there also when no debt has a cost to show a column for;
+    // the line at the head of the page links to the list already when it asks of a balance
+    <ReportPanel id={section.id} title={section.title} actions={r.cost12.cents === null && fillHref !== null && !(fillHref === LOAN_TERMS_HASH && headAsks(b)) ? <a className="btn-link" href={fillHref}>{t("rpt.ln_fill")}</a> : undefined}>
       {/* with no loan saved or connected there is nothing to add up: the payments of the unsaved ones are in their rows */}
       {r.loans.length > 0 && (
         <div className="kv">
-          {items.map(([label, value]) => (
-            <div key={label}>
-              <div className="k">{label}</div>
-              <div className="v"><Figure text={value} size="m" /></div>
-            </div>
-          ))}
+          <div>
+            <div className="k">{t("rpt.ln_payments_month")}</div>
+            <div className="v"><Figure text={monthly} size="m" /></div>
+          </div>
         </div>
       )}
       {lines.length > 0 && (
@@ -389,7 +377,7 @@ function Loans({ ctx }: SectionProps) {
         className="loan-table"
         rows={entries}
         rowKey={(e) => e.id}
-        columns={columns()}
+        columns={columns(rates, costs)}
         total={r.loans.length > 0 ? total : undefined}
         drill={(e) =>
           e.loan ? (
@@ -417,7 +405,7 @@ export const section: ReportSection = {
   order: 115,
   page: "balances",
   reports: ["loans", "balances"],
-  // balances is read for the accounts less the debts of the running month only; a period that ends before it hides that tile
+  // balances is read for the running month only: whether the page tells the accounts less the debts
   ofToday: ["balances"],
   // a household with no saved loan and no unsaved one sees what it saw: its connected debts are in Saldot
   visible: (ctx) => listsLoans(ctx.data.loans),
