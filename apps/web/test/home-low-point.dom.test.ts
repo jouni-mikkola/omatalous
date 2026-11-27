@@ -84,8 +84,8 @@ describe("Now", () => {
     expect(line.closest("a")).toBeNull();
   });
 
-  it("leaves the line out when the lowest balance falls before the payday: it is the sum above it", () => {
-    expect(nowOf(known({ date: "2026-12-09" }), runway).querySelector("p.home-low")).toBeNull();
+  it("keeps the line when the lowest balance falls before the payday: the walk ends at the payday", () => {
+    expect(nowOf(known({ date: "2026-12-09" }), runway).querySelector("p.home-low")).not.toBeNull();
   });
 
   // core takes the payday's own bills off before the pay lands, so a lowest balance dated the payday is below the figure of that day: two sums for one day
