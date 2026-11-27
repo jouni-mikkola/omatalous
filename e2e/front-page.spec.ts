@@ -97,7 +97,9 @@ for (const width of [390, 1440] as const) {
     const classes = await page.locator(".home-now, .home-summary, .home-coming, .holdings").evaluateAll((els) => els.map((e) => e.getAttribute("class") ?? ""));
     const order = classes.map((c) => c.split(" ").find((name) => /^home-|^holdings$/.test(name)));
     expect(order).toEqual(["home-now", "home-summary", "home-coming", "holdings"]);
-    expect(await page.locator("main .card h2").allInnerTexts()).toEqual([`Jää palkkapäivänä ${paydayDay}.${paydayMonth}.`, "Saldo päivä päivältä", "Tulevat kuukaudet", "Varat ja velat"]);
+    const headings = (await page.locator("main .card h2").allInnerTexts()).map((h) => h.replace(/\s+/g, " ").trim());
+    expect(headings.slice(1)).toEqual(["Saldo päivä päivältä", "Tulevat kuukaudet", "Varat ja velat"]);
+    expect(headings[0]).toMatch(verdict);
     await expect(page.locator("main .notice, main .home-notice")).toHaveCount(0);
     // Saldo päivä päivältä: core's balance from the last payday to today is a solid line ending at the balance Nyt starts from, with the rule Nyt and the ground Arvio right of it
     if (home.balancePast) {
