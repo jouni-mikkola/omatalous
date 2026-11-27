@@ -84,10 +84,7 @@ takaisin* in Tulojen käyttö are the whole euros of the terms under Tulos. A te
 direction or to nothing is not shown.
 
 One month has one result. On the first page the terms under Tulos add up: Tulot less Menot, less what moved to savings
-(or more, what was taken out of them), more credit drawn (or less, credit paid back) is Tulos. The list of Tulojen käyttö
-holds what was taken out of savings or drawn on credit and stayed as money in beside the income, so its parts add up to the
-income and that money, and their shares to 100 (`bridgeView`). With a gap, where the income did not pay everything, the
-list names none of it, so a name never stands for two sums. The terms are rounded with Tulot, Menot and Tulos, so the
+(or more, what was taken out of them), more credit drawn (or less, credit paid back) is Tulos. The terms are rounded with Tulot, Menot and Tulos, so the
 euros shown add up. The cash flow report's row of the month has the same Tulos
 (`leftCents`) and the same difference of income less consumption and debt service. `monthResult` in
 `packages/core/test/kit/invariants.ts` holds all of it for every generated household.
