@@ -57,7 +57,7 @@
 .home-rows dt { min-inline-size: 0; color: var(--text-2); }
 .home-rows dt a { color: inherit; }
 .home-rows dd { margin: 0; text-align: end; white-space: nowrap; font-weight: var(--w-strong); }
-.home-rows .kind-chip { vertical-align: baseline; }
+.home-rows .kind-head { display: inline-flex; vertical-align: baseline; }
 .home-row-note { display: block; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-regular); color: var(--text-2); }
 .home-rows dd .home-row-note { text-align: end; }
 .home-rows [data-row=left] dt { font-weight: var(--w-strong); color: var(--text); }
