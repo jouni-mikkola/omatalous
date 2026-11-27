@@ -54,7 +54,7 @@ for (const width of [390, 1440] as const) {
     expect(await monthFigure(page, "income"), "the month's income").toBe(whole(overview.income.cents));
     expect(await monthFigure(page, "spent"), "the month's spending").toBe(whole(home.pace?.spentCents ?? nyt.pace.spentCents));
     expect(await monthFigure(page, "result"), "Käteen jäi").toBe(whole(totals.leftCents));
-    expect(cents(await page.locator("[data-tile=left] .fig").innerText()), "what is left on payday, to the cent").toBe(leftOnPayday.leftCents);
+    expect(cents(await page.locator("[data-tile=left] .fig").innerText()), "what is left on payday, in whole euros").toBe(whole(leftOnPayday.leftCents));
     const [, paydayMonth, paydayDay] = leftOnPayday.payday.date.split("-").map(Number);
     // the verdict is the heading of the figure's section: it names the payday while the money is enough, the missing sum when it is not
     const verdict = leftOnPayday.leftCents < 0 ? /^Puuttuu .+ ennen palkkapäivää$/ : `Riittää palkkapäivään ${paydayDay}.${paydayMonth}.`;

@@ -10,7 +10,7 @@ const balancesHref = hashOf({ page: "balances", params: new URLSearchParams() })
 
 /**
  * The right rail's block: Tilit, Luottokortit and Lainat as one line each, the figures of `holdings` as the answer gives them,
- * each a link to Varat ja velat where the accounts, cards and loans are told in full. A group the household has none of has no
+ * under a heading that is the one link to Varat ja velat, where the accounts, cards and loans are told in full. A group the household has none of has no
  * line. `chip` stands by the heading and `buffer` at the foot.
  */
 export function HoldingsLines({ holdings, chip, buffer }: { holdings: DashboardData["holdings"]; chip?: ReactNode; buffer?: ReactNode }) {
@@ -24,16 +24,16 @@ export function HoldingsLines({ holdings, chip, buffer }: { holdings: DashboardD
     <section className="card holdings holdings-lines" aria-labelledby="holdings-h">
       <div className="card-head tb">
         <div className="card-name">
-          <h2 id="holdings-h">{t("holdings.title")}</h2>
+          <h2 id="holdings-h">
+            <a href={balancesHref}>{t("holdings.title")}</a>
+          </h2>
           {chip}
         </div>
       </div>
       <dl className="st-rows">
         {lines.map((line) => (
           <div key={line.id} className="st-row" data-holding={line.id}>
-            <dt className="st-name">
-              <a href={balancesHref}>{line.label}</a>
-            </dt>
+            <dt className="st-name">{line.label}</dt>
             <dd className="st-num">{line.cents === null ? "–" : money(line.cents)}</dd>
           </div>
         ))}

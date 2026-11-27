@@ -344,10 +344,10 @@ describe("Yhteenveto's sum left to the payday", () => {
 });
 
 describe("Yhteenveto's rail", () => {
-  it("tells Tilit, Luottokortit and Lainat as one line each, every one a link to Varat ja velat, and leaves out a group the household has none of", () => {
+  it("tells Tilit, Luottokortit and Lainat as one line each under one link to Varat ja velat, and leaves out a group the household has none of", () => {
     const holdings = { accounts: [{}], cards: [{}], loans: [], accountsCents: 1300000, cardsCents: -45000, loansCents: null } as unknown as DashboardData["holdings"];
     const { container } = render(createElement(HoldingsLines, { holdings }));
     expect([...container.querySelectorAll(".st-row")].map((row) => [flat(row.querySelector("dt")?.textContent), flat(row.querySelector("dd")?.textContent)])).toEqual([["Tilit", "13 000,00 €"], ["Luottokortit", "−450,00 €"]]);
-    expect([...container.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toEqual(["#/balances", "#/balances"]);
+    expect([...container.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toEqual(["#/balances"]);
   });
 });

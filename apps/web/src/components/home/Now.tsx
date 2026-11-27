@@ -57,7 +57,13 @@ function AnswerCard({ runway, lowLine }: { runway: KnownRunway; lowLine: ReactNo
         </div>
         <div data-row="bills">
           <dt>
-            <a data-tile="bills" href={billsHref}>{t(parts.cardBills.count > 0 ? "rpt.buf_due" : "home.ledger_payments")}</a> {parts.bills.count > 0 && <span className="home-row-note">{t("home.row_count", { count: String(parts.bills.count) })}</span>}
+            <a data-tile="bills" href={billsHref}>{t(parts.cardBills.count > 0 ? "rpt.buf_due" : "home.ledger_payments")}</a>
+            {parts.bills.count > 0 && (
+              <>
+                {" "}
+                <span className="home-row-note">{t("home.row_count", { count: String(parts.bills.count) })}</span>
+              </>
+            )}
           </dt>
           <dd className="num">{rowMoney(parts.bills.cents)}</dd>
         </div>
