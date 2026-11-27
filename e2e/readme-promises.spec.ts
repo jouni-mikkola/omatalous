@@ -22,7 +22,7 @@ test("what the README says about Lisää, English and statement files holds on t
     await expect(page.getByRole("heading", { name: "Tulolajit" })).toBeVisible();
     await expect(page.getByText("Kuukaudet taulukkona").first()).toBeVisible();
     await openChartFolds(page);
-    await expect(page.getByRole("table", { name: "Tulot kuukausittain" })).toBeVisible();
+    await expect(page.getByRole("table", { name: "Tulot ja menot kuukausittain" })).toBeVisible();
     // a table of more than ten rows downloads as CSV
     await page.goto("/#/balances");
     await page.locator("details.chart-fold > summary").first().click();

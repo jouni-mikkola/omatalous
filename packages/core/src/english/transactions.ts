@@ -98,7 +98,6 @@ export const EN_TRANSACTIONS: Record<keyof typeof FI_TRANSACTIONS, string> = {
   "tx.result": "Result",
   "tx.updating": "The sums are updating",
   "tx.lead_label": "This month",
-  "tx.lead_day": "Biggest day {day}: {sum}, {events}",
   "tx.lead_top": "Biggest this month",
   "tx.lead_new": "New this month",
   // Categories

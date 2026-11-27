@@ -41,6 +41,12 @@ function Payers({ row }: { row: Row }) {
   return <Table<Payer> caption={t("rpt.in_payers", { label: row.label })} rows={row.payers} rowKey={(p) => p.payer} columns={columns} drill={(p) => <Payments payer={p} />} drillLabel={(p) => p.payer} toolbar={false} csv={false} />;
 }
 
+/** The share of all income a second income type has to reach before the months are drawn as a chart: under it every column is one colour and height, and the table says all there is. */
+const SECOND_TYPE_SHARE = 0.1;
+
+/** A type's share of all income as the table prints it: a share above zero that rounds to nothing is "alle 1 %", never "0 %" beside a sum. */
+const shareCell = (share: number): string => (share > 0 && share < 0.005 ? t("rpt.qt_under", { n: 1 }) : percent(share));
+
 /** The average line of the chart names the months it is the mean of: the months the chart draws solid. */
 const averageLine = (cents: number, months: number): string => t("rpt.in_average_line", { sum: money(cents, false), months: String(months) });
 
@@ -49,13 +55,13 @@ function Income({ ctx }: SectionProps) {
   const columns: Column<Row>[] = [
     { key: "type", label: t("rpt.in_type"), kind: "text", rowHead: true, cell: (ty) => ty.label, csv: (ty) => ty.label },
     { key: "bar", label: t("rpt.fd_share"), headHidden: true, kind: "text", phone: "hide", csv: false, className: () => "in-share-bar", bar: { tone: "income", value: (ty) => ty.shareOfAll, max: 1 } },
-    { key: "share", label: t("rpt.fd_share"), kind: "share", phone: "hide", cell: (ty) => percent(ty.shareOfAll), csv: (ty) => ty.shareOfAll },
+    { key: "share", label: t("rpt.fd_share"), kind: "share", phone: "hide", cell: (ty) => shareCell(ty.shareOfAll), csv: (ty) => ty.shareOfAll },
     { key: "total", label: ctx.span ?? t("rpt.total"), kind: "money", main: true, precision: "cents", cents: (ty) => ty.totalCents },
   ];
   return (
     <ReportPanel id={section.id} title={section.title}>
       <>
-      <ChartWithTable
+      {r.types.filter((ty) => ty.shareOfAll >= SECOND_TYPE_SHARE).length > 1 && <ChartWithTable
         title={t("table.folded_months")}
         rows={r.months.length}
         chart={
@@ -80,7 +86,7 @@ function Income({ ctx }: SectionProps) {
             search={false}
           />
         }
-      />
+      />}
       <Table<Row>
         caption={t("rpt.in_types")}
         className="in-types"
