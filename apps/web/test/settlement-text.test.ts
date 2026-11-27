@@ -42,12 +42,11 @@ describe("the wording of the settlement answer", () => {
   });
 });
 
-describe("the lowest balance above the balance chart", () => {
-  const answerOf = (balances: object) => {
+describe("the lowest balance of the balance chart", () => {
+  const tilesOf = (balances: object) => {
     const ctx = { data: { loans: { maybeTwice: [], overdraftTwice: [], loans: [], saved: 0, unsaved: [], ended: [] }, balances }, meta: { today: "2026-10-11", accounts: [] }, running: "2026-10", scope: "own", exportHref: () => "" } as unknown as ReportContext;
     const html = renderToStaticMarkup(createElement(section.Component, { ctx })).replace(/[\s  ]+/g, " ");
-    // the text of the tiles above the chart, tags as spaces; the chart itself no longer has an answer line
-    expect(html).not.toContain('class="qc-a"');
+    // the text of any tiles above the chart, tags as spaces
     return html.split("<ul").slice(1).map((ul) => ul.split("</ul>")[0]!.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()).join(" ");
   };
   const data = {
@@ -55,13 +54,9 @@ describe("the lowest balance above the balance chart", () => {
     daily: { from: "2026-09-30", cents: [100_000, 120_000] }, change: null, holdings: { accounts: [], cards: [], loans: [], debtCents: 0, unsavedLoans: null, netCents: null },
     accounts: [{ accountId: "a", name: "Käyttötili", asOf: "2026-10-11", values: [100_000, 120_000], changeCents: 20_000 }], debt: { day: "2026-10-11", cents: 0, savedCents: 0 },
   };
-  it("names the lowest balance", () => {
-    expect(answerOf({ ...data, lowest: { day: "2026-10-02", cents: 5000 } })).toContain("Alin saldo");
-    expect(answerOf({ ...data, lowest: { day: "2026-10-02", cents: 5000 } })).toContain("2.10.");
-  });
-
-  it("has no lowest-balance tile when there is no lowest balance", () => {
-    expect(answerOf({ ...data, lowest: null })).not.toContain("Alin saldo");
+  it("is the dot the chart draws: no tile names it, with a lowest balance or without", () => {
+    expect(tilesOf({ ...data, lowest: { day: "2026-10-02", cents: 5000 } })).toBe("");
+    expect(tilesOf({ ...data, lowest: null })).toBe("");
   });
 });
 

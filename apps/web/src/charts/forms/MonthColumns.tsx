@@ -66,6 +66,7 @@ export function MonthColumns({
   today = null,
   states = null,
   keepHeight = false,
+  low = false,
 }: {
   months: readonly MonthColumn[];
   series: readonly MonthColumnsSeries[];
@@ -84,6 +85,8 @@ export function MonthColumns({
   states?: { paid: string; coming: string } | null;
   /** The strip for the usual level's name is taken out of the plot, so the chart is as tall as it is without that level (a page with a height limit). */
   keepHeight?: boolean;
+  /** The plot is half as high: the chart stands under the list that tells its figures. */
+  low?: boolean;
 }) {
   const [ref, measured] = useWidth<HTMLDivElement>();
   const [at, setAt] = useReadout();
@@ -96,7 +99,7 @@ export function MonthColumns({
   const values = present.map((i) => months[i]!.totalCents!);
   // the level's name stands in a strip above the clipped sums, so no column reaches it
   const headroom = TOP + (usual ? USUAL_STRIP : 0);
-  const options = monthPlot(width, (keepHeight ? TOP : headroom) + BOTTOM);
+  const options = monthPlot(width, (keepHeight ? TOP : headroom) + BOTTOM, low);
   const draft = frame(width, { top: headroom, right: 4, bottom: BOTTOM, left: 48 }, options);
   const scale = (innerH: number) => linear(values, [innerH, 0], { target: monthTickTarget(innerH), clip: OUTLIER_FACTOR, include: usual ? [usual.cents] : [] });
   const y0 = scale(draft.innerH);

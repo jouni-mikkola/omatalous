@@ -1,4 +1,5 @@
 // Decision: which rows of each month Laskut lists one by one, so that a long list stays readable and no sum loses its rows
+import { unknownBillsIn } from "@banking/core";
 import type { ReportsData } from "../../types.ts";
 import type { Item, TypedBill } from "./items.ts";
 
@@ -20,10 +21,21 @@ export type CalRow =
   | { key: string; kind: "row"; bill: CalBill; item: Item | null; typed: TypedBill | null; missed?: true }
   | { key: string; kind: "fold"; month: string; bills: CalBill[]; count: number; cents: number }
   | { key: string; kind: "ended"; item: Item }
-  | { key: string; kind: "total"; total: "paid" | "coming" | "saving"; figure: TotalFigure; cents: number };
+  | { key: string; kind: "total"; total: TotalName; figure: TotalFigure; cents: number | null; part?: true; unknown?: number };
 
 /** What a total is, as the chips say: `now` is charged already, `estimate` is still to come. */
 type TotalFigure = "now" | "estimate";
+
+/** The kinds core adds a month's bills up by (`costKindOf`): parts of the month's bills still to come. */
+const PARTS = [
+  ["essential", "essentialCents"],
+  ["debt", "debtCents"],
+  ["contract", "contractCents"],
+  ["optional", "optionalCents"],
+] as const;
+
+/** The figure a closing row of an open month tells. */
+type TotalName = "paid" | "coming" | "saving" | "income" | "after" | (typeof PARTS)[number][0];
 
 export interface CalGroup {
   key: string;
@@ -84,15 +96,23 @@ const FOLDED_ROWS = 2;
  * The totals that close an open month, one for each figure of core's that the rows above add up to: what is paid (`paidCents`) and
  * the saving charged (`savingPaidCents`), both only when a charge is made, so only the running month has them, then what is still to
  * come (`billsCents`) and the saving still to come (`savingCents`), each only when the month has it. Every listed row is in one of them
- * (or in the head's pays, or is a card's and in none), so the pays less the two to come are the sum left after the bills.
+ * (or in the pays, or is a card's and in none), so the pays less the two to come are the sum left after the bills.
+ * The bills still to come are followed by their parts by kind while two kinds or more have money (one kind alone is the sum
+ * itself). The pays (`incomeCents`) and what is left after the bills (`afterCents`) close the month: the sum left is there while
+ * something is still to come, and is null while a bill's sum is not known or no pay comes, with the count of the bills that
+ * leave it unknown (`unknownBillsIn` of core).
  */
-function totalRows(m: CalMonth): CalRow[] {
-  const total = (total: "paid" | "coming" | "saving", figure: TotalFigure, cents: number): CalRow => ({ key: `${m.month}:total:${total}:${figure}`, kind: "total", total, figure, cents });
+function totalRows(calendar: Calendar, m: CalMonth): CalRow[] {
+  const total = (total: TotalName, figure: TotalFigure, cents: number | null): Extract<CalRow, { kind: "total" }> => ({ key: `${m.month}:total:${total}:${figure}`, kind: "total", total, figure, cents });
+  const parts = PARTS.filter(([, field]) => m[field] > 0);
   return [
     ...(m.paidCents > 0 ? [total("paid", "now", m.paidCents)] : []),
     ...(m.savingPaidCents > 0 ? [total("saving", "now", m.savingPaidCents)] : []),
     total("coming", "estimate", m.billsCents),
+    ...(parts.length > 1 ? parts.map(([name, field]): CalRow => ({ ...total(name, "estimate", m[field]), part: true })) : []),
     ...(m.savingCents > 0 ? [total("saving", "estimate", m.savingCents)] : []),
+    ...(m.incomeCents > 0 ? [total("income", "estimate", m.incomeCents)] : []),
+    ...(nothingToCome(m) ? [] : [{ ...total("after", "estimate", m.afterCents), unknown: unknownBillsIn(calendar, [m.month]) }]),
   ];
 }
 
@@ -127,7 +147,7 @@ export function calendarGroups(calendar: Calendar, items: readonly Item[], typed
         const own = bill.seriesId === null && bill.kind === "bill" ? (typed.find((b) => sameName(b.name, bill.payee)) ?? null) : null;
         rows.push({ key: `${m.month}:${n}`, kind: "row", bill, item, typed: own });
       });
-      rows.push(...totalRows(m));
+      rows.push(...totalRows(calendar, m));
     }
     const folds = (
       [

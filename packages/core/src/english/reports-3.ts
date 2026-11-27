@@ -84,7 +84,6 @@ export const EN_REPORTS_3: Record<keyof typeof FI_REPORTS_3, string> = {
   "rpt.cg_total": "Total with goals",
   "rpt.cg_form": "Goal: {label}",
   "rpt.same_debt_twice": "The same debt may be in the sum twice",
-  "rpt.accounts_less_debt": "Accounts minus debts",
   "rpt.u_month": "month",
   "rpt.u_months": "months",
   "rpt.u_account": "account",

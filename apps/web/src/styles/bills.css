@@ -26,7 +26,7 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .sub-facts dt { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
 .sub-facts dd { margin: 0; font-variant-numeric: tabular-nums; }
 
-/* the head of a month: its name opens and closes it, its sums stand on the right and wrap when the room is short */
+/* the head of a month: its name opens and closes it, and while it is closed its one figure stands on the right */
 .bill-month, .bill-subfold { display: inline-flex; align-items: center; gap: var(--sp-8); padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; }
 @media (pointer: coarse) { .bill-month, .bill-subfold { min-block-size: 2.75rem; } }
 /* the toggle of a month's paid rows, or of the rows a card pays, heads a group of rows inside the month, so it has no band of its own */
@@ -36,32 +36,22 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
    it also the one the next opener takes back, whose head is padded less at a larger text: the two never overlap */
 .rt-wrap[data-block] .rt.bill-table tr.rt-group:has(.bill-subfold) { padding-block: var(--sp-8) calc(2 * var(--sp-8)); }
 .bill-table tr.rt-group > td { white-space: normal; }
-.bill-sums { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0 var(--sp-16); font-weight: 400; font-variant-numeric: tabular-nums; }
-.bill-sums > span { white-space: nowrap; }
-/* the kinds of an open month stand close together and in a quieter tone, as parts of the bills' sum */
-.bill-sums > .bill-kinds { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0 var(--sp-4); color: var(--text-2); }
-.bill-kinds > span { white-space: nowrap; }
-/* the month's own figures stand on one line like a closed month's; the split of the bills is a line under them */
-.bill-sums > .bill-kinds { order: 1; flex-basis: 100%; }
+.bill-sums { font-weight: var(--w-regular); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* the payee has the room the category does not need, so a name is not cut while the category column stands empty */
 .rt-wrap:not([data-block]) .rt.bill-table :is(th, td).bill-payee { width: 42%; }
 .rt-wrap:not([data-block]) .rt.bill-table :is(th, td).bill-category { width: 20%; }
 .rt-wrap[data-block] .rt.bill-table tr.rt-group { grid-template-columns: minmax(0, 1fr); }
 .rt-wrap[data-block] .rt.bill-table tr.rt-group > td:not([data-label]) { grid-column: 1; grid-row: 2; text-align: left; }
-.rt-wrap[data-block] .bill-sums { justify-content: flex-start; }
-.rt-wrap[data-block] .bill-sums > .bill-kinds { order: 0; flex-basis: auto; }
-.rt-wrap[data-block] .bill-sums > span, .rt-wrap[data-block] .bill-kinds > span { white-space: normal; }
-.rt-wrap[data-block] .bill-sums > .bill-kinds { justify-content: flex-start; min-inline-size: 0; }
-/* a closed month on a phone is one line, its name and one figure; the opened month tells every figure */
-.rt-wrap[data-block] .bill-sums[data-closed] > :not(.bill-line) { display: none; }
-/* a row on a phone: the day and the sum, then the payee and the status, then the category as a small line; no name of a column stands before them, and the payee reads from the left, as the base block rule right-aligns every cell with a label */
+/* a row on a phone: the day and the sum, then the payee, then the category as a small line; no name of a column stands before them, and the payee reads from the left, as the base block rule right-aligns every cell with a label */
 .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td[data-label]::before { display: none; }
 .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(2) { display: block; grid-column: 1; grid-row: 2; padding-top: 0; text-align: left; }
 .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(3) { display: block; grid-column: 1 / -1; grid-row: 3; padding-top: 0; text-align: left; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(3):empty { display: none; }
-.rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(5) { display: block; grid-column: 2; grid-row: 2; padding-top: 0; text-align: right; }
-.rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(5):empty { display: none; }
-/* a phone with the text at its usual size has room for the status under the sum: a row is then 2 lines beside the day and the payee; a larger text keeps the rows above */
+/* what a row says of itself (an estimated sum, paid, on a card) stands before its sum on a wide screen and under it on a phone */
+.bill-flag { margin-inline-end: var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-regular); color: var(--text-2); }
+.rt-wrap[data-block] .rt.bill-table > tbody > tr > td[data-rt="main"]:has(.bill-flag) { display: flex; flex-direction: column-reverse; align-items: flex-end; }
+.rt-wrap[data-block] .bill-flag { margin-inline-end: 0; }
+/* a phone with the text at its usual size has room for the category under the payee: a row is then 2 lines beside the day; a larger text keeps the rows above */
 .bill-frame { container-type: inline-size; }
 @container (min-width: 20em) {
   .rt-wrap[data-block] .rt.bill-table > tbody > tr:has(> th[scope="row"]) { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; padding-block: var(--sp-4); }
@@ -69,15 +59,14 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
   .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(2) { grid-column: 2; grid-row: 1; }
   .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(3) { grid-column: 2; grid-row: 2; }
   .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td[data-rt="main"] { grid-column: 3; grid-row: 1; }
-  .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(5) { grid-column: 3; grid-row: 2; }
+  .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td[data-rt="main"]:has(.bill-flag) { grid-row: 1 / span 2; }
   /* the payee line is as high as the sum beside it, so the category line under it adds no height to the row; important, as the plate sets its size in the later utilities layer */
   .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) .mk-plate { --mk-disc: var(--avatar-s) !important; }
   .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(2) { margin-block: calc(-1 * var(--tick) / 2); }
-  /* the head of a month: its name and, beside it, its sums one under the other */
+  /* the head of a month: its name and, beside it, its figure */
   .rt-wrap[data-block] .rt.bill-table tr.rt-group { grid-template-columns: auto minmax(0, 1fr); align-items: center; }
   .rt-wrap[data-block] .rt.bill-table tr.rt-group > td:not([data-label]) { grid-column: 2; grid-row: 1; text-align: right; }
-  .rt-wrap[data-block] .bill-sums, .rt-wrap[data-block] .bill-kinds { flex-direction: column; align-items: flex-end; }
-  /* the totals that close an open month are no tap target and are as high as their chip, so the two take 40 px of a long page */
+  /* the totals that close an open month are no tap target and are as high as their chip, so they take little of a long page */
   .rt-wrap[data-block] .rt.bill-table > tbody > tr.bill-total:has(> th[scope="row"]) { padding-block: 0; }
 }
 /* twelve months, one of them open, make a long list: with a mouse a row and a month's head are as high as their line, so the page keeps within two screens */
@@ -92,13 +81,20 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 /* what has not happened is in the estimate's colour; the running month's head says it is not over */
 .bill-coming { color: var(--accent-ink); }
 .bill-running { font-weight: var(--w-regular); color: var(--text-2); }
-/* the two totals that close an open month: the word and its kind's chip, the sum in the weight of a figure */
+/* the totals that close an open month: the word and its kind's chip, the sum in the weight of a figure */
 .bill-table tr.bill-total > * { font-weight: var(--w-strong); }
 .bill-total-name { display: inline-flex; align-items: center; gap: var(--sp-8); }
+.bill-total-note { font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-regular); color: var(--text-2); }
+/* the parts of the bills still to come stand under their sum, set in and in the weight of a row */
+.bill-table tr.bill-part > * { font-weight: var(--w-regular); }
+.bill-part .bill-total-name { padding-inline-start: var(--sp-16); color: var(--text-2); }
+/* a total has no day, so its name takes no room of the day's column and runs over the payee's, which a total leaves empty */
+.rt-wrap:not([data-block]) .rt.bill-table > tbody > tr.bill-total > th[scope="row"] { max-inline-size: 0; overflow: visible; white-space: nowrap; }
+.rt-wrap[data-block] .bill-total-name { flex-wrap: wrap; }
 /* a figure still to come is in the estimate's colour, the saving too; what is charged already stays plain */
 .bill-table td.bill-total-estimate { color: var(--accent-ink); }
 /* on a phone the name stands in the row header over the two columns it leaves empty, and the sum at the end of the line */
-.rt-wrap[data-block] .rt.bill-table > tbody > tr.bill-total > :is(td:nth-child(2), td:nth-child(3), td:nth-child(5)) { display: none; }
+.rt-wrap[data-block] .rt.bill-table > tbody > tr.bill-total > :is(td:nth-child(2), td:nth-child(3)) { display: none; }
 .rt-wrap[data-block] .rt.bill-table > tbody > tr.bill-total > th[scope="row"] { grid-column: 1 / 3; grid-row: 1; }
 .rt-wrap[data-block] .rt.bill-table > tbody > tr.bill-total > td[data-rt="main"] { grid-column: 3; grid-row: 1; }
 /* a row's divider line lies over the top padding of the next row, so a row takes its 44 px and not 45: seven rows and two totals are 9 px of a long page */
@@ -106,29 +102,19 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 /* twelve month heads make the long list of a phone: the opener is 44 px high inside its head whatever the band around it, so the band keeps 4 px above and below, not 8 */
 .rt-wrap[data-block] .rt.bill-table tr.rt-group:not(:has(.bill-subfold)) { padding-block: var(--sp-4); }
 .rt-wrap[data-block] .rt.bill-table tr.rt-group:not(:has(.bill-subfold)) > th { --reach-pad: var(--sp-4); }
-/* on a phone an open month's name leaves the chip under it, so the sums beside them keep the room their lines need */
-.rt-wrap[data-block] .bill-month[aria-expanded="true"] { flex-wrap: wrap; max-inline-size: 7rem; }
 
 /* ── The head: the name of the page, the one secondary action and the figure of the year */
 .bills-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-8) var(--sp-12); margin: 0 0 var(--sp-16); }
 .bills-head h2 { margin: 0; min-inline-size: 0; }
 .bills-lead { margin: 0; color: var(--text-2); font-variant-numeric: tabular-nums; }
-.bills-days-sum { color: var(--text-2); font-variant-numeric: tabular-nums; }
-
-/* ── The days of the picked month: one bar a day as high as its bills, the days of a pay in the colour of income */
-.bill-days { display: flex; align-items: flex-end; gap: var(--hairline); block-size: calc(var(--bar-h) * 4 + var(--lh-label) + var(--sp-16)); padding-block-start: var(--lh-label); padding-block-end: var(--sp-16); border-block-end: var(--hairline) solid var(--axis); }
-.bill-day { position: relative; flex: 1 1 0; min-inline-size: 0; block-size: 100%; display: flex; flex-direction: column; justify-content: flex-end; }
-.bill-day > i { display: block; min-block-size: 0; background: var(--role-spending); }
-.bill-day > span { position: absolute; inset-inline: -50%; inset-block-end: calc(-1 * var(--sp-16)); text-align: center; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums; }
-.bill-day-pay > span { color: var(--role-income); font-weight: var(--w-strong); }
-.bill-day-pay { background: linear-gradient(to right, transparent calc(50% - var(--hairline)), var(--role-income) calc(50% - var(--hairline)) calc(50% + var(--hairline)), transparent calc(50% + var(--hairline))); }
-.bill-day-pay > i { position: relative; }
-/* the name of a pay sits in the row above the bars, so it never lies over a day number or a bar; at the ends of the month it is held to the edge so it stays on the screen */
-.bill-day-pay > b { position: absolute; inset-block-start: calc(-1 * var(--lh-label)); inset-inline-start: 50%; transform: translateX(-50%); padding-inline: var(--sp-4); background: var(--page); color: var(--role-income); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); white-space: nowrap; }
-.bill-day-pay.bill-day-first > b { inset-inline-start: 0; transform: none; padding-inline-start: 0; }
-.bill-day-pay.bill-day-last > b { inset-inline-start: auto; inset-inline-end: 0; transform: none; padding-inline-end: 0; }
-/* the strip is lower on a phone: the page is long with twelve months and a chart */
-@media (max-width: 640px) { .bill-days { block-size: calc(var(--bar-h) * 3 + var(--lh-label) + var(--sp-16)); } }
+/* the bills still to pay lead the page: their card is twice as wide and keeps the large figure, the two beside it have a small one */
+.bills-kinds { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr); }
+.bills-kinds .kind-card:not(.kind-estimate) .fig-l { font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); }
+@media (max-width: 640px) {
+  .bills-kinds { grid-template-columns: minmax(0, 1fr); }
+  .bills-kinds .kind-card:not(.kind-estimate) .fig-l { font-size: var(--fs-fig-s); line-height: var(--lh-label); }
+  .bills-kinds .kind-estimate .fig-l { font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); }
+}
 .bills-unknown { display: block; margin-block-start: var(--sp-4); font-weight: var(--w-strong); }
 }
 

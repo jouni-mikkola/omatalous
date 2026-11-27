@@ -237,14 +237,12 @@ test("the coming months tell the figures the month heads of Laskut tell", async 
   // the same three months on Laskut's own heads
   await page.goto("/#/bills");
   await expect(page.locator(".bill-sums").first()).toBeVisible({ timeout: 15_000 });
-  const allHeads = await page.locator(".bill-sums").allInnerTexts();
-  // a closed month's head tells what is to come; the open month tells it in the total that ends its rows
-  const headsOpen = await page.locator(".bill-sums").evaluateAll((els) => els.map((el) => !el.hasAttribute("data-closed")));
+  // a closed month's head tells what is to come as its one figure; the open month tells it in the total that ends its rows
+  const heads = await page.locator("#laskut-taulukko .bill-month").filter({ hasText: /\d{4}/ }).evaluateAll((els) => els.map((el) => ({ open: el.getAttribute("aria-expanded") === "true", figure: el.closest("tr")?.querySelector(".bill-sums")?.textContent ?? "" })));
   const total = cents(await page.locator("#laskut-taulukko td.bill-total-coming").innerText());
   for (const month of shown) {
-    const at = billCalendar.months.indexOf(month);
-    // a closed head names each figure, so Maksamatta is read by its name: a paid sum may stand before it
-    expect(headsOpen[at] ? total : sums(plain(allHeads[at]!).match(/Maksamatta [^A-Za-zäö]*/)?.[0] ?? "")[0], `${month.month}: Laskut' head`).toBe(month.billsCents);
+    const head = heads[billCalendar.months.indexOf(month)]!;
+    expect(head.open ? total : sums(plain(head.figure))[0], `${month.month}: Laskut' head`).toBe(month.billsCents);
   }
   await context.close();
 });

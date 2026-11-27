@@ -279,7 +279,7 @@ reads the list in `householdDebts`, and no view adds loans and accounts up itsel
 3. In core a linked pair is one entry of `HouseholdDebts.connected` whose `sources` entry says `linked`. It holds the
    bank's balance with the saved loan's rate and payments while the account's balance is at or below zero and is not
    older than the balance typed for the loan (`balanceDayOf`); otherwise it counts as typed, still once. The readers are
-   the Lainat report, the accounts less the debts in Saldot, the loan area of Säästövinkit and `buildHoldings` for the
+   the Lainat report, the accounts less the debts of the balance report, the loan area of Säästövinkit and `buildHoldings` for the
    first page. A debt that may still be counted twice is named by `maybeTwice` in `reports/loans.ts`.
 4. In the web, `LoanLinks` (`components/loans/LoanEditor.tsx`) gives the form the household's accounts and loans, and the
    Lainat report opens a loan's form in its row with an account chosen by `loanEditHash` (`routes.ts`), whose

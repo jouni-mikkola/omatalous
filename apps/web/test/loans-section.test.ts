@@ -45,8 +45,6 @@ const tile = (label: string, text: string) => `<div class="k">${label}</div><div
 const figure = (label: string, value: string) => `<dt>${label}</dt><dd>${value}</dd>`;
 /** The same context with the accounts the viewer can see. */
 const withAccounts = (data: unknown, accounts: object[]): ReportContext => ({ ...context(data), meta: { today: day, accounts } }) as unknown as ReportContext;
-/** The rows of Saldot: label and figure of each, in order. */
-const rowsOf = (out: string) => [...out.matchAll(/<dt class="st-name holding-label">([^<]*)<\/dt><dd class="st-num">([^<]*)<\/dd>/g)].map((m) => `${m[1]} ${m[2]}`);
 /** The section as the words a reader meets: tags gone, one space between. */
 const words = (out: string) => out.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
 /** The figures of the open drills: label and value of each, in order. */
@@ -116,13 +114,14 @@ describe("Raportit: Lainat", () => {
     expect(out).not.toContain("puuttuu");
   });
 
-  it("the cost total is a dash with the one link to Tarkistettavat while a debt lacks its terms, never the known part", () => {
+  it("the cost has no column while no debt has one, with the one link to Tarkistettavat in the head, never the known part", () => {
     // the debt lacking its terms is an unsaved one Tarkistettavat still asks of
     const unsaved = [{ debtId: "proposal:a", name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }];
     const out = html(loans, context(report([row({ cost: null })], { cost12: { cents: null, interestCents: null, feeCents: null }, unsaved })));
-    expect(out).toContain('<a href="#/review?item=loan-terms">Täydennä lainat</a>');
+    expect(out).toContain('<a class="btn-link" href="#/review?item=loan-terms">Täydennä lainat</a>');
     expect(out.split("Täydennä lainat").length - 1).toBe(1);
-    expect(words(out)).toMatch(/Velat yhteensä, tiedossa 120 000 € – Täydennä lainat/);
+    expect(words(out)).toMatch(/Täydennä lainat .*Velat yhteensä, tiedossa 120 000 €/);
+    expect(out).not.toContain("Korot ja kulut 12 kk");
     expect(out).not.toContain("3 800");
     // the terms known: the figure and no link
     const known = html(loans, context(report([row()])));
@@ -154,8 +153,8 @@ describe("Raportit: Lainat", () => {
     expect(out).toContain("Sama velka voi olla summassa kahdesti: tallennettu laina Kodin laina tai Autolaina ja yhdistetty tili Asuntolaina.");
     expect(out).toContain("Jos kyse on samasta velasta, poista tallennettu laina kohdassa Varat ja velat &gt; Lainat, niin laskemme sen vain kerran.");
     expect(out.toLowerCase()).not.toContain("liitä");
-    expect(html(balances, context(twice))).toContain("Sama velka voi olla summassa kahdesti: katso Lainat.");
-    expect(html(balances, context(report([row()])))).not.toContain("kahdesti");
+    // Lainat is the one place that says it
+    expect(html(balances, context(twice))).not.toContain("kahdesti");
   });
 
   it("two connected accounts beside one saved loan are told in one sentence that lists both", () => {
@@ -167,16 +166,16 @@ describe("Raportit: Lainat", () => {
     expect(html(loans, context(pair(3)))).toContain("tallennettu laina Kodin laina ja yhdistetyt tilit Asuntolaina, Asuntolaina ja Autolaina.");
   });
 
-  it("an overdraft beside a saved credit line is told where the accounts less the debts are, and nowhere else", () => {
-    const sentence = "Jos tallentamasi laina näkyy myös pankin tiedoissa, se on luvussa Tilit miinus velat kahdesti. Silloin oikea luku on lainan verran suurempi.";
+  it("an overdraft beside a saved credit line is told in Lainat, by the name the net figure has at the head of the page", () => {
+    const sentence = "Jos tallentamasi laina näkyy myös pankin tiedoissa, se on luvussa Varat velkojen jälkeen kahdesti. Silloin oikea luku on lainan verran suurempi.";
     const over = report([row()], { overdraftTwice: [{ loans: [{ id: "cl", name: "Tililuotto" }], accounts: [{ id: "a", name: "Käyttötili" }] }] });
     expect(html(loans, context(over))).toContain(`<li class="notice" data-tone="warning">${sentence}</li>`);
-    expect(html(balances, context(over))).toContain(`<li class="warn">${sentence}</li>`);
+    expect(html(balances, context(over))).not.toContain("kahdesti");
     // the debt total holds it once: nothing says "summassa", and Saldot does not send the reader to Lainat for it
     expect(html(loans, context(over)) + html(balances, context(over))).not.toMatch(/summassa|katso Lainat/);
     // a range that ends before today shows no such figure, and no sentence about it
     const earlier = html(loans, context(over, "own", balanceData, "2026-11"));
-    expect(earlier).not.toContain("Tilit miinus velat");
+    expect(earlier).not.toContain("Varat velkojen jälkeen");
     expect(earlier).toContain("Velat yhteensä");
     const two = report([row()], { overdraftTwice: [{ loans: [{ id: "cl", name: "Tililuotto" }], accounts: [{ id: "a", name: "Käyttötili" }, { id: "b", name: "Yhteinen tili" }] }] });
     // two accounts below zero are still one figure, so one sentence
@@ -217,34 +216,15 @@ describe("Raportit: Lainat", () => {
     expect(html(loans, context(report([row()], { withoutRate: 2 })))).not.toContain("puuttuu");
   });
 
-  it("the accounts less the debts are called what they are, with no sentence beside the figure, and are not net worth", () => {
-    const own = html(loans, context(report([row()]))) + html(balances, context(report([row()])));
-    expect(own).toContain(tile("Tilit miinus velat", "-118 800 €"));
-    expect(own).not.toContain("loans-tile-sub");
-    // Saldot holds the three figures as rows and no sentence
+  it("the net figure stands at the head of the page alone: neither section tells the accounts less the debts", () => {
     const saldot = html(balances, context(report([row()])));
-    expect(rowsOf(saldot)).toEqual(["Tilien ja korttien saldo 1 200,00 €", "Tallennetut lainat 120 000,00 €", "Tilit miinus velat -118 800,00 €"]);
-    expect(saldot).not.toContain("Asunnon ja sijoitusten arvo");
-    // while a debt has no balance the sum is no plain figure: the row is left out
-    const lacking = { ...balanceData, holdings: { ...balanceData.holdings, unsavedLoans: { count: 2, rows: [] } } };
-    expect(rowsOf(html(balances, context(report([row()]), "own", lacking)))).toEqual(["Tilien ja korttien saldo 1 200,00 €", "Tallennetut lainat 120 000,00 €"]);
-    // the change and its day are the page's lead sentence, not a figure beside the panel's name
-    expect(saldot).not.toContain("jälkeen");
-    // the figures are rows with no "tänään" of their own; the table of the months under the chart marks its row of today
-    expect(rowsOf(saldot).join(" ")).not.toContain("tänään");
-    expect(own).not.toContain("Nettovarallisuus");
-    expect(own).not.toContain("omasi");
-  });
-
-  it("the Saldot rows tell their three figures with cents, so they subtract", () => {
-    const odd = { ...balanceData, total: [100_000, 300_055], accountsLessDebt: [null, 180_045], debt: { day, cents: 120_010, savedCents: 120_010 } };
-    expect(rowsOf(html(balances, context(report([row()]), "own", odd)))).toEqual(["Tilien ja korttien saldo 3 000,55 €", "Tallennetut lainat 1 200,10 €", "Tilit miinus velat 1 800,45 €"]);
-  });
-
-  it("Saldot has no rows for a household that saved no loan, nor for a range that ends before today", () => {
-    const none = { ...balanceData, debt: { day, cents: 0, savedCents: 0 } };
-    expect(rowsOf(html(balances, context(report([]), "own", none)))).toEqual([]);
-    expect(rowsOf(html(balances, context(report([row()]), "own", balanceData, "2026-11")))).toEqual([]);
+    const own = html(loans, context(report([row()]))) + saldot;
+    expect(own).not.toMatch(/Tilit miinus velat|Varat velkojen jälkeen|Tallennetut lainat|Nettovarallisuus|omasi/);
+    // the totals of Lainat are the payments of a month alone
+    expect(own.split('<div class="k">').length - 1).toBe(1);
+    // how far the line of the chart moved is said under the chart's heading
+    expect(words(saldot)).toMatch(/Saldojen kehitys: tilit ja luottokortit \+200 € 30\.9\. jälkeen/);
+    expect(words(html(balances, context(report([row()]), "own", { ...balanceData, change: { ...balanceData.change, cents: 99 } })))).not.toContain("jälkeen");
   });
 
   it("lists a loan and a card nobody saved with the monthly payment and no balance, and shows the section with no saved loan", () => {
@@ -301,12 +281,6 @@ describe("Raportit: Lainat", () => {
 
   it("the household view has no sentence about another member's saved loan", () => {
     expect(html(loans, context(report([row()]), "household"))).not.toContain("Toisen lisäämä");
-    expect(rowsOf(html(balances, context(report([row()]), "household")))).toEqual(["Tilien ja korttien saldo 1 200,00 €", "Tallennetut lainat 120 000,00 €", "Tilit miinus velat -118 800,00 €"]);
-  });
-
-  it("with a linked loan the Saldot row says its figure holds the loans no account holds", () => {
-    const rows = [row(), row({ id: "card", linkedAccount: { id: "a1", name: "Luottokortti" } })];
-    for (const scope of ["own", "household"]) expect(rowsOf(html(balances, context(report(rows), scope)))[1]).toBe("Tallennetut lainat, joita ei ole liitetty tiliin 120 000,00 €");
   });
 
   it("a loan another member typed in says who after the kind, and the viewer's own says nothing; a part is the labelled value Osuutesi", () => {
@@ -325,7 +299,7 @@ describe("Raportit: Lainat", () => {
   it("Täydennä lainat opens the drill of the saved loan the viewer can change when its rate is what the cost waits for, and Tarkistettavat otherwise", () => {
     const noRate = { rateBp: null, reference: null, interest: { cents: null, unknown: "rate" }, cost: { rateMilli: null, costClass: null, next12: null, leftCents: null, feePerPaymentCents: null, unknown: "rate" } } as const;
     const unknownCost = { cost12: { cents: null, interestCents: null, feeCents: null } };
-    const link = (out: string) => [...out.matchAll(/<a href="([^"]*)">Täydennä lainat<\/a>/g)].map((m) => m[1]!.replaceAll("&amp;", "&"));
+    const link = (out: string) => [...out.matchAll(/<a class="btn-link" href="([^"]*)">Täydennä lainat<\/a>/g)].map((m) => m[1]!.replaceAll("&amp;", "&"));
     // a rate-only saved loan of the viewer: its own drill
     expect(link(html(loans, context(report([row(noRate)], unknownCost))))).toEqual([loanHash("home")]);
     // an unsaved debt is a cause too: the list of debts asks for all of it
@@ -339,7 +313,7 @@ describe("Raportit: Lainat", () => {
   it("Täydennä lainat opens the drill of a rate-only own loan when every unsaved debt is one Tarkistettavat no longer asks of", () => {
     const noRate = { rateBp: null, reference: null, interest: { cents: null, unknown: "rate" }, cost: { rateMilli: null, costClass: null, next12: null, leftCents: null, feePerPaymentCents: null, unknown: "rate" } } as const;
     const unknownCost = { cost12: { cents: null, interestCents: null, feeCents: null } };
-    const link = (out: string) => [...out.matchAll(/<a href="([^"]*)">Täydennä lainat<\/a>/g)].map((m) => m[1]!.replaceAll("&amp;", "&"));
+    const link = (out: string) => [...out.matchAll(/<a class="btn-link" href="([^"]*)">Täydennä lainat<\/a>/g)].map((m) => m[1]!.replaceAll("&amp;", "&"));
     const asked = [
       { debtId: "proposal:a", name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false, asked: true as const },
       { debtId: "card_bill:b", name: "Esimerkkikortti", monthlyCents: 20_000, card: true, asked: true as const },
@@ -353,12 +327,12 @@ describe("Raportit: Lainat", () => {
   it("Täydennä lainat has no link when nothing in Tarkistettavat or in an own loan's form is left to answer", () => {
     const noRate = { rateBp: null, reference: null, interest: { cents: null, unknown: "rate" }, cost: { rateMilli: null, costClass: null, next12: null, leftCents: null, feePerPaymentCents: null, unknown: "rate" } } as const;
     const unknownCost = { cost12: { cents: null, interestCents: null, feeCents: null } };
-    const link = (out: string) => [...out.matchAll(/<a href="([^"]*)">Täydennä lainat<\/a>/g)].map((m) => m[1]!.replaceAll("&amp;", "&"));
+    const link = (out: string) => [...out.matchAll(/<a class="btn-link" href="([^"]*)">Täydennä lainat<\/a>/g)].map((m) => m[1]!.replaceAll("&amp;", "&"));
     const asked = [{ debtId: "proposal:a", name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false, asked: true as const }];
-    // (a) every unsaved debt asked of already and no own loan with an unknown cost: the dash alone
+    // (a) every unsaved debt asked of already and no own loan with an unknown cost: no link, and no column of dashes
     const a = html(loans, context(report([row()], { ...unknownCost, unsaved: asked })));
     expect(link(a)).toEqual([]);
-    expect(a).toContain('<span class="loan-unknown">–</span>');
+    expect(a).not.toContain("Korot ja kulut 12 kk");
     // (b) an own loan whose cost is unknown by its repayment: the link opens its drill
     const repayment = { cost: { rateMilli: null, costClass: null, next12: null, leftCents: null, feePerPaymentCents: null, unknown: "repayment" } } as const;
     expect(link(html(loans, context(report([row(repayment)], { ...unknownCost, unsaved: asked }))))).toEqual([loanHash("home")]);

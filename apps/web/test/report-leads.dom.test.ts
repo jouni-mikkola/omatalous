@@ -28,29 +28,33 @@ describe("Menot kategorioittain: the tiles", () => {
 });
 
 describe("Varat ja velat: the tiles", () => {
-  const daily = (last: number) => ({ from: "2026-09-01", cents: [null, 100_000, last] });
-  const balances = (more: Record<string, unknown>) => ({ balances: { accounts: [{}], daily: daily(120_000), debt: { cents: null }, change: null, holdings: {}, ...more } });
-  // the tags become spaces so a tile reads label, figure, chip, note
-  const say = (more: Record<string, unknown>) =>
-    flat(renderToStaticMarkup(createElement(BalancesTiles as never, { ctx: { data: balances(more), meta: { today: "2026-11-11", accounts: [], sharedAccounts: [] } } } as never)).replace(/<[^>]*>/g, " "));
+  const held = { accountsCents: 120_000, debtCents: 0, netCents: 120_000 };
+  const owing = { accountsCents: 120_000, debtCents: 30_000, netCents: 90_000 };
+  const markup = (holdings: Record<string, unknown>, more: Record<string, unknown> = {}) =>
+    renderToStaticMarkup(createElement(BalancesTiles as never, { ctx: { data: { balances: { accounts: [{}], holdings, ...more } }, meta: { today: "2026-11-11", accounts: [], sharedAccounts: [] } } } as never));
+  // the tags become spaces so a tile reads label, figure
+  const say = (holdings: Record<string, unknown>, more: Record<string, unknown> = {}) => flat(markup(holdings, more).replace(/<[^>]*>/g, " "));
 
-  it("shows the balance of the newest day, how it moved and what is owed", () => {
-    expect(say({})).toBe("Tilien ja korttien saldo 1 200 €");
-    expect(say({ debt: { cents: 30_000 } })).toBe("Tilien ja korttien saldo 1 200 € Velkaa 300 €");
-    expect(say({ change: { cents: 20_000, from: "2026-09-30" } })).toBe("Tilien ja korttien saldo 1 200 € +200 € 30.9. jälkeen");
-    expect(say({ change: { cents: -20_000, from: "2026-09-30" }, debt: { cents: 30_000 } })).toBe("Tilien ja korttien saldo 1 200 € −200 € 30.9. jälkeen Velkaa 300 €");
+  it("shows what the accounts hold, what is owed and what is left, under the names the groups below have", () => {
+    expect(say(held)).toBe("Tilit yhteensä 1 200 €");
+    expect(say(owing)).toBe("Tilit yhteensä 1 200 € Velat yhteensä 300 € Varat velkojen jälkeen 900 €");
   });
 
-  it("names no debt sum while the balance of a debt is missing", () => {
-    const lacking = (count: number) => ({ debt: { cents: 30_000 }, holdings: { unsavedLoans: { count, rows: [] } } });
-    expect(say(lacking(1))).toBe("Tilien ja korttien saldo 1 200 €");
-    expect(say({ ...lacking(4), change: { cents: 20_000, from: "2026-09-30" } })).toBe("Tilien ja korttien saldo 1 200 € +200 € 30.9. jälkeen");
-    expect(say({ debt: { cents: 30_000 }, holdings: { unsavedFewPayments: 1 } })).toBe("Tilien ja korttien saldo 1 200 €");
+  it("names the debts as the known ones and no net figure while the balance of a debt is missing, with the link to its question", () => {
+    const open = { ...owing, netCents: null, unsavedLoans: { count: 1, rows: [{ debtId: "proposal:a" }] } };
+    expect(say(open)).toBe("Tilit yhteensä 1 200 € Velat yhteensä, tiedossa 300 € 1 velan saldo puuttuu. Täydennä lainat");
+    expect(markup(open)).toContain('<a class="btn-link" href="#/review?item=loan-terms">Täydennä lainat</a>');
+    // a debt answered "En tiedä" is asked no more, and a lender's few payments never were: the line has no link
+    const asked = { ...owing, netCents: null, unsavedLoans: { count: 1, rows: [{ debtId: "proposal:a", asked: true }] }, unsavedFewPayments: 1 };
+    expect(say(asked)).toBe("Tilit yhteensä 1 200 € Velat yhteensä, tiedossa 300 € 2 velan saldo puuttuu.");
+    // no known debt at all: the accounts alone, and the line
+    expect(say({ ...held, netCents: null, unsavedFewPayments: 1 })).toBe("Tilit yhteensä 1 200 € 1 velan saldo puuttuu.");
+    // a total that cannot be known is said, never left out
+    expect(say({ ...held, debtCents: null, netCents: null })).toBe("Tilit yhteensä 1 200 € Velat yhteensä Ei tiedossa");
   });
 
-  it("leaves a move under a euro unsaid, and says nothing without an account or a known day", () => {
-    expect(say({ change: { cents: 99, from: "2026-09-30" } })).toBe("Tilien ja korttien saldo 1 200 €");
-    expect(say({ accounts: [] })).toBe("");
-    expect(say({ daily: { from: "2026-09-01", cents: [null, null] } })).toBe("");
+  it("says nothing without an account or a known balance", () => {
+    expect(say(held, { accounts: [] })).toBe("");
+    expect(say({ ...held, accountsCents: null })).toBe("");
   });
 });
