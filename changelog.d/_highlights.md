@@ -1,4 +1,0 @@
-- Laskut tells the running month in three cards: Nyt, Arvio and Tavallinen.
-- Saldo päivä päivältä starts at the last payday and shows the days to come as an estimate.
-- Tapahtumat has its rules in a tab of their own, Säännöt.
-- On a phone, Raportit is in the tab bar and the charts are easier to read.
