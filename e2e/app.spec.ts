@@ -441,7 +441,7 @@ test("sign out and back in", async ({ page }) => {
   expect(seen.problems.filter((p) => !/HTTP 401: POST .*\/api\/auth\/login/.test(p) && !/Failed to load resource.*401/.test(p))).toEqual([]);
 });
 
-// 1850 and not 1800: the days strip of the picked month gained a row for the pay's name above its 32 px bars.
+// 1850 and not 1800: the limit keeps room for the open month's rows and totals.
 test("the Laskut page at 1440 px is at most 1850 px tall and does not scroll sideways", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();

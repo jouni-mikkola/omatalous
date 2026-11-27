@@ -2,7 +2,7 @@
  * Laskut: the totals that end the open month, one for each figure of core's the rows add up to: Maksettu, the saving charged,
  * Maksamatta and the saving still to come. A total with nothing behind it is not shown.
  */
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { marksBySubject } from "@banking/core";
 import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -19,6 +19,23 @@ function totalsOf(open: CalMonth): string[] {
   const { container } = render(createElement(BillsTable, { calendar: calendar([open, month("2026-11", [bill()])]), items, controls, label: (id: string) => id, scope: "own", onRemoved: () => {} }));
   return [...container.querySelectorAll("tr.bill-total")].map((tr) => `${tr.querySelector(".bill-total-name")!.firstChild!.textContent} ${tr.querySelector(".kind-chip")!.textContent} ${tr.querySelector("td.bill-total-sum")!.textContent}`);
 }
+
+describe("Laskut: the month picked on the chart", () => {
+  const items = billItems({ series: [], typed: [], cancelled: new Set(), marks: marksBySubject([]), today: "2026-10-11" });
+  const controls = { markOf: () => null, busy: false, set: () => {}, clear: () => {} };
+  const cal = calendar([month("2026-10", []), month("2026-11", []), month("2026-12", [bill({ date: "2026-12-10", payee: "Vakuutusyhtiö" })], { billsCents: 6420 })]);
+  const show = (focus: string | null) => render(createElement(BillsTable, { calendar: cal, items, controls, label: (id: string) => id, scope: "own", focus, onRemoved: () => {} }));
+
+  it("keeps a later month closed while nothing is picked", () => {
+    show(null);
+    expect(screen.queryAllByText("Vakuutusyhtiö")).toHaveLength(0);
+  });
+
+  it("opens the picked month", () => {
+    show("2026-12");
+    expect(screen.getAllByText("Vakuutusyhtiö")).toHaveLength(1);
+  });
+});
 
 describe("Laskut: the totals that end the open month", () => {
   it("has a total for the bills paid, the saving charged, the bills to come, the saving to come and the sum left, in that order", () => {

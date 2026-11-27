@@ -22,7 +22,7 @@
  * in. A bill the app found that is no recurring bill is removed the same way: the mark `wrongBillSubject` takes it out of
  * the list and of every sum of what is coming. Whether a service is still used is asked in Tarkistettavat.
  */
-import { type MarkKind, parseSeriesId, seriesOfMarkSubject, type UserMark } from "@banking/core";
+import { type MarkKind, parseSeriesId, seriesOfMarkSubject, type UserMark, unknownBillsIn } from "@banking/core";
 import { type ReactNode, useEffect, useId, useState } from "react";
 import { api } from "../../api.ts";
 import { CADENCE_LABEL, dayMonth, date, money, monthLong, seriesName } from "../../format.ts";
@@ -75,6 +75,16 @@ function flag(r: CalRow): ReactNode {
   return (
     <span className="bill-coming">
       <Estimate mark="line">{t("bills.status_estimate")}</Estimate>
+    </span>
+  );
+}
+
+/** A closed month's head: its one figure, and the count of bills whose sum or day is not known, which the figure leaves out. */
+function ClosedSums({ sum, unknown }: { sum: number; unknown: number }) {
+  return (
+    <span className="bill-sums">
+      {t("bills.sum_coming", { sum: money(sum) })}
+      {unknown > 0 && <span className="bill-total-note">{tn(unknown, "bills.unknown_one", "bills.unknown_many")}</span>}
     </span>
   );
 }
@@ -256,7 +266,7 @@ export function BillsTable({
     key: g.key,
     title: head(g),
     // a closed month tells one figure, its bills still to pay (the bills column of the front page reads it too); an open one tells them all in its closing rows
-    figure: g.month && !g.fold && !isOpen(g.key) ? <span className="bill-sums">{t("bills.sum_coming", { sum: money(g.month.billsCents) })}</span> : undefined,
+    figure: g.month && !g.fold && !isOpen(g.key) ? <ClosedSums sum={g.month.billsCents} unknown={unknownBillsIn(calendar, [g.month.month])} /> : undefined,
     figureSpan: columns.length - 2,
     rows: g.rows,
   }));
