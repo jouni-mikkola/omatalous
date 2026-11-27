@@ -732,7 +732,7 @@
      "name": "Nordea Gold",
      "cents": 63077,
      "date": "2026-11-10",
-     "typed": false
+     "typedCents": 0
     }
    ],
    "unresolved": [],
