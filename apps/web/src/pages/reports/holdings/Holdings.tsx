@@ -316,16 +316,16 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), b
         <dl className="st-rows holding-foot">
           {debts && (
             <div className="st-row">
-              <dt className="st-name st-strong">{t(unsaved.length > 0 ? "holdings.debts_known" : "holdings.debts_total")}</dt>
-              <dd className="st-num st-strong">
-                {figure(debtCents)}
+              <dt className="st-name st-strong">
+                {t(unsaved.length > 0 ? "holdings.debts_known" : "holdings.debts_total")}
                 {lacking > 0 && (
                   <>
                     {" "}
                     {unsaved.some((u) => !u.asked) ? <a href={LOAN_TERMS_HASH}>{lackingText}</a> : lackingText}
                   </>
                 )}
-              </dd>
+              </dt>
+              <dd className="st-num st-strong">{figure(debtCents)}</dd>
             </div>
           )}
           {unsaved.map((u, i) => (

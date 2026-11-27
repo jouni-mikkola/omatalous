@@ -230,7 +230,8 @@ describe("Täydennä lainat", () => {
     await waitFor(() => expect(document.querySelectorAll("li.review-debt.is-done")).toHaveLength(1), T);
     expect(seen.filter((s) => s.method === "POST")).toHaveLength(1);
     expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ seriesKey: "k", balanceCents: 200_000 });
-    expect(within(openRow(0)).getByLabelText(/^Jäljellä/)).toBeTruthy();
+    // the loan left empty is not closed into a result line and is not saved
+    expect(openRow(0).textContent).toContain("Toinen rahoitus");
   });
 
   it("shows the error of the other forms when the loans cannot be read", async () => {
