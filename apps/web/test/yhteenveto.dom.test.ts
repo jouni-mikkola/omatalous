@@ -368,7 +368,7 @@ describe("Yhteenveto's sum left to the payday", () => {
 
   describe("with the everyday spending expected", () => {
     type Runway = Extract<NonNullable<DashboardData["home"]["runway"]>["leftOnPayday"], { known: true }>;
-    const runway = (over: Partial<Runway> = {}): Runway => ({ known: true, from: "2026-11-11", payday: { date: "2026-11-25", name: "Työnantaja" }, days: 14, balanceCents: 500000, freeCents: 310046, everydayCents: 38900, billedCents: 0, laterCents: 0, leftCents: 271146, lowCents: 250000, highCents: 290000, months: 6, ...over });
+    const runway = (over: Partial<Runway> = {}): Runway => ({ known: true, from: "2026-11-11", payday: { date: "2026-11-25", name: "Työnantaja" }, days: 14, balanceCents: 500000, freeCents: 310046, everydayCents: 38900, billedCents: 0, laterCents: 0, leftCents: 271146, lowCents: 250000, highCents: 290000, months: 6, parts: { balanceCents: 500000, bills: { cents: -189954, count: 1 }, cardBills: { cents: 0, count: 0 }, spending: { cents: -38900, lowCents: -45000, highCents: -30000 }, laterCards: { cents: 0, count: 0 } }, ...over });
     const withRunway = (r: Runway, nyt: NytData = nytOf(true)) => left({ ...data(), nyt, home: { ...data().home, runway: { leftOnPayday: r } } as never });
 
     it("is the sum left on the payday after the everyday spending, with the payday and no sum a day", () => {

@@ -110,7 +110,8 @@ export function onePool(h: GeneratedHousehold, v: HouseholdView, poolIds: Readon
   // I1.pool-cards judges the card debt against the pool of Tulos (`poolIds`), not against the accounts Käytettävissä counts.
   // That is valid only while I1.pool-accounts reports the difference between the two: a card can pass here and still be
   // paid from an account Käytettävissä leaves out. When that check passes, the two are the same accounts.
-  for (const debt of basis.ahead.balance?.cardDebts ?? []) {
+  // a debt that waits for a bill after the payday is a card's debt of the pool all the same
+  for (const debt of [...(basis.ahead.balance?.cardDebts ?? []), ...(basis.ahead.balance?.laterCardDebts ?? [])]) {
     const from = [...(payers.get(debt.cardId) ?? [])].sort();
     if (!from.some((id) => poolIds.has(id))) out.push(found("I1.pool-cards", h, v, `Käytettävissä takes off ${debt.cents} of ${debt.cardId}, whose bills are paid from ${from.join("+") || "no account"}, outside the pool`));
   }

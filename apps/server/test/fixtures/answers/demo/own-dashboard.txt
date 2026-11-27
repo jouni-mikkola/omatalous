@@ -865,6 +865,7 @@
    "accounts": 1,
    "balanceAt": "2026-10-09",
    "cardDebts": [],
+   "laterCardDebts": [],
    "unresolved": [],
    "cardDebtCents": 0,
    "freeCents": 388246,
@@ -1020,7 +1021,27 @@
     "leftCents": 383241,
     "lowCents": 380512,
     "highCents": 386441,
-    "months": 6
+    "months": 6,
+    "parts": {
+     "balanceCents": 681443,
+     "bills": {
+      "cents": -7611,
+      "count": 2
+     },
+     "cardBills": {
+      "cents": -285586,
+      "count": 1
+     },
+     "spending": {
+      "cents": -5005,
+      "lowCents": -7734,
+      "highCents": -1805
+     },
+     "laterCards": {
+      "cents": 0,
+      "count": 0
+     }
+    }
    }
   },
   "lowPoint": {

@@ -18,6 +18,14 @@
  * of the window and holds the purchases up to its day, and the purchases after the last one wait for a bill after the
  * payday. So the spread is never taken off here (`own` leaves the card bills out) and lands in `laterCents`.
  *
+ * A connected card's debt counts against the payday only when its next bill falls inside the window (ADR 0031): that bill
+ * is a row, or, when no bill is known for the card, the whole debt is taken off at once. A debt whose next bill falls on
+ * the payday or later is paid from the coming pay, so it is taken off nothing and told (`laterCards`).
+ *
+ * `parts` is the figure told line by line, each sum negative when it leaves the accounts: the balance, the bills before
+ * the payday, the card bills before the payday (the card rows and the debts taken off at once) and the expected spending
+ * added up are `leftCents`, to the cent.
+ *
  * The payday is the pay the window waits for (`cashAhead`). Without one the answer says why and does not guess.
  */
 import { addDays, daysBetween, monthOf } from "../dates.ts";
@@ -59,7 +67,22 @@ export type Runway =
       highCents: number;
       /** How many complete months the expected everyday spending is read from. */
       months: number;
+      parts: RunwayParts;
     };
+
+/** `leftCents` in its parts: `balanceCents + bills.cents + cardBills.cents + spending.cents` is `leftCents`. */
+interface RunwayParts {
+  /** What the counted accounts hold today. */
+  balanceCents: number;
+  /** The bills, typed bills and own transfers of the window: their sum (negative) and how many rows. */
+  bills: { cents: number; count: number };
+  /** The card bills of the window and the debt of the cards taken off at once: their sum (negative) and how many rows and cards. */
+  cardBills: { cents: number; count: number };
+  /** The expected spending taken off (`everydayCents` and `billedCents`, negative), and what it is with the base months that spent the most and the least: `lowCents <= cents <= highCents`. */
+  spending: { cents: number; lowCents: number; highCents: number };
+  /** The debt of the cards whose bill falls on the payday or later: taken off nothing, and how many cards. */
+  laterCards: { cents: number; count: number };
+}
 
 /** The day the runway ends on: the pay the window waits for, the next one when that pay is behind its day. null when none is known. */
 export function paydayOf({ reason, payday }: Pick<AheadBasis["ahead"], "reason" | "payday">): { date: IsoDate; name: string } | null {
@@ -90,7 +113,15 @@ export function runwayOf(ctx: AnalysisContext, { ahead, direct, settling }: Pick
   }
   const sum = (key: "cents" | "lowCents" | "highCents") => billed.reduce((n, b) => n + b[key], 0);
   const spent = { cents: own.cents + sum("cents"), lowCents: own.lowCents + sum("lowCents"), highCents: own.highCents + sum("highCents") };
-  const { freeCents } = ahead.balance;
+  const { freeCents, cardDebts, laterCardDebts, cardDebtCents } = ahead.balance;
+  const cardRows = ahead.rows.filter((r) => r.source === "card");
+  const parts: RunwayParts = {
+    balanceCents: ahead.balance.startCents,
+    bills: { cents: -(ahead.totals.leavingCents - ahead.totals.cardCents), count: ahead.rows.filter((r) => r.source === "recurring" || r.source === "expected" || r.source === "transfer").length },
+    cardBills: { cents: -(ahead.totals.cardCents + cardDebtCents), count: cardRows.length + cardDebts.length },
+    spending: { cents: -spent.cents, lowCents: -spent.highCents, highCents: -spent.lowCents },
+    laterCards: { cents: laterCardDebts.reduce((n, d) => n + d.cents, 0), count: laterCardDebts.length },
+  };
   return {
     known: true,
     from,
@@ -105,5 +136,6 @@ export function runwayOf(ctx: AnalysisContext, { ahead, direct, settling }: Pick
     lowCents: freeCents - spent.highCents,
     highCents: freeCents - spent.lowCents,
     months: own.months,
+    parts,
   };
 }

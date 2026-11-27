@@ -153,7 +153,7 @@ export const FIGURES = {
   },
   free: {
     name: "Käytettävissä",
-    definition: "The balance of the counted accounts today less Erääntyvät maksut, Siirrot omille tileille and what the connected cards owe today that no bill of Erääntyvät maksut holds. A card's whole debt is taken off, so the day its bill falls is not guessed; a card with no balance leaves the figure unsaid.",
+    definition: "The balance of the counted accounts today less Erääntyvät maksut, Siirrot omille tileille and what the connected cards owe today that no bill of Erääntyvät maksut holds and that falls due before the payday. A card's whole debt is taken off when its next bill falls before the payday or is not known, so no day is guessed; a debt whose next bill falls on the payday or later is paid from the coming pay and is taken off nothing. A card with no balance leaves the figure unsaid.",
     source: { file: "analysis/ahead.ts", fn: "aheadBasis", field: "freeCents" },
     unit: "cents",
     scope: "own",

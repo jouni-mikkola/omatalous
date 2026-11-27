@@ -86,13 +86,23 @@ interface AheadBalance {
   accounts: number;
   balanceAt: string | null;
   /**
-   * What the connected cards owe that no bill of the window holds: each card's whole debt today (`creditUse`, as
-   * Varat ja velat has it), less a payment its balance does not hold yet (booked after the balance day, with no leg on the card), less the card's bills in `rows`. A card the
-   * counted accounts pay as it goes has no bill, so all of its debt is here. A card's debt is taken off whole, so the
-   * day its bill falls is never guessed. Only cards that owe something are listed. A card whose bills the rows show
-   * paid only from accounts outside the pool is not (`poolPays`): the pool does not owe it.
+   * What the connected cards owe that no bill of the window holds and that falls due in it: each card's whole debt today
+   * (`creditUse`, as Varat ja velat has it), less a payment its balance does not hold yet (booked after the balance day,
+   * with no leg on the card), less the card's bills in `rows`. A card the counted accounts pay as it goes has no bill, so
+   * all of its debt is here, and so is the debt of a card whose next bill is not known: with no day to put it on it is
+   * taken off whole, so the figure never shows free money the debt may claim (ADR 0031). A card whose next bill is known
+   * and falls after the window has its debt in `laterCardDebts` instead. Only cards that owe something are listed. A card
+   * whose bills the rows show paid only from accounts outside the pool is not (`poolPays`): the pool does not owe it.
    */
   cardDebts: { cardId: string; name: string; cents: number }[];
+  /**
+   * The debt of the cards whose next bill is known and falls after the window (on the payday itself, which the pay
+   * pays, or later), with that bill's day. It is paid from the coming pay, so `freeCents` takes nothing off for it; the
+   * low point takes it off on that day. What counts as debt is the same as for `cardDebts`. `typedCents` is what the
+   * household typed in for that card on that day: those rows pay the card themselves, so the low point takes only the
+   * debt beside them off on that day (the same rule as `reconcileCardPayments` inside the window).
+   */
+  laterCardDebts: { cardId: string; name: string; cents: number; date: IsoDate; typedCents: number }[];
   /**
    * The cards of `cardDebts` whose payer the rows do not prove to be the pool alone: no payment to the card is seen, or
    * payments are seen from the pool and from outside it. Their debt is taken off whole all the same, so the figure
@@ -413,10 +423,21 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
   if ([...used.values()].some((cents) => cents === null)) return { ahead: { ...base, balance: null, missing: "card" }, direct, settling, checking, pays: evidence, coming: periods };
   // a bill of the window holds part of the debt: only the rest is taken off besides it, never the debt twice
   const payments = cardPayments(ctx);
-  const cardDebts = balances.flatMap((b) => {
+  const owing = balances.flatMap((b) => {
     const rest = reconciled.rest.get(b.id) ?? 0;
     return rest > 0 && poolPays(pool, payments, b.id) ? [{ cardId: b.id, name: b.name, cents: rest }] : [];
   });
+  // a card's next bill: the first day of its predicted, settling or typed bills. A debt whose bill falls after the window waits for it
+  const nextBill = new Map<string, IsoDate>();
+  for (const { cardId, date } of [...moves.flatMap((m) => (m.cardId ? [{ cardId: m.cardId, date: m.date }] : [])), ...settling, ...typedToCards]) {
+    if ((nextBill.get(cardId) ?? date) >= date) nextBill.set(cardId, date);
+  }
+  const laterCardDebts = owing.flatMap((d) => {
+    const date = nextBill.get(d.cardId);
+    const typedCents = typedToCards.filter((t) => t.cardId === d.cardId && t.date === date).reduce((n, t) => n + t.amountCents, 0);
+    return date !== undefined && date > to ? [{ ...d, date, typedCents }] : [];
+  });
+  const cardDebts = owing.filter((d) => !laterCardDebts.some((l) => l.cardId === d.cardId));
   const cardDebtCents = cardDebts.reduce((sum, c) => sum + c.cents, 0);
   const unresolved = unresolvedCards(pool, payments, cardDebts);
   // named whether a bill of the window holds the debt or not: the household is told of the payment either way
@@ -438,6 +459,6 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
     if (left < 0) shortOn ??= r.date;
     lowest = Math.min(lowest, left);
   }
-  const balance: AheadBalance = { startCents, counts: pool.kind, accounts: checking.length, balanceAt: stamps[0] ?? null, cardDebts, unresolved, cardDebtCents, ...(unshownCards.length ? { unshown: unshownCards } : {}), freeCents: startCents - totals.leavingCents - cardDebtCents, shortCents: Math.max(0, -lowest), shortOn };
+  const balance: AheadBalance = { startCents, counts: pool.kind, accounts: checking.length, balanceAt: stamps[0] ?? null, cardDebts, laterCardDebts, unresolved, cardDebtCents, ...(unshownCards.length ? { unshown: unshownCards } : {}), freeCents: startCents - totals.leavingCents - cardDebtCents, shortCents: Math.max(0, -lowest), shortOn };
   return { ahead: { ...base, balance, missing: null }, direct, settling, checking, pays: evidence, coming: periods };
 }

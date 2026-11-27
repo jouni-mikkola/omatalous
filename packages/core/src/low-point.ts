@@ -3,7 +3,8 @@
  * moves money or puts a purchase off before that day.
  *
  * Alin saldo starts from the figure Käytettävissä starts from: the counted accounts' balance of today less the cards'
- * debt that no bill of the payday window holds (`ahead.balance.cardDebtCents`, taken off whole from today). It walks
+ * debt that no bill of the payday window holds and that falls due in it (`ahead.balance.cardDebtCents`, taken off whole
+ * from today). The debt of a card whose bill falls after the payday (`laterCardDebts`) is taken off on its bill's day. It walks
  * through the rows of the bill calendar (`billCalendar`: the bills, the loan payments, the regular savings and the pays)
  * day by day for `days` days, today included, and takes the expected everyday spending off as it goes. A pay counts for
  * the payments of the days after its own: on a day with a payment and a pay, the payment is met from the balance before
@@ -119,6 +120,8 @@ interface LowPointStep {
   cents: number;
   /** A sum that is the usual of a series whose charges vary, or a pay beyond the next two, rather than a known one. */
   estimate: boolean;
+  /** Set on the debt of a card whose bill falls after the payday: Jää palkkapäivänä leaves it out. */
+  laterCard?: true;
   /** The balance at the end of its day, after all its payments and pays and the spending to it: the same for every step of a day, the line's own figure. */
   afterCents: number;
   /** The balance after this step in the table: the one before it (the day's opening, or the step before it that day) plus its sum. The last step of a day ends at `afterCents`. */
@@ -151,11 +154,15 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
   if (unknownPaymentBy(calendar, last)) return { known: false, reason: "bills", days };
   // a card's bill beyond the payday window holds the debt that is taken off whole from today: it is no row of the walk
   const heldByDebt = new Set(ahead.upcoming.flatMap((r) => (r.source === "card" && r.basis === "balance" && r.cents && r.date > ahead.to ? [`${r.date}|${r.name}|${Math.abs(r.cents)}`] : [])));
+  // the debt of a card whose next bill falls after the payday is not in the start: it is taken off on that bill's day, in place of the bill's own row
+  const laterInRange = ahead.balance.laterCardDebts.filter((d) => d.date >= from && d.date <= last);
+  // the typed bills of the card keep their rows and pay their own sums: the step is the debt beside them, none twice and none lost
+  const laterDebts = laterInRange.map((d) => ({ ...d, cents: Math.max(0, d.cents - d.typedCents) })).filter((d) => d.cents > 0);
   // an income before the payday is no pay the runway waits for and the runway counts none: the walk lets it land on the
   // payday, so the line at the payday is Jää palkkapäivänä to the cent and the days after it hold the income
   const rows = calendar.months
     .flatMap((m) => m.rows)
-    .filter((r) => r.state !== "paid" && !r.onCard && r.date >= from && r.date <= last && !(r.seriesId === null && r.kind === "bill" && heldByDebt.has(`${r.date}|${r.payee}|${r.cents}`)))
+    .filter((r) => r.state !== "paid" && !r.onCard && r.date >= from && r.date <= last && !(r.seriesId === null && r.kind === "bill" && (heldByDebt.has(`${r.date}|${r.payee}|${r.cents}`) || laterInRange.some((d) => d.date === r.date && d.name === r.payee))))
     .map((r) => (r.kind === "income" && r.date < runway.payday.date ? { ...r, date: runway.payday.date } : r));
   // the bills of a card shown only by them, which the bill calendar leaves out. `upcoming` reaches Laskut's 30 days and
   // `rows` the payday window, which can be longer: the window's rows after the 30 days complete the list, none twice
@@ -170,12 +177,13 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
   // a regular transfer to an account the balance does not count: Käytettävissä takes it off, and the bill calendar has no row of it
   const transfers = ahead.rows.filter((r) => r.source === "transfer" && r.cents && r.date >= from && r.date <= last);
   const income = rows.filter((r) => r.kind === "income");
-  const payments: { date: IsoDate; cents: number }[] = [...rows.filter((r) => r.kind !== "income"), ...[...cardBills, ...transfers].map((r) => ({ date: r.date, cents: Math.abs(r.cents!) }))];
+  const payments: { date: IsoDate; cents: number }[] = [...rows.filter((r) => r.kind !== "income"), ...[...cardBills, ...transfers].map((r) => ({ date: r.date, cents: Math.abs(r.cents!) })), ...laterDebts.map((d) => ({ date: d.date, cents: d.cents }))];
   const moves = [
     ...rows.map((r) => ({ date: r.date, payee: r.payee, cents: r.kind === "income" ? r.cents : -r.cents, estimate: r.state === "estimate" })),
     // a card shown only by its bills: a bill is the usual of its series
     ...cardBills.map((r) => ({ date: r.date, payee: r.name, cents: -Math.abs(r.cents!), estimate: true })),
     ...transfers.map((r) => ({ date: r.date, payee: r.name, cents: -Math.abs(r.cents!), estimate: false })),
+    ...laterDebts.map((d) => ({ date: d.date, payee: d.name, cents: -d.cents, estimate: true, laterCard: true as const })),
   ].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
   // the cards' debt of today is taken off whole, as Käytettävissä does: the day a bill falls is never guessed
@@ -189,7 +197,7 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
     return (since: IsoDate, until: IsoDate): Spent => (until < since || typeof spans === "string" ? NONE : spans(since, until));
   };
   // the cards the pool pays, as far as the rows show: one with a bill coming, one paid in full, or one that owes something
-  const payers = new Set([...settling.map((s) => s.cardId), ...ahead.balance.cardDebts.map((c) => c.cardId), ...ahead.upcoming.flatMap((r) => (r.source === "card" && r.cardId ? [r.cardId] : []))]);
+  const payers = new Set([...settling.map((s) => s.cardId), ...ahead.balance.cardDebts.map((c) => c.cardId), ...ahead.balance.laterCardDebts.map((c) => c.cardId), ...ahead.upcoming.flatMap((r) => (r.source === "card" && r.cardId ? [r.cardId] : []))]);
   const cards = ctx.accounts.filter((a) => a.type === "credit_card" && !direct.has(a.id) && payers.has(a.id));
   const billDay = new Map(settling.map((s) => [s.cardId, s.date] as const));
   // the runway's own: what the counted accounts pay themselves, every card_bill row left out
@@ -218,7 +226,7 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
 
   // the balance falls with a payment and with a card's bill, and rises only with a pay: its lowest points are those days and the last
   const billDays = [...billDay.values()].filter((d) => d >= from && d <= last);
-  const checked = [...new Set([...rows.map((r) => r.date), ...cardBills.map((r) => r.date), ...transfers.map((r) => r.date), ...billDays, last])].sort();
+  const checked = [...new Set([...rows.map((r) => r.date), ...cardBills.map((r) => r.date), ...transfers.map((r) => r.date), ...laterDebts.map((d) => d.date), ...billDays, last])].sort();
   const sum = (list: readonly { date: IsoDate; cents: number }[], keep: (date: IsoDate) => boolean) => list.reduce((total, r) => (keep(r.date) ? total + r.cents : total), 0);
   // the spending before each day of the walk, read once for the figure and the line
   const spentBy = new Map<IsoDate, Spent>();
@@ -292,8 +300,10 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
  * they do not (a payday with no step of its own, a pay before it that the runway leaves out): the figure then has no working to show.
  */
 export function paydayParts(low: Extract<LowPoint, { known: true }>, payday: IsoDate, leftCents: number) {
-  const steps = low.steps.filter((s) => s.date < payday || (s.date === payday && s.cents < 0));
-  const spending = low.spending.filter((p) => p.date <= payday);
+  const steps = low.steps.filter((s) => s.date < payday || (s.date === payday && s.cents < 0 && !s.laterCard));
+  // the purchases of a card billed on the payday are held by that bill, which the pay pays: left out with it
+  const billedOnPayday = low.steps.some((s) => s.date === payday && s.laterCard);
+  const spending = low.spending.filter((p) => p.date <= payday && !(billedOnPayday && p.kind === "cards" && p.date === payday));
   const total = [...steps, ...spending].reduce((n, r) => n + r.cents, low.startCents);
   return total === leftCents ? { balanceCents: low.startCents + low.cardDebtCents, steps, spending } : null;
 }
