@@ -100,7 +100,6 @@ export const FI_BILLS = {
   "bills.kind_paid": "Maksettu {month}",
   "bills.kind_coming": "Maksamatta {month}",
   "bills.kind_count": "Laskuja",
-  "bills.kind_year": "12 kuukaudessa",
   "bills.chart": "Laskut kuukausittain",
   "bills.chart_label": "Laskut kuukausittain, 12 kuukautta",
   "bills.series_regular": "Säännölliset",
