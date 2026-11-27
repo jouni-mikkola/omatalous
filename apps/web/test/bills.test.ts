@@ -213,11 +213,12 @@ describe("Laskut: the table and the mark on one subscription", () => {
     expect(html.match(/<h2>Laskut, sopimukset ja tilaukset<\/h2>/g)).toHaveLength(1);
   });
 
-  it("marks the months a bill with no day may fall in with the count of the bills whose sum or day is not known, and with nothing when none is", () => {
+  it("marks the open month a bill with no day may fall in with the count of the bills whose sum or day is not known, and with nothing when none is", () => {
     const months = [month("2026-10", [bill()], { billsCents: 241000, afterCents: null }), month("2026-11", [bill()], { billsCents: 241000, afterCents: null })];
     const noDay = { days: [], open: false, kind: "bill" as const, onCard: false };
     const marked = cardOf([], [], calendar(months, { unknownCount: 2, unknowns: [noDay, noDay] }));
-    expect(marked.match(/2 laskun summa tai päivä ei ole tiedossa/g)).toHaveLength(2);
+    // the count stands on the row of the sum left, which only the open month has: a closed month's head keeps its one figure
+    expect(marked.match(/bill-total-note[^>]*>2 laskun summa tai päivä ei ole tiedossa/g)).toHaveLength(1);
     expect(cardOf([], [], calendar(months.map((m) => ({ ...m, afterCents: 0 })))).includes("ei ole tiedossa")).toBe(false);
   });
 

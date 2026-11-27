@@ -63,6 +63,6 @@ describe("Laskut: the totals that end the open month", () => {
 
   it("leaves out the totals nothing is behind", () => {
     const totals = totalsOf(month("2026-10", [bill({ date: "2026-10-20", payee: "Sähköyhtiö" })], { knownCents: 6420, billsCents: 6420 }));
-    expect(totals).toEqual([expect.stringMatching(/^Maksamatta Arvio 64,20/)]);
+    expect(totals).toEqual([expect.stringMatching(/^Maksamatta Arvio 64,20/), expect.stringMatching(/^Laskujen jälkeen Arvio /)]);
   });
 });

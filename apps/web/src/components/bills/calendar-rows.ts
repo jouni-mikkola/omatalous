@@ -35,7 +35,7 @@ const PARTS = [
 ] as const;
 
 /** The figure a closing row of an open month tells. */
-export type TotalName = "paid" | "coming" | "saving" | "income" | "after" | (typeof PARTS)[number][0];
+type TotalName = "paid" | "coming" | "saving" | "income" | "after" | (typeof PARTS)[number][0];
 
 export interface CalGroup {
   key: string;
