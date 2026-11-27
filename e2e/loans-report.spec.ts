@@ -143,8 +143,9 @@ test("Lainat lists each debt in one table, says what it does not know and what a
   await expect(section.locator("#lainat-polku")).toHaveCount(0);
   await expect(section.locator(".loan-plan")).toHaveCount(0);
   await expect(section.locator(".loans-notes")).toHaveCount(0);
-  // the one place that says it is the payments tile above
-  await expect(section.getByText(/ei tiedossa/)).toHaveCount(1);
+  // the one place that says it is the payments tile above: its count and the names under it
+  await expect(section.getByText(/ei tiedossa/)).toHaveCount(2);
+  await expect(section.locator(".kv > div").first().getByText(/ei tiedossa/)).toHaveCount(2);
   // the accounts less the debts are told only for a range that reaches today (apps/web/test/loans-section.test.ts
   // reads their texts), and nothing on the page calls a figure net worth
   await expect(page.locator("main")).not.toContainText("Nettovarallisuus");
