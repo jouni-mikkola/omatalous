@@ -57,8 +57,7 @@ describe("Menot kategorioittain: Mikä muuttui", () => {
     const rows = Array.from(table.querySelectorAll("tbody tr")).map((tr) => plain(tr.textContent));
     expect(rows).toHaveLength(4);
     // the categories' own sum has a label of its own: Tavallinen kuukausi is the line of the months above it
-    expect(rows[0]).toContain("Kategoriat keskimäärin kuussa");
-    expect(rows[0]).not.toContain("Tavallinen kuukausi");
+    expect(rows[0]).toContain("Tavallinen kuukausi, kategoriat joilla on keskiarvo");
     expect(rows[0]).toContain("1 000 €");
     expect(rows[1]).toContain("Ruokakauppa");
     expect(rows[1]).toContain("500 €");
@@ -69,7 +68,7 @@ describe("Menot kategorioittain: Mikä muuttui", () => {
     expect(document.body.textContent).not.toContain("suuria ostoja");
   });
 
-  it("names the step of the categories with no level \"Ei vertailukohtaa\"", () => {
+  it("names the step of the categories with no level \"Uudet kategoriat, ei aiempia kuukausia\"", () => {
     const withStep: NonNullable<Report["changes"][number]> = {
       startCents: 100_000,
       steps: [{ category: null, label: null, withoutLevel: true, cents: 7_000, fromCents: 100_000, toCents: 107_000 }],
@@ -78,7 +77,7 @@ describe("Menot kategorioittain: Mikä muuttui", () => {
     show(report([null, null, null, null, withStep, null]));
     const table = screen.getByRole("table", { name: "Mikä muuttui: syyskuu 2026" });
     const rows = Array.from(table.querySelectorAll("tbody tr")).map((tr) => plain(tr.textContent));
-    expect(rows[1]).toContain("Ei vertailukohtaa");
+    expect(rows[1]).toContain("Uudet kategoriat, ei aiempia kuukausia");
     expect(rows[1]).toContain("70 €");
   });
 
