@@ -414,13 +414,13 @@ describe("Yhteenveto's sum left to the payday", () => {
       const { container } = ledgerOf(runway());
       const chips = (row: string) => [...container.querySelectorAll(`[data-row=${row}] .kind-chip`)].map((c) => c.textContent);
       expect([chips("balance"), chips("bills"), chips("spending"), chips("left")]).toEqual([["Nyt"], [], ["Arvio"], ["Arvio"]]);
-      expect(flat(container.querySelector("[data-row=spending] dt")?.textContent)).toBe("Arvioitu kulutus 14 pv Arvio vaihteluväli 300–450 €");
+      expect(flat(container.querySelector("[data-row=spending] dt")?.textContent)).toBe("Arvioitu kulutus 14 pv Arvio tavallisesti 300–450 €");
     });
 
     it("tells a card debt whose bill is after the payday as one quiet line that takes nothing off", () => {
       const parts = { ...runway().parts, laterCards: { cents: 239800, count: 1 } };
       const { container, rows } = ledgerOf(runway({ parts }));
-      expect(flat(container.querySelector(".home-later-cards")?.textContent)).toBe("Korttivelka 2 398 € maksetaan palkasta 25.11.");
+      expect(flat(container.querySelector(".home-later-cards")?.textContent)).toBe("Korttivelka 2 398 €, jonka maksat palkasta 25.11.");
       expect(rows.map((r) => r[0])).toEqual(["balance", "bills", "spending", "left"]);
       expect(ledgerOf(runway()).container.querySelector(".home-later-cards")).toBeNull();
     });
@@ -428,7 +428,7 @@ describe("Yhteenveto's sum left to the payday", () => {
     it("below zero is the problem colour, the verdict tells the sum that is missing and the figure is the answer's", () => {
       const el = withRunway(runway({ leftCents: -213761 }));
       expect(el.closest("section")!.classList.contains("home-short")).toBe(true);
-      expect(questionOf(el)).toBe("Puuttuu 2 138 € ennen palkkapäivää");
+      expect(flat(questionOf(el))).toBe("Puuttuu 2 138 € ennen palkkapäivää");
       expect(flat(el.querySelector(".fig")?.textContent)).toBe("−2 138 €");
       expect(el.closest("section")!.querySelector(".home-fig-line")).toBeNull();
     });

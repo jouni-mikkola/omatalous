@@ -72,6 +72,7 @@ function AnswerCard({ runway, lowLine }: { runway: KnownRunway; lowLine: ReactNo
         <div data-row="spending">
           <dt>
             {t("home.row_spending", { days: String(runway.days) })} <KindChip kind="estimate" />
+            {range && " "}
             {range && <span className="home-row-note">{t("home.row_range", { range })}</span>}
           </dt>
           <dd className="num">{rowMoney(parts.spending.cents)}</dd>

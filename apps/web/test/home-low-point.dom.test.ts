@@ -70,7 +70,7 @@ describe("LowPoint", () => {
 });
 
 describe("Now", () => {
-  const runway = { known: true, from: "2026-12-01", payday: { date: "2026-12-10", name: "Työnantaja" }, days: 9, balanceCents: 500_000, freeCents: 400_000, everydayCents: 40_000, billedCents: 0, laterCents: 0, leftCents: 360_000, lowCents: 340_000, highCents: 380_000, months: 6 };
+  const runway = { known: true, from: "2026-12-01", payday: { date: "2026-12-10", name: "Työnantaja" }, days: 9, balanceCents: 500_000, freeCents: 400_000, everydayCents: 40_000, billedCents: 0, laterCents: 0, leftCents: 360_000, lowCents: 340_000, highCents: 380_000, months: 6, parts: { balanceCents: 500_000, bills: { cents: -100_000, count: 1 }, cardBills: { cents: 0, count: 0 }, spending: { cents: -40_000, lowCents: -60_000, highCents: -20_000 }, laterCards: { cents: 0, count: 0 } } };
   const nowOf = (lowPoint: Low, leftOnPayday: unknown = { known: false, reason: "no-payday" }) => {
     const data = { nyt: { left: { known: false, reason: "no-payday" } }, home: { lowPoint, runway: { leftOnPayday } } } as unknown as DashboardData & { nyt: NonNullable<DashboardData["nyt"]> };
     return render(createElement(Now, { data })).container.querySelector("section.home-now")!;
@@ -112,11 +112,11 @@ describe("Now", () => {
     expect(nowOf({ known: false, reason: "no-payday", days: 60 }, runway).querySelector("p.home-low")).not.toBeNull();
   });
 
-  it("names the section by its question, a heading, and the figure is the link", () => {
+  it("names the section by its verdict, a heading, which is no part of a link", () => {
     const section = nowOf(known(), runway);
     const heading = section.querySelector("h2")!;
-    expect(flat(heading.textContent)).toBe("Jää palkkapäivänä 10.12.");
+    expect(flat(heading.textContent)).toBe("Riittää palkkapäivään 10.12.");
     expect(section.getAttribute("aria-labelledby")).toBe(heading.id);
-    expect(section.querySelector("a[data-tile=left] h2")).toBeNull();
+    expect(section.querySelector("a h2")).toBeNull();
   });
 });
