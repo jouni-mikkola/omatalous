@@ -62,16 +62,17 @@ test("Lataa CSV saves the rows as the table shows them, in its order, with the f
   const col = (name: string) => head.findIndex((h) => h.replace(/"/g, "") === name);
   expect(lines.length - 1, "one line per row shown").toBe(shown.length);
   // the table prints whole euros, the file has the sum as it is: within half a euro
-  const num = (t: string) => (t === "–" ? 0 : Number(t.replace(/[\s  €%]/g, "").replace("−", "-").replace(",", ".")));
+  const num = (t: string) => (t === "–" ? 0 : Number(t.replace(/[\s  €%±]/g, "").replace("-", "-").replace(",", ".")));
   const sums = (name: string, at: number) => {
-    const c = col(name);
+    const c = name.endsWith(",") ? head.findIndex((h) => h.replace(/"/g, "").startsWith(name)) : col(name);
     expect(c, `${name} is a column of the file`).toBeGreaterThanOrEqual(0);
     return lines.slice(1).map((l, i) => [l[c], shown[i]![at]] as const);
   };
   const names = lines.slice(1).map((l) => l[col("Kategoria")]!.replace(/"/g, ""));
   names.forEach((name, i) => expect(shown[i]![0], "the file's order is the table's").toContain(name));
   for (const [file, printed] of sums("Yhteensä", 2)) expect(Math.abs(Number(file!.replace(",", ".")) - num(printed!)), `${printed} in the file`).toBeLessThanOrEqual(0.5);
-  for (const [file, printed] of sums("Keskimäärin kuussa", 3)) expect(Math.abs(Number(file!.replace(",", ".")) - num(printed!)), `${printed} in the file`).toBeLessThanOrEqual(0.5);
+  // the gap to the average names its month after the comma
+  for (const [file, printed] of sums("Ero keskiarvoon,", 3)) expect(Math.abs(Number(file!.replace(",", ".")) - num(printed!)), `${printed} in the file`).toBeLessThanOrEqual(0.5);
   await context.close();
 });
 

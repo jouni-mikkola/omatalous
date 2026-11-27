@@ -1,14 +1,11 @@
 /**
- * Asetukset > Tiedot: the tax-year card has no explanation lines and names the days it covers in its caption. Raportit: the months table of
- * Menot kategorioittain draws the column of debt paid from savings only when a month holds some.
+ * Asetukset > Tiedot: the tax-year card has no explanation lines and names the days it covers in its caption.
  */
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import "@banking/core/late";
-import { section as spending } from "../src/pages/reports/sections/SpendingMonths.tsx";
 import { hasTaxRows, TaxYearSheet } from "../src/pages/settings/TaxYear.tsx";
-import type { ReportContext } from "../src/pages/reports/types.ts";
 import type { ReportsData } from "../src/types.ts";
 import "./fixed-clock.ts";
 
@@ -74,50 +71,5 @@ describe("Verovuoden rivit", () => {
     const text = plain(screen.getByRole("table", { name: "Lainojen ja luottojen korot" }).textContent);
     expect(text).toMatch(/Yhteensä\s*–/);
     expect(text).not.toContain("0,00 €");
-  });
-});
-
-type Spending = ReportsData["spendingMonths"];
-const MONTHS = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"];
-const spendingReport = (fromSavings: number[]): Spending => {
-  const values = [30000, 30000, 30000, 30000, 30000, 10000];
-  return {
-    months: MONTHS,
-    from: "2026-05-01",
-    complete: [true, true, true, true, true, false],
-    totals: values,
-    totalCents: values.reduce((a, b) => a + b, 0),
-    fromSavings,
-    fromSavingsCents: fromSavings.reduce((a, b) => a + b, 0),
-    typicalCents: 30000,
-    typicalFlowCents: 30000,
-    againstUsual: values.map(() => null),
-    typicalMonths: 5,
-    categoryMonths: 5,
-    cardGap: false,
-    last: 4,
-    changes: values.map(() => null),
-    categories: [{ category: "groceries", label: "Ruokakauppa", values, totalCents: 160000, typicalCents: 30000, lastDiffCents: 0, lastOff: false, payees: [], otherPayeesCents: 160000, statementCents: 0 }],
-  } as unknown as Spending;
-};
-const spendingContext = (spendingMonths: Spending): ReportContext =>
-  ({ data: { spendingMonths }, meta: { today: "2026-10-09", accounts: [{ id: "acc-1" }], sharedAccounts: [] }, range: { from: "2026-05-01", to: "2026-10-09" }, scope: "own", running: "2026-10", label: (id: string) => id, exportHref: () => "/export.csv" }) as unknown as ReportContext;
-const monthHeaders = (fromSavings: number[]) => {
-  render(createElement(spending.Component, { ctx: spendingContext(spendingReport(fromSavings)) }));
-  return within(screen.getByRole("table", { name: "Menot kuukausittain", hidden: true })).getAllByRole("columnheader", { hidden: true }).map((h) => plain(h.textContent));
-};
-
-describe("Menot kategorioittain: the column of debt paid from savings", () => {
-  it("is absent when every month is 0", () => {
-    expect(monthHeaders([0, 0, 0, 0, 0, 0])).toEqual(["Kuukausi", "Summa"]);
-  });
-
-  it("is present when one month is not 0", () => {
-    // the sum holds the debt paid from savings, so it is not named like the first page's Menot, which leave it out
-    expect(monthHeaders([0, 0, 0, 0, 0, 46000])).toEqual(["Kuukausi", "Maksettu yhteensä", "Säästöistä maksettu"]);
-  });
-
-  it("is present when months of both signs add up to 0", () => {
-    expect(monthHeaders([0, 0, 0, 0, 50000, -50000])).toEqual(["Kuukausi", "Maksettu yhteensä", "Säästöistä maksettu"]);
   });
 });

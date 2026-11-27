@@ -1,13 +1,11 @@
-// Decision: which category to cut: its sum over the period, its average month, and the months and payees behind it
+// Decision: which category to cut: its sum over the period, how its newest month stands against its level, and the months and payees behind it
 import { monthEnd, YEAR_MONTHS } from "@banking/core";
-import { MonthColumns } from "../../../charts/forms/MonthColumns.tsx";
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
 import { KeyValue } from "../../../components/table/KeyValue.tsx";
 import { SparkCell } from "../../../components/table/Cells.tsx";
-import { ChartWithTable } from "../../../components/table/selection.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { query } from "../../../api.ts";
-import { money, monthLong, signedMoney } from "../../../format.ts";
+import { money, monthLong, plural, signedMoney } from "../../../format.ts";
 import type { ReportsData } from "../../../types.ts";
 import { inSpan } from "../parts.tsx";
 import type { ReportContext, ReportSection, SectionProps } from "../types.ts";
@@ -16,7 +14,7 @@ import { monthName } from "../month-name.ts";
 
 type Report = ReportsData["spendingMonths"];
 type Row = Report["categories"][number];
-type MonthRow = { month: string; cents: number | null; complete: boolean; savingsCents?: number | null };
+type MonthRow = { month: string; cents: number | null; complete: boolean };
 type PayeeRow = Row["payees"][number] & { rest?: boolean };
 
 const eur = (cents: number) => money(cents, false);
@@ -66,6 +64,8 @@ function SpendingMonths({ ctx }: SectionProps) {
   // the categories' levels read only the months that hold a connected card's purchases as the newest one does
   // (`cardGap`), so they may have none while the month totals have theirs
   const usual = r.cardGap ? r.categories.some((c) => c.typicalCents !== null) : r.typicalCents !== null;
+  // the dot is marked only for a month above the level: a fall of spending is no warning
+  const risen = (c: Row) => c.lastOff && (c.lastDiffCents ?? 0) > 0;
   const last = r.last !== null ? r.months[r.last]! : null;
   // a line of the newest twelve months up to the newest complete one, so its dot is the month the level is read against
   const from = r.last === null ? 0 : Math.max(0, r.last + 1 - YEAR_MONTHS);
@@ -86,7 +86,7 @@ function SpendingMonths({ ctx }: SectionProps) {
                 <SparkCell
                   values={c.values.slice(from, r.last! + 1)}
                   usual={level}
-                  off={c.lastOff}
+                  off={risen(c)}
                   label={t("rpt.sm_spark_of", { name: c.label, sum: eur(c.values[r.last!] ?? 0), usual: eur(level) })}
                 />
               );
@@ -95,50 +95,14 @@ function SpendingMonths({ ctx }: SectionProps) {
         ] satisfies Column<Row>[])
       : []),
     { key: "total", label: t("rpt.total"), kind: "money", main: true, sort: true, precision: "euros", cents: (c) => c.totalCents, bar: { tone: "spending", value: (c) => c.totalCents, max: Math.max(1, ...r.categories.map((c) => c.totalCents)) } },
-    ...(usual
-      ? ([
-          { key: "typical", label: t("rpt.sm_typical"), kind: "money", sort: true, precision: "euros", cents: (c) => c.typicalCents },
-          ...(last
-            ? ([{ key: "last", label: t("rpt.sm_last", { month: monthLong(last) }), kind: "money", phone: "hide", sort: (c) => c.lastDiffCents, cell: (c) => (c.lastDiffCents === null ? "" : signedMoney(c.lastDiffCents)), csv: (c) => (c.lastDiffCents === null ? null : c.lastDiffCents / 100) }] satisfies Column<Row>[])
-            : []),
-        ] satisfies Column<Row>[])
+    ...(usual && last
+      ? ([{ key: "last", label: t("rpt.sm_last", { month: monthLong(last) }), kind: "money", phone: "hide", sort: (c) => c.lastDiffCents, cell: (c) => (c.lastDiffCents === null ? "" : signedMoney(c.lastDiffCents)), csv: (c) => (c.lastDiffCents === null ? null : c.lastDiffCents / 100) }] satisfies Column<Row>[])
       : []),
   ];
   return (
-    <ReportPanel id={section.id} title={section.title} datum={inSpan(ctx, eur(r.totalCents))}>
-      <>
-      <ChartWithTable
-        title={t("table.folded_months")}
-        rows={r.months.length}
-        chart={
-          <MonthColumns
-            months={r.months.map((month, i) => ({ month, complete: r.complete[i]!, parts: [r.totals[i] ?? 0], totalCents: r.totals[i] ?? null, against: r.againstUsual[i] ?? null }))}
-            series={[{ key: "spend", label: t("home.months_spend") }]}
-            tone="spending"
-            // the first page's Tavallinen kuukausi: the same figure under the same label (Menot without a debt paid from savings)
-            usual={r.typicalFlowCents === null ? null : { cents: r.typicalFlowCents, label: t("home.months_usual", { sum: eur(r.typicalFlowCents) }), short: t("home.months_usual_short", { sum: eur(r.typicalFlowCents) }) }}
-            running={ctx.running}
-            label={t("rpt.sm_months")}
-          />
-        }
-        table={
-      <Table<MonthRow>
-        caption={t("rpt.sm_months")}
-        rows={r.months.map((month, i) => ({ month, cents: r.totals[i] ?? null, complete: r.complete[i]!, savingsCents: r.fromSavings[i] ?? null }))}
-        rowKey={(m) => m.month}
-        columns={[
-          { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName({ ...m, unknown: m.cents === null }, ctx.running) },
-          // with debt paid from savings the sum holds it, while the first page's Menot leave it out: the label says so
-          { key: "sum", label: t(r.fromSavings.some((c) => !!c) ? "rpt.sm_sum_with_savings" : "rpt.sum"), kind: "money", main: true, precision: "euros", cents: (m) => m.cents },
-          ...(r.fromSavings.some((c) => !!c) ? ([{ key: "savings", label: t("rpt.sm_from_savings"), kind: "money", precision: "euros", cents: (m) => m.savingsCents ?? null }] satisfies Column<MonthRow>[]) : []),
-        ]}
-        toolbar={false}
-        csv={false}
-      />
-        }
-      />
-      <h3 className="st-cap sm-categories-head">{inSpan(ctx, t("rpt.sm_categories_all"))}</h3>
+    <ReportPanel id={section.id} title={section.title} datum={inSpan(ctx, plural(r.categories.length, t("rpt.u_category"), t("rpt.u_categories")))}>
       <Table<Row>
+        className="sm-table"
         caption={section.title}
         rows={r.categories}
         rowKey={(c) => c.category}
@@ -148,7 +112,6 @@ function SpendingMonths({ ctx }: SectionProps) {
         total={{ label: t("rpt.total"), cells: { total: eur(r.totalCents) } }}
         search={false}
       />
-      </>
     </ReportPanel>
   );
 }

@@ -8,10 +8,11 @@ interface TileDelta {
   good: boolean;
 }
 
-/** One tile: its name, the figure as the answer wrote it, an optional delta chip and one line that sets it against something. */
+/** One tile: its name, the figure as the answer wrote it (a link when the tile names where its rows are), an optional delta chip and one line that sets it against something. */
 export interface TileItem {
   label: string;
   figure: string;
+  href?: string;
   delta?: TileDelta;
   note?: string;
 }
@@ -28,7 +29,13 @@ export function Tiles({ items }: { items: readonly TileItem[] }) {
         <li key={item.label} className="strip-item">
           <span className="strip-label">{item.label}</span>
           <span className="strip-figure">
-            <Figure text={item.figure} size="l" />
+            {item.href ? (
+              <a href={item.href}>
+                <Figure text={item.figure} size="l" />
+              </a>
+            ) : (
+              <Figure text={item.figure} size="l" />
+            )}
             {item.delta && <span className={`strip-delta ${item.delta.good ? "good" : "bad"}`}>{item.delta.text}</span>}
           </span>
           {item.note && <span className="strip-note">{item.note}</span>}
