@@ -194,7 +194,7 @@ describe("Tulot ja menot: the tiles the page opens with", () => {
   it("leads with the difference of the complete months in the colour of good news when they have no gap, and gives each figure once, with no sentence", () => {
     // the ten complete months of MONTHS
     const container = lead({ overview: overview() });
-    expect(container.querySelector(".q-lead")).toBeNull();
+    expect(container.querySelector("p")).toBeNull();
     expect(stripItems()).toEqual(["Erotus, 10 kk +9 995 € +1 000 €/kk", "Tulot, 10 kk 40 050 € 4 005 €/kk", "Menot, 10 kk 30 055 € Tavallinen kuukausi 2 149 €"]);
     expect([...container.querySelectorAll(".strip-figure")].map((f) => f.className)).toEqual(["strip-figure good", "strip-figure", "strip-figure"]);
   });
