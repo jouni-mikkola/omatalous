@@ -61,7 +61,7 @@ interface SpendingChangeStep {
 
 /**
  * A month set against the usual month, category by category: `startCents` (the levels of the categories that have one,
- * which is the column "Keskimäärin kuussa" added up) plus the steps is `endCents`, the month's spending, to the cent.
+ * which are the dashed levels of the category rows added up) plus the steps is `endCents`, the month's spending, to the cent.
  */
 interface SpendingChange {
   startCents: number;
