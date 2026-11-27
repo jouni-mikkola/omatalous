@@ -52,7 +52,7 @@
 .home-verdict { margin: 0; font-size: var(--fs-h2); line-height: var(--lh-body); font-weight: var(--w-strong); color: var(--good); }
 .home-short .home-verdict { color: var(--bad); }
 .home-rows { display: grid; margin: 0; }
-.home-rows > div { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: var(--sp-16); padding: var(--sp-8) 0; border-block-end: var(--hairline) solid var(--grid); }
+.home-rows > div { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: var(--sp-4) var(--sp-16); padding: var(--sp-4) 0; border-block-end: var(--hairline) solid var(--grid); }
 .home-rows > div:last-child { border-block-end: 0; }
 .home-rows dt { min-inline-size: 0; color: var(--text-2); }
 .home-rows dt a { color: inherit; display: inline-flex; align-items: center; min-block-size: var(--tap-min); }
