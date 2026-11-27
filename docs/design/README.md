@@ -38,8 +38,8 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
   bills and own transfers before it, the card debt and the everyday spending of the days to it, with the payday. While
   the everyday spending cannot be expected (`leftOnPayday` has no figure) it is what is left after the bills alone
   (`nyt.left`, *Käytettävissä palkkapäivään*) with the sum a day. The figure links to the bills table of Laskut, which
-  lists what it takes off. Under it stands one line, the lowest balance of the next 60 days (`home.lowPoint`), only when
-  it falls after the payday: *Alin saldo 60 pv: 13.12., arviolta 300 €*. With no figure the line says why,
+  lists what it takes off. Under it stands one line, the lowest balance of the days to the payday (`home.lowPoint`), only when
+  it falls before the payday: *Alin saldo 60 pv: 13.12., arviolta 300 €*. With no figure the line says why,
   as core gives it: the reasons of the figure above, *Liian lyhyt historia*, *Lisää kortin tiliote* (links to the
   statement of a card) or *Laskun summa puuttuu* (links to Laskut; a bill with no sum within the 60 days, or with no
   day). A card paid by a bill that holds its purchases in no category is no reason: the bill's sum is spread over the

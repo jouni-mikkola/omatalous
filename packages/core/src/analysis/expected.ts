@@ -15,7 +15,7 @@
  * A base month the linked cards' purchases are missing from (`covered` leaves it out) has no categories to read, only
  * the total: its card bills count as spending, so the headline holds in every base month.
  */
-import { addDays, dayNumber, daysInMonth, monthEnd, monthIndex, monthOf } from "../dates.ts";
+import { dayNumber, daysBetween, daysInMonth, monthEnd, monthIndex, monthOf } from "../dates.ts";
 import type { RecurringSeries } from "../recurring.ts";
 import { CADENCES } from "../recurring-cadence.ts";
 import { MIN_COMPARE_MONTHS, PERIODIC_MONTHS, RANGE_HIGH, RANGE_LOW, SPARSE_SHARE } from "../thresholds.ts";
@@ -371,11 +371,11 @@ export type EverydayGap = "history" | "cards";
 
 /**
  * The expected everyday spending of the days `from` to `until` (inclusive, `until` before `from` is none): what the
- * base months of `from`'s month (`expectedFor`) spent on the same days of their months, outside every subscription
- * and bill series (`fixedIds`), a card's bill and the one-offs the headline leaves out. It is the mean of the base
- * months, and the range is their lower and upper quartile, as the headline has it. A span may run over a month's end;
- * a day a base month does not have (the 31st) adds that month's mean day (its spending over its
- * length). `keep` limits it to the rows of some accounts: the
+ * base months of `from`'s month (`expectedFor`) spent a day, outside every subscription and bill series (`fixedIds`),
+ * the debt part of a row, a card's bill and the one-offs the headline leaves out. Each base month counts as its even
+ * daily rate (its spending over its length), so a span of days is that many days of the pace and never what happened to
+ * fall on its dates. It is the mean of the base months, and the range is their lower and upper quartile, as the headline
+ * has it. A span may run over a month's end. `keep` limits it to the rows of some accounts: the
  * payday runway asks for the ones the counted accounts pay themselves. `month` is the month whose base months it reads (`from`'s by default): a span that starts in the next month (the day after the month's last day) still reads this one's, since the next one has no complete month yet. The day-by-day rate of the first page and the
  * runway read this, so everyday spending has one definition. A base month that holds a card's purchases only as a bill
  * (outside `covered`) has no days for them: the bill's sum is spread evenly over the month's days, so the total pace of
@@ -397,28 +397,25 @@ export function everydaySpans(ctx: AnalysisContext, keep: (t: AnalysisTx) => boo
   // the reason Yhteenveto's month gives, so the runway's cannot say "history" beside their "cards"
   if (!figure) return usualGap(ctx, month) ?? "history";
   const struck = expectedOneOffs(ctx, [...figure.months, figure.month]);
-  const perDay = figure.months.map((m) => {
-    const days = new Array<number>(31).fill(0);
+  // each base month's everyday spending as one even daily rate: a span reads the months' pace, not what landed on its days of the month
+  const rates = figure.months.map((m) => {
     const bridged = !figure.covered.includes(m);
-    const length = daysInMonth(m);
+    let total = 0;
     for (const t of rowsOf(ctx, m)) {
       if (t.spend === 0 || struck.has(t.id) || !keep(t)) continue;
       // the only record of a card's purchases in a month the feed does not cover: its sum, with no day of its own
       if (t.category === "card_bill") {
-        if (bridged && !paysCardWithRows(ctx, t, m)) for (let d = 0; d < length; d++) days[d]! += t.spend / length;
-      } else if (!ctx.fixedIds.has(t.id)) days[dayOf(t) - 1]! += t.spend;
+        if (bridged && !paysCardWithRows(ctx, t, m)) total += t.spend;
+      } else if (!ctx.fixedIds.has(t.id)) {
+        // the debt part of a row (a loan payment, a repayment) reaches the walk as a loan or bill row, so it is not everyday spending
+        total += t.spend - t.flows.debt;
+      }
     }
-    return days;
+    return total / daysInMonth(m);
   });
   return (from, until) => {
-    const totals = figure.months.map(() => 0);
-    for (let day = from; day <= until; day = addDays(day, 1)) {
-      const d = Number(day.slice(8, 10));
-      figure.months.forEach((m, i) => {
-        const length = daysInMonth(m);
-        totals[i]! += d <= length ? perDay[i]![d - 1]! : sumOf(perDay[i]!) / length;
-      });
-    }
+    const days = until < from ? 0 : daysBetween(from, until) + 1;
+    const totals = rates.map((rate) => rate * days);
     const sorted = [...totals].sort((a, b) => a - b);
     const cents = Math.round(sumOf(totals) / totals.length);
     return { cents, lowCents: Math.min(cents, quantile(sorted, RANGE_LOW)), highCents: Math.max(cents, quantile(sorted, RANGE_HIGH)), months: totals.length };

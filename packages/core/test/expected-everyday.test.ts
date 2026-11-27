@@ -50,8 +50,18 @@ describe("the expected everyday spending of a span of days", () => {
   it("a refund lowers its day, and money in that is no refund is in none", () => {
     const refund = tx({ bookingDate: "2026-09-10", amountCents: 1500, merchant: "Kauppa acc-1 193", category: "groceries" });
     const pay = tx({ bookingDate: "2026-09-10", amountCents: 300_000, merchant: "Esimerkki Oy", category: "salary" });
-    // one base month in six has 15 euros less on the 10th
-    expect(found([...shopping(), refund, pay], "2026-10-10", "2026-10-10").cents).toBe(4000 - 250);
+    // one base month in six has 15 euros less: a month of 30 days has a daily rate of 3 950
+    expect(found([...shopping(), refund, pay], "2026-10-01", "2026-10-31").cents).toBe(Math.round((5 * 31 * 4000 + 31 * 3950) / 6));
+  });
+
+  it("a refund is spread over its month: the days of a span hold the pace, not the date", () => {
+    const refund = tx({ bookingDate: "2026-09-10", amountCents: 1500, merchant: "Kauppa acc-1 193", category: "groceries" });
+    expect(found([...shopping(), refund], "2026-10-01", "2026-10-01").cents).toBe(found([...shopping(), refund], "2026-10-10", "2026-10-10").cents);
+  });
+
+  it("the debt part of a row is no everyday spending", () => {
+    const repayment = tx({ bookingDate: "2026-09-10", amountCents: -12_000, merchant: "Pankki Laina", category: "loans" });
+    expect(found([...shopping(), repayment], "2026-10-01", "2026-10-31").cents).toBe(31 * 4000);
   });
 
   it("with `keep` it is what those accounts paid, and the parts add up to the whole", () => {

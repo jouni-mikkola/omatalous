@@ -98,7 +98,7 @@ function AnswerCard({ runway, lowLine }: { runway: KnownRunway; lowLine: ReactNo
  * period and not the month: the answer card (AnswerCard). While the everyday spending cannot be expected (under three complete
  * months, a card's purchases missing) the figure is `nyt.left` (Käytettävissä palkkapäivään), the money after the payments
  * alone, with its sum a day; it leads to Laskut, whose list holds the bills it takes off. Under either stands the lowest balance of
- * the next days (`home.lowPoint`) when that comes after the payday: a lowest balance on or before it is the figure above (core
+ * the days to the payday (`home.lowPoint`) when that comes before it: a lowest balance on the payday is the figure above (core
  * takes the payday's own bills off before the pay lands), and a reason the figure's own line gives is not told twice. Nothing is added up here.
  */
 export function Now({ data }: { data: Data }) {
@@ -108,7 +108,7 @@ export function Now({ data }: { data: Data }) {
   const payday = paydayOf(data);
   // the reason the figure's own line gives while it has no sum: an unknown lowest balance for the same reason says nothing more
   const ownReason = runway?.known || left.known ? null : left.reason;
-  const lowHidden = lowPoint?.known ? payday !== null && lowPoint.date <= payday : lowPoint?.reason === ownReason;
+  const lowHidden = lowPoint?.known ? payday !== null && lowPoint.date === payday : lowPoint?.reason === ownReason;
   const lowLine = <LowPoint lowPoint={lowHidden ? null : lowPoint} />;
   if (runway?.known) return <AnswerCard runway={runway} lowLine={lowLine} />;
   // a sum a day below zero says nothing the sum does not: the line tells what is missing
