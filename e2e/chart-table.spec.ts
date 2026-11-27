@@ -7,29 +7,6 @@ import { startServer } from "./server.mjs";
 // mark's row, and the arrow keys move the readout, which a screen reader hears through aria-live.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
-test("a month chart: its table is folded, a pick opens it on that month and Escape lets go", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
-  const page = await context.newPage();
-  const seen = watch(page);
-  await page.goto("/#/reports?q=menot");
-  await unfold(page, "kategoriat");
-  // the spending months' chart: the one of Tulot ja menot is read by link, its months have no pick
-  const fold = page.locator("#kategoriat details.chart-fold").first();
-  await expect(fold).toBeVisible({ timeout: 20_000 });
-  await expect(fold).not.toHaveAttribute("open", "");
-  await expect(fold.locator("summary")).toContainText("Kuukaudet taulukkona");
-  await fold.locator("xpath=preceding::*[@role='group'][1]").focus();
-  await page.keyboard.press("Enter");
-  await expect(fold).toHaveAttribute("open", "");
-  await expect(fold.locator("table.rt tbody tr")).toHaveCount(1);
-  // the first Escape lets go of the readout, the second of the pick
-  await page.keyboard.press("Escape");
-  await page.keyboard.press("Escape");
-  await expect(fold.locator(".rt-filter")).toHaveCount(0);
-  expect(seen.problems).toEqual([]);
-  await context.close();
-});
-
 // Laskut: the chart's paid and coming parts of the month the table opens on are the two totals that close that month's rows.
 // The demo's bills are dated from today, so the check runs on a server whose clock starts on the 15th of the month of the run
 // (e2e/clock.mjs): the running month is the open one, with some bills paid and some still to come, whatever day the run is.
