@@ -76,7 +76,7 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 
 /* ── the payees of the running month, beside the histogram ─────────────────────── */
 .tx-lead { flex: 1 1 14rem; max-inline-size: 22rem; display: grid; gap: var(--sp-12); align-content: start; }
-@media (max-width: 640px), (pointer: coarse) { .tx-lead-list a { display: inline-flex; align-items: center; min-block-size: var(--tap-min); } }
+@media (max-width: 640px), (pointer: coarse) { .tx-lead-list a { display: inline-flex; align-items: center; min-block-size: var(--tap-min); min-inline-size: var(--tap-min); } }
 .tx-lead-part { min-width: 0; }
 .tx-lead-h { margin: 0 0 var(--sp-4); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); color: var(--text-2); }
 /* a payee a line, its sum at the end of the line */
