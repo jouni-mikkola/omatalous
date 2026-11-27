@@ -1,4 +1,4 @@
-import { isCardBill, UNKNOWN_MERCHANT } from "@banking/core";
+import { isCardBill, listedTransferAllocations, UNKNOWN_MERCHANT } from "@banking/core";
 import { useSyncExternalStore } from "react";
 import { date, dayHeading, money } from "../format.ts";
 import { t as msg } from "../text.ts";
@@ -51,25 +51,19 @@ function byDay<T extends TransactionItem>(items: T[]): { day: string; items: T[]
 
 /**
  * The two rows of one own transfer are one row of the list: money that left one account and came to another the same day
- * in the same amount. The row shown is the one that left, and `arrived` gives the other by its id. Two rows pair only when
- * both are own transfers of opposite bank amounts on different accounts with the same status, and neither is a part of a
- * joint row. A row the page limit cut from its pair stays a row of its own.
+ * in the same amount. The row shown is the one that left, and `arrived` gives the other by its id. Which two rows pair is
+ * core's `listedTransferAllocations`. A row the page limit cut from its pair stays a row of its own.
  */
 export function pairTransfers(items: ListedRow[]): { rows: ListedRow[]; arrived: Map<string, ListedRow> } {
+  const allocations = listedTransferAllocations(items);
+  if (!allocations.size) return { rows: items, arrived: new Map() };
+  const byId = new Map(items.map((t) => [t.id, t]));
   const arrived = new Map<string, ListedRow>();
-  const hidden = new Set<string>();
-  const whole = (t: ListedRow) => t.isTransfer && (t.partCents === undefined || t.partCents === t.amountCents);
-  for (const { items: day } of byDay(items)) {
-    const incoming = day.filter((t) => whole(t) && t.amountCents > 0);
-    for (const out of day) {
-      if (!whole(out) || out.amountCents >= 0) continue;
-      const match = incoming.find((t) => !hidden.has(t.id) && t.amountCents === -out.amountCents && t.accountId !== out.accountId && t.status === out.status);
-      if (!match) continue;
-      hidden.add(match.id);
-      arrived.set(out.id, match);
-    }
+  for (const t of items) {
+    const part = t.amountCents < 0 ? allocations.get(t.id)?.[0] : undefined;
+    if (part) arrived.set(t.id, byId.get(part.partnerId)!);
   }
-  return { rows: hidden.size ? items.filter((t) => !hidden.has(t.id)) : items, arrived };
+  return { rows: items.filter((t) => t.amountCents < 0 || !allocations.has(t.id)), arrived };
 }
 
 /** What all the filter's rows of one day add up to, the server's (`daySums`), also on a day the page limit cuts. */
