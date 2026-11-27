@@ -2,7 +2,7 @@
  * Yhteenveto's Tulevat kuukaudet: this month and the two after it, read from the answer Laskut reads. Each sum is the
  * month's own field of the bill calendar, so the block and the month heads of Laskut tell the same figures.
  */
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createElement } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
 import { marksBySubject } from "@banking/core";
@@ -52,11 +52,15 @@ function laskutHeads(cal: ReturnType<typeof answer>): string[] {
   const items = billItems({ series: [], typed: [], cancelled: new Set(), marks: marksBySubject([]), today: "2026-11-11" });
   const controls = { markOf: () => null, busy: false, set: () => {}, clear: () => {} };
   const { container, unmount } = render(createElement(BillsTable, { calendar: cal, items, controls, label: (id: string) => id, scope: "own", onRemoved: () => {} }));
-  // the open month tells what is paid and what is to come in the totals that end its rows, so they stand with its head
-  const totals = [...container.querySelectorAll("tr.bill-total")].map((tr) => `${tr.querySelector(".bill-total-name")!.firstChild!.textContent} ${tr.querySelector("td.bill-total-sum")!.textContent}`).join(" ");
-  const heads = [...container.querySelectorAll(".bill-sums")].map((e) => flat(`${e.textContent} ${e.hasAttribute("data-closed") ? "" : totals}`));
+  // an open month tells its figures in the totals that end its rows, so every month is opened and read by them
+  for (const closed of container.querySelectorAll(".bill-month[aria-expanded=false]")) fireEvent.click(closed);
+  const heads: string[] = [];
+  for (const tr of container.querySelectorAll("tbody tr")) {
+    if (tr.classList.contains("rt-group") && /\d{4}/.test(tr.querySelector(".bill-month")?.textContent ?? "")) heads.push("");
+    else if (tr.classList.contains("bill-total")) heads[heads.length - 1] += ` ${tr.querySelector(".bill-total-name")!.firstChild!.textContent} ${tr.querySelector("td.bill-total-sum")!.textContent} ${tr.querySelector(".bill-total-note")?.textContent ?? ""}`;
+  }
   unmount();
-  return heads;
+  return heads.map(flat);
 }
 
 describe("Tulevat kuukaudet", () => {
@@ -81,7 +85,7 @@ describe("Tulevat kuukaudet", () => {
       const [bills] = billsCell!.split(" josta arvio ");
       expect(head).toContain(`Maksamatta ${bills}`);
       if (income !== "–") expect(head).toContain(`Tulot ${income}`);
-      if (after === "Ei tiedossa") expect(head).toContain("Laskujen jälkeen: ei tiedossa");
+      if (after === "Ei tiedossa") expect(head).toContain("Laskujen jälkeen Ei tiedossa");
       else expect(head).toContain(`Laskujen jälkeen ${after}`);
     });
     if (make === answer) expect(cells(trs[0]!)).toEqual(["Marraskuu 2026", "3 000,00 €", "1 500,00 € josta arvio 300,00 €", "1 400,00 €"]);
@@ -242,10 +246,10 @@ describe("Laskut: the unknown bills a month head counts", () => {
     for (const head of heads.slice(0, 3)) {
       expect(head).not.toContain("laskun summa tai päivä ei ole tiedossa");
       expect(head).toContain("Laskujen jälkeen");
-      expect(head).not.toContain("Laskujen jälkeen: ei tiedossa");
+      expect(head).not.toContain("Ei tiedossa");
     }
     expect(heads[3]).toContain("1 laskun summa tai päivä ei ole tiedossa");
-    expect(heads[3]).toContain("Laskujen jälkeen: ei tiedossa");
+    expect(heads[3]).toContain("Laskujen jälkeen Ei tiedossa");
   });
 
   it("counts no unknown pay as a bill in a month head", () => {

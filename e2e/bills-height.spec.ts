@@ -10,8 +10,8 @@ import { startServer } from "./server.mjs";
 // the 20th), so the next month opens with all of its bills to come.
 const ADMIN = { username: "e2e-admin", displayName: "E2E Admin", password: "e2e-salasana-123456" };
 const FETCH = { "X-Requested-With": "fetch" };
-// Raised from 1800 on purpose: the page gained a twelve-month chart and the picked month's days strip above the table, which are
-// about 500 px on a phone with the three cards of the kinds as compact full-width rows and the strip compact. The table of the months is unchanged.
+// Raised from 1800 on purpose: the page has the three cards of the kinds as compact full-width rows above the table, the open
+// month ends in the rows of its figures, and a low twelve-month chart stands under the table.
 // The cards stay three stacked rows at 390 px on every day, whatever the sums are.
 const MAX_HEIGHT = 2250;
 const month = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Helsinki", year: "numeric", month: "2-digit" }).format(new Date());
