@@ -69,10 +69,10 @@ for (const width of [390, 1440] as const) {
     expect(await rowCents("spending"), "the expected spending").toBe(parts.spending.cents);
     if (parts.cardBills.count > 0) expect(await rowCents("cards"), "the card bills before the payday").toBe(parts.cardBills.cents);
     expect(parts.balanceCents + parts.bills.cents + parts.cardBills.cents + parts.spending.cents, "the parts of the answer add up to the figure").toBe(leftOnPayday.leftCents);
-    // the lowest balance of the next days under it, when it falls after the payday: core's day and sum, or core's reason. It is no link
+    // the lowest balance of the days to the payday under it, when it falls before the payday: core's day and sum, or core's reason. It is no link
     const { lowPoint } = home;
     const low = page.locator(".home-now .home-low");
-    if (lowPoint.known && lowPoint.date <= leftOnPayday.payday.date) {
+    if (lowPoint.known && lowPoint.date === leftOnPayday.payday.date) {
       await expect(low).toHaveCount(0);
     } else {
       await expect(low).toHaveCount(1);

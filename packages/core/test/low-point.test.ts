@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { aheadBasis } from "../src/analysis/ahead.ts";
 import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
-import { runwayOf } from "../src/analysis/runway.ts";
+import { paydayOf, runwayOf } from "../src/analysis/runway.ts";
 import { addDays, dateIn, daysBetween, daysInMonth, fromMonthIndex, monthIndex, weekdayOf } from "../src/dates.ts";
 import { loanUnknownSubject } from "../src/loan-terms-answer.ts";
 import { type LowPoint, lowPoint } from "../src/low-point.ts";
@@ -516,11 +516,16 @@ describe("lowPoint's spending between the steps", () => {
 describe("lowPoint in the dashboard answer", () => {
   const rows = [...pays(), ...rents(), ...shopping("2026-03-01", 4000, ["2026-07", "2026-08", "2026-09"])];
 
-  it("is a field of home, the same as the function gives, for the days the figure looks at", () => {
+  it("is a field of home, the same as the function gives, for the days from today to the payday", () => {
     const ctx = createContext(rows, [own], TODAY);
     const home = buildDashboard(ctx, RANGE, [bal(900_000)], NO_INPUTS).home;
-    expect(home.lowPoint).toEqual(lowPoint(ctx, aheadBasis(ctx, [bal(900_000)], NO_INPUTS), [bal(900_000)], NO_INPUTS));
-    expect(home.lowPoint).toMatchObject({ known: true, days: LOW_POINT_DAYS });
+    const basis = aheadBasis(ctx, [bal(900_000)], NO_INPUTS);
+    const payday = paydayOf(basis.ahead);
+    if (!payday) throw new Error("no payday");
+    const days = daysBetween(basis.ahead.from, payday.date) + 1;
+    expect(days).toBeLessThan(LOW_POINT_DAYS);
+    expect(home.lowPoint).toEqual(lowPoint(ctx, basis, [bal(900_000)], NO_INPUTS, days));
+    expect(home.lowPoint).toMatchObject({ known: true, days });
   });
 
   it("is not told for a range that does not include today", () => {
