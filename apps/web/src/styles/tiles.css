@@ -17,10 +17,13 @@
   .strip { display: block; }
   .strip-item { grid-row: auto; grid-template-rows: none; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; padding: var(--sp-12) 0; border-inline-start: 0; border-top: var(--hairline) solid var(--grid); }
   .strip-item:first-child { padding-top: 0; border-top: 0; }
-  .strip-figure > a { display: inline-flex; align-items: center; min-height: var(--tap-phone); margin-block: calc(-1 * var(--sp-8)); }
   .strip-item > .strip-figure { grid-column: 2; grid-row: 1; }
   .strip-item .fig { font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); }
   .strip-label { grid-column: 1; grid-row: 1; }
   .strip-note { grid-column: 1 / -1; }
+}
+/* the gap beside a figure is a link a thumb meets: high at least a tap, the margin taking the height back */
+@media (max-width: 640px), (pointer: coarse) {
+  .strip-figure > a { display: inline-flex; align-items: center; min-height: var(--tap-phone); margin-block: calc(-1 * var(--sp-8)); }
 }
 }
