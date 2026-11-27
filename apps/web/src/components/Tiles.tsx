@@ -8,13 +8,14 @@ interface TileDelta {
   good: boolean;
 }
 
-/** One tile: its name, the figure as the answer wrote it (a link when the tile names where its rows are), an optional delta chip and one line that sets it against something. */
+/** One tile: its name, the figure as the answer wrote it, an optional delta chip and one line that sets it against something. */
 export interface TileItem {
   label: string;
   figure: string;
-  href?: string;
   delta?: TileDelta;
   note?: string;
+  /** Where the figure's rows are; the figure is then a link. */
+  href?: string;
 }
 
 /**
