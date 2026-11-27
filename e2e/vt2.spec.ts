@@ -97,9 +97,12 @@ test("the period is a named one or two days on our own calendar, never a browser
 test("Enter on the histogram narrows the list to its tallest bin, and a filter that matches nothing can be cleared", async ({ browser }) => {
   const { context, page, seen } = await open(browser, "/#/transactions");
   const hist = page.getByRole("img", { name: /^Menot (päivittäin|viikoittain|kuukausittain), suurin / });
+  // the picture waits behind its title; the line under it names a bar once the keyboard is on the picture
+  await page.locator("details.tx-hist-fold > summary").click();
   await expect(hist).toBeVisible();
-  await expect(page.locator(".tx-hist-readout")).toContainText("menot");
+  await expect(page.locator(".tx-hist-readout")).toHaveText("");
   await hist.focus();
+  await expect(page.locator(".tx-hist-readout")).toContainText("menot");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}/);
   await expect(rows(page).first()).toBeVisible();

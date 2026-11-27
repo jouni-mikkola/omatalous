@@ -1,6 +1,6 @@
 /**
  * The histogram over Tapahtumat draws money out or money in as the reader chooses: the switch changes its title and the
- * line under it, which names the highest bar of the chosen direction.
+ * line under it, which names the highest bar of the chosen direction once the keyboard or the pointer is on the picture.
  */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createElement } from "react";
@@ -30,7 +30,11 @@ const totals = {
   },
 };
 
-const readout = () => document.querySelector(".tx-hist-readout")!.textContent;
+/** The line under the bars with the keyboard on the picture: at rest it is empty, the peak's sum stands above its bar. */
+const readout = () => {
+  fireEvent.focus(screen.getByRole("img"));
+  return document.querySelector(".tx-hist-readout")!.textContent;
+};
 
 describe("the figures of the strip", () => {
   const terms = () => [...document.querySelectorAll(".tx-totals-kv > div")].map((d) => [d.querySelector("dt")!.textContent, d.querySelector("dd")!.textContent]);
@@ -56,6 +60,9 @@ describe("the figures of the strip", () => {
 describe("the histogram's direction switch", () => {
   it("starts on money out and names its highest bar", () => {
     render(createElement(TotalsStrip, { totals, income: false, today: "2026-10-13", onPick: () => {} }));
+    // at rest the line is empty and the picture is folded: the sums and the list are what the page opens on
+    expect(document.querySelector(".tx-hist-readout")!.textContent).toBe("");
+    expect(document.querySelector("details.tx-hist-fold")!.hasAttribute("open")).toBe(false);
     expect(readout()).toContain("menot");
     expect(readout()).toContain("50,00");
     expect(readout()).toContain("1 tapahtuma");
