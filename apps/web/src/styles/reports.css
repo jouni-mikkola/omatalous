@@ -17,8 +17,6 @@
 .q-page { min-width: 0; }
 .q-head { display: grid; gap: var(--sp-12); }
 .q-title { margin: 0; font-size: var(--fs-h2); line-height: var(--lh-h2); }
-/* the one large sentence a report page leads with (pages/reports/Lead.tsx) */
-.q-lead { margin: 0; max-width: 44ch; font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); font-weight: var(--w-regular); text-wrap: balance; }
 .verdict { display: grid; gap: var(--sp-8); }
 .verdict p { margin: 0; }
 .verdict-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-4) var(--sp-12); }
