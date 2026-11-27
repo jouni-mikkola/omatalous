@@ -238,30 +238,6 @@ export function transferAllocations(txs: readonly TransferInput[], accounts: rea
   return { transfers, allocations, fees };
 }
 
-/** A row of the list of Tapahtumat as its pairing reads it. `partCents` is the viewer's part of a joint account's row. */
-export type ListedLeg = Pick<TransferInput, "id" | "accountId" | "amountCents" | "bookingDate"> & { isTransfer: boolean; status: string; partCents?: number };
-
-/**
- * The pairs the list of Tapahtumat shows as one row: the two rows of one own transfer among the rows of one page. This
- * decides no category. The rows are own transfers already (`isTransfer`), and two of them are one row only when the
- * amounts are opposite, the day and the status are the same, the accounts differ and neither is a part of a joint
- * account's row. A row that came in pairs with one row that left.
- */
-export function listedTransferAllocations(rows: readonly ListedLeg[]): Map<string, Allocation[]> {
-  const allocations = new Map<string, Allocation[]>();
-  const whole = (t: ListedLeg) => t.isTransfer && (t.partCents === undefined || t.partCents === t.amountCents);
-  const incoming = rows.filter((t) => whole(t) && t.amountCents > 0);
-  for (const out of rows) {
-    if (!whole(out) || out.amountCents >= 0) continue;
-    const match = incoming.find((t) => !allocations.has(t.id) && t.amountCents === -out.amountCents && t.bookingDate === out.bookingDate && t.accountId !== out.accountId && t.status === out.status);
-    if (!match) continue;
-    const [a, b] = wholePair(out.id, match.id, match.amountCents);
-    allocations.set(out.id, [a]);
-    allocations.set(match.id, [b]);
-  }
-  return allocations;
-}
-
 /** The old shape of the pairs: the outgoing row's id and its incoming row's, in the order the pairs were found. `txs` are the rows the allocations came from. */
 export function pairsOf(allocations: ReadonlyMap<string, readonly Allocation[]>, txs: readonly Pick<TransferInput, "id" | "amountCents">[]): Map<string, string> {
   const outgoing = new Set(txs.filter((t) => t.amountCents < 0).map((t) => t.id));

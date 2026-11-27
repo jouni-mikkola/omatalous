@@ -160,8 +160,7 @@ test("390 px: every row's account is its digits, whole and under nothing, and th
     const row = rows.nth(i);
     // the middle of the screen, clear of the sticky head and the tab bar
     await row.evaluate((e) => e.scrollIntoView({ block: "center" }));
-    // an own transfer names two accounts: the second is the one nearer the edge
-    const mark = (await row.locator("td.tx-account .tx-acct").last().boundingBox())!;
+    const mark = (await row.locator("td.tx-account .tx-acct").boundingBox())!;
     expect(mark.x + mark.width, `row ${i}: the account's mark is inside the screen`).toBeLessThanOrEqual(390);
     // the topmost element at the middle of the mark is the mark itself, not something over it
     const top = await page.evaluate(([x, y]) => document.elementFromPoint(x!, y!)?.closest(".tx-acct")?.outerHTML ?? document.elementFromPoint(x!, y!)?.outerHTML.slice(0, 120), [mark.x + mark.width / 2, mark.y + mark.height / 2]);

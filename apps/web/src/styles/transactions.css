@@ -72,9 +72,6 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 .tx-acct { display: inline-flex; align-items: center; gap: var(--sp-4); max-width: 100%; min-width: 0; color: var(--text-2); }
 /* the digits, a short own name or the type's word: never cut, so the cell is as wide as its longest */
 .tx-acct-logo { display: contents; }
-/* an own transfer: the account the money left and the one it came to, on two lines where one is too narrow */
-.tx-acct-pair { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4); color: var(--text-2); }
-.tx-acct-to { display: inline-flex; align-items: center; gap: var(--sp-4); }
 .tx-acct-short { font-size: var(--fs-label); line-height: var(--lh-label); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
 
 /* ── the payees of the running month, beside the histogram ─────────────────────── */
