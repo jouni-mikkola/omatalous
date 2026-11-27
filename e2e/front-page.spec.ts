@@ -93,7 +93,6 @@ for (const width of [390, 1440] as const) {
     await expect(page.locator("main .month-bars, main .where-row")).toHaveCount(0);
     // the four blocks in their order, each once, and no notice
     await expect(page.locator("main .home-figs > li")).toHaveCount(3);
-    await expect(page.locator("main .home-flow")).toHaveCount(1);
     const classes = await page.locator(".home-now, .home-summary, .home-coming, .holdings").evaluateAll((els) => els.map((e) => e.getAttribute("class") ?? ""));
     const order = classes.map((c) => c.split(" ").find((name) => /^home-|^holdings$/.test(name)));
     expect(order).toEqual(["home-now", "home-summary", "home-coming", "holdings"]);
@@ -139,23 +138,17 @@ for (const width of [390, 1440] as const) {
   });
 }
 
-test("at 390 px each figure of the month is a row, its label at the left and the figure at the right, and Käteen jäi is on the first screen", async ({ browser }) => {
+test("at 390 px the three figures of the month stand on one row, each smaller than the answer figure", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await open(context);
   const boxes = await Promise.all((await page.locator(".home-figs > li").all()).map(async (item) => (await item.boundingBox())!));
   expect(boxes).toHaveLength(3);
-  expect(boxes[1]!.y, "Menot under Tulot").toBeGreaterThan(boxes[0]!.y);
-  expect(boxes[1]!.x, "Menot as far left as Tulot").toBe(boxes[0]!.x);
-  expect(boxes[2]!.y, "Käteen jäi under them").toBeGreaterThan(boxes[1]!.y);
-  for (const item of await page.locator(".home-figs > li").all()) {
-    const label = (await item.locator(".home-fig-label").boundingBox())!;
-    const figure = (await item.locator(".fig").boundingBox())!;
-    const row = (await item.boundingBox())!;
-    expect(figure.x, "the figure at the right of its label").toBeGreaterThanOrEqual(label.x + label.width - 1);
-    expect(figure.x + figure.width, "at the right edge of the row").toBeCloseTo(row.x + row.width, 0);
-  }
-  const result = boxes[2]!;
-  expect(result.y + result.height, "Käteen jäi ends on the first screen").toBeLessThanOrEqual(844);
+  expect(boxes[1]!.y, "Menot on the row of Tulot").toBe(boxes[0]!.y);
+  expect(boxes[2]!.y, "Käteen jäi on the row of Tulot").toBe(boxes[0]!.y);
+  expect(boxes[1]!.x, "Menot right of Tulot").toBeGreaterThan(boxes[0]!.x);
+  expect(boxes[2]!.x, "Käteen jäi right of Menot").toBeGreaterThan(boxes[1]!.x);
+  const size = (selector: string) => page.locator(selector).first().evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  expect(await size(".home-figs .fig"), "smaller than the answer").toBeLessThan(await size(".home-now [data-tile=left] .fig"));
   await context.close();
 });
 
