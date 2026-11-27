@@ -2,7 +2,7 @@ import { type BrowserContext, expect, type Locator, type Page, test } from "@pla
 import { join } from "node:path";
 import { overflow, OVERVIEW_TILES, watch } from "./helpers.ts";
 
-// Yhteenveto on a phone, at 320, 360 and 390 px wide: the four blocks (Nyt, the month, the coming months, the accounts) under each other, the month's figures two by two. Nothing scrolls sideways, no text is cut, every control that is tapped is 44 px high and wide, and the page is no taller than 2800 px.
+// Yhteenveto on a phone, at 320, 360 and 390 px wide: the four blocks (Nyt, the month, the coming months, the accounts) under each other, the month's figures two by two. Nothing scrolls sideways, no text is cut, every control that is tapped is 44 px high and wide, and the page is no taller than 3000 px.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
 async function open(context: BrowserContext): Promise<Page> {
@@ -47,24 +47,24 @@ for (const width of [320, 360, 390]) {
       bottom = box.y + box.height;
     }
     expect(await overflow(page), `the page scrolls sideways: ${(await sticking(page, width)).join("; ")}`).toBe(0);
-    expect(await cut(page.locator(".home-fig-label, .home-figs .fig, .home-fig-line, .home-fig-term, .home-flow-name, .home-flow-sum")), "text cut").toEqual([]);
+    expect(await cut(page.locator(".home-fig-label, .home-figs .fig, .home-fig-line, .home-fig-term, .home-flow-name, .home-flow-sum, .home-verdict, .home-rows")), "text cut").toEqual([]);
     // every figure of the month is inside the screen
     for (const cell of await page.locator(".home-figs .fig").all()) {
       const box = (await cell.boundingBox())!;
       expect(box.x, "starts on the screen").toBeGreaterThanOrEqual(0);
       expect(box.x + box.width, "ends on the screen").toBeLessThanOrEqual(width);
     }
-    // the terms under Käteen jäi do not push the month's figures off the first screen: Tulot, Menot, Käteen jäi and the terms end above its foot
-    for (const part of await page.locator(".home-figs .fig, .home-fig-term").all()) {
+    // the first screen is the answer card's: its verdict and the sum left on the payday end above the foot of the screen, and the month's figures follow the card
+    for (const part of await page.locator(".home-now .home-verdict, .home-now [data-tile=left]").all()) {
       const box = (await part.boundingBox())!;
-      expect(box.y + box.height, "the figure is on the first screen").toBeLessThanOrEqual(800);
+      expect(box.y + box.height, "the answer is on the first screen").toBeLessThanOrEqual(800);
     }
     // everything that is tapped on the page is tapped with a thumb
     expect(await small(page.locator("main :is(a, button, select, summary, input):visible, .nav a:visible")), "tap targets under 44 px").toEqual([]);
     // the coming months are three rows, the first of them this month
     await expect(page.locator(".home-coming tbody tr")).toHaveCount(3);
-    // the whole page, at the width a phone has: the roadmap's N11 holds it to 2800 px (2600 before the balance chart, about 340 px, came after the month)
-    expect(await page.evaluate(() => document.documentElement.scrollHeight), "the page is too high").toBeLessThanOrEqual(2800);
+    // the whole page, at the width a phone has: the roadmap's N11 held it to 2800 px; the answer card's rows, in place of the one figure, take it to 3000
+    expect(await page.evaluate(() => document.documentElement.scrollHeight), "the page is too high").toBeLessThanOrEqual(3000);
     expect(seen.problems).toEqual([]);
     await context.close();
   });

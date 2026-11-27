@@ -47,18 +47,27 @@
 .home-answer { min-inline-size: 0; padding-inline-end: var(--sp-32); }
 .home-left { display: grid; justify-items: start; gap: var(--sp-4); min-block-size: var(--tap-min); color: var(--text); text-decoration: none; }
 .home-left .fig-l { font-weight: var(--w-strong); }
-/* the working of that sum, one row to a part */
-/* a thin vertical rule stands between the answer and its working */
-.home-ledger { display: grid; margin: 0; padding: 0 0 0 var(--sp-32); border-inline-start: var(--hairline) solid var(--grid); }
-.home-ledger > div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-16); padding: var(--sp-8) 0; border-block-end: var(--hairline) solid var(--grid); }
-.home-ledger dt { color: var(--text-2); }
-.home-ledger dd { margin: 0; white-space: nowrap; font-weight: var(--w-strong); }
+/* the answer card: the verdict, then the parts of the sum, one row to a part, the sum left last and large */
+.home-card { grid-template-columns: minmax(0, 1fr); }
+.home-verdict { margin: 0; font-size: var(--fs-h2); line-height: var(--lh-body); font-weight: var(--w-strong); color: var(--good); }
+.home-short .home-verdict { color: var(--bad); }
+.home-rows { display: grid; margin: 0; }
+.home-rows > div { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: var(--sp-4) var(--sp-16); padding: var(--sp-4) 0; border-block-end: var(--hairline) solid var(--grid); }
+.home-rows > div:last-child { border-block-end: 0; }
+.home-rows dt { min-inline-size: 0; color: var(--text-2); }
+.home-rows dt a { color: inherit; display: inline-flex; align-items: center; min-block-size: var(--tap-min); }
+.home-rows dd { margin: 0; text-align: end; white-space: nowrap; font-weight: var(--w-strong); }
+.home-rows .kind-head { display: inline-flex; vertical-align: baseline; }
+.home-row-note { display: block; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-regular); color: var(--text-2); }
+.home-rows dd .home-row-note { text-align: end; }
+.home-rows [data-row=left] dt { font-weight: var(--w-strong); color: var(--text); }
+.home-rows [data-row=left] .fig { color: var(--accent-ink); }
+.home-short .home-rows [data-row=left] .fig { color: var(--bad); }
+.home-later-cards { margin: 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
 /* the page's question is its first heading (an h2, named by the section): heading size and weight, in the text colour, the figure under it */
 .home-now .home-fig-label { margin-block-end: var(--sp-4); font-size: var(--fs-h2); font-weight: var(--w-strong); color: var(--text); }
 a.home-left:hover .fig-l { text-decoration: underline; }
-.home-wide, .home-breakdown { grid-column: 1 / -1; min-inline-size: 0; }
-.home-wide > .home-ledger { padding-inline-start: 0; border-inline-start: 0; }
-.home-breakdown { margin-block-start: 0; }
+.home-wide { grid-column: 1 / -1; min-inline-size: 0; }
 
 /* the balance of the days to the payday: a block of its own under Nyt, and under the month where the page is one column (below) */
 .home-days { min-inline-size: 0; }
@@ -78,7 +87,6 @@ a.home-left:hover .fig-l { text-decoration: underline; }
   .home-figs > li > .home-fig-notes { grid-column: 1 / -1; }
   .home-now { grid-template-columns: minmax(0, 1fr); }
   .home-answer { padding-inline-end: 0; }
-  .home-ledger { padding-inline-start: 0; border-inline-start: 0; }
   .home-flow-side { grid-template-columns: minmax(0, 1fr); }
   .home-flow-side > .home-flow-list { grid-column: 1; }
   .home-now .fig-l { font-size: var(--fs-fig-l); line-height: var(--lh-fig-l); }

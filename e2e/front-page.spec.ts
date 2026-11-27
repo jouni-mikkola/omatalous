@@ -9,8 +9,8 @@ import { cents, overflow, OVERVIEW_TILES, plain, watch } from "./helpers.ts";
 // one the server gives, the three fit the first screen of a phone, the blocks under them are the ones of the page, and
 // the page does not move when it has loaded.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
-/** The page's height at the two widths it is held to: the roadmap's N11. The phone's 2800 px holds the balance chart (about 340 px) that stands after the month. */
-const MAX_HEIGHT = { 1440: 1500, 390: 2800 } as const;
+/** The page's height at the two widths it is held to: the roadmap's N11. The phone's 3000 px holds the balance chart (about 340 px) that stands after the month and the answer card's rows. */
+const MAX_HEIGHT = { 1440: 1500, 390: 3000 } as const;
 /** The longest a page may change in height once its answer has landed. */
 const MAX_JUMP = 0.25;
 
@@ -54,26 +54,21 @@ for (const width of [390, 1440] as const) {
     expect(await monthFigure(page, "income"), "the month's income").toBe(whole(overview.income.cents));
     expect(await monthFigure(page, "spent"), "the month's spending").toBe(whole(home.pace?.spentCents ?? nyt.pace.spentCents));
     expect(await monthFigure(page, "result"), "Käteen jäi").toBe(whole(totals.leftCents));
-    expect(cents(await page.locator("[data-tile=left] .fig").innerText()), "what is left on payday").toBe(whole(leftOnPayday.leftCents));
+    expect(cents(await page.locator("[data-tile=left] .fig").innerText()), "what is left on payday, to the cent").toBe(leftOnPayday.leftCents);
     const [, paydayMonth, paydayDay] = leftOnPayday.payday.date.split("-").map(Number);
-    // the payday stands in the question, the heading of the figure's section, and in a line too when it is today
-    const question = page.getByRole("heading", { name: `Jää palkkapäivänä ${paydayDay}.${paydayMonth}.`, level: 2 });
-    await expect(question).toHaveCount(1);
-    await expect(page.getByRole("region", { name: `Jää palkkapäivänä ${paydayDay}.${paydayMonth}.` })).toHaveCount(1);
-    if (leftOnPayday.days === 0) expect(plain(await page.locator("[data-tile=left] .kind-note").innerText())).toBe("Palkkapäivä tänään");
-    // the two cards: Nyt is the accounts today, Arvio the figure on the payday, in whole euros as the server gives them
-    const { sum } = home.runway;
-    expect(cents(await page.locator(".kind-now .fig").innerText()), "the accounts today").toBe(whole(sum.balanceCents));
-    await expect(page.locator(".kind-estimate [data-tile=left]")).toHaveCount(1);
-    // Mistä luku koostuu: its rows are in cents and add up to the Arvio figure to the cent, from the accounts of the Nyt card
-    const breakdown = page.locator(".home-breakdown");
-    await expect(breakdown).toHaveCount(1);
-    const lasts = await breakdown.locator("tbody tr, tfoot tr").evaluateAll((trs) => trs.map((tr) => [tr.classList.contains("rt-total"), tr.lastElementChild?.textContent ?? ""] as const));
-    const body = lasts.filter(([total]) => !total).map(([, text]) => cents(text));
-    const [, totalText] = lasts.find(([total]) => total)!;
-    expect(body[0], "the first row is the accounts of the Nyt card").toBe(sum.balanceCents);
-    expect(body.reduce((n, c) => n + c, 0), "the rows add up to the total").toBe(cents(totalText));
-    expect(cents(totalText), "the total is the Arvio figure to the cent").toBe(leftOnPayday.leftCents);
+    // the verdict is the heading of the figure's section: it names the payday while the money is enough, the missing sum when it is not
+    const verdict = leftOnPayday.leftCents < 0 ? /^Puuttuu .+ ennen palkkapäivää$/ : `Riittää palkkapäivään ${paydayDay}.${paydayMonth}.`;
+    await expect(page.getByRole("heading", { name: verdict, level: 2 })).toHaveCount(1);
+    await expect(page.getByRole("region", { name: verdict })).toHaveCount(1);
+    if (leftOnPayday.days === 0) expect(plain(await page.locator("[data-tile=left] .home-row-note").innerText())).toBe("Palkkapäivä tänään");
+    // the rows of the card are the parts of the answer, in cents, and the four that take off add up to the figure to the cent
+    const { parts } = leftOnPayday;
+    const rowCents = async (row: string) => cents(await page.locator(`.home-rows [data-row=${row}] dd`).innerText());
+    expect(await rowCents("balance"), "the accounts today").toBe(parts.balanceCents);
+    expect(await rowCents("bills"), "the bills before the payday").toBe(parts.bills.cents);
+    expect(await rowCents("spending"), "the expected spending").toBe(parts.spending.cents);
+    if (parts.cardBills.count > 0) expect(await rowCents("cards"), "the card bills before the payday").toBe(parts.cardBills.cents);
+    expect(parts.balanceCents + parts.bills.cents + parts.cardBills.cents + parts.spending.cents, "the parts of the answer add up to the figure").toBe(leftOnPayday.leftCents);
     // the lowest balance of the next days under it, when it falls after the payday: core's day and sum, or core's reason. It is no link
     const { lowPoint } = home;
     const low = page.locator(".home-now .home-low");
@@ -91,9 +86,9 @@ for (const width of [390, 1440] as const) {
       }
     }
     await expect(low.locator("a")).toHaveCount(0);
-    // the month's figures are no list's sum, so they lead nowhere; the one link of Nyt is the figure's, to Laskut' table
+    // the month's figures are no list's sum, so they lead nowhere; the one link of Nyt is the bills row's, to Laskut' table
     await expect(page.locator(".home-figs a, .home-figs button")).toHaveCount(0);
-    await expect(page.locator("[data-tile=left]")).toHaveAttribute("href", "#/bills#laskut-taulukko");
+    await expect(page.locator("[data-tile=bills], [data-tile=left]").first()).toHaveAttribute("href", "#/bills#laskut-taulukko");
     // no chart and no category bars: the twelve months are on Raportit > Menot
     await expect(page.locator("main .month-bars, main .where-row")).toHaveCount(0);
     // the four blocks in their order, each once, and no notice
@@ -102,7 +97,9 @@ for (const width of [390, 1440] as const) {
     const classes = await page.locator(".home-now, .home-summary, .home-coming, .holdings").evaluateAll((els) => els.map((e) => e.getAttribute("class") ?? ""));
     const order = classes.map((c) => c.split(" ").find((name) => /^home-|^holdings$/.test(name)));
     expect(order).toEqual(["home-now", "home-summary", "home-coming", "holdings"]);
-    expect(await page.locator("main .card h2").allInnerTexts()).toEqual([`Jää palkkapäivänä ${paydayDay}.${paydayMonth}.`, "Saldo päivä päivältä", "Tulevat kuukaudet", "Varat ja velat"]);
+    const headings = (await page.locator("main .card h2").allInnerTexts()).map((h) => h.replace(/\s+/g, " ").trim());
+    expect(headings.slice(1)).toEqual(["Saldo päivä päivältä", "Tulevat kuukaudet", "Varat ja velat"]);
+    expect(headings[0]).toMatch(verdict);
     await expect(page.locator("main .notice, main .home-notice")).toHaveCount(0);
     // Saldo päivä päivältä: core's balance from the last payday to today is a solid line ending at the balance Nyt starts from, with the rule Nyt and the ground Arvio right of it
     if (home.balancePast) {
