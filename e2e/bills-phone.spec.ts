@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { openBillFolds, overflow, watch } from "./helpers.ts";
 
 // Laskut on a phone: the three cards of the kinds (Nyt, Arvio, Tavallinen) are stacked full-width rows on a phone (one row on a wide screen) with each name on one line at 100 %, and keep their text inside, the
-// days of the rows start at one x whatever a row carries beside its day (a status, "Kortilla"), and nothing a finger taps stands
+// days of the rows start at one x whatever a row carries beside its sum ("Summa arvioitu", "Kortilla"), and nothing a finger taps stands
 // closer than 12 px to the screen edge. Runs on the demo household that e2e/run.mjs makes.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const ROW = "#laskut-taulukko table.sub-table tbody tr:not(.rt-detail):not(.rt-group):not(.rt-spacer):not(.rt-subrow)";
@@ -42,15 +42,15 @@ for (const { width, scale } of [{ width: 390, scale: 100 }, { width: 390, scale:
     // one month starts open; on a phone each closed month's head is one line: its name and one figure, a target of a finger's size
     await expect(page.locator("#laskut-taulukko .bill-month[aria-expanded=true]")).toHaveCount(1);
     if (phone) {
-      const closed = await page.locator("#laskut-taulukko .bill-sums[data-closed]").evaluateAll((els) => els.map((el) => [...el.children].filter((c) => c.getBoundingClientRect().height > 0).map((c) => c.textContent ?? "")));
+      const closed = await page.locator("#laskut-taulukko .bill-sums").allInnerTexts();
       expect(closed.length, "closed months").toBeGreaterThan(5);
-      for (const shown of closed) expect(shown, "figures of a closed month").toHaveLength(1);
+      for (const shown of closed) expect(shown, "the figure of a closed month").toMatch(/^Maksamatta [\d\s,]+€$/);
       if (scale === 100) {
         // the figure stands beside the name, inside the band of the opener: the head is one line
-        const heads = await page.locator("#laskut-taulukko tr.rt-group:has(.bill-sums[data-closed])").evaluateAll((els) =>
+        const heads = await page.locator("#laskut-taulukko tr.rt-group:has(.bill-sums)").evaluateAll((els) =>
           els.map((el) => {
             const name = el.querySelector(".bill-month")!.getBoundingClientRect();
-            const figure = el.querySelector(".bill-line")!.getBoundingClientRect();
+            const figure = el.querySelector(".bill-sums")!.getBoundingClientRect();
             return { text: el.textContent ?? "", top: figure.top - name.top, bottom: name.bottom - figure.bottom };
           }),
         );
@@ -70,9 +70,9 @@ for (const { width, scale } of [{ width: 390, scale: 100 }, { width: 390, scale:
     await expect(page.locator("#laskut-taulukko .bill-month[aria-expanded=true]")).toHaveCount(2);
     // and their folded rows opened, so the rows a card pays ("Kortilla") and the paid ones are among them
     await openBillFolds(page.locator("#laskut-taulukko"));
-    // the sums of a month's head stay inside the page, wrapped when the room is short
-    await expect(page.locator(".bill-sums > span:visible").first()).toBeVisible();
-    const sums = await page.locator(".bill-sums > span").evaluateAll((els) => els.map((el) => ({ text: el.textContent?.trim() ?? "", right: el.getBoundingClientRect().right })));
+    // the figure of a closed month's head stays inside the page
+    await expect(page.locator(".bill-sums").first()).toBeVisible();
+    const sums = await page.locator(".bill-sums").evaluateAll((els) => els.map((el) => ({ text: el.textContent?.trim() ?? "", right: el.getBoundingClientRect().right })));
     for (const s of sums) expect(s.right, `${s.text}: right edge`).toBeLessThanOrEqual(width);
     const found = await rows.evaluateAll((els) =>
       els.flatMap((row) => {

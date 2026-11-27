@@ -21,7 +21,7 @@ function totalsOf(open: CalMonth): string[] {
 }
 
 describe("Laskut: the totals that end the open month", () => {
-  it("has a total for the bills paid, the saving charged, the bills to come and the saving to come, in that order", () => {
+  it("has a total for the bills paid, the saving charged, the bills to come, the saving to come and the sum left, in that order", () => {
     const rows = [
       bill({ date: "2026-10-01", payee: "Vesiyhtiö", state: "paid" }),
       bill({ date: "2026-10-02", payee: "Rahasto", kind: "saving", cents: 20_000, state: "paid" }),
@@ -34,6 +34,7 @@ describe("Laskut: the totals that end the open month", () => {
       expect.stringMatching(/^Säästöön Nyt 200,00/),
       expect.stringMatching(/^Maksamatta Arvio 64,20/),
       expect.stringMatching(/^Säästöön Arvio 150,00/),
+      expect.stringMatching(/^Laskujen jälkeen Arvio /),
     ]);
   });
 
@@ -43,7 +44,7 @@ describe("Laskut: the totals that end the open month", () => {
     const open = month("2026-10", [bill({ date: "2026-10-20", payee: "Sähköyhtiö" })], { knownCents: 6420, billsCents: 6420, paidCents: 6420, paidCount: 1, savingPaidCents: 20_000, savingCents: 15_000 });
     const { container } = render(createElement(BillsTable, { calendar: calendar([open, month("2026-11", [bill()])]), items, controls, label: (id: string) => id, scope: "own", onRemoved: () => {} }));
     const classes = [...container.querySelectorAll("tr.bill-total td.bill-total-sum")].map((td) => `${td.parentElement!.querySelector(".bill-total-name")!.firstChild!.textContent}: ${td.classList.contains("bill-total-estimate") ? "estimate" : "plain"}`);
-    expect(classes).toEqual(["Maksettu: plain", "Säästöön: plain", "Maksamatta: estimate", "Säästöön: estimate"]);
+    expect(classes).toEqual(["Maksettu: plain", "Säästöön: plain", "Maksamatta: estimate", "Säästöön: estimate", "Laskujen jälkeen: estimate"]);
   });
 
   it("names a total in its row header and gives it no button for details", () => {
@@ -52,7 +53,7 @@ describe("Laskut: the totals that end the open month", () => {
     const open = month("2026-10", [bill({ date: "2026-10-20", payee: "Sähköyhtiö" })], { knownCents: 6420, billsCents: 6420, savingCents: 15_000 });
     const { container } = render(createElement(BillsTable, { calendar: calendar([open, month("2026-11", [bill()])]), items, controls, label: (id: string) => id, scope: "own", onRemoved: () => {} }));
     const rows = [...container.querySelectorAll("tr.bill-total")];
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(3);
     for (const tr of rows) {
       expect(tr.querySelector("th[scope=row] .bill-total-name"), "the name stands in the row header").not.toBeNull();
       expect(tr.querySelector(".rt-drill"), "no button for details").toBeNull();
