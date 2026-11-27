@@ -86,9 +86,9 @@ for (const width of [390, 1440] as const) {
       }
     }
     await expect(low.locator("a")).toHaveCount(0);
-    // the month's figures are no list's sum, so they lead nowhere; the one link of Nyt is the figure's, to Laskut' table
+    // the month's figures are no list's sum, so they lead nowhere; the one link of Nyt is the bills row's, to Laskut' table
     await expect(page.locator(".home-figs a, .home-figs button")).toHaveCount(0);
-    await expect(page.locator("[data-tile=left]")).toHaveAttribute("href", "#/bills#laskut-taulukko");
+    await expect(page.locator("[data-tile=bills], [data-tile=left]").first()).toHaveAttribute("href", "#/bills#laskut-taulukko");
     // no chart and no category bars: the twelve months are on Raportit > Menot
     await expect(page.locator("main .month-bars, main .where-row")).toHaveCount(0);
     // the four blocks in their order, each once, and no notice

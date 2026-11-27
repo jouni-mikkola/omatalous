@@ -54,10 +54,10 @@ for (const width of [320, 360, 390]) {
       expect(box.x, "starts on the screen").toBeGreaterThanOrEqual(0);
       expect(box.x + box.width, "ends on the screen").toBeLessThanOrEqual(width);
     }
-    // the terms under Käteen jäi do not push the month's figures off the first screen: Tulot, Menot, Käteen jäi and the terms end above its foot
-    for (const part of await page.locator(".home-figs .fig, .home-fig-term").all()) {
+    // the first screen is the answer card's: its verdict and the sum left on the payday end above the foot of the screen, and the month's figures follow the card
+    for (const part of await page.locator(".home-now .home-verdict, .home-now [data-tile=left]").all()) {
       const box = (await part.boundingBox())!;
-      expect(box.y + box.height, "the figure is on the first screen").toBeLessThanOrEqual(800);
+      expect(box.y + box.height, "the answer is on the first screen").toBeLessThanOrEqual(800);
     }
     // everything that is tapped on the page is tapped with a thumb
     expect(await small(page.locator("main :is(a, button, select, summary, input):visible, .nav a:visible")), "tap targets under 44 px").toEqual([]);
