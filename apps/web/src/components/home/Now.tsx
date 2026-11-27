@@ -46,7 +46,7 @@ function AnswerCard({ runway, lowLine }: { runway: KnownRunway; lowLine: ReactNo
   return (
     <section className={`card home-now home-card${short ? " home-short" : ""}`} aria-labelledby="home-now-h">
       <h2 id="home-now-h" className="home-verdict">
-        {short ? t("home.verdict_short", { sum: answerMoney(-runway.leftCents) }) : t("home.verdict_enough", { date })}
+        {short ? t("home.verdict_short", { sum: -runway.leftCents < 50 ? rowMoney(-runway.leftCents) : answerMoney(-runway.leftCents) }) : t("home.verdict_enough", { date })}
       </h2>
       <dl className="home-rows">
         <div data-row="balance">
@@ -57,7 +57,7 @@ function AnswerCard({ runway, lowLine }: { runway: KnownRunway; lowLine: ReactNo
         </div>
         <div data-row="bills">
           <dt>
-            <a data-tile="bills" href={billsHref}>{t("home.ledger_payments")}</a> <span className="home-row-note">{t("home.row_count", { count: String(parts.bills.count) })}</span>
+            <a data-tile="bills" href={billsHref}>{t(parts.cardBills.count > 0 ? "rpt.buf_due" : "home.ledger_payments")}</a> <span className="home-row-note">{t("home.row_count", { count: String(parts.bills.count) })}</span>
           </dt>
           <dd className="num">{rowMoney(parts.bills.cents)}</dd>
         </div>
@@ -82,7 +82,7 @@ function AnswerCard({ runway, lowLine }: { runway: KnownRunway; lowLine: ReactNo
             {t("home.tile_runway", { date })} <KindChip kind="estimate" />
           </dt>
           <dd data-tile="left">
-            <Figure text={answerMoney(runway.leftCents)} size="l" />
+            <Figure text={rowMoney(runway.leftCents)} size="l" />
             {runway.days === 0 && <span className="home-row-note">{t("home.tile_left_today")}</span>}
           </dd>
         </div>

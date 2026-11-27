@@ -128,7 +128,7 @@ test("a found bill that is no recurring bill is marked away on Tulossa and is no
   }
 });
 
-/** What is left on payday on Yhteenveto's first tile, in whole euros as the page shows it. */
+/** What is left on payday on Yhteenveto's first tile, to the cent as the page shows it. */
 async function leftOnNyt(context: BrowserContext): Promise<number> {
   const page = await context.newPage();
   await page.goto("/#/overview");
@@ -137,14 +137,12 @@ async function leftOnNyt(context: BrowserContext): Promise<number> {
   return shown;
 }
 
-const whole = (c: number) => Math.round(c / 100) * 100;
-
 test("a missing bill added by hand on Tulossa is a row of the list and is in the sum left on payday", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);
   const before = await dashboardOf(context);
-  expect(await leftOnNyt(context)).toBe(whole(before.home.runway.leftOnPayday.leftCents));
+  expect(await leftOnNyt(context)).toBe(before.home.runway.leftOnPayday.leftCents);
   // a day of the window Nyt counts: tomorrow when the window reaches it
   const tomorrow = new Date(Date.parse(before.ahead.from) + 86_400_000).toISOString().slice(0, 10);
   const due = tomorrow <= before.ahead.to ? tomorrow : before.ahead.from;
@@ -169,7 +167,7 @@ test("a missing bill added by hand on Tulossa is a row of the list and is in the
     const after = await dashboardOf(context);
     expect(after.home.runway.sum.paymentsCents).toBe(before.home.runway.sum.paymentsCents + CENTS);
     expect(after.home.runway.sum.freeCents).toBe(before.home.runway.sum.freeCents - CENTS);
-    expect(await leftOnNyt(context)).toBe(whole(after.home.runway.leftOnPayday.leftCents));
+    expect(await leftOnNyt(context)).toBe(after.home.runway.leftOnPayday.leftCents);
     expect(after.home.runway.leftOnPayday.leftCents).toBe(before.home.runway.leftOnPayday.leftCents - CENTS);
     expect(after.nyt.left.billsCents).toBe(before.nyt.left.billsCents + CENTS);
     expect(seen.problems).toEqual([]);

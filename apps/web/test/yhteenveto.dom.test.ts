@@ -374,7 +374,7 @@ describe("Yhteenveto's sum left to the payday", () => {
     it("is the sum left on the payday after the everyday spending, with a verdict that names the payday and no sum a day", () => {
       const el = withRunway(runway());
       expect(questionOf(el)).toBe("Riittää palkkapäivään 25.11.");
-      expect(flat(el.querySelector(".fig")?.textContent)).toBe("2 711 €");
+      expect(flat(el.querySelector(".fig")?.textContent)).toBe("2 711,46 €");
       expect(el.closest("section")!.querySelector(".home-fig-line")).toBeNull();
       expect(el.closest("section")!.classList.contains("home-short")).toBe(false);
     });
@@ -400,13 +400,14 @@ describe("Yhteenveto's sum left to the payday", () => {
       // 5 000 on the accounts less 1 500 of bills, 320,50 of card bills and 389,50 of expected spending is 2 790 left
       const parts = { balanceCents: 500000, bills: { cents: -150000, count: 3 }, cardBills: { cents: -32050, count: 2 }, spending: { cents: -38950, lowCents: -45000, highCents: -30000 }, laterCards: { cents: 0, count: 0 } };
       const { figure, rows, container } = ledgerOf(runway({ leftCents: 279000, parts }));
-      expect(rows).toEqual([["balance", "5 000,00 €"], ["bills", "−1 500,00 €"], ["cards", "−320,50 €"], ["spending", "−389,50 €"], ["left", "2 790 €"]]);
+      expect(rows).toEqual([["balance", "5 000,00 €"], ["bills", "−1 500,00 €"], ["cards", "−320,50 €"], ["spending", "−389,50 €"], ["left", "2 790,00 €"]]);
       expect(rows.slice(0, 4).reduce((sum, [, shown]) => sum + centsOf(shown!), 0)).toBe(279000);
-      expect(figure).toBe("2 790 €");
+      expect(figure).toBe("2 790,00 €");
       expect(container.querySelector("details")).toBeNull();
       // a card row has none without a card bill; the bills row tells how many
       expect(ledgerOf(runway()).rows.map((r) => r[0])).toEqual(["balance", "bills", "spending", "left"]);
-      expect(flat(container.querySelector("[data-row=bills] dt")?.textContent)).toBe("Laskut ennen palkkapäivää 3 kpl");
+      expect(flat(container.querySelector("[data-row=bills] dt")?.textContent)).toBe("Muut laskut ennen palkkapäivää 3 kpl");
+      expect(flat(ledgerOf(runway()).container.querySelector("[data-row=bills] dt")?.textContent)).toBe("Laskut ennen palkkapäivää 1 kpl");
       expect(flat(container.querySelector("[data-row=cards] dt")?.textContent)).toBe("Korttilaskut ennen palkkapäivää 2 kpl");
     });
 
@@ -429,7 +430,9 @@ describe("Yhteenveto's sum left to the payday", () => {
       const el = withRunway(runway({ leftCents: -213761 }));
       expect(el.closest("section")!.classList.contains("home-short")).toBe(true);
       expect(flat(questionOf(el))).toBe("Puuttuu 2 138 € ennen palkkapäivää");
-      expect(flat(el.querySelector(".fig")?.textContent)).toBe("−2 138 €");
+      expect(flat(el.querySelector(".fig")?.textContent)).toBe("−2 137,61 €");
+      // under 50 cents missing the verdict tells the cents, not 0 €
+      expect(flat(questionOf(withRunway(runway({ leftCents: -30 }))))).toBe("Puuttuu 0,30 € ennen palkkapäivää");
       expect(el.closest("section")!.querySelector(".home-fig-line")).toBeNull();
     });
 
