@@ -119,7 +119,7 @@ function totalRows(calendar: Calendar, m: CalMonth): CalRow[] {
 /**
  * The groups of the table: a month each, in the calendar's order, then what has ended. A group in `shown` lists its
  * rows in the order of the calendar, then the month's totals; from the third month on its monthly bills are one row that opens to them, and
- * everything else (a bill that comes less often, a pay, a saving, a bill a card pays) is listed. A group not in `shown`
+ * everything else (a bill that comes less often, a saving, a bill a card pays; the pays are only the month's total) is listed. A group not in `shown`
  * has no rows. An open month with two rows or more that a card pays and are still to come, or with two paid rows or more,
  * lists the rest first, then each of those in a group of its own (`foldGroupKey`): the card's rows, then the paid ones.
  * The rows of such a group are listed while it is in `shown`. The row of a series carries its item, the one of a bill
@@ -139,6 +139,8 @@ export function calendarGroups(calendar: Calendar, items: readonly Item[], typed
       }
       const fold = at >= UNFOLDED_MONTHS && m.monthlyBillsCount > 0;
       m.rows.forEach((bill, n) => {
+        // the pays are the Tulot total of the month, not rows of the bills
+        if (bill.kind === "income") return;
         if (fold && isMonthlyBill(bill)) {
           if (!rows.some((r) => r.kind === "fold")) rows.push({ key: `${m.month}:fold`, kind: "fold", month: m.month, bills: m.rows.filter(isMonthlyBill), count: m.monthlyBillsCount, cents: m.monthlyBillsCents });
           return;
