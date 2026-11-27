@@ -100,7 +100,7 @@ function SpendingMonths({ ctx }: SectionProps) {
       : []),
     { key: "total", label: t("rpt.total"), kind: "money", main: true, sort: true, precision: "euros", cents: (c) => c.totalCents, bar: { tone: "spending", value: (c) => c.totalCents, max: Math.max(1, ...r.categories.map((c) => c.totalCents)) } },
     ...(usual && last
-      ? ([{ key: "last", label: t("rpt.sm_last", { month: monthLong(last) }), kind: "money", phone: "hide", sort: (c) => c.lastDiffCents, cell: (c) => (c.lastDiffCents === null ? "" : signedMoney(Math.round(c.lastDiffCents / 100) * 100)), csv: (c) => (c.lastDiffCents === null ? null : c.lastDiffCents / 100) }] satisfies Column<Row>[])
+      ? ([{ key: "last", label: t("rpt.sm_last", { month: monthLong(last) }), kind: "money", phone: "hide", sort: (c) => c.lastDiffCents, cell: (c) => (c.lastDiffCents === null || Math.round(c.lastDiffCents / 100) === 0 ? "" : signedMoney(Math.round(c.lastDiffCents / 100) * 100)), csv: (c) => (c.lastDiffCents === null ? null : c.lastDiffCents / 100) }] satisfies Column<Row>[])
       : []),
   ];
   return (

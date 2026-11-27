@@ -18,7 +18,7 @@ import { t } from "../../../text.ts";
 function SpendingLead({ ctx }: SectionProps) {
   const r = ctx.data.categories;
   if (!r || r.totalCents <= 0) return null;
-  // the sum holds the debt paid from savings, which the first page's Menot leave out: the row names it
+  // the sum holds the debt paid from savings, which the first page's Menot leave out: the row names it when it is a hundredth of the sum or more
   const fromSavingsCents = ctx.data.spendingMonths?.fromSavingsCents ?? 0;
   const items: TileItem[] = [
     { label: t("rpt.tile_spend"), figure: answerMoney(r.totalCents), note: t("rpt.tile_spend_note") },

@@ -31,12 +31,14 @@ describe("Raportit > Menot kategorioittain: the tiles the page opens with", () =
 
   it("with no debt paid, no draw and no fees the spending stands alone", () => {
     const alone = lead(flow(0, 0, 0));
-    expect(alone).toContain("Menot");
+    expect(alone).toContain("Kaikki menot");
     expect(alone.match(/strip-item/g)).toHaveLength(1);
   });
 
-  it("name the debt paid from savings, which the first page's Menot leave out, only when the sum is not 0", () => {
+  it("name the debt paid from savings, which the first page's Menot leave out, only when the sum is a hundredth of the spending or more", () => {
     expect(lead(flow(0, 0, 0))).not.toContain("Säästöistä maksettu");
+    expect(lead(flow(0, 0, 0, 4_999))).not.toContain("Säästöistä maksettu");
+    expect(lead(flow(0, 0, 0, 5_000))).toContain("Säästöistä maksettu");
     expect(lead(flow(0, 0, 0, 600_00))).toMatch(/Säästöistä maksettu.*600/);
   });
 });
