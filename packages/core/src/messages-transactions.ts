@@ -100,7 +100,6 @@ export const FI_TRANSACTIONS = {
   "tx.result": "Käteen jäi",
   "tx.updating": "Summat päivittyvät",
   "tx.lead_label": "Tämä kuukausi",
-  "tx.lead_day": "Suurin päivä {day}: {sum}, {events}",
   "tx.lead_top": "Suurimmat tässä kuussa",
   "tx.lead_new": "Uutta tässä kuussa",
   // Categories

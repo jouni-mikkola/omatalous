@@ -49,6 +49,29 @@ function byDay<T extends TransactionItem>(items: T[]): { day: string; items: T[]
   return days;
 }
 
+/**
+ * The two rows of one own transfer are one row of the list: money that left one account and came to another the same day
+ * in the same amount. The row shown is the one that left, and `arrived` gives the other by its id. Two rows pair only when
+ * both are own transfers of opposite bank amounts on different accounts with the same status, and neither is a part of a
+ * joint row. A row the page limit cut from its pair stays a row of its own.
+ */
+export function pairTransfers(items: ListedRow[]): { rows: ListedRow[]; arrived: Map<string, ListedRow> } {
+  const arrived = new Map<string, ListedRow>();
+  const hidden = new Set<string>();
+  const whole = (t: ListedRow) => t.isTransfer && (t.partCents === undefined || t.partCents === t.amountCents);
+  for (const { items: day } of byDay(items)) {
+    const incoming = day.filter((t) => whole(t) && t.amountCents > 0);
+    for (const out of day) {
+      if (!whole(out) || out.amountCents >= 0) continue;
+      const match = incoming.find((t) => !hidden.has(t.id) && t.amountCents === -out.amountCents && t.accountId !== out.accountId && t.status === out.status);
+      if (!match) continue;
+      hidden.add(match.id);
+      arrived.set(out.id, match);
+    }
+  }
+  return { rows: hidden.size ? items.filter((t) => !hidden.has(t.id)) : items, arrived };
+}
+
 /** What all the filter's rows of one day add up to, the server's (`daySums`), also on a day the page limit cuts. */
 export interface DaySum {
   date: string;
@@ -117,9 +140,9 @@ export interface RowProps extends StatementProps {
   onRemember?: (on: boolean) => void;
 }
 
-/** The row's figure is plain text; its basis belongs to the opened detail. An own transfer is outside the day's sums, so its figure is quiet. */
-function Amount({ t }: { t: ListedRow }) {
-  return <span className={`tx-amount${t.isTransfer ? " moved" : t.amountCents > 0 ? " in" : ""}`}>{signed(shownCents(t))}</span>;
+/** The row's figure is plain text; its basis belongs to the opened detail. An own transfer is outside the day's sums, so its figure is quiet; the one row of both its sides (`paired`) has no sign, as the money left and came. */
+function Amount({ t, paired = false }: { t: ListedRow; paired?: boolean }) {
+  return <span className={`tx-amount${t.isTransfer ? " moved" : t.amountCents > 0 ? " in" : ""}`}>{paired ? money(-t.amountCents) : signed(shownCents(t))}</span>;
 }
 
 /** The bank's amount under the viewer's part; the way to name the payer is in the detail. */
@@ -164,7 +187,7 @@ export function rowFacts(t: ListedRow, account: string): Fact[] {
 }
 
 /** What the opened row holds: what the bank sent, the row's menu, and the payee's months. */
-function Detail({ t, categories, pending, onCategory, onStatement, note, scope, remember, onRemember, look, account }: RowProps & { scope: Scope }) {
+function Detail({ t, categories, pending, onCategory, onStatement, note, scope, remember, onRemember, look, account, months = true }: RowProps & { scope: Scope; /** The payee's twelve months under the row's facts; the two sides of an own transfer show them once, after both. */ months?: boolean }) {
   const owner = ownerLink(t);
   const text = signed(shownCents(t));
   const shown = pending ?? t.category;
@@ -209,7 +232,7 @@ function Detail({ t, categories, pending, onCategory, onStatement, note, scope, 
         )}
       </div>
       <ExtensionRowParts row={t} />
-      <MerchantDrill merchant={t.merchant} category={t.category} scope={scope} />
+      {months && <MerchantDrill merchant={t.merchant} category={t.category} scope={scope} />}
     </div>
   );
 }
@@ -238,13 +261,20 @@ function DaySums({ sum }: { sum: Pick<DaySum, "inCents" | "outCents" | "savedCen
  * server sends them. An opened row shows its payee's twelve months under it.
  */
 export function TxTable({ items, whole = true, allRows, severalAccounts, today, daySums, rowProps, scope, open, onOpen, view, onView }: { items: ListedRow[]; /** The rows are all the filter has (the default). A page of a longer list keeps the chosen mark (a row with the mark can be on another page), and its CSV link fetches the other pages too (`allRows`; null when they did not come). */ whole?: boolean; allRows?: () => Promise<ListedRow[] | null>; /** The account column says which account only where there is a choice of them. */ severalAccounts: boolean; today: string; daySums: Map<string, DaySum>; rowProps: (t: ListedRow) => RowProps; scope: Scope; open: string | null; onOpen: (id: string | null) => void; view: TableView; onView: (next: TableView) => void }) {
-  const days = byDay(items);
+  // a mark is a fact of one row, so under a mark every row stands alone
+  const { rows: shown, arrived } = view.chip ? { rows: items, arrived: new Map<string, ListedRow>() } : pairTransfers(items);
+  const days = byDay(shown);
+  const accountOf = (t: ListedRow) => <AccountMark look={rowProps(t).look} fallback={rowProps(t).account} />;
   // the page's bar has no note of its own, so a mark none of the rows has says so under the empty list
   const chosen = rowChips().find((c) => c.key === view.chip);
   const noMatch = !!chosen && !items.some(chosen.test);
   const columns: Column<ListedRow>[] = [
     { key: "who", label: msg("row.who"), kind: "text", rowHead: true, csv: (t) => t.merchant, cell: (t) => <Who t={t} explained={rowProps(t).explained} /> },
-    ...(severalAccounts ? [{ key: "account", label: msg("row.account"), kind: "text" as const, className: () => "tx-account", headClass: "tx-account", cell: (t: ListedRow) => <AccountMark look={rowProps(t).look} fallback={rowProps(t).account} /> }] : []),
+    ...(severalAccounts ? [{ key: "account", label: msg("row.account"), kind: "text" as const, className: () => "tx-account", headClass: "tx-account", cell: (t: ListedRow) => {
+      const to = arrived.get(t.id);
+      // an own transfer: the account the money left, then the one it came to
+      return to ? <span className="tx-acct-pair">{accountOf(t)}<span className="tx-acct-to"><span aria-hidden="true">→</span>{accountOf(to)}</span></span> : accountOf(t);
+    } }] : []),
     // the marks Suodata names narrow the rows (view.chip); one no row has filters to nothing and the list says so
     { key: "category", label: msg("row.category_col"), kind: "text", chips: rowChips(), className: () => "tx-category", headClass: "tx-category", cell: (t) => <CategoryLabel categories={rowProps(t).categories} value={rowProps(t).pending ?? t.category} manual={t.categorySource === "user"} /> },
     {
@@ -255,7 +285,7 @@ export function TxTable({ items, whole = true, allRows, severalAccounts, today, 
       csv: (t) => shownCents(t) / 100,
       cell: (t) => (
         <>
-          <Amount t={t} />
+          <Amount t={t} paired={arrived.has(t.id)} />
           <Part t={t} />
         </>
       ),
@@ -273,7 +303,7 @@ export function TxTable({ items, whole = true, allRows, severalAccounts, today, 
     <Table<ListedRow>
       caption={caption}
       className="tx-table"
-      rows={items}
+      rows={shown}
       rowKey={(t) => t.id}
       columns={columns}
       groups={days.map((d) => {
@@ -296,7 +326,11 @@ export function TxTable({ items, whole = true, allRows, severalAccounts, today, 
       })}
       open={open}
       onOpen={onOpen}
-      drill={(t) => <Detail {...rowProps(t)} scope={scope} />}
+      drill={(t) => {
+        const to = arrived.get(t.id);
+        // both sides say what the bank sent and keep their own menu; the payee's months come once, after them
+        return to ? <><Detail {...rowProps(t)} scope={scope} months={false} /><Detail {...rowProps(to)} scope={scope} months={false} /><div className="tx-detail"><MerchantDrill merchant={t.merchant} category={t.category} scope={scope} /></div></> : <Detail {...rowProps(t)} scope={scope} />;
+      }}
       drillLabel={(r) => msg("row.open_months", { name: nameOf(r) })}
       // the page's own bar (TxBar) holds the search and the filters; the server searches, so the table does not
       toolbar={false}

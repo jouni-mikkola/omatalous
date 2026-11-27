@@ -361,6 +361,7 @@ test("1280 px: the bar is one line, the sums stand on one line and the histogram
   expect(Math.max(...tops) - Math.min(...tops), "the sums share a line").toBeLessThanOrEqual(1);
   expect(cells[1]!.left, "side by side").toBeGreaterThan(cells[0]!.right - 1);
   expect(cells[2]!.left, "side by side").toBeGreaterThan(cells[1]!.right - 1);
+  await strip.locator("details.tx-hist-fold > summary").click();
   const hist = (await strip.locator(".tx-hist").boundingBox())!;
   expect(hist.y, "the histogram under the sums").toBeGreaterThan(cells.at(-1)!.bottom - 1);
   // the bar is one line: the search, the period and Suodata share a bottom edge

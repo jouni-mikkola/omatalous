@@ -2,7 +2,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { setLanguage } from "../src/format.ts";
-import { type DaySum, type ListedRow, ownerLink, rowFacts, TxTable } from "../src/pages/TransactionRows.tsx";
+import { type DaySum, type ListedRow, ownerLink, pairTransfers, rowFacts, TxTable } from "../src/pages/TransactionRows.tsx";
 
 const row = (over: Partial<ListedRow> = {}): ListedRow =>
   ({ id: "t1", accountId: "a/1", bookingDate: "2026-10-05", merchant: "ESIMERKKI OY", amountCents: 80_000, own: false, status: "booked", category: "other", ...over }) as ListedRow;
@@ -175,6 +175,29 @@ describe("an own transfer in a day", () => {
     const items = [row({ id: "p", amountCents: -5_000 }), row({ id: "m", merchant: "OMA TILI", amountCents: -10_000, isTransfer: true })];
     const html = renderToStaticMarkup(createElement(TxTable, { items, severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {} }));
     expect(html.match(/class="tx-amount moved"/g)).toHaveLength(1);
+  });
+
+  it("is one row for the money that left one account and came to another, with both accounts and the amount unsigned", () => {
+    const out = row({ id: "out", merchant: "OMA TILI", accountId: "a/1", amountCents: -10_000, isTransfer: true });
+    const back = row({ id: "in", merchant: "OMA TILI", accountId: "a/2", amountCents: 10_000, isTransfer: true });
+    expect(pairTransfers([back, out])).toEqual({ rows: [out], arrived: new Map([["out", back]]) });
+    const html = renderToStaticMarkup(createElement(TxTable, { items: [back, out], severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props, account: t.accountId }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {} })).replace(/[  ]/g, " ");
+    expect(html.match(/class="tx-name"/g)).toHaveLength(1);
+    expect(html).toMatch(/class="tx-acct-pair".*a\/1.*→.*a\/2/);
+    expect(html).toContain('<span class="tx-amount moved">100,00 €</span>');
+  });
+
+  it("near misses: another amount, the same account, another day, a joint row's part or a chosen mark keep both rows", () => {
+    const out = row({ id: "out", accountId: "a/1", amountCents: -10_000, isTransfer: true });
+    const back = row({ id: "in", accountId: "a/2", amountCents: 10_000, isTransfer: true });
+    for (const other of [{ ...back, amountCents: 9_999 }, { ...back, accountId: "a/1" }, { ...back, bookingDate: "2026-10-04" }, { ...back, partCents: 5_000 }, { ...back, isTransfer: false }]) {
+      expect(pairTransfers([out, other]).rows).toHaveLength(2);
+    }
+    // one row that came in pairs with one that left: a second transfer of the same sum keeps its row
+    expect(pairTransfers([out, { ...out, id: "out2" }, back]).rows.map((t) => t.id)).toEqual(["out", "out2"]);
+    const marked = renderToStaticMarkup(createElement(TxTable, { items: [{ ...out, status: "pending" }, { ...back, status: "pending" }] as ListedRow[], severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: "pending", group: null, sort: null }, onView: () => {} }));
+    expect(marked.match(/class="tx-name"/g)).toHaveLength(2);
+    expect(marked).not.toContain("tx-acct-pair");
   });
 });
 
