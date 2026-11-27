@@ -13,7 +13,7 @@ import "../../../styles/statement.css";
 import { BALANCES_ID } from "./ids.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { listsLoans } from "./Loans.tsx";
-import { lackingDebts, netLabelOf } from "../../../components/net-label.ts";
+import { headAsks, lackingDebts, netLabelOf, showsHead } from "../../../components/net-label.ts";
 import { t, tn } from "../../../text.ts";
 
 /**
@@ -23,27 +23,27 @@ import { t, tn } from "../../../text.ts";
  */
 export function BalancesTiles({ ctx }: SectionProps) {
   const h = ctx.data.balances.holdings;
-  if (ctx.data.balances.accounts.length === 0 || h.accountsCents === null) return null;
+  if (!showsHead(ctx.data.balances)) return null;
   const lacking = lackingDebts(h);
   const owes = h.debtCents !== null && h.debtCents > 0;
   const netLabel = netLabelOf(h);
   const items: TileItem[] = [
-    { label: t("holdings.accounts_total"), figure: answerMoney(h.accountsCents) },
+    { label: t("holdings.accounts_total"), figure: answerMoney(h.accountsCents!) },
     ...(owes ? [{ label: t(lacking > 0 ? "holdings.debts_known" : "holdings.debts_total"), figure: answerMoney(h.debtCents!) }] : []),
     ...(owes && lacking === 0 && h.netCents !== null && netLabel ? [{ label: netLabel, figure: answerMoney(h.netCents) }] : []),
   ];
-  // a debt answered "En tiedä" is no longer asked in Tarkistettavat: with none left to ask the line has no link
-  const asks = h.unsavedLoans?.rows.some((u) => !u.asked) ?? false;
+  // with no debt left to ask in Tarkistettavat the line has no link
+  const asks = headAsks(ctx.data.balances);
   return (
     <>
       <Tiles items={items} />
       {lacking > 0 && (
         <p className="bal-lacking">
-          {tn(lacking, "rpt.bal_lacking_one", "rpt.bal_lacking_many")}
+          <span>{tn(lacking, "rpt.bal_lacking_one", "rpt.bal_lacking_many")}</span>
           {asks && (
             <>
               {" "}
-              <a href={LOAN_TERMS_HASH}>{t("rpt.ln_fill")}</a>
+              <a className="btn-link" href={LOAN_TERMS_HASH}>{t("rpt.ln_fill")}</a>
             </>
           )}
         </p>

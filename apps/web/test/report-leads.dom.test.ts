@@ -43,7 +43,7 @@ describe("Varat ja velat: the tiles", () => {
   it("names the debts as the known ones and no net figure while the balance of a debt is missing, with the link to its question", () => {
     const open = { ...owing, netCents: null, unsavedLoans: { count: 1, rows: [{ debtId: "proposal:a" }] } };
     expect(say(open)).toBe("Tilit yhteensä 1 200 € Velat yhteensä, tiedossa 300 € 1 velan saldo puuttuu, joten velkojen jälkeen jäävää summaa ei näytetä. Täydennä lainat");
-    expect(markup(open)).toContain('<a href="#/review?item=loan-terms">Täydennä lainat</a>');
+    expect(markup(open)).toContain('<a class="btn-link" href="#/review?item=loan-terms">Täydennä lainat</a>');
     // a debt answered "En tiedä" is asked no more, and a lender's few payments never were: the line has no link
     const asked = { ...owing, netCents: null, unsavedLoans: { count: 1, rows: [{ debtId: "proposal:a", asked: true }] }, unsavedFewPayments: 1 };
     expect(say(asked)).toBe("Tilit yhteensä 1 200 € Velat yhteensä, tiedossa 300 € 2 velan saldo puuttuu, joten velkojen jälkeen jäävää summaa ei näytetä.");

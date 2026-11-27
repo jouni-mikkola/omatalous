@@ -162,10 +162,10 @@ test("Lainat lists each debt in one table, says what it does not know and what a
   expect(unsaved).toContain("saldo puuttuu");
   expect(unsaved).toMatch(/[\d ,]+ €\/kk/);
 
-  // the foot: the debts told, and the cost of a year a dash; the one link to the list of what is missing is in the head
+  // the foot: the debts told, and the cost of a year a dash; the page has one link to the list of what is missing
   const foot = section.locator("table.rt tfoot tr");
   expect(plain(await foot.innerText())).toBe("Velat yhteensä, tiedossa 121 240 € –");
-  await expect(section.getByRole("link", { name: "Täydennä lainat" })).toHaveAttribute("href", /item=loan-terms/);
+  await expect(page.locator("main").getByRole("link", { name: "Täydennä lainat" })).toHaveAttribute("href", /item=loan-terms/);
 
   // the mortgage's drill: the payment split into its interest and amortisation, and what a point of the reference rate does
   const cost = cents(plain(await rows.nth(0).locator("td").last().innerText()));

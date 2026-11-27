@@ -18,6 +18,7 @@ import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/loans.css";
 import { Notice } from "../../../components/ui/Notice.tsx";
 import { figureName, t } from "../../../text.ts";
+import { headAsks } from "../../../components/net-label.ts";
 /** A figure the loan has no value for: nothing is due, nothing was drawn, or the household has not told it. */
 const DASH = "–";
 
@@ -322,8 +323,9 @@ function Loans({ ctx }: SectionProps) {
     },
   };
   return (
-    // the one link to what the cost waits for stands in the head, so it is there also when no debt has a cost to show a column for
-    <ReportPanel id={section.id} title={section.title} actions={r.cost12.cents === null && fillHref !== null ? <a href={fillHref}>{t("rpt.ln_fill")}</a> : undefined}>
+    // the one link to what the cost waits for stands in the head, so it is there also when no debt has a cost to show a column for;
+    // the line at the head of the page links to the list already when it asks of a balance
+    <ReportPanel id={section.id} title={section.title} actions={r.cost12.cents === null && fillHref !== null && !(fillHref === LOAN_TERMS_HASH && headAsks(b)) ? <a className="btn-link" href={fillHref}>{t("rpt.ln_fill")}</a> : undefined}>
       {/* with no loan saved or connected there is nothing to add up: the payments of the unsaved ones are in their rows */}
       {r.loans.length > 0 && (
         <div className="kv">

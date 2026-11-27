@@ -118,7 +118,7 @@ describe("Raportit: Lainat", () => {
     // the debt lacking its terms is an unsaved one Tarkistettavat still asks of
     const unsaved = [{ debtId: "proposal:a", name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }];
     const out = html(loans, context(report([row({ cost: null })], { cost12: { cents: null, interestCents: null, feeCents: null }, unsaved })));
-    expect(out).toContain('<a href="#/review?item=loan-terms">Täydennä lainat</a>');
+    expect(out).toContain('<a class="btn-link" href="#/review?item=loan-terms">Täydennä lainat</a>');
     expect(out.split("Täydennä lainat").length - 1).toBe(1);
     expect(words(out)).toMatch(/Täydennä lainat .*Velat yhteensä, tiedossa 120 000 €/);
     expect(out).not.toContain("Korot ja kulut 12 kk");
@@ -299,7 +299,7 @@ describe("Raportit: Lainat", () => {
   it("Täydennä lainat opens the drill of the saved loan the viewer can change when its rate is what the cost waits for, and Tarkistettavat otherwise", () => {
     const noRate = { rateBp: null, reference: null, interest: { cents: null, unknown: "rate" }, cost: { rateMilli: null, costClass: null, next12: null, leftCents: null, feePerPaymentCents: null, unknown: "rate" } } as const;
     const unknownCost = { cost12: { cents: null, interestCents: null, feeCents: null } };
-    const link = (out: string) => [...out.matchAll(/<a href="([^"]*)">Täydennä lainat<\/a>/g)].map((m) => m[1]!.replaceAll("&amp;", "&"));
+    const link = (out: string) => [...out.matchAll(/<a class="btn-link" href="([^"]*)">Täydennä lainat<\/a>/g)].map((m) => m[1]!.replaceAll("&amp;", "&"));
     // a rate-only saved loan of the viewer: its own drill
     expect(link(html(loans, context(report([row(noRate)], unknownCost))))).toEqual([loanHash("home")]);
     // an unsaved debt is a cause too: the list of debts asks for all of it
@@ -313,7 +313,7 @@ describe("Raportit: Lainat", () => {
   it("Täydennä lainat opens the drill of a rate-only own loan when every unsaved debt is one Tarkistettavat no longer asks of", () => {
     const noRate = { rateBp: null, reference: null, interest: { cents: null, unknown: "rate" }, cost: { rateMilli: null, costClass: null, next12: null, leftCents: null, feePerPaymentCents: null, unknown: "rate" } } as const;
     const unknownCost = { cost12: { cents: null, interestCents: null, feeCents: null } };
-    const link = (out: string) => [...out.matchAll(/<a href="([^"]*)">Täydennä lainat<\/a>/g)].map((m) => m[1]!.replaceAll("&amp;", "&"));
+    const link = (out: string) => [...out.matchAll(/<a class="btn-link" href="([^"]*)">Täydennä lainat<\/a>/g)].map((m) => m[1]!.replaceAll("&amp;", "&"));
     const asked = [
       { debtId: "proposal:a", name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false, asked: true as const },
       { debtId: "card_bill:b", name: "Esimerkkikortti", monthlyCents: 20_000, card: true, asked: true as const },
@@ -327,7 +327,7 @@ describe("Raportit: Lainat", () => {
   it("Täydennä lainat has no link when nothing in Tarkistettavat or in an own loan's form is left to answer", () => {
     const noRate = { rateBp: null, reference: null, interest: { cents: null, unknown: "rate" }, cost: { rateMilli: null, costClass: null, next12: null, leftCents: null, feePerPaymentCents: null, unknown: "rate" } } as const;
     const unknownCost = { cost12: { cents: null, interestCents: null, feeCents: null } };
-    const link = (out: string) => [...out.matchAll(/<a href="([^"]*)">Täydennä lainat<\/a>/g)].map((m) => m[1]!.replaceAll("&amp;", "&"));
+    const link = (out: string) => [...out.matchAll(/<a class="btn-link" href="([^"]*)">Täydennä lainat<\/a>/g)].map((m) => m[1]!.replaceAll("&amp;", "&"));
     const asked = [{ debtId: "proposal:a", name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false, asked: true as const }];
     // (a) every unsaved debt asked of already and no own loan with an unknown cost: no link, and no column of dashes
     const a = html(loans, context(report([row()], { ...unknownCost, unsaved: asked })));
