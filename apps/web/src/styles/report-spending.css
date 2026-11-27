@@ -26,7 +26,8 @@
 .mc-pick { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-12); margin-bottom: var(--sp-8); }
 .rt .mc-whole th, .rt .mc-whole td { font-weight: var(--w-strong); }
 
-/* Kategoriat: the categories stand apart from the folded months above them, and a category's two tables from each other */
-.sm-categories-head { margin-top: var(--sp-24); }
+/* Kategoriat: on a phone the line stands under the sum it draws, without its column's name; a category's two tables stand apart */
+.rt-wrap[data-block] .rt.sm-table > tbody > tr:not(.rt-detail) > td[data-label] { justify-content: flex-end; }
+.rt-wrap[data-block] .rt.sm-table > tbody > tr:not(.rt-detail) > td[data-label]::before { display: none; }
 .sm-detail { display: grid; gap: var(--sp-16); }
 }

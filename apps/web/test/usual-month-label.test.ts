@@ -16,7 +16,6 @@ const BUFFER_LABEL = "home.buffer_spend";
 /** The files that print the label and the field each takes the sum from. */
 const READERS: Record<string, { reads: string; never: string }> = {
   "charts/MonthBars.tsx": { reads: "usualSpendCents", never: "typicalCents" },
-  "pages/reports/sections/SpendingMonths.tsx": { reads: "typicalFlowCents", never: "typicalCents" },
 };
 
 function sources(dir: string): string[] {

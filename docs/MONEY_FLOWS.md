@@ -136,8 +136,8 @@ household with and without a loan paid from savings gives the same Menot figures
 the category totals, Velanhoito, spending by month and year over year, the tax-year interest and loan payments and the
 instalment interest, and it is a row of Laskut and the loan views. The spending total of the identity is therefore
 less than the sum of the categories by exactly these rows. Where a spending report's total stands beside the first
-page's Menot, it names them as *Säästöistä maksettu* (`fromSavings` of *Menot kuukausittain*, `fromSavingsCents` of the
-first page's categories) and shows the line only when the sum is not zero.
+page's Menot, it names them as *Säästöistä maksettu* (the tile of *Menot kategorioittain* from `fromSavingsCents` of
+`spendingMonthsReport`, `fromSavingsCents` of the first page's categories) and shows the line only when the sum is not zero.
 
 Credit drawn (*Luotonnostot*) is money on the account that is not income. It is in *Tulos* and in no income figure,
 savings rate or margin (`netCents`).
@@ -764,15 +764,14 @@ what a credit card is charged, each with its sum, sent by `GET /api/ahead`.
   every category behind *Taulukko*. `packages/core/test/reports-totals.test.ts` holds the three to the cent for the seeded households.
   The usual month under it is the one figure that leaves rows out: the large purchases (`largePurchases`) of the
   complete months, with the money that came back for them. The bars, the totals and the categories' own sums keep them.
-  *Tavallinen kuukausi* has one source, `typicalFlowCents`: the line under the bars of *Tulot ja menot* and the line under the
-  bars of *Menot kuukausittain* read it, so the two reports print one sum under one label. The *Keskimäärin kuussa* of the
-  category table is the level of its own sums, which keep a debt paid from savings, and the line of *Tulot kuukausittain* is the
-  mean of the income months under that label. *Mikä muuttui* starts from the categories' levels added up, labelled *Kategoriat keskimäärin kuussa* (the sum of the table's *Keskimäärin kuussa* column): that sum keeps a debt paid from savings and reads only the months the categories have a level for, so it can differ from *Tavallinen kuukausi*, and the two never share a name. The categories with no level at all (in practice those of a card connected late) are one step, *Ei vertailukohtaa*, and their whole sum is the step. The buffer's *Menot ja lainanmaksut kuukaudessa* is another figure, the
+  *Tavallinen kuukausi* has one source, `typicalFlowCents`: the line under the bars of *Tulot ja menot* reads it. The level of a
+  category (the dashed line of *Kehitys* and the base of *Ero keskiarvoon* in the category table) is the level of its own sums, which keep a debt paid from savings, and the line of *Tulot kuukausittain* is the
+  mean of the income months under that label. *Mikä muuttui* starts from the categories' levels added up, labelled *Kategoriat keskimäärin kuussa* (the sum of the categories' own levels): that sum keeps a debt paid from savings and reads only the months the categories have a level for, so it can differ from *Tavallinen kuukausi*, and the two never share a name. The categories with no level at all (in practice those of a card connected late) are one step, *Ei vertailukohtaa*, and their whole sum is the step. The buffer's *Menot ja lainanmaksut kuukaudessa* is another figure, the
   *Odotettu* month with its loan payments, and does not carry the label. `apps/web/test/usual-month-label.test.ts` lists every reader of the label.
   `spendingChangeReport` (`reports/spending-change.ts`) is an older bridge of a month against its *Odotettu* plan with
   one-offs left out; no page shows it, the findings and the module-host contract still read it, so it stays until
   those move to *Mikä muuttui*.
-- A category whose refunds were greater than its spending in the range stays in *Kategoriat* and in the table behind *Taulukko* of *Menot kuukausittain* as a
+- A category whose refunds were greater than its spending in the range stays in *Kategoriat* as a
   row with its minus, last in the order (in the view by theme its theme is under *Loput yhteensä*). Its share is negative, the shares add up to 100 %, and the page shows "–" for
   the share with a line under the table. The previous period is not cut at zero either, so *Muutos* adds up. The
   first page's list *Menot kategorioittain* of the month, which a household with themes (see *Themes*) sees as their

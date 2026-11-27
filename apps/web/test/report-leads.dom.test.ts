@@ -9,7 +9,7 @@ import type { ReportContext } from "../src/pages/reports/types.ts";
 
 const flat = (s: string | null | undefined) => (s ?? "").replace(/[  ]/g, " ").replace(/\s+/g, " ").trim();
 const lead = (Lead: (props: { ctx: ReportContext }) => unknown, data: Record<string, unknown>) =>
-  flat(renderToStaticMarkup(createElement(Lead as never, { ctx: { data, meta: { today: "2026-11-11", accounts: [], sharedAccounts: [] } } as unknown as ReportContext })).replace(/<[^>]*>/g, " "));
+  flat(renderToStaticMarkup(createElement(Lead as never, { ctx: { data, range: { from: "2026-09-01", to: "2026-11-11" }, meta: { today: "2026-11-11", accounts: [], sharedAccounts: [] } } as unknown as ReportContext })).replace(/<[^>]*>/g, " "));
 
 describe("Menot kategorioittain: the tiles", () => {
   const categories = (more: Record<string, unknown>) => ({ categories: { totalCents: 250_000, debtPaidCents: 0, creditDrawnCents: 0, ...more } });
@@ -17,9 +17,9 @@ describe("Menot kategorioittain: the tiles", () => {
 
   it("shows the spending, adding the debt paid and the credit drawn when there are any", () => {
     expect(say({})).toBe("Menot 2 500 €");
-    expect(say({ debtPaidCents: 80_000 })).toBe("Menot 2 500 € josta velkaa 800 € Velkojen maksu ja korot");
-    expect(say({ creditDrawnCents: 50_000 })).toBe("Menot 2 500 € Uutta luottoa 500 € Otettu jaksolla");
-    expect(say({ debtPaidCents: 80_000, creditDrawnCents: 50_000 })).toBe("Menot 2 500 € josta velkaa 800 € Velkojen maksu ja korot Uutta luottoa 500 € Otettu jaksolla");
+    expect(say({ debtPaidCents: 80_000 })).toBe("Menot 2 500 € josta velkaa 800 €");
+    expect(say({ creditDrawnCents: 50_000 })).toBe("Menot 2 500 € Uutta luottoa 500 €");
+    expect(say({ debtPaidCents: 80_000, creditDrawnCents: 50_000 })).toBe("Menot 2 500 € josta velkaa 800 € Uutta luottoa 500 €");
   });
 
   it("shows nothing when nothing was spent", () => {

@@ -1,6 +1,6 @@
 import { expect, type BrowserContext, type Page, test as base } from "@playwright/test";
 import { join } from "node:path";
-import { openBillFolds, openCategoryPicker, openChartFolds, overflow, unfold, watch } from "./helpers.ts";
+import { openBillFolds, openCategoryPicker, overflow, unfold, watch } from "./helpers.ts";
 import { startServer } from "./server.mjs";
 
 const ADMIN = { username: "e2e-admin", displayName: "E2E Admin", password: "e2e-salasana-123456" };
@@ -410,15 +410,14 @@ test("a changed category is kept after a reload", async ({ browser }) => {
   await context.close();
 });
 
-test("Menot kuukausittain is a table under its name, the categories keep the CSV, and 390 px does not scroll sideways", async ({ browser }) => {
+test("Kategoriat is a table under its name that keeps the CSV, and 390 px does not scroll sideways", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/reports?q=menot");
   await unfold(page);
   const card = page.locator("details#kategoriat");
-  await openChartFolds(card);
-  await expect(card.getByRole("table", { name: "Menot kuukausittain" }).locator("tbody tr").first()).toBeVisible();
+  await expect(card.getByRole("table", { name: "Kategoriat" }).locator("tbody tr").first()).toBeVisible();
   await expect(card.getByRole("button", { name: "Lataa CSV" })).toBeVisible();
   expect(await card.evaluate((c) => c.scrollWidth <= c.clientWidth + 1), "the table fits its card at 390px").toBe(true);
   expect(seen.problems).toEqual([]);

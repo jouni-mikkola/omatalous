@@ -15,6 +15,8 @@ export interface TileItem {
   tone?: "good" | "bad";
   delta?: TileDelta;
   note?: string;
+  /** Where the figure's rows are; the figure is then a link. */
+  href?: string;
 }
 
 /**
@@ -29,7 +31,13 @@ export function Tiles({ items }: { items: readonly TileItem[] }) {
         <li key={item.label} className="strip-item">
           <span className="strip-label">{item.label}</span>
           <span className={item.tone ? `strip-figure ${item.tone}` : "strip-figure"}>
-            <Figure text={item.figure} size="l" />
+            {item.href ? (
+              <a href={item.href}>
+                <Figure text={item.figure} size="l" />
+              </a>
+            ) : (
+              <Figure text={item.figure} size="l" />
+            )}
             {item.delta && <span className={`strip-delta ${item.delta.good ? "good" : "bad"}`}>{item.delta.text}</span>}
           </span>
           {item.note && <span className="strip-note">{item.note}</span>}

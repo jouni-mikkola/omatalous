@@ -1,7 +1,8 @@
 /**
  * Raportit > Menot kategorioittain: a category's average and its gap to the newest month read only the months that hold a
  * connected card's purchases as the newest one does (core `cardGap`). The page says nothing of it (the gap is not mended here), shows no
- * average where a category has none, and has no average under the totals: Tavallinen kuukausi is the one level of the months.
+ * gap to an average where a category has none, and has no average under the totals. The months of all spending are on Tulot ja menot,
+ * so the card has one table and no chart.
  */
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { createElement } from "react";
@@ -60,15 +61,15 @@ const show = (r: Report) => render(createElement(section.Component, { ctx: conte
 const plain = (s: string | null) => (s ?? "").replace(/[  ]/g, " ").replace(/\s+/g, " ").trim();
 
 describe("Menot kategorioittain: a category's average beside a card connected late", () => {
-  it("shows no average under the totals or the months, with no sentence on the card", () => {
+  it("shows no average under the totals, no chart or table of the months, and no sentence on the card", () => {
     show(report(true));
     expect(plain(document.body.textContent)).not.toContain("kortin ostot");
     const table = screen.getByRole("table", { name: "Kategoriat" });
-    expect(within(table).getAllByRole("columnheader").map((h) => plain(h.textContent))).toEqual(["Kategoria", "Kehitys", "Yhteensä", "Keskimäärin kuussa", "Ero keskiarvoon, syyskuu 2026"]);
+    expect(within(table).getAllByRole("columnheader").map((h) => plain(h.textContent))).toEqual(["Kategoria", "Kehitys", "Yhteensä", "Ero keskiarvoon, syyskuu 2026"]);
     // 400 € over July to September is not added up with the totals' 448 € over May to September
     expect(plain(table.querySelector("tfoot")!.textContent)).not.toContain("448");
-    const months = screen.getByRole("table", { name: "Menot kuukausittain", hidden: true });
-    expect(months.querySelector("tfoot")).toBeNull();
+    expect(screen.getAllByRole("table", { hidden: true })).toHaveLength(1);
+    expect(document.querySelector("g.ms-month")).toBeNull();
   });
 
   it("with too few such months the categories have no average column, and no link sends to an import that would not help", () => {
@@ -77,17 +78,6 @@ describe("Menot kategorioittain: a category's average beside a card connected la
     expect(screen.queryByRole("link", { name: "Tuo kortin tiliote" })).toBeNull();
     const table = screen.getByRole("table", { name: "Kategoriat" });
     expect(within(table).getAllByRole("columnheader").map((h) => plain(h.textContent))).toEqual(["Kategoria", "Yhteensä"]);
-    expect(screen.getByRole("table", { name: "Menot kuukausittain", hidden: true }).querySelector("tfoot")).toBeNull();
-  });
-
-  it("names the debt paid from savings, which the first page's Menot leave out, only when there is some", () => {
-    show(report(true));
-    expect(plain(document.body.textContent)).not.toContain("Säästöistä maksettu");
-    cleanup();
-    show({ ...report(true), fromSavings: [0, 0, 0, 0, 0, 460_00], fromSavingsCents: 460_00 });
-    const months = screen.getByRole("table", { name: "Menot kuukausittain", hidden: true });
-    expect(within(months).getAllByRole("columnheader", { hidden: true }).map((h) => plain(h.textContent))).toEqual(["Kuukausi", "Maksettu yhteensä", "Säästöistä maksettu"]);
-    expect(plain(Array.from(months.querySelectorAll("tbody tr")).at(-1)!.textContent)).toContain("460 €");
   });
 
   it("without a card gap says nothing of cards and the footer holds the total only", () => {
@@ -98,9 +88,10 @@ describe("Menot kategorioittain: a category's average beside a card connected la
 });
 
 describe("Menot kategorioittain: the line of a category's months", () => {
-  it("draws a line with the level dashed for a category that has one, and marks the dot only where the report says the month is off", () => {
+  it("draws a line with the level dashed for a category that has one, and marks the dot only where the report says the month is off and above the level", () => {
     const base = report(true);
-    const { container } = show({ ...base, categories: base.categories.map((c) => (c.category === "groceries" ? { ...c, lastOff: true } : c)) });
+    // a near miss: the card bills are off their level too, but below it
+    const { container } = show({ ...base, categories: base.categories.map((c) => (c.category === "groceries" ? { ...c, lastOff: true, lastDiffCents: 150_00 } : { ...c, lastOff: true, lastDiffCents: -150_00 })) });
     const table = screen.getByRole("table", { name: "Kategoriat" });
     const lines = Array.from(table.querySelectorAll("svg.rt-spark"));
     expect(lines).toHaveLength(2);
@@ -115,38 +106,9 @@ describe("Menot kategorioittain: the line of a category's months", () => {
   });
 });
 
-describe("Menot kategorioittain: the chart of the months", () => {
-  it("draws a column for every month with the usual level, from the report's totals", () => {
-    const { container } = show(report(true));
-    expect(screen.getByRole("img", { name: "Menot kuukausittain" })).toBeTruthy();
-    expect(container.querySelectorAll("g.ms-month")).toHaveLength(6);
-    expect(container.querySelectorAll("line.ms-usual")).toHaveLength(1);
-    expect(container.querySelector(".ms-legend")).toBeNull();
-    expect(plain(container.querySelector("text.usual-label")!.textContent)).toBe("tavallinen kuukausi 448 €");
-  });
-
-  it("names the usual month by the sum the first page names it by, not by the level of the table that keeps a debt paid from savings", () => {
-    const { container } = show({ ...report(true), typicalCents: 50000, typicalFlowCents: 44800 });
-    expect(plain(container.querySelector("text.usual-label")!.textContent)).toBe("tavallinen kuukausi 448 €");
-    expect(plain(container.querySelector(".readout-line")!.textContent)).not.toContain("500 €");
-  });
-
-  it("words the gap the report gives for the last whole month, and says nothing when it gives none", () => {
-    // the report's gap on the flow base (a debt paid from savings is not in it): the web adds and subtracts nothing
-    const against = MONTHS.map((_, i) => (i === 4 ? { cents: 120_00, side: "less" as const } : null));
-    const { container } = show({ ...report(true), againstUsual: against });
-    expect(plain(container.querySelector(".readout-line")!.textContent)).toContain("menot 120 € alle tavallisen");
-    cleanup();
-    const none = show(report(true));
-    expect(plain(none.container.querySelector(".readout-line")!.textContent)).not.toContain("tavallisen");
-  });
-
-  it("a picked month cuts the months table and leaves the opened category's own months whole", () => {
+describe("Menot kategorioittain: an opened category", () => {
+  it("has a row for each of its own months", () => {
     show(report(true));
-    const chart = screen.getByRole("group", { name: /Menot kuukausittain/ });
-    fireEvent.focus(chart);
-    fireEvent.keyDown(chart, { key: "Enter" });
-    expect(screen.getByRole("table", { name: "Menot kuukausittain", hidden: true }).querySelectorAll("tbody tr")).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Ruokakauppa" }));
     const own = screen.getByRole("table", { name: "Ruokakauppa kuukausittain" });
     expect(own.querySelectorAll("tbody tr")).toHaveLength(6);

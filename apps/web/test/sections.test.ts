@@ -2,35 +2,41 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { REPORT_SECTIONS, visibleSections } from "../src/pages/reports/registry.ts";
-import { section as borrowed } from "../src/pages/reports/sections/Borrowed.tsx";
-import type { ReportContext, ReportSection } from "../src/pages/reports/types.ts";
+import { page as spending } from "../src/pages/reports/pages/Spending.tsx";
+import type { ReportContext } from "../src/pages/reports/types.ts";
 
 /** A context with only the parts a test reads: the sections look at nothing else. */
 const context = (data: Record<string, unknown>, accounts: unknown[] = []): ReportContext => ({ data, meta: { today: "2026-10-11", accounts }, range: { from: "2026-08-01", to: "2026-08-31" }, exportHref: () => "/export.csv" }) as unknown as ReportContext;
-const html = (s: ReportSection, ctx: ReportContext) => renderToStaticMarkup(createElement(s.Component, { ctx }));
 
 /** The sections that stay (docs/design/README.md, section 2). */
-const SECTION_IDS = ["kategoriat", "lainat", "mika-muuttui", "nostettu-luotto", "osittain", "saldot", "tulot", "tulot-ja-menot", "vuodet", "yhteiset-menot"];
+const SECTION_IDS = ["kategoriat", "lainat", "mika-muuttui", "osittain", "saldot", "tulot", "tulot-ja-menot", "vuodet", "yhteiset-menot"];
 const plain = (out: string) => out.replace(/[\u00a0\u202f]/g, " ");
 
-describe("Raportit: Velka ja kulut", () => {
-  const flow = (debtPaidCents: number, creditDrawnCents: number, feesCents: number) => ({ categories: { debtPaidCents, creditDrawnCents, feesCents } });
+describe("Raportit > Menot kategorioittain: the tiles the page opens with", () => {
+  const flow = (debtPaidCents: number, creditDrawnCents: number, feesCents: number, fromSavingsCents = 0) => ({ categories: { totalCents: 500_000, debtPaidCents, creditDrawnCents, feesCents }, spendingMonths: { fromSavingsCents } });
+  const lead = (data: Record<string, unknown>) => plain(renderToStaticMarkup(createElement(spending.Lead!, { ctx: context(data) })));
 
-  it("has a row for each of the debt paid, the credit drawn and the fees that is above zero, the draw a link to its rows", () => {
-    const all = html(borrowed, context(flow(120_000, 50_000, 4_550)));
-    expect(plain(all)).toContain("Velanhoito, korot mukaan lukien");
-    expect(plain(all)).toContain("Uutta luottoa otettu");
-    expect(plain(all)).toContain("Pankkikulut ja muistutusmaksut");
+  it("have a tile for each of the debt paid, the credit drawn and the fees that is above zero, the draw a link to its rows", () => {
+    const all = lead(flow(120_000, 50_000, 4_550));
+    expect(all).toContain("josta velkaa");
+    expect(all).toContain("Uutta luottoa");
+    expect(all).toContain("Pankkikulut ja muistutusmaksut");
     expect(all).toContain('href="#/transactions?category=credit_draw&amp;from=2026-08-01&amp;to=2026-08-31"');
-    const feesOnly = plain(html(borrowed, context(flow(0, 0, 4_550))));
+    const feesOnly = lead(flow(0, 0, 4_550));
     expect(feesOnly).toContain("Pankkikulut ja muistutusmaksut");
-    expect(feesOnly).not.toContain("Velanhoito");
-    expect(feesOnly).not.toContain("Uutta luottoa otettu");
+    expect(feesOnly).not.toContain("josta velkaa");
+    expect(feesOnly).not.toContain("Uutta luottoa");
   });
 
-  it("is quiet with no debt paid, no draw and no fees", () => {
-    expect(borrowed.visible?.(context(flow(0, 0, 0)))).toBe(false);
-    expect(borrowed.visible?.(context(flow(0, 1, 0)))).toBe(true);
+  it("with no debt paid, no draw and no fees the spending stands alone", () => {
+    const alone = lead(flow(0, 0, 0));
+    expect(alone).toContain("Menot");
+    expect(alone.match(/strip-item/g)).toHaveLength(1);
+  });
+
+  it("name the debt paid from savings, which the first page's Menot leave out, only when the sum is not 0", () => {
+    expect(lead(flow(0, 0, 0))).not.toContain("Säästöistä maksettu");
+    expect(lead(flow(0, 0, 0, 460_00))).toMatch(/Säästöistä maksettu.*460/);
   });
 });
 
@@ -51,7 +57,6 @@ describe("the page of a section", () => {
     expect(ids("settings")).toEqual([]);
     // Yhteiset menot needs a joint account the user is weighted in, which the full answer does not have
     expect(ids("reports")).not.toContain("yhteiset-menot");
-    expect(ids("reports")).toContain("nostettu-luotto");
     expect(ids("balances")).toEqual(["saldot", "lainat"]);
     expect(ids("reports")).not.toContain("saldot");
     // the parts of a category come only from an add-on module
