@@ -731,7 +731,8 @@
      "cardId": "card",
      "name": "Nordea Gold",
      "cents": 63077,
-     "date": "2026-11-10"
+     "date": "2026-11-10",
+     "typed": false
     }
    ],
    "unresolved": [],
@@ -1408,6 +1409,7 @@
      "payee": "Nordea Gold",
      "cents": -63077,
      "estimate": true,
+     "laterCard": true,
      "afterCents": 234020,
      "rowAfterCents": 234020
     },

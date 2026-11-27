@@ -120,6 +120,8 @@ interface LowPointStep {
   cents: number;
   /** A sum that is the usual of a series whose charges vary, or a pay beyond the next two, rather than a known one. */
   estimate: boolean;
+  /** Set on the debt of a card whose bill falls after the payday: Jää palkkapäivänä leaves it out. */
+  laterCard?: true;
   /** The balance at the end of its day, after all its payments and pays and the spending to it: the same for every step of a day, the line's own figure. */
   afterCents: number;
   /** The balance after this step in the table: the one before it (the day's opening, or the step before it that day) plus its sum. The last step of a day ends at `afterCents`. */
@@ -153,7 +155,8 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
   // a card's bill beyond the payday window holds the debt that is taken off whole from today: it is no row of the walk
   const heldByDebt = new Set(ahead.upcoming.flatMap((r) => (r.source === "card" && r.basis === "balance" && r.cents && r.date > ahead.to ? [`${r.date}|${r.name}|${Math.abs(r.cents)}`] : [])));
   // the debt of a card whose next bill falls after the payday is not in the start: it is taken off on that bill's day, in place of the bill's own row
-  const laterDebts = ahead.balance.laterCardDebts.filter((d) => d.date >= from && d.date <= last);
+  // a typed bill of the card has its own row, which pays the card on that day: no step of the debt besides it
+  const laterDebts = ahead.balance.laterCardDebts.filter((d) => !d.typed && d.date >= from && d.date <= last);
   // an income before the payday is no pay the runway waits for and the runway counts none: the walk lets it land on the
   // payday, so the line at the payday is Jää palkkapäivänä to the cent and the days after it hold the income
   const rows = calendar.months
@@ -179,7 +182,7 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
     // a card shown only by its bills: a bill is the usual of its series
     ...cardBills.map((r) => ({ date: r.date, payee: r.name, cents: -Math.abs(r.cents!), estimate: true })),
     ...transfers.map((r) => ({ date: r.date, payee: r.name, cents: -Math.abs(r.cents!), estimate: false })),
-    ...laterDebts.map((d) => ({ date: d.date, payee: d.name, cents: -d.cents, estimate: true })),
+    ...laterDebts.map((d) => ({ date: d.date, payee: d.name, cents: -d.cents, estimate: true, laterCard: true as const })),
   ].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
   // the cards' debt of today is taken off whole, as Käytettävissä does: the day a bill falls is never guessed
@@ -296,7 +299,7 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
  * they do not (a payday with no step of its own, a pay before it that the runway leaves out): the figure then has no working to show.
  */
 export function paydayParts(low: Extract<LowPoint, { known: true }>, payday: IsoDate, leftCents: number) {
-  const steps = low.steps.filter((s) => s.date < payday || (s.date === payday && s.cents < 0));
+  const steps = low.steps.filter((s) => s.date < payday || (s.date === payday && s.cents < 0 && !s.laterCard));
   const spending = low.spending.filter((p) => p.date <= payday);
   const total = [...steps, ...spending].reduce((n, r) => n + r.cents, low.startCents);
   return total === leftCents ? { balanceCents: low.startCents + low.cardDebtCents, steps, spending } : null;
