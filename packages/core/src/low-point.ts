@@ -120,6 +120,8 @@ interface LowPointStep {
   cents: number;
   /** A sum that is the usual of a series whose charges vary, or a pay beyond the next two, rather than a known one. */
   estimate: boolean;
+  /** Set on the debt of a card whose bill falls after the payday. */
+  laterCard?: true;
   /** The balance at the end of its day, after all its payments and pays and the spending to it: the same for every step of a day, the line's own figure. */
   afterCents: number;
   /** The balance after this step in the table: the one before it (the day's opening, or the step before it that day) plus its sum. The last step of a day ends at `afterCents`. */
@@ -181,7 +183,7 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
     // a card shown only by its bills: a bill is the usual of its series
     ...cardBills.map((r) => ({ date: r.date, payee: r.name, cents: -Math.abs(r.cents!), estimate: true })),
     ...transfers.map((r) => ({ date: r.date, payee: r.name, cents: -Math.abs(r.cents!), estimate: false })),
-    ...laterDebts.map((d) => ({ date: d.date, payee: d.name, cents: -d.cents, estimate: true })),
+    ...laterDebts.map((d) => ({ date: d.date, payee: d.name, cents: -d.cents, estimate: true, laterCard: true as const })),
   ].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
   // the cards' debt of today is taken off whole, as Käytettävissä does: the day a bill falls is never guessed
