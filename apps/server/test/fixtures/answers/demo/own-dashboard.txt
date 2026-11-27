@@ -2047,10 +2047,8 @@
    "incomeCents": 4398417,
    "averageIncomeCents": 399856,
    "spendCents": 3538167,
-   "peak": {
-    "month": "2026-09",
-    "spendCents": 388983
-   }
+   "netCents": 860250,
+   "averageNetCents": 78205
   },
   "categories": {
    "rows": [

@@ -92,7 +92,7 @@ describe("Laskut: the table and the mark on one subscription", () => {
   });
 
   const power = sub({ id: "out:acc-1:Sähköyhtiö", merchant: "Sähköyhtiö", category: "utilities", kind: "bill", typicalAmountCents: 6420 });
-  it("says on each row whether it is known, an estimate, paid, or a card's to pay, and tags no kind", () => {
+  it("says on a row that its sum is an estimate, that it is paid or a card's to pay, nothing on a known one, and tags no kind", () => {
     const cal = calendar([
       month("2026-10", [
         bill({ date: "2026-10-12", payee: "Vesiyhtiö", state: "known" }),
@@ -102,7 +102,9 @@ describe("Laskut: the table and the mark on one subscription", () => {
       ]),
     ]);
     const out = cardOf([power, spotify], [], cal);
-    for (const word of ["Tiedossa", "Arvio", "Maksettu", "Kortilla"]) expect(out).toContain(`>${word}<`);
+    for (const word of ["Summa arvioitu", "Arvio", "Maksettu", "Kortilla"]) expect(out).toContain(`>${word}<`);
+    expect(out.match(/class="bill-flag"/g)).toHaveLength(3);
+    expect(out).not.toContain("Tiedossa");
     expect(out).not.toContain("mb-tag");
   });
 
@@ -139,49 +141,51 @@ describe("Laskut: the table and the mark on one subscription", () => {
     expect(out).not.toContain(">Maksettu<");
   });
 
-  it("marks the one figure a closed month's head keeps on a phone: what is left after the bills, else the bills", () => {
+  it("heads a closed month with one figure, its bills still to pay, and the open month with none: its rows end in every figure", () => {
     const sums = { knownCents: 177000, billsCents: 177000, incomeCents: 590000 };
     const cal = calendar([month("2026-10", [bill()], { ...sums, afterCents: 413000 }), month("2026-11", [bill()], { ...sums, afterCents: 413000 }), month("2026-12", [bill()], { ...sums, afterCents: null })]);
     const out = cardOf([], [], cal);
-    const heads = out.match(/<span class="bill-sums"[^>]*>.*?<\/span><\/span>/g) ?? [];
-    expect(heads.map((h) => h.match(/class="bill-line">([^<]*)</)?.[1] ?? null)).toEqual(["Laskujen jälkeen 4 130,00 €", "Laskujen jälkeen 4 130,00 €", "Maksamatta 1 770,00 €"]);
-    // the open month tells every figure: only the closed ones are one line
-    expect(heads.map((h) => h.includes("data-closed"))).toEqual([false, true, true]);
-    // each head still holds every figure, which the opened month shows
-    for (const h of heads) expect(h).toContain("Tulot 5 900,00 €");
+    const heads = [...out.matchAll(/<span class="bill-sums">(.*?)<\/span>/g)].map((m) => m[1]);
+    expect(heads).toEqual(["Maksamatta 1 770,00 €", "Maksamatta 1 770,00 €"]);
+    // the pays and the sum left are rows of the open month alone
+    expect(out.match(/bill-total-income[^>]*>5 900,00 €/g)).toHaveLength(1);
+    expect(out.match(/bill-total-after[^>]*>4 130,00 €/g)).toHaveLength(1);
+    expect(out.match(/Laskujen jälkeen/g)).toHaveLength(1);
   });
 
-  it("heads a month with core's sums, and says the sum left after the bills is not known while a bill's sum is not", () => {
+  it("ends an open month with core's sums, and says the sum left after the bills is not known while a bill's sum is not", () => {
     const sums = { knownCents: 177000, estimateCents: 64000, billsCents: 241000, incomeCents: 590000 };
-    const cal = calendar([month("2026-10", [bill()], { ...sums, afterCents: 349000 }), month("2026-11", [bill()], { ...sums, afterCents: null })], { unknownCount: 1, unknowns: [{ days: ["2026-11-05"], open: false, kind: "bill", onCard: false }] });
-    const out = cardOf([], [], cal);
+    const known = cardOf([], [], calendar([month("2026-10", [bill()], { ...sums, afterCents: 349000 }), month("2026-11", [bill()], { ...sums, afterCents: null })]));
     // a closed month's head tells what is to come; the open month's rows end in it
-    expect(out).toContain("Maksamatta 2 410,00 €");
-    expect(out).toMatch(/bill-total-coming[^>]*>2 410,00 €/);
-    expect(out).toContain("Tulot 5 900,00 €");
-    expect(out).toContain("Laskujen jälkeen 3 490,00 €");
-    expect(out).toContain("Laskujen jälkeen: ei tiedossa");
-    expect(out).not.toContain("Erotus");
+    expect(known).toContain("Maksamatta 2 410,00 €");
+    expect(known).toMatch(/bill-total-coming[^>]*>2 410,00 €/);
+    expect(known).toMatch(/bill-total-income[^>]*>5 900,00 €/);
+    expect(known).toMatch(/bill-total-after[^>]*>3 490,00 €/);
+    expect(known).not.toContain("Ei tiedossa");
+    expect(known).not.toContain("Erotus");
+    const unknown = cardOf([], [], calendar([month("2026-10", [bill()], { ...sums, afterCents: null })], { unknownCount: 1, unknowns: [{ days: ["2026-10-15"], open: false, kind: "bill", onCard: false }] }));
+    expect(unknown).toMatch(/bill-total-after[^>]*>Ei tiedossa/);
+    expect(unknown).toMatch(/bill-total-note[^>]*>1 laskun summa tai päivä ei ole tiedossa/);
   });
 
   it("shows the sum left after the bills in a month with no pay, below 0, and no line of pays", () => {
     const cal = calendar([month("2026-10", [bill()], { knownCents: 241000, billsCents: 241000, incomeCents: 0, afterCents: -241000 })]);
     const out = cardOf([], [], cal);
-    expect(out).toContain(`Laskujen jälkeen ${flat(money(-241000))}`);
+    expect(out).toMatch(new RegExp(`bill-total-after[^>]*>${flat(money(-241000))}`));
+    expect(out).toMatch(/bill-total-name[^>]*>Laskujen jälkeen/);
     expect(out).not.toContain("Tulot");
-    expect(out).not.toContain("Laskujen jälkeen: ei tiedossa");
+    expect(out).not.toContain("Ei tiedossa");
   });
 
   it("heads the running month with its paid bills and what is still to come, never Laskut 0 over paid bills, and leaves out the sum after the bills when nothing is left to come", () => {
     const paid = bill({ date: "2026-10-03", cents: 154204, state: "paid" });
     const cal = calendar([month("2026-10", [paid], { paidCents: 154204 }), month("2026-11", [bill()], { knownCents: 6420, billsCents: 6420, incomeCents: 0, afterCents: -6420 })]);
     const out = cardOf([], [], cal);
-    expect(out).toContain(`Maksettu ${flat(money(154204))}`);
     expect(out).toContain(`Maksamatta ${flat(money(0))}`);
     expect(out).not.toContain(`Laskut ${flat(money(0))}`);
     // the open month tells what is to come in the total that ends its rows
     expect(out).toContain(flat(money(6420)));
-    expect(out).toContain(`Laskujen jälkeen ${flat(money(-6420))}`);
+    expect(out).toMatch(new RegExp(`bill-total-after[^>]*>${flat(money(-6420))}`));
     expect(out.match(/Laskujen jälkeen/g)).toHaveLength(1);
   });
 
@@ -195,15 +199,12 @@ describe("Laskut: the table and the mark on one subscription", () => {
     expect(out).toMatch(/bill-total-name[^>]*>Maksamatta/);
   });
 
-  it("names the head of a closed month Maksettu, Maksamatta, Säästöön, in that order", () => {
-    const cal = calendar([month("2026-10", [bill()]), month("2026-11", [bill()], { paidCents: 5000, knownCents: 1000, billsCents: 1000, savingCents: 15000, incomeCents: 10000, afterCents: -6000 })]);
-    const heads = [...cardOf([], [], cal).matchAll(/<span class="bill-sums" data-closed="">(.*?)<\/span><\/span>/g)].map((m) => m[1]!);
-    expect(heads).toHaveLength(1);
-    const text = heads[0]!.replace(/<[^>]*>/g, " ");
-    expect(text.indexOf("Maksettu")).toBeGreaterThanOrEqual(0);
-    expect(text.indexOf("Maksettu")).toBeLessThan(text.indexOf("Maksamatta"));
-    expect(text.indexOf("Maksamatta")).toBeLessThan(text.indexOf("Säästöön"));
-    expect(text).toContain(`Säästöön ${flat(money(15000))}`);
+  it("ends an open month with Maksettu, Maksamatta and its parts by kind, Säästöön, Tulot and Laskujen jälkeen, in that order", () => {
+    const sums = { paidCents: 5000, knownCents: 1000, billsCents: 1000, savingCents: 15000, incomeCents: 10000, afterCents: -6000 };
+    const names = (html: string) => [...html.matchAll(/class="bill-total-name">([^<]*)</g)].map((m) => m[1]);
+    expect(names(cardOf([], [], calendar([month("2026-10", [bill()], { ...sums, essentialCents: 600, optionalCents: 400 })])))).toEqual(["Maksettu", "Maksamatta", "Asuminen ja välttämättömät", "Valinnaiset", "Säästöön", "Tulot", "Laskujen jälkeen"]);
+    // one kind alone is the sum itself and is no row
+    expect(names(cardOf([], [], calendar([month("2026-10", [bill()], { ...sums, essentialCents: 1000 })])))).toEqual(["Maksettu", "Maksamatta", "Säästöön", "Tulot", "Laskujen jälkeen"]);
   });
 
   it("keeps the table caption out of sight, so the card's heading is the only one drawn", () => {
@@ -212,7 +213,7 @@ describe("Laskut: the table and the mark on one subscription", () => {
     expect(html.match(/<h2>Laskut, sopimukset ja tilaukset<\/h2>/g)).toHaveLength(1);
   });
 
-  it("marks the months a bill with no day may fall in with the count of the bills whose sum or day is not known, and with nothing when none is", () => {
+  it("marks the open month a bill with no day may fall in with the count of the bills whose sum or day is not known, and with nothing when none is", () => {
     const months = [month("2026-10", [bill()], { billsCents: 241000, afterCents: null }), month("2026-11", [bill()], { billsCents: 241000, afterCents: null })];
     const noDay = { days: [], open: false, kind: "bill" as const, onCard: false };
     const marked = cardOf([], [], calendar(months, { unknownCount: 2, unknowns: [noDay, noDay] }));

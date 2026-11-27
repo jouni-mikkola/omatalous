@@ -60,8 +60,10 @@ interface OverviewCompleteTotals {
   /** `incomeCents` over `months`, in whole cents: the average the strip names beside the total, over the same months. */
   averageIncomeCents: number;
   spendCents: number;
-  /** The month of the largest spending among them; null under two months, where it would name the only one. */
-  peak: { month: string; spendCents: number } | null;
+  /** Erotus: `incomeCents` less `spendCents`. Money moved to savings is not taken off, so it is not Tulos. */
+  netCents: number;
+  /** `netCents` over `months`, in whole cents. */
+  averageNetCents: number;
 }
 
 /** What Tulot ja menot says of a window of months: the bars, the usual month, the complete months' sums and their gap. Yhteenveto's overview holds the last twelve months of it, Raportit the period. */
@@ -72,7 +74,7 @@ interface CashflowMonths {
   usualSpendCents: number | null;
   /** How many complete months `usualSpendCents` is the mean of, which the chart's key names. */
   usualMonths: number;
-  /** The complete months' income and spending added up and the dearest of them; null without a complete month that has both sums. */
+  /** The complete months' income and spending added up and their difference; null without a complete month that has both sums. */
   completeTotals: OverviewCompleteTotals | null;
   /** The gap the complete months of `months` left between their income and what they took; absent when they took no more than the income or none is complete. */
   gap?: OverviewGap;
@@ -95,17 +97,17 @@ export interface Overview extends CashflowMonths {
 }
 
 function completeTotalsOf(months: readonly OverviewMonth[]): OverviewCompleteTotals | null {
-  const whole = months.flatMap((m) => (m.complete && m.incomeCents !== null && m.spendCents !== null ? [{ month: m.month, incomeCents: m.incomeCents, spendCents: m.spendCents }] : []));
+  const whole = months.flatMap((m) => (m.complete && m.incomeCents !== null && m.spendCents !== null ? [{ incomeCents: m.incomeCents, spendCents: m.spendCents }] : []));
   if (whole.length === 0) return null;
-  // the first of equal months stands
-  const dearest = whole.reduce((a, m) => (m.spendCents > a.spendCents ? m : a));
   const incomeCents = whole.reduce((sum, m) => sum + m.incomeCents, 0);
+  const spendCents = whole.reduce((sum, m) => sum + m.spendCents, 0);
   return {
     months: whole.length,
     incomeCents,
     averageIncomeCents: Math.round(incomeCents / whole.length),
-    spendCents: whole.reduce((sum, m) => sum + m.spendCents, 0),
-    peak: whole.length > 1 ? { month: dearest.month, spendCents: dearest.spendCents } : null,
+    spendCents,
+    netCents: incomeCents - spendCents,
+    averageNetCents: Math.round((incomeCents - spendCents) / whole.length),
   };
 }
 
