@@ -3,6 +3,26 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.8.6
+
+- Yhteenveto leads with one answer card for the sum left on payday.
+- Laskut, Tapahtumat, Tulot ja menot, Menot kategorioittain and Varat ja velat start with their key figures.
+- A card's debt counts against the payday only when its bill falls before it.
+
+Money and reports
+
+- A card's debt counts against the payday only when its bill falls before it.
+
+Look
+
+- Yhteenveto leads with one answer card: the sum left on payday, with its parts.
+- Varat ja velat starts with accounts, debts and what is left in one row.
+- Laskut puts the list first and tells one figure for a closed month.
+- Tulot ja menot leads with the difference of income and spending.
+- Tapahtumat: a short payee name is a full finger target.
+- Menot kategorioittain shows tiles for debt, new credit and fees, and one category table.
+- Tapahtumat shows its sums as tiles and folds the histogram and the month's payees.
+
 ## 1.8.5
 
 - Laskut tells the running month in three cards: Nyt, Arvio and Tavallinen.
