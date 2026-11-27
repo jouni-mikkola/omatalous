@@ -30,6 +30,8 @@ export function BalancesTiles({ ctx }: SectionProps) {
   const items: TileItem[] = [
     { label: t("holdings.accounts_total"), figure: answerMoney(h.accountsCents!) },
     ...(owes ? [{ label: t(lacking > 0 ? "holdings.debts_known" : "holdings.debts_total"), figure: answerMoney(h.debtCents!) }] : []),
+    // an unknown total is said, so the row never looks debt-free
+    ...(h.debtCents === null ? [{ label: t("holdings.debts_total"), figure: t("bills.after_unknown") }] : []),
     ...(owes && lacking === 0 && h.netCents !== null && netLabel ? [{ label: netLabel, figure: answerMoney(h.netCents) }] : []),
   ];
   // with no debt left to ask in Tarkistettavat the line has no link

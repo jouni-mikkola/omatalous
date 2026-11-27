@@ -968,7 +968,7 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
   and an annuity with a last due date sets its payment again at the step. With no typed rate the rate stays unknown.
 - A saved loan can be tied to the connected card or loan account that is the same debt, in the loan's form (*Sama velka
   pankin tilillä*, offered when the household has such an account that no other loan holds). A linked pair counts once:
-  in the debt total of Lainat, in the accounts less the debts of Saldot and in the Säästövinkit loan area. The balance
+  in the debt total of Lainat, in the accounts less the debts of the balance report and in the Säästövinkit loan area. The balance
   is the bank's while the account's balance is at or below zero and not older than the balance typed for the loan. The
   rate, the margin, the plan and the payments are the saved loan's, and the payoff date is counted from the bank's
   balance on the saved loan's due days, so it does not move from one day to the next. With the account in credit, or
@@ -979,8 +979,8 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
   beside it (`maybeTwice` in `household-debts.ts`): a connected card beside every saved card and credit line that owes,
   whatever their names, and a connected loan account beside every saved loan that is no card. It says that removing the
   saved loan takes the second one out, and beside each of the household's own accounts it links to the loan's form with
-  that account chosen, which counts the pair once. A linked loan or its account is not named. Saldot and the
-  Säästövinkit loan area point to the report.
+  that account chosen, which counts the pair once. A linked loan or its account is not named. The
+  Säästövinkit loan area points to the report.
 - A checking account below zero is no loan: its overdraft is in the accounts' total and not in the debt total. Beside
   a saved credit line that owes it may be that credit, and then the accounts less the debts hold it twice
   (`overdraftTwice` in `household-debts.ts`). Lainat says so, naming the figure *Varat velkojen jälkeen* as the head of

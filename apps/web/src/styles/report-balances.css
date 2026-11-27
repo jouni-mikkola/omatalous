@@ -1,6 +1,6 @@
 /* Balances of Raportit (pages/reports/pages/Balances.tsx): the styles of its own sections, which no other page reads. */
 @layer pages {
-/* Saldot: the accounts, the saved loans and what is left, as rows of the statement look; a label is told whole */
+/* Saldot: the ended credits and the missing accounts, as rows of the statement look; a label is told whole */
 .balance-rows { max-inline-size: 48ch; margin-bottom: var(--sp-12); }
 .balance-rows .st-name { overflow: visible; white-space: normal; }
 /* why the row of the page's figures has no net one: a line under it, with the link to the debts' question */
