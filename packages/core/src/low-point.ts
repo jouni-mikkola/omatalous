@@ -300,7 +300,9 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
  */
 export function paydayParts(low: Extract<LowPoint, { known: true }>, payday: IsoDate, leftCents: number) {
   const steps = low.steps.filter((s) => s.date < payday || (s.date === payday && s.cents < 0 && !s.laterCard));
-  const spending = low.spending.filter((p) => p.date <= payday);
+  // the purchases of a card billed on the payday are held by that bill, which the pay pays: left out with it
+  const billedOnPayday = low.steps.some((s) => s.date === payday && s.laterCard);
+  const spending = low.spending.filter((p) => p.date <= payday && !(billedOnPayday && p.kind === "cards" && p.date === payday));
   const total = [...steps, ...spending].reduce((n, r) => n + r.cents, low.startCents);
   return total === leftCents ? { balanceCents: low.startCents + low.cardDebtCents, steps, spending } : null;
 }
