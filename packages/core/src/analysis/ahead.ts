@@ -98,9 +98,11 @@ interface AheadBalance {
   /**
    * The debt of the cards whose next bill is known and falls after the window (on the payday itself, which the pay
    * pays, or later), with that bill's day. It is paid from the coming pay, so `freeCents` takes nothing off for it; the
-   * low point takes it off on that day. What counts as debt is the same as for `cardDebts`.
+   * low point takes it off on that day. What counts as debt is the same as for `cardDebts`. `typedCents` is what the
+   * household typed in for that card on that day: those rows pay the card themselves, so the low point takes only the
+   * debt beside them off on that day (the same rule as `reconcileCardPayments` inside the window).
    */
-  laterCardDebts: { cardId: string; name: string; cents: number; date: IsoDate }[];
+  laterCardDebts: { cardId: string; name: string; cents: number; date: IsoDate; typedCents: number }[];
   /**
    * The cards of `cardDebts` whose payer the rows do not prove to be the pool alone: no payment to the card is seen, or
    * payments are seen from the pool and from outside it. Their debt is taken off whole all the same, so the figure
@@ -432,7 +434,8 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
   }
   const laterCardDebts = owing.flatMap((d) => {
     const date = nextBill.get(d.cardId);
-    return date !== undefined && date > to ? [{ ...d, date }] : [];
+    const typedCents = typedToCards.filter((t) => t.cardId === d.cardId && t.date === date).reduce((n, t) => n + t.amountCents, 0);
+    return date !== undefined && date > to ? [{ ...d, date, typedCents }] : [];
   });
   const cardDebts = owing.filter((d) => !laterCardDebts.some((l) => l.cardId === d.cardId));
   const cardDebtCents = cardDebts.reduce((sum, c) => sum + c.cents, 0);

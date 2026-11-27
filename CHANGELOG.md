@@ -3,6 +3,33 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.8.5
+
+- Laskut tells the running month in three cards: Nyt, Arvio and Tavallinen.
+- Saldo päivä päivältä starts at the last payday and shows the days to come as an estimate.
+- Tapahtumat has its rules in a tab of their own, Säännöt.
+- On a phone, Raportit is in the tab bar and the charts are easier to read.
+
+Money and reports
+
+- Maksut taulukkona on Yhteenveto shows the expected spending and the card debt as rows, so its balance adds up row by row, also when several payments fall on one day.
+
+Look
+
+- Saldo päivä päivältä on Yhteenveto starts at the last payday: a solid line to today (Nyt) and the days to come on a ground of their own (Arvio).
+- Laskut: the head tells the running month in three cards, Nyt (paid so far), Arvio (still to come) and Tavallinen (the bills a month). Each has its own chip, so what has happened and what is expected are told apart.
+- Tulevat kuukaudet names its last column "Laskujen jälkeen".
+- Varat ja velat names no debt total and drops its net sums while a debt has no balance.
+- The balance chart of Varat ja velat names its first day.
+- The phone chart of the days to payday is taller and names fewer things.
+- "Menot" keeps its long name only when savings paid a debt.
+- Tapahtumat: the chart's event count names the rows that spend or bring in, as the line above the list does.
+- Kauppiaat: the column is named "Tavallisesti kuussa".
+- Phone: Raportit is in the tab bar, and Varat ja velat reads "Varat" there.
+- Tapahtumat: the rules are a tab of their own, Säännöt. Old links to the rules open it.
+- Tapahtumat: when Käteen jäi is shown, Erotus is left out.
+- Phone: the user button shows the initials; its name for a screen reader stays the full name.
+
 ## 1.8.4
 
 Look

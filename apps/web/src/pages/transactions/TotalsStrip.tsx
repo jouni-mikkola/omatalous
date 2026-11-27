@@ -1,16 +1,16 @@
 /**
- * What the filtered rows add up to, above the list: the count, money out and in and their difference in one line, with
- * a small histogram of the period. Decision: is this filter's money what the household expected, and when did it move.
- * Every figure is a server field (`/api/transactions`); the web draws them and adds nothing up. The histogram shows
+ * What the filtered rows add up to, above the list: money out and in and what they leave as labelled figures on one
+ * line, the count and the days quiet beside them. Decision: is this filter's money what the household expected, and
+ * when did it move. Every figure is a server field (`/api/transactions`); the web draws them and adds nothing up. The
+ * histogram of the period waits behind its title at every width, so the list starts right under the figures. It shows
  * money out or in as the reader chooses, and a tap on a bar limits the period to that day, week or month.
  */
 import { addDays } from "@banking/core";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { Figure } from "../../components/Figure.tsx";
 import { Segmented } from "../../components/ui/Segmented.tsx";
 import { date, dateRange, dayHeading, money, monthLong } from "../../format.ts";
 import { t, tn } from "../../text.ts";
-import { usePhone } from "../TransactionRows.tsx";
 import type { Period } from "./DateRange.tsx";
 import { css } from "../../css.ts";
 
@@ -62,6 +62,7 @@ type Series = "out" | "in";
 
 function Histogram({ unit, bins, today, last, income, onPick }: { unit: "day" | "week" | "month"; bins: MoneyBin[]; today: string; last: string; income: boolean; onPick: (p: Period) => void }) {
   const [at, setAt] = useState<number | null>(null);
+  const [focused, setFocused] = useState(false);
   const value = (b: MoneyBin) => (income ? b.inCents : b.outCents);
   const max = Math.max(0, ...bins.map(value));
   const peak = bins.findIndex((b) => value(b) === max && max > 0);
@@ -72,7 +73,8 @@ function Histogram({ unit, bins, today, last, income, onPick }: { unit: "day" | 
   const gap = n > 60 ? 0.15 : 0.3;
   const shown = at ?? peak;
   const b = shown >= 0 ? bins[shown] : undefined;
-  const readout = b ? t(income ? "tx.readout_in" : "tx.readout_out", { bin: binName(b, unit, today), amount: money(value(b)), events: tn(income ? b.inCount : b.outCount, "tx.event_one", "tx.event_many") }) : "";
+  // at rest the peak's sum above its bar says the picture; the line under it is of the bar the pointer or the keyboard is on
+  const readout = b && (at !== null || focused) ? t(income ? "tx.readout_in" : "tx.readout_out", { bin: binName(b, unit, today), amount: money(value(b)), events: tn(income ? b.inCount : b.outCount, "tx.event_one", "tx.event_many") }) : "";
   const histTitle = t(income ? "tx.hist_in" : "tx.hist_out", { unit: unitTitle(unit) });
   return (
     <>
@@ -93,6 +95,8 @@ function Histogram({ unit, bins, today, last, income, onPick }: { unit: "day" | 
             setAt(Math.min(n - 1, Math.max(0, Math.floor(((e.clientX - r.left) / r.width) * n))));
           }}
           onPointerLeave={() => setAt(null)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           onKeyDown={(e) => {
             if (e.key === "ArrowRight") setAt(Math.min(n - 1, (at ?? peak) + 1));
             else if (e.key === "ArrowLeft") setAt(Math.max(0, (at ?? peak) - 1));
@@ -123,8 +127,8 @@ function Histogram({ unit, bins, today, last, income, onPick }: { unit: "day" | 
   );
 }
 
-/** `income`: the limit is income only, so the histogram starts on money in. The period is the bar's chip; the sums are of what it and the other limits leave. */
-export function TotalsStrip({ totals, income, today, onPick }: { totals: Totals; income: boolean; today: string; onPick: (p: Period) => void }) {
+/** `income`: the limit is income only, so the histogram starts on money in. The period is the bar's chip; the sums are of what it and the other limits leave. `more`: what else waits behind the histogram's title, beside the picture. */
+export function TotalsStrip({ totals, income, today, onPick, more }: { totals: Totals; income: boolean; today: string; onPick: (p: Period) => void; more?: ReactNode }) {
   const span = totals.span;
   const hist = totals.histogram;
   const [series, setSeries] = useState<Series>(income ? "in" : "out");
@@ -135,13 +139,12 @@ export function TotalsStrip({ totals, income, today, onPick }: { totals: Totals;
   }
   const inSeries = series === "in";
   const histTitle = t(inSeries ? "tx.hist_in" : "tx.hist_out", { unit: hist ? unitTitle(hist.unit) : "" });
-  const phone = usePhone();
   // Käteen jäi says nearly what Erotus says, so it takes Erotus's place when it differs from it
   const shownResult = totals.leftCents !== undefined && totals.leftCents !== null && totals.leftCents !== totals.netCents;
   const picture = hist && hist.bins.length > 1 && (
     <figure className="tx-hist">
       <figcaption className="tx-hist-head">
-        <span className={phone ? "sr-only" : "tx-hist-title"}>{histTitle}</span>
+        <span className="sr-only">{histTitle}</span>
         <Segmented<Series>
           label={t("tx.series")}
           value={series}
@@ -158,29 +161,30 @@ export function TotalsStrip({ totals, income, today, onPick }: { totals: Totals;
   return (
     <section className="tx-totals" aria-label={t("tx.totals_label")}>
       <div className="tx-sums">
-        <span className="tx-totals-count">{tn(totals.total, "tx.event_one", "tx.event_many")}</span>
-        {span && <span className="tx-totals-span">{dateRange(span.from, span.to)}</span>}
-        {totals.inCents === null || totals.outCents === null ? (
-          <span className="tx-totals-span">{t("tx.updating")}</span>
-        ) : (
+        <p className="tx-totals-meta">
+          <span className="tx-totals-count">{tn(totals.total, "tx.event_one", "tx.event_many")}</span>
+          {span && <span className="tx-totals-span">{dateRange(span.from, span.to)}</span>}
+          {(totals.inCents === null || totals.outCents === null) && <span className="tx-totals-span">{t("tx.updating")}</span>}
+        </p>
+        {totals.inCents !== null && totals.outCents !== null && (
         <dl className="tx-totals-kv">
           <div>
             <dt>{t("tx.spending")}</dt>
             <dd>
-              <Figure text={money(-totals.outCents, false)} size="s" />
+              <Figure text={money(-totals.outCents, false)} size="m" />
             </dd>
           </div>
           <div>
             <dt>{t("tx.income")}</dt>
             <dd className="tx-in">
-              <Figure text={`${totals.inCents > 0 ? "+" : ""}${money(totals.inCents, false)}`} size="s" />
+              <Figure text={`${totals.inCents > 0 ? "+" : ""}${money(totals.inCents, false)}`} size="m" />
             </dd>
           </div>
           {totals.netCents !== undefined && totals.netCents !== null && !shownResult && (
             <div>
               <dt>{t("tx.difference")}</dt>
               <dd>
-                <Figure text={`${totals.netCents > 0 ? "+" : ""}${money(totals.netCents, false)}`} size="s" />
+                <Figure text={`${totals.netCents > 0 ? "+" : ""}${money(totals.netCents, false)}`} size="m" />
               </dd>
             </div>
           )}
@@ -188,7 +192,7 @@ export function TotalsStrip({ totals, income, today, onPick }: { totals: Totals;
             <div>
               <dt>{t(totals.savedCents > 0 ? "tx.saved" : "tx.savings_drawn")}</dt>
               <dd>
-                <Figure text={money(Math.abs(totals.savedCents), false)} size="s" />
+                <Figure text={money(Math.abs(totals.savedCents), false)} size="m" />
               </dd>
             </div>
           )}
@@ -196,39 +200,39 @@ export function TotalsStrip({ totals, income, today, onPick }: { totals: Totals;
             <div>
               <dt>{t("tx.result")}</dt>
               <dd>
-                <Figure text={`${totals.leftCents > 0 ? "+" : ""}${money(totals.leftCents, false)}`} size="s" />
+                <Figure text={`${totals.leftCents > 0 ? "+" : ""}${money(totals.leftCents, false)}`} size="m" />
               </dd>
             </div>
           )}
         </dl>
         )}
       </div>
-      {/* a phone keeps the first row near the top: the picture waits behind its title until it is asked for */}
-      {picture && (phone ? (
+      {/* the list is what the page is for: the picture waits behind its title until it is asked for */}
+      {picture && (
         <details className="tx-hist-fold">
           <summary>{histTitle}</summary>
-          {picture}
+          <div className="tx-hist-body">
+            {picture}
+            {more}
+          </div>
         </details>
-      ) : picture)}
+      )}
     </section>
   );
 }
 
-/** The strip before the first answer: its own frame at its final size, grey bars where the count, the figures and the bars will stand. */
+/** The strip before the first answer: its own frame at its final size, grey bars where the figures, the count and the histogram's title will stand. */
 export function StripSkeleton() {
   return (
     <section className="tx-totals tx-skel" aria-hidden="true">
       <div className="tx-sums">
-        <span className="sk-bar sk-label" />
         <span className="tx-skel-figs">
           {[0, 1, 2].map((i) => (
             <span key={i} className="sk-bar sk-fig" />
           ))}
         </span>
       </div>
-      <div className="tx-hist">
-        <span className="sk-bar tx-skel-plot" />
-      </div>
+      <span className="sk-bar sk-label" />
     </section>
   );
 }

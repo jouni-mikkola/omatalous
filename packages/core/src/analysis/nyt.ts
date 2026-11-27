@@ -50,7 +50,7 @@ export interface NytAnswer {
         balanceCents: number;
         /** What leaves them before the payday: the payments and the own transfers of the window. */
         billsCents: number;
-        /** What the cards owe that no bill of `billsCents` holds (`ahead.balance.cardDebtCents`): taken off too, whole, so no bill day is guessed. 0 without card debt. */
+        /** What the cards owe that no bill of `billsCents` holds (`ahead.balance.cardDebtCents`): taken off too, whole, so no bill day is guessed. A card whose next bill falls after the payday is not in it (`laterCards` of the parts). 0 without card debt. */
         cardDebtCents: number;
         /** `Käytettävissä` (`freeCents`): `balanceCents` less `billsCents` and `cardDebtCents`. Below zero when these exceed the balance. */
         leftCents: number;

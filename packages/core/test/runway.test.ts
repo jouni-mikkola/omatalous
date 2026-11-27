@@ -139,7 +139,7 @@ describe("Jää palkkapäivänä", () => {
     expect(r.leftCents).toBe(r.freeCents);
     // the bill is after the payday, so the debt waits for the coming pay: it is told and taken off nothing
     expect(ahead.balance!.cardDebtCents).toBe(0);
-    expect(ahead.balance!.laterCardDebts).toEqual([{ cardId: card.id, name: card.name, cents: OWED, date: "2026-11-20" }]);
+    expect(ahead.balance!.laterCardDebts).toEqual([{ cardId: card.id, name: card.name, cents: OWED, date: "2026-11-20", typedCents: 0 }]);
     expect(r.parts.laterCards).toEqual({ cents: OWED, count: 1 });
     expect(r.freeCents).toBe(200_000 - RENT);
     expect(r.leftCents).toBe(200_000 - RENT);

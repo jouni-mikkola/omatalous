@@ -731,7 +731,8 @@
      "cardId": "card",
      "name": "Nordea Gold",
      "cents": 63077,
-     "date": "2026-11-10"
+     "date": "2026-11-10",
+     "typedCents": 0
     }
    ],
    "unresolved": [],
@@ -1408,6 +1409,7 @@
      "payee": "Nordea Gold",
      "cents": -63077,
      "estimate": true,
+     "laterCard": true,
      "afterCents": 234020,
      "rowAfterCents": 234020
     },
@@ -1918,10 +1920,8 @@
    "incomeCents": 4062300,
    "averageIncomeCents": 369300,
    "spendCents": 3660773,
-   "peak": {
-    "month": "2026-04",
-    "spendCents": 407585
-   }
+   "netCents": 401527,
+   "averageNetCents": 36502
   },
   "categories": {
    "rows": [
