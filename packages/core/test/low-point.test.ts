@@ -5,7 +5,7 @@ import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { runwayOf } from "../src/analysis/runway.ts";
 import { addDays, dateIn, daysBetween, daysInMonth, fromMonthIndex, monthIndex, weekdayOf } from "../src/dates.ts";
 import { loanUnknownSubject } from "../src/loan-terms-answer.ts";
-import { type LowPoint, lowPoint, paydayParts } from "../src/low-point.ts";
+import { type LowPoint, lowPoint } from "../src/low-point.ts";
 import { LOW_POINT_DAYS } from "../src/thresholds.ts";
 import { type Account, type BalanceInput, type ExpectedBill, type IsoDate, type Loan, NO_INPUTS, type Transaction, type UserInputs } from "../src/types.ts";
 import { cardGaps } from "../src/unconnected-cards.ts";
@@ -471,43 +471,6 @@ describe("lowPoint's spending between the steps", () => {
     if (!walked.known) throw new Error("no figure");
     expect(walked.spending.length).toBeGreaterThan(0);
     expectRowsAddUp(walked);
-  });
-});
-
-describe("paydayParts: the rows that make Jää palkkapäivänä", () => {
-  /** The rows of the walk to the payday with the balance they start from, and the figure of the runway they must end at. */
-  function parts(rows: Transaction[], balances: BalanceInput[], accounts: Account[] = [own]) {
-    const { walked, runway } = walk(rows, balances, undefined, NO_INPUTS, accounts);
-    if (!walked.known || !runway.known) throw new Error("no figure");
-    return { walked, runway, parts: paydayParts(walked, runway.payday.date, runway.leftCents) };
-  }
-
-  it("adds the payments, the pay left out, and the spending up from the balance to Jää palkkapäivänä to the cent", () => {
-    const { runway, walked, parts: p } = parts([...pays(), ...rents(), ...shopping("2026-03-01", 4000, ["2026-07", "2026-08", "2026-09"])], [bal(900_000)]);
-    expect(p).not.toBeNull();
-    expect(p!.steps.map((s) => [s.date, s.cents])).toEqual([["2026-11-01", -RENT]]);
-    expect(p!.spending.map((s) => s.cents)).toEqual([-24_000 * 1.5, -48_000 * 1.5]);
-    expect(walked.startCents + [...p!.steps, ...p!.spending].reduce((n, r) => n + r.cents, 0)).toBe(runway.leftCents);
-  });
-
-  it("adds up with a card: its bill on either side of the payday, its debt and the purchases a bill takes", () => {
-    for (const billDay of ["09", "20"]) {
-      const rows = [...pays(), ...rents(), ...cardShopping(), ...statements(billDay)].filter((t) => t.bookingDate <= TODAY);
-      const { walked, runway, parts: p } = parts(rows, balBoth(200_000), [own, card]);
-      expect(p, `a bill on the ${billDay}th`).not.toBeNull();
-      expect(runway.balanceCents - walked.cardDebtCents + [...p!.steps, ...p!.spending].reduce((n, r) => n + r.cents, 0), `a bill on the ${billDay}th`).toBe(runway.leftCents);
-    }
-  });
-
-  it("leaves out the pay of the payday and what comes after it", () => {
-    const { runway, parts: p } = parts([...pays(), ...rents(), ...shopping("2026-03-01", 4000)], [bal(900_000)]);
-    expect(p!.steps.every((s) => s.cents < 0 && s.date <= runway.payday.date)).toBe(true);
-    expect(p!.spending.every((s) => s.date <= runway.payday.date)).toBe(true);
-  });
-
-  it("is null when the rows do not add up to the figure", () => {
-    const { walked } = parts([...pays(), ...rents(), ...shopping("2026-03-01", 4000)], [bal(900_000)]);
-    expect(paydayParts(walked, "2026-11-13", 1)).toBeNull();
   });
 });
 
