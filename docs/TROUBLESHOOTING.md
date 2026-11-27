@@ -123,7 +123,7 @@ source update builds its image first, so `--check` cannot tell its migrations.
 
 | What you see | What to do |
 |---|---|
-| A debt may be counted twice, and *Saldot*, *Lainat* or the first page says "Sama velka voi olla summassa kahdesti" | A saved loan and a connected card or loan account may be the same debt, and until you say so both are counted. Open the loan under *Raportit > Varat ja velat > Lainat*, press *Muokkaa*, choose the account in *Sama velka pankin tilillä* and save, or follow the link in the report's sentence. The debt then counts once, with the balance from the bank. |
+| A debt may be counted twice, and *Lainat* or the first page says "Sama velka voi olla summassa kahdesti" | A saved loan and a connected card or loan account may be the same debt, and until you say so both are counted. Open the loan under *Raportit > Varat ja velat > Lainat*, press *Muokkaa*, choose the account in *Sama velka pankin tilillä* and save, or follow the link in the report's sentence. The debt then counts once, with the balance from the bank. |
 
 ## Figures and categories
 

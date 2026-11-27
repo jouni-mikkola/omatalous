@@ -18,7 +18,7 @@ const monthsOf = (n: number) =>
 
 const MONTHS = monthsOf(12).map((month, i) => ({ month, incomeCents: 400000 + i * 100, spendCents: 300000 + i * 100, complete: i > 0 && i < 11, againstUsual: i > 0 && i < 11 ? { cents: 300000 + i * 100 - 214900, side: "more" as const } : null }));
 // what the server adds up over the ten complete months of MONTHS: the page prints these and sums nothing
-const completeTotals = { months: 10, incomeCents: 4005000, averageIncomeCents: 400500, spendCents: 3005500, peak: { month: "2026-10", spendCents: 301000 } };
+const completeTotals = { months: 10, incomeCents: 4005000, averageIncomeCents: 400500, spendCents: 3005500, netCents: 999500, averageNetCents: 99950 };
 const overview = (more: Record<string, unknown> = {}) => ({ months: MONTHS, usualSpendCents: 214900, usualMonths: 10, completeTotals, ...more });
 const stripItems = () => [...document.querySelectorAll(".strip-item")].map((li) => [...li.children].map((c) => flat(c.textContent)).join(" "));
 
@@ -130,7 +130,7 @@ describe("Tulot ja menot", () => {
   it("leaves the sentence to the page's lead: the section draws only the bars", async () => {
     const container = await show({ overview: overview({ gap: { gapCents: 123400, creditCents: 50000, savingsCents: 73400, accountsCents: 0 } }) });
     expect(flat(container.textContent)).not.toContain("Menot yli tulojen");
-    expect(container.querySelector(".q-lead")).toBeNull();
+    expect(container.querySelector(".strip")).toBeNull();
   });
 
   it("is nothing with no month", async () => {
@@ -163,12 +163,10 @@ describe("Tulot ja menot", () => {
   });
 });
 
-describe("Tulot ja menot: the sentence the page opens with", () => {
-  async function lead(answer: { overview: unknown }) {
+describe("Tulot ja menot: the tiles the page opens with", () => {
+  function lead(answer: { overview: unknown }) {
     fresh();
-    const view = render(createElement(CashflowLead, { ctx: ctxOf(answer.overview) }));
-    await waitFor(() => expect(view.container.querySelector(".q-lead")).not.toBeNull());
-    return flat(view.container.querySelector(".q-lead")?.textContent);
+    return render(createElement(CashflowLead, { ctx: ctxOf(answer.overview) })).container;
   }
 
   function gapShown(gap: Record<string, number>, more: Record<string, unknown> = {}) {
@@ -184,7 +182,7 @@ describe("Tulot ja menot: the sentence the page opens with", () => {
     expect(text).toContain("Luotosta 500 €");
     expect(text).toContain("Säästöistä 734 €");
     expect(text).not.toContain("Tileiltä");
-    expect(document.querySelector(".q-lead")).toBeNull();
+    expect(document.querySelector(".strip-item .strip-figure")!.classList.contains("bad")).toBe(true);
   });
 
   it("gives the gap tile alone when nothing is known to have paid it", () => {
@@ -193,36 +191,34 @@ describe("Tulot ja menot: the sentence the page opens with", () => {
     expect(text).not.toContain("Rahat tulivat");
   });
 
-  it("says the income covered the complete months when they have no gap, and gives their figures once, in the strip", async () => {
+  it("leads with the difference of the complete months in the colour of good news when they have no gap, and gives each figure once, with no sentence", () => {
     // the ten complete months of MONTHS
-    expect(await lead({ overview: overview() })).toBe("Päättyneinä kuukausina tulot riittivät menoihin ja säästöön siirrettyyn rahaan.");
-    expect(stripItems()).toEqual([
-      "Tulot, 10 kk 40 050 € Keskimäärin 4 005 € kuussa",
-      "Menot, 10 kk 30 055 € Suurin kuukausi lokakuu 2026, 3 010 €",
-      "Tavallinen kuukausi 2 149 € Ilman suuria ostoja, 10 kk",
-    ]);
+    const container = lead({ overview: overview() });
+    expect(container.querySelector("p")).toBeNull();
+    expect(stripItems()).toEqual(["Erotus, 10 kk +9 995 € +1 000 €/kk", "Tulot, 10 kk 40 050 € 4 005 €/kk", "Menot, 10 kk 30 055 € Tavallinen kuukausi 2 149 €"]);
+    expect([...container.querySelectorAll(".strip-figure")].map((f) => f.className)).toEqual(["strip-figure good", "strip-figure", "strip-figure"]);
   });
 
-  it("prints the server's totals as they are, whatever the months of the answer hold", async () => {
-    await lead({ overview: overview({ completeTotals: { months: 3, incomeCents: 1234500, averageIncomeCents: 411500, spendCents: 987600, peak: { month: "2026-09", spendCents: 400000 } } }) });
-    expect(stripItems().slice(0, 2)).toEqual(["Tulot, 3 kk 12 345 € Keskimäärin 4 115 € kuussa", "Menot, 3 kk 9 876 € Suurin kuukausi syyskuu 2026, 4 000 €"]);
+  it("prints the server's totals as they are, whatever the months of the answer hold", () => {
+    lead({ overview: overview({ completeTotals: { months: 3, incomeCents: 1234500, averageIncomeCents: 411500, spendCents: 987600, netCents: -50000, averageNetCents: -16667 } }) });
+    expect(stripItems().slice(0, 2)).toEqual(["Erotus, 3 kk −500 € −167 €/kk", "Tulot, 3 kk 12 345 € 4 115 €/kk"]);
+    expect(document.querySelector(".strip-figure")!.classList.contains("bad")).toBe(true);
   });
 
-  it("draws the income, spending and usual month tiles after the gap tile", () => {
+  it("draws the gap tile in place of the difference, then the income and the spending", () => {
     gapShown({ gapCents: 20000, creditCents: 0, savingsCents: 0, accountsCents: 0 });
-    expect(stripItems()).toHaveLength(4);
-    expect(stripItems()[1]).toBe("Tulot, 10 kk 40 050 € Keskimäärin 4 005 € kuussa");
+    expect(stripItems()).toHaveLength(3);
+    expect(stripItems().join(" ")).not.toContain("Erotus");
+    expect(stripItems()[1]).toBe("Tulot, 10 kk 40 050 € 4 005 €/kk");
   });
 
-  it("draws two figures when there is no usual month, and names no dearest month of a single one", async () => {
-    await lead({ overview: overview({ usualSpendCents: null, usualMonths: 0, completeTotals: { months: 1, incomeCents: 400100, averageIncomeCents: 400100, spendCents: 300100, peak: null } }) });
-    expect(document.querySelector(".strip")!.getAttribute("data-count")).toBe("2");
-    expect(stripItems()).toEqual(["Tulot, 1 kk 4 001 € Keskimäärin 4 001 € kuussa", "Menot, 1 kk 3 001 €"]);
+  it("leaves the usual month out of the spending tile when there is none", () => {
+    lead({ overview: overview({ usualSpendCents: null, usualMonths: 0, completeTotals: { months: 1, incomeCents: 400100, averageIncomeCents: 400100, spendCents: 300100, netCents: 100000, averageNetCents: 100000 } }) });
+    expect(stripItems()).toEqual(["Erotus, 1 kk +1 000 € +1 000 €/kk", "Tulot, 1 kk 4 001 € 4 001 €/kk", "Menot, 1 kk 3 001 €"]);
   });
 
-  it("is nothing when no month is complete", async () => {
-    fresh();
-    const view = render(createElement(CashflowLead, { ctx: ctxOf(overview({ months: MONTHS.map((m) => ({ ...m, complete: false })), completeTotals: null })) }));
-    expect(view.container.querySelector(".q-lead")).toBeNull();
+  it("is nothing when no month is complete", () => {
+    const container = lead({ overview: overview({ months: MONTHS.map((m) => ({ ...m, complete: false })), completeTotals: null }) });
+    expect(container.innerHTML).toBe("");
   });
 });

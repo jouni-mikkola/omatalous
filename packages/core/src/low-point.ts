@@ -120,7 +120,7 @@ interface LowPointStep {
   cents: number;
   /** A sum that is the usual of a series whose charges vary, or a pay beyond the next two, rather than a known one. */
   estimate: boolean;
-  /** Set on the debt of a card whose bill falls after the payday: Jää palkkapäivänä leaves it out. */
+  /** Set on the debt of a card whose bill falls after the payday. */
   laterCard?: true;
   /** The balance at the end of its day, after all its payments and pays and the spending to it: the same for every step of a day, the line's own figure. */
   afterCents: number;
@@ -291,19 +291,4 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
     return { ...m, afterCents: afterOf(m.date), rowAfterCents };
   });
   return { known: true, date: point.date, cents: point.cents, lowCents: lowest, highCents: highest, days, line, steps, startCents, cardDebtCents: ahead.balance.cardDebtCents, spending };
-}
-
-/**
- * Jää palkkapäivänä told in the rows of the walk that make it: the payments of the days up to the payday, the payday's own
- * included and its pay left out (it lands after them), and the spending rows taken off before the payday's steps. With the
- * balance after the cards' debt (`startCents`) they add up to `leftCents`, the figure of `runwayOf`, to the cent. null when
- * they do not (a payday with no step of its own, a pay before it that the runway leaves out): the figure then has no working to show.
- */
-export function paydayParts(low: Extract<LowPoint, { known: true }>, payday: IsoDate, leftCents: number) {
-  const steps = low.steps.filter((s) => s.date < payday || (s.date === payday && s.cents < 0 && !s.laterCard));
-  // the purchases of a card billed on the payday are held by that bill, which the pay pays: left out with it
-  const billedOnPayday = low.steps.some((s) => s.date === payday && s.laterCard);
-  const spending = low.spending.filter((p) => p.date <= payday && !(billedOnPayday && p.kind === "cards" && p.date === payday));
-  const total = [...steps, ...spending].reduce((n, r) => n + r.cents, low.startCents);
-  return total === leftCents ? { balanceCents: low.startCents + low.cardDebtCents, steps, spending } : null;
 }

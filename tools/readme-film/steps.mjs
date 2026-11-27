@@ -358,16 +358,16 @@ async function desk(/** @type {Film} */ film) {
   const answer = page.locator('[data-tile="left"]');
   await answer.waitFor({ state: "visible" });
   const left = plain(await answer.locator(".fig").textContent());
-  const payday = /palkkapäivänä (\d{1,2}\.\d{1,2}\.)/.exec(plain(await page.locator("#home-now-h").textContent()))?.[1];
+  const payday = /palkkapäivänä (\d{1,2}\.\d{1,2}\.)/.exec(plain(await page.locator('[data-row="left"] dt').textContent()))?.[1];
   if (!payday) throw new Error("Yhteenveto names no payday");
   film.marks = [await film.box(answer)];
   await film.say(`Yhteenveto: ${shown(left)} is left on payday, ${englishDate(payday)}, after the bills and the everyday spending before it.`);
   await film.glide(film.beside(await film.box(answer.locator(".fig"))));
   await film.read({ poster: true });
 
-  // 5. from the figure to the bills behind it: the figure is the link
+  // 5. from the figure to the bills behind it: the bills row is the link
   film.marks = [];
-  await film.click(answer);
+  await film.click(page.locator('[data-tile="bills"]'));
   const list = page.locator("#laskut-taulukko");
   await list.waitFor({ state: "visible" });
   const { month, head } = await billsMonth(list);
@@ -409,7 +409,7 @@ async function phone(/** @type {Film} */ film) {
   await film.say("The same pages on a phone, with the tabs at the bottom.");
   // a finger's tap has no glide before it
   await film.read({}, CLICK_MS - GLIDE_MS);
-  await film.click(answer);
+  await film.click(page.locator('[data-tile="bills"]'));
   const list = page.locator("#laskut-taulukko");
   await list.waitFor({ state: "visible" });
   await film.shoot(700);

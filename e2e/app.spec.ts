@@ -328,24 +328,23 @@ test("the merchants of the month on Tapahtumat, and a merchant there has a summa
   await context.close();
 });
 
-test("the lead of Tapahtumat names the biggest day and links a payee for the month, and on a phone the payees stay folded", async ({ browser }) => {
+test("the lead of Tapahtumat links a payee for the month, and the payees stay folded with the histogram at every width", async ({ browser }) => {
   for (const [width, height] of [[1440, 900], [390, 844]] as const) {
     const phone = width < 600;
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height }, isMobile: phone, hasTouch: phone });
     const page = await context.newPage();
     const seen = watch(page);
     await page.goto("/#/transactions");
-    const lead = page.getByRole("region", { name: "Tämä kuukausi" });
-    await expect(lead.locator(".tx-lead-day")).toContainText(/^Suurin päivä .+:.+€,\s*\d+\s+tapahtum/);
+    const lead = page.locator(".tx-lead");
     const link = lead.locator(".tx-lead-list a").first();
-    if (phone) {
-      // closed: the day's sentence is the summary and the payees wait behind it
-      const fold = lead.locator("details.tx-lead-fold");
-      await expect(fold).not.toHaveAttribute("open", "");
-      await expect(link).toBeHidden();
-      await lead.locator("summary").click();
-      await expect(fold).toHaveAttribute("open", "");
-    }
+    // closed: the histogram's title is the summary and the payees wait behind it, so the list starts under the sums
+    const fold = page.locator("details.tx-hist-fold");
+    await expect(fold).not.toHaveAttribute("open", "");
+    await expect(page.getByText(/Suurin päivä/)).toHaveCount(0);
+    await expect(link).toBeHidden();
+    await fold.locator("summary").click();
+    await expect(fold).toHaveAttribute("open", "");
+    await expect(page.getByRole("region", { name: "Tämä kuukausi" })).toBeVisible();
     await expect(link).toBeVisible();
     // a payee opens the list for that payee over the days the lead adds up
     const merchant = (await link.innerText()).trim();
@@ -441,7 +440,7 @@ test("sign out and back in", async ({ page }) => {
   expect(seen.problems.filter((p) => !/HTTP 401: POST .*\/api\/auth\/login/.test(p) && !/Failed to load resource.*401/.test(p))).toEqual([]);
 });
 
-// 1850 and not 1800: the days strip of the picked month gained a row for the pay's name above its 32 px bars.
+// 1850 and not 1800: the limit keeps room for the open month's rows and totals.
 test("the Laskut page at 1440 px is at most 1850 px tall and does not scroll sideways", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
@@ -499,7 +498,7 @@ test("an expected bill is added at the head of Tulossa, shows in its one table, 
     await expect(dueMonth(p)).toHaveAttribute("aria-expanded", "true");
   };
   await showDueMonth(page);
-  await expect(table.locator("tbody tr").filter({ has: page.locator("button.rt-drill") }).filter({ hasText: "E2E-ajoneuvovero" })).toContainText("Tiedossa");
+  await expect(table.locator("tbody tr").filter({ has: page.locator("button.rt-drill") }).filter({ hasText: "E2E-ajoneuvovero" })).not.toContainText("Summa arvioitu");
   const remove = (p: Page) => p.locator("#laskut-taulukko").getByRole("button", { name: "Poista lasku E2E-ajoneuvovero" });
   const open = (p: Page) => p.locator("#laskut-taulukko").getByRole("button", { name: "Tiedot: E2E-ajoneuvovero" });
   await open(page).click();

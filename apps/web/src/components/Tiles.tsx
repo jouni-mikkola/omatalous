@@ -8,10 +8,11 @@ interface TileDelta {
   good: boolean;
 }
 
-/** One tile: its name, the figure as the answer wrote it, an optional delta chip and one line that sets it against something. */
+/** One tile: its name, the figure as the answer wrote it, an optional delta chip and one line that sets it against something. `tone` colours a figure that is itself the good or bad news. */
 export interface TileItem {
   label: string;
   figure: string;
+  tone?: "good" | "bad";
   delta?: TileDelta;
   note?: string;
   /** Where the figure's rows are; the figure is then a link. */
@@ -29,7 +30,7 @@ export function Tiles({ items }: { items: readonly TileItem[] }) {
       {items.map((item) => (
         <li key={item.label} className="strip-item">
           <span className="strip-label">{item.label}</span>
-          <span className="strip-figure">
+          <span className={item.tone ? `strip-figure ${item.tone}` : "strip-figure"}>
             {item.href ? (
               <a href={item.href}>
                 <Figure text={item.figure} size="l" />
