@@ -353,18 +353,17 @@ describe("lowPoint with a card", () => {
     expect(point.highCents).toBeLessThanOrEqual(runway.freeCents);
   });
 
-  it("takes the debt of a card whose bill falls after the payday off whole from today, and never a second time with its bill", () => {
-    // the bill is paid on the 20th, after the payday of 13.11.: Käytettävissä takes the 680 € off whole, as no bill of the window holds it
+  it("takes the debt of a card whose bill falls after the payday off on the bill's day, once", () => {
+    // the bill is paid on the 20th, after the payday of 13.11.: the debt waits for it, so Käytettävissä takes nothing off for it
     const rows = [...pays(), ...rents(), ...cardShopping(), ...statements("20")].filter((t) => t.bookingDate <= TODAY);
-    const { point, runway, basis } = walk(rows, balBoth(200_000), undefined, NO_INPUTS, [own, card]);
-    if (!point.known || !runway.known) throw new Error("no figure");
-    expect(basis.ahead.balance!.cardDebtCents).toBe(OWED);
-    expect(runway.freeCents).toBe(200_000 - OWED - RENT);
+    const { point, runway, basis, walked } = walk(rows, balBoth(200_000), undefined, NO_INPUTS, [own, card]);
+    if (!point.known || !runway.known || !walked.known) throw new Error("no figure");
+    expect(basis.ahead.balance!.cardDebtCents).toBe(0);
+    expect(walked.cardDebtCents).toBe(0);
+    expect(runway.freeCents).toBe(200_000 - RENT);
     expect(point.highCents).toBeLessThanOrEqual(runway.freeCents);
-    // the bill on 20.11. holds that debt, so the 680 € is not taken off a second time: the lowest is Käytettävissä, 420 €,
-    // from the rent on 1.11. to the pay; a second 680 € would give -260 €
-    expect(point.cents).toBe(42_000);
-    expect(point.cents).toBe(runway.freeCents);
+    // the debt is one step on the bill's day, in place of the bill's own row
+    expect(walked.steps.filter((s) => s.date === "2026-11-20" && s.payee === card.name).map((s) => s.cents)).toEqual([-OWED]);
   });
 });
 

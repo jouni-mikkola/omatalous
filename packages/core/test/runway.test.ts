@@ -137,9 +137,27 @@ describe("Jää palkkapäivänä", () => {
     expect(ahead.rows.some((x) => x.source === "card")).toBe(false);
     expect(r.billedCents).toBe(0);
     expect(r.leftCents).toBe(r.freeCents);
-    // no bill before the payday holds what the card owes: it is taken off whole
-    expect(ahead.balance!.cardDebtCents).toBe(OWED);
-    expect(r.freeCents).toBe(200_000 - OWED - RENT);
+    // the bill is after the payday, so the debt waits for the coming pay: it is told and taken off nothing
+    expect(ahead.balance!.cardDebtCents).toBe(0);
+    expect(ahead.balance!.laterCardDebts).toEqual([{ cardId: card.id, name: card.name, cents: OWED, date: "2026-11-20" }]);
+    expect(r.parts.laterCards).toEqual({ cents: OWED, count: 1 });
+    expect(r.freeCents).toBe(200_000 - RENT);
+    expect(r.leftCents).toBe(200_000 - RENT);
+  });
+
+  it("tells Jää palkkapäivänä in parts that add up to it to the cent", () => {
+    const sumOf = (r: ReturnType<typeof known>) => r.parts.balanceCents + r.parts.bills.cents + r.parts.cardBills.cents + r.parts.spending.cents;
+    // a card bill before the payday, the rent and the spending of the days
+    const before = known(run(onCard).runway);
+    expect(before.parts).toMatchObject({ balanceCents: 200_000, bills: { cents: -RENT, count: 1 }, cardBills: { cents: -OWED, count: 1 }, spending: { cents: -before.billedCents }, laterCards: { cents: 0, count: 0 } });
+    // a debt taken off at once because no bill of the card is known
+    const noBill = known(run(onDebit, [bal(own, 200_000), bal(card, -OWED)]).runway);
+    for (const r of [before, noBill, known(run(onDebit, [bal(own, 500_000)]).runway)]) {
+      expect(sumOf(r)).toBe(r.leftCents);
+      expect(r.parts.spending.lowCents).toBeLessThanOrEqual(r.parts.spending.cents);
+      expect(r.parts.spending.highCents).toBeGreaterThanOrEqual(r.parts.spending.cents);
+    }
+    expect(noBill.parts.cardBills.cents).toBe(-OWED);
   });
 
   it("takes the everyday spending of the account itself off the days to the payday, with a range from the months", () => {
