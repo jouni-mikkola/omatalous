@@ -91,6 +91,11 @@ describe("Now", () => {
     expect(nowOf(known({ date: "2026-12-10", cents: 360_000 }), { ...runway, days: 0 }).querySelector("p.home-low")).toBeNull();
   });
 
+  it("shows the line when the lowest balance is below the sum left on the payday", () => {
+    const line = nowOf(known({ date: "2026-12-09", cents: 300_000 }), runway).querySelector("p.home-low")!;
+    expect(flat(line.textContent)).toBe("Saldo on alimmillaan 9.12., arviolta 3 000 €");
+  });
+
   it("does not tell the reason twice: an unknown lowest balance for the reason of the figure's own line has no line", () => {
     const section = nowOf({ known: false, reason: "no-payday", days: 60 });
     expect(flat(section.querySelector(".home-fig-line")?.textContent)).toBe("Palkkapäivä ei vielä tiedossa");

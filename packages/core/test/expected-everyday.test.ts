@@ -78,15 +78,18 @@ describe("the expected everyday spending of a span of days", () => {
   });
 
   it("a row pays a planned loan only through the key of a saved loan that has a plan", () => {
-    const key = seriesId({ direction: "out", accountId: "acc-1", merchant: "Pankki Laina", product: null });
+    const key = seriesId({ direction: "out", accountId: "acc-1", merchant: "Pankki Laina", product: 12_000 });
     const loan: Loan = {
       id: "loan-1", name: "Laina", lender: "ESIMERKKIPANKKI", kind: "consumer", grantedCents: null, balanceCents: 1_000_000, balanceDate: "2026-10-01", rateBp: null,
       reference: null, marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: null, endDate: null, limitCents: null, seriesKey: key,
     };
     const repayment = tx({ accountId: "acc-1", bookingDate: "2026-09-10", amountCents: -12_000, merchant: "Pankki Laina", category: "loans" });
     const other = tx({ accountId: "acc-1", bookingDate: "2026-09-10", amountCents: -12_000, merchant: "Perintä Oy", category: "loans" });
+    // an extra repayment to the same lender, off the plan's payment, has no plan row and stays in the everyday spending
+    const extra = tx({ accountId: "acc-1", bookingDate: "2026-09-20", amountCents: -50_000, merchant: "Pankki Laina", category: "loans" });
     expect(plannedLoanRow({ ...NO_INPUTS, loans: [loan] })(repayment)).toBe(true);
     expect(plannedLoanRow({ ...NO_INPUTS, loans: [loan] })(other)).toBe(false);
+    expect(plannedLoanRow({ ...NO_INPUTS, loans: [loan] })(extra)).toBe(false);
     expect(plannedLoanRow({ ...NO_INPUTS, loans: [{ ...loan, kind: "credit_line" }] })(repayment)).toBe(false);
     expect(plannedLoanRow(NO_INPUTS)(repayment)).toBe(false);
   });

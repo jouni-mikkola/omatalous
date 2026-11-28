@@ -98,16 +98,15 @@ function AnswerCard({ runway, lowLine }: { runway: KnownRunway; lowLine: ReactNo
  * period and not the month: the answer card (AnswerCard). While the everyday spending cannot be expected (under three complete
  * months, a card's purchases missing) the figure is `nyt.left` (Käytettävissä palkkapäivään), the money after the payments
  * alone, with its sum a day; it leads to Laskut, whose list holds the bills it takes off. Under either stands the lowest balance of
- * the days to the payday (`home.lowPoint`) when it differs from that figure: the walk ends at the payday, so a known lowest balance within the window is the figure above (the same sum, on the payday or on an earlier day that ties), and a reason the figure's own line gives is not told twice. Nothing is added up here.
+ * the days to the payday (`home.lowPoint`) when it differs from that figure: a known lowest balance of the same sum is the figure above and has no line, a lower one has its line, and a reason the figure's own line gives is not told twice. Nothing is added up here.
  */
 export function Now({ data }: { data: Data }) {
   const { left } = data.nyt;
   const { lowPoint } = data.home;
   const runway = data.home.runway?.leftOnPayday;
-  const payday = paydayOf(data);
   // the reason the figure's own line gives while it has no sum: an unknown lowest balance for the same reason says nothing more
   const ownReason = runway?.known || left.known ? null : left.reason;
-  const lowHidden = lowPoint?.known ? (runway?.known === true && lowPoint.cents === runway.leftCents) || (payday !== null && lowPoint.date <= payday) : lowPoint?.reason === ownReason;
+  const lowHidden = lowPoint?.known ? runway?.known === true && lowPoint.cents === runway.leftCents : lowPoint?.reason === ownReason;
   const lowLine = <LowPoint lowPoint={lowHidden ? null : lowPoint} />;
   if (runway?.known) return <AnswerCard runway={runway} lowLine={lowLine} />;
   // a sum a day below zero says nothing the sum does not: the line tells what is missing

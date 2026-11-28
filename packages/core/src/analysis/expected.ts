@@ -390,7 +390,7 @@ export function expectedEveryday(ctx: AnalysisContext, from: IsoDate, until: Iso
 
 /**
  * `expectedEveryday` of one set of rows for many spans: the base months' days are read once and each span sums them, so a
- * walk that asks for a span to every day of 60 reads the rows once. The same figure as `expectedEveryday` for the same span.
+ * walk that asks for a span to each of its days reads the rows once. The same figure as `expectedEveryday` for the same span.
  */
 export function everydaySpans(ctx: AnalysisContext, keep: (t: AnalysisTx) => boolean, month: string, planned: (t: AnalysisTx) => boolean = () => false): ((from: IsoDate, until: IsoDate) => ExpectedEveryday) | EverydayGap {
   const figure = expectedFor(ctx, month);
