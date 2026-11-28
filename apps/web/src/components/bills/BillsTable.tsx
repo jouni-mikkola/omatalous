@@ -203,7 +203,11 @@ export function BillsTable({
         ) : r.kind === "total" ? (
           ""
         ) : (
-          <span className="sub-merchant">{rowName(r)}</span>
+          <span className="tc-mark">
+            <span className="tc-name">
+              <span className="sub-merchant">{rowName(r)}</span>
+            </span>
+          </span>
         ),
     },
     {
