@@ -7,7 +7,8 @@
  * from today). The debt of a card whose bill falls after the payday (`laterCardDebts`) is taken off on its bill's day. It walks
  * through the rows of the bill calendar (`billCalendar`: the bills, the loan payments, the regular savings and the pays)
  * day by day for `days` days, today included, and takes the expected everyday spending off as it goes. A pay counts for
- * the payments of the days after its own: on a day with a payment and a pay, the payment is met from the balance before
+ * the payments of the days after its own (a walk that ends on the payday leaves out the payments dated that day, paid from the pay
+ * as in the payday window, so its lowest point is never lower than Jää palkkapäivänä): on a day with a payment and a pay, the payment is met from the balance before
  * it, as in `aheadBasis`. A card's bill beyond the window holds that same debt, so its row is left out of the walk, never
  * taking the debt off twice.
  *
@@ -158,6 +159,9 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
   if (!direct || !ahead.balance) return { known: false, reason: "no-balance", days };
   const { from } = ahead;
   const last = addDays(from, days - 1);
+  // a walk that ends on the payday leaves out the payments dated that day: they are paid from the pay, in no figure of the window (`ahead.paydayCents`), so the walk's lowest point is Jää palkkapäivänä and never lower than the headline
+  const payday = paydayOf(ahead);
+  const paidFromPay = payday && payday.date === last && payday.date > ahead.to ? payday.date : null;
   if (unknownPaymentBy(calendar, last)) return { known: false, reason: "bills", days };
   // a card's bill beyond the payday window holds the debt that is taken off whole from today: it is no row of the walk
   const heldByDebt = new Set(ahead.upcoming.flatMap((r) => (r.source === "card" && r.basis === "balance" && r.cents && r.date > ahead.to ? [`${r.date}|${r.name}|${Math.abs(r.cents)}`] : [])));
@@ -170,13 +174,13 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
   const calendarRows = calendar.months.flatMap((m) => m.rows);
   // a loan a series pays has the series' own days and sums in the calendar, as the runway takes them
   const rows = calendarRows
-    .filter((r) => r.state !== "paid" && !r.onCard && r.date >= from && r.date <= last && !(r.seriesId === null && r.kind === "bill" && (heldByDebt.has(`${r.date}|${r.payee}|${r.cents}`) || laterInRange.some((d) => d.date === r.date && d.name === r.payee))))
+    .filter((r) => r.state !== "paid" && !r.onCard && r.date >= from && r.date <= last && !(r.kind !== "income" && r.date === paidFromPay) && !(r.seriesId === null && r.kind === "bill" && (heldByDebt.has(`${r.date}|${r.payee}|${r.cents}`) || laterInRange.some((d) => d.date === r.date && d.name === r.payee))))
     .map((r) => (r.kind === "income" && r.date < runway.payday.date ? { ...r, date: runway.payday.date } : r))
     .sort(byDay);
   // the bills of a card shown only by them, which the bill calendar leaves out. `upcoming` reaches Laskut's 30 days and
   // `rows` the payday window, which can be longer: the window's rows after the 30 days complete the list, none twice
   const thirty = addDays(from, AHEAD_DAYS);
-  const cardBills = [...ahead.upcoming, ...ahead.rows.filter((r) => r.date > thirty)].filter((r) => r.source === "recurring" && r.category === "card_bill" && !r.onCard && !r.outside && r.cents && r.date >= from && r.date <= last);
+  const cardBills = [...ahead.upcoming, ...ahead.rows.filter((r) => r.date > thirty)].filter((r) => r.source === "recurring" && r.category === "card_bill" && !r.onCard && !r.outside && r.cents && r.date >= from && r.date <= last && r.date !== paidFromPay);
   // by payee, the day of the last one walked
   const billOnly = new Map<string, IsoDate>();
   for (const r of cardBills) if ((billOnly.get(r.name) ?? r.date) <= r.date) billOnly.set(r.name, r.date);
@@ -184,7 +188,7 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
   const paysBillOnly = (t: AnalysisTx, name: string) => t.category === "card_bill" && t.merchant === name && direct.has(t.accountId);
   const heldByBills = (t: AnalysisTx) => billOnly.has(t.merchant) && paysBillOnly(t, t.merchant);
   // a regular transfer to an account the balance does not count: Käytettävissä takes it off, and the bill calendar has no row of it
-  const transfers = ahead.rows.filter((r) => r.source === "transfer" && r.cents && r.date >= from && r.date <= last);
+  const transfers = ahead.rows.filter((r) => r.source === "transfer" && r.cents && r.date >= from && r.date <= last && r.date !== paidFromPay);
   const income = rows.filter((r) => r.kind === "income");
   const payments: { date: IsoDate; cents: number }[] = [...rows.filter((r) => r.kind !== "income"), ...[...cardBills, ...transfers].map((r) => ({ date: r.date, cents: Math.abs(r.cents!) })), ...laterDebts.map((d) => ({ date: d.date, cents: d.cents }))];
   const moves = [

@@ -92,13 +92,14 @@ describe("lowPoint with no everyday spending", () => {
     expect(balance!.shortCents).toBe(point.known ? -point.cents : null);
   });
 
-  it("counts a pay only from its own day: a payment on the payday is met from the balance before it", () => {
-    // the rent is booked on the 13th, the day of the pay: 500 € less 900 € is -400 € that day, not +2 600 €
-    const { basis, point } = walk([...pays(), ...rents("2026-03", 13)], [bal(50_000)], 19);
-    // the payday window of Käytettävissä ends the day before the pay, so it does not see this payment
-    expect(point).toEqual({ known: true, date: "2026-11-13", cents: -40_000, lowCents: -40_000, highCents: -40_000, days: 19 });
+  it("leaves a payment on the payday out, as the window and Jää palkkapäivänä do: the lowest point and the headline are one figure", () => {
+    // the rent is booked on the 13th, the day of the pay: it is paid from the pay, in no figure of the window
+    const { basis, point, runway } = walk([...pays(), ...rents("2026-03", 13)], [bal(50_000)], 19);
+    if (!point.known || !runway.known) throw new Error("no figure");
     expect(basis.ahead.to).toBe("2026-11-12");
     expect(basis.ahead.balance!.shortOn).toBeNull();
+    expect(point.cents).toBe(runway.leftCents);
+    expect(point).toEqual({ known: true, date: "2026-10-26", cents: 50_000, lowCents: 50_000, highCents: 50_000, days: 19 });
   });
 
   it("counts the 60th day and not the 61st: a payment on the last day is the lowest, one a day later is left out", () => {
