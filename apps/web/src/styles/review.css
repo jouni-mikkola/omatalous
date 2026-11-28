@@ -60,7 +60,8 @@
 .review-error { margin: 0; }
 .review-later { display: flex; justify-content: flex-start; gap: var(--sp-8); }
 /* Ohita is quiet: no frame, so it never competes with the choices */
-.review-skip { min-height: 44px; min-width: 64px; padding: 0; border: 0; background: none; color: var(--text-2); font: inherit; font-size: var(--fs-body); font-weight: var(--w-strong); cursor: pointer; }
+.review-skip { min-height: 44px; min-width: 64px; padding: 0 var(--sp-8); text-align: start; border: 0; background: none; color: var(--text-2); font: inherit; font-size: var(--fs-body); font-weight: var(--w-strong); cursor: pointer; }
+.review-later .review-skip { padding: 0; }
 .review-skip:hover:not(:disabled) { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
 .review-skip:disabled { cursor: default; opacity: 0.6; }
 /* the figure that shows more rows says so at rest with a dotted underline, a solid one under the pointer or the focus and while its rows are open */
