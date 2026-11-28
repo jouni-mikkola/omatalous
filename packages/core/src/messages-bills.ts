@@ -111,6 +111,8 @@ export const FI_BILLS = {
   "bills.paid_fold": "Maksetut laskut, {count}",
   "bills.card_fold": "Kortilla, {count}",
   "bills.dearest": "Kallein kuukausi on {month}, {sum}",
+  "bills.months_title": "Laskut kuukausittain",
+  "bills.table_month": "Taulukossa {month}",
   "bills.chart_label": "Laskut kuukausittain, 12 kuukautta",
   "bills.series_regular": "Säännölliset",
   "bills.series_rare": "Harvoin tulevat",

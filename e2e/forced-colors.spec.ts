@@ -112,15 +112,18 @@ for (const width of [390, 1440]) {
     await expect(page.locator("#laskut-taulukko .bill-month-name")).toBeVisible();
     await page.waitForLoadState("networkidle");
     expect(await page.evaluate(() => matchMedia("(forced-colors: active)").matches), "forced colours are on").toBe(true);
-    // the months of the picture picked in turn until one has an estimated bill among its rows
+    // the first month of the picture with an estimated bill among its rows (the answer lists the months in the picture's order), picked with the keys
     const estimated = page.locator("#laskut-taulukko .fig-est");
     const months = page.getByRole("group", { name: /Laskut kuukausittain/ });
-    for (let i = 0; i < 12 && (await estimated.count()) === 0; i++) {
-      await months.focus();
-      await page.keyboard.press("Home");
-      for (let k = 0; k < i; k++) await page.keyboard.press("ArrowRight");
-      await page.keyboard.press("Enter");
-    }
+    const answer = await page.request.get("/api/reports?scope=own&reports=billCalendar");
+    const calendar = ((await answer.json()) as { billCalendar: { months: { rows: { kind: string; state: string }[] }[] } }).billCalendar;
+    const target = calendar.months.findIndex((m) => m.rows.some((r) => r.kind !== "income" && r.state === "estimate"));
+    expect(target, "a month with an estimated bill").toBeGreaterThanOrEqual(0);
+    await months.focus();
+    await page.keyboard.press("Home");
+    for (let k = 0; k < target; k++) await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("Enter");
+    await expect(estimated.first()).toBeVisible();
 
     // the sum of an estimated bill: underlined with a dotted line, which a plain cell is not
     await expect(estimated.first(), "estimated marks in the table").toBeVisible();
