@@ -11,7 +11,7 @@ export type OpenSync = {
 
 /**
  * Whether the open page must stay as it is while rows arrive: a field or dialog has focus, or a view that holds what
- * the household picked (`data-keeps-page`, the preview and result of a bank or card file) is on screen.
+ * the household picked (`data-keeps-page`, the preview and result of a bank, card or data file, and loans read from a file) is on screen.
  */
 export function holdsPage(doc: Document): boolean {
   const at = doc.activeElement;
