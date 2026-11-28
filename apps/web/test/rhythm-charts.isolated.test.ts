@@ -34,7 +34,7 @@ describe("CalendarHeat", () => {
     expect(html).toContain("Tavalliseen verrattuna:");
     // no strip and no weekday column without their server fields
     expect(html).not.toContain("calendar-week-bar");
-    expect(html).not.toContain("ka / pv");
+    expect(html).not.toContain("Keskiarvo");
     // the grid takes the keyboard
     expect(html).toMatch(/class="calendar-grid" tabindex="0" role="group"/);
   });

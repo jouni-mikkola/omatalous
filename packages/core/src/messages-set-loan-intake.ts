@@ -11,7 +11,7 @@ export const FI_SET_LOAN_INTAKE = {
   "set.ln.loading_the_picture_reader": "Valmistelemme kuvan lukijaa…",
   "set.ln.reading_the_picture": "Luemme kuvaa… {share} %",
   "set.ln.stop": "Keskeytä",
-  "set.ln.reading_stalled": "Lukeminen jumittui. Yritä uudelleen tai liitä lainan tiedot tekstinä.",
+  "set.ln.reading_stalled": "Lukeminen kesti liian kauan. Yritä uudelleen tai liitä lainan tiedot tekstinä.",
   "set.ln.the_pdf_is_locked": "PDF-tiedosto on salasanalla suojattu. Avaa se ensin ja liitä sen teksti tähän.",
   "set.ln.the_pdf_could_not_be": "Emme voineet lukea PDF-tiedostoa. Yritä uudelleen tai liitä lainan tiedot tekstinä.",
   "set.ln.the_pdf_has_only_an": "PDF-tiedostossa on pelkkä kuva. Kopioi sen teksti ja liitä se tähän.",

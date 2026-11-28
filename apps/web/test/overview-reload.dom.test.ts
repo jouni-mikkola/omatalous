@@ -73,7 +73,7 @@ describe("Overview when a reload fails", () => {
   it("keeps the error card when the first load fails", async () => {
     await mount("start");
     const card = await screen.findByRole("alert", {}, T);
-    expect(card.textContent).toContain("Emme saaneet tietoja haettua.");
+    expect(card.textContent).toContain("Emme saaneet tietoja.");
     expect(card.textContent).toContain(SENTENCE);
     expect(document.querySelector(".home-figs"), "no figures").toBeNull();
     expect(screen.getAllByRole("alert")).toHaveLength(1);

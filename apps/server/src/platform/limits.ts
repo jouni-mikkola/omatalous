@@ -53,8 +53,8 @@ export const LIMIT_SCHEMA = [
   // OWASP's minimum for Argon2id: 19 MiB, 2 passes, 1 lane. The cap keeps hashSlots times memory inside a small server, also for a hash made before the memory was lowered.
   field({ key: "passwordMemoryKib", default: 19_456, min: 19_456, max: 32_768, envMin: 8, env: "PASSWORD_MEMORY_KIB", label: "Salasanatiivisteen muisti (kt)" }),
   field({ key: "passwordPasses", default: 2, min: 2, max: 10, envMin: 1, env: "PASSWORD_PASSES", label: "Salasanatiivisteen kierrokset" }),
-  field({ key: "consentDays", default: 180, min: 1, max: 365, env: "EB_CONSENT_DAYS", label: "Pankin suostumuksen pituus (pv)" }),
-  field({ key: "historyDays", default: 730, min: 30, max: 730, env: "HISTORY_DAYS", home: "instance", label: "Haettavan historian pituus (pv)" }),
+  field({ key: "consentDays", default: 180, min: 1, max: 365, env: "EB_CONSENT_DAYS", label: "Pankin suostumuksen pituus (päivää)" }),
+  field({ key: "historyDays", default: 730, min: 30, max: 730, env: "HISTORY_DAYS", home: "instance", label: "Haettavan historian pituus (päivää)" }),
 ] as const;
 
 type LimitKey = (typeof LIMIT_SCHEMA)[number]["key"];

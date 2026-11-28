@@ -226,7 +226,7 @@ export function DataImport() {
         </div>
       )}
       {plan && (
-        <div className="data-import-line">
+        <div className="data-import-line" data-keeps-page>
           <KeyValue
             className="data-import-plan"
             items={[
@@ -263,7 +263,7 @@ export function DataImport() {
         </div>
       )}
       {done && (
-        <div className="data-import-line" role="status">
+        <div className="data-import-line" role="status" data-keeps-page>
           <strong>{t("set.imp.imported")}</strong>: {counts(done.total, true)}
         </div>
       )}

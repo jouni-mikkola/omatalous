@@ -81,7 +81,6 @@ export const FI_REPORTS_2 = {
   "rpt.compare": "Vertaa",
   "rpt.recommendation": "Vinkki.",
   "rpt.effect": "{effect}. ",
-  "rpt.missing_from_figure": "Mitä luvusta puuttuu",
   "rpt.negative_total": "Miinuksella olevassa kategoriassa palautuksia oli jaksolla enemmän kuin menoja.",
   "rpt.download_csv": "Lataa taulukko (CSV)",
   "rpt.pivot_none": "Kuukausien vertailuun ei ole vielä tarpeeksi päättyneitä kuukausia.",

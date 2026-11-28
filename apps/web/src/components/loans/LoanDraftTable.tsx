@@ -112,7 +112,7 @@ export function LoanDraftTable({ drafts, loans, today, onSaved, onClose }: {
   };
 
   return (
-    <div className="loan-form" ref={here}>
+    <div className="loan-form" ref={here} data-keeps-page>
       <Table
         caption={t("set.ln.read_loans")}
         rows={rows}

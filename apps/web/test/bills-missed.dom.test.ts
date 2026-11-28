@@ -86,7 +86,7 @@ describe("Laskut: a later month opened", () => {
     expect(screen.queryByText("Vakuutus")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Joulukuu 2026/ }));
     expect(screen.getByText("Vakuutus")).toBeTruthy();
-    const fold = screen.getByRole("row", { name: /Kuukausittaiset laskut, 2 kpl/ });
+    const fold = screen.getByRole("row", { name: /Kuukausittaiset laskut, 2 laskua/ });
     expect((fold.textContent ?? "").replace(/[  ]/g, " ")).toContain("50,00 €");
     expect(screen.queryByText("Kaasuyhtiö")).toBeNull();
     fireEvent.click(within(fold).getByRole("button", { name: /Tiedot/ }));

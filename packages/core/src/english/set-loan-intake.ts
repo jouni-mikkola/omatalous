@@ -9,7 +9,7 @@ export const EN_SET_LOAN_INTAKE: Record<keyof typeof FI_SET_LOAN_INTAKE, string>
   "set.ln.loading_the_picture_reader": "Preparing the picture reader…",
   "set.ln.reading_the_picture": "Reading the picture… {share}%",
   "set.ln.stop": "Stop",
-  "set.ln.reading_stalled": "Reading stalled. Try again or paste the loan details as text.",
+  "set.ln.reading_stalled": "Reading took too long. Try again or paste the loan details as text.",
   "set.ln.the_pdf_is_locked": "The PDF is password protected. Open it first and paste its text here.",
   "set.ln.the_pdf_could_not_be": "We could not read the PDF. Try again or paste the loan details as text.",
   "set.ln.the_pdf_has_only_an": "The PDF has only an image. Copy its text and paste it here.",

@@ -431,7 +431,7 @@ Pay is found as a series of payments from a regular payer (`income-series.ts`, `
   its pay period, it is regular pay up to the payer's usual level, the median of its last six pay periods read before
   the payment, and only the part above is extra pay. A payment at or below the usual level is typed *Palkka* and joins
   the series. A second payment in the same period is not read this way.
-- **A change of payer.** *Mikä muuttui* on the income report lists a change of payer or a stopped pay that falls in the
+- **A change of payer.** The income report lists a change of payer or a stopped pay that falls in the
   twelve months the report shows. The alert on the first page reads the same list but keeps a change only
   `FIRST_PAGE_DAYS` (120 days) after the old payer's last payment. The new payer is one that began after the old one,
   within `SWITCH_PERIODS` pay periods of the old one's last and not long before its last payment. On the same account
@@ -608,7 +608,7 @@ or a loan that other members use is counted at the member's part, and its row sa
 accounts*).
 
 - **Tilit.** Checking, savings and other accounts, each with its balance from the day walk and every account its own row,
-  in the order core gives. The last row is *Tilit yhteensä*, `accountsCents`: the known balances of the accounts added
+  in the order core gives. The last row is *Tilien saldo*, `accountsCents`: the known balances of the accounts added
   together. An account the bank gave no balance shows a dash and is left out of the sum, which says so in the small line
   under it (*Ilman 2 tilin saldoa*); with no known balance at all the total is a dash, never 0.
   The totals count in euros: an account in another currency shows its balance with its currency code (*540,00 USD*)
@@ -761,11 +761,11 @@ what a credit card is charged, each with its sum, sent by `GET /api/ahead`.
   complete months, with the money that came back for them. The bars, the totals and the categories' own sums keep them.
   *Tavallinen kuukausi* has one source, `typicalFlowCents`: the line under the bars of *Tulot ja menot* reads it. The level of a
   category (the dashed line of *Kehitys* and the base of *Ero keskiarvoon* in the category table) is the level of its own sums, which keep a debt paid from savings, and the line of *Tulot kuukausittain* is the
-  mean of the income months under that label. *Mikä muuttui* starts from the categories' levels added up, labelled *Kategorioiden keskiarvot yhteensä* (the sum of the categories' own levels): that sum keeps a debt paid from savings and reads only the months the categories have a level for, so it can differ from *Tavallinen kuukausi*, and the two never share a name. The categories with no level at all (in practice those of a card connected late) are one step, *Kategoriat ilman keskiarvoa, kortti liitetty äskettäin*, and their whole sum is the step. The buffer's *Menot ja lainanmaksut kuukaudessa* is another figure, the
+  mean of the income months under that label. *Ero tavalliseen kuukauteen* starts from the categories' levels added up, labelled *Kategorioiden keskiarvot yhteensä* (the sum of the categories' own levels): that sum keeps a debt paid from savings and reads only the months the categories have a level for, so it can differ from *Tavallinen kuukausi*, and the two never share a name. The categories with no level at all (in practice those of a card connected late) are one step, *Kategoriat ilman keskiarvoa, kortti liitetty äskettäin*, and their whole sum is the step. The buffer's *Menot ja lainanmaksut kuukaudessa* is another figure, the
   *Odotettu* month with its loan payments, and does not carry the label. `apps/web/test/usual-month-label.test.ts` lists every reader of the label.
   `spendingChangeReport` (`reports/spending-change.ts`) is an older bridge of a month against its *Odotettu* plan with
   one-offs left out; no page shows it, the findings and the module-host contract still read it, so it stays until
-  those move to *Mikä muuttui*.
+  those move to *Ero tavalliseen kuukauteen*.
 - A category whose refunds were greater than its spending in the range stays in *Kategoriat* as a
   row with its minus, last in the order (in the view by theme its theme is under *Loput yhteensä*). Its share is negative, the shares add up to 100 %, and the page shows "–" for
   the share with a line under the table. The previous period is not cut at zero either, so *Muutos* adds up. The
@@ -792,7 +792,7 @@ what a credit card is charged, each with its sum, sent by `GET /api/ahead`.
 - *Saldot* draws the total of the connected accounts as an estimate, each counted back from the day the bank
   gave its balance (that day in the app's time zone).
   Its line is the accounts with the cards' balances in it. The page starts with the figures of `holdings` in one row,
-  *Tilit yhteensä* (`accountsCents`), *Velat yhteensä* (`debtCents`) and *Varat velkojen jälkeen* (`netCents`), the same
+  *Tilien saldo* (`accountsCents`), *Velat yhteensä* (`debtCents`) and *Varat velkojen jälkeen* (`netCents`), the same
   names and figures the groups under the chart have. While a debt has no balance the debts are named *tiedossa*, no net
   figure is shown and a line under the row counts those debts and links to their question.
   Its change (*Saldomuutos*) runs from the close of the day before the range starts to the close of its last known day,
@@ -933,7 +933,7 @@ one definition, in `packages/core/src/loans.ts`, and the list of the household's
 | Payoff date | The due date that brings the balance to zero, at the latest the last due date. None when a payment does not cover its interest or a field is missing | `loanPayoffDate` |
 | Next payment | The next payment of the plan in full, with its interest and its amortisation. It is never more than what is owed with its interest: the last payment is what is left. A loan that owes nothing has none, and neither has a bullet loan. A payment typed for a loan without a whole plan is told as typed, at most what is owed (with one interval's interest when the rate and the interval are known), and has no parts | `loanNextPayment` |
 | Payments a month | Each loan's next payment divided by its interval in months, to the nearest cent with a half cent up, added together. A loan that owes but has no payment with an interval is counted as missing. A bullet loan is counted apart: it pays interest and no instalment | `debtPaymentsPerMonth` |
-| Payments a month (Lainat) | The tile *Maksut kuussa*: the saved loans' payments above plus the payments of the unsaved loans and cards (the viewer's part, `UnsavedRow.monthlyCents`). A debt with no figure is counted beside the sum, a saved one that owes with no payment, an unsaved row with none, and a lender paid only a few times. The sum is no figure, never 0, while none is known | `monthlyPayments` in `reports/loans.ts` |
+| Payments a month (Lainat) | The tile *Kuukausierät*: the saved loans' payments above plus the payments of the unsaved loans and cards (the viewer's part, `UnsavedRow.monthlyCents`). A debt with no figure is counted beside the sum, a saved one that owes with no payment, an unsaved row with none, and a lender paid only a few times. The sum is no figure, never 0, while none is known | `monthlyPayments` in `reports/loans.ts` |
 | A move of the reference rate | The payment and the next 12 months' interest with the rate moved by a number of points. The rate falls no lower than the loan's margin, and to zero when no margin was told. The figure says how far the rate moved. An annuity gets the payment that ends the loan on the due date it ends on now, a fixed instalment keeps its payment and takes longer, equal principal pays the new interest on top. Each is read from the schedule the next payment is read from, so the last payment is what is left. Told for a loan with a Euribor reference rate that owes and has a rate, one point down and one up. A fall the rate has no room for is left out | `loanRateScenario` |
 | The household's debts | Every saved loan the view holds, and every connected card and loan account that owes something: the list behind every debt total. A saved loan the household linked to its account counts once, as one debt: with the bank's balance and the saved loan's rate and payments while the account's balance is at or below zero and not older than the balance typed for the loan, and as typed otherwise | `householdDebts` |
 | Credit use | Balance over limit: 1 is a full line. What is left to draw and what is over the limit come with it | `creditUse` |

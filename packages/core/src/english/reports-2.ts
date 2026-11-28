@@ -78,7 +78,6 @@ export const EN_REPORTS_2: Record<keyof typeof FI_REPORTS_2, string> = {
   "rpt.compare": "Compare",
   "rpt.recommendation": "Recommendation.",
   "rpt.effect": "Effect: {effect}. ",
-  "rpt.missing_from_figure": "What the figure leaves out",
   "rpt.negative_total": "In a category below zero, refunds in the period were larger than spending.",
   "rpt.download_csv": "Download table (CSV)",
   "rpt.pivot_none": "There are not yet enough complete months to compare months.",
