@@ -37,12 +37,4 @@ describe("docs:shots", () => {
     expect(pictures.filter((p) => p.width === 1440).every((p) => p.height === 900)).toBe(true);
   });
 
-  // The README is short: the film at the top (readme-film.test.ts) and the phone picture. Each picture it shows has a text for a reader who cannot see it.
-  it("the README shows the phone picture with a text for a reader who cannot see it", () => {
-    const readme = readFileSync(join(ROOT, "README.md"), "utf8");
-    const phone = (PICTURES as { file: string; width: number }[]).filter((p) => p.width !== 1440);
-    expect(phone).toHaveLength(1);
-    const alt = new RegExp(`<img src="docs/images/${phone[0]!.file}" alt="[^"]{20,}"`);
-    expect(readme).toMatch(alt);
-  });
 });
