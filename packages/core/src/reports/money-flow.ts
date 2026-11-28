@@ -48,9 +48,9 @@ export function moneyFlowReport(ctx: AnalysisContext, range: DateRange, inputs: 
   const sources: MoneyFlowBand[] = [
     { id: "earned", label: messageIn(lang, "income.kind_earned"), kind: "income", cents: earnedCents },
     { id: "other_income", label: messageIn(lang, "income.group_other"), kind: "income", cents: totals.incomeCents - earnedCents },
-    { id: "savings", label: messageIn(lang, "home.source_savings"), kind: "drawn", cents: cover.savingsDrawnCents },
-    { id: "credit", label: messageIn(lang, "home.source_credit"), kind: "drawn", cents: cover.creditDrawnCents },
-    { id: "accounts", label: messageIn(lang, "home.source_accounts"), kind: "drawn", cents: cover.accountsCents },
+    { id: "savings", label: messageIn(lang, "rpt.mf_source_savings"), kind: "drawn", cents: cover.savingsDrawnCents },
+    { id: "credit", label: messageIn(lang, "rpt.mf_source_credit"), kind: "drawn", cents: cover.creditDrawnCents },
+    { id: "accounts", label: messageIn(lang, "rpt.mf_source_accounts"), kind: "drawn", cents: cover.accountsCents },
   ];
 
   const byCategory = new Map<string, number>();
@@ -66,11 +66,11 @@ export function moneyFlowReport(ctx: AnalysisContext, range: DateRange, inputs: 
   const uses: MoneyFlowBand[] = [
     ...named.map(([category, cents]): MoneyFlowBand => ({ id: `category:${category}`, label: spendingLabel(getCategory(category), lang), kind: "spending", cents })),
     { id: "other_spending", label: messageIn(lang, "rpt.mf_other_spending"), kind: "spending", cents: rest },
-    { id: "interest", label: messageIn(lang, "home.bridge_interest"), kind: "debt", cents: split.interestCents },
-    { id: "principal", label: messageIn(lang, "home.bridge_principal"), kind: "debt", cents: split.principalCents },
-    { id: "unsplit", label: messageIn(lang, "home.bridge_unsplit"), kind: "debt", cents: totals.debtCents - split.interestCents - split.principalCents },
-    { id: "saved", label: messageIn(lang, "home.bridge_saved"), kind: "kept", cents: Math.max(0, totals.savedCents) },
-    { id: "repaid", label: messageIn(lang, "home.bridge_repaid"), kind: "debt", cents: cover.creditRepaidCents },
+    { id: "interest", label: messageIn(lang, "rpt.mf_interest"), kind: "debt", cents: split.interestCents },
+    { id: "principal", label: messageIn(lang, "rpt.mf_principal"), kind: "debt", cents: split.principalCents },
+    { id: "unsplit", label: messageIn(lang, "rpt.mf_unsplit"), kind: "debt", cents: totals.debtCents - split.interestCents - split.principalCents },
+    { id: "saved", label: messageIn(lang, "rpt.mf_saved"), kind: "kept", cents: Math.max(0, totals.savedCents) },
+    { id: "repaid", label: messageIn(lang, "rpt.mf_repaid"), kind: "debt", cents: cover.creditRepaidCents },
     { id: "stayed", label: messageIn(lang, "rpt.mf_stayed"), kind: "kept", cents: Math.max(0, totals.leftCents) },
   ];
 
