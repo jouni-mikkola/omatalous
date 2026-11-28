@@ -32,7 +32,7 @@ import {
   type TraceRow,
   type Undo,
 } from "./money-trace-lots.ts";
-import { moveAllocations, movesOf } from "./pairing.ts";
+import { moveAllocations, movesOf } from "./pairing-legs.ts";
 
 export { compareOwners, isSharedCredit, isUserOwner, sumCents };
 export type { CreditFill, Owner, RowParts, SourcePart, Trace, TraceRow };
