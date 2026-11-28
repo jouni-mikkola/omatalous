@@ -6,7 +6,7 @@
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { createElement } from "react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import type { KnownLowPoint } from "../src/charts/forms/BalanceSteps.tsx";
+import type { KnownLowPoint, PastPeriods } from "../src/charts/forms/BalanceSteps.tsx";
 import { BalanceDays } from "../src/components/home/BalanceDays.tsx";
 
 // a range of this year has no year, so the clock stands in the year of the dates of the tests
@@ -50,7 +50,11 @@ const walk: KnownLowPoint = {
   ],
 };
 
-const view = (payday: string | null = "2026-12-14") => render(createElement(BalanceDays, { low: walk, payday })).container;
+const view = (payday: string | null = "2026-12-14", past: PastPeriods | null = null) => render(createElement(BalanceDays, { low: walk, payday, past })).container;
+
+// three past periods of core's, each by days before its payday: the first stayed above zero, the other two did not
+const period = (payday: string, cents: number[]) => ({ payday, enough: cents.every((c) => c >= 0), points: cents.map((c, i) => ({ daysBefore: cents.length - i, cents: c })) });
+const history: PastPeriods = { periods: [period("2026-11-14", [90_000, 60_000, 20_000]), period("2026-10-14", [50_000, -10_000, -20_000]), period("2026-09-14", [70_000, 10_000, -5_000])], enoughCount: 1 };
 const cells = (tr: Element) => [...tr.children].map((c) => flat(c.textContent));
 
 afterEach(cleanup);
@@ -83,7 +87,7 @@ describe("BalanceDays", () => {
           ...walk.steps,
         ],
       };
-      const c = render(createElement(BalanceDays, { low: more, payday: "2026-12-14" })).container;
+      const c = render(createElement(BalanceDays, { low: more, payday: "2026-12-14", past: null })).container;
       expect([...c.querySelectorAll(".qc-end-sub")].map((e) => flat(e.textContent))).toEqual(["palkkapäivä 14.12."]);
       expect(c.querySelectorAll(".bs-bill")).toHaveLength(3);
       // at most the two biggest are named; a name with no free place beside its dot is dropped
@@ -112,9 +116,20 @@ describe("BalanceDays", () => {
       line: walk.line.map((c) => (c.date === "2026-12-13" && c.cents === 30_000 ? { ...c, cents: -30_000, lowCents: -48_000, highCents: -12_000 } : c)),
       steps: [{ ...walk.steps[0]!, rowAfterCents: -30_000, afterCents: -30_000 }, ...walk.steps.slice(1)],
     };
-    const c = render(createElement(BalanceDays, { low: short, payday: "2026-12-14" })).container;
+    const c = render(createElement(BalanceDays, { low: short, payday: "2026-12-14", past: null })).container;
     expect(c.querySelectorAll(".bs-bill")).toHaveLength(1);
     expect(c.querySelectorAll(".bs-break")).toHaveLength(1);
+  });
+
+  it("lays the past pay periods behind the line and counts those the money held out in, and draws nothing without them", () => {
+    const c = view("2026-12-14", history);
+    // only the days from today on are drawn: the three days before a payday of 14.12. start on 11.12.
+    expect(c.querySelectorAll(".bs-ghost")).toHaveLength(3);
+    expect(flat(c.querySelector(".bs-ghost-count")?.textContent)).toBe("edelliset palkkakaudet: 1 / 3 riitti");
+    expect(c.querySelectorAll(".qc-now")).toHaveLength(1);
+    const bare = view();
+    expect(bare.querySelector(".bs-ghost")).toBeNull();
+    expect(bare.querySelector(".bs-ghost-count")).toBeNull();
   });
 
   it("folds the payments, pays and spending under the picture, each balance the one before plus the row's sum", () => {

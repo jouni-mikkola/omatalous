@@ -1,5 +1,5 @@
 // Decision: on which day before the payday the money is tightest, and which bill takes it there
-import { BalanceSteps, type KnownLowPoint, stepName } from "../../charts/forms/BalanceSteps.tsx";
+import { BalanceSteps, type KnownLowPoint, type PastPeriods, stepName } from "../../charts/forms/BalanceSteps.tsx";
 import { dateRange, dayMonth } from "../../format.ts";
 import { t } from "../../text.ts";
 import { ChartWithTable } from "../table/selection.tsx";
@@ -32,9 +32,9 @@ function rowsOf(low: KnownLowPoint): DayRow[] {
  * Saldo päivä päivältä: the walk of core's `lowPoint` from today to the payday as a picture (BalanceSteps, each payment a dot with its name and sum), with its payments and pays folded
  * under it as a table, and the spending core takes off between them as rows of their own, so the balance of each row,
  * also each of several payments of one day, is the one before it plus its sum. It stands under the sum left on the payday on a wide screen and under the month's
- * figures on a phone (home.css). Only while the lowest balance is known and the walk has a day to go.
+ * figures on a phone (home.css). The household's past pay periods lie behind the line (`past`). Only while the lowest balance is known and the walk has a day to go.
  */
-export function BalanceDays({ low, payday }: { low: KnownLowPoint; payday: string | null }) {
+export function BalanceDays({ low, payday, past }: { low: KnownLowPoint; payday: string | null; past: PastPeriods | null }) {
   const rows = rowsOf(low);
   const columns: Column<DayRow>[] = [
     { key: "day", label: t("home.days_col_day"), kind: "text", rowHead: true, cell: (r) => dayMonth(r.date) },
@@ -48,7 +48,7 @@ export function BalanceDays({ low, payday }: { low: KnownLowPoint; payday: strin
       <ChartWithTable
         title={t("home.days_table")}
         rows={rows.length}
-        chart={<BalanceSteps low={low} payday={payday} />}
+        chart={<BalanceSteps low={low} payday={payday} past={past} />}
         table={rows.length > 0 ? <Table<DayRow> caption={t("home.days_title")} rows={rows} rowKey={(r) => r.key} columns={columns} toolbar={false} search={false} csv={false} /> : undefined}
       />
     </section>

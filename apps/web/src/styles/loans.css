@@ -1,7 +1,6 @@
 /* Varat ja velat > Lainat: the form of a loan, its editor and the report. */
 
 @layer pages {
-.loans-wait { visibility: hidden; }
 
 /* the form of a new loan, inside the card */
 .loan-draft { border: 1px solid var(--border); border-radius: var(--radius-m); background: var(--surface); padding: var(--sp-16); margin-top: 12px; }

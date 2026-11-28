@@ -5262,7 +5262,8 @@
   "uses": [],
   "totalCents": 0,
   "monthCount": 0,
-  "creditPerMonthCents": 0
+  "creditPerMonthCents": 0,
+  "months": []
  },
  "cashflowMonths": {
   "months": [
