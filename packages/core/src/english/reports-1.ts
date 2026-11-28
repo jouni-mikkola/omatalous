@@ -58,7 +58,6 @@ export const EN_REPORTS_1: Record<keyof typeof FI_REPORTS_1, string> = {
   "rep.shared_method": "Costs are consumption and debt service from accounts that more than one household member uses. Shares follow the weights of the account's users.",
   "rep.fixed_no_expected": "Fixed costs have no expected level. Compare with the period before.",
   "rep.fixed_question": "Fixed costs",
-  "rep.fixed_figure": "Fixed costs a month",
   "rep.fixed_method": "Fixed costs are recurring payments turned into a monthly price. They include subscriptions, bills and loan repayments. A subscription marked as ended is left out.",
   "rep.large_purchases": "Large purchases",
   "rep.drift_one": "{name}: spending has been",

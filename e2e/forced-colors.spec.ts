@@ -103,9 +103,8 @@ for (const width of [390, 1440]) {
     });
   }
 
-  // The kinds of a figure (Nyt, Arvio, Tavallinen) and an estimated sum (Summa arvioitu) were told by a fill, a colour and a dotted
-  // line: with the colours taken the word and the edge still differ.
-  test(`Laskut at ${width} px in high contrast: each kind's chip differs by its word and edge, and an estimated sum keeps its dotted line`, async ({ browser }) => {
+  // An estimated sum was told by a colour and a dotted line: with the colours taken the line still differs.
+  test(`Laskut at ${width} px in high contrast: an estimated sum keeps its dotted line`, async ({ browser }) => {
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 }, forcedColors: "active" });
     const page = await context.newPage();
     await page.goto("/#/bills");
@@ -116,20 +115,6 @@ for (const width of [390, 1440]) {
     // every month open, so the estimated pays of the later months are among the rows
     const closed = page.locator("#laskut-taulukko .bill-month[aria-expanded=false]");
     while ((await closed.count()) > 0) await closed.first().click();
-
-    // the three chips of the cards at the head: Nyt, Arvio, Tavallinen
-    const chips = page.locator(".kind-cards .kind-chip");
-    await expect(chips).toHaveText(["Nyt", "Arvio", "Tavallinen"]);
-    const edges = await chips.evaluateAll((els) => els.map((el) => `${getComputedStyle(el).outlineStyle} ${getComputedStyle(el).outlineWidth}`));
-    expect(new Set(edges).size, `edges of the three chips: ${edges.join(" | ")}`).toBeGreaterThanOrEqual(2);
-    expect(edges[0], "Nyt has a solid edge").toMatch(/^solid [1-9]/);
-    expect(edges[1], "Arvio has a dashed edge").toMatch(/^dashed [1-9]/);
-    expect(edges[0], "Nyt against Arvio").not.toBe(edges[1]);
-
-    // the chip of the table's totals and of the later months' names is the same Arvio
-    const inTable = page.locator("#laskut-taulukko .kind-chip-estimate");
-    expect(await inTable.count(), "Arvio chips in the table").toBeGreaterThan(1);
-    for (const style of await inTable.evaluateAll((els) => els.map((el) => getComputedStyle(el).outlineStyle))) expect(style, "Arvio chip in the table").toBe("dashed");
 
     // the sum of an estimated bill: underlined with a dotted line, which a plain cell is not
     const estimated = page.locator("#laskut-taulukko .fig-est");

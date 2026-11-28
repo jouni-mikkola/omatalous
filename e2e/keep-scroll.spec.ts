@@ -9,7 +9,7 @@ const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const scrollY = (page: Page) => page.evaluate(() => Math.round(window.scrollY));
 
 for (const width of [1440, 390]) {
-  test(`${width} px: opening and closing a row of Tulolajit keeps the scroll and the row in view`, async ({ browser }) => {
+  test(`${width} px: opening and closing a row of Kategoriat keeps the scroll and the row in view`, async ({ browser }) => {
     const context = await browser.newContext({
       storageState: STATE,
       viewport: { width, height: 900 },
@@ -17,8 +17,8 @@ for (const width of [1440, 390]) {
     });
     const page = await context.newPage();
     const seen = watch(page);
-    await page.goto("/#/reports?q=tulot");
-    const table = page.getByRole("table", { name: "Tulolajit" });
+    await page.goto("/#/reports?q=menot");
+    const table = page.getByRole("table", { name: "Kategoriat" });
     await expect(table).toBeVisible();
     const first = table.locator('button.rt-drill[aria-expanded="false"]:visible').first();
     await expect(first).toBeVisible();
@@ -60,7 +60,7 @@ test("1440 px: a period chip of Raportit keeps the scroll", async ({ browser }) 
   await page.goto("/#/reports?q=tulot");
   const chip = page.getByRole("toolbar", { name: "Aikaväli" }).getByRole("button", { name: "3 kk" });
   await expect(chip).toBeVisible();
-  await expect(page.getByRole("table", { name: "Tulolajit" })).toBeVisible();
+  await expect(page.locator("#tulot-ja-menot")).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 400));
   const before = await scrollY(page);
   expect(before).toBeGreaterThan(200);
@@ -77,7 +77,7 @@ test("another page still opens at the top", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   await page.goto("/#/reports?q=tulot");
-  await expect(page.getByRole("table", { name: "Tulolajit" })).toBeVisible();
+  await expect(page.locator("#tulot-ja-menot")).toBeVisible();
   await page.evaluate(() => window.scrollTo(0, 400));
   expect(await scrollY(page)).toBeGreaterThan(200);
   await page.getByRole("navigation", { name: "Päävalikko" }).getByRole("link", { name: "Laskut" }).click();

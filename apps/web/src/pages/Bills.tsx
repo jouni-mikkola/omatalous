@@ -1,9 +1,7 @@
 /**
  * Decision: what is coming in the next twelve months, and which bill, contract or subscription to drop.
  *
- * Laskut answers with three cards of the kinds of a figure (Nyt: the bills paid this month, Arvio: what is still to come,
- * the lead of the page and so the wide card with the large figure, Tavallinen: what a month of the twelve costs), one table in the
- * order of the calendar: a group for each of the twelve months, with the bills, the pays and the regular saving of the month
+ * Laskut answers with one table in the order of the calendar: a group for each of the twelve months, with the bills, the pays and the regular saving of the month
  * and what is left after the bills (BillsTable), and under it the twelve months in one low picture (MonthColumns: the bills
  * that come every month and the rest). A month picked on the picture opens in the table. A bill the history cannot
  * know yet is added by hand behind "Lisää lasku", a secondary action of the head, and is a row of the table. Every figure
@@ -12,7 +10,7 @@
  * (`seriesMarkSubject`); an old one on a merchant still covers every series of it. Instalment plans and loans are asked
  * in Tarkistettavat, never here.
  */
-import { cancelledSubjects, countingMark, type MarkKind, marksBySubject, monthEnd, NO_INPUTS, seriesMarkSubject, type UserMark } from "@banking/core";
+import { cancelledSubjects, countingMark, type MarkKind, marksBySubject, NO_INPUTS, seriesMarkSubject, type UserMark } from "@banking/core";
 import { useState } from "react";
 import { api, query } from "../api.ts";
 import { MonthColumns } from "../charts/forms/MonthColumns.tsx";
@@ -21,11 +19,10 @@ import { BillsTable, type MarkControls } from "../components/bills/BillsTable.ts
 import { startOpenMonth } from "../components/bills/calendar-rows.ts";
 import { billItems } from "../components/bills/items.ts";
 import { ErrorCard } from "../components/ErrorCard.tsx";
-import { KindCard } from "../components/KindCard.tsx";
 import { ChartWithTable } from "../components/table/selection.tsx";
 import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
-import { answerMoney, dayMonth, monthInside, monthStarting } from "../format.ts";
+import { answerMoney } from "../format.ts";
 import { useApi } from "../hooks.ts";
 import { t, tn } from "../text.ts";
 import type { Meta, Recurring as Series, ReportsData, Scope } from "../types.ts";
@@ -90,13 +87,6 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
   };
   const items = billItems({ series, typed: upcoming.manual, cancelled, marks, today: meta.today });
   const listed = items.length > 0 || calendar.months.some((m) => m.rows.length > 0);
-  // the open month: what is paid of it (now), what is still to come (estimate); the bills a month the series run at is the usual
-  const open = calendar.months[0]!;
-  const month = monthInside(open.month);
-  // nothing left to pay this month: the card shows the next month that has bills
-  const unpaid = open.billsCents === 0 && calendar.next ? calendar.next : { month: open.month, billsCents: open.billsCents };
-  const unpaidRows = unpaid.month === open.month && calendar.next ? [{ label: monthStarting(calendar.next.month), value: answerMoney(calendar.next.billsCents) }] : [];
-
   return (
     <div className={`page-grid ${recurring.loading || reports.loading ? "loading" : ""}`}>
       <section className="card span-12" id="tulossa" aria-labelledby="coming-h">
@@ -130,22 +120,6 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
             {t("bills.added", { name: added })}
           </p>
         )}
-        <div className="kind-cards bills-kinds">
-          <KindCard kind="now" date={dayMonth(meta.today)} label={t("bills.kind_paid", { month })} figure={answerMoney(open.paidCents)} rows={[{ label: t("bills.kind_count"), value: String(open.paidCount) }]} />
-          <KindCard
-            kind="estimate"
-            date={dayMonth(monthEnd(unpaid.month))}
-            label={t("bills.kind_coming", { month: monthInside(unpaid.month) })}
-            figure={answerMoney(unpaid.billsCents)}
-            rows={unpaidRows}
-          />
-          <KindCard
-            kind="usual"
-            label={t("rep.fixed_figure")}
-            figure={answerMoney(fixedCosts.monthlyCents)}
-            rows={[]}
-          />
-        </div>
         {calendar.unknownCount > 0 && <p className="bills-lead bills-unknown">{tn(calendar.unknownCount, "bills.unknown_one", "bills.unknown_many")}</p>}
       </section>
       {markError && <Notice tone="error">{markError}</Notice>}

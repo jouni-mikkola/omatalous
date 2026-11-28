@@ -92,7 +92,6 @@ export const EN_REPORTS_2: Record<keyof typeof FI_REPORTS_2, string> = {
   "rpt.fd_weekdays": "Shopping trips by weekday",
   "rpt.fd_food": "Food",
   "rpt.fd_trend": "Trend",
-  "rpt.fd_share": "Share",
   "rpt.fd_basket_col": "Basket",
   "rpt.fd_too_few": "too few purchases",
   "rpt.fd_times_month": "Times a month",

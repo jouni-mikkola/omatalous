@@ -467,13 +467,13 @@ test("an expected bill is added at the head of Tulossa, shows in its one table, 
   await expect(coming.getByText("Lasku E2E-ajoneuvovero lisätty.")).toBeVisible();
   // one month starts open: the bill's month is opened from its head when it is another one
   const FI_MONTHS = ["Tammikuu", "Helmikuu", "Maaliskuu", "Huhtikuu", "Toukokuu", "Kesäkuu", "Heinäkuu", "Elokuu", "Syyskuu", "Lokakuu", "Marraskuu", "Joulukuu"];
-  const dueMonth = (p: Page) => p.locator("#laskut-taulukko").getByRole("button", { name: new RegExp(`^${FI_MONTHS[Number(due.slice(5, 7)) - 1]} ${due.slice(0, 4)}( |$|kesken|Arvio)`) });
+  const dueMonth = (p: Page) => p.locator("#laskut-taulukko").getByRole("button", { name: new RegExp(`^${FI_MONTHS[Number(due.slice(5, 7)) - 1]} ${due.slice(0, 4)}( |$)`) });
   const showDueMonth = async (p: Page) => {
     if ((await dueMonth(p).getAttribute("aria-expanded")) === "false") await dueMonth(p).click();
     await expect(dueMonth(p)).toHaveAttribute("aria-expanded", "true");
   };
   await showDueMonth(page);
-  await expect(table.locator("tbody tr").filter({ has: page.locator("button.rt-drill") }).filter({ hasText: "E2E-ajoneuvovero" })).not.toContainText("Summa arvioitu");
+  await expect(table.locator("tbody tr").filter({ has: page.locator("button.rt-drill") }).filter({ hasText: "E2E-ajoneuvovero" }).locator(".fig-est")).toHaveCount(0);
   const remove = (p: Page) => p.locator("#laskut-taulukko").getByRole("button", { name: "Poista lasku E2E-ajoneuvovero" });
   const open = (p: Page) => p.locator("#laskut-taulukko").getByRole("button", { name: "Tiedot: E2E-ajoneuvovero" });
   await open(page).click();
@@ -515,10 +515,9 @@ test("Toistuvat is Laskut: the old address opens the new page, and Yhteenveto li
   // what the page holds: the year's figure and the one table of the months, and no old tile or list
   await page.goto("/#/bills");
   for (const heading of ["Tulevat maksut", "Laskut, sopimukset ja tilaukset"]) await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
-  // the head holds the three cards of the kinds, and no link to a report; under it the months in one picture
+  // the head holds no cards and no link to a report; under it the months in one picture
   await expect(page.locator("#laskut-taulukko .card-datum")).toHaveCount(0);
-  await expect(page.locator("#tulossa .kind-estimate")).toContainText(/Maksamatta/);
-  await expect(page.locator("#tulossa .kind-usual")).toContainText(/Kiinteät menot kuussa/);
+  await expect(page.locator("#tulossa .kind-card")).toHaveCount(0);
   await expect(page.getByRole("img", { name: "Laskut kuukausittain, 12 kuukautta" })).toBeVisible();
   await expect(page.locator("#laskut-taulukko").getByRole("link", { name: "Kiinteät menot", exact: true })).toHaveCount(0);
   for (const gone of ["Seuraavaksi erääntyy", "Tilaukset", "Sopimukset ja laskut", "Harvoin tulevat laskut", "Tulevat laskut", "Hinnanmuutokset"]) await expect(page.getByRole("heading", { name: gone, exact: true })).toHaveCount(0);
