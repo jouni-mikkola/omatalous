@@ -300,8 +300,9 @@ describe("repo rules: one owner for dates and windows (ADR 0005)", () => {
 });
 
 describe("repo rules: one owner for pairing (docs/MONEY_FLOWS.md)", () => {
-  it("rule 49: two rows are paired by amount only in pairing.ts", () => {
+  it("rule 49: two rows are paired by amount only in pairing.ts and pairing-legs.ts", () => {
     const OWNER = "packages/core/src/pairing.ts";
+    const OWNER_LEGS = "packages/core/src/pairing-legs.ts";
     // one row's amount compared with the opposite of another's: how two legs are found
     const OPPOSITE = /(?:amountCents|cents)\s*[!=]==?\s*-|[!=]==?\s*-[\w.]*amountCents|\.get\(-[\w.]*amountCents\)/;
     // files that compare an amount with a negated one for another reason
@@ -311,7 +312,7 @@ describe("repo rules: one owner for pairing (docs/MONEY_FLOWS.md)", () => {
     expect(OPPOSITE.test(readText(OWNER)), `${OWNER} still holds the comparison of opposite amounts`).toBe(true);
     const found: Finding[] = [];
     for (const file of files) {
-      if (file === OWNER || NOT_PAIRING.has(file)) continue;
+      if (file === OWNER || file === OWNER_LEGS || NOT_PAIRING.has(file)) continue;
       readText(file)
         .split("\n")
         .forEach((text, i) => OPPOSITE.test(text) && found.push({ file, line: i + 1, why: "compares an amount with the opposite of another row's: a way of pairing that pairing.ts does not own" }));

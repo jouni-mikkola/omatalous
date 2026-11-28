@@ -63,7 +63,7 @@ export function Overview({
       {nyt ? (
         <>
           <Now data={{ ...data, nyt }} />
-          {data.home.lowPoint?.known && data.home.lowPoint.line.length > 1 && <BalanceDays low={data.home.lowPoint} payday={paydayOf({ ...data, nyt })} />}
+          {data.home.lowPoint?.known && data.home.lowPoint.line.length > 1 && <BalanceDays low={data.home.lowPoint} payday={paydayOf({ ...data, nyt })} past={data.home.pastPeriods} />}
         </>
       ) : (
         <p className="home-detail">{t("home.no_payments_shown")}</p>
