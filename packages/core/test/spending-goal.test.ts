@@ -3,7 +3,7 @@ import { createContext } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { monthPace } from "../src/analysis/forecast.ts";
 import { spendingGoal } from "../src/analysis/spending-goal.ts";
-import { NO_INPUTS, type Account, type IsoDate } from "../src/types.ts";
+import type { Account, IsoDate } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 import { lateCardContext } from "./late-card-household.ts";
 
@@ -62,17 +62,10 @@ describe("spending goal: the pace figure", () => {
   });
 });
 
-describe("spending goal: in the dashboard", () => {
-  const today = "2026-10-10";
-  const ctx = createContext(rows, [checking], today);
-  const range = { from: "2026-10-01", to: "2026-10-31" };
-
-  it("is null without a goal and the pace figure with one", () => {
-    expect(buildDashboard(ctx, range).goal).toBeNull();
-    expect(buildDashboard(ctx, range, [], { ...NO_INPUTS, spendingGoalCents: null }).goal).toBeNull();
-    const d = buildDashboard(ctx, range, [], { ...NO_INPUTS, spendingGoalCents: 45_000 });
-    expect(d.goal).toEqual(spendingGoal(d.pace, 45_000));
-    expect(d.goal!.leftCents).toBe(45_000 - d.totals.expenseCents);
+describe("spending goal: on the dashboard's pace", () => {
+  it("leaves what the dashboard's month has spent", () => {
+    const d = buildDashboard(createContext(rows, [checking], "2026-10-10"), { from: "2026-10-01", to: "2026-10-31" });
+    expect(spendingGoal(d.pace, 45_000).leftCents).toBe(45_000 - d.totals.expenseCents);
   });
 });
 
@@ -80,27 +73,28 @@ describe("spending goal: with a card that begins in the middle of the history", 
   const range = { from: "2026-10-01", to: "2026-10-31" };
 
   it("estimates the month's end from the whole totals of months that hold the card only as bills, and draws no day of them", () => {
-    const d = buildDashboard(lateCardContext("2026-07"), range, [], { ...NO_INPUTS, spendingGoalCents: 400_000 });
+    const d = buildDashboard(lateCardContext("2026-07"), range);
+    const goal = spendingGoal(d.pace, 400_000);
     expect(d.pace).toMatchObject({ expected: null, cardGap: true });
     expect(d.pace.projection).not.toBeNull();
     expect(d.pace.projection!.low[0]).toBe(d.pace.currentTotal);
-    expect(d.goal!.end).not.toBeNull();
-    expect(d.goal!.end!.low).toBeGreaterThanOrEqual(d.pace.currentTotal);
-    expect(d.goal).toMatchObject({ leftCents: 400_000 - d.pace.currentTotal });
+    expect(goal.end).not.toBeNull();
+    expect(goal.end!.low).toBeGreaterThanOrEqual(d.pace.currentTotal);
+    expect(goal).toMatchObject({ leftCents: 400_000 - d.pace.currentTotal });
   });
 
   it("estimates the end from the card's own months when no card bill comes before them", () => {
     // with no bill the figure reads July to September, which hold the card's purchases
-    const d = buildDashboard(lateCardContext("2026-07", "2026-10-09", false), range, [], { ...NO_INPUTS, spendingGoalCents: 400_000 });
+    const d = buildDashboard(lateCardContext("2026-07", "2026-10-09", false), range);
     expect(d.pace.cardGap).toBe(false);
     expect(d.pace.expected).not.toBeNull();
-    expect(d.goal!.end).not.toBeNull();
+    expect(spendingGoal(d.pace, 400_000).end).not.toBeNull();
   });
 
   it("estimates the end when the card's rows cover the months", () => {
-    const d = buildDashboard(lateCardContext("2026-01"), range, [], { ...NO_INPUTS, spendingGoalCents: 400_000 });
+    const d = buildDashboard(lateCardContext("2026-01"), range);
     expect(d.pace.cardGap).toBe(false);
     expect(d.pace.expected).not.toBeNull();
-    expect(d.goal!.end).not.toBeNull();
+    expect(spendingGoal(d.pace, 400_000).end).not.toBeNull();
   });
 });

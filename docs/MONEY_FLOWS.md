@@ -124,7 +124,7 @@ as debt service when the savings account pays the lender. The row has no flows, 
 from them: Tulos, the income, spending and difference of its identity (`totalsOf`) and the savings rate. The first page
 reads those figures too: its Menot figure, the month's curve, the Menot of *Tulot ja menot*, the usual month's line on
 its bars (`usualSpendCents`, from `typicalFlowCents` of *Menot kuukausittain*), the pace and the usual it is set against
-(`expectedFlowsFor`), the spending goal and the explanation of the tile are the spending of the flows (`flowSpendOf`,
+(`expectedFlowsFor`) and the explanation of the tile are the spending of the flows (`flowSpendOf`,
 `overview.months`), so income less spending is the difference and less what went to savings is Tulos, with no
 exception. Every figure under Menot reads that one base, and `packages/core/test/menot-base.test.ts` holds it: the same
 household with and without a loan paid from savings gives the same Menot figures. The row is still spending on its own terms (`spend` of the row, `spendCentsOf`), so it is in

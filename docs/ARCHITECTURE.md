@@ -351,8 +351,8 @@ fetch from the same day. The other accounts go on.
 | `sync_runs` | fetch history per user |
 | `user_marks` | what a user said about a subscription or an alert: in use, cancelled or not to be shown again, one per subject |
 | `expected_bills` | bills a user typed in: name, amount, first due date, cadence (once, quarterly, semiannual, yearly), category |
-| `spending_goal` | the monthly spending goal of a user (Yhteenveto, Menot tässä kuussa): one amount in cents per user, bounded by `routes/spending-goal.ts`, read per request with the other inputs |
-| `category_goal` | the monthly spending goal of a user per category (groceries, restaurants, transport, car; Kategoriat): cents per user and category, bounded by `routes/category-goals.ts`, read per request with the other inputs, so saving one moves no data version |
+| `spending_goal` | the monthly spending goal of a user: one amount in cents per user. No page sets or reads it; the table is kept for the data export and import |
+| `category_goal` | the monthly spending goal of a user per category (groceries, restaurants, transport, car): cents per user and category. No page sets or reads it; the table is kept for the data export and import |
 | `loans` | loans a user typed in and confirmed: name, lender, kind, balance and its date, rate, reference and margin, repayment plan, payment, last due date, limit, and the connected card or loan account it is the same debt as (`account_id`, migration 0016, null when the account goes). Own rows only, bounded by `routes/loans.ts` |
 | `optimise_inputs` | what a user typed in for Säästövinkit (a loan rate, an insurance quote), with the day it was saved |
 | `optimise_states` | a user's decision on a finding (done, dismissed, snoozed), the finding's mid at that time and a done decision's monthly baseline |
