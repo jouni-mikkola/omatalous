@@ -3,9 +3,9 @@ import { join } from "node:path";
 
 const FETCH = { "X-Requested-With": "fetch" };
 
-/** Yhteenveto's month once its answer has landed. The loading frame draws the same block hidden from the reader, so a wait
+/** Yhteenveto's answer card once its answer has landed. The loading frame draws the same block hidden from the reader, so a wait
  * for the bare class can pass before the answer. */
-export const OVERVIEW_TILES = ".home-summary:not([aria-hidden])";
+export const OVERVIEW_TILES = ".home-now:not([aria-hidden])";
 
 /** Everything a visitor would call "broken": console errors, uncaught errors, failed requests and any 4xx or 5xx. */
 export function watch(page: Page): { problems: string[] } {
