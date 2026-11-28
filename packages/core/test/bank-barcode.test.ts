@@ -26,6 +26,11 @@ describe("parseBankBarcode", () => {
     });
   });
 
+  it("reads a zero sum as 0 cents: the guide uses it when the payer chooses the sum", () => {
+    const r = parseBankBarcode(`${V4.slice(0, 17)}00000000${V4.slice(25)}`);
+    expect(r.ok && r.barcode.cents).toBe(0);
+  });
+
   it("refuses a wrong length, letters and an unknown version", () => {
     expect(failure(V4.slice(1))).toBe("length");
     expect(failure(`${V4}0`)).toBe("length");

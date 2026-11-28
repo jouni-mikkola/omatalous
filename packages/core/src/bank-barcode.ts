@@ -3,6 +3,8 @@
  * Finnish reference, version 5 an international RF reference. Layout (Finanssiala's guide): version 1, the 16 digits of
  * the Finnish IBAN after "FI" 16, euros 6, cents 2, then for version 4 three reserve digits and a 20 digit reference,
  * for version 5 the two RF check digits and 21 reference digits, and the due date as YYMMDD (000000 = none) 6.
+ * A sum of zero means the payer chooses it or it is over 999 999,99 €.
+ * https://www.finanssiala.fi/wp-content/uploads/2021/03/Pankkiviivakoodi-opas.pdf
  */
 import { dayNumber, fromDayNumber } from "./dates.ts";
 

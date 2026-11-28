@@ -58,6 +58,8 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "bills.form.barcode_hint": "Paste the 54 digits of the bill's barcode to fill the amount and due date. Type the name yourself.",
   "bills.form.barcode_filled": "Amount and due date read from the barcode.",
   "bills.form.barcode_no_due": "Amount read from the barcode. The bill has no due date, pick one yourself.",
+  "bills.form.barcode_no_amount": "The barcode has no amount. Type the amount yourself.",
+  "bills.form.barcode_due_only": "Due date read from the barcode.",
   "bills.form.barcode_outside": "The due date of the barcode, {date}, is outside the allowed range. Pick the due date yourself.",
   "bills.form.barcode_length": "A barcode has 54 digits. Check the pasted text.",
   "bills.form.barcode_version": "The barcode is not version 4 or 5 and cannot be read.",
