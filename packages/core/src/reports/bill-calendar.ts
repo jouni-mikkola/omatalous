@@ -127,8 +127,8 @@ interface BillCalendar {
   /** The bills and loans whose sum or date is not known, so they have no row: `unknowns` counted. */
   unknownCount: number;
   unknowns: UnknownSum[];
-  /** The series that pay a saved loan, whether or not the loan has a row in the months: the loan's name and whether an account the balance does not count pays it. */
-  loanSeries: { id: string; payee: string; onCard: boolean }[];
+  /** The series that pay a saved loan, whether or not the loan has a row in the months: the loan's name and whether an account the balance does not count pays it, and the day the loan ends (no charge of the series after it counts). */
+  loanSeries: { id: string; payee: string; onCard: boolean; endDate: IsoDate | null }[];
 }
 
 /**
@@ -368,7 +368,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
     unknowns,
     loanSeries: loans.flatMap((loan) => {
       const s = paying.get(loan.id);
-      return s ? [{ id: s.id, payee: loan.name, onCard: paidElsewhere(s.id) }] : [];
+      return s ? [{ id: s.id, payee: loan.name, onCard: paidElsewhere(s.id), endDate: loan.endDate }] : [];
     }),
   };
 }

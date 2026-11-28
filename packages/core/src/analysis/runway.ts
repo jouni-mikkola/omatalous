@@ -23,8 +23,8 @@
  * the payday or later is paid from the coming pay, so it is taken off nothing and told (`laterCards`).
  *
  * A saved loan the bill calendar walks by its plan (`plannedLoanRow`) is no everyday spending: the debt part of its bank
- * rows is left out of the expected spending, and the plan's own rows that no series pays (`plans`, from
- * `plannedLoanPayments`) are taken off in their place, with the bills. The walk of the first page does the same, so
+ * rows is left out of the expected spending, and the plan's own rows that no series pays, and a bullet loan's lump sum on its last day (`plans`, from
+ * `plannedLoanPayments`), are taken off in their place, with the bills. The walk of the first page does the same, so
  * its payday point is this figure.
  *
  * `parts` is the figure told line by line, each sum negative when it leaves the accounts: the balance, the bills before

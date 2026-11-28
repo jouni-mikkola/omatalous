@@ -388,6 +388,7 @@ describe("lowPoint with a card", () => {
     if (!walked.known || !runway.known) throw new Error("no figure");
     expect(walked.steps.filter((s) => s.date === "2026-11-05").map((s) => s.cents)).toContain(-4_000_000);
     expect(walked.steps.filter((s) => s.date === "2026-11-02").map((s) => s.cents)).toContain(-91_240);
+    expect(walked.steps.some((s) => s.payee === "Siltalaina" && s.date > "2026-11-05")).toBe(false);
     expect(walked.line.find((c) => c.date === runway.payday.date)!.cents).toBe(runway.leftCents);
   });
 
