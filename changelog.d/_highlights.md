@@ -1,0 +1,4 @@
+- Yhteenveto tells the day the money runs out, with each bill as a dot on the line to payday.
+- Laskut shows the bills against the money on the accounts; Varat ja velat shows the debt-free month and a lane per debt.
+- Raportit shows money in and out as two columns, and Tapahtumat rows are plainer.
+- Text is larger: 16 px throughout.
