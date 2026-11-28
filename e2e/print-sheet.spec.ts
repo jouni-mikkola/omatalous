@@ -31,7 +31,6 @@ test("the tax sheet prints alone and the page comes back after", async ({ browse
   const header = page.locator("header.topbar");
   const menu = page.locator("header.topbar nav.nav");
   const rail = page.getByRole("navigation", { name: "Asetukset", exact: true });
-  const footer = page.getByRole("contentinfo");
   await expect(table).toBeVisible();
   // the card next to the sheet is put there by hand, so that the test does not depend on what else Tiedot lists
   await sheet.evaluate((card) => {
@@ -47,7 +46,6 @@ test("the tax sheet prints alone and the page comes back after", async ({ browse
   });
   const other = page.locator(".card:not(#verovuosi)").first();
   await expect(rail).toBeVisible();
-  await expect(footer).toBeVisible();
   await expect(header).toBeVisible();
   await expect(menu).toBeVisible();
   await expect(other).toBeVisible();
@@ -64,7 +62,6 @@ test("the tax sheet prints alone and the page comes back after", async ({ browse
   await expect(other).toBeHidden();
   await expect(other.getByRole("heading")).toBeHidden();
   await expect(rail).toBeHidden();
-  await expect(footer).toBeHidden();
   // the buttons of the sheet are not part of the paper
   await expect(sheet.getByRole("button", { name: "Tulosta" })).toBeHidden();
 

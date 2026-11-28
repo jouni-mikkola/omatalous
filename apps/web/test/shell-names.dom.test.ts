@@ -87,18 +87,18 @@ describe("Shell: a page carries its tab's name", () => {
     }
   }, 60000);
 
-  it("has no date and no line of the last fetch at the foot of the page", async () => {
+  it("has no line about the app at the foot of a page and none in the menu of the user", async () => {
     await startServer();
     await openApp("#/overview");
-    await waitFor(() => expect(document.querySelector(".sheet-foot")?.textContent).toContain("Omatalous"));
-    const parts = [...(document.querySelector(".sheet-foot")?.children ?? [])].map((e) => e.textContent ?? "");
-    expect(parts.join(" ")).not.toMatch(/Tänään|Päivitetty|klo/);
-    // the version is the one figure of the foot: no part of it ends in a day ("12.11." or "12.11.2026")
-    expect(parts.filter((p) => /\d{1,2}\.\d{1,2}\.(\d{4})?$/.test(p))).toEqual([]);
-    expect(parts[0]).toContain("Omatalous");
-    // the version is in the foot and in Palvelin ja ylläpito, not a third time in the menu of the user
+    await waitFor(() => expect(document.querySelector("main")).not.toBeNull());
+    expect(document.querySelector(".sheet-foot")?.textContent ?? "").not.toContain("Omatalous");
     expect(document.querySelector(".user-menu .menu")?.textContent).not.toContain("Omatalous");
-    expect(parts.filter((p) => /^(Oma|Koko talous)$/.test(p))).toEqual([]);
+  }, 60000);
+
+  it("shows the software information on Asetukset > Turvallisuus", async () => {
+    await startServer();
+    await openApp("#/settings/security");
+    await waitFor(() => expect(document.querySelector("main")?.textContent).toContain("Omatalous, Jouni Mikkola"));
   }, 60000);
 
   it("draws the title of a page that has no heading of its own, and keeps the hidden one on the pages that have", async () => {
