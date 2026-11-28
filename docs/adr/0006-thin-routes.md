@@ -2,6 +2,8 @@
 
 Status: accepted (0.9.0)
 
+Path note: the Optimoi page and its route, service and repository files (`optimise`) are gone; the rule stands.
+
 ## Context
 
 `routes/optimise.ts` held the whole Optimoi use case: the page build, the snapshot write with its swallowed errors and

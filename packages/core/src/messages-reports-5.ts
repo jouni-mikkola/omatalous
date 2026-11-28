@@ -218,6 +218,8 @@ export const FI_REPORTS_5 = {
   "rpt.mf_saved": "Säästöön siirretty",
   "rpt.mf_repaid": "Luottoa maksettu takaisin",
   "rpt.mf_hero": "Jakson {months} kuukauden aikana menoja katettiin luotolla {credit}. Se on {perMonth} kuussa.",
+  "rpt.mf_hero_month": "{month} menoja katettiin luotolla {credit}.",
+  "rpt.mf_months": "Kuukausi",
   "rpt.sec_loans": "Lainat",
   "rpt.sec_pivot": "Menot kuukausittain",
   "rpt.sec_settlement": "Tasaus",

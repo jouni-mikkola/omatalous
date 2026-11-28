@@ -2,6 +2,8 @@
 
 Status: accepted (0.9.0)
 
+Path note: the Optimoi files named below (`optimise/types.ts`, `optimise/outcome.ts`, `db/finance/optimise.ts`) are gone; the rule stands.
+
 ## Context
 
 Ids and codes are stored in user data: series ids in marks, Optimoi decisions and insurance quote inputs, finding ids,
