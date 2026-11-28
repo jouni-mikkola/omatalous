@@ -15,6 +15,10 @@ export interface Pick {
   selected: string | null;
   /** The key of the picked mark; the same key again, or null, lets go. */
   select: (key: string | null) => void;
+  /** The span of marks picked by dragging or with Shift and the arrows, from the first key to the last; it and `selected` are never both set. */
+  range: { from: string; to: string } | null;
+  /** Picks the marks from key `from` to key `to`; their keys sort in the order of the marks (months as `YYYY-MM`). */
+  selectRange: (from: string, to: string) => void;
 }
 
 const PickContext = createContext<Pick | null>(null);
@@ -27,12 +31,19 @@ const FilterContext = createContext<Pick | null>(null);
  */
 export function ChartWithTable({ chart, table, title, rows }: { chart: ReactNode | ((pick: Pick) => ReactNode); table?: ReactNode; title?: string; rows?: number }) {
   const [selected, setSelected] = useState<string | null>(null);
+  const [range, setRange] = useState<Pick["range"]>(null);
   const [open, setOpen] = useState(false);
   const select = useCallback((key: string | null) => {
     setSelected((now) => (key === null || key === now ? null : key));
+    setRange(null);
     if (key !== null) setOpen(true);
   }, []);
-  const pick = useMemo(() => ({ selected, select }), [selected, select]);
+  const selectRange = useCallback((from: string, to: string) => {
+    setSelected(null);
+    setRange({ from, to });
+    setOpen(true);
+  }, []);
+  const pick = useMemo(() => ({ selected, select, range, selectRange }), [selected, select, range, selectRange]);
   return (
     <PickContext.Provider value={pick}>
       {typeof chart === "function" ? chart(pick) : chart}
@@ -64,13 +75,21 @@ function useRowFilter(): Pick | null {
   return useContext(FilterContext);
 }
 
-/** The rows of a table cut by the pick of its scope: `kept` is the picked key when the table has such a row, else null. */
+/**
+ * The rows of a table cut by the pick of its scope: `kept` is the picked key (for a span, its first and last key) when the
+ * table has such a row, else null. `keptRow` is the picked row, the first of a span, and `lastRow` the last of a span.
+ */
 export function useRowPick<R>(rows: readonly R[], rowKey: (row: R) => string) {
   const pick = useRowFilter();
-  const kept = pick?.selected != null && rows.some((r) => rowKey(r) === pick.selected) ? pick.selected : null;
-  const only = <T extends R>(list: readonly T[]): readonly T[] => (kept === null ? list : list.filter((r) => rowKey(r) === kept));
-  const keptRow = kept === null ? undefined : rows.find((r) => rowKey(r) === kept);
-  return { pick, kept, keptRow, only };
+  const range = pick?.range ?? null;
+  const inRange = (r: R) => range !== null && rowKey(r) >= range.from && rowKey(r) <= range.to;
+  const spanRows = range ? rows.filter(inRange) : [];
+  const single = pick?.selected != null && rows.some((r) => rowKey(r) === pick.selected) ? pick.selected : null;
+  const kept = single ?? (range && spanRows.length > 0 ? `${range.from}–${range.to}` : null);
+  const only = <T extends R>(list: readonly T[]): readonly T[] => (single !== null ? list.filter((r) => rowKey(r) === single) : kept === null ? list : list.filter(inRange));
+  const keptRow = single !== null ? rows.find((r) => rowKey(r) === single) : spanRows[0];
+  const lastRow = single === null && spanRows.length > 1 ? spanRows[spanRows.length - 1] : undefined;
+  return { pick, kept, keptRow, lastRow, only };
 }
 
 /** The row that is shown, as a chip above the table; its × gives the way back to all of them. */

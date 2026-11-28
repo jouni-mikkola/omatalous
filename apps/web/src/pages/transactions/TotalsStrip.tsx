@@ -3,16 +3,18 @@
  * line, the count and the days quiet beside them. Decision: is this filter's money what the household expected, and
  * when did it move. Every figure is a server field (`/api/transactions`); the web draws them and adds nothing up. The
  * histogram of the period waits behind its title at every width, so the list starts right under the figures. It shows
- * money out or in as the reader chooses, and a tap on a bar limits the period to that day, week or month.
+ * money out or in as the reader chooses, and a tap on a bar limits the period to that day, week or month. Dragging across bars,
+ * or Shift with the arrow keys and Enter, limits it to the span; Escape returns to the period before (ADR 0023).
  */
 import { addDays } from "@banking/core";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Figure } from "../../components/Figure.tsx";
 import { Segmented } from "../../components/ui/Segmented.tsx";
 import { date, dateRange, dayHeading, money, monthLong } from "../../format.ts";
 import { t, tn } from "../../text.ts";
 import type { Period } from "./DateRange.tsx";
 import { css } from "../../css.ts";
+import { indexAtX, useSpan } from "../../charts/kit/span.ts";
 
 interface MoneyBin {
   start: string;
@@ -60,9 +62,20 @@ export function peakEdge(peak: number, bins: number): "start" | "end" | undefine
 
 type Series = "out" | "in";
 
-function Histogram({ unit, bins, today, last, income, onPick }: { unit: "day" | "week" | "month"; bins: MoneyBin[]; today: string; last: string; income: boolean; onPick: (p: Period) => void }) {
+function Histogram({ unit, bins, today, last, income, onPick, restore }: { unit: "day" | "week" | "month"; bins: MoneyBin[]; today: string; last: string; income: boolean; onPick: (p: Period) => void; restore: (() => void) | null }) {
   const [at, setAt] = useState<number | null>(null);
   const [focused, setFocused] = useState(false);
+  const spanOf = (lo: number, hi: number): Period => ({ from: bins[lo]!.start, to: binEnd(bins[hi]!.start, unit) });
+  const drag = useSpan({
+    n: bins.length,
+    indexOf: (e) => {
+      const r = e.currentTarget.getBoundingClientRect();
+      return indexAtX(e.clientX, r.left, r.width, bins.length);
+    },
+    onSpan: (lo, hi) => onPick(spanOf(lo, hi)),
+    onRelease: restore ?? undefined,
+    taken: restore !== null,
+  });
   const value = (b: MoneyBin) => (income ? b.inCents : b.outCents);
   const max = Math.max(0, ...bins.map(value));
   const peak = bins.findIndex((b) => value(b) === max && max > 0);
@@ -74,7 +87,7 @@ function Histogram({ unit, bins, today, last, income, onPick }: { unit: "day" | 
   const shown = at ?? peak;
   const b = shown >= 0 ? bins[shown] : undefined;
   // at rest the peak's sum above its bar says the picture; the line under it is of the bar the pointer or the keyboard is on
-  const readout = b && (at !== null || focused) ? t(income ? "tx.readout_in" : "tx.readout_out", { bin: binName(b, unit, today), amount: money(value(b)), events: tn(income ? b.inCount : b.outCount, "tx.event_one", "tx.event_many") }) : "";
+  const readout = drag.bounds ? t("tx.span_readout", { range: dateRange(spanOf(...drag.bounds).from, spanOf(...drag.bounds).to) }) : b && (at !== null || focused) ? t(income ? "tx.readout_in" : "tx.readout_out", { bin: binName(b, unit, today), amount: money(value(b)), events: tn(income ? b.inCount : b.outCount, "tx.event_one", "tx.event_many") }) : "";
   const histTitle = t(income ? "tx.hist_in" : "tx.hist_out", { unit: unitTitle(unit) });
   return (
     <>
@@ -90,21 +103,27 @@ function Histogram({ unit, bins, today, last, income, onPick }: { unit: "day" | 
           role="img"
           aria-label={t("tx.hist_aria", { title: histTitle, max: money(max) })}
           tabIndex={0}
+          aria-description={t("tx.span_keys")}
+          onPointerDown={drag.handlers.onPointerDown}
+          onPointerUp={drag.handlers.onPointerUp}
+          onPointerCancel={drag.handlers.onPointerCancel}
           onPointerMove={(e) => {
             const r = e.currentTarget.getBoundingClientRect();
-            setAt(Math.min(n - 1, Math.max(0, Math.floor(((e.clientX - r.left) / r.width) * n))));
+            setAt(indexAtX(e.clientX, r.left, r.width, n));
+            drag.handlers.onPointerMove(e);
           }}
           onPointerLeave={() => setAt(null)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           onKeyDown={(e) => {
+            if (drag.keys(e, at ?? Math.max(0, peak), setAt)) return;
             if (e.key === "ArrowRight") setAt(Math.min(n - 1, (at ?? peak) + 1));
             else if (e.key === "ArrowLeft") setAt(Math.max(0, (at ?? peak) - 1));
             else if (e.key === "Enter" && b) onPick({ from: b.start, to: binEnd(b.start, unit) });
           }}
-          onClick={() => b && at !== null && onPick({ from: b.start, to: binEnd(b.start, unit) })}
         >
           <line className="tx-hist-base" x1={0} x2={W} y1={H - 0.5} y2={H - 0.5} vectorEffect="non-scaling-stroke" />
+          {drag.bounds && <rect className="tx-hist-span" x={(drag.bounds[0] * W) / n} width={((drag.bounds[1] - drag.bounds[0] + 1) * W) / n} y={0} height={H} />}
           {bins.map((x, i) => {
             const h = max ? (value(x) / max) * (H - 4) : 0;
             const w = W / n;
@@ -137,6 +156,20 @@ export function TotalsStrip({ totals, income, today, onPick, more }: { totals: T
     setSeenIncome(income);
     setSeries(income ? "in" : "out");
   }
+  // the period before the last pick from the histogram, for Escape (one step back in the history, where the pick is the top entry); it holds only while that pick is the period on show
+  const [back, setBack] = useState<Period | null>(null);
+  // the address once the pick is on show: Escape steps back only while it is still the address, else a later filter change would be undone
+  const pickedHash = useRef<string | null>(null);
+  const pickShown = back !== null && span != null && back.from === span.from && back.to === span.to;
+  useEffect(() => {
+    if (!pickShown) pickedHash.current = null;
+    else if (pickedHash.current === null) pickedHash.current = window.location.hash;
+  }, [pickShown]);
+  const pickPeriod = (p: Period) => {
+    if (span) setBack(p);
+    pickedHash.current = null;
+    onPick(p);
+  };
   const inSeries = series === "in";
   const histTitle = t(inSeries ? "tx.hist_in" : "tx.hist_out", { unit: hist ? unitTitle(hist.unit) : "" });
   // Käteen jäi says nearly what Erotus says, so it takes Erotus's place when it differs from it
@@ -155,7 +188,7 @@ export function TotalsStrip({ totals, income, today, onPick, more }: { totals: T
           onChange={setSeries}
         />
       </figcaption>
-      <Histogram key={series} unit={hist.unit} bins={hist.bins} income={inSeries} today={today} last={span?.to ?? today} onPick={onPick} />
+      <Histogram key={series} unit={hist.unit} bins={hist.bins} income={inSeries} today={today} last={span?.to ?? today} onPick={pickPeriod} restore={pickShown ? () => { if (window.location.hash === pickedHash.current) window.history.back(); } : null} />
     </figure>
   );
   return (

@@ -1,10 +1,11 @@
 // Decision: is the household spending more than it earns, month after month, and is this month on its usual course
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { monthEnd } from "@banking/core";
+import { useSelect } from "../components/table/selection.tsx";
 import { answerMoney, money, monthLabel, monthLong } from "../format.ts";
 import { useWidth } from "../hooks.ts";
 import { hashOf } from "../routes.ts";
-import { spentLabel, t } from "../text.ts";
+import { spentLabel, t, tn } from "../text.ts";
 import type { DashboardData } from "../types.ts";
 import { CategoryTick, ValueAxis } from "./Axes.tsx";
 import { crisp, LABEL_Y } from "./draw.ts";
@@ -14,6 +15,7 @@ import { axisRoom, frame, monthPlot } from "./kit/layout.ts";
 import { ReadoutLine, UsualLabel, USUAL_STRIP, usualComparison } from "./kit/Readout.tsx";
 import { lastWhole, readoutText } from "./kit/readout.ts";
 import { band, linear } from "./kit/scale.ts";
+import { indexAtX, useSpan } from "./kit/span.ts";
 import { monthAxisLabels, monthTickTarget } from "./kit/ticks.ts";
 import "../styles/charts.css";
 import "../styles/month-bars.css";
@@ -56,14 +58,38 @@ function monthRows(m: Month, running: boolean): { name: string; value: string }[
  * month's. A month has one look for both its bars: it is solid only when the spending report counts it complete and, given
  * `incomePartial` (the months the income report counts incomplete), the income report does not either. A sum far above the others (more than twice the third quartile) does not set the axis: its bar is cut 6 px
  * past the top with a break, and the sum is written above it. The year stands under each January only. Each month is a link to its rows in Tapahtumat; pointing at it or its keyboard focus reads
- * out its sums. Every value is a field of the answer: nothing is added up here.
+ * out its sums. Every value is a field of the answer: nothing is added up here. Inside a `ChartWithTable` dragging across months, or Shift with the arrow keys on a month, picks
+ * a span: the table under the chart keeps those months (ADR 0023) and Escape lets go. A click on one month still opens its rows.
  */
 export function MonthBars({ overview, today, incomePartial }: { overview: Pick<Overview, "months" | "usualSpendCents">; today: string; incomePartial?: ReadonlySet<string> }) {
   const [ref, measured] = useWidth<HTMLDivElement>();
   const [at, setAt] = useState<number | null>(null);
+  const scope = useSelect();
   const hatch = `mbh-${useId().replace(/\W/g, "")}`;
   const width = measured || UNMEASURED;
   const { months, usualSpendCents: usual } = overview;
+  const pickedRange = scope?.range ?? null;
+  const dragSpan = useSpan({
+    n: months.length,
+    indexOf: (e) => {
+      const r = e.currentTarget.getBoundingClientRect();
+      return indexAtX(e.clientX, r.left, r.width, months.length);
+    },
+    // narrowed by key to one month it is the single pick, so the table and the band stay in step; a tap is a click on its link
+    onSpan: (lo, hi) => {
+      if (lo !== hi) scope?.selectRange(months[lo]!.month, months[hi]!.month);
+      else if (scope && scope.selected !== months[lo]!.month) scope.select(months[lo]!.month);
+    },
+    onRelease: () => scope?.select(null),
+    live: true,
+    tap: false,
+    taken: pickedRange !== null || scope?.selected != null,
+  });
+  const { clear } = dragSpan;
+  // when the table lets go of the span (its x, Escape in another chart), the keys start anew
+  useEffect(() => {
+    if (!pickedRange) clear();
+  }, [pickedRange, clear]);
   // a month the data does not reach (null) is no bar and no value of the axis
   const narrow = width < NARROW;
   const sums = months.flatMap((m, i) => [
@@ -91,6 +117,9 @@ export function MonthBars({ overview, today, incomePartial }: { overview: Pick<O
   // a month's two bars have one look, and the key names it when the chart draws one such month
   const solid = (m: Month, i: number) => m.complete && !running(i) && !incomePartial?.has(m.month);
   const anyPartial = months.some((m, i) => !solid(m, i) && (m.incomeCents !== null || m.spendCents !== null));
+  // the span in progress, else the one the table keeps: its first and last month
+  const kept: [number, number] | null = scope?.range ? [months.findIndex((m) => m.month === scope.range!.from), months.findIndex((m) => m.month === scope.range!.to)] : null;
+  const spanBand = dragSpan.bounds ?? (kept && kept[0] >= 0 && kept[1] >= 0 ? kept : null);
   const shown = at ?? lastWhole(months.map(wholeMonth)) ?? months.length - 1;
   const runningAt = months.findIndex((_, i) => running(i));
   const printed = printedMonths(months.length, x.step, new Set(runningAt < 0 ? [] : [runningAt]), shown);
@@ -110,7 +139,9 @@ export function MonthBars({ overview, today, incomePartial }: { overview: Pick<O
   ]);
   return (
     <div className="chart month-bars" ref={ref}>
-      {months[shown] ? (
+      {spanBand ? (
+        <ReadoutLine title={`${title(months[spanBand[0]]!)} – ${title(months[spanBand[1]]!)}`} parts={[]} note={tn(spanBand[1] - spanBand[0] + 1, "chart.span_months_one", "chart.span_months_many")} />
+      ) : months[shown] ? (
         <ReadoutLine
           title={title(months[shown])}
           parts={[
@@ -140,7 +171,7 @@ export function MonthBars({ overview, today, incomePartial }: { overview: Pick<O
               ))}
             </defs>
             <ValueAxis ticks={[...y.ticks]} y={y} width={f.innerW} height={f.innerH} label={axisLabel} bare />
-            {at !== null && <rect className="pick-band" x={x.step * at} y={0} width={x.step} height={f.innerH} />}
+            {spanBand ? <rect className="pick-band" x={x.step * spanBand[0]} y={0} width={x.step * (spanBand[1] - spanBand[0] + 1)} height={f.innerH} /> : at !== null && <rect className="pick-band" x={x.step * at} y={0} width={x.step} height={f.innerH} />}
             {months.map((m, i) => {
               const whole = solid(m, i);
               const left = x.x(i);
@@ -181,20 +212,32 @@ export function MonthBars({ overview, today, incomePartial }: { overview: Pick<O
             {usual !== null && <UsualLabel innerW={f.innerW} above={TOP} text={t(narrow ? "home.months_usual_short" : "home.months_usual", { sum: answerMoney(usual) })} />}
           </g>
           {/* outside the picture: each month is a link of its own, so a control never sits inside an image */}
-          {months.map((m, i) => (
-            <a
-              key={m.month}
-              className="mb-link"
-              href={monthRowsHref(m.month, today)}
-              aria-label={`${readoutText(title(m), monthRows(m, running(i)))}. ${t("home.months_open")}`}
-              onPointerEnter={() => setAt(i)}
-              onPointerLeave={() => setAt(null)}
-              onFocus={() => setAt(i)}
-              onBlur={() => setAt(null)}
-            >
-              <rect className="hit mb-hit" x={x.step * i} y={0} width={x.step} height={f.innerH} />
-            </a>
-          ))}
+          <g className="mb-links" {...(scope ? dragSpan.handlers : {})} onClick={() => { dragSpan.dragged.current = false; }}>
+            {months.map((m, i) => (
+              <a
+                key={m.month}
+                className="mb-link"
+                href={monthRowsHref(m.month, today)}
+                draggable={false}
+                aria-label={`${readoutText(title(m), monthRows(m, running(i)))}. ${t("home.months_open")}`}
+                aria-description={scope ? t("chart.span_keys") : undefined}
+                onPointerEnter={() => setAt(i)}
+                onPointerLeave={() => setAt(null)}
+                onFocus={() => setAt(i)}
+                onBlur={() => setAt(null)}
+                onClick={(e) => {
+                  // the click that ends a drag is no click on a month
+                  if (dragSpan.dragged.current) {
+                    e.preventDefault();
+                    dragSpan.dragged.current = false;
+                  }
+                }}
+                onKeyDown={(e) => scope && dragSpan.keys(e, i, (j) => (e.currentTarget.parentElement?.children[j] as SVGAElement | undefined)?.focus())}
+              >
+                <rect className="hit mb-hit" x={x.step * i} y={0} width={x.step} height={f.innerH} />
+              </a>
+            ))}
+          </g>
         </g>
       </svg>
     </div>
