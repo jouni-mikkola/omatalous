@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -25,20 +24,10 @@ const answer = (over: Partial<Answer> = {}): Answer => ({ accounts: [], accounts
 const html = (h: Answer) => renderToStaticMarkup(createElement(Holdings, { holdings: h, meta }));
 // the euro sign and the spaces of a figure come from Intl: compare the digits
 const text = (markup: string) => markup.replace(/<\/span><span class="fig-(?:dec|unit)">/g, "").replace(/<[^>]+>/g, " ").replace(/[\s ]+/g, " ");
-// the text without the line that dates each balance, for a test about the order of the rows and their figures
-const undated = (markup: string) => text(markup).replace(/ Saldo päivältä \d+\.\d+\./g, "");
 const headings = (markup: string, tag: "h2" | "h3") => [...markup.matchAll(new RegExp(`<${tag}[^>]*>(.*?)</${tag}>`, "g"))].map((m) => m[1]);
-const headingDate = (markup: string) => markup.match(/<span class="holding-date">([^<]*)<\/span>/)?.[1];
 const links = (markup: string) => [...markup.matchAll(/<a href="([^"]*)"/g)].map((m) => m[1]);
 /** The address of a loan's row in Varat ja velat as the markup writes it. */
 const loanLink = (id: string) => loanHash(id).replace(/&/g, "&amp;");
-
-describe("Holdings look", () => {
-  it("leaves the sum of a total plain, as the rows around it are", () => {
-    const css = readFileSync(new URL("../src/styles/holdings.css", import.meta.url), "utf8");
-    expect(css).toMatch(/\.holdings \.st-total \.st-num \{ text-decoration: none; \}/);
-  });
-});
 
 describe("Holdings", () => {
   it("is nothing for a household with no account, card or loan", () => {
@@ -59,7 +48,7 @@ describe("Holdings", () => {
   });
 
   describe("Varat velkojen jälkeen", () => {
-    const head = (h: Answer) => undated(html(h)).slice(0, 80);
+    const head = (h: Answer) => text(html(h)).slice(0, 80);
     const base = { accounts: [account("a", "Käyttötili", 100_000)], accountsCents: 100_000 };
 
     it("is plain Varat velkojen jälkeen when every loan has a balance, and has no word before the figure with no debt", () => {
@@ -98,35 +87,29 @@ describe("Holdings", () => {
 
     it("is a dash while the debt total is unknown, whatever the accounts hold", () => {
       const unknown = html(answer({ ...base, netCents: null, debtCents: null, loans: [loan({ leftCents: null })] }));
-      expect(undated(unknown)).toContain("Varat ja velat Varat velkojen jälkeen –");
+      expect(text(unknown)).toContain("Varat ja velat Varat velkojen jälkeen –");
     });
   });
 
   describe("Tilit", () => {
-    it("ends with the total core gives, after the accounts, and has no total row before them", () => {
+    it("lists the accounts in core's order with no total row of their own", () => {
       const markup = html(answer({ accounts: [account("a", "Käyttötili", 120_050), account("b", "Säästötili", -2_000)], accountsCents: 118_050 }));
-      expect(undated(markup)).toContain("Käyttötili 1 200,50 € Säästötili −20,00 € Tilien saldo 1 180,50 €");
-      expect(undated(markup).startsWith(" Varat ja velat Tilit Käyttötili")).toBe(true);
+      expect(text(markup)).toContain("Käyttötili 1 200,50 € Säästötili −20,00 €");
+      expect(text(markup).startsWith(" Varat ja velat Tilit Käyttötili")).toBe(true);
+      expect(text(markup)).not.toContain("Tilien saldo");
+      expect(markup).not.toContain("st-total");
+    });
+
+    it("shows a dash for an account without a balance and does not count them", () => {
+      const markup = html(answer({ accounts: [account("a", "Käyttötili", 120_050), account("b", "Säästötili", null)], accountsCents: 120_050 }));
+      expect(text(markup)).toContain("Käyttötili 1 200,50 € Säästötili –");
       expect(text(markup)).not.toContain("Ilman");
-      // the total is the last row of the group, in the form of a total
-      expect(markup).toMatch(/<div class="st-row st-total"><dt class="st-name">Tilien saldo<\/dt><dd class="st-num"><span class="fig fig-m">(?:<span class="fig-(?:int|dec|unit)">[^<]*<\/span>)+<\/span><\/dd><\/div><\/dl><\/section>/);
     });
 
-    it("tells how many accounts are left out of the total for want of a balance, and shows a dash for a total with none", () => {
-      const one = html(answer({ accounts: [account("a", "Käyttötili", 120_050), account("b", "Säästötili", null)], accountsCents: 120_050 }));
-      expect(text(one)).toContain("Tilien saldo 1 200,50 € Ilman 1 tilin saldoa");
-      const two = html(answer({ accounts: [account("a", "Käyttötili", null), account("b", "Säästötili", null)], accountsCents: null }));
-      expect(text(two)).toContain("Tilien saldo – Ilman 2 tilin saldoa");
-    });
-
-    it("shows an account in another currency with its currency, leaves it out of the total, and does not count it as missing a balance", () => {
+    it("shows an account in another currency with its currency", () => {
       const usd = { ...account("u", "Dollaritili", null), balanceAt: "2026-10-12", foreign: { currency: "USD", cents: 54_000 } };
       const markup = html(answer({ accounts: [account("a", "Käyttötili", 120_050), usd], accountsCents: 120_050 }));
-      expect(undated(markup)).toContain("Käyttötili 1 200,50 € Dollaritili 540,00 USD Tilien saldo 1 200,50 €");
-      expect(text(markup)).not.toContain("Ilman");
-      // a EUR account without a balance beside it is still counted as missing, and the dollar one is not
-      const both = html(answer({ accounts: [account("a", "Käyttötili", 120_050), account("b", "Säästötili", null), usd], accountsCents: 120_050 }));
-      expect(text(both)).toContain("Tilien saldo 1 200,50 € Ilman 1 tilin saldoa");
+      expect(text(markup)).toContain("Käyttötili 1 200,50 € Dollaritili 540,00 USD");
     });
 
     it("adds the last four characters after the name of accounts that share one, and after no other", () => {
@@ -142,7 +125,7 @@ describe("Holdings", () => {
       expect(markup).not.toContain("<details");
       expect(markup).not.toContain("Muut tilit");
       expect(markup.match(/<li class="st-row holding-account/g)).toHaveLength(6);
-      expect(undated(markup)).toContain("Käyttötili 1 200,50 € Säästötili 0,50 € Vanha tili 0,00 € Toinen tili −0,99 € Rahastotili 1,00 € Kuudes tili 0,01 € Tilien saldo 1 201,02 €");
+      expect(text(markup)).toContain("Käyttötili 1 200,50 € Säästötili 0,50 € Vanha tili 0,00 € Toinen tili −0,99 € Rahastotili 1,00 € Kuudes tili 0,01 €");
     });
 
     it("names an account with its link to its rows and no logo or mark before the name, even when its bank has a logo", () => {
@@ -171,14 +154,13 @@ describe("Holdings", () => {
     it("shows each loan with what is left and the instalment, and leaves the instalment out when the answer has none", () => {
       const markup = html(answer({ loans: [loan(), loan({ id: "l2", name: "Autolaina", lender: null, leftCents: 800_000, monthlyPaymentCents: null })], loansCents: 12_800_000, debtCents: 12_800_000 }));
       expect(text(markup)).toContain("Kodin laina Esimerkkirahoitus Oy Lainaa jäljellä 120 000,00 € Kuukausierä 1 000,00 €");
-      expect(text(markup)).toContain("Autolaina Lainaa jäljellä 8 000,00 € Lainat yhteensä 128 000,00 €");
+      expect(text(markup)).toContain("Autolaina Lainaa jäljellä 8 000,00 €");
       expect(text(markup.slice(markup.indexOf("Autolaina")))).not.toContain("Kuukausierä");
     });
 
-    it("an account cut by who paid says osuutesi with no percent, one cut by weights says its part", () => {
+    it("an account cut by who paid says nothing under its row, one cut by weights says its part", () => {
       const held = (traced: boolean) => renderToStaticMarkup(createElement(Holdings, { holdings: answer({ accounts: [{ ...account("a1", "Yhteistili", 100_000), part: { from: 1, to: 2, of: 2 } }], accountsCents: 100_000 }), meta: { ...meta, accounts: [{ id: "a1", traced }] } as unknown as Meta }));
-      expect(undated(held(true))).toContain("Yhteinen tili, osuutesi Tilien saldo");
-      expect(text(held(true))).not.toContain("osuutesi 50");
+      expect(text(held(true))).not.toContain("osuutesi");
       expect(text(held(true))).not.toContain("%");
       expect(text(held(false))).toContain("Yhteinen tili, osuutesi 50 %");
     });
@@ -218,54 +200,19 @@ describe("Holdings", () => {
       expect(markup).toContain('<p class="st-note">');
     });
 
-    it("ends with the total core gives as the last row, whatever the loans' own figures are, and gives none when core has none", () => {
-      const total = (over: Partial<Answer>) => text(html(answer({ loans: [loan(), loan({ id: "l2", leftCents: null })], debtCents: 0, ...over })));
-      // the sum is core's, so a loan without a balance changes nothing here
-      expect(total({ loansCents: 12_000_000 })).toContain("Lainaa jäljellä – Kuukausierä 1 000,00 € Lainat yhteensä 120 000,00 €");
-      expect(html(answer({ loans: [loan()], loansCents: 12_000_000, loansEndDate: "2041-03-15", debtCents: 12_000_000 }))).toMatch(/Lainat yhteensä<\/dt><dd class="st-num"><span class="fig fig-m">(?:<span class="fig-(?:int|dec|unit)">[^<]*<\/span>)+<\/span><\/dd><dd class="st-sub">[^<]*<\/dd><\/div><\/dl><\/section>/);
-      expect(total({ loansCents: null })).not.toContain("yhteensä");
-    });
-
-    it("names the month of the last payment under the total, and says when core has no end for the loans", () => {
-      const owing = { loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000 };
-      expect(text(html(answer({ ...owing, loansEndDate: "2041-03-15" })))).toContain("Lainat yhteensä 120 000,00 € Viimeinen maksu 3/2041");
-      expect(text(html(answer({ ...owing, loansEndDate: "2029-11-30" })))).toContain("Viimeinen maksu 11/2029");
-      expect(text(html(answer(owing)))).toContain("Lainat yhteensä 120 000,00 € Viimeinen maksu ei tiedossa");
-    });
-
-    it("has no total row for a household that owes nothing", () => {
-      expect(text(html(answer({ loans: [loan({ leftCents: 0 })], loansCents: 0, debtCents: 0 })))).not.toContain("yhteensä");
+    it("has no total row and no last payment under the loans", () => {
+      const out = text(html(answer({ loans: [loan(), loan({ id: "l2", leftCents: null })], loansCents: 12_000_000, loansEndDate: "2041-03-15", debtCents: 12_000_000 })));
+      expect(out).toContain("Lainaa jäljellä – Kuukausierä 1 000,00 €");
+      expect(out).not.toContain("yhteensä");
+      expect(out).not.toContain("Viimeinen maksu");
     });
   });
 
-  describe("Velat yhteensä", () => {
-    const owing = (used: number | null) => card({ usedCents: used, freeCents: used === null ? null : 300_000 - used, overCents: used === null ? null : 0 });
-    /** The block's markup split where the foot starts: what the groups hold, and what stands under all of them. */
-    const foot = (h: Answer) => {
-      const markup = html(h);
-      const at = markup.indexOf('class="st-rows holding-foot"');
-      return { groups: at < 0 ? markup : markup.slice(0, at), foot: at < 0 ? "" : text(markup.slice(at)) };
-    };
-
-    it("is a row of the whole block under the groups when a card has something used and there are loans, and not in the Lainat column", () => {
-      const both = foot(answer({ cards: [owing(50_000)], cardsCents: 50_000, loans: [loan()], loansCents: 12_000_000, debtCents: 12_050_000 }));
-      expect(both.foot).toContain("Velat yhteensä 120 500,00 €");
-      expect(both.groups).not.toContain("Velat yhteensä");
-      // the column has its own sum, the loans'
-      expect(text(both.groups)).toContain("Lainat yhteensä 120 000,00 €");
-    });
-
-    it("is not there for a card at zero or without a balance, nor for cards alone, where it would repeat a single row", () => {
-      expect(foot(answer({ cards: [owing(0)], loans: [loan()], debtCents: 12_000_000 })).foot).toBe("");
-      expect(foot(answer({ cards: [owing(null)], loans: [loan()], debtCents: 12_000_000 })).foot).toBe("");
-      expect(foot(answer({ cards: [owing(50_000)], debtCents: 50_000 })).foot).toBe("");
-      expect(foot(answer({ loans: [loan()], debtCents: 12_000_000 })).foot).toBe("");
-    });
-
-    it("is the debt total core gives, a dash when core cannot tell it because a loan has no balance on the day", () => {
-      const markup = foot(answer({ cards: [owing(50_000)], loans: [loan({ leftCents: null })], debtCents: null }));
-      expect(markup.foot).toContain("Velat yhteensä –");
-      expect(text(markup.groups)).not.toContain("Lainat yhteensä");
+  describe("the foot", () => {
+    it("has no row of the debts under the groups, whatever a card owes", () => {
+      const markup = html(answer({ cards: [card({ usedCents: 50_000, freeCents: 250_000, overCents: 0 })], cardsCents: 50_000, loans: [loan()], loansCents: 12_000_000, debtCents: 12_050_000 }));
+      expect(markup).not.toContain("holding-foot");
+      expect(text(markup)).not.toContain("Velat yhteensä");
     });
   });
 
@@ -337,7 +284,7 @@ describe("Holdings", () => {
 
     it("is the card's name as a link, then the arc of what is used and its three rows, as a loan is name and rows", () => {
       const markup = withCards([card({ usedCents: 120_000, freeCents: 180_000 })]);
-      expect(undated(markup)).toContain("Esimerkkikortti 40 % Käytetty luotto 1 200,00 € Luottoraja 3 000,00 € Luottoa jäljellä 1 800,00 €");
+      expect(text(markup)).toContain("Esimerkkikortti 40 % Käytetty luotto 1 200,00 € Luottoraja 3 000,00 € Luottoa jäljellä 1 800,00 €");
       // the day of the balance is in the heading, so the unit has no head: the face is the name, the arc comes next
       expect(markup).toContain('<div class="holding-unit-body"><svg class="credit-arc"');
       expect(markup).toContain('<a href="#/transactions?accountId=k1">Esimerkkikortti</a>');
@@ -367,7 +314,7 @@ describe("Holdings", () => {
 
     it("has one row for a card without a limit, and a dash for one the bank gave no balance", () => {
       const bare = withCards([card({ limitCents: null, usedCents: 47_987, freeCents: null, overCents: null })]);
-      expect(undated(bare)).toContain("Esimerkkikortti Käytetty luotto 479,87 €");
+      expect(text(bare)).toContain("Esimerkkikortti Käytetty luotto 479,87 €");
       expect(bare).not.toContain("Luottoraja");
       expect(bare.match(/<dt /g)).toHaveLength(1);
       // no line under the name: the day of the balance is in the heading
@@ -397,18 +344,12 @@ describe("Holdings", () => {
       expect(text(full)).toContain("100 %");
     });
 
-    it("names the card without the type its bank adds in brackets, and tells the date of its balance and the part", () => {
+    it("names the card without the type its bank adds in brackets, and tells the part", () => {
       const markup = withCards([card({ name: "Esimerkkikortti Gold (credit)", balanceAt: "2026-10-09", part: { from: 1, to: 2, of: 2 } })]);
       expect(markup).toContain(">Esimerkkikortti Gold</a>");
       expect(markup).not.toContain("(credit)");
       expect(text(markup)).toContain("Esimerkkikortti Gold osuutesi 50 % 0 % Käytetty luotto");
-      // the heading dates the balances once, and a card says its own day only when it differs
-      expect(markup.match(/Saldo päivältä/g)).toHaveLength(1);
-      expect(headingDate(markup)).toBe("Saldo päivältä 9.10.");
-      const two = withCards([card(), card({ id: "k2", name: "Toinen kortti" }), card({ id: "k3", name: "Kolmas kortti", balanceAt: "2026-10-09" })]);
-      expect(headingDate(two)).toBe("Saldo päivältä 12.10.");
-      expect(text(two)).toContain("Kolmas kortti Saldo päivältä 9.10.");
-      expect(two.match(/Saldo päivältä/g)).toHaveLength(2);
+      expect(text(markup)).not.toContain("Saldo päivältä");
     });
 
     it("tells two cards that share a name apart by the last four digits in their rows", () => {
@@ -423,8 +364,8 @@ describe("Holdings", () => {
 
     it("has the total core gives at the right of the group's heading, with two cards or more, and none for one", () => {
       const two = withCards([card({ usedCents: 120_000, freeCents: 180_000 }), card({ id: "k2", usedCents: 30_000, freeCents: 270_000 })], 150_000);
-      expect(undated(two)).toContain("Luottokortit Luottokortit yhteensä 1 500,00 € Esimerkkikortti 40 %");
-      expect(two).toContain('<header class="holding-cards-head"><h3 class="st-cap">Luottokortit</h3><span class="holding-date">Saldo päivältä 12.10.</span><dl class="holding-inline"><dt>Luottokortit yhteensä</dt><dd>');
+      expect(text(two)).toContain("Luottokortit Luottokortit yhteensä 1 500,00 € Esimerkkikortti 40 %");
+      expect(two).toContain('<header class="holding-cards-head"><h3 class="st-cap">Luottokortit</h3><dl class="holding-inline"><dt>Luottokortit yhteensä</dt><dd>');
       // the cards end on their own rows: no total row after them
       expect(two).not.toContain("st-total");
       expect(text(withCards([card()], 0))).not.toContain("yhteensä");
@@ -447,7 +388,7 @@ describe("Holdings", () => {
       );
       expect(headings(markup, "h3")).toEqual(["Tilit"]);
       expect([...markup.matchAll(/<h4[^>]*>(.*?)<\/h4>/g)].map((m) => m[1])).toEqual(["Käyttötilit", "Säästötilit"]);
-      expect(undated(markup)).toContain("Käyttötilit 1 200,00 € Käyttötili 1 000,00 € Toinen käyttötili 200,00 € Säästötilit Säästötili 5 000,00 € Tilien saldo 6 200,00 €");
+      expect(text(markup)).toContain("Käyttötilit 1 200,00 € Käyttötili 1 000,00 € Toinen käyttötili 200,00 € Säästötilit Säästötili 5 000,00 €");
     });
 
     it("keeps the types in one list", () => {
@@ -470,28 +411,19 @@ describe("Holdings", () => {
       expect(markup).not.toContain("<h4");
     });
 
-    it("says the day of the balances once in the heading, and a row's own day only where it differs", () => {
-      const markup = html(answer({ accounts: [account("a", "Käyttötili", 100_000), account("b", "Säästötili", 200_000), { ...account("c", "Vanha tili", 50_000), balanceAt: "2026-10-09" }], accountsCents: 350_000 }));
-      expect(headingDate(markup)).toBe("Saldo päivältä 12.10.");
-      expect(markup.match(/Saldo päivältä/g)).toHaveLength(2);
-      expect(text(markup)).toContain("Käyttötili 1 000,00 € Säästötili 2 000,00 € Vanha tili 500,00 € Saldo päivältä 9.10. Tilien saldo");
-      // every balance from one day: the heading has it and no row repeats it
-      const same = html(answer({ accounts: [account("a", "Käyttötili", 100_000), account("b", "Säästötili", 200_000)], accountsCents: 300_000 }));
-      expect(same.match(/Saldo päivältä/g)).toHaveLength(1);
-      // no balance, no day
-      expect(html(answer({ accounts: [account("a", "Käyttötili", null)] }))).not.toContain("holding-date");
-      // the accounts have no balance and the cards do: the day stands beside the cards heading
-      const onCards = html(answer({ accounts: [account("a", "Käyttötili", null)], cards: [card()] }));
-      expect(onCards).toMatch(/<h3 class="st-cap">Luottokortit<\/h3><span class="holding-date">Saldo päivältä 12\.10\.<\/span>/);
-      expect(onCards.match(/holding-date/g)).toHaveLength(1);
+    it("names no day of a balance, in the heading or on a row", () => {
+      const markup = html(answer({ accounts: [account("a", "Käyttötili", 100_000), account("b", "Säästötili", 200_000), { ...account("c", "Vanha tili", 50_000), balanceAt: "2026-10-09" }], accountsCents: 350_000, cards: [card({ balanceAt: "2026-10-09" })] }));
+      expect(markup).not.toContain("holding-date");
+      expect(text(markup)).not.toContain("Saldo päivältä");
     });
 
-    it("names an account's bank only when the accounts are at more than one bank", () => {
+    it("names no account's bank", () => {
       const at = (bank: string | null, id: string, name: string) => ({ ...account(id, name, 100_000), bank });
       const one = html(answer({ accounts: [at("Esimerkkipankki", "a", "Käyttötili"), at("Esimerkkipankki", "b", "Säästötili")], accountsCents: 200_000 }));
       expect(one).not.toContain("Esimerkkipankki");
       const two = html(answer({ accounts: [at("Esimerkkipankki", "a", "Käyttötili"), at("Toinen pankki", "b", "Säästötili"), at(null, "c", "Kolmas tili")], accountsCents: 300_000 }));
-      expect(undated(two)).toContain("Käyttötili 1 000,00 € Esimerkkipankki Säästötili 1 000,00 € Toinen pankki Kolmas tili 1 000,00 € Tilien saldo");
+      expect(text(two)).toContain("Käyttötili 1 000,00 € Säästötili 1 000,00 € Kolmas tili 1 000,00 €");
+      expect(text(two)).not.toContain("Toinen pankki");
     });
 
     it("takes the heading it is given", () => {
@@ -505,10 +437,9 @@ describe("Holdings", () => {
       expect(headings(markup, "h2")).toEqual([]);
       expect(markup).toContain('aria-label="Varat ja velat"');
       expect(headings(markup, "h3")).toEqual(["Tilit", "Luottokortit"]);
-      expect(text(markup)).not.toMatch(/Lainaa jäljellä|Lainat yhteensä|Velat yhteensä/);
-      // the same answer on Yhteenveto keeps the loans and their total
+      expect(text(markup)).not.toMatch(/Lainaa jäljellä/);
+      // the same answer without the flag keeps the loans
       expect(headings(html(h), "h3")).toEqual(["Tilit", "Lainat", "Luottokortit"]);
-      expect(text(html(h))).toContain("Velat yhteensä 120 500,00 €");
     });
   });
 });

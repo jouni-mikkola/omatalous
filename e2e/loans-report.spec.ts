@@ -138,14 +138,13 @@ test("Lainat lists each debt in one table, says what it does not know and what a
 
   // the totals: the payments of a month, the mortgage's and the unsaved loan's, and the card that tells none; the debts and their cost are the foot of the table
   const tiles = await texts(page, "#lainat .kv > div");
-  expect(tiles[0]).toBe("Kuukausierät 1 289 € + 1 ei tiedossa Maksu ei tiedossa: Kaupan kortti");
+  expect(tiles[0]).toBe("Kuukausierät vähintään 1 289 €");
   // and no path of the debts is drawn while a debt that owes cannot be projected, and no plan is told while a debt lacks its terms
   await expect(section.locator("#lainat-polku")).toHaveCount(0);
   await expect(section.locator(".loan-plan")).toHaveCount(0);
   await expect(section.locator(".loans-notes")).toHaveCount(0);
-  // the one place that says it is the payments tile above: its count and the names under it
-  await expect(section.getByText(/ei tiedossa/)).toHaveCount(2);
-  await expect(section.locator(".kv > div").first().getByText(/ei tiedossa/)).toHaveCount(2);
+  // no line says which payment is not known: the tile says at least, and its panel lists each debt's payment
+  await expect(section.getByText(/ei tiedossa/)).toHaveCount(0);
   // the accounts less the debts are told only for a range that reaches today (apps/web/test/loans-section.test.ts
   // reads their texts), and nothing on the page calls a figure net worth
   await expect(page.locator("main")).not.toContainText("Nettovarallisuus");
@@ -160,13 +159,11 @@ test("Lainat lists each debt in one table, says what it does not know and what a
   // the card owes and has no rate: a dash in each figure it lacks, never a zero
   expect(await rowLine(1)).toMatch(/^Kaupan kortti.*1 240 € – –$/);
   const unsaved = await rowLine(2);
-  expect(unsaved).toContain("saldo puuttuu");
-  expect(unsaved).toMatch(/[\d ,]+ €\/kk/);
+  expect(unsaved).not.toContain("saldo puuttuu");
+  await expect(section.locator("table.rt tfoot")).toHaveCount(0);
 
-  // the foot: the debts told, and the cost of a year a dash; the page has one link to the list of what is missing
-  const foot = section.locator("table.rt tfoot tr");
-  expect(plain(await foot.innerText())).toBe("Velat yhteensä, tiedossa 121 240 € –");
-  await expect(page.locator("main").getByRole("link", { name: /ilman saldoa/ })).toHaveAttribute("href", /item=loan-terms/);
+  // the page has one link to the list of what is missing
+  await expect(page.locator("main").getByRole("link", { name: /ilman saldoa|Lisää \d+ saldoa?/ })).toHaveAttribute("href", /item=loan-terms/);
 
   // the mortgage's drill: the payment split into its interest and amortisation, and what a point of the reference rate does
   const cost = cents(plain(await rows.nth(0).locator("td").last().innerText()));
@@ -278,7 +275,7 @@ test("Lainat fits a phone: each debt is a block, its drill opens and the page do
   await expect(rows).toHaveCount(3);
   // the debt with a cost comes first and the one with none follows, as at a desktop's width; the loan nobody saved is last
   await expect(page.locator("#lainat .loan-name")).toHaveText([/^Kodin laina/, /^Kaupan kortti/, /./]);
-  await expect(rows.nth(2)).toContainText("saldo puuttuu");
+  await expect(rows.nth(2)).not.toContainText("saldo puuttuu");
   await page.locator("#lainat").scrollIntoViewIfNeeded();
   expect(await overflow(page)).toBe(0);
   // a drill reaches the finger's size, and its rate said in words stays on the screen

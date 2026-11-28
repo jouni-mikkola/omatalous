@@ -284,7 +284,7 @@ export const FIGURES = {
     unit: "months",
     scope: "own",
     additive: false,
-    pages: ["Yhteenveto", "Raportit"],
+    pages: ["Yhteenveto", "Varat ja velat"],
   },
   balanceChange: {
     name: "Saldomuutos",

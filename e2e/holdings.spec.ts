@@ -27,7 +27,7 @@ test("a name opens its rows in Tapahtumat, in the colour of a link and underline
 
   // an account: the link is in the accent colour, not the colour of the other words of the row, and underlined when hovered
   const account = holdings.getByRole("link", { name: "Käyttötili (esimerkki)" });
-  const plainText = await colour(holdings.locator(".st-total .st-name", { hasText: "Tilien saldo" }));
+  const plainText = await colour(holdings.locator(".st-num").first());
   const underline = (el: Locator) => el.evaluate((node) => getComputedStyle(node).textDecorationLine);
   expect(await colour(account), "a name is a link in the colour of one").not.toBe(plainText);
   expect(await underline(account)).toBe("none");
@@ -83,7 +83,7 @@ test("the focus of a link shows whole, inside the name that is cut", async ({ br
   await context.close();
 });
 
-test("the sums of a group stand on one right edge, an account's row is 54 px, two weights only, and a card with no limit is its name, its digits and one figure, with the day of the balances once in the heading", async ({ browser }) => {
+test("the sums of a group stand on one right edge, an account's row is 54 px, two weights only, and a card with no limit is its name, its digits and one figure", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
   const seen = watch(page);
@@ -91,11 +91,10 @@ test("the sums of a group stand on one right edge, an account's row is 54 px, tw
   const holdings = holdingsOf(page);
   await expect(holdings).toBeVisible();
 
-  // Tilit: the two accounts and the total at the foot end at one x
+  // Tilit: the two accounts end at one x
   const tilit = groupOf(page, "Tilit");
   const edges = await rights(tilit.locator(".st-num"));
-  expect(edges.length, "the total and two accounts").toBe(3);
-  // no bracket stands beside the accounts, so the total's sum ends where theirs do
+  expect(edges.length, "the two accounts").toBe(2);
   expect(new Set(edges).size, `the sums end at ${edges.join(", ")}`).toBe(1);
 
   // a row of an account is 54 px with its hairline: room for the curve that will stand between the name and the sum
@@ -113,8 +112,7 @@ test("the sums of a group stand on one right edge, an account's row is 54 px, tw
   });
   expect(weights).toEqual(["400", "600"]);
 
-  // the heading names the day of the balances, and the rows repeat it nowhere
-  await expect(holdings.locator(".holding-date")).toHaveText(/^Saldo päivältä \d/);
+  await expect(holdings.locator(".holding-date")).toHaveCount(0);
   // the demo's card has a name, its last digits and what is used: no limit row, no meter, and no line without words
   const card = groupOf(page, "Luottokortit").locator(".holding-unit");
   await expect(card.locator(".st-row")).toHaveCount(1);
