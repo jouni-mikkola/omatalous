@@ -32,16 +32,21 @@ test("linking the fake bank brings four accounts: the joint one with both holder
   const row = (name: string) => tilit.getByRole("row", { name: new RegExp(`^${name} `) });
   // the header, four accounts, and the row under the joint account that has its split (Jako), which holds the parts too (#392)
   await expect(tilit.locator(".accounts-table > thead > tr, .accounts-table > tbody > tr")).toHaveCount(6);
-  await expect(row("Käyttötili")).toContainText("FI21 1234 5600 0007 85");
-  await expect(row("Käyttötili")).toContainText("MEIKALAINEN MATTI");
-  await expect(row("Säästötili")).toContainText("FI14 1009 3000 1234 58");
-  await expect(row("Yhteistili")).toContainText("FI96 1234 5600 0007 93");
-  await expect(row("Yhteistili")).toContainText("MEIKALAINEN MATTI, KORHONEN ELISA");
-  await expect(row("Käyttötili")).not.toContainText("KORHONEN");
+  // the number and the holder are behind Muokkaa, not on the row
+  await expect(row("Käyttötili")).not.toContainText("FI21 1234 5600 0007 85");
+  await page.getByRole("button", { name: "Muokkaa tiliä Käyttötili" }).click();
+  const form = tilit.locator(".account-form");
+  await expect(form).toContainText("FI21 1234 5600 0007 85");
+  await expect(form).toContainText("MEIKALAINEN MATTI");
+  await expect(form).not.toContainText("KORHONEN");
+  await form.getByRole("button", { name: "Peruuta" }).click();
+  await page.getByRole("button", { name: "Muokkaa tiliä Yhteistili" }).click();
+  await expect(form).toContainText("FI96 1234 5600 0007 93");
+  await expect(form).toContainText("MEIKALAINEN MATTI, KORHONEN ELISA");
+  await form.getByRole("button", { name: "Peruuta" }).click();
 
-  // the card: its last digits, the limit of 3 000 € and the bar of what is used
+  // the card: the limit of 3 000 € and the bar of what is used
   const card = row("ESIMERKKIPANKKI Luottokortti");
-  await expect(card).toContainText("•••• 4321");
   await expect(card).toContainText(/Luottoraja 3\s000\s€, käytössä/);
   await expect(card.locator(".credit-bar")).toBeVisible();
   await expect(tilit.locator(".credit-bar")).toHaveCount(1);

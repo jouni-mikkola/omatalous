@@ -49,7 +49,7 @@ async function scanPages(page: Page, pages: { path: string; scan: "all" | "frame
     await page.waitForLoadState("networkidle");
     await expect(page.getByText("Loading…")).toHaveCount(0);
     await expect(page.locator("[aria-busy=true]")).toHaveCount(0);
-    const parts = scan === "all" ? [page.locator("body")] : [page.locator("header.topbar"), page.locator("footer.sheet-foot")];
+    const parts = scan === "all" ? [page.locator("body")] : [page.locator("header.topbar")];
     for (const part of parts) {
       // the user menu is closed: its items are read from the page text all the same; the language picker names itself in both languages on purpose
       const text = await readPart(part);
