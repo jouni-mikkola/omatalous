@@ -160,7 +160,7 @@ export function TotalsStrip({ totals, income, today, onPick, more }: { totals: T
   const [back, setBack] = useState<Period | null>(null);
   // the address once the pick is on show: Escape steps back only while it is still the address, else a later filter change would be undone
   const pickedHash = useRef<string | null>(null);
-  const pickShown = back !== null && span !== null && back.from === span.from && back.to === span.to;
+  const pickShown = back !== null && span != null && back.from === span.from && back.to === span.to;
   useEffect(() => {
     if (!pickShown) pickedHash.current = null;
     else if (pickedHash.current === null) pickedHash.current = window.location.hash;
