@@ -6,7 +6,7 @@ import { coverOf, totalsOf } from "../analysis/flows.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { getCategory } from "../categories.ts";
 import { spendingLabel } from "../category-names.ts";
-import { monthEnd } from "../dates.ts";
+import { monthEnd, monthIndex } from "../dates.ts";
 import { completeMonthRowsOf } from "../overview.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { messageIn } from "../messages.ts";
@@ -25,6 +25,19 @@ interface MoneyFlowBand {
   cents: number;
 }
 
+/** The picture of one complete month: the same two lists as the whole period, equal to the cent (ADR 0014). */
+interface MoneyFlowMonth {
+  month: string;
+  /** The first and last day of the month, for the link that opens its rows. */
+  from: string;
+  to: string;
+  sources: MoneyFlowBand[];
+  uses: MoneyFlowBand[];
+  totalCents: number;
+  /** The credit source of the month; 0 when there is none. */
+  creditCents: number;
+}
+
 export interface MoneyFlowReport {
   /** Where the money came from: income by kind, then what was drawn (savings, credit, accounts and cards). */
   sources: MoneyFlowBand[];
@@ -36,6 +49,8 @@ export interface MoneyFlowReport {
   monthCount: number;
   /** The credit source over those months, per month and rounded to the cent; 0 when there is none. */
   creditPerMonthCents: number;
+  /** The same picture for each complete month, oldest first. */
+  months: MoneyFlowMonth[];
 }
 
 /**
@@ -50,14 +65,17 @@ export interface MoneyFlowReport {
  */
 export function moneyFlowReport(ctx: AnalysisContext, range: DateRange, inputs: UserInputs, lang: Language = DEFAULT_LANGUAGE): MoneyFlowReport {
   const { months, rows } = completeMonthRowsOf(ctx, range, lang);
+  const splits = months.map((month) => debtSplit(ctx, { from: `${month}-01`, to: monthEnd(month) }, inputs));
+  const split = { interestCents: sumOf(splits, (p) => p.interestCents), principalCents: sumOf(splits, (p) => p.principalCents) };
+  const whole = bandsOf(rows, split, lang);
+  const perMonth = months.map((month, i): MoneyFlowMonth => ({ month, from: `${month}-01`, to: monthEnd(month), ...bandsOf(rows.filter((x) => x.month === monthIndex(month)), splits[i]!, lang) }));
+  return { sources: whole.sources, uses: whole.uses, totalCents: whole.totalCents, monthCount: months.length, creditPerMonthCents: months.length > 0 ? Math.round(whole.creditCents / months.length) : 0, months: perMonth };
+}
+
+/** The two equal lists for the rows of some complete months and the interest and principal of the same months. */
+function bandsOf(rows: ReturnType<typeof completeMonthRowsOf>["rows"], split: { interestCents: number; principalCents: number }, lang: Language) {
   const totals = totalsOf(rows.map((x) => x.flows));
   const cover = coverOf(totals);
-  const split = { interestCents: 0, principalCents: 0 };
-  for (const month of months) {
-    const part = debtSplit(ctx, { from: `${month}-01`, to: monthEnd(month) }, inputs);
-    split.interestCents += part.interestCents;
-    split.principalCents += part.principalCents;
-  }
 
   const earnedCents = sumOf(rows, earnedOf);
   const sources: MoneyFlowBand[] = [
@@ -102,5 +120,5 @@ export function moneyFlowReport(ctx: AnalysisContext, range: DateRange, inputs: 
   const present = (bands: MoneyFlowBand[]) => bands.filter((b) => b.cents > 0);
   const out = { sources: present([...sources, ...returned(uses)]), uses: present([...uses, ...returned(sources)]) };
   const creditCents = out.sources.find((b) => b.id === "credit")?.cents ?? 0;
-  return { ...out, totalCents: sumOf(out.sources, (b) => b.cents), monthCount: months.length, creditPerMonthCents: months.length > 0 ? Math.round(creditCents / months.length) : 0 };
+  return { ...out, totalCents: sumOf(out.sources, (b) => b.cents), creditCents };
 }

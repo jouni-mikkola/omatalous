@@ -1,9 +1,10 @@
 // Decision: how much of the household's life is paid with credit or savings, and how large a cut would end it (reads moneyFlow)
-import { MoneyFlow } from "../../../charts/forms/MoneyFlow.tsx";
+import { useState } from "react";
+import { MoneyFlow, MoneyFlowMonths } from "../../../charts/forms/MoneyFlow.tsx";
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
 import { ChartWithTable } from "../../../components/table/selection.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
-import { answerMoney, money } from "../../../format.ts";
+import { answerMoney, money, monthLongIn } from "../../../format.ts";
 import type { ReportsData } from "../../../types.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { t } from "../../../text.ts";
@@ -19,19 +20,36 @@ function Side({ caption, bands, totalCents }: { caption: string; bands: Band[]; 
   return <Table<Band> caption={caption} rows={bands} rowKey={(b) => b.id} columns={columns} total={{ label: t("rpt.total"), cells: { sum: money(totalCents) } }} search={false} toolbar={false} csv={false} />;
 }
 
+/** The filter of Tapahtumat that lists the rows of a band, for the bands that are the rows of one category; the others are sums with no rows of their own. */
+function rowsFilter(band: Band): string | null {
+  if (band.id.startsWith("category:") && !band.id.endsWith(":returned")) return `category=${encodeURIComponent(band.id.slice("category:".length))}`;
+  if (band.id === "credit") return "category=credit_draw";
+  return null;
+}
+
 function MoneyFlowSection({ ctx }: SectionProps) {
   const r = ctx.data.moneyFlow;
-  const credit = r.sources.find((b) => b.id === "credit")?.cents ?? 0;
+  const [pickedMonth, pick] = useState<string | null>(null);
+  const month = r.months.find((m) => m.month === pickedMonth) ?? null;
+  const shown = month ?? { ...r, from: r.months[0]?.from ?? ctx.range.from, to: r.months.at(-1)?.to ?? ctx.range.to, creditCents: r.sources.find((b) => b.id === "credit")?.cents ?? 0 };
+  const hero = month
+    ? t("rpt.mf_hero_month", { month: monthLongIn(month.month).replace(/^./, (c) => c.toUpperCase()), credit: answerMoney(month.creditCents) })
+    : t("rpt.mf_hero", { months: r.monthCount, credit: answerMoney(shown.creditCents), perMonth: answerMoney(r.creditPerMonthCents) });
+  const href = (band: Band) => {
+    const filter = rowsFilter(band);
+    return filter ? `#/transactions?${filter}&from=${shown.from}&to=${shown.to}` : null;
+  };
   return (
     <ReportPanel id={section.id} title={section.title}>
-      {credit > 0 && <p className="mf-hero">{t("rpt.mf_hero", { months: r.monthCount, credit: answerMoney(credit), perMonth: answerMoney(r.creditPerMonthCents) })}</p>}
+      {shown.creditCents > 0 && <p className="mf-hero">{hero}</p>}
+      {r.months.length > 1 && <MoneyFlowMonths months={r.months.map((m) => m.month)} picked={month?.month ?? null} onPick={pick} />}
       <ChartWithTable
-        rows={r.sources.length + r.uses.length}
-        chart={<MoneyFlow sources={r.sources} uses={r.uses} />}
+        rows={shown.sources.length + shown.uses.length}
+        chart={<MoneyFlow sources={shown.sources} uses={shown.uses} href={href} />}
         table={
           <>
-            <Side caption={t("rpt.mf_sources")} bands={r.sources} totalCents={r.totalCents} />
-            <Side caption={t("rpt.mf_uses")} bands={r.uses} totalCents={r.totalCents} />
+            <Side caption={t("rpt.mf_sources")} bands={shown.sources} totalCents={shown.totalCents} />
+            <Side caption={t("rpt.mf_uses")} bands={shown.uses} totalCents={shown.totalCents} />
           </>
         }
       />

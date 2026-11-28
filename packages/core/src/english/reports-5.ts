@@ -215,6 +215,8 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.mf_saved": "Moved to savings",
   "rpt.mf_repaid": "Credit paid back",
   "rpt.mf_hero": "Over the period ({months} mo), {credit} of spending was covered with credit. That is {perMonth} a month.",
+  "rpt.mf_hero_month": "In {month}, {credit} of spending was covered with credit.",
+  "rpt.mf_months": "Month",
   "rpt.sec_loans": "Loans",
   "rpt.sec_pivot": "Spending by month",
   "rpt.sec_settlement": "Settlement",
