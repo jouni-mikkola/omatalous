@@ -7,7 +7,7 @@ import { Summary } from "../components/home/Summary.tsx";
 import { FirstFetch } from "../components/home/FirstFetch.tsx";
 import { HomeSkeleton } from "../components/home/Skeleton.tsx";
 import { FirstRun } from "./FirstRun.tsx";
-import { Holdings } from "./reports/holdings/Holdings.tsx";
+import { HoldingsLines } from "../components/home/HoldingsLines.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
 import { Button } from "../components/ui/Button.tsx";
 import { useApi } from "../hooks.ts";
@@ -20,9 +20,9 @@ import { t } from "../text.ts";
 
 /**
  * Yhteenveto: how the household's money stands and is going, in four blocks. Nyt (what is left to the payday), the month
- * (Summary: Tulot, Menot and Tulos with their comparisons, and the use of the income under them), the coming months
+ * (Summary: Tulot, Menot and Tulos with their comparisons), the coming months
  * (Coming: the bills, pays and what is left after them of this month and the two after it, read from Laskut's own
- * answer) and the accounts, cards and loans (Holdings, the block of Raportit > Varat ja velat); the last two stand in one rail
+ * answer) and the accounts, cards and loans as three lines that lead to Varat ja velat (HoldingsLines); the last two stand in one rail
  * on a wide screen, the accounts under the coming months. The source order is the order a phone reads. The balance of the days to the payday is a chart under Nyt (BalanceDays), and the twelve months of income and spending are a chart of Raportit > Menot. No notice and no
  * question stands here: the notices are on Asetukset > Turvallisuus, the questions on Tarkistettavat. Every figure is a
  * field of an answer; nothing is added up here. The page always tells today and the running month.
@@ -81,7 +81,7 @@ export function Overview({
       )}
       <div className="front-rail">
         <Coming scope={scope} />
-        <Holdings holdings={data.holdings} meta={meta} ahead={data.ahead} net={false} chip={<KindChip kind="now" date={dayMonth(meta.today)} />} buffer={<Buffer direction={data.home.direction} />} />
+        <HoldingsLines holdings={data.holdings} chip={<KindChip kind="now" date={dayMonth(meta.today)} />} buffer={<Buffer direction={data.home.direction} />} />
       </div>
     </div>
   );

@@ -8,7 +8,7 @@ import { PAYER_ROLE_LABEL, WALLET_ROLE_LABEL } from "../components/questions.ts"
 import { date, dateTime, money } from "../format.ts";
 import type { SyncRun } from "../types.ts";
 import { t, tn } from "../text.ts";
-import { loanGain, type LoanDriftItem, type LoanTermsListItem } from "./review-loan-items.ts";
+import { isBalancesItem, loanGain, type LoanDriftItem, type LoanTermsListItem } from "./review-loan-items.ts";
 
 export interface Base {
   id: string;
@@ -188,8 +188,12 @@ export const withFetch = (items: readonly ReviewItem[], run: SyncRun | null | un
 
 /** The queue with the item a link names (`#/review?item=loan-terms`) first; an id the queue lacks changes nothing. */
 export function linkedFirst(items: readonly ReviewItem[], id: string | null): ReviewItem[] {
-  // `loan-terms` names the first debt's question: each debt has its own, `loan-terms:<debt>`
-  const linked = id === null ? undefined : items.find((i) => i.id === id || (id === "loan-terms" && i.kind === "loan_terms_list"));
+  // `loan-terms` names the question of the balances form if there is one, else the first debt's: each debt has its own, `loan-terms:<debt>`, which the balances form holds when it takes the debt
+  const linked =
+    id === null
+      ? undefined
+      : (items.find((i) => i.id === id) ??
+        (id === "loan-terms" ? (items.find(isBalancesItem) ?? items.find((i) => i.kind === "loan_terms_list")) : items.find((i) => i.kind === "loan_terms_list" && isBalancesItem(i) && i.debts.some((d) => `loan-terms:${d.id}` === id))));
   return linked ? [linked, ...items.filter((i) => i !== linked)] : [...items];
 }
 
@@ -293,7 +297,7 @@ export function nameOf(item: ReviewItem): string {
       return item.wallet ? "MobilePay" : item.merchant;
     case "loan_terms_list":
       // a question is one debt's, so the card names it; a list with no debt keeps the old name
-      return item.debts[0]?.name ?? t("set.ri.loans_and_cards");
+      return (isBalancesItem(item) ? undefined : item.debts[0]?.name) ?? t("set.ri.loans_and_cards");
     case "loan_drift":
       return item.name;
     case "split":
@@ -320,7 +324,7 @@ export function nameOf(item: ReviewItem): string {
   }
 }
 
-/** A person's money gets the person glyph, never initials: a payer the app would offer "Omaa rahaa", a shared account's payer. */
+/** A person's money gets the plain disc of a person, not a brand's tint: a payer the app would offer "Omaa rahaa", a shared account's payer. */
 export function isPerson(item: ReviewItem): boolean {
   return (item.kind === "payer" && !item.wallet && item.options.includes("own_money")) || item.kind === "split";
 }

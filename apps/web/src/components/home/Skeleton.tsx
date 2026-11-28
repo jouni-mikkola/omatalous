@@ -28,7 +28,6 @@ export function HomeSkeleton() {
             </li>
           ))}
         </ul>
-        <span className="sk-bar sk-flow" />
       </section>
       {/* the blocks in the page's own order and places */}
       <div className="front-rail">

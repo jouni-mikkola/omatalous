@@ -12,8 +12,8 @@ export function monthTickTarget(innerH: number): number {
 }
 
 /**
- * The labels of a monthly chart's value axis: "10 000" with the € on the top tick only, and on a narrow chart "10 t" with
- * "t€" on the top tick, as a clipped sum is written (`capSum`). The thousands form needs a step of whole thousands, so "2 500" is never "2,5 t".
+ * The labels of a monthly chart's value axis: "10 000" with the € on the top tick only, and on a narrow chart "10 t€"
+ * on every tick but 0, as a clipped sum is written (`capSum`). The thousands form needs a step of whole thousands, so "2 500" is never "2,5 t".
  */
 export function monthAxisLabels(ticks: readonly number[], step: number, narrow: boolean): (cents: number) => string {
   const top = Math.max(...ticks, 0);
@@ -22,7 +22,7 @@ export function monthAxisLabels(ticks: readonly number[], step: number, narrow: 
     const sign = cents < 0 ? "−" : "";
     const size = Math.abs(cents);
     const isTop = cents === top && top > 0;
-    if (thousands) return size === 0 ? "0" : `${sign}${size / 100_000} t${isTop ? "€" : ""}`;
+    if (thousands) return size === 0 ? "0" : `${sign}${size / 100_000} t€`;
     const bare = moneyTick(size).replace(/\s?€$/, "");
     return `${sign}${bare}${isTop ? " €" : ""}`;
   };
