@@ -61,7 +61,7 @@ describe("Laskulomake", () => {
 
   it("leaves the barcode field without reading it again once it has been read", () => {
     const f = open();
-    const code = screen.getByLabelText("Viivakoodi") as HTMLInputElement;
+    const code = screen.getByLabelText("Pankkiviivakoodi (valinnainen)") as HTMLInputElement;
     fireEvent.change(code, { target: { value: "421123456000007850001234500000000000000000123453260610" } });
     expect(f.amount().value).toBe("123,45");
     fireEvent.change(f.amount(), { target: { value: "99" } });
