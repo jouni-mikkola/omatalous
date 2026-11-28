@@ -8,7 +8,7 @@ import type { DashboardData } from "../src/types.ts";
 type NytData = NonNullable<DashboardData["nyt"]>;
 type Data = DashboardData & { nyt: NytData };
 
-const flat = (s: string | null | undefined) => (s ?? "").replace(/[  ]/g, " ");
+const flat = (s: string | null | undefined) => (s ?? "").replace(/[  ]/g, " ");
 
 function nytOf(known: boolean, billsCents = 189954, elsewhereCents = 0, paydayCents = 0): NytData {
   return {
@@ -87,11 +87,11 @@ describe("Yhteenveto's sum left to the payday", () => {
       expect(figure).toBe("2 790 €");
       expect(container.querySelector("details")).toBeNull();
       // a card row has none without a card bill; the bills row tells how many
+      expect(flat(container.querySelector("[data-row=bills] dt")?.textContent)).toBe("Muut laskut ennen palkkapäivää 3 laskua");
+      expect(flat(container.querySelector("[data-row=cards] dt")?.textContent)).toBe("Korttilaskut ennen palkkapäivää 2 laskua");
       const plain = ledgerOf(runway());
       expect(plain.rows.map((r) => r[0])).toEqual(["balance", "bills", "spending", "left"]);
-      expect(flat(container.querySelector("[data-row=bills] dt")?.textContent)).toBe("Muut laskut ennen palkkapäivää 3 laskua");
       expect(flat(plain.container.querySelector("[data-row=bills] dt")?.textContent)).toBe("Laskut ennen palkkapäivää 1 lasku");
-      expect(flat(container.querySelector("[data-row=cards] dt")?.textContent)).toBe("Korttilaskut ennen palkkapäivää 2 laskua");
       // no bills is no count: "0 laskua" would stand alone on its line
       const none = { ...parts, bills: { cents: 0, count: 0 } };
       expect(flat(ledgerOf(runway({ parts: none })).container.querySelector("[data-row=bills] dt")?.textContent)).toBe("Muut laskut ennen palkkapäivää");
