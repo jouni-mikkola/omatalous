@@ -137,7 +137,7 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
             date={dayMonth(monthEnd(unpaid.month))}
             label={t("bills.kind_coming", { month: monthInside(unpaid.month) })}
             figure={answerMoney(unpaid.billsCents)}
-            rows={[...unpaidRows, { label: t("bills.kind_year"), value: answerMoney(calendar.billsCents) }]}
+            rows={unpaidRows}
           />
           <KindCard
             kind="usual"

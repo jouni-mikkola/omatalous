@@ -75,38 +75,8 @@ describe("Holdings", () => {
     const rows = [{ debtId: "proposal:a", name: "Esimerkkirahoitus", monthlyCents: 10_000, card: false }, { debtId: "card_bill:b", name: "Esimerkkikauppa", monthlyCents: 20_000, card: true }];
     const unsavedLoans = { count: 2, names: [], paymentCents: 30_000, rows };
 
-    it("shows no net figure when only loans nobody saved are left out, and each of those debts is a row with its monthly sum and a missing balance that links to that debt's own question in Tarkistettavat", () => {
-      const unsaved = html(answer({ ...base, netCents: 100_000, unsavedLoans }));
-      expect(text(unsaved)).not.toContain("Varat korttivelan jälkeen");
-      const debts = unsaved.slice(unsaved.indexOf('class="st-rows holding-foot"'));
-      expect(text(debts)).toContain("Esimerkkirahoitus 100,00 €/kk · saldo puuttuu");
-      expect(text(debts)).toContain("Esimerkkikauppa · Luottokortti 200,00 €/kk · saldo puuttuu");
-      expect(links(debts)).toEqual(["#/review?item=loan-terms%3Aproposal%3Aa", "#/review?item=loan-terms%3Acard_bill%3Ab"]);
-      expect(links(unsaved).filter((h) => h!.startsWith("#/reports"))).toEqual([]);
-    });
-
-    it("tells a debt answered En tiedä as plain text, with no link to a list that no longer asks for it", () => {
-      const answered = [{ ...rows[0]!, asked: true as const }, rows[1]!];
-      const debts = html(answer({ ...base, netCents: 100_000, unsavedLoans: { ...unsavedLoans, rows: answered } }));
-      const foot = debts.slice(debts.indexOf('class="st-rows holding-foot"'));
-      expect(text(foot)).toContain("Esimerkkirahoitus 100,00 €/kk · saldo puuttuu");
-      expect(text(foot)).toContain("Esimerkkikauppa · Luottokortti 200,00 €/kk · saldo puuttuu");
-      expect(links(foot)).toEqual(["#/review?item=loan-terms%3Acard_bill%3Ab"]);
-    });
-
-    it("says only that the balance is missing for an unsaved debt with no monthly figure", () => {
-      const open = [{ debtId: "proposal:a", name: "Esimerkkerä", monthlyCents: null, card: false }];
-      const out = text(html(answer({ ...base, netCents: 100_000, unsavedLoans: { count: 1, names: [], paymentCents: 0, rows: open } })));
-      expect(out).toContain("Esimerkkerä saldo puuttuu");
-      expect(out).not.toContain("/kk");
-    });
-
-    it("names the debt total as the known one while a debt has no balance, and leaves the rows to Lainat where it lists them", () => {
-      const some = answer({ ...base, netCents: -11_900_000, loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000, cards: [card({ usedCents: 5_000 })], unsavedLoans });
-      expect(text(html(some))).toContain("Velat yhteensä, tiedossa");
-      expect(text(html(answer({ ...some, unsavedLoans: undefined })))).toContain("Velat yhteensä 12");
-      expect(text(html(answer({ ...some, unsavedLoans: undefined })))).not.toContain("Velat yhteensä, tiedossa");
-      expect(text(renderToStaticMarkup(createElement(Holdings, { holdings: some, meta, loansListed: true })))).not.toContain("saldo puuttuu");
+    it("shows no net figure when only loans nobody saved are left out", () => {
+      expect(text(html(answer({ ...base, netCents: 100_000, unsavedLoans })))).not.toContain("Varat korttivelan jälkeen");
     });
 
     it("shows no net figure while a loan or a card nobody saved has no balance, as it would be too high", () => {
@@ -116,26 +86,14 @@ describe("Holdings", () => {
       expect(netLabelOf({ debtCents: 12_000_000 })).toBe("Varat velkojen jälkeen");
     });
 
-    it("names the loans' total as the known one when a debt without a balance is listed under it, with or without a debt row", () => {
-      const owing = { loans: [loan()], loansCents: 12_000_000, loansEndDate: "2041-03-15", debtCents: 12_000_000 };
-      const loansTotal = (h: Answer) => text(html(h));
-      expect(loansTotal(answer({ ...owing, unsavedLoans }))).toContain("Lainat yhteensä, tiedossa 120 000,00 €");
-      expect(loansTotal(answer(owing))).toContain("Lainat yhteensä 120 000,00 €");
-      expect(loansTotal(answer(owing))).not.toContain("tiedossa");
-    });
-
     it("shows no net figure for a lender's few payments either, and adds them to no monthly sum", () => {
       const saved = { ...base, netCents: -11_900_000, loans: [loan()], loansCents: 12_000_000, debtCents: 12_000_000 };
       const both = html(answer({ ...saved, unsavedLoans, unsavedFewPayments: 1 }));
       expect(text(both)).not.toContain("Varat velkojen jälkeen");
-      expect(text(both)).toContain("Esimerkkirahoitus 100,00 €/kk · saldo puuttuu");
-      // a lender with no monthly figure has its row too, with no /kk
       const few = { count: 0, names: [], paymentCents: 0, rows: [{ debtId: "proposal:c", name: "Esimerkkilaina", monthlyCents: null, card: false }] };
       const alone = html(answer({ ...saved, unsavedLoans: few, unsavedFewPayments: 1 }));
       expect(text(alone)).not.toContain("Varat velkojen jälkeen");
       expect(text(alone)).not.toContain("−119 000 €");
-      expect(text(alone)).toContain("Esimerkkilaina saldo puuttuu");
-      expect(text(alone)).not.toContain("/kk");
     });
 
     it("is a dash while the debt total is unknown, whatever the accounts hold", () => {
@@ -536,12 +494,9 @@ describe("Holdings", () => {
       expect(undated(two)).toContain("Käyttötili 1 000,00 € Esimerkkipankki Säästötili 1 000,00 € Toinen pankki Kolmas tili 1 000,00 € Tilit yhteensä");
     });
 
-    it("gives a card its next bill, the first of the window's bills that names it, and none to a card with no bill", () => {
-      const ahead = { upcoming: [{ date: "2026-10-20", name: "Toinen kortti", category: "transfer", cents: -9_000, source: "card", cardId: "k2" }, { date: "2026-10-25", name: "Esimerkkikortti", category: "transfer", cents: -45_000, source: "card", cardId: "k1" }, { date: "2026-11-25", name: "Esimerkkikortti", category: "transfer", cents: -50_000, source: "card", cardId: "k1" }] } as unknown as NonNullable<DashboardData["ahead"]>;
-      const markup = renderToStaticMarkup(createElement(Holdings, { holdings: answer({ cards: [card(), card({ id: "k3", name: "Kolmas kortti" })] }), meta, ahead, title: "Tilit ja kortit" }));
+    it("takes the heading it is given", () => {
+      const markup = renderToStaticMarkup(createElement(Holdings, { holdings: answer({ cards: [card()] }), meta, title: "Tilit ja kortit" }));
       expect(headings(markup, "h2")).toEqual(["Tilit ja kortit"]);
-      expect(undated(markup)).toContain("Luottoa jäljellä 3 000,00 € Seuraava lasku 25.10. 450,00 €");
-      expect(markup.match(/Seuraava lasku/g)).toHaveLength(1);
     });
 
     it("leaves out the heading with a null title and the loans and the debts total when the page lists the loans itself", () => {

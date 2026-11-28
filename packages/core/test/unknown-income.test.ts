@@ -1,7 +1,7 @@
 /**
  * Money in that nothing has told yet (a default Muut tulot row) is no earned income until the user answers
  * (analysis/income.ts `incomeTypeOf`): it stays out of the usual income, the gates read from it and the earned total,
- * and Tulot and Tulojen käyttö give its share of the same window as one figure.
+ * and Tulot gives its share of the same window as one figure.
  */
 import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
