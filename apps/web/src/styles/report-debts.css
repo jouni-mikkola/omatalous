@@ -1,3 +1,14 @@
 /* Debts of Raportit (pages/reports/pages/Debts.tsx): the styles of its own sections, which no other page reads. */
 @layer pages {
+/* Varat ja velat: the debt-free month as the head of the page, the ask for the missing balances in its place, and the lanes under it */
+.debt-free { display: grid; gap: var(--sp-8); }
+.debt-say { margin: 0; font-size: var(--fs-h2); color: var(--text-2); }
+.debt-hero { margin: 0; font-size: var(--fs-display); line-height: 1.05; font-weight: 700; font-variant-numeric: tabular-nums lining-nums; }
+.debt-ask { margin: 0; font-size: var(--fs-fig-l); line-height: 1.2; font-weight: 700; color: var(--accent-ink); }
+@media (max-width: 599px) { .debt-hero { font-size: 2.5rem; } .debt-ask { font-size: var(--fs-fig-m); } }
+.debt-free .chart text.lane-name { font-size: var(--fs-small); fill: var(--text); }
+.debt-free .chart text.lane-end { font-size: var(--fs-small); font-weight: 700; fill: var(--text); }
+.debt-free .chart .lane-bar { fill: var(--role-debt); }
+.debt-free .chart .lane-own { stroke: var(--axis); stroke-width: 3; stroke-dasharray: 2 5; stroke-linecap: round; }
+.lane-own-key { display: inline-block; inline-size: 1.5em; border-top: 3px dotted var(--axis); }
 }

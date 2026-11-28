@@ -272,4 +272,13 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.ln_wi_rate_margin": "{rate} (margin {margin})",
   "rpt.ln_wi_principal": "Monthly principal",
   "rpt.ln_wi_principal_n": "Principal",
+  "rpt.dl_say": "Debt-free",
+  "rpt.dl_ask_one": "Add {count} balance to see the day you are debt-free",
+  "rpt.dl_ask_many": "Add {count} balances to see the day you are debt-free",
+  "rpt.dl_q": "When each debt ends",
+  "rpt.dl_aria": "The last payment of each debt on a year axis",
+  "rpt.dl_own": "Dotted: would end on its own payments",
+  "rpt.dl_caption": "Debts and when they end",
+  "rpt.dl_ends": "Ends",
+  "rpt.dl_ends_own": "On its own payments",
 };

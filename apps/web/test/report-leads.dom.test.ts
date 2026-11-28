@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import "./fixed-clock.ts";
 import { page as spending } from "../src/pages/reports/pages/Spending.tsx";
 import { BalancesTiles } from "../src/pages/reports/sections/Balances.tsx";
+import { DebtFree } from "../src/pages/reports/sections/DebtFree.tsx";
 import type { ReportContext } from "../src/pages/reports/types.ts";
 
 const flat = (s: string | null | undefined) => (s ?? "").replace(/[  ]/g, " ").replace(/\s+/g, " ").trim();
@@ -30,6 +31,23 @@ describe("Menot kategorioittain: the tiles", () => {
 
   it("shows nothing when nothing was spent", () => {
     expect(say({ totalCents: 0 })).toBe("");
+  });
+});
+
+describe("Varat ja velat: the debt-free head", () => {
+  const held = { accounts: [{}], holdings: { accountsCents: 120_000, debtCents: 30_000 } };
+  const head = (balances: Record<string, unknown>, loans: Record<string, unknown>) =>
+    flat(renderToStaticMarkup(createElement(DebtFree as never, { ctx: { data: { balances, loans }, meta: { today: "2026-11-11" } } } as never)).replace(/<[^>]*>/g, " "));
+
+  it("asks for the missing balances in place of the day, linking while one is still asked", () => {
+    const lacking = { ...held, holdings: { ...held.holdings, unsavedLoans: { count: 2, rows: [{ debtId: "a" }] } } };
+    expect(head(lacking, { plan: null, loans: [] })).toBe("Lisää 2 saldoa, niin näet päivän jolloin olet velaton");
+  });
+
+  it("tells the plan's debt-free month, and nothing without a plan", () => {
+    const plan = { debtFreeDate: "2038-05-15", baseDebtFreeDate: "2038-05-15", debts: [{ id: "l1", order: 1, endDate: "2038-05-15", baseEndDate: "2038-05-15" }] };
+    expect(head(held, { plan, loans: [{ id: "l1", name: "Asuntolaina", balance: { cents: 9_000_000 } }] })).toContain("Velaton 5 / 2038");
+    expect(head(held, { plan: null, loans: [] })).toBe("");
   });
 });
 
