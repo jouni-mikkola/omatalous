@@ -2,9 +2,8 @@
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
 import { Estimate } from "../../../components/Estimate.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
-import { money, plural } from "../../../format.ts";
+import { money } from "../../../format.ts";
 import type { ReportsData } from "../../../types.ts";
-import { inSpan } from "../parts.tsx";
 import type { ReportContext, ReportSection, SectionProps } from "../types.ts";
 import { t } from "../../../text.ts";
 
@@ -38,7 +37,7 @@ function CategoryParts({ ctx }: SectionProps) {
     rows: c.parts!.map((p) => ({ ...p, key: `${c.category}:${p.id}` })),
   }));
   return (
-    <ReportPanel id={section.id} title={section.title} datum={inSpan(ctx, plural(split.length, t("rpt.u_category"), t("rpt.u_categories")))}>
+    <ReportPanel id={section.id} title={section.title}>
       <Table<Row> caption={section.title} rows={groups.flatMap((g) => g.rows)} rowKey={(x) => x.key} columns={columns} groups={groups} />
     </ReportPanel>
   );

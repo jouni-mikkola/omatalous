@@ -16,33 +16,26 @@ import type { ReportSection, SectionProps } from "../types.ts";
 type Gap = NonNullable<ReportsData["cashflowMonths"]["gap"]>;
 
 /** The gap of the complete months as a tile. */
-const gapTile = (gap: Gap): TileItem => ({ label: t("rpt.gap_tile"), figure: answerMoney(gap.gapCents), tone: "bad", note: t("rpt.gap_tile_note") });
+const gapTile = (gap: Gap): TileItem => ({ label: t("rpt.gap_tile"), figure: answerMoney(gap.gapCents), tone: "bad" });
 
 /**
  * What the complete months of the period came to, as tiles. The first is the answer, in colour: the gap when they took
  * more than they earned, else the income less the spending. Then their income with its average month and their
- * spending with the usual month. One line names the complete months every tile counts. Nothing without a complete
- * month or a gap.
+ * spending. Nothing without a complete month or a gap.
  */
 export function CashflowLead({ ctx }: SectionProps) {
   const overview = ctx.data.cashflowMonths;
   if (!overview) return null;
-  const { completeTotals: complete, gap, usualSpendCents } = overview;
+  const { completeTotals: complete, gap } = overview;
   const gapParts = gap ? gapTile(gap) : null;
   if (complete === null) return gapParts ? <Tiles items={[gapParts]} /> : null;
-  const count = String(complete.months);
   const net: TileItem = { label: t("rpt.strip_net"), figure: signedMoney(complete.netCents), tone: complete.netCents < 0 ? "bad" : "good", note: t("rpt.strip_average", { sum: signedMoney(complete.averageNetCents) }) };
   const items: TileItem[] = [
     gapParts ?? net,
     { label: t("rpt.strip_income"), figure: answerMoney(complete.incomeCents), note: t("rpt.strip_average", { sum: answerMoney(complete.averageIncomeCents) }) },
-    { label: t("rpt.strip_spent"), figure: answerMoney(complete.spendCents), panel: cashflowSpendPanel(ctx), note: usualSpendCents === null ? undefined : t("rpt.strip_spent_usual", { sum: answerMoney(usualSpendCents) }) },
+    { label: t("rpt.strip_spent"), figure: answerMoney(complete.spendCents), panel: cashflowSpendPanel(ctx) },
   ];
-  return (
-    <>
-      <Tiles items={items} />
-      <p className="strip-note">{t("rpt.strip_window", { months: count })}</p>
-    </>
-  );
+  return <Tiles items={items} />;
 }
 
 type Month = ReportsData["cashflowMonths"]["months"][number];

@@ -7,8 +7,6 @@
 export const FI_REPORTS_4 = {
   "rpt.st_part": "Osa",
   "rpt.sec_parts": "Kategorioiden erittely",
-  "rpt.u_category": "kategoria",
-  "rpt.u_categories": "kategoriaa",
   "rpt.bal_lacking_one": "{count} velan saldo puuttuu.",
   "rpt.bal_lacking_many": "{count} velan saldo puuttuu.",
   "rpt.bal_gap_one": "+ {count} velka ilman saldoa",
@@ -110,11 +108,8 @@ export const FI_REPORTS_4 = {
   "rpt.in_less": "Näytä vähemmän",
   "rpt.in_all": "Näytä kaikki ({n})",
   "rpt.in_no_share": "ei osuutta",
-  "rpt.in_type": "Tulolaji",
   "rpt.in_spark": "{label}: {n} kuukautta",
   "rpt.in_a_month": "Kuussa",
   "rpt.in_share": "Osuus ansiotuloista",
   "rpt.in_change_note": "Muutos on verrattuna samoihin päättyneisiin kuukausiin vuotta aiemmin.",
-  "rpt.in_types": "Tulolajit",
-  "rpt.in_payers": "Maksajat: {label}",
 } as const;

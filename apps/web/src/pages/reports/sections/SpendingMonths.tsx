@@ -5,9 +5,8 @@ import { KeyValue } from "../../../components/table/KeyValue.tsx";
 import { SparkCell } from "../../../components/table/Cells.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { query } from "../../../api.ts";
-import { money, monthLong, plural, signedMoney } from "../../../format.ts";
+import { money, monthLong, signedMoney } from "../../../format.ts";
 import type { ReportsData } from "../../../types.ts";
-import { inSpan } from "../parts.tsx";
 import type { ReportContext, ReportSection, SectionProps } from "../types.ts";
 import { t } from "../../../text.ts";
 import { monthName } from "../month-name.ts";
@@ -104,7 +103,7 @@ function SpendingMonths({ ctx }: SectionProps) {
       : []),
   ];
   return (
-    <ReportPanel id={section.id} title={section.title} datum={inSpan(ctx, plural(r.categories.length, t("rpt.u_category"), t("rpt.u_categories")))}>
+    <ReportPanel id={section.id} title={section.title}>
       <Table<Row>
         className="sm-table"
         caption={section.title}
