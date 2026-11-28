@@ -236,7 +236,7 @@ test("every card is a flat row above its figures, with its name as the one link 
   await context.close();
 });
 
-test("a loan's name opens the report Lainat, the sums of the block stand on one right edge, and Tilit and Lainat stand side by side from 900 px with the cards under them", async ({ browser }) => {
+test("Yhteenveto's rail has Tilit, Luottokortit and Lainat as one line each under one link to Varat ja velat, and the loan's sum is the loan", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const today = (await (await context.request.get("/api/meta")).json()).today as string;
   const saved = await context.request.post("/api/loans", {
@@ -251,121 +251,29 @@ test("a loan's name opens the report Lainat, the sums of the block stand on one 
 
   const page = await context.newPage();
   const seen = watch(page);
-  // Raportit > Varat ja velat leaves the loans to its section Lainat, so the block with the Lainat group is Yhteenveto's
-  await page.goto("/#/reports?q=saldot");
-  await expect(page.locator("#lainat")).toBeVisible();
-  await expect(holdingsOf(page).getByRole("heading", { name: "Lainat", exact: true })).toHaveCount(0);
-  await expect(holdingsOf(page).getByText(/Lainat yhteensä|Velat yhteensä/)).toHaveCount(0);
   await page.goto("/#/overview");
   const holdings = holdingsOf(page);
-  const lainat = groupOf(page, "Lainat");
-  await expect(lainat).toBeVisible();
+  await expect(holdings.locator("[data-holding]")).toHaveCount(3);
+  await expect(holdings.locator("[data-holding] dt")).toHaveText(["Tilit", "Luottokortit", "Lainat yhteensä, tiedossa"]);
+  // the lines are told, not linked: the heading is the one link to Varat ja velat
+  await expect(holdings.getByRole("link", { name: "Varat ja velat" })).toHaveCount(1);
+  // a debt of the demo household lacks its balance: the line under the three says so and links to its question in Tarkistettavat
+  const lacking = holdings.getByRole("link", { name: /velan saldo puuttuu/ });
+  await expect(lacking).toHaveAttribute("href", /item=loan-terms/);
+  expect(cents(plain(await holdings.locator("[data-holding=loans] dd").innerText()))).toBe(12_000_000);
 
-  // the loan's own sums, the sum of the loans, and the debts of the block under all three groups on one right edge
-  const foot = holdings.locator(".holding-foot");
-  await expect(lainat.locator(".st-total .st-name")).toHaveText("Lainat yhteensä, tiedossa");
-  // the debts nobody told the balance of are rows of their own under a total that names itself the known one
-  await expect(foot.locator(".st-name").first()).toHaveText("Velat yhteensä, tiedossa");
-  await expect(foot.locator(".st-row").nth(1).locator(".st-num")).toContainText("saldo puuttuu");
-  // the missing balance is a link to the list of debts in Tarkistettavat, where it is typed
-  const missing = foot.locator(".st-row").nth(1).getByRole("link", { name: "saldo puuttuu" });
-  await expect(missing).toHaveAttribute("href", /^#\/review\?item=loan-terms%3A.+/);
-  // each debt has its own address, so that the last debt of the foot does not open the first one's question
-  const hrefs = await foot.getByRole("link", { name: "saldo puuttuu" }).evaluateAll((links) => links.map((a) => a.getAttribute("href")));
-  expect(new Set(hrefs).size, "each debt links to its own question").toBe(hrefs.length);
-  const edges = [...(await rights(lainat.locator(".st-num"))), ...(await rights(foot.locator(".st-num")))];
-  expect(edges.length).toBeGreaterThanOrEqual(4);
-  expect(new Set(edges).size, `the sums of Lainat and the foot end at ${edges.join(", ")}`).toBe(1);
-  // the sum of the loans is the loan, and the debts are that and what the card owes
-  expect(cents(plain(await lainat.locator(".st-total .st-num").innerText()))).toBe(12_000_000);
-  const used = cents(plain(await groupOf(page, "Luottokortit").locator(".st-row", { hasText: "Käytetty luotto" }).locator(".st-num").innerText()));
-  expect(used, "the demo card owes something").toBeGreaterThan(0);
-  expect(cents(plain(await foot.locator(".st-num").first().innerText()))).toBe(12_000_000 + used);
-  // the foot runs across the groups, under all three
-  const [footBox, accounts, loans, cards] = await Promise.all([foot.boundingBox(), groupOf(page, "Tilit").boundingBox(), lainat.boundingBox(), groupOf(page, "Luottokortit").boundingBox()]);
-  expect(footBox!.y).toBeGreaterThanOrEqual(Math.max(accounts!.y + accounts!.height, loans!.y + loans!.height, cards!.y + cards!.height) - 1);
-  // the groups run to the frame, the foot stays inside its padding (21 px a side)
-  expect(footBox!.width).toBeGreaterThan(loans!.x + loans!.width - accounts!.x - 2 * 25 - 2);
+  // the sums of the lines end on one right edge
+  const edges = await rights(holdings.locator("[data-holding] dd"));
+  expect(new Set(edges).size, `the sums end at ${edges.join(", ")}`).toBe(1);
+  expect(await overflow(page), "Yhteenveto scrolls sideways").toBeLessThanOrEqual(1);
 
-  // a loan is its name and lines at the left and its two figures at the right, two rows tall; its figures grow in rows
-  const unit = lainat.locator(".holding-unit").first();
-  const [name, figures] = await Promise.all([unit.locator(".holding-unit-head").boundingBox(), unit.locator("dl").boundingBox()]);
-  expect(figures!.x, "the figures stand at the right of the name").toBeGreaterThanOrEqual(name!.x + name!.width - 1);
-  expect(figures!.height, "two rows of 32 px and the hairline between").toBeLessThanOrEqual(66);
+  await lacking.click();
+  await expect(page).toHaveURL(/#\/review\?item=loan-terms/);
+  await page.goBack();
 
-  // width: Tilit and Lainat side by side from 900 px up to 1039 px, the cards across under both; from 1040 px the block stands in
-  // the narrow rail and the groups are under each other, as they are below 900 px, down to a phone, with nothing scrolling sideways
-  const boxes = async () => Promise.all(["Tilit", "Lainat", "Luottokortit"].map(async (name) => (await groupOf(page, name).boundingBox())!));
-  for (const [width, side] of [[1280, false], [1040, false], [1039, true], [1000, true], [900, true], [899, false], [700, false], [390, false]] as const) {
-    await page.setViewportSize({ width, height: 900 });
-    const [t, l, c] = await boxes();
-    expect(c!.y, `at ${width} px the cards are under the other two`).toBeGreaterThanOrEqual(Math.max(t!.y + t!.height, l!.y + l!.height) - 2);
-    if (side) {
-      expect(l!.x, `at ${width} px Lainat is at the right of Tilit`).toBeGreaterThanOrEqual(t!.x + t!.width - 2);
-      expect(Math.abs(l!.y - t!.y)).toBeLessThanOrEqual(1);
-      expect(c!.width, "the cards run across both").toBeGreaterThanOrEqual(t!.width + l!.width - 1);
-    } else {
-      expect(l!.y, `at ${width} px Lainat is under Tilit`).toBeGreaterThanOrEqual(t!.y + t!.height - 2);
-    }
-    expect(await overflow(page), `Yhteenveto scrolls sideways at ${width} px`).toBeLessThanOrEqual(1);
-  }
-
-  // the loan's name leads to its row of Lainat in Varat ja velat, open
-  await page.setViewportSize({ width: 1280, height: 900 });
-  await lainat.getByRole("link", { name: "Kodin laina" }).click();
-  await expect(page).toHaveURL(new RegExp(`#/balances\\?drill=[^#]*${loanId}#lainat$`));
-  await expect(page.locator("#lainat").getByRole("heading", { name: "Lainat" })).toBeInViewport();
-  await expect(page.locator("#lainat").getByRole("button", { name: "Kodin laina", exact: true })).toHaveAttribute("aria-expanded", "true");
-
-  // the missing balance opens Tarkistettavat at that debt's own question, also the last debt's, not the first one's
-  await page.goto("/#/overview");
-  const last = foot.locator(".st-row").filter({ has: page.getByRole("link", { name: "saldo puuttuu" }) }).last();
-  const lastName = (await last.locator(".st-name").innerText()).split(" · ")[0]!;
-  await last.getByRole("link", { name: "saldo puuttuu" }).click();
-  await expect(page).toHaveURL(/#\/review\?item=loan-terms%3A/);
-  await expect(page.locator(".review-item").getByRole("heading", { level: 2 })).toContainText("Kysymys 1 /");
-  await expect(page.locator(".review-debt .review-debt-name").first()).toContainText(lastName);
-
-  expect(seen.problems).toEqual([]);
-  await context.close();
-});
-
-test("a dear loan says Erittäin kallis or Kallis in its row, a cheaper one says nothing, and the rows hold at 390 px with the text at 200 %", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 390, height: 800 }, bypassCSP: true, isMobile: true, hasTouch: true });
-  const loans = [["Esimerkkilaina A", "very_dear"], ["Esimerkkilaina B", "dear"], ["Esimerkkilaina C", "cheap"]].map(([name, costClass], i) => ({
-    id: `rank-${i}`, name, lender: "Esimerkkirahoitus Oy", kind: "consumer", ownerName: null, leftCents: 500_000, monthlyPaymentCents: 30_000, endDate: "2030-01-01", source: "typed", maybeTwice: false, paidOff: false, costClass, costRank: i + 1,
-  }));
-  await context.route(/\/api\/dashboard(\?|$)/, async (route) => {
-    const response = await route.fetch().catch(() => null);
-    const json = await response?.json().catch(() => null);
-    if (!response || !json?.holdings) return route.continue();
-    json.holdings.loans = loans;
-    json.holdings.loansCents = 1_500_000;
-    await route.fulfill({ response, json });
-  });
-  const page = await context.newPage();
-  const seen = watch(page);
-  await page.goto("/#/overview");
-  const units = groupOf(page, "Lainat").locator(".holding-unit");
-  await expect(units).toHaveCount(3);
-  await expect(units.nth(0)).toContainText("Erittäin kallis");
-  await expect(units.nth(1)).toContainText(/Kallis/);
-  await expect(units.nth(1)).not.toContainText("Erittäin");
-  await expect(units.nth(2)).not.toContainText(/kallis|edullinen|maksuton/i);
-  // the word is a line of the row: no banner, hint or note of its own
-  await expect(units.nth(0).locator(".st-note")).toHaveCount(0);
-
-  for (const size of ["100%", "200%"]) {
-    await page.addStyleTag({ content: `html { font-size: ${size}; }` });
-    for (let i = 0; i < 3; i++) {
-      const [box, unit] = await Promise.all([units.nth(i).locator(".holding-unit-head").boundingBox(), units.nth(i).boundingBox()]);
-      expect(box!.x, `inside the unit at ${size}`).toBeGreaterThanOrEqual(unit!.x - 0.5);
-      expect(box!.x + box!.width, `inside the unit at ${size}`).toBeLessThanOrEqual(unit!.x + unit!.width + 0.5);
-    }
-    const small = await units.locator("a:visible").evaluateAll((els) => els.flatMap((e) => { const r = e.getBoundingClientRect(); return r.height < 44 ? [`${(e.textContent ?? "").trim()} ${Math.round(r.height)}`] : []; }));
-    expect(small, `links under 44 px high at ${size}`).toEqual([]);
-    expect(await overflow(page), `Yhteenveto scrolls sideways at ${size}`).toBeLessThanOrEqual(1);
-  }
+  await holdings.getByRole("link", { name: "Varat ja velat" }).click();
+  await expect(page).toHaveURL(/#\/balances/);
+  await expect(page.locator("#lainat").getByRole("button", { name: "Kodin laina", exact: true })).toBeVisible();
 
   expect(seen.problems).toEqual([]);
   await context.close();

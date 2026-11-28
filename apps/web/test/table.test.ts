@@ -107,11 +107,11 @@ describe("a payee's avatar", () => {
 });
 
 describe("a payee's mark", () => {
-  it("gives a person a glyph, never initials", () => {
+  it("gives a person initials on the plain disc", () => {
     const html = renderToStaticMarkup(createElement(MarkCell, { name: "Matti Meikäläinen", person: true }));
-    expect(html).not.toContain(">MM<");
+    expect(html).toContain(">MM<");
     expect(html).not.toContain("data-tint");
-    expect(html).toContain("<svg");
+    expect(html).not.toContain("<svg");
   });
 });
 

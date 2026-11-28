@@ -93,7 +93,6 @@ details.card[open] > summary.card-head { margin-bottom: var(--sp-12); }
 .mk-disc[data-tint="5"] { background: color-mix(in srgb, var(--series-5) var(--mix-chip-edge), var(--plate)); }
 .mk-disc[data-tint="6"] { background: color-mix(in srgb, var(--series-6) var(--mix-chip-edge), var(--plate)); }
 .mk-disc[data-tint="7"] { background: color-mix(in srgb, var(--series-7) var(--mix-chip-edge), var(--plate)); }
-.mk-disc svg { inline-size: calc(var(--mk-disc) / 2); block-size: calc(var(--mk-disc) / 2); fill: var(--plate-ink); opacity: 0.6; }
 /* the line of an account: the mark beside its name */
 .acc-name { display: flex; align-items: flex-start; gap: var(--sp-8); }
 .acc-name > :first-child { margin-top: var(--sp-4); }

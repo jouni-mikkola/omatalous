@@ -39,7 +39,7 @@ const ASKED_FOR: Partial<Record<LoanTermsMissing, LoanFieldKey[]>> = {
 const askedFor = (gaps: readonly LoanTermsMissing[]): LoanFieldKey[] => [...new Set(gaps.flatMap((gap) => ASKED_FOR[gap] ?? []))];
 
 /** The line a saved loan's row closes into: what it owes, its rate now, its last instalment and the interest left, as core counts them. */
-function resultLine(loan: Loan, fixings: Fixings, today: string): string {
+export function resultLine(loan: Loan, fixings: Fixings, today: string): string {
   const r = loanTermsResult(loan, fixings, today);
   return [
     `${t("set.loans.remaining")} ${money(r.owedCents)}`,
@@ -381,7 +381,7 @@ function CardRow({ debt, meta, answer, busy, onSend, onSaved }: RowProps) {
 }
 
 /** The form of a loan filled from a debt's rows and linked to its series. */
-function rowsForm(debt: LoanTermsDebt, kind: LoanKind, meta: Meta, answer: LoansAnswer, ownsAccount: boolean): LoanForm {
+export function rowsForm(debt: LoanTermsDebt, kind: LoanKind, meta: Meta, answer: LoansAnswer, ownsAccount: boolean): LoanForm {
   const proposed = formOfProposal({ key: debt.key ?? "", payee: debt.name, paymentCents: debt.latestCents ?? 0, kind }, meta.today, ownsAccount ? meta.accounts : [], answer.loans, debt.terms);
   // "Jäljellä nyt" is the balance of today; only a connected loan account gives it on the day the bank told it
   const values = { ...proposed.values, balanceDate: proposed.accountId === "" ? meta.today : proposed.values.balanceDate };

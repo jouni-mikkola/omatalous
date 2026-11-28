@@ -19,6 +19,9 @@ type PayeeRow = Row["payees"][number] & { rest?: boolean };
 
 const eur = (cents: number) => money(cents, false);
 
+/** Months a category needs before its line is drawn: under three it says nothing a figure does not. */
+const MIN_SPARK_MONTHS = 3;
+
 /** The rows of Tapahtumat behind a figure: the category, within the days of the period that the month holds. */
 export function rowsHref(ctx: Pick<ReportContext, "range">, category: string, month?: string, merchant?: string, counted: string = ctx.range.from): string {
   const start = counted > ctx.range.from ? counted : ctx.range.from;
@@ -80,14 +83,15 @@ function SpendingMonths({ ctx }: SectionProps) {
             csv: false,
             // the dashed line is the category's own level, not the sum of the usual month
             cell: (c) => {
+              const values = c.values.slice(from, r.last! + 1);
+              if (values.filter((v) => v !== null).length < MIN_SPARK_MONTHS) return null;
               const level = c.typicalCents;
-              if (level === null) return null;
               return (
                 <SparkCell
-                  values={c.values.slice(from, r.last! + 1)}
+                  values={values}
                   usual={level}
                   off={risen(c)}
-                  label={t("rpt.sm_spark_of", { name: c.label, sum: eur(c.values[r.last!] ?? 0), usual: eur(level) })}
+                  label={level === null ? t("rpt.sm_spark_plain", { name: c.label, sum: eur(c.values[r.last!] ?? 0) }) : t("rpt.sm_spark_of", { name: c.label, sum: eur(c.values[r.last!] ?? 0), usual: eur(level) })}
                 />
               );
             },
@@ -96,7 +100,7 @@ function SpendingMonths({ ctx }: SectionProps) {
       : []),
     { key: "total", label: t("rpt.total"), kind: "money", main: true, sort: true, precision: "euros", cents: (c) => c.totalCents, bar: { tone: "spending", value: (c) => c.totalCents, max: Math.max(1, ...r.categories.map((c) => c.totalCents)) } },
     ...(usual && last
-      ? ([{ key: "last", label: t("rpt.sm_last", { month: monthLong(last) }), kind: "money", phone: "hide", sort: (c) => c.lastDiffCents, cell: (c) => (c.lastDiffCents === null ? "" : signedMoney(c.lastDiffCents)), csv: (c) => (c.lastDiffCents === null ? null : c.lastDiffCents / 100) }] satisfies Column<Row>[])
+      ? ([{ key: "last", label: t("rpt.sm_last", { month: monthLong(last) }), kind: "money", phone: "hide", sort: (c) => c.lastDiffCents, cell: (c) => (c.lastDiffCents === null || Math.round(c.lastDiffCents / 100) === 0 ? "" : signedMoney(Math.round(c.lastDiffCents / 100) * 100)), csv: (c) => (c.lastDiffCents === null ? null : c.lastDiffCents / 100) }] satisfies Column<Row>[])
       : []),
   ];
   return (

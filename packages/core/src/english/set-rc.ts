@@ -47,6 +47,7 @@ export const EN_SET_RC: Record<keyof typeof FI_SET_RC, string> = {
   "set.rc.lt_due_day": "due on day {day}",
   "set.rc.lt_kind": "Type",
   "set.rc.lt_left_now": "Left now (€)",
+  "set.rc.lt_rate_if_known": "Rate (%), if you know it",
   "set.rc.lt_card_in_full": "Is the card paid in full every month?",
   "set.rc.lt_yes": "Yes",
   "set.rc.lt_no": "No",
