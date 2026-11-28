@@ -9,6 +9,8 @@ export const FI_REPORTS_4 = {
   "rpt.sec_parts": "Kategorioiden erittely",
   "rpt.bal_lacking_one": "{count} velan saldo puuttuu.",
   "rpt.bal_lacking_many": "{count} velan saldo puuttuu.",
+  "rpt.u_category": "kategoria",
+  "rpt.u_categories": "kategoriaa",
   "rpt.bal_gap_one": "+ {count} velka ilman saldoa",
   "rpt.bal_gap_many": "+ {count} velkaa ilman saldoa",
   "rpt.bal_since": "{date} jälkeen",

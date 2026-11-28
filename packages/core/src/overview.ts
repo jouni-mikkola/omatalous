@@ -18,7 +18,7 @@ const OVERVIEW_CATEGORIES = 6;
 
 interface OverviewMonth {
   month: string;
-  /** All income (`monthIncome`, Tulot): in the running month Yhteenveto's Tulot. Null in a month the data does not reach (`knownMonths`), as the other two sums are. */
+  /** All income (`monthIncome`, Tulot): in the running month the month table's figure. Null in a month the data does not reach (`knownMonths`), as the other two sums are. */
   incomeCents: number | null;
   /**
    * Spending as the bridge counts it (`flowSpendOf`, the consumption and debt of the flows): in the running month Yhteenveto's

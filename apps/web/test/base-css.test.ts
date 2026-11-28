@@ -100,13 +100,12 @@ describe("the shared parts and the page stylesheets", () => {
     });
   });
 
-  it("keeps the foot quieter than the page: muted words and links, and only the sentence of a fetch in the text colour", () => {
+  it("keeps the foot quieter than the page: muted words, and only the sentence of a fetch in the text colour", () => {
     const all = rules(readFileSync(new URL("../src/styles/marks.css", import.meta.url), "utf8"));
     const foot = all.find((r) => r.selector === ".sheet-foot");
     expect(foot?.body).toContain("color: var(--muted)");
     expect(foot?.body).toContain("border-top: 1px solid var(--border)");
     expect(foot?.body).toContain("margin-top: var(--sp-48)");
-    expect(all.find((r) => r.selector === ".sheet-foot a")?.body).toContain("color: inherit");
     expect(all.find((r) => r.selector === ".sheet-foot [aria-live]")?.body).toContain("color: var(--text-2)");
   });
 
@@ -117,13 +116,9 @@ describe("the shared parts and the page stylesheets", () => {
     expect(busy?.body).not.toContain("animation");
   });
 
-  it("makes the foot's links and the segmented keys a thumb's size on a phone", () => {
+  it("makes the segmented keys a thumb's size on a phone", () => {
     const css = readFileSync(new URL("../src/styles/base.css", import.meta.url), "utf8");
     const all = rules(css);
-    const foot = all.find((r) => r.selector === ".sheet-foot a");
-    expect(foot?.body).toContain("min-height: var(--tap-min)");
-    expect(foot?.body).not.toContain("margin-block");
-    expect(all.find((r) => r.selector === ".sheet-foot:has(> a)")?.body).toContain("row-gap: 0");
     const key = all.find((r) => r.selector.startsWith(".segmented:not(.topbar .segmented) button"));
     expect(key?.body).toContain("min-height: var(--tap-min)");
     // the margin that takes a link's height back in a cell leaves a segmented key alone, so wrapped keys do not overlap

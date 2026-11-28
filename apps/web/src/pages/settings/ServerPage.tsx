@@ -1,9 +1,7 @@
 /**
- * Asetukset > Palvelin ja ylläpito (admin): the status line, the server, the maintenance, the software information
- * (the author's page and the link to support the development) and, while no add-on module is loaded, the add-on's code. A loaded module brings Asetukset > Lisäosa, and the code card is there.
+ * Asetukset > Palvelin ja ylläpito (admin): the status line, the server, the maintenance and, while no add-on module is loaded, the add-on's code. A loaded module brings Asetukset > Lisäosa, and the code card is there.
  */
 import { addOnTargetOffered } from "../../routes.ts";
-import { AboutApp } from "./AboutApp.tsx";
 import { AddOn } from "./AddOn.tsx";
 import { CardStack } from "./CardStack.tsx";
 import { Maintenance, useOpsState } from "./Maintenance.tsx";
@@ -23,7 +21,6 @@ export function ServerPage({ params, anchor, onChange }: SettingsPageProps) {
       <ServerSettings onChange={onChange} onLoaded={partLoaded} />
       <Maintenance ops={ops} />
       {!addOnTargetOffered("admin") && <AddOn />}
-      <AboutApp />
     </CardStack>
   );
 }

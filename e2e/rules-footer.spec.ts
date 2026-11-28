@@ -2,14 +2,14 @@ import { expect, test } from "@playwright/test";
 import { join } from "node:path";
 import { watch } from "./helpers.ts";
 
-// One line separates the header or the tabs from the first card (Asetukset drew two, 26 px apart), and the footer's
-// items sit in one group instead of spread over the width. With E2E_SHOTS set each page is saved as a picture.
+// One line separates the header or the tabs from the first card (Asetukset drew two, 26 px apart).
+// With E2E_SHOTS set each page is saved as a picture.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 const SHOTS = process.env.E2E_SHOTS ?? "";
 const PAGES = ["settings/banks", "overview", "transactions", "bills", "review", "reports?q=menot", "balances", "settings/security", "settings/server"];
 
 for (const width of [390, 1440]) {
-  test(`${width} px: one rule above the first card and a footer in one group`, async ({ browser }) => {
+  test(`${width} px: one rule above the first card`, async ({ browser }) => {
     const phone = width < 600;
     const context = await browser.newContext({ storageState: STATE, viewport: { width, height: 900 }, isMobile: phone, hasTouch: phone });
     const page = await context.newPage();
@@ -23,8 +23,6 @@ for (const width of [390, 1440]) {
       if (SHOTS && id === "settings/banks") {
         await page.evaluate(() => scrollTo(0, 0));
         await page.screenshot({ path: join(SHOTS, `rules-top-${width}.png`) });
-        await page.locator(".sheet-foot").scrollIntoViewIfNeeded();
-        await page.screenshot({ path: join(SHOTS, `rules-foot-${width}.png`) });
       }
       // the lines at the top: the bottom border of the tabs (or of the header) and the top border of the first card
       // under it, which are one line when the card has its rule only where nothing else has drawn one
@@ -42,21 +40,6 @@ for (const width of [390, 1440]) {
         return ys;
       });
       expect(lines.length, `${id}: lines above the first card at ${lines.join(", ")}`).toBe(1);
-
-      const foot = await page.evaluate(() => {
-        const f = document.querySelector(".sheet-foot")!;
-        const r = f.getBoundingClientRect();
-        const items = [...f.children].map((c) => c.getBoundingClientRect());
-        const first = items[0]!;
-        // by the middle: on a phone a link is 44 px high and the words beside it stand on its middle
-        const middle = (i: DOMRect) => i.top + i.height / 2;
-        const sameRow = items.filter((i) => Math.abs(middle(i) - middle(first)) < 6);
-        const gaps = sameRow.slice(1).map((i, n) => Math.round(i.left - sameRow[n]!.right));
-        return { left: Math.round(first.left - r.left), widest: Math.max(0, ...gaps), end: Math.round(r.right - Math.max(...items.map((i) => i.right))) };
-      });
-      // items that follow each other by the same gap, from the left edge, leaving the rest of the row empty
-      expect(foot.left, `${id}: footer starts at the left`).toBeLessThanOrEqual(1);
-      expect(foot.widest, `${id}: footer gap ${foot.widest}`).toBeLessThanOrEqual(40);
     }
     expect(seen.problems).toEqual([]);
     await context.close();
