@@ -119,7 +119,8 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "bills.bar_before_many": "{count} bills fall due before payday {date}",
   "bills.bar_days_one": "{count} bill falls due in the next 30 days",
   "bills.bar_days_many": "{count} bills fall due in the next 30 days",
-  "bills.bar_over": "{count} left over",
+  "bills.bar_over_one": "{count} bill is left unpaid",
+  "bills.bar_over_many": "{count} bills are left unpaid",
   "bills.bar_enough": "the money is enough",
   "bills.bar_have": "On the checking accounts {sum}",
   "bills.bar_lack": "Short by {sum}",
@@ -130,7 +131,7 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "bills.bar_total": "Bills in all",
   "bills.bar_money": "On the checking accounts now",
   "bills.bar_missing": "Short by",
-  "bills.bar_note": "Money spent between the bills is left out. So the figure on Yhteenveto can be lower.",
+  "bills.bar_note": "Money spent between the bills is left out, and pay dated before a bill is counted. So the shortfall on Yhteenveto can be larger.",
   // Bills page frame
   "payers.title": "Payers",
   "tx.event_one": "{count} transaction",

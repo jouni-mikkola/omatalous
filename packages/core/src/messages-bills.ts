@@ -121,7 +121,8 @@ export const FI_BILLS = {
   "bills.bar_before_many": "Ennen palkkaa {date} erääntyy {count} laskua",
   "bills.bar_days_one": "Seuraavan 30 päivän aikana erääntyy {count} lasku",
   "bills.bar_days_many": "Seuraavan 30 päivän aikana erääntyy {count} laskua",
-  "bills.bar_over": "{count} jää yli",
+  "bills.bar_over_one": "{count} lasku jää maksamatta",
+  "bills.bar_over_many": "{count} laskua jää maksamatta",
   "bills.bar_enough": "rahat riittävät",
   "bills.bar_have": "Käyttötileillä {sum}",
   "bills.bar_lack": "Puuttuu {sum}",
@@ -132,7 +133,7 @@ export const FI_BILLS = {
   "bills.bar_total": "Laskut yhteensä",
   "bills.bar_money": "Käyttötileillä nyt",
   "bills.bar_missing": "Puuttuu",
-  "bills.bar_note": "Laskujen välissä kuluva raha jää pois. Siksi Yhteenvedon luku voi olla pienempi.",
+  "bills.bar_note": "Laskujen välissä kuluva raha jää pois, ja ennen laskua tuleva palkka lasketaan mukaan. Siksi Yhteenvedossa puuttuva summa voi olla suurempi.",
   // Bills page frame
   "payers.title": "Maksajat",
   "tx.event_one": "{count} tapahtuma",

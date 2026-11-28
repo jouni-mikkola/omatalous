@@ -29,7 +29,7 @@
 .bills-bar-short { background: var(--bad-bg); border-style: dashed; border-color: color-mix(in oklch, var(--bad) 60%, transparent); }
 .bills-bar-split { background: linear-gradient(90deg, var(--good-bg) var(--have), var(--bad-bg) var(--have)); border-color: var(--bad); }
 /* a bill too narrow for its words is in the table below */
-@container (inline-size < 4.5rem) { .bills-bar-bill > * { display: none; } }
+@container (inline-size < 4.5rem) { .bills-bar-bill > :not(.bills-bar-state) { display: none; } }
 
 .bills-bar-legend { display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-16); margin: var(--sp-12) 0 0; font-weight: var(--w-strong); }
 .bills-bar-legend .btn-link { max-inline-size: 100%; white-space: normal; overflow-wrap: anywhere; }

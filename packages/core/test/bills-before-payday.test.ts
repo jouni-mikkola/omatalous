@@ -9,7 +9,7 @@ const rows: AheadRow[] = [
   row("2026-12-02", "Vesi", 180),
   row("2026-12-03", "Korttilasku", 420, "card"),
   row("2026-12-04", "Sijoitustili", 50, "transfer"),
-  { date: "2026-12-05", name: "Sivutulo", category: null, cents: 90_000, source: "income" },
+  { date: "2026-12-07", name: "Sivutulo", category: null, cents: 90_000, source: "income" },
   row("2026-12-05", "Asuntolaina", 390, "expected"),
   row("2026-12-06", "Sähkö", 130),
 ];
@@ -60,7 +60,28 @@ describe("billsBeforePayday", () => {
     expect(answer.coveredCents).toBeNull();
     expect(answer.missingCents).toBeNull();
     expect(answer.leftOverCount).toBeNull();
+    expect(answer.bills.every((b) => b.state === null)).toBe(true);
     expect(answer.billsCents).toBe(124_000);
+  });
+
+  it("covers none of them with a balance of exactly 0, and has nothing to cover with no bills", () => {
+    const empty = billsBeforePayday(aheadWith(0));
+    expect(empty.bills.every((b) => b.state === "short" && b.missingCents === b.cents)).toBe(true);
+    expect(empty.coveredCents).toBe(0);
+    expect(empty.leftOverCount).toBe(5);
+    const none = billsBeforePayday({ ...aheadWith(10_000), rows: [] });
+    expect(none).toMatchObject({ bills: [], billsCents: 0, coveredCents: 0, missingCents: 0, leftOverCount: 0 });
+  });
+
+  it("counts the pay dated before a bill as money for it, as the first page does", () => {
+    const pay = (date: string): AheadRow => ({ date, name: "Palkka", category: null, cents: 100_000, source: "income" });
+    const answer = billsBeforePayday({ ...aheadWith(30_000), rows: [row("2026-12-01", "Vesi", 100), pay("2026-12-02"), row("2026-12-03", "Vuokra", 500)] });
+    expect(answer.bills.map((b) => [b.name, b.coveredCents, b.state])).toEqual([
+      ["Vesi", 10_000, "covered"],
+      ["Vuokra", 50_000, "covered"],
+    ]);
+    // a pay dated on the bill's own day is not counted before it
+    expect(billsBeforePayday({ ...aheadWith(0), rows: [pay("2026-12-03"), row("2026-12-03", "Vuokra", 500)] }).bills[0]!.state).toBe("short");
   });
 
   it("has no payday when none is waited for", () => {

@@ -15,6 +15,7 @@ const bill = (date: string, name: string, euros: number, coveredEuros: number): 
   name,
   cents: euros * 100,
   coveredCents: coveredEuros * 100,
+  missingCents: (euros - coveredEuros) * 100,
   state: coveredEuros === euros ? "covered" : coveredEuros > 0 ? "split" : "short",
 });
 const before: BillsBeforePayday = {
@@ -35,7 +36,7 @@ describe("Laskut: the bills before payday", () => {
     const { container } = show(before);
     expect(screen.getByText("Ennen palkkaa 10.12. erääntyy 5 laskua")).toBeTruthy();
     expect(plain(container.querySelector(".bills-bar-sum")!.textContent)).toBe("1 240 €");
-    expect(container.querySelector(".bills-bar-over")!.textContent).toBe(" · 3 jää yli");
+    expect(container.querySelector(".bills-bar-over")!.textContent).toBe(" · 3 laskua jää maksamatta");
   });
 
   it("shows each bill as wide as its sum and the split bill half covered", () => {
@@ -52,14 +53,14 @@ describe("Laskut: the bills before payday", () => {
   });
 
   it("says the money is enough and draws no cut when every bill is covered", () => {
-    const covered = { ...before, moneyCents: 200_000, bills: before.bills.map((b) => ({ ...b, coveredCents: b.cents, state: "covered" as const })), coveredCents: 124_000, missingCents: 0, leftOverCount: 0 };
+    const covered = { ...before, moneyCents: 200_000, bills: before.bills.map((b) => ({ ...b, coveredCents: b.cents, missingCents: 0, state: "covered" as const })), coveredCents: 124_000, missingCents: 0, leftOverCount: 0 };
     const { container } = show(covered);
     expect(container.querySelector(".bills-bar-fine")!.textContent).toBe(" · rahat riittävät");
     expect(container.querySelector(".bills-bar-cut")).toBeNull();
   });
 
   it("asks for a balance when there is none and leaves the covering out", () => {
-    const { container } = show({ ...before, moneyCents: null, coveredCents: null, missingCents: null, leftOverCount: null, bills: before.bills.map((b) => ({ ...b, coveredCents: 0, state: "short" as const })) });
+    const { container } = show({ ...before, moneyCents: null, coveredCents: null, missingCents: null, leftOverCount: null, bills: before.bills.map((b) => ({ ...b, coveredCents: 0, missingCents: b.cents, state: null })) });
     expect(screen.getByText("Lisää saldo, niin näet, mitkä laskut rahat kattavat").getAttribute("href")).toBe("#/settings/banks");
     expect(container.querySelector(".bills-bar-over")).toBeNull();
     expect(container.querySelector(".bills-bar-short")).toBeNull();

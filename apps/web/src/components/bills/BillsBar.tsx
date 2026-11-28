@@ -40,7 +40,7 @@ export function BillsBar({ before, today }: { before: BillsBeforePayday; today: 
           />
           <p className="fig-pop-text">{t("bills.bar_note")}</p>
         </FigurePanel>
-        {known && <span className={leftOverCount > 0 ? "bills-bar-over" : "bills-bar-fine"}>{leftOverCount > 0 ? ` · ${t("bills.bar_over", { count: leftOverCount })}` : ` · ${t("bills.bar_enough")}`}</span>}
+        {known && <span className={leftOverCount > 0 ? "bills-bar-over" : "bills-bar-fine"}>{leftOverCount > 0 ? ` · ${tn(leftOverCount, "bills.bar_over_one", "bills.bar_over_many")}` : ` · ${t("bills.bar_enough")}`}</span>}
       </p>
       <div className="bills-bar-tank">
         {known && missingCents > 0 && <span className="bills-bar-cut" aria-hidden="true" ref={css({ left: share(coveredCents, billsCents) })} />}
@@ -62,7 +62,7 @@ export function BillsBar({ before, today }: { before: BillsBeforePayday; today: 
                 {b.name} <span className="bills-bar-day">{date(b.date, today)}</span>
               </span>
               <span className="bills-bar-cents">{answerMoney(b.cents)}</span>
-              {known && b.state !== "covered" && <span className="bills-bar-state">{b.state === "split" ? t("bills.bar_split", { covered: answerMoney(b.coveredCents), missing: answerMoney(b.cents - b.coveredCents) }) : t("bills.bar_short")}</span>}
+              {known && b.state !== "covered" && <span className="bills-bar-state">{b.state === "split" ? t("bills.bar_split", { covered: answerMoney(b.coveredCents), missing: answerMoney(b.missingCents) }) : t("bills.bar_short")}</span>}
             </li>
           ))}
         </ol>
