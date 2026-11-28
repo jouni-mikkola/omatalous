@@ -127,9 +127,11 @@ test("Tapahtumat shows the part as a joint account's row's figure and the bank's
   const amount = bank!.replace("koko summa ", "");
   expect(Math.abs(share - Math.round((cents(amount) * PARTS[0]) / 100))).toBeLessThanOrEqual(1);
   expect(Math.abs(share)).toBeLessThan(Math.abs(cents(amount)));
-  // a row of the member's own account is whole: no part beside it (a closed row names no account)
+  // a row of the member's own account is whole: no part beside it. A closed row names no account, so open it and read its account fact
   const own = rows.filter({ has: page.locator(".tx-name") }).filter({ hasNot: page.locator(".tx-part") }).first();
   await expect(own).toBeVisible();
+  await own.getByRole("button", { name: /^Avaa / }).click();
+  await expect(page.locator(".tx-detail-facts").first()).toContainText("Käyttötili");
   await expect(own.locator(".tx-part")).toHaveCount(0);
   await expect(page.getByText("Yhteisen tilin tapahtumista summissa on sinun osuutesi.")).toHaveCount(0);
   expect(seen.problems).toEqual([]);

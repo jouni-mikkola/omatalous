@@ -313,7 +313,7 @@ for (const width of [1366, 1000, 700, 601]) {
   });
 }
 
-test("1280 px: the bar is one line, the sums stand on one line and the histogram under them", async ({ browser }) => {
+test("1280 px: the bar is one line, the sum and the panel stand above and the histogram under them", async ({ browser }) => {
   const context = await signedIn(browser, 1280, 844);
   const page = await context.newPage();
   const seen = watch(page);

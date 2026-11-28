@@ -1,6 +1,6 @@
 /**
- * What the filtered rows add up to, above the list: money out and in and what they leave as labelled figures on one
- * line, the count and the days quiet beside them. Decision: is this filter's money what the household expected, and
+ * What the filtered rows add up to, above the list: the money out (or in under an income limit) as one labelled
+ * figure, the other sums in the figure panel, the count and the days quiet beside them. Decision: is this filter's money what the household expected, and
  * when did it move. Every figure is a server field (`/api/transactions`); the web draws them and adds nothing up. The
  * histogram of the period waits behind its title at every width, so the list starts right under the figures. It shows
  * money out or in as the reader chooses, and a tap on a bar limits the period to that day, week or month. Dragging across bars,
@@ -243,9 +243,7 @@ export function StripSkeleton() {
     <section className="tx-totals tx-skel" aria-hidden="true">
       <div className="tx-sums">
         <span className="tx-skel-figs">
-          {[0, 1, 2].map((i) => (
-            <span key={i} className="sk-bar sk-fig" />
-          ))}
+          <span className="sk-bar sk-fig" />
         </span>
       </div>
       <span className="sk-bar sk-label" />
