@@ -4,21 +4,23 @@ import { normalizeIban } from "../src/iban.ts";
 import type { TraceRow } from "../src/money-trace-lots.ts";
 import {
   type Allocation,
+  householdAllocations,
+  legAccountsOf,
+  pairsOf,
+  transferAllocations,
+} from "../src/pairing.ts";
+import {
   cardLegAllocations,
   cardLegOf,
-  householdAllocations,
   incomingLegAllocations,
   incomingLegFinder,
-  legAccountsOf,
   loanPaymentAllocations,
   loanPaymentLeg,
   moveAllocations,
   movesOf,
-  pairsOf,
   poolLegAllocations,
   poolLegFinder,
-  transferAllocations,
-} from "../src/pairing.ts";
+} from "../src/pairing-legs.ts";
 import type { Account, Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 import { cardLegOf as cardLegOfBefore, householdLegsReference, incomingLegFinder as incomingLegFinderBefore, loanPaymentLeg as loanPaymentLegBefore, pairMoves as pairMovesBefore, pairTransfers as pairTransfersBefore, poolLegFinder as poolLegFinderBefore } from "./pairing-reference.ts";
