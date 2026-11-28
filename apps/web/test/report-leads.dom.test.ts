@@ -33,8 +33,8 @@ describe("Menot kategorioittain: the tiles", () => {
 });
 
 describe("Varat ja velat: the tiles", () => {
-  const held = { accountsCents: 120_000, debtCents: 0, netCents: 120_000 };
-  const owing = { accountsCents: 120_000, debtCents: 30_000, netCents: 90_000 };
+  const held = { accounts: [], accountsCents: 120_000, debtCents: 0, netCents: 120_000 };
+  const owing = { accounts: [], accountsCents: 120_000, debtCents: 30_000, netCents: 90_000 };
   const markup = (holdings: Record<string, unknown>, more: Record<string, unknown> = {}) =>
     renderToStaticMarkup(createElement(BalancesTiles as never, { ctx: { data: { balances: { accounts: [{}], holdings, ...more } }, meta: { today: "2026-11-11", accounts: [], sharedAccounts: [] } } } as never));
   // the tags become spaces so a tile reads label, figure

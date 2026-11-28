@@ -91,7 +91,7 @@ test("the focus of a link shows whole, inside the name that is cut", async ({ br
   await context.close();
 });
 
-test("the sums of a group stand on one right edge, an account's row is 54 px, two weights only, and a card with no limit is its name, its digits and one figure, with the day of the balances once in the heading", async ({ browser }) => {
+test("the sums of a group stand on one right edge, an account's row is 54 px, two weights only, and a card with no limit is its name, its digits and one figure", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
   const seen = watch(page);
@@ -99,11 +99,10 @@ test("the sums of a group stand on one right edge, an account's row is 54 px, tw
   const holdings = holdingsOf(page);
   await expect(holdings).toBeVisible();
 
-  // Tilit: the two accounts and the total at the foot end at one x
+  // Tilit: the two accounts end at one x
   const tilit = groupOf(page, "Tilit");
   const edges = await rights(tilit.locator(".st-num"));
-  expect(edges.length, "the total and two accounts").toBe(3);
-  // no bracket stands beside the accounts, so the total's sum ends where theirs do
+  expect(edges.length, "the two accounts").toBe(2);
   expect(new Set(edges).size, `the sums end at ${edges.join(", ")}`).toBe(1);
 
   // a row of an account is 54 px with its hairline: room for the curve that will stand between the name and the sum

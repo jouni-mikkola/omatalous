@@ -105,7 +105,8 @@ function AccountRows({ holdings, types }: { holdings: Answer; types: { type: Acc
             </li>
           )}
           {g.rows.map((a) => {
-            const part = partText(a.part, "account");
+            // an account cut by who paid has no share to name; the tiles' panel says it is the viewer's part
+            const part = meta.accounts.find((m) => m.id === a.id)?.traced ? null : partText(a.part, "account");
             return (
               <li key={a.id} className="st-row holding-account">
                 <Name name={a.name} href={`#/transactions${query({ accountId: a.id })}`} mask={masks.get(a.id)} />
@@ -124,7 +125,7 @@ function AccountRows({ holdings, types }: { holdings: Answer; types: { type: Acc
   );
 }
 
-function Accounts({ holdings }: { holdings: Answer }) {
+function Accounts({ holdings, meta }: { holdings: Answer; meta: Meta }) {
   const { accounts } = holdings;
   const types = ACCOUNT_TYPES.map((type) => ({ type, rows: accounts.filter((a) => a.type === type) })).filter((g) => g.rows.length > 0);
   return (
@@ -242,7 +243,7 @@ export function Holdings({ holdings, meta, title = t("holdings.title"), loansLis
         )}
       </div>
       <div className={columns}>
-        {accounts.length > 0 && <Accounts holdings={holdings} />}
+        {accounts.length > 0 && <Accounts holdings={holdings} meta={meta} />}
         {loans.length > 0 && <Loans holdings={holdings} />}
         {cards.length > 0 && <Cards holdings={holdings} meta={meta} />}
       </div>
