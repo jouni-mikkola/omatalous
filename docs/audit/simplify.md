@@ -206,29 +206,29 @@ What looks generic:
 
 - No gradients, no emoji, no glass. One light theme, one font, a navy header. The base is plain and bank-like.
 - Initials avatars everywhere: every row of Tapahtumat and Laskut has a two-letter badge (KM, PR, SP), a bank logo and a
-  coloured category chip with an icon, and the amount has a coloured bar under it (`transactions-1440.png`). Four marks
+  coloured category chip with an icon, and the amount has a coloured bar under it. Four marks
   per row tell the reader what the text already says.
 - Three KPI tiles on Tapahtumat ("Rahaa ulos", "Rahaa sisään", "Erotus") over the whole history, with no comparison and
   no period choice in sight. A total of 13 months answers no question.
 - The weekly bar chart on Tapahtumat names its highest week and nothing else.
-- Säästövinkit is a card grid with icons and one button per card (`optimise-1440.png`), the most "app template" screen.
+- Säästövinkit is a card grid with icons and one button per card, the most "app template" screen.
 - The same finding is shown twice: "Uusi toistuva maksu: OpenAI" is on Yhteenveto (Huomioitavaa) and on Säästövinkit
   (Muut havainnot), with different counts (3 and 2 charges).
 
 What shows data that answers no question:
 
-- Yhteenveto shows the month chart and then a table of the last three days with four columns (`overview-1440.png`); the
+- Yhteenveto shows the month chart and then a table of the last three days with four columns; the
   chart already answers "am I above a usual month".
 - The right column of Yhteenveto repeats the headline: 7 198,65 − 2 774,52 = 4 424,13 is the sentence on the left.
-- Laskut: a 16-day dot timeline above four sum lines and then a table of the same bills (`bills-1440.png`).
-- Rahankäyttö: five folds closed by default; Kategoriatavoitteet shows no figure in its row (`reports-menot-1440.png`).
+- Laskut: a 16-day dot timeline above four sum lines and then a table of the same bills.
+- Rahankäyttö: five folds closed by default; Kategoriatavoitteet shows no figure in its row.
 - Settings > Pankit ja tilit: each account has a status line about whether its balance can be checked, in bold, as loud
-  as the balance (`settings-banks-1440.png`).
-- Good: Raportit > Kuukausi (`reports-kuukausi-1440.png`) states the figure, compares it ("102 € tavallista enemmän") and
-  lists the days that explain the gap with a total. Tarkistettavat (`review-1440.png`) asks one question with the evidence.
+  as the balance.
+- Good: Raportit > Kuukausi states the figure, compares it ("102 € tavallista enemmän") and
+  lists the days that explain the gap with a total. Tarkistettavat asks one question with the evidence.
 
 Phone (390 px): pages stack without sideways scroll. Tapahtumat puts the three tiles, the bar chart and three filter rows
-above the first transaction, so the list starts below the first screen (`transactions-390.png`).
+above the first transaction, so the list starts below the first screen.
 
 ## 5. Stale docs and process files
 
