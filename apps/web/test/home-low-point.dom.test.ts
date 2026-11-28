@@ -110,8 +110,12 @@ describe("Now", () => {
     const ends = known({
       date: "2026-12-10",
       cents: -20_000,
-      line: [{ date: "2026-12-01", cents: 54_000, lowCents: 54_000, highCents: 54_000 }, { date: "2026-12-03", cents: -30_000, lowCents: -30_000, highCents: -30_000 }],
-      steps: [{ date: "2026-12-03", payee: "Korttilasku", cents: -84_000, estimate: false, afterCents: -30_000, rowAfterCents: -30_000 }],
+      line: [
+        { date: "2026-12-01", cents: 54_000, lowCents: 54_000, highCents: 54_000 },
+        { date: "2026-12-03", cents: 12_000, lowCents: 12_000, highCents: 12_000 },
+        { date: "2026-12-03", cents: -72_000, lowCents: -72_000, highCents: -72_000 },
+      ],
+      steps: [{ date: "2026-12-03", payee: "Korttilasku", cents: -84_000, estimate: false, afterCents: -72_000, rowAfterCents: -72_000 }],
     });
     expect(flat(nowOf(ends, runway).querySelector(".home-ends")?.textContent)).toBe("Rahat loppuvat 3.12., kun Korttilasku lähtee.");
     expect(nowOf(known({ line: [{ date: "2026-12-01", cents: 54_000, lowCents: 54_000, highCents: 54_000 }] }), runway).querySelector(".home-ends")).toBeNull();
