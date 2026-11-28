@@ -58,16 +58,21 @@ describe("Varat ja velat: the debt-free head", () => {
     const steps = [
       { extraCents: 5_000, savedMoreCents: 120_000, plan: { ...plan, debtFreeDate: "2036-01-15", debts: [debt("2036-01-15")] } },
       { extraCents: 10_000, savedMoreCents: 200_000, plan: { ...plan, debtFreeDate: "2034-03-15", debts: [debt("2034-03-15")] } },
+      { extraCents: 15_000, savedMoreCents: 10_000, plan },
     ];
     const view = render(createElement(DebtFree as never, { ctx: { data: { balances: held, loans: { plan, loans, planSteps: steps } }, meta: { today: "2026-11-11" } } } as never));
     const slider = view.getByRole("slider") as HTMLInputElement;
-    expect(slider.max).toBe("2");
+    expect(slider.max).toBe("3");
     expect(flat(view.container.textContent)).toContain("+0 € / kk");
     fireEvent.change(slider, { target: { value: "2" } });
     expect(view.container.querySelector("del")?.textContent).toBe("5/2038");
     expect(view.container.querySelector(".debt-hero")?.textContent).toBe("5/20383/2034");
     expect(flat(view.container.textContent)).toContain("+100 € / kk");
     expect(flat(view.container.textContent)).toContain("Korkoja säästyy 2 000 €");
+    // a step that leaves the month as it is strikes nothing
+    fireEvent.change(slider, { target: { value: "3" } });
+    expect(view.container.querySelector("del")).toBeNull();
+    expect(view.container.querySelector(".debt-hero")?.textContent).toBe("5/2038");
     fireEvent.change(slider, { target: { value: "0" } });
     expect(view.container.querySelector("del")).toBeNull();
     view.unmount();

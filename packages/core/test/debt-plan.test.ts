@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { debtCost } from "../src/debt-cost.ts";
-import { consolidationBasis, consolidationCost, extraPlan, payoffPlan } from "../src/debt-plan.ts";
-import { debtPath } from "../src/loan-path.ts";
+import { consolidationBasis, consolidationCost, payoffPlan } from "../src/debt-plan.ts";
 import { annuityPayment, loanSchedule, loanWhatIf } from "../src/loan-schedule.ts";
 import { settledCardLoan } from "../src/loans.ts";
 import type { IsoDate, Loan } from "../src/types.ts";
@@ -72,32 +71,7 @@ describe("payoffPlan", () => {
     expect(plan.snowballExtraCents).toBe(1_489);
   });
 
-  // Worked out with a small throwaway script that shares no code with the app: each month the interest of a loan is
-  // balance x rate / 12 to the cent (a half up), the payment is the annuity formula rounded to the cent (230,72 € for
-  // A over 24 months, 290,81 € for B over 36), the last due date pays what is left, and the 100 € goes to the dearer
-  // loan (A) with what it does not need on to B in the same month. Without extra A ends in month 24 and B in 36, the
-  // interest of both is 1 006,67 €. With it A ends in month 17 (15.6.2027), B in month 31 (15.8.2028) and the interest
-  // is 798,59 €: 208,08 € saved. The ended A's 230,72 € is not passed on in either run (`extraPlan`).
-  it("ends two annuities and saves what the extra money alone saves, to the cent", () => {
-    const dear = loan({ id: "dear", repayment: "annuity", balanceCents: 500_000, rateBp: 1_000, paymentCents: 23_072, endDate: "2028-01-15" });
-    const cheap = loan({ id: "cheap", repayment: "annuity", balanceCents: 1_000_000, rateBp: 300, paymentCents: 29_081, endDate: "2029-01-15" });
-    expect(extraPlan([dear, cheap], START, 10_000, FULL)!.plan).toEqual({
-      debtFreeDate: "2028-08-15",
-      baseDebtFreeDate: "2029-01-15",
-      savedCents: 20_808,
-      bufferCents: 0,
-      bufferFullDate: null,
-      debts: [
-        { id: "dear", order: 1, endDate: "2027-06-15", baseEndDate: "2028-01-15" },
-        { id: "cheap", order: 2, endDate: "2028-08-15", baseEndDate: "2029-01-15" },
-      ],
-      snowballExtraCents: 0,
-    });
-    // no extra money, no saving: the debts end on their own dates
-    expect(extraPlan([dear, cheap], START, 0, FULL)!.plan).toMatchObject({ debtFreeDate: "2029-01-15", baseDebtFreeDate: "2029-01-15", savedCents: 0 });
-  });
-
-  // The same two annuities with no extra money: A ends on its own date (15.1.2028) and its 230,72 € joins B's payment
+  // Two annuities with no extra money: A ends on its own date (15.1.2028) and its 230,72 € joins B's payment
   // from then on, so B ends 15.8.2028 instead of 15.1.2029 and the interest of the last months, 23,00 €, is saved.
   it("passes an ended debt's payment on to the next at no extra money, and saves what that saves", () => {
     const dear = loan({ id: "dear", repayment: "annuity", balanceCents: 500_000, rateBp: 1_000, paymentCents: 23_072, endDate: "2028-01-15" });
@@ -203,52 +177,5 @@ describe("consolidation", () => {
   it("is shown for two dear debts or one very dear, and never for cheap ones", () => {
     expect(consolidationBasis([credit, home], START)).toBeNull();
     expect(consolidationBasis([card], START)!.debtIds).toEqual(["card"]);
-  });
-});
-
-describe("extraPlan", () => {
-  it("is payoffPlan with what the debts owe each month, from today to the first month that owes nothing", () => {
-    const one = loan({ repayment: "annuity", paymentCents: 18_871, endDate: "2031-01-15" });
-    const base = extraPlan([one], START, 0, FULL)!;
-    const more = extraPlan([one], START, 10_000, FULL)!;
-    expect(more.plan).toEqual(payoffPlan([one], START, 10_000, FULL));
-    expect(base.owedCents[0]).toBe(1_000_000);
-    expect(more.owedCents[0]).toBe(1_000_000);
-    expect(base.owedCents.at(-1)).toBe(0);
-    expect(more.owedCents.at(-1)).toBe(0);
-    expect(more.owedCents.length).toBeLessThan(base.owedCents.length);
-    // the extra money pays the debt down faster from the first month on
-    expect(base.owedCents[1]! - more.owedCents[1]!).toBeGreaterThanOrEqual(10_000);
-    expect(more.owedCents.every((owed, k) => owed <= base.owedCents[k]!)).toBe(true);
-  });
-
-  it("starts with the card paid in full among the debts, as the line of the debts' own payments does", () => {
-    const annuityLoan = loan({ id: "annuity", repayment: "annuity", paymentCents: 18_871, endDate: "2031-01-15" });
-    const card = settledCardLoan(loan({ id: "card", kind: "card", repayment: null, rateBp: null, paymentCents: null, balanceCents: 80_000 }), "2026-02-01");
-    const path = debtPath([annuityLoan, card], START)!;
-    const none = extraPlan([annuityLoan, card], START, 0, FULL)!;
-    const more = extraPlan([annuityLoan, card], START, 10_000, FULL)!;
-    expect(path.balanceCents[0]).toBe(1_080_000);
-    expect(none.owedCents[0]).toBe(path.balanceCents[0]);
-    expect(more.owedCents[0]).toBe(path.balanceCents[0]);
-    // with no extra money the two lines are the same line, and the extra money only lowers it
-    expect(none.owedCents).toEqual(path.balanceCents);
-    expect(none.debtFreeDate).toBe(path.payoff);
-    more.owedCents.forEach((owed, k) => expect(owed, `month ${k}`).toBeLessThanOrEqual(path.balanceCents[k]!));
-  });
-
-  it("ends on the card's day when a card paid in full is the last to be paid", () => {
-    const short = loan({ id: "short", repayment: "annuity", balanceCents: 100_000, paymentCents: 10_000, rateBp: 1_000, endDate: "2026-06-15" });
-    const card = settledCardLoan(loan({ id: "card", kind: "card", repayment: null, rateBp: null, paymentCents: null, balanceCents: 80_000 }), "2026-12-01");
-    const path = debtPath([short, card], START)!;
-    const more = extraPlan([short, card], START, 10_000, FULL)!;
-    expect(more.plan.debtFreeDate < path.payoff!).toBe(true);
-    expect(more.debtFreeDate).toBe(path.payoff);
-    expect(more.owedCents).toHaveLength(path.days.length);
-    expect(more.owedCents.at(-1)).toBe(0);
-  });
-
-  it("has no plan where payoffPlan has none", () => {
-    expect(extraPlan([], START, 10_000, FULL)).toBeNull();
   });
 });

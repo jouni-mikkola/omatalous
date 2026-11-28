@@ -44,6 +44,8 @@ function DebtPlan({ plan, steps, loans, today }: { plan: Plan; steps: Loans["pla
   const [picked, setPicked] = useState(0);
   const step = picked > 0 ? steps[picked - 1] : undefined;
   const shown = step?.plan ?? plan;
+  const moved = monthYear(shown.debtFreeDate) !== monthYear(plan.debtFreeDate);
+  const amount = t("rpt.dl_extra", { amount: money(step?.extraCents ?? 0, false) });
   const lanesOf = (p: Plan): DebtLane[] =>
     p.debts.map((d) => {
       const loan = loans.find((l) => l.id === d.id);
@@ -56,16 +58,18 @@ function DebtPlan({ plan, steps, loans, today }: { plan: Plan; steps: Loans["pla
     <section className="debt-free">
       <p className="debt-say">{t("rpt.dl_say")}</p>
       <p className="debt-hero">
-        {step && <del className="debt-was">{monthYear(plan.debtFreeDate)}</del>}
+        {step && moved && <del className="debt-was">{monthYear(plan.debtFreeDate)}</del>}
         {monthYear(shown.debtFreeDate)}
       </p>
       {step && step.savedMoreCents > 0 && <p className="debt-saved">{t("rpt.dl_saved", { amount: money(step.savedMoreCents, false) })}</p>}
       {steps.length > 0 && (
-        <label className="debt-slider">
-          <span className="field-label">{t("rpt.dl_slider")}</span>
-          <input type="range" min={0} max={steps.length} step={1} value={picked} aria-valuetext={t("rpt.dl_extra", { amount: money(step?.extraCents ?? 0, false) })} onChange={(e) => setPicked(Number(e.target.value))} />
-          <output>{t("rpt.dl_extra", { amount: money(step?.extraCents ?? 0, false) })}</output>
-        </label>
+        <div className="debt-slider">
+          <label className="field-label" htmlFor="debt-slider-input">
+            {t("rpt.dl_slider")}
+          </label>
+          <input id="debt-slider-input" type="range" min={0} max={steps.length} step={1} value={picked} aria-valuetext={amount} onChange={(e) => setPicked(Number(e.target.value))} />
+          <output htmlFor="debt-slider-input">{amount}</output>
+        </div>
       )}
       <QuestionChart id="velaton-kaista" question={t("rpt.dl_q")} table={<DebtLanesTable lanes={lanes} />}>
         <DebtLanes lanes={lanes} axisLanes={base} today={today} />
