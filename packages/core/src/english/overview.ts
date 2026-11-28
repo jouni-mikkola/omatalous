@@ -51,6 +51,8 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.low_known": "Lowest balance {date}, about",
   "home.verdict_enough": "Enough until payday {date}",
   "home.verdict_short": "{sum} short before payday",
+  "home.ends_on_payment": "The money runs out on {date}, when {payee} leaves.",
+  "home.ends_on_spending": "The money runs out on {date}.",
   "home.row_balance": "On the checking accounts now",
   "home.row_count": "{count}",
   "home.row_cards": "Card bills before payday",

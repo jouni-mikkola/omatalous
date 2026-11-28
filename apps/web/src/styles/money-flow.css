@@ -1,21 +1,25 @@
-/* Where the money came from and went (charts/forms/MoneyFlow.tsx): two stacked bars with a legend. A band's colour is its kind. */
+/* Where the money came from and went (charts/forms/MoneyFlow.tsx): two stacked columns of equal height side by side, each with a legend. A band's colour is its kind. */
 
 @layer components {
-.money-flow { inline-size: 100%; margin-block: var(--sp-16); }
-.mf-seg.mf-income, .mf-key.mf-income { background: var(--role-income); }
-.mf-seg.mf-drawn, .mf-key.mf-drawn { background: var(--warn); }
-.mf-seg.mf-spending, .mf-key.mf-spending { background: var(--role-spending); }
-.mf-seg.mf-debt, .mf-key.mf-debt { background: var(--role-debt); }
-.mf-seg.mf-kept, .mf-key.mf-kept { background: var(--role-kept); }
+.money-flow { inline-size: 100%; margin-block: var(--sp-16); container-type: inline-size; }
+.mf-seg.mf-income, .mf-key.mf-income { background: var(--role-income); fill: var(--role-income); }
+.mf-seg.mf-drawn, .mf-key.mf-drawn { background: var(--warn); fill: var(--warn); }
+.mf-seg.mf-spending, .mf-key.mf-spending { background: var(--role-spending); fill: var(--role-spending); }
+.mf-seg.mf-debt, .mf-key.mf-debt { background: var(--role-debt); fill: var(--role-debt); }
+.mf-seg.mf-kept, .mf-key.mf-kept { background: var(--role-kept); fill: var(--role-kept); }
 
-.mf-stacked { display: grid; gap: var(--sp-24); }
+.mf-hero { margin: 0; font-size: var(--fs-fig-m); font-weight: var(--w-strong); line-height: 1.25; text-wrap: balance; }
+.mf-stacked { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-24); align-items: start; }
 .mf-side { display: grid; gap: var(--sp-8); }
 .mf-side-name { margin: 0; font-size: var(--fs-body); font-weight: var(--w-strong); }
-.mf-bar { display: flex; gap: var(--sp-4); block-size: var(--bar-h); }
-.mf-seg { display: block; flex-basis: 0; min-inline-size: var(--sp-4); border-radius: var(--radius-s); }
-.mf-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-4); font-size: var(--fs-small); line-height: var(--lh-small); }
-.mf-legend li { display: flex; align-items: baseline; gap: var(--sp-8); }
-.mf-key { flex: none; inline-size: var(--sp-8); block-size: var(--sp-8); border-radius: var(--radius-s); }
-.mf-name { flex: 1 1 auto; overflow-wrap: anywhere; }
-.mf-sum { font-variant-numeric: tabular-nums lining-nums; }
+.mf-column { display: block; inline-size: 100%; block-size: 20rem; }
+.mf-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-8); font-size: var(--fs-small); line-height: var(--lh-small); }
+.mf-legend li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--sp-8); align-items: baseline; }
+.mf-key { inline-size: var(--sp-8); block-size: var(--sp-8); border-radius: var(--radius-s); }
+.mf-name { overflow-wrap: anywhere; }
+.mf-sum { grid-column: 2; font-variant-numeric: tabular-nums lining-nums; font-weight: var(--w-strong); }
+/* in em, so large text stacks the two sides before their sums run out of room */
+@container (max-width: 16em) {
+  .mf-stacked { grid-template-columns: minmax(0, 1fr); }
+}
 }

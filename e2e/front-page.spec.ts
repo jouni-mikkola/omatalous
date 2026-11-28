@@ -79,18 +79,8 @@ for (const width of [390, 1440] as const) {
     expect(headings.slice(1).every((h) => h === "Saldo päivä päivältä")).toBe(true);
     await expect(page.locator(".home-summary, .home-coming, .holdings, .home-buffer")).toHaveCount(0);
     await expect(page.locator("main .notice, main .home-notice")).toHaveCount(0);
-    // Saldo päivä päivältä: core's balance from the last payday to today is a solid line ending at the balance Nyt starts from, with the rule Nyt and the ground Arvio right of it
-    if (home.balancePast) {
-      const { balancePast } = home;
-      expect(balancePast.at(-1).cents, "the past ends at today's balance").toBe(home.runway.sum.balanceCents);
-      const [, todayMonth, todayDay] = balancePast.at(-1).date.split("-").map(Number);
-      const chart = page.locator(".home-days .balance-steps");
-      await expect(chart.locator(".bs-past")).toHaveCount(1);
-      await expect(chart.locator(".bs-ground")).toHaveCount(1);
-      await expect(chart.locator(".bs-kind").first()).toHaveText(`NYT ${todayDay}.${todayMonth}.`);
-    } else {
-      await expect(page.locator(".home-days .bs-past, .home-days .bs-ground")).toHaveCount(0);
-    }
+    // Saldo päivä päivältä: the line runs from today to the payday and each payment of the walk is a dot on it
+    if (home.lowPoint?.known && home.lowPoint.line.length > 1) await expect(page.locator(".home-days .balance-steps .bs-bill")).toHaveCount(home.lowPoint.steps.filter((s: { cents: number }) => s.cents < 0).length);
     expect(await heightOf(page), `the page is ${await heightOf(page)} px high at ${width} px`).toBeLessThanOrEqual(MAX_HEIGHT[width]);
     expect(await overflow(page)).toBe(0);
     // the one look and the one view: no Väljä/Tiivis and no Kaavio/Taulukko to choose

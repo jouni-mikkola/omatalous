@@ -147,6 +147,16 @@ with both never shows less borrowing than there was. Drawn money that paid for n
 
     income + credit drawn + savings drawn + from the accounts = spending + debt service + saved + credit paid back + Tulos above zero
 
+Sources and uses (`moneyFlowReport`, *Rahan lähteet ja käyttö*) is that equation for the complete months of the range,
+the base of the tiles of *Tulot ja menot*. Sources: *Palkka* (`earned`), *Muut tulot*, *Otettu säästöistä*, *Luotosta*
+(the credit cover) and *Tileiltä tai korteilta*. Uses: the largest spending categories and the rest of the spending,
+*Korot ja luottokulut*, *Lyhennykset* and the debt service no evidence splits, *Säästöön siirretty*, *Luottoa maksettu
+takaisin* and what stayed on the accounts. Every band is read from the same flows as *Tulos*, so the two sides are equal
+to the cent by construction and `reports-money-flow.test.ts` holds it; a band that came out below zero stands on the other side.
+The picture shows the two sides as two columns of equal height. Its sentence says how much of the spending the credit
+cover paid over the months, and the same sum per month (`creditPerMonthCents`, rounded to the cent); with no credit
+cover it has no sentence. *Luotosta* is the credit cover and nothing else, never the gap between income and spending.
+
 A sentence on the covers names them with sums the figures show, and a credit line gives the credit drawn with the debt
 service of the period under the tile's own word ("Luottoa nostettiin 20 000 €, velanhoitoon meni 1 200 €."). How much
 of the credit is in *Tulos* is said only when no debt was paid in the period: with a payment beside it, the split is

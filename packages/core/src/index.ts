@@ -27,6 +27,7 @@ export * from "./dates.ts";
 export * from "./bank-barcode.ts";
 export * from "./list-limits.ts";
 export * from "./day-bins.ts";
+export * from "./money-ends.ts";
 export * from "./stats.ts";
 export * from "./categories.ts";
 export * from "./category-names.ts";
