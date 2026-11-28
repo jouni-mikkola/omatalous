@@ -404,6 +404,28 @@ describe("En tiedä on a loan the rows propose", () => {
   });
 });
 
+describe("loans the rows propose, asked together", () => {
+  it("are one item with every debt when there are two of known kind, and a single one stays its own item", async () => {
+    const t = await setupApp();
+    await account(t, t.adminId, "chk", "checking", 100_000);
+    const repo = t.s.finance(t.adminId);
+    const months = ["2026-05-02", "2026-06-02", "2026-07-02", "2026-08-02", "2026-09-02", "2026-10-02"];
+    const lender = (name: string) => months.map((d) => raw(d, -25_000, name, "LAINAN LYHENNYS"));
+    const lists = async () => ((await t.admin.call("GET", "/api/review")).body.items as Item[]).filter((i) => i.kind === "loan_terms_list");
+    await ingestTransactions(repo, "chk", lender("ESIMERKKIRAHOITUS OY"), "csv");
+    await reprocess(repo, t.s.settings);
+    const [single] = await lists();
+    expect(single!.id).toMatch(/^loan-terms:proposal:/);
+    expect(single!.debts).toHaveLength(1);
+    await ingestTransactions(repo, "chk", lender("TOINEN RAHOITUS OY"), "csv");
+    await reprocess(repo, t.s.settings);
+    const [both, ...rest] = await lists();
+    expect(rest).toEqual([]);
+    expect(both!.id).toBe("loan-terms:balances");
+    expect((both!.debts as { source: string }[]).map((d) => d.source)).toEqual(["proposal", "proposal"]);
+  });
+});
+
 describe("the debts nobody saved on the first page and in Täydennä lainat", () => {
   it("marks asked exactly the debts the list no longer asks of: a card and a loan said En tiedä, a plan whose end is told", async () => {
     const t = await setupApp();

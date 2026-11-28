@@ -28,12 +28,6 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
   - Menot: spent so far against the usual level to the same day (`home.pace`, drawn as a band on the bar), else last month
     to the same day.
   - Käteen jäi: income less spending and what moved to savings (`totals.leftCents`), against the same day of last month.
-  - Tulojen käyttö under them: the bar of the income by where it went, as `bridgeView` gives it, each part with its share
-    and, unless it is a figure of the strip above, its sum. No bar without income, or with a part below zero (ADR 0014); the parts then stand as a list. When the
-    spending was over the income, the money that paid the gap (credit, savings, the accounts) is one sentence under the
-    list, not rows with shares that would add to more than 100 %. A term between Menot and Käteen jäi (*Otettu
-    säästöistä*) is named in the list without a sum; its sum to the euro is the one under Käteen jäi, and it may differ from the rounded
-    figures by a euro.
 - Nyt, the first block: what is left on the payday (`home.runway.leftOnPayday`, *Jää palkkapäivänä*): the accounts less the
   bills and own transfers before it, the card debt and the everyday spending of the days to it, with the payday. While
   the everyday spending cannot be expected (`leftOnPayday` has no figure) it is what is left after the bills alone
@@ -77,8 +71,6 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
  ▇▇▇▇▇▇▇▇▇▇▇▇     ▇▇▇▇▇▇▇▇ ░░░░░░░░           ▇▇▇▇▇▇▇▇
  Ansiotulot       90 € yli tavallisen         Viime kuussa samaan
  3 500 €          tähän päivään               päivään 1 390 €
- Tulojen käyttö   ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇
- Kulutus 52 %  Maksettu velanhoito 6 %  Säästöön siirretty 4 %  Käteen jäi 38 %
 
  Varat ja velat
  Käyttötilit   4 905 €   Luottokortit

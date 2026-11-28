@@ -220,6 +220,45 @@ describe("Täydennä lainat", () => {
     expect((await within(openRow(0)).findByLabelText<HTMLInputElement>(/^Jäljellä/, {}, T)).value).toMatch(/^5\D?000/);
   });
 
+  it("saves only the loan whose balance is filled in the form of several, and leaves the other asked", async () => {
+    queryClient.clear();
+    const seen = stubApi({ "GET /api/loans": { loans: [], fixings: {} }, "POST /api/loans": { loan: savedLoan({ id: "loan-4", name: "Esimerkkirahoitus", kind: "consumer", balanceCents: 200_000, seriesKey: "k" }) } });
+    const debt = debtOf({ id: "proposal:k", source: "proposal", name: "Esimerkkirahoitus", key: "k", kind: "consumer", monthlyCents: 25_000, latestCents: 25_000, lastDate: "2026-09-05" });
+    const view = show([{ ...listOf([debt, { ...debt, id: "proposal:j", key: "j", name: "Toinen rahoitus" }]), id: "loan-terms:balances" } as ReviewItem]);
+    fireEvent.change(await within(openRow(0)).findByLabelText(/^Jäljellä/, {}, T), { target: { value: "2 000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
+    await waitFor(() => expect(document.querySelectorAll("li.review-debt.is-done")).toHaveLength(1), T);
+    expect(seen.filter((s) => s.method === "POST")).toHaveLength(1);
+    expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ seriesKey: "k", balanceCents: 200_000 });
+    // the loan left empty is not closed into a result line and is not saved
+    expect(openRow(0).textContent).toContain("Toinen rahoitus");
+    // the queue read again lists only the unsaved debt under the same id: the saved row stays closed and the form stays
+    view.rerender(createElement(Review, { meta: metaOf(), queue: { data: { items: [{ ...listOf([{ ...debt, id: "proposal:j", key: "j", name: "Toinen rahoitus" }]), id: "loan-terms:balances" } as ReviewItem] }, error: null, reload: () => {} } }));
+    expect(document.querySelectorAll("li.review-debt.is-done")).toHaveLength(1);
+    expect(within(openRow(0)).getByLabelText(/^Jäljellä/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Tallenna" })).toBeTruthy();
+  });
+
+  it("does not save a loan again when the form is pressed after another loan failed, and shows the error at the failed loan", async () => {
+    queryClient.clear();
+    let posts = 0;
+    const seen = stubApi({
+      "GET /api/loans": { loans: [], fixings: {} },
+      "POST /api/loans": () => (++posts === 2 ? failing(500, { error: "Lainaa ei voitu tallentaa." }) : { loan: savedLoan({ id: `loan-${posts}`, kind: "consumer", balanceCents: 200_000 }) }),
+    });
+    const debt = debtOf({ id: "proposal:k", source: "proposal", name: "Esimerkkirahoitus", key: "k", kind: "consumer", monthlyCents: 25_000, latestCents: 25_000, lastDate: "2026-09-05" });
+    show([{ ...listOf([debt, { ...debt, id: "proposal:j", key: "j", name: "Toinen rahoitus" }]), id: "loan-terms:balances" } as ReviewItem]);
+    for (const n of [0, 1]) fireEvent.change(await within(openRow(n)).findByLabelText(/^Jäljellä/, {}, T), { target: { value: "2 000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
+    await screen.findByText("Lainaa ei voitu tallentaa.", {}, T);
+    expect(within(openRow(0)).getByText("Lainaa ei voitu tallentaa.")).toBeTruthy();
+    expect(document.querySelectorAll("li.review-debt.is-done")).toHaveLength(1);
+    expect(openRow(0).textContent).toContain("Toinen rahoitus");
+    fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
+    await waitFor(() => expect(document.querySelectorAll("li.review-debt.is-done")).toHaveLength(2), T);
+    expect(seen.filter((s) => s.method === "POST").map((s) => (s.body as { seriesKey: string }).seriesKey)).toEqual(["k", "j", "j"]);
+  });
+
   it("shows the error of the other forms when the loans cannot be read", async () => {
     queryClient.clear();
     stubApi({ "GET /api/loans": failing(500, { error: "Lainoja ei voitu lukea." }) });
