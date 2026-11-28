@@ -15,7 +15,7 @@
  */
 import { dayNumber, fromDayNumber } from "../dates.ts";
 import { fold } from "../merchant.ts";
-import { cardLegOf } from "../pairing.ts";
+import { cardLegOf } from "../pairing-legs.ts";
 import { median } from "../stats.ts";
 import type { IsoDate } from "../types.ts";
 import { isLenderName } from "../wording.ts";
