@@ -9,6 +9,15 @@ export type OpenSync = {
   nextAt: string | null;
 };
 
+/**
+ * Whether the open page must stay as it is while rows arrive: a field or dialog has focus, or a view that holds what
+ * the household picked (`data-keeps-page`, the preview and result of a bank or card file) is on screen.
+ */
+export function holdsPage(doc: Document): boolean {
+  const at = doc.activeElement;
+  return !!at?.closest("input, textarea, select, dialog[open]") || !!doc.querySelector("dialog[open], [data-keeps-page]");
+}
+
 /** A time as the page reads it: "23.10. klo 18.02", with the year when it is not this year. */
 const stamp = (iso: string, now: Date): string => dateTime(iso, localDay(now.toISOString()));
 

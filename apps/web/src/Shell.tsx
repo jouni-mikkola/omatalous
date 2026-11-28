@@ -12,7 +12,7 @@ import { CONTROL_PANEL, consentNoticeText, consentNotices } from "./consent-noti
 import { dateTime, count, initialsOf } from "./format.ts";
 import { MetaContext, navigate, useApi } from "./hooks.ts";
 import { markAllCurrent, holdFiguresFor, forgetFigures, useFiguresFrom } from "./offline.ts";
-import { failureText, footText } from "./open-sync.ts";
+import { failureText, footText, holdsPage } from "./open-sync.ts";
 import { NAV, namesItself, readsScope, REPORTS_ID, REVIEW, SETTINGS } from "./nav.ts";
 import { addOnLoadFailed, extensionPages } from "./extensions.ts";
 import { ErrorCard } from "./components/ErrorCard.tsx";
@@ -122,9 +122,8 @@ export function Shell() {
     void dropAnswers();
   };
   const openSync = useOpenSync((inserted) => {
-    // not under the user's hands: a field or an open dialog keeps what is typed until the user asks
-    const at = document.activeElement;
-    if (at?.closest("input, textarea, select, dialog[open]") || document.querySelector("dialog[open]")) setArrived((n) => n + inserted);
+    // not under the user's hands: a field, an open dialog or a picked file keeps what is typed until the user asks
+    if (holdsPage(document)) setArrived((n) => n + inserted);
     else showArrived();
   });
   const now = new Date();

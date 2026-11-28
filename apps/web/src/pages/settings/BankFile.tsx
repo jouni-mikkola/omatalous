@@ -153,7 +153,7 @@ export function BankRows({ text, meta, onChange }: { text: string; meta: Meta; o
   );
 
   return (
-    <div className="stack">
+    <div className="stack" data-keeps-page>
         {shown && <Notice tone="warning">{error[shown]}</Notice>}
         {refusal && <Notice tone="warning">{refusal}</Notice>}
         {saved && <Notice tone="good">{saved}</Notice>}

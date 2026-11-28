@@ -57,7 +57,7 @@ export function CardRows({ text, meta, onChange }: { text: string; meta: Meta; o
   };
 
   return (
-    <div className="stack">
+    <div className="stack" data-keeps-page>
         {problem && <Notice tone="warning">{error[problem]}</Notice>}
         {refusal && <Notice tone="warning">{refusal}</Notice>}
         {saved && <Notice tone="good">{saved}</Notice>}
