@@ -18,7 +18,7 @@ import { type CostKind, costKindOf } from "../src/cost-kinds.ts";
 import { debtCost } from "../src/debt-cost.ts";
 import { addMonths, daysBetween, monthEnd, monthOf } from "../src/dates.ts";
 import { FIGURES } from "../src/figures.ts";
-import { lowPoint } from "../src/low-point.ts";
+import { lowPoint, plansBeforePayday } from "../src/low-point.ts";
 import { MIN_COMPARE_MONTHS, USUAL_MONTHS } from "../src/thresholds.ts";
 import { median } from "../src/stats.ts";
 import type { Account, ExpectedBill, Loan } from "../src/types.ts";
@@ -121,12 +121,13 @@ const ANSWERS: Record<FigureKey, Answers> = {
     const ctx = contextOf(h);
     const dash = buildDashboard(ctx, running(h), h.balances, h.inputs).home.runway?.leftOnPayday;
     const basis = aheadBasis(ctx, h.balances, h.inputs);
-    const direct = runwayOf(ctx, basis);
+    const plans = plansBeforePayday(billCalendar(ctx, h.inputs, h.balances), basis.ahead);
+    const direct = runwayOf(ctx, basis, plans);
     return {
       dashboard: dash?.known ? dash.leftCents : null,
       runway: direct.known ? direct.leftCents : null,
-      // Käytettävissä less what the accounts pay themselves and what the coming bills of cards hold
-      parts: direct.known ? direct.freeCents - direct.everydayCents - direct.billedCents : null,
+      // Käytettävissä less the plans of loans no series pays, what the accounts pay themselves and what the coming bills of cards hold
+      parts: direct.known ? direct.freeCents - plans.reduce((sum, p) => sum + p.cents, 0) - direct.everydayCents - direct.billedCents : null,
       // the range holds the figure
       range: direct.known && direct.lowCents <= direct.leftCents && direct.leftCents <= direct.highCents ? direct.leftCents : null,
     };
