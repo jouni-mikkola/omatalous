@@ -13,7 +13,7 @@ const flat = (s: string | null | undefined) => (s ?? "").replace(/[  ]/g, " ").r
 
 describe("FigurePanel", () => {
   const mount = () =>
-    render(createElement("div", null, createElement(FigurePanel, { label: "Osat", figure: "1 000 €" }, createElement("p", null, "rivi")), createElement("p", null, "ulkona")));
+    render(createElement("div", null, createElement(FigurePanel as never, { label: "Osat", figure: "1 000 €" }, createElement("p", null, "rivi")), createElement("p", null, "ulkona")));
 
   it("opens under the figure and closes on Escape with focus back on the figure", () => {
     mount();
