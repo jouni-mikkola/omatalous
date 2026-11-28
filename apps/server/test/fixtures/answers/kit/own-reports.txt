@@ -2832,7 +2832,6 @@
   },
   "monthlyUnknownNames": [],
   "path": null,
-  "extra": [],
   "maybeTwice": [],
   "overdraftTwice": [],
   "ended": []

@@ -151,7 +151,7 @@ export interface LoansReport {
   plan: PayoffPlan | null;
   /**
    * `plan` again with each of `SLIDER_STEPS_CENTS` more a month (`payoffPlan`, the same rounding), the smallest first, for
-   * the slider of Varat ja velat. Empty while `plan` is null and when even the largest step ends no debt sooner and saves nothing.
+   * the slider of Varat ja velat. Empty while `plan` is null and when even the largest step ends the debts no sooner and saves nothing.
    */
   planSteps: readonly PlanStep[];
   /** The dear debts a new loan could take over (`consolidationBasis`), with what they cost from here. Null when none qualify and while `cost12` is null. */

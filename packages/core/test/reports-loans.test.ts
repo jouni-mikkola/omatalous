@@ -328,8 +328,8 @@ describe("the plan of the debts and the slider steps", () => {
     expect(r.planSteps).toEqual([]);
   });
 
-  it("is empty when even the largest step changes nothing, as with a debt that costs nothing to carry", () => {
-    const r = run([annuity({ id: "free", balanceCents: 1_000_000, paymentCents: 20_000, rateBp: 0 })]).loans;
+  it("is empty when even the largest step changes nothing, as with a debt the first payment already clears", () => {
+    const r = run([annuity({ id: "free", balanceCents: 10_000, paymentCents: 20_000, rateBp: 500 })]).loans;
     expect(r.plan).not.toBeNull();
     expect(r.planSteps).toEqual([]);
   });
