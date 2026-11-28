@@ -8,6 +8,7 @@ import { ReportPanel } from "../../../charts/forms/parts.tsx";
 import { ChartWithTable } from "../../../components/table/selection.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { monthName } from "../month-name.ts";
+import { cashflowSpendPanel } from "../MenotPanels.tsx";
 import { partialMonths } from "../partial-months.ts";
 import { Tiles, type TileItem } from "../../../components/Tiles.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
@@ -34,7 +35,7 @@ export function CashflowLead({ ctx }: SectionProps) {
   const items: TileItem[] = [
     gapParts ?? net,
     { label: t("rpt.strip_income"), figure: answerMoney(complete.incomeCents), note: t("rpt.strip_average", { sum: answerMoney(complete.averageIncomeCents) }) },
-    { label: t("rpt.strip_spent"), figure: answerMoney(complete.spendCents), note: usualSpendCents === null ? undefined : t("rpt.strip_spent_usual", { sum: answerMoney(usualSpendCents) }) },
+    { label: t("rpt.strip_spent"), figure: answerMoney(complete.spendCents), panel: cashflowSpendPanel(ctx), note: usualSpendCents === null ? undefined : t("rpt.strip_spent_usual", { sum: answerMoney(usualSpendCents) }) },
   ];
   return (
     <>
@@ -90,7 +91,7 @@ export const section: ReportSection = {
   order: 10,
   page: "reports",
   // the income report is read for the months it counts incomplete (`partialMonths`), which hatch the bars
-  reports: ["income", "cashflowMonths"],
+  reports: ["income", "cashflowMonths", "figureParts"],
   visible: (ctx) => ctx.meta.accounts.length > 0,
   open: true,
   Component: Months,

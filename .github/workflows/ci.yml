@@ -40,14 +40,12 @@ permissions:
   contents: read
 
 # A newer commit on a pull request, or a newer hand-started run of a branch, makes the older run pointless, so it is
-# cancelled. Every run on main runs to the end: the run id in its group name keeps two pushes from queueing behind each
-# other, where GitHub would drop the older one. A push starts a run on main only, so no push run of a work branch is
-# left to cancel anything. The event in the name is no longer needed: a pull request's ref (refs/pull/N/merge) and a
-# hand-started run's (refs/heads/<branch>) already differ, and main uses the run id. It stays only to keep the names
-# of the groups as they were.
+# cancelled. The same holds on main: a pull request has passed before it merges, so the run of an older push to main
+# says nothing the newer one does not, and it only holds runners that pull requests wait for. The event stays in the
+# name so that a hand-started run never cancels a push run.
 concurrency:
-  group: ci-${{ github.event_name }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   # the tools' self-tests follow the change here, as they do on a developer's machine (tools/check.sh)
