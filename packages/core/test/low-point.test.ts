@@ -645,7 +645,7 @@ describe("pastPeriods in the dashboard answer", () => {
   });
 
   it("is null under three complete periods, for a range without today and for an account without a balance", () => {
-    const few = createContext([...pays("2026-07", "2026-10"), ...rents(), ...shopping("2026-03-01", 4000)], [own], TODAY);
+    const few = createContext([...pays("2026-08", "2026-10"), ...rents(), ...shopping("2026-03-01", 4000)], [own], TODAY);
     expect(buildDashboard(few, RANGE, [bal(900_000)], NO_INPUTS).home.pastPeriods).toBeNull();
     expect(buildDashboard(ctx, { from: "2026-09-01", to: "2026-09-30" }, [bal(900_000)], NO_INPUTS).home.pastPeriods).toBeNull();
     expect(buildDashboard(ctx, RANGE, [{ ...bal(900_000), balanceCents: null }], NO_INPUTS).home.pastPeriods).toBeNull();
