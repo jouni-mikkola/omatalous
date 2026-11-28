@@ -10,7 +10,7 @@ import { startServer } from "./server.mjs";
 // the 20th), so the next month opens with all of its bills to come.
 const ADMIN = { username: "e2e-admin", displayName: "E2E Admin", password: "e2e-salasana-123456" };
 const FETCH = { "X-Requested-With": "fetch" };
-// The open month ends in the rows of its figures, and a low twelve-month chart stands under the table.
+// The open month ends in the rows of its figures, and a low twelve-month chart stands above it.
 const MAX_HEIGHT = 2250;
 const month = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Helsinki", year: "numeric", month: "2-digit" }).format(new Date());
 const DAYS = [
@@ -62,11 +62,13 @@ for (const { day, open } of DAYS) {
       expect(await overflow(page), "Laskut scrolls sideways").toBeLessThanOrEqual(1);
       const wide = await page.evaluate(() => Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > window.innerWidth + 1).length);
       expect(wide, "tables wider than the screen").toBe(0);
-      const months = page.locator("#laskut-taulukko .bill-month").filter({ hasText: /\d{4}/ });
-      expect(await months.count(), "months of the calendar").toBe(12);
-      // the month the day opens, and the rows of it a card pays folded under one closed toggle
-      await expect(months.nth(open === "running" ? 0 : 1)).toHaveAttribute("aria-expanded", "true");
-      await expect(page.locator("#laskut-taulukko .bill-month[aria-expanded=true]")).toHaveCount(1);
+      // the one month the table shows, and the rows of it a card pays folded under one closed toggle
+      await expect(page.locator("#laskut-taulukko .bill-month-name")).toHaveCount(1);
+      // the running month, or the month after it from the 24th on (the day every bill of the running month is paid)
+      const names = ["tammikuu", "helmikuu", "maaliskuu", "huhtikuu", "toukokuu", "kesäkuu", "heinäkuu", "elokuu", "syyskuu", "lokakuu", "marraskuu", "joulukuu"];
+      const at = Number(month.slice(5, 7)) - 1 + (open === "next" ? 1 : 0);
+      const shownName = `${names[at % 12]} ${Number(month.slice(0, 4)) + Math.floor(at / 12)}`;
+      expect((await page.locator("#laskut-taulukko .bill-month-name").innerText()).trim().toLowerCase(), "the month the day shows").toBe(shownName);
       const card = page.locator("#laskut-taulukko .bill-subfold").filter({ hasText: /Kortilla, \d+ lasku/ });
       await expect(card).toHaveCount(1);
       await expect(card).toHaveAttribute("aria-expanded", "false");

@@ -307,6 +307,12 @@ export function monthInside(month: string): string {
   return lang === "en" ? word : word.toLowerCase();
 }
 
+/** "2026-12" as "joulukuu" (in English "December"): the month alone in its basic form, to stand in a sentence about it. */
+export function monthBare(month: string): string {
+  const word = monthLong(month).replace(/\s\d{4}$/, "");
+  return lang === "en" ? word : word.toLowerCase();
+}
+
 /** "2026-12" as "Joulukuussa" (in English "December"): the month alone, to start a sentence that says what falls in it. */
 export function monthStarting(month: string): string {
   const word = monthInside(month);

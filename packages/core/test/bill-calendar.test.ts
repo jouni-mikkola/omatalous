@@ -579,6 +579,21 @@ describe("the bill calendar", () => {
     });
   });
 
+  describe("the dearest month", () => {
+    it("is the month with the largest whole bills sum, the earlier one on a tie", () => {
+      const { cal } = run(household());
+      const top = Math.max(...cal.months.map((m) => m.wholeBillsCents));
+      expect(top).toBeGreaterThan(0);
+      expect(cal.dearest).toEqual({ month: cal.months.find((m) => m.wholeBillsCents === top)!.month, billsCents: top });
+      const tie = run([], withBills(typedBill("Eka", 5_000, "2026-12-10"), typedBill("Toka", 5_000, "2027-02-10"))).cal;
+      expect(tie.dearest).toEqual({ month: "2026-12", billsCents: 5_000 });
+    });
+
+    it("is null when no month has a bill", () => {
+      expect(run(pays()).cal.dearest).toBeNull();
+    });
+  });
+
   describe("the unknown bills of some months", () => {
     type Unknown = ReturnType<typeof billCalendar>["unknowns"][number];
     const sum = (over: Partial<Unknown>): Unknown => ({ days: [], open: false, kind: "bill", onCard: false, ...over });

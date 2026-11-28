@@ -21,41 +21,14 @@ for (const { width, scale } of [{ width: 390, scale: 100 }, { width: 390, scale:
       await page.addStyleTag({ content: `html { font-size: ${scale}%; }` });
       expect(await page.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize))).toBeCloseTo((16 * scale) / 100, 1);
     }
-    // one month starts open; on a phone each closed month's head is one line: its name and one figure, a target of a finger's size
-    await expect(page.locator("#laskut-taulukko .bill-month[aria-expanded=true]")).toHaveCount(1);
-    if (phone) {
-      const closed = await page.locator("#laskut-taulukko .bill-sums").allInnerTexts();
-      expect(closed.length, "closed months").toBeGreaterThan(5);
-      for (const shown of closed) expect(shown, "the figure of a closed month").toMatch(/^Maksamatta [\d\s,]+€$/);
-      if (scale === 100) {
-        // the figure stands beside the name, inside the band of the opener: the head is one line
-        const heads = await page.locator("#laskut-taulukko tr.rt-group:has(.bill-sums)").evaluateAll((els) =>
-          els.map((el) => {
-            const name = el.querySelector(".bill-month")!.getBoundingClientRect();
-            const figure = el.querySelector(".bill-sums")!.getBoundingClientRect();
-            return { text: el.textContent ?? "", top: figure.top - name.top, bottom: name.bottom - figure.bottom };
-          }),
-        );
-        for (const h of heads) {
-          expect(h.top, `${h.text}: figure above the name`).toBeGreaterThanOrEqual(-1);
-          expect(h.bottom, `${h.text}: figure below the name`).toBeGreaterThanOrEqual(-1);
-        }
-      }
-      for (const box of await page.locator("#laskut-taulukko .bill-month").evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height))) expect(box, "a month's opener").toBeGreaterThanOrEqual(44);
-    }
+    // the table shows one month alone: no month has a head to open
+    await expect(page.locator("#laskut-taulukko .bill-month-name")).toHaveCount(1);
     if (process.env.E2E_SHOTS) {
       await page.locator("#laskut-taulukko").scrollIntoViewIfNeeded();
       await page.screenshot({ path: join(process.env.E2E_SHOTS, `bills-${width}.png`) });
     }
-    // a second month opened, so the rows of two months are compared
-    await page.locator("#laskut-taulukko .bill-month[aria-expanded=false]").first().click();
-    await expect(page.locator("#laskut-taulukko .bill-month[aria-expanded=true]")).toHaveCount(2);
-    // and their folded rows opened, so the rows a card pays ("Kortilla") and the paid ones are among them
+    // the folded rows opened, so the rows a card pays ("Kortilla") and the paid ones are among them
     await openBillFolds(page.locator("#laskut-taulukko"));
-    // the figure of a closed month's head stays inside the page
-    await expect(page.locator(".bill-sums").first()).toBeVisible();
-    const sums = await page.locator(".bill-sums").evaluateAll((els) => els.map((el) => ({ text: el.textContent?.trim() ?? "", right: el.getBoundingClientRect().right })));
-    for (const s of sums) expect(s.right, `${s.text}: right edge`).toBeLessThanOrEqual(width);
     const found = await rows.evaluateAll((els) =>
       els.flatMap((row) => {
         const cell = row.querySelector<HTMLElement>("th[scope=row]");
@@ -73,8 +46,7 @@ for (const { width, scale } of [{ width: 390, scale: 100 }, { width: 390, scale:
     expect(found.length, "rows").toBeGreaterThan(5);
     if (phone) {
       const inBlocks = found.filter((r) => r.block);
-      // the days of two months are one column
-      expect(new Set(inBlocks.map((r) => r.month)).size, "months with rows").toBeGreaterThan(1);
+      // the days of the rows are one column
       expect(new Set(inBlocks.map((r) => r.left)), `x of the days: ${JSON.stringify(found)}`).toHaveProperty("size", 1);
     }
 
@@ -103,9 +75,12 @@ test("the totals that end the open month are the server's paid and still-to-come
   const page = await context.newPage();
   await page.goto("/#/bills");
   const table = page.locator("#laskut-taulukko");
-  await expect(table.locator(".bill-month[aria-expanded=true]")).toHaveCount(1);
-  const opened = await table.locator(".bill-month").filter({ hasText: /\d{4}/ }).evaluateAll((els) => els.map((el) => el.getAttribute("aria-expanded") === "true"));
-  const open = billCalendar.months[opened.indexOf(true)]!;
+  await expect(table.locator(".bill-month-name")).toHaveCount(1);
+  const shownName = (await table.locator(".bill-month-name").innerText()).trim().toLowerCase();
+  const open = billCalendar.months.find((m) => {
+    const names = ["tammikuu", "helmikuu", "maaliskuu", "huhtikuu", "toukokuu", "kesäkuu", "heinäkuu", "elokuu", "syyskuu", "lokakuu", "marraskuu", "joulukuu"];
+    return shownName === `${names[Number(m.month.slice(5, 7)) - 1]} ${m.month.slice(0, 4)}`;
+  })!;
 
   const coming = table.locator("tr.bill-total").filter({ has: page.locator("td.bill-total-coming") });
   await expect(coming).toHaveCount(1);

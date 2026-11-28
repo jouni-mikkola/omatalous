@@ -1,18 +1,17 @@
 /**
  * Decision: which bill, contract or subscription to look at, to drop or to answer, and what each month leaves after the bills.
  *
- * Laskut' one table: the bill calendar of core, a group for each of the twelve months, in the table kit with no search,
+ * Laskut' one table: the bill calendar of core, the rows of the one month picked on the month chart above it, in the table kit with no search,
  * chips or sorting. A row is a bill, a loan payment, a pay or a regular saving with its day and its amount. A row whose day and
  * amount are known says nothing more; any other carries a flag before its sum: it is paid (Maksettu), a card pays it (Kortilla,
  * in no sum), it did not come (Ei tullut) or has ended (Päättynyt). An estimated sum has the dotted line of an estimate under it
  * and no word. An open month's
  * rows end in its figures, all core's (`totalRows`): Maksettu (`paidCents`, only while a charge is made), Maksamatta
  * (`billsCents`), whose parts by kind (`essentialCents`, `debtCents`, `contractCents`, `optionalCents`) are in the figure panel of the sum, the saving,
- * the pays (`incomeCents`) and what is left after the bills (`afterCents`); the page adds up nothing. The head of a closed
- * month carries one figure, the bills still to pay (`billsCents`). In a month that holds a bill whose sum is not known the sum of what is left is a
- * status with the count of those bills, and the other months keep their figure.
- * One month starts open: the running month while a bill of it is still to pay, otherwise the next one (`startOpenMonth`); the
- * reader opens any other. An open month
+ * the pays (`incomeCents`) and what is left after the bills (`afterCents`); the page adds up nothing. In a month that holds a bill whose sum is not known the sum of what is left is a
+ * status with the count of those bills.
+ * The month shown is the one picked on the chart; with none picked it is the running month while a bill of it is still to pay, otherwise the next one (`startOpenMonth`).
+ * The month
  * lists what is still to come; two rows or more of it that a card pays, and two paid rows or more, fold under a toggle each
  * that names their count.
  * This month and the next list every row; the later months list the bills that come less often than monthly one by one
@@ -22,7 +21,7 @@
  * in. A bill the app found that is no recurring bill is removed the same way: the mark `wrongBillSubject` takes it out of
  * the list and of every sum of what is coming. Whether a service is still used is asked in Tarkistettavat.
  */
-import { type MarkKind, parseSeriesId, seriesOfMarkSubject, type UserMark, unknownBillsIn } from "@banking/core";
+import { type MarkKind, parseSeriesId, seriesOfMarkSubject, type UserMark } from "@banking/core";
 import { type ReactNode, useEffect, useId, useState } from "react";
 import { api } from "../../api.ts";
 import { CADENCE_LABEL, dayMonth, date, money, monthLong, plural, seriesName } from "../../format.ts";
@@ -71,16 +70,6 @@ function flag(r: CalRow): ReactNode {
   return r.bill.state === "paid" ? t("bills.status_paid") : null;
 }
 
-/** A closed month's head: its one figure, and the count of bills whose sum or day is not known, which the figure leaves out. */
-function ClosedSums({ sum, unknown }: { sum: number; unknown: number }) {
-  return (
-    <span className="bill-sums">
-      {t("bills.sum_coming", { sum: money(sum) })}
-      {unknown > 0 && <span className="bill-total-note">{tn(unknown, "bills.unknown_one", "bills.unknown_many")}</span>}
-    </span>
-  );
-}
-
 /** The sum of a row as the table prints it, and the one sum that may be unknown, what a month leaves. */
 function sum(r: CalRow): string {
   if (r.kind === "row") return money(r.bill.cents);
@@ -100,7 +89,7 @@ export function BillsTable({
   controls,
   label,
   scope,
-  focus = null,
+  month = null,
   onRemoved,
 }: {
   calendar: Calendar;
@@ -108,13 +97,13 @@ export function BillsTable({
   controls: MarkControls;
   label: (id: string) => string;
   scope: Scope;
-  /** The month picked on the chart above: it opens when it is picked. */
-  focus?: string | null;
+  /** The month picked on the chart above; none shows `startOpenMonth`'s. */
+  month?: string | null;
   /** A bill typed in or a found one was removed: the page reads its answers again. */
   onRemoved: () => void;
 }) {
   const [open, setOpen] = useState<string | null>(null);
-  /** The groups the reader opened or closed; of the others only `startOpenMonth`'s month is open. */
+  /** The groups the reader opened or closed: the folds of the month and what has ended, all closed until then. */
   const [toggled, setToggled] = useState<ReadonlyMap<string, boolean>>(new Map());
   const [removing, setRemoving] = useState<{ id: string; name: string } | null>(null);
   /** A found bill asked about: the series and the name the question says. */
@@ -122,14 +111,11 @@ export function BillsTable({
   const [error, setError] = useState<string | null>(null);
   const listed = items.flatMap((i) => (i.series ? [i.series.id] : []));
   const nameOf = (i: Item) => (i.series ? (seriesName(i.series.id, i.series.typicalAmountCents, listed) ?? i.name) : i.name);
-  const startOpen = startOpenMonth(calendar, items);
-  const isOpen = (key: string) => toggled.get(key) ?? key === startOpen;
+  const shownMonth = month ?? startOpenMonth(calendar, items) ?? "";
+  const isOpen = (key: string) => toggled.get(key) ?? false;
   const toggle = (key: string) => setToggled((before) => new Map(before).set(key, !isOpen(key)));
-  useEffect(() => {
-    if (focus !== null) setToggled((before) => (before.get(focus) === true ? before : new Map(before).set(focus, true)));
-  }, [focus]);
   const typed = items.flatMap((i) => (i.typed ? [i.typed] : []));
-  const groups = calendarGroups(calendar, items, typed, isOpen);
+  const groups = calendarGroups(calendar, items, typed, shownMonth, isOpen);
   /** The id of a folded row, which its toggle's `aria-controls` names. */
   const idBase = useId();
   const foldedRowId = (key: string) => `${idBase}-${key}`;
@@ -251,7 +237,9 @@ export function BillsTable({
   ];
 
   const head = (g: CalGroup) =>
-    g.fold ? (
+    g.month && !g.fold ? (
+      <span className="bill-month-name">{capital(monthLong(g.month.month))}</span>
+    ) : g.fold ? (
       // the count of the rows, and no sum: the month's head has the sum of the paid bills, and a card's rows are in no sum
       <button type="button" className="bill-subfold" aria-expanded={isOpen(g.key)} aria-controls={g.fold.keys.map(foldedRowId).join(" ")} onClick={() => toggle(g.key)}>
         <span aria-hidden="true">{isOpen(g.key) ? "▾" : "▸"}</span>
@@ -260,15 +248,12 @@ export function BillsTable({
     ) : (
       <button type="button" className="bill-month" aria-expanded={isOpen(g.key)} onClick={() => toggle(g.key)}>
         <span aria-hidden="true">{isOpen(g.key) ? "▾" : "▸"}</span>
-        {g.month ? capital(monthLong(g.month.month)) : `${t("bills.ended")} ${g.ended}`}
+        {`${t("bills.ended")} ${g.ended}`}
       </button>
     );
   const rowGroups = groups.map((g) => ({
     key: g.key,
     title: head(g),
-    // a closed month tells one figure, its bills still to pay (the bills column of the front page reads it too); an open one tells them all in its closing rows
-    figure: g.month && !g.fold && !isOpen(g.key) ? <ClosedSums sum={g.month.billsCents} unknown={unknownBillsIn(calendar, [g.month.month])} /> : undefined,
-    figureSpan: columns.length - 2,
     rows: g.rows,
   }));
   const rows = groups.flatMap((g) => g.rows);
