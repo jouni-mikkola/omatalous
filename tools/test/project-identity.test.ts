@@ -35,7 +35,7 @@ const ALLOWED: Record<string, string> = {
   "relay/install.sh": "runs before any clone exists (checked below)",
   "scripts/lib/release.sh": "what an install verifies with; a copy, checked below",
   "apps/server/test/instance.test.ts": "pins the default return address of existing installs",
-  "apps/web/test/about.test.ts": "pins the footer links",
+  "apps/web/test/about.test.ts": "pins the software information links",
   "tools/lib/outside-hosts.test.ts": "pins the return page host in the list of outside hosts",
 };
 const ALLOWED_PREFIXES = [".github/workflows/", "tools/test/"];
