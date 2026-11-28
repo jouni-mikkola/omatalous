@@ -1,0 +1,21 @@
+/* Where the money came from and went (charts/forms/MoneyFlow.tsx): two stacked bars with a legend. A band's colour is its kind. */
+
+@layer components {
+.money-flow { inline-size: 100%; margin-block: var(--sp-16); }
+.mf-seg.mf-income, .mf-key.mf-income { background: var(--role-income); }
+.mf-seg.mf-drawn, .mf-key.mf-drawn { background: var(--warn); }
+.mf-seg.mf-spending, .mf-key.mf-spending { background: var(--role-spending); }
+.mf-seg.mf-debt, .mf-key.mf-debt { background: var(--role-debt); }
+.mf-seg.mf-kept, .mf-key.mf-kept { background: var(--role-kept); }
+
+.mf-stacked { display: grid; gap: var(--sp-24); }
+.mf-side { display: grid; gap: var(--sp-8); }
+.mf-side-name { margin: 0; font-size: var(--fs-body); font-weight: var(--w-strong); }
+.mf-bar { display: flex; gap: var(--sp-4); block-size: var(--bar-h); }
+.mf-seg { display: block; flex-basis: 0; min-inline-size: var(--sp-4); border-radius: var(--radius-s); }
+.mf-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-4); font-size: var(--fs-label); line-height: var(--lh-label); }
+.mf-legend li { display: flex; align-items: baseline; gap: var(--sp-8); }
+.mf-key { flex: none; inline-size: var(--sp-8); block-size: var(--sp-8); border-radius: var(--radius-s); }
+.mf-name { flex: 1 1 auto; overflow-wrap: anywhere; }
+.mf-sum { font-variant-numeric: tabular-nums lining-nums; }
+}

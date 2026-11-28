@@ -7,15 +7,16 @@ import { t } from "../src/text.ts";
 // The page is Tulot ja menot: the twelve months first, then the income of the period, its kinds and its payers. The
 // tax year rows are an export and stand on Asetukset > Tiedot.
 describe("Raportit: Tulot ja menot", () => {
-  it("is named Tulot ja menot and has the months and the income", () => {
+  it("is named Tulot ja menot and has the months, the picture of sources and uses and the income", () => {
     expect(page.title).toBe("Tulot ja menot");
-    expect(page.sections.map((s) => s.id)).toEqual(["tulot-ja-menot", "tulot"]);
-    expect(page.sections[1]!.reports).toEqual(["income"]);
+    expect(page.sections.map((s) => s.id)).toEqual(["tulot-ja-menot", "rahan-kulku", "tulot"]);
+    expect(page.sections[1]!.reports).toEqual(["moneyFlow"]);
+    expect(page.sections[2]!.reports).toEqual(["income"]);
   });
   it("a payment opens its day in Tapahtumat", () => {
     expect(paymentHref("Acme Oy", "2026-03-25")).toBe("#/transactions?merchant=Acme+Oy&from=2026-03-25&to=2026-03-25");
   });
-  it("the months have their own heading", () => {
-    expect(t("rpt.in_months")).toBe("Tulot kuukausittain");
+  it("the picture has its own heading", () => {
+    expect(t("rpt.mf_title")).toBe("Rahan lähteet ja käyttö");
   });
 });

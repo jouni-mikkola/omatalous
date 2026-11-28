@@ -2498,12 +2498,10 @@
      "other": 0,
      "not_earned": 0,
      "unknown": 0
-    },
-    "againstAverage": null
+    }
    }
   ],
   "completeMonths": 0,
-  "monthlyCents": null,
   "enough": false,
   "earnedCents": 0,
   "notEarnedCents": 0,
@@ -2524,7 +2522,6 @@
    "steadySpread": 0.03
   },
   "types": [],
-  "kinds": [],
   "groups": [
    {
     "id": "salary",
@@ -5282,6 +5279,11 @@
    }
   ],
   "fresh": []
+ },
+ "moneyFlow": {
+  "sources": [],
+  "uses": [],
+  "totalCents": 0
  },
  "cashflowMonths": {
   "months": [

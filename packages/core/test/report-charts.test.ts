@@ -42,18 +42,13 @@ describe("report fields of the Raportit charts", () => {
     expect(r.categories.groups.some((g) => g.monthlyAvgCents !== null)).toBe(true);
   });
 
-  it("gives each income type its months and its change against the same months a year before", () => {
+  it("gives each income type its change against the same months a year before", () => {
     const income = buildReports({ ctx, range: { from: "2026-01-01", to: "2026-09-30" }, balances: [] }).income;
     expect(income.totalCents).toBe(income.earnedCents + income.notEarnedCents);
     expect(income.fromPeopleCents).toBe(income.notEarnedCents - income.unknownCents - (income.types.find((t) => t.type === "tax_refund")?.totalCents ?? 0));
     const salary = income.types.find((t) => t.type === "salary")!;
-    expect(salary.months).toHaveLength(income.months.length);
-    expect(salary.months.reduce((a, b) => a! + b!, 0)).toBe(salary.totalCents);
     expect(salary.previousCents).toBe(9 * 300000);
     expect(salary.changeCents).toBe(salary.totalCents - salary.previousCents!);
-    const earned = income.kinds.find((k) => k.earned)!;
-    expect(earned.totalCents).toBe(income.earnedCents);
-    expect(earned.changeCents).toBe(income.types.filter((t) => t.earned).reduce((sum, t) => sum + t.changeCents!, 0));
     // the first year has no year before it
     expect(r.income.types.every((t) => t.changeCents === null)).toBe(true);
   });

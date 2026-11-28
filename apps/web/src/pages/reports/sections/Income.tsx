@@ -1,20 +1,16 @@
-// Decision: whether the income holds: what came in over the period, from which kind of income, which payer and which payments, and in which months
-import { MonthColumns } from "../../../charts/forms/MonthColumns.tsx";
+// Decision: whether the income holds: what came in over the period, from which kind of income, which payer and which payments
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
-import { ChartWithTable } from "../../../components/table/selection.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { query } from "../../../api.ts";
 import { date, money, percent } from "../../../format.ts";
 import type { ReportsData } from "../../../types.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { t } from "../../../text.ts";
-import { monthName } from "../month-name.ts";
 
 type Report = ReportsData["income"];
 type Row = Report["types"][number];
 type Payer = Row["payers"][number];
 type Payment = Payer["rows"][number];
-type MonthRow = Report["months"][number];
 
 /** One payment in Tapahtumat: its day and the payer's name. The list there holds every row of that name on the day. */
 export const paymentHref = (payer: string, day: string): string => `#/transactions${query({ merchant: payer, from: day, to: day })}`;
@@ -41,14 +37,8 @@ function Payers({ row }: { row: Row }) {
   return <Table<Payer> caption={t("rpt.in_payers", { label: row.label })} rows={row.payers} rowKey={(p) => p.payer} columns={columns} drill={(p) => <Payments payer={p} />} drillLabel={(p) => p.payer} toolbar={false} csv={false} />;
 }
 
-/** The share of all income a second income type has to reach before the months are drawn as a chart: under it every column is one colour and height, and the table says all there is. */
-const SECOND_TYPE_SHARE = 0.1;
-
 /** A type's share of all income as the table prints it: a share above zero that rounds to nothing is "alle 1 %", never "0 %" beside a sum. */
 const shareCell = (share: number): string => (share > 0 && share < 0.005 ? t("rpt.qt_under", { n: 1 }) : percent(share));
-
-/** The average line of the chart is the mean of the months the chart draws solid. */
-const averageLine = (cents: number): string => t("rpt.in_average_line", { sum: money(cents, false) });
 
 function Income({ ctx }: SectionProps) {
   const r = ctx.data.income;
@@ -60,33 +50,6 @@ function Income({ ctx }: SectionProps) {
   ];
   return (
     <ReportPanel id={section.id} title={section.title}>
-      <>
-      {r.types.filter((ty) => ty.shareOfAll >= SECOND_TYPE_SHARE).length > 1 && <ChartWithTable
-        title={t("table.folded_months")}
-        rows={r.months.length}
-        chart={
-          <MonthColumns
-            months={r.months.map((m, i) => ({ month: m.month, complete: m.complete, parts: r.kinds.map((k) => k.months[i] ?? 0), totalCents: m.totalCents, against: m.againstAverage }))}
-            series={r.kinds.map((k) => ({ key: k.id, label: k.label }))}
-            tone="income"
-            usual={r.monthlyCents === null ? null : { cents: r.monthlyCents, label: averageLine(r.monthlyCents), short: averageLine(r.monthlyCents) }}
-            running={ctx.running}
-            label={t("rpt.in_months")}
-          />
-        }
-        table={
-          <Table<MonthRow>
-            caption={t("rpt.in_months")}
-            rows={r.months}
-            rowKey={(m) => m.month}
-            columns={[
-              { key: "month", label: t("rpt.month"), kind: "text", rowHead: true, cell: (m) => monthName({ ...m, unknown: m.totalCents === null }, ctx.running), csv: (m) => monthName({ ...m, unknown: m.totalCents === null }, ctx.running) },
-              { key: "sum", label: t("rpt.sum"), kind: "money", main: true, precision: "cents", cents: (m) => m.totalCents },
-            ]}
-            search={false}
-          />
-        }
-      />}
       <Table<Row>
         caption={t("rpt.in_types")}
         className="in-types"
@@ -100,7 +63,6 @@ function Income({ ctx }: SectionProps) {
         toolbar={false}
         csv={false}
       />
-      </>
     </ReportPanel>
   );
 }

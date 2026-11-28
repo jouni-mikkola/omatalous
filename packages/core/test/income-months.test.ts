@@ -38,13 +38,12 @@ describe("income months", () => {
     expect(r.earnedCents).toBe(3 * 300_000 + 619_000);
   });
 
-  it("the month a credit card joined is a complete month of income: a kind paid only then has its average", () => {
+  it("the month a credit card joined is a complete month of income: a kind paid only then has its total", () => {
     const r = incomeReport(ctx, { from: "2025-10-01", to: "2026-09-30" });
     expect(r.months.find((m) => m.month === "2026-09")!.complete).toBe(true);
     expect(r.completeMonths).toBe(12);
     const bonus = r.types.find((ty) => ty.payers.some((p) => p.payer === "Toinen Oy"))!;
     expect(bonus.totalCents).toBe(619_000);
-    expect(bonus.monthlyCents).toBe(Math.round(619_000 / 12));
   });
 
   it("the month an account that takes income joined is not complete: its pay before the day it joined is missing", () => {
@@ -65,7 +64,6 @@ describe("income months", () => {
     const r = incomeReport(createContext(missed, accounts, TODAY), { from: "2025-01-01", to: "2025-12-31" });
     expect(r.months.find((m) => m.month === "2025-06")!.complete).toBe(false);
     expect(r.completeMonths).toBe(11);
-    expect(r.types.find((ty) => ty.type === "salary")!.monthlyCents).toBe(300_000);
   });
 
   it("a hole on a small account in daily use leaves the month of income complete, as on main", () => {
