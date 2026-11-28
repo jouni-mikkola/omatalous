@@ -76,14 +76,6 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 
 /* who: the avatar beside the name and what stands under it */
 .rt-who { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.rt-who-text { min-width: 0; }
-.rt-hue-1 { --rt-hue: var(--series-1); }
-.rt-hue-2 { --rt-hue: var(--series-2); }
-.rt-hue-3 { --rt-hue: var(--series-3); }
-.rt-hue-4 { --rt-hue: var(--series-4); }
-.rt-hue-5 { --rt-hue: var(--series-5); }
-.rt-hue-6 { --rt-hue: var(--series-6); }
-.rt-hue-7 { --rt-hue: var(--series-7); }
 
 
 /* the drill: a chevron that turns, and the opened row on the well */
@@ -100,11 +92,6 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 /* a row under its row that is always open */
 .rt tr.rt-subrow > td { padding-top: 0; }
 .rt tr.rt-detail > td { background: var(--well); padding: 8px 12px 12px 40px; }
-.rt-months { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: 4px 16px; margin: 0; padding: 0; list-style: none; font-size: var(--fs-small); line-height: var(--lh-small); }
-.rt-months li { display: grid; grid-template-columns: 3rem minmax(0, 1fr) auto; align-items: center; gap: 8px; }
-.rt-months .rt-month { color: var(--text-2); }
-.rt-months .num { text-align: right; white-space: nowrap; }
-.rt-months li.rt-peak .num { font-weight: var(--w-strong); }
 
 /* the parts of a cell: a bar against the column's scale, a line of months, a chip of a change, a payee's mark */
 .rt-bar-track { display: block; height: 6px; min-width: 48px; background: var(--grid); border-radius: 0 3px 3px 0; overflow: hidden; }
