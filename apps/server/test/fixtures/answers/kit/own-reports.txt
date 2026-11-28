@@ -703,7 +703,8 @@
      }
     ]
    }
-  }
+  },
+  "bufferMonths": 5.603105350575395
  },
  "upcoming": {
   "from": "2026-10-15",
@@ -5255,29 +5256,6 @@
   "incomeMonthlyCents": 381333,
   "fixedShare": 0.5562985631980447,
   "fixedShareLabel": "Kiinteät menot tavallisista tuloista, viimeiset 6 kuukautta"
- },
- "monthLead": {
-  "month": "2026-10",
-  "biggestDay": {
-   "date": "2026-10-02",
-   "outCents": 105813,
-   "count": 2
-  },
-  "top": [
-   {
-    "merchant": "Sato",
-    "outCents": 105000
-   },
-   {
-    "merchant": "Helsingin Kaupunki",
-    "outCents": 27990
-   },
-   {
-    "merchant": "S-Market",
-    "outCents": 27319
-   }
-  ],
-  "fresh": []
  },
  "moneyFlow": {
   "sources": [],

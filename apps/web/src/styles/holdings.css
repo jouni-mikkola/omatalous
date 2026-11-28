@@ -38,13 +38,6 @@
    the two later without the row growing or the balance moving; a line under the name (a part, an old balance) spans the row */
 .holdings .holding-account { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 16px; min-height: 54px; padding: 8px 0; box-sizing: border-box; }
 .holdings .holding-account .st-sub { grid-column: 1 / -1; }
-/* a total is not underlined: its rule above it and its weight set it apart */
-.holdings .st-total .st-num { text-decoration: none; }
-/* the day most balances are from, on the line of a group heading so the block is no taller for it */
-.holdings .holding-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-12); margin-bottom: var(--sp-4); }
-.holdings .holding-head .st-cap { margin: 0; }
-.holding-cards-head .holding-date { margin-right: auto; }
-.holdings .holding-date { font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 400; color: var(--text-2); }
 /* the heading of a type: a row of the list, so the tracks run past it, with the type's total at the right
    in the quieter ink; a step of room above every heading but the first, and no rule under it */
 .holdings .holding-type-head { justify-content: space-between; padding-bottom: 0; border-bottom: 0; color: var(--text-2); }
@@ -94,9 +87,6 @@
 .card-face .st-name { flex: 1 1 auto; min-width: 0; overflow: visible; white-space: normal; overflow-wrap: anywhere; }
 .card-face-bank { color: var(--text-2); }
 .card-face-mask { font-variant-numeric: tabular-nums; color: var(--text-2); }
-
-/* the debts of the whole block: one row under all the groups, under a hairline */
-.holdings .holding-foot { margin: 16px 0 0; padding: 0; border-top: 1px solid var(--border); }
 
 /* the tick before a balance: a mark in the text colour with a glyph (a check, or an exclamation mark) drawn here, never a colour alone */
 .holding-tick { display: inline-block; margin-right: 8px; font-size: var(--fs-small); line-height: 16px; font-weight: 600; cursor: help; }

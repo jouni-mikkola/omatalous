@@ -21,9 +21,9 @@ export type CalRow =
   | { key: string; kind: "row"; bill: CalBill; item: Item | null; typed: TypedBill | null; missed?: true }
   | { key: string; kind: "fold"; month: string; bills: CalBill[]; count: number; cents: number }
   | { key: string; kind: "ended"; item: Item }
-  | { key: string; kind: "total"; total: TotalName; figure: TotalFigure; cents: number | null; part?: true; unknown?: number };
+  | { key: string; kind: "total"; total: TotalName; figure: TotalFigure; cents: number | null; parts?: { total: TotalName; cents: number }[]; unknown?: number };
 
-/** What a total is, as the chips say: `now` is charged already, `estimate` is still to come. */
+/** What a total is, as its colour says: `now` is charged already, `estimate` is still to come. */
 type TotalFigure = "now" | "estimate";
 
 /** The kinds core adds a month's bills up by (`costKindOf`): parts of the month's bills still to come. */
@@ -56,7 +56,7 @@ export interface CalGroup {
  * A month with nothing left to come: no bill to pay, no pay, no saving, and so nothing after the bills to tell. A month with a sum
  * that is not known (`afterCents` null) is not this: it says so.
  */
-export const nothingToCome = (m: CalMonth) => m.afterCents === 0 && m.billsCents === 0 && m.incomeCents === 0 && m.savingCents === 0;
+const nothingToCome = (m: CalMonth) => m.afterCents === 0 && m.billsCents === 0 && m.incomeCents === 0 && m.savingCents === 0;
 
 const sameName = (a: string, b: string) => a.trim().toLocaleLowerCase("fi") === b.trim().toLocaleLowerCase("fi");
 
@@ -97,8 +97,8 @@ const FOLDED_ROWS = 2;
  * the saving charged (`savingPaidCents`), both only when a charge is made, so only the running month has them, then what is still to
  * come (`billsCents`) and the saving still to come (`savingCents`), each only when the month has it. Every listed row is in one of them
  * (or is a card's and in none). The pays are no listed rows, only their total, and they less the two to come are the sum left after the bills.
- * The bills still to come are followed by their parts by kind while two kinds or more have money (one kind alone is the sum
- * itself). The pays (`incomeCents`) and what is left after the bills (`afterCents`) close the month: the sum left is there while
+ * The bills still to come carry their parts by kind while two kinds or more have money (one kind alone is the sum
+ * itself); the table shows them in the figure panel of the sum. The pays (`incomeCents`) and what is left after the bills (`afterCents`) close the month: the sum left is there while
  * something is still to come, and is null while a bill's sum is not known or no pay comes, with the count of the bills that
  * leave it unknown (`unknownBillsIn` of core).
  */
@@ -108,8 +108,7 @@ function totalRows(calendar: Calendar, m: CalMonth): CalRow[] {
   return [
     ...(m.paidCents > 0 ? [total("paid", "now", m.paidCents)] : []),
     ...(m.savingPaidCents > 0 ? [total("saving", "now", m.savingPaidCents)] : []),
-    total("coming", "estimate", m.billsCents),
-    ...(parts.length > 1 ? parts.map(([name, field]): CalRow => ({ ...total(name, "estimate", m[field]), part: true })) : []),
+    { ...total("coming", "estimate", m.billsCents), ...(parts.length > 1 ? { parts: parts.map(([name, field]) => ({ total: name, cents: m[field] })) } : {}) },
     ...(m.savingCents > 0 ? [total("saving", "estimate", m.savingCents)] : []),
     ...(m.incomeCents > 0 ? [total("income", "estimate", m.incomeCents)] : []),
     ...(nothingToCome(m) ? [] : [{ ...total("after", "estimate", m.afterCents), unknown: unknownBillsIn(calendar, [m.month]) }]),

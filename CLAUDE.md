@@ -122,7 +122,7 @@ The entry points; `pnpm where` finds the rest and `docs/ARCHITECTURE.md` has the
   changes need no migration.
 - A card's payment channel is derived from the rows on every run and stored nowhere, so a change of rule is felt by the
   next run with no migration (ADR 0015).
-- The accounts, cards and loans of the first page show the fields of `holdings` in the dashboard answer. The web adds up
+- The accounts, cards and loans of Varat ja velat show the fields of `holdings` in the dashboard answer. The web adds up
   and compares no money of its own there. The share a card's arc fills (`CreditArc`) is the one figure it draws.
 
 ## The public repository

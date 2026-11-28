@@ -50,7 +50,7 @@ export const FIGURES = {
     unit: "cents",
     scope: "own",
     additive: true,
-    pages: ["Yhteenveto", "Raportit"],
+    pages: ["Raportit"],
   },
   consumption: {
     name: "Kulutus",
@@ -248,7 +248,7 @@ export const FIGURES = {
     unit: "cents",
     scope: "own",
     additive: true,
-    pages: ["Yhteenveto", "Raportit"],
+    pages: ["Raportit"],
   },
   earnedIncome: {
     name: "Ansiotulot",
@@ -257,7 +257,7 @@ export const FIGURES = {
     unit: "cents",
     scope: "own",
     additive: true,
-    pages: ["Yhteenveto", "Raportit"],
+    pages: ["Raportit"],
   },
   usualIncome: {
     name: "Tavalliset tulot",
@@ -284,7 +284,7 @@ export const FIGURES = {
     unit: "months",
     scope: "own",
     additive: false,
-    pages: ["Yhteenveto", "Raportit"],
+    pages: ["Yhteenveto", "Varat ja velat"],
   },
   balanceChange: {
     name: "Saldomuutos",

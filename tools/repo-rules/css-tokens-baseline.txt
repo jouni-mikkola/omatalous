@@ -9,7 +9,7 @@ apps/web/src/styles/categories.css  px=2
 apps/web/src/styles/change.css  px=6
 apps/web/src/styles/charts.css  px=26
 apps/web/src/styles/foreign-rows.css  px=8
-apps/web/src/styles/holdings.css  px=25
+apps/web/src/styles/holdings.css  px=24
 apps/web/src/styles/income.css  px=17
 apps/web/src/styles/loans.css  px=9
 apps/web/src/styles/marks.css  px=7
@@ -25,5 +25,5 @@ apps/web/src/styles/shell.css  px=29
 apps/web/src/styles/statement.css  px=11
 apps/web/src/styles/table.css  px=52
 apps/web/src/styles/themes-table.css  px=8
-apps/web/src/styles/transactions.css  px=29
+apps/web/src/styles/transactions.css  px=28
 apps/web/src/styles/wizard.css  px=14 fontSize=1

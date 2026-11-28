@@ -35,10 +35,12 @@ for (const width of [1440, 390]) {
       expect(widths.length).toBeGreaterThanOrEqual(2);
       expect(new Set(widths).size, `field widths ${widths.join(", ")}`).toBe(1);
 
-      // each fold says its state under its name
-      const folds = page.locator("details.card");
+      // each fold says its state under its name; the one that clears all data is its name alone
+      await expect(page.locator("details.card.danger-zone")).toHaveCount(1);
+      await expect(page.locator("details.card.danger-zone > summary .card-sub")).toHaveCount(0);
+      const folds = page.locator("details.card:not(.danger-zone)");
       const count = await folds.count();
-      expect(count).toBeGreaterThanOrEqual(2);
+      expect(count).toBeGreaterThanOrEqual(1);
       for (let i = 0; i < count; i++) {
         const sub = folds.nth(i).locator("> summary .card-sub");
         await expect(sub, `fold ${i}`).toHaveCount(1);

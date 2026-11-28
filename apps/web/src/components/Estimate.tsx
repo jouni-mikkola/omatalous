@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { t } from "../text.ts";
 import "../styles/estimate.css";
 
 /** How an estimate shows: "≈" before the figure (`approx`), or a dotted underline (`line`) where the sign does not fit. */
@@ -11,7 +12,14 @@ export type EstimateMark = "approx" | "line";
  */
 export function Estimate({ when = true, mark = "approx", children }: { when?: boolean; mark?: EstimateMark; children: ReactNode }) {
   if (!when) return <>{children}</>;
-  if (mark === "line") return <span className="fig-est">{children}</span>;
+  // the dotted line is no text, so a screen reader is told the sum is an estimate
+  if (mark === "line")
+    return (
+      <span className="fig-est">
+        <span className="sr-only">{t("est.about")} </span>
+        {children}
+      </span>
+    );
   return (
     <span className="fig-approx">
       <span className="fig-approx-sign">≈</span>

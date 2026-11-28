@@ -286,7 +286,7 @@ async function desk(/** @type {Film} */ film) {
   await film.say("A new install is empty. The example data stands in for a bank.");
   await film.read();
   await film.click(load);
-  await page.locator(".home-summary").waitFor({ state: "visible", timeout: 30_000 });
+  await page.locator(".home-now").waitFor({ state: "visible", timeout: 30_000 });
   await film.settle();
   // the first page has its figures now; the pointer leaves it for Tapahtumat without opening the chart's readout
   await film.say("The example data is loaded.");

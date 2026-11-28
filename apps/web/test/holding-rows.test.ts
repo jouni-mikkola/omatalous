@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cardName } from "@banking/core";
-import { cardMasks, cardsOwe, cardTone, maskedNames } from "../src/pages/reports/holdings/holding-rows.ts";
+import { cardMasks, cardTone, maskedNames } from "../src/pages/reports/holdings/holding-rows.ts";
 
 const account = (id: string, name = id, mask: string | null = null) => ({ id, name, mask });
 
@@ -108,13 +108,3 @@ describe("cardMasks", () => {
   });
 });
 
-describe("cardsOwe", () => {
-  const card = (usedCents: number | null) => ({ usedCents });
-
-  it("is true when a card has something used, and false for a card at zero, one without a balance and no card", () => {
-    expect(cardsOwe([card(0), card(12_000)])).toBe(true);
-    expect(cardsOwe([card(1)])).toBe(true);
-    expect(cardsOwe([card(0), card(null)])).toBe(false);
-    expect(cardsOwe([])).toBe(false);
-  });
-});

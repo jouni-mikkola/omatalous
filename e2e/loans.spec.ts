@@ -430,7 +430,7 @@ test("a member sees and changes only their own loans, and the page fits a phone"
 const demoCard = async (context: BrowserContext) => ((await (await context.request.get("/api/meta")).json()).accounts as { id: string; name: string; type: string }[]).find((a) => a.type === "credit_card");
 const cardLoan = (name: string, day: string) => ({ name, kind: "card", lender: "ESIMERKKIRAHOITUS OY", grantedCents: null, balanceCents: 100_000, balanceDate: day, rateBp: null, reference: null, marginBp: null, repayment: null, intervalMonths: null, paymentCents: null, endDate: null, limitCents: 300_000, seriesKey: null });
 /** The debt total of the Lainat report in whole euros: the demo's loan nobody saved makes it the known total. */
-const owed = async (section: Locator) => Number(/(\d[\d\s]*?)\s*€/.exec(await section.locator("table.rt tfoot tr").filter({ hasText: /Velat yhteensä/ }).innerText())![1]!.replace(/\D/g, ""));
+const owed = async (page: Page) => Number(/(\d[\d\s]*?)\s*€/.exec(await page.locator("li.strip-item").filter({ hasText: /^Velat yhteensä/ }).locator(".strip-figure").innerText())![1]!.replace(/\D/g, ""));
 
 test("the Lainat report offers to link a saved card to the card account, and the saved link takes the sentence and the typed balance out of the total", async ({ browser }) => {
   const context = await administrator(browser);
@@ -448,7 +448,7 @@ test("the Lainat report offers to link a saved card to the card account, and the
   const report = page.locator("#lainat");
   const sentence = report.locator('li.notice[data-tone="warning"]').filter({ hasText: "Sama velka voi olla summassa kahdesti" });
   await expect(sentence).toContainText("tallennettu laina Esimerkkikortti ja yhdistetty tili Nordea Gold (esimerkki)");
-  const before = await owed(report);
+  const before = await owed(page);
   await sentence.getByRole("link", { name: "Liitä Esimerkkikortti tiliin Nordea Gold (esimerkki)" }).click();
 
   // the editor of that loan opens with the account chosen, and the address no longer holds the request
@@ -469,7 +469,7 @@ test("the Lainat report offers to link a saved card to the card account, and the
   // on the same report, with no reload by hand: the sentence is gone and the total fell by the typed balance
   await expect(report.getByText("Esimerkkikortti").first()).toBeVisible();
   await expect(report.locator('li.notice[data-tone="warning"]').filter({ hasText: "Sama velka voi olla summassa kahdesti" })).toHaveCount(0);
-  expect(before - (await owed(report))).toBe(1000);
+  expect(before - (await owed(page))).toBe(1000);
 
   expect(seen.problems).toEqual([]);
   await clearLoans(context);

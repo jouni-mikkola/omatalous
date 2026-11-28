@@ -21,7 +21,7 @@ function SpendingLead({ ctx }: SectionProps) {
   if (!r || r.totalCents <= 0) return null;
   const items: TileItem[] = [
     { label: t("rpt.tile_spend"), figure: answerMoney(r.totalCents), panel: categorySpendPanel(ctx) },
-    ...(r.debtPaidCents > 0 ? [{ label: t("rpt.tile_spend_debt"), figure: answerMoney(r.debtPaidCents), note: t("rpt.tile_spend_debt_note") }] : []),
+    ...(r.debtPaidCents > 0 ? [{ label: t("rpt.tile_spend_debt"), figure: answerMoney(r.debtPaidCents) }] : []),
     ...(r.creditDrawnCents > 0 ? [{ label: t("rpt.tile_spend_credit"), figure: answerMoney(r.creditDrawnCents), tone: "bad" as const, href: `#/transactions?category=credit_draw&from=${ctx.range.from}&to=${ctx.range.to}` }] : []),
   ];
   const big = (cents: number) => cents * 100 >= r.totalCents;

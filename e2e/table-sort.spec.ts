@@ -149,7 +149,7 @@ test("Tapahtumat: the search finds a payee the list shows and the CSV has its na
     // the day of the group comes first, since the rows have no date column of their own
     expect(cells[0], "the day").toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(cells[1], "the payee").not.toBe("");
-    expect(cells[4], "the amount as a number with a decimal comma").toMatch(/^-?\d+(,\d+)?$/);
+    expect(cells[3], "the amount as a number with a decimal comma").toMatch(/^-?\d+(,\d+)?$/);
   }
   await context.close();
 });

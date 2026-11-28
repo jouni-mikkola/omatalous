@@ -1,14 +1,16 @@
 /**
- * What the filtered rows add up to, above the list: money out and in and what they leave as labelled figures on one
- * line, the count and the days quiet beside them. Decision: is this filter's money what the household expected, and
+ * What the filtered rows add up to, above the list: the money out (or in under an income limit) as one labelled
+ * figure, the other sums in the figure panel, the count and the days quiet beside them. Decision: is this filter's money what the household expected, and
  * when did it move. Every figure is a server field (`/api/transactions`); the web draws them and adds nothing up. The
  * histogram of the period waits behind its title at every width, so the list starts right under the figures. It shows
  * money out or in as the reader chooses, and a tap on a bar limits the period to that day, week or month. Dragging across bars,
  * or Shift with the arrow keys and Enter, limits it to the span; Escape returns to the period before (ADR 0023).
  */
 import { addDays } from "@banking/core";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Figure } from "../../components/Figure.tsx";
+import { FigurePanel } from "../../components/FigurePanel.tsx";
+import { type Fact, KeyValue } from "../../components/table/KeyValue.tsx";
 import { Segmented } from "../../components/ui/Segmented.tsx";
 import { date, dateRange, dayHeading, money, monthLong } from "../../format.ts";
 import { t, tn } from "../../text.ts";
@@ -146,8 +148,8 @@ function Histogram({ unit, bins, today, last, income, onPick, restore }: { unit:
   );
 }
 
-/** `income`: the limit is income only, so the histogram starts on money in. The period is the bar's chip; the sums are of what it and the other limits leave. `more`: what else waits behind the histogram's title, beside the picture. */
-export function TotalsStrip({ totals, income, today, onPick, more }: { totals: Totals; income: boolean; today: string; onPick: (p: Period) => void; more?: ReactNode }) {
+/** `income`: the limit is income only, so the histogram starts on money in. The period is the bar's chip; the sums are of what it and the other limits leave. The strip keeps one figure, Menot (Tulot under an income limit); the other sums are in its panel. */
+export function TotalsStrip({ totals, income, today, onPick }: { totals: Totals; income: boolean; today: string; onPick: (p: Period) => void }) {
   const span = totals.span;
   const hist = totals.histogram;
   const [series, setSeries] = useState<Series>(income ? "in" : "out");
@@ -174,6 +176,16 @@ export function TotalsStrip({ totals, income, today, onPick, more }: { totals: T
   const histTitle = t(inSeries ? "tx.hist_in" : "tx.hist_out", { unit: hist ? unitTitle(hist.unit) : "" });
   // Käteen jäi says nearly what Erotus says, so it takes Erotus's place when it differs from it
   const shownResult = totals.leftCents !== undefined && totals.leftCents !== null && totals.leftCents !== totals.netCents;
+  const signedFigure = (cents: number): string => `${cents > 0 ? "+" : ""}${money(cents, false)}`;
+  const panelFacts: Fact[] =
+    totals.inCents === null || totals.outCents === null
+      ? []
+      : [
+          income ? [t("tx.spending"), money(-totals.outCents, false)] : [t("tx.income"), signedFigure(totals.inCents)],
+          ...(totals.netCents != null && !shownResult ? [[t("tx.difference"), signedFigure(totals.netCents)] as const] : []),
+          ...(totals.savedCents != null && totals.savedCents !== 0 ? [[t(totals.savedCents > 0 ? "tx.saved" : "tx.savings_drawn"), money(Math.abs(totals.savedCents), false)] as const] : []),
+          ...(shownResult && totals.leftCents != null ? [[t("tx.result"), signedFigure(totals.leftCents)] as const] : []),
+        ];
   const picture = hist && hist.bins.length > 1 && (
     <figure className="tx-hist">
       <figcaption className="tx-hist-head">
@@ -202,41 +214,13 @@ export function TotalsStrip({ totals, income, today, onPick, more }: { totals: T
         {totals.inCents !== null && totals.outCents !== null && (
         <dl className="tx-totals-kv">
           <div>
-            <dt>{t("tx.spending")}</dt>
-            <dd>
-              <Figure text={money(-totals.outCents, false)} size="m" />
+            <dt>{t(income ? "tx.income" : "tx.spending")}</dt>
+            <dd className={income ? "tx-in" : undefined}>
+              <FigurePanel label={t("tx.totals_label")} figure={<Figure text={income ? signedFigure(totals.inCents) : money(-totals.outCents, false)} size="m" />}>
+                <KeyValue items={panelFacts} />
+              </FigurePanel>
             </dd>
           </div>
-          <div>
-            <dt>{t("tx.income")}</dt>
-            <dd className="tx-in">
-              <Figure text={`${totals.inCents > 0 ? "+" : ""}${money(totals.inCents, false)}`} size="m" />
-            </dd>
-          </div>
-          {totals.netCents !== undefined && totals.netCents !== null && !shownResult && (
-            <div>
-              <dt>{t("tx.difference")}</dt>
-              <dd>
-                <Figure text={`${totals.netCents > 0 ? "+" : ""}${money(totals.netCents, false)}`} size="m" />
-              </dd>
-            </div>
-          )}
-          {totals.savedCents !== undefined && totals.savedCents !== null && totals.savedCents !== 0 && (
-            <div>
-              <dt>{t(totals.savedCents > 0 ? "tx.saved" : "tx.savings_drawn")}</dt>
-              <dd>
-                <Figure text={money(Math.abs(totals.savedCents), false)} size="m" />
-              </dd>
-            </div>
-          )}
-          {shownResult && totals.leftCents != null && (
-            <div>
-              <dt>{t("tx.result")}</dt>
-              <dd>
-                <Figure text={`${totals.leftCents > 0 ? "+" : ""}${money(totals.leftCents, false)}`} size="m" />
-              </dd>
-            </div>
-          )}
         </dl>
         )}
       </div>
@@ -246,7 +230,6 @@ export function TotalsStrip({ totals, income, today, onPick, more }: { totals: T
           <summary>{histTitle}</summary>
           <div className="tx-hist-body">
             {picture}
-            {more}
           </div>
         </details>
       )}
@@ -260,9 +243,7 @@ export function StripSkeleton() {
     <section className="tx-totals tx-skel" aria-hidden="true">
       <div className="tx-sums">
         <span className="tx-skel-figs">
-          {[0, 1, 2].map((i) => (
-            <span key={i} className="sk-bar sk-fig" />
-          ))}
+          <span className="sk-bar sk-fig" />
         </span>
       </div>
       <span className="sk-bar sk-label" />

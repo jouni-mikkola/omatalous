@@ -1,14 +1,12 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { join } from "node:path";
-import { cents, overflow, plain, watch } from "./helpers.ts";
+import { overflow, plain, watch } from "./helpers.ts";
 
 // Varat ja velat: the names of accounts, cards and loans are links, the sums of a group stand on one right edge, Tilit and
 // Lainat stand side by side from 900 px with the cards in a row under them (a household with no loan has Tilit and its
 // cards side by side), a card is a flat row and its arc shows what is used. The demo household of the
-// administrator (e2e/run.mjs) has a checking and a savings account and a card with no limit and no last digits; the
-// loan this spec saves is removed again, so the specs after it find the household as they expect.
+// administrator (e2e/run.mjs) has a checking and a savings account and a card with no limit and no last digits.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
-const FETCH = { "X-Requested-With": "fetch" };
 
 test.describe.configure({ mode: "serial" });
 
@@ -18,12 +16,6 @@ const colour = (el: Locator) => el.evaluate((node) => getComputedStyle(node).col
 /** Where the right edges of the elements are, to a tenth of a pixel. */
 const rights = (els: Locator) => els.evaluateAll((nodes) => nodes.map((n) => Math.round(n.getBoundingClientRect().right * 10) / 10));
 
-let loanId = "";
-test.afterAll(async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE });
-  if (loanId) await context.request.delete(`/api/loans/${loanId}`, { headers: FETCH });
-  await context.close();
-});
 
 test("a name opens its rows in Tapahtumat, in the colour of a link and underlined when pointed at, and no total is a link", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
@@ -35,7 +27,7 @@ test("a name opens its rows in Tapahtumat, in the colour of a link and underline
 
   // an account: the link is in the accent colour, not the colour of the other words of the row, and underlined when hovered
   const account = holdings.getByRole("link", { name: "Käyttötili (esimerkki)" });
-  const plainText = await colour(holdings.locator(".st-total .st-name", { hasText: "Tilien saldo" }));
+  const plainText = await colour(holdings.locator(".st-num").first());
   const underline = (el: Locator) => el.evaluate((node) => getComputedStyle(node).textDecorationLine);
   expect(await colour(account), "a name is a link in the colour of one").not.toBe(plainText);
   expect(await underline(account)).toBe("none");
@@ -91,7 +83,7 @@ test("the focus of a link shows whole, inside the name that is cut", async ({ br
   await context.close();
 });
 
-test("the sums of a group stand on one right edge, an account's row is 54 px, two weights only, and a card with no limit is its name, its digits and one figure, with the day of the balances once in the heading", async ({ browser }) => {
+test("the sums of a group stand on one right edge, an account's row is 54 px, two weights only, and a card with no limit is its name, its digits and one figure", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
   const page = await context.newPage();
   const seen = watch(page);
@@ -99,11 +91,10 @@ test("the sums of a group stand on one right edge, an account's row is 54 px, tw
   const holdings = holdingsOf(page);
   await expect(holdings).toBeVisible();
 
-  // Tilit: the two accounts and the total at the foot end at one x
+  // Tilit: the two accounts end at one x
   const tilit = groupOf(page, "Tilit");
   const edges = await rights(tilit.locator(".st-num"));
-  expect(edges.length, "the total and two accounts").toBe(3);
-  // no bracket stands beside the accounts, so the total's sum ends where theirs do
+  expect(edges.length, "the two accounts").toBe(2);
   expect(new Set(edges).size, `the sums end at ${edges.join(", ")}`).toBe(1);
 
   // a row of an account is 54 px with its hairline: room for the curve that will stand between the name and the sum
@@ -121,8 +112,7 @@ test("the sums of a group stand on one right edge, an account's row is 54 px, tw
   });
   expect(weights).toEqual(["400", "600"]);
 
-  // the heading names the day of the balances, and the rows repeat it nowhere
-  await expect(holdings.locator(".holding-date")).toHaveText(/^Saldo päivältä \d/);
+  await expect(holdings.locator(".holding-date")).toHaveCount(0);
   // the demo's card has a name, its last digits and what is used: no limit row, no meter, and no line without words
   const card = groupOf(page, "Luottokortit").locator(".holding-unit");
   await expect(card.locator(".st-row")).toHaveCount(1);
@@ -231,49 +221,6 @@ test("every card is a flat row above its figures, with its name as the one link 
     }
     expect(await overflow(page), `Yhteenveto scrolls sideways at ${width} px`).toBeLessThanOrEqual(1);
   }
-
-  expect(seen.problems).toEqual([]);
-  await context.close();
-});
-
-test("Yhteenveto's rail has Tilit, Luottokortit and Lainat as one line each under one link to Varat ja velat, and the loan's sum is the loan", async ({ browser }) => {
-  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 900 } });
-  const today = (await (await context.request.get("/api/meta")).json()).today as string;
-  const saved = await context.request.post("/api/loans", {
-    headers: FETCH,
-    data: {
-      name: "Kodin laina", lender: "Esimerkkirahoitus Oy", kind: "mortgage", grantedCents: 15_000_000, balanceCents: 12_000_000, balanceDate: today,
-      rateBp: 400, reference: "euribor_12", marginBp: 60, repayment: "annuity", intervalMonths: 1, paymentCents: 100_000, endDate: null, limitCents: null, seriesKey: null,
-    },
-  });
-  expect(saved.ok(), `POST /api/loans answered ${saved.status()}: ${await saved.text()}`).toBe(true);
-  loanId = (await saved.json()).loan.id;
-
-  const page = await context.newPage();
-  const seen = watch(page);
-  await page.goto("/#/overview");
-  const holdings = holdingsOf(page);
-  await expect(holdings.locator("[data-holding]")).toHaveCount(3);
-  await expect(holdings.locator("[data-holding] dt")).toHaveText(["Tilit", "Luottokortit", "Lainat yhteensä, tiedossa"]);
-  // the lines are told, not linked: the heading is the one link to Varat ja velat
-  await expect(holdings.getByRole("link", { name: "Varat ja velat" })).toHaveCount(1);
-  // a debt of the demo household lacks its balance: the line under the three says so and links to its question in Tarkistettavat
-  const lacking = holdings.getByRole("link", { name: /velan saldo puuttuu/ });
-  await expect(lacking).toHaveAttribute("href", /item=loan-terms/);
-  expect(cents(plain(await holdings.locator("[data-holding=loans] dd").innerText()))).toBe(12_000_000);
-
-  // the sums of the lines end on one right edge
-  const edges = await rights(holdings.locator("[data-holding] dd"));
-  expect(new Set(edges).size, `the sums end at ${edges.join(", ")}`).toBe(1);
-  expect(await overflow(page), "Yhteenveto scrolls sideways").toBeLessThanOrEqual(1);
-
-  await lacking.click();
-  await expect(page).toHaveURL(/#\/review\?item=loan-terms/);
-  await page.goBack();
-
-  await holdings.getByRole("link", { name: "Varat ja velat" }).click();
-  await expect(page).toHaveURL(/#\/balances/);
-  await expect(page.locator("#lainat").getByRole("button", { name: "Kodin laina", exact: true })).toBeVisible();
 
   expect(seen.problems).toEqual([]);
   await context.close();
