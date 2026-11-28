@@ -1,5 +1,6 @@
 // Decision: how much of the household's life is paid with credit or savings, and how large a cut would end it
 import { useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "../../design/tokens.ts";
 import { money, monthLabel } from "../../format.ts";
 import { t } from "../../text.ts";
 import "../../styles/money-flow.css";
@@ -40,9 +41,6 @@ function stack(side: readonly MoneyFlowBand[]): Placed[] {
 
 type Placed = { band: MoneyFlowBand; y: number; height: number };
 
-/** How long a band takes to move to its new place, under the 400 ms of the other charts' draws. */
-const MOVE_MS = 200;
-
 /**
  * The places of `target`, moved there from where each band stood when the bands change. A band is followed by its id; a
  * new band stands in its place at once. Without motion (reduced motion, or no animation frames) the places are the
@@ -63,7 +61,7 @@ function useMoved(target: readonly Placed[]): Placed[] {
     const start = performance.now();
     let frame = 0;
     const step = (now: number) => {
-      const k = Math.min(1, (now - start) / MOVE_MS);
+      const k = Math.min(1, (now - start) / motion.open);
       const eased = 1 - (1 - k) ** 3;
       const next = target.map((p) => {
         const was = begin.find((b) => b.band.id === p.band.id);

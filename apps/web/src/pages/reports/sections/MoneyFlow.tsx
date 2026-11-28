@@ -31,7 +31,7 @@ function MoneyFlowSection({ ctx }: SectionProps) {
   const r = ctx.data.moneyFlow;
   const [pickedMonth, pick] = useState<string | null>(null);
   const month = r.months.find((m) => m.month === pickedMonth) ?? null;
-  const shown = month ?? { ...r, from: ctx.range.from, to: ctx.range.to, creditCents: r.sources.find((b) => b.id === "credit")?.cents ?? 0 };
+  const shown = month ?? { ...r, from: r.months[0]?.from ?? ctx.range.from, to: r.months.at(-1)?.to ?? ctx.range.to, creditCents: r.sources.find((b) => b.id === "credit")?.cents ?? 0 };
   const hero = month
     ? t("rpt.mf_hero_month", { month: monthLongIn(month.month).replace(/^./, (c) => c.toUpperCase()), credit: answerMoney(month.creditCents) })
     : t("rpt.mf_hero", { months: r.monthCount, credit: answerMoney(shown.creditCents), perMonth: answerMoney(r.creditPerMonthCents) });

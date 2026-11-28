@@ -73,6 +73,10 @@ describe("Tulot ja menot: where the money came from and went", () => {
     expect(f.creditPerMonthCents).toBe(26667);
     expect(source("savings")).toBe(50000);
     expect(source("earned")).toBe(totals.incomeCents);
+    for (const m of f.months) {
+      expect(m.sources.reduce((s, b) => s + b.cents, 0)).toBe(m.totalCents);
+      expect(m.uses.reduce((s, b) => s + b.cents, 0)).toBe(m.totalCents);
+    }
     expect(f.uses.find((b) => b.id === "category:housing")?.cents).toBe(450000);
     expect(f.sources.reduce((s, b) => s + b.cents, 0)).toBe(f.uses.reduce((s, b) => s + b.cents, 0));
     // the consumption bands are the period's consumption, whole
