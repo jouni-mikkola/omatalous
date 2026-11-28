@@ -12,7 +12,7 @@ const STATE_TTL_MS = 60 * 60_000;
 
 /**
  * Why linking a bank stopped, one message each. The callback puts only the reason in the address and the web app shows
- * the same words (BankConnections.tsx CONNECT_ERRORS); the pasted address gets the message itself. A reason that a new
+ * the same words (connection-text.ts CONNECT_ERRORS); the pasted address gets the message itself. A reason that a new
  * attempt cannot fix says who fixes it, so the user is not sent round the same failure again.
  */
 export const LINK_FAILURES = {
