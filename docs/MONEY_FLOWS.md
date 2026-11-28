@@ -132,7 +132,7 @@ the category totals, Velanhoito, spending by month and year over year, the tax-y
 instalment interest, and it is a row of Laskut and the loan views. The spending total of the identity is therefore
 less than the sum of the categories by exactly these rows. Where a spending report's total stands beside the first
 page's Menot, it names them as *Säästöistä maksettu* (a row under the tiles of *Menot kategorioittain* from `fromSavingsCents` of
-`spendingMonthsReport`, `fromSavingsCents` of the first page's categories) and shows the row only when the sum is a hundredth of the spending or more. The tile of the whole period there is named *Kaikki menot* (note *koko jakso*), since it keeps the debt paid from savings and the partial months, and so is not the *Menot* of *Tulot ja menot*.
+`spendingMonthsReport`, `fromSavingsCents` of the first page's categories) and shows the row only when the sum is a hundredth of the spending or more. The tile of the whole period there is named *Kaikki menot* (note *koko jakso*), since it keeps the debt paid from savings and the partial months, and so is not the *Menot* of *Tulot ja menot*. Raportit has these two bases and no third: the complete months (the tiles of *Tulot ja menot*, whose Tulot is the income report's months and the income side of *Rahan lähteet ja käyttö*) and the whole period (*Kaikki menot*). `packages/core/test/reports.test.ts` holds that they reconcile.
 
 Credit drawn (*Luotonnostot*) is money on the account that is not income. It is in *Tulos* and in no income figure,
 savings rate or margin (`netCents`).
