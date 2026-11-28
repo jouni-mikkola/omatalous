@@ -234,6 +234,25 @@ describe("Täydennä lainat", () => {
     expect(openRow(0).textContent).toContain("Toinen rahoitus");
   });
 
+  it("does not save a loan again when the form is pressed after another loan failed, and shows the error at the failed loan", async () => {
+    queryClient.clear();
+    let posts = 0;
+    const seen = stubApi({
+      "GET /api/loans": { loans: [], fixings: {} },
+      "POST /api/loans": () => (++posts === 2 ? failing(500, { error: "Lainaa ei voitu tallentaa." }) : { loan: savedLoan({ id: `loan-${posts}`, kind: "consumer", balanceCents: 200_000 }) }),
+    });
+    const debt = debtOf({ id: "proposal:k", source: "proposal", name: "Esimerkkirahoitus", key: "k", kind: "consumer", monthlyCents: 25_000, latestCents: 25_000, lastDate: "2026-09-05" });
+    show([{ ...listOf([debt, { ...debt, id: "proposal:j", key: "j", name: "Toinen rahoitus" }]), id: "loan-terms:balances" } as ReviewItem]);
+    for (const n of [0, 1]) fireEvent.change(await within(openRow(n)).findByLabelText(/^Jäljellä/, {}, T), { target: { value: "2 000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
+    await within(openRow(0)).findByText("Lainaa ei voitu tallentaa.", {}, T);
+    expect(document.querySelectorAll("li.review-debt.is-done")).toHaveLength(1);
+    expect(openRow(0).textContent).toContain("Toinen rahoitus");
+    fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
+    await waitFor(() => expect(document.querySelectorAll("li.review-debt.is-done")).toHaveLength(2), T);
+    expect(seen.filter((s) => s.method === "POST").map((s) => (s.body as { seriesKey: string }).seriesKey)).toEqual(["k", "j", "j"]);
+  });
+
   it("shows the error of the other forms when the loans cannot be read", async () => {
     queryClient.clear();
     stubApi({ "GET /api/loans": failing(500, { error: "Lainoja ei voitu lukea." }) });

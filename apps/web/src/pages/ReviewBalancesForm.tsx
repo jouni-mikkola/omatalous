@@ -1,7 +1,7 @@
 /**
  * Täydennä lainat, the balances of the loans the rows show in one form: a field for what each owes now, an optional one
  * for its rate and one Tallenna. Each filled loan is saved as it is alone (POST /api/loans, linked to its series, with
- * what the rows tell of its terms); a loan left empty stays in the queue. The saved ones close into their result line.
+ * what the rows tell of its terms); a loan left empty stays in the queue and in the form. The saved ones close into their result line, and the form is done when every loan is saved.
  */
 import { type FormEvent, useId, useState } from "react";
 import { loanCalls } from "../api.ts";
@@ -23,6 +23,13 @@ interface Typed {
 
 const EMPTY: Typed = { balance: "", rate: "" };
 
+/** What is wrong with a loan's fields; `other` is a message of the form or the server with no field of its own, shown at the balance. */
+interface FieldErrors {
+  balance?: string;
+  rate?: string;
+  other?: string;
+}
+
 function Field({ label, value, error, onChange }: { label: string; value: string; error?: string; onChange: (value: string) => void }) {
   const id = useId();
   return (
@@ -43,11 +50,15 @@ function Field({ label, value, error, onChange }: { label: string; value: string
 export function BalancesForm({ item, meta, busy, onAnswer, onHold, onReload }: { item: LoanTermsListItem; meta: Meta; busy: boolean; onAnswer: (send: () => Promise<unknown>) => void; onHold: () => void; onReload: () => void }) {
   const loans = useApi<LoansAnswer>("/api/loans");
   const [typed, setTyped] = useState<Record<string, Typed>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, FieldErrors>>({});
   const [saved, setSaved] = useState<Record<string, string>>({});
   const [problem, setProblem] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [finished, setFinished] = useState(false);
+  // the debts of the form as it opened: after a save the queue may bring the item again without the saved ones, and their result lines stay
+  const [shown, setShown] = useState<LoanTermsDebt[]>(item.debts);
+  const fresh = item.debts.filter((d) => !shown.some((s) => s.id === d.id));
+  if (fresh.length > 0) setShown([...shown, ...fresh]);
+  const finished = shown.every((d) => saved[d.id]);
   const answer = loans.data;
   const of = (debt: LoanTermsDebt) => typed[debt.id] ?? EMPTY;
   const set = (debt: LoanTermsDebt, change: Partial<Typed>) => setTyped({ ...typed, [debt.id]: { ...of(debt), ...change } });
@@ -56,17 +67,22 @@ export function BalancesForm({ item, meta, busy, onAnswer, onHold, onReload }: {
     e.preventDefault();
     if (saving || !answer) return;
     // a loan saved by an earlier press is never sent again
-    const filled = item.debts.filter((d) => !saved[d.id] && of(d).balance.trim() !== "");
+    const filled = shown.filter((d) => !saved[d.id] && (of(d).balance.trim() !== "" || of(d).rate.trim() !== ""));
     if (filled.length === 0) {
       setProblem(t("set.loans.loan_need_balance"));
       return;
     }
-    const found: Record<string, string> = {};
+    const found: Record<string, FieldErrors> = {};
     const bodies = filled.flatMap((debt) => {
       const form = rowsForm(debt, debt.kind, meta, answer, false);
       const { balance, rate } = of(debt);
+      // a rate typed with no balance is asked for the balance, never dropped
+      if (balance.trim() === "") {
+        found[debt.id] = { balance: t("set.loans.loan_need_balance") };
+        return [];
+      }
       const read = readForm({ ...form, values: { ...form.values, balanceCents: balance, ...(rate.trim() === "" ? {} : { rateBp: rate }) } }, answer.fixings);
-      if (!read.body) found[debt.id] = read.errors.balanceCents ?? read.errors.rateBp ?? Object.values(read.errors)[0] ?? "";
+      if (!read.body) found[debt.id] = { balance: read.errors.balanceCents, rate: read.errors.rateBp, other: read.errors.balanceCents || read.errors.rateBp ? undefined : Object.values(read.errors)[0] };
       return read.body ? [{ debt, body: read.body }] : [];
     });
     setErrors(found);
@@ -82,11 +98,10 @@ export function BalancesForm({ item, meta, busy, onAnswer, onHold, onReload }: {
         const line = resultLine(loan, answer.fixings, meta.today);
         setSaved((s) => ({ ...s, [debt.id]: line }));
       }
-      setFinished(true);
     } catch (err) {
       // the loan that failed shows the error at its field; the ones saved before it stay closed
       const message = err instanceof Error ? err.message : String(err);
-      if (current) setErrors({ [current.id]: message });
+      if (current) setErrors({ [current.id]: { other: message } });
       else setProblem(message);
     } finally {
       setSaving(false);
@@ -104,7 +119,7 @@ export function BalancesForm({ item, meta, busy, onAnswer, onHold, onReload }: {
       )}
       <form className="review-field" onSubmit={(e) => void submit(e)} noValidate>
         <ul className="review-debt-list">
-          {item.debts.map((debt) => (
+          {shown.map((debt) => (
             <li key={debt.id} className={`review-debt${saved[debt.id] ? " is-done" : ""}`}>
               <h3 className="review-debt-name">
                 {debt.name}
@@ -115,8 +130,8 @@ export function BalancesForm({ item, meta, busy, onAnswer, onHold, onReload }: {
               ) : (
                 !finished && (
                   <>
-                    <Field label={t("set.rc.lt_left_now")} value={of(debt).balance} error={errors[debt.id]} onChange={(balance) => set(debt, { balance })} />
-                    <Field label={t("set.rc.lt_rate_if_known")} value={of(debt).rate} onChange={(rate) => set(debt, { rate })} />
+                    <Field label={t("set.rc.lt_left_now")} value={of(debt).balance} error={errors[debt.id]?.balance ?? errors[debt.id]?.other} onChange={(balance) => set(debt, { balance })} />
+                    <Field label={t("set.rc.lt_rate_if_known")} value={of(debt).rate} error={errors[debt.id]?.rate} onChange={(rate) => set(debt, { rate })} />
                   </>
                 )
               )}
