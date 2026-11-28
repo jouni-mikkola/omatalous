@@ -33,7 +33,7 @@ const props = { categories: [], pending: null, onCategory: () => {}, account: "K
 const list = (t: ListedRow, open = false) =>
   renderToStaticMarkup(
     createElement(TxTable, {
-      items: [t], severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (r: ListedRow) => ({ t: r, ...props, onStatement: () => {} }), scope: "own",
+      items: [t], today: "2026-10-05", daySums: new Map(), rowProps: (r: ListedRow) => ({ t: r, ...props, onStatement: () => {} }), scope: "own",
       open: open ? t.id : null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {},
     }),
   );

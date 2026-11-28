@@ -114,9 +114,8 @@ export function MonthBars({ overview, today, incomePartial }: { overview: Pick<O
   const running = (i: number) => i === months.length - 1 && months[i]!.month === today.slice(0, 7);
   // the readout names the picked month, else the last whole one; the running month keeps its name, which says "kesken"
   const wholeMonth = (m: Month, i: number) => m.complete && !running(i) && (m.incomeCents !== null || m.spendCents !== null);
-  // a month's two bars have one look, and the key names it when the chart draws one such month
+  // a month's two bars have one look
   const solid = (m: Month, i: number) => m.complete && !running(i) && !incomePartial?.has(m.month);
-  const anyPartial = months.some((m, i) => !solid(m, i) && (m.incomeCents !== null || m.spendCents !== null));
   // the span in progress, else the one the table keeps: its first and last month
   const kept: [number, number] | null = scope?.range ? [months.findIndex((m) => m.month === scope.range!.from), months.findIndex((m) => m.month === scope.range!.to)] : null;
   const spanBand = dragSpan.bounds ?? (kept && kept[0] >= 0 && kept[1] >= 0 ? kept : null);
@@ -150,7 +149,6 @@ export function MonthBars({ overview, today, incomePartial }: { overview: Pick<O
           ]}
           note={running(shown) ? t("home.months_running") : !months[shown].complete && months[shown].spendCents !== null ? t("home.months_partial") : undefined}
           compare={usualComparison("spend", months[shown].againstUsual, false)}
-          partialKey={anyPartial}
         />
       ) : (
         <div className="readout-line" />

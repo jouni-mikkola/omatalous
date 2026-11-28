@@ -68,7 +68,7 @@ test.describe.configure({ mode: "serial" });
 test.beforeAll(async ({ browser }) => household(browser));
 test.afterAll(async ({ browser }) => remove(browser));
 
-test("The demo household: Yhteenveto carries no bridge, and Tulot has no bar of where the income went", async ({ browser }) => {
+test("The demo household: Yhteenveto carries no bridge, and Tulot ja menot has no bar of where the income went", async ({ browser }) => {
   const context = await browser.newContext({ storageState: MEMBER, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);
@@ -77,7 +77,7 @@ test("The demo household: Yhteenveto carries no bridge, and Tulot has no bar of 
   await expect(page.locator(OVERVIEW_TILES)).toBeVisible();
   await expect(page.locator(".bridge")).toHaveCount(0);
   await page.goto("/#/reports?q=tulot");
-  await expect(page.getByRole("region", { name: "Tulolajit" })).toBeVisible();
+  await expect(page.locator("#tulot-ja-menot")).toBeVisible();
   await expect(page.locator("#kassavirta")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: /^Tulojen käyttö/ })).toHaveCount(0);
   expect(seen.problems).toEqual([]);
@@ -93,7 +93,7 @@ test("390 px: Yhteenveto and Tulot fit the phone", async ({ browser }) => {
   expect(await overflow(page), "sideways scroll").toBeLessThanOrEqual(1);
 
   await page.goto("/#/reports?q=tulot");
-  await expect(page.getByRole("table", { name: "Tulolajit" })).toBeVisible();
+  await expect(page.locator("#tulot-ja-menot")).toBeVisible();
   expect(await overflow(page), "sideways scroll on Tulot").toBeLessThanOrEqual(1);
   expect(seen.problems).toEqual([]);
   await context.close();

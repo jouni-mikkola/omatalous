@@ -101,9 +101,6 @@ export const FI_TRANSACTIONS = {
   "tx.savings_drawn": "Otettu säästöistä",
   "tx.result": "Käteen jäi",
   "tx.updating": "Summat päivittyvät",
-  "tx.lead_label": "Tämä kuukausi",
-  "tx.lead_top": "Suurimmat tässä kuussa",
-  "tx.lead_new": "Uutta tässä kuussa",
   // Categories
   "category.housing": "Vuokra ja vastike",
   "category.utilities": "Sähkö, vesi ja lämpö",

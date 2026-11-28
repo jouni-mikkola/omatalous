@@ -256,8 +256,8 @@ test("the loan figures are plain text, with no button to open a calculation", as
 test("Raportit has none of the paragraphs the figures replaced, and its balances stand under Varat ja velat", async ({ browser }) => {
   const { page, seen, context } = await open(browser, 1280);
   await page.goto("/#/reports?q=tulot");
-  // the sentences that said what the fixed costs take of the income and what the cash covers, and the line under Tulolajit
-  await expect(page.locator("#tulot").getByRole("heading", { name: "Tulolajit", exact: true })).toBeVisible();
+  // the sentences that said what the fixed costs take of the income and what the cash covers
+  await expect(page.locator("#tulot-ja-menot")).toBeVisible();
   await expect(page.getByText(/vievät \d+ % tuloista|Se kattaa|Puskurin pituus|Lisää tilien saldot|Kuukaudessa keskimäärin/)).toHaveCount(0);
   // Varat ja velat: the balances by month under their question, the daily balance as one line chart and no legend
   await page.goto("/#/reports?q=saldot");

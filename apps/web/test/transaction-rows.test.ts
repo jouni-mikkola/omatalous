@@ -8,7 +8,7 @@ const row = (over: Partial<ListedRow> = {}): ListedRow =>
   ({ id: "t1", accountId: "a/1", bookingDate: "2026-10-05", merchant: "ESIMERKKI OY", amountCents: 80_000, own: false, status: "booked", category: "other", ...over }) as ListedRow;
 const props = { categories: [], pending: null, onCategory: () => {}, account: "Yhteistili" };
 const list = (t: ListedRow, open = false) =>
-  renderToStaticMarkup(createElement(TxTable, { items: [t], severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (r: ListedRow) => ({ t: r, ...props, onStatement: () => {} }), scope: "own", open: open ? t.id : null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {} }));
+  renderToStaticMarkup(createElement(TxTable, { items: [t], today: "2026-10-05", daySums: new Map(), rowProps: (r: ListedRow) => ({ t: r, ...props, onStatement: () => {} }), scope: "own", open: open ? t.id : null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {} }));
 // the list has one layout; the old phone and wide forms are both this one
 const phone = list;
 const wide = list;
@@ -128,7 +128,7 @@ describe("the amount cell of a row", () => {
   it("is the sum and, on a joint row, the share part: nothing is drawn after them on a day of several rows", () => {
     // a day of two rows of different sizes, one of them joint: the smaller one had the bar against the day's largest
     const items = [row({ id: "big", amountCents: -60_000 }), row({ id: "small", amountCents: -15_000 }), row({ id: "joint", amountCents: -40_000, partCents: -20_000 }), row({ id: "in", amountCents: 5_000 })];
-    const html = renderToStaticMarkup(createElement(TxTable, { items, severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {} }));
+    const html = renderToStaticMarkup(createElement(TxTable, { items, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {} }));
     expect(figures(html, "tx-amount")).toEqual([-60_000, -15_000, -20_000, 5_000]);
     expect(amountCells(html)).toEqual([["tx-amount"], ["tx-amount"], ["tx-amount", "tx-part"], ["tx-amount in"]]);
   });
@@ -161,7 +161,7 @@ describe("the part of a joint account's row", () => {
     const items = [row({ id: "j", bookingDate: "2026-09-18", amountCents: -3_624, partCents: -2_174 }), row({ id: "o", accountId: "a/2", bookingDate: "2026-09-18", amountCents: -14_599 })];
     const daySums = new Map<string, DaySum>([["2026-09-18", { date: "2026-09-18", inCents: 0, outCents: 16_773 }]]);
     const rowProps = (t: ListedRow) => ({ t, ...props });
-    const lists = [renderToStaticMarkup(createElement(TxTable, { items, severalAccounts: true, today: "2026-10-05", daySums, rowProps, scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {} }))];
+    const lists = [renderToStaticMarkup(createElement(TxTable, { items, today: "2026-10-05", daySums, rowProps, scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {} }))];
     for (const html of lists) {
       expect(figures(html, "rt-sub")).toEqual([-16_773]);
       expect(html).not.toContain("rt-group-count");
@@ -173,7 +173,7 @@ describe("the part of a joint account's row", () => {
 describe("an own transfer in a day", () => {
   it("has a quiet figure, since the day's sums leave it out", () => {
     const items = [row({ id: "p", amountCents: -5_000 }), row({ id: "m", merchant: "OMA TILI", amountCents: -10_000, isTransfer: true })];
-    const html = renderToStaticMarkup(createElement(TxTable, { items, severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {} }));
+    const html = renderToStaticMarkup(createElement(TxTable, { items, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {} }));
     expect(html.match(/class="tx-amount moved"/g)).toHaveLength(1);
   });
 });
@@ -181,7 +181,7 @@ describe("an own transfer in a day", () => {
 describe("the mark chosen in Suodata", () => {
   const shown = (whole: boolean, chip: string | null = null) => {
     const items = [row({ id: "p", merchant: "VARAUS OY", status: "pending" }), row({ id: "m", merchant: "KASIN OY", categorySource: "user" }), row({ id: "b", merchant: "PLAIN OY" })];
-    const html = renderToStaticMarkup(createElement(TxTable, { items, whole, severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip, group: null, sort: null }, onView: () => {} }));
+    const html = renderToStaticMarkup(createElement(TxTable, { items, whole, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip, group: null, sort: null }, onView: () => {} }));
     return ["VARAUS OY", "KASIN OY", "PLAIN OY"].filter((name) => html.includes(name));
   };
 
@@ -195,14 +195,14 @@ describe("the mark chosen in Suodata", () => {
   });
 
   it("has no toolbar of its own, since the page's bar holds the choice", () => {
-    const html = renderToStaticMarkup(createElement(TxTable, { items: [row()], severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {} }));
+    const html = renderToStaticMarkup(createElement(TxTable, { items: [row()], today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {} }));
     expect(html).not.toContain("rtb");
   });
 });
 
 describe("a mark that no row of the whole list has", () => {
   // a page of a longer list can be shown under a mark that none of its rows has
-  const html = renderToStaticMarkup(createElement(TxTable, { items: [row({ id: "b1" }), row({ id: "b2", merchant: "TOINEN OY" })], severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: "pending", group: null, sort: null }, onView: () => {} }));
+  const html = renderToStaticMarkup(createElement(TxTable, { items: [row({ id: "b1" }), row({ id: "b2", merchant: "TOINEN OY" })], today: "2026-10-05", daySums: new Map(), rowProps: (t: ListedRow) => ({ t, ...props }), scope: "own", open: null, onOpen: () => {}, view: { query: "", chip: "pending", group: null, sort: null }, onView: () => {} }));
 
   it("narrows the list to no rows instead of showing every row", () => {
     expect(html).not.toContain("ESIMERKKI OY");

@@ -61,7 +61,6 @@ export const FI_REPORTS_1 = {
   "rep.shared_method": "Menot ovat kulutus ja velanhoito tileiltä, joita useampi talouden jäsen käyttää. Osuudet ovat tilin käyttäjien painojen mukaiset.",
   "rep.fixed_no_expected": "Kiinteille menoille ei ole tavallista tasoa. Vertaa edelliseen jaksoon.",
   "rep.fixed_question": "Kiinteät menot",
-  "rep.fixed_figure": "Kiinteät menot kuussa",
   "rep.fixed_method": "Kiinteät menot ovat toistuvia maksuja, jotka laskemme kuukauden hintaan. Mukana ovat tilaukset ja laskut sekä lainojen lyhennykset. Emme laske mukaan tilausta, jonka olet merkinnyt lopetetuksi.",
   "rep.large_purchases": "Suuret hankinnat",
   "rep.drift_one": "{name}: menot ovat",

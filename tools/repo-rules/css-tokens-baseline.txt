@@ -25,5 +25,5 @@ apps/web/src/styles/shell.css  px=29
 apps/web/src/styles/statement.css  px=11
 apps/web/src/styles/table.css  px=52
 apps/web/src/styles/themes-table.css  px=8
-apps/web/src/styles/transactions.css  px=29
+apps/web/src/styles/transactions.css  px=28
 apps/web/src/styles/wizard.css  px=14 fontSize=1

@@ -95,7 +95,6 @@ export const FI_REPORTS_2 = {
   "rpt.fd_weekdays": "Ostoskerrat viikonpäivittäin",
   "rpt.fd_food": "Ruoka",
   "rpt.fd_trend": "Kehitys",
-  "rpt.fd_share": "Osuus",
   "rpt.fd_basket_col": "Ostoskerta",
   "rpt.fd_too_few": "liian vähän ostoja",
   "rpt.fd_times_month": "Kertaa kuussa",

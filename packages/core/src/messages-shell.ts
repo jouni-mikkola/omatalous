@@ -20,6 +20,8 @@ export const FI_SHELL = {
   "kind.now": "Nyt",
   "kind.estimate": "Arvio",
   "kind.usual": "Tavallinen",
+  // read aloud before a sum marked only by the dotted line
+  "est.about": "noin",
   // the header
   "shell.skip": "Siirry sisältöön",
   "shell.main_menu": "Päävalikko",
