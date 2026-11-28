@@ -71,41 +71,38 @@ describe("BalanceDays", () => {
     expect([...c.querySelectorAll(".readout-part")].map((p) => flat(p.textContent))).toEqual(["Saldo 300 €", "tavallisesti 120–480 €", "Vuokra −600 €"]);
   });
 
-  it("names no payment on a phone, only the payday, as the readout and the table hold the payments", () => {
+  it("names only the biggest payments on a phone, the payday and the lowest sum besides", () => {
     const measured = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth");
     Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 390 });
     try {
-      expect([...view().querySelectorAll(".qc-end-sub")].map((e) => flat(e.textContent))).toEqual(["palkkapäivä 14.12."]);
+      const c = view();
+      expect([...c.querySelectorAll(".qc-end-sub")].map((e) => flat(e.textContent))).toEqual(["palkkapäivä 14.12."]);
+      expect(c.querySelectorAll(".bs-bill")).toHaveLength(1);
     } finally {
       if (measured) Object.defineProperty(HTMLElement.prototype, "clientWidth", measured);
       else delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;
     }
   });
 
-  it("names the biggest payment at its step and draws the payday as a rule only inside the days", () => {
+  it("draws each payment as a dot with its name and sum and the payday as a rule only inside the days", () => {
     const c = view();
-    expect([...c.querySelectorAll(".qc-end-sub")].map((e) => flat(e.textContent))).toEqual(["palkkapäivä 14.12.", "Vuokra 600 €"]);
+    expect([...c.querySelectorAll(".qc-end-sub")].map((e) => flat(e.textContent))).toEqual(["palkkapäivä 14.12."]);
+    expect(c.querySelectorAll(".bs-bill")).toHaveLength(1);
+    expect([...c.querySelectorAll(".bs-bill-name")].map((e) => flat(e.textContent))).toEqual(["Vuokra 600 €"]);
+    expect(c.querySelector(".bs-break")).toBeNull();
     expect(view("2027-01-23").querySelector(".kit-event-rule")).toBeNull();
   });
 
-  it("draws core's balance from the last payday as a solid line to today, a rule for Nyt and the ground of Arvio right of it", () => {
-    // the last point is today's balance before the cards' debt, which the walk's first corner has taken off
-    const past = [
-      { date: "2026-12-07", cents: 100_000 },
-      { date: "2026-12-08", cents: 110_000 },
-      { date: "2026-12-09", cents: 130_000 },
-      { date: "2026-12-10", cents: 140_000 },
-    ];
-    const c = render(createElement(BalanceDays, { low: walk, payday: "2026-12-12", past })).container;
-    expect(c.querySelectorAll(".bs-past")).toHaveLength(1);
-    expect(c.querySelector(".bs-past")?.getAttribute("d")?.split("L")).toHaveLength(past.length + 1);
-    expect(c.querySelectorAll(".bs-ground")).toHaveLength(1);
-    expect([...c.querySelectorAll(".bs-kind")].map((e) => flat(e.textContent))).toEqual(["NYT 10.12.", "ARVIO"]);
-    expect(c.querySelector(".est-line")).not.toBeNull();
-    expect(flat(c.querySelector('[role="img"]')?.getAttribute("aria-label"))).toBe("Tilien saldo päivittäin 7.12.–14.12. Alimmillaan 13.12., arviolta 300 €.");
-    // without the past nothing of it is drawn
-    const bare = view();
-    expect(bare.querySelector(".bs-past, .bs-ground, .bs-kind")).toBeNull();
+  it("draws the payment that takes the balance below zero as the larger red dot", () => {
+    const short: KnownLowPoint = {
+      ...walk,
+      cents: -30_000,
+      line: walk.line.map((c) => (c.date === "2026-12-13" && c.cents === 30_000 ? { ...c, cents: -30_000, lowCents: -48_000, highCents: -12_000 } : c)),
+      steps: [{ ...walk.steps[0]!, rowAfterCents: -30_000, afterCents: -30_000 }, ...walk.steps.slice(1)],
+    };
+    const c = render(createElement(BalanceDays, { low: short, payday: "2026-12-14" })).container;
+    expect(c.querySelectorAll(".bs-bill")).toHaveLength(1);
+    expect(c.querySelectorAll(".bs-break")).toHaveLength(1);
   });
 
   it("folds the payments, pays and spending under the picture, each balance the one before plus the row's sum", () => {
