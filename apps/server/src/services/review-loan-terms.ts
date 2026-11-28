@@ -316,7 +316,13 @@ export const loanTermsListItems = async (_s: Services, _userId: string, view: Ow
   // forms filled from rows share the connected loan accounts: with two of them waiting, neither takes one by itself
   const fromRows = debts.filter((d) => d.source === "proposal" || d.source === "ended" || d.source === "card_bill" || (d.source === "card_gap" && d.accountId === null)).length;
   // one question a debt, the largest payments first; each carries the totals the answers move
-  return listed.map((row, i): LoanTermsListItem => ({ kind: "loan_terms_list", id: `loan-terms:${row.id}`, cents: row.yearCents ?? 0, debts: [debts[i]!], debtsCents: all.totalKnown ? all.total.cents : null, noBalance, fromRows }));
+  const item = (list: LoanTermsDebt[], id: string, cents: number): LoanTermsListItem => ({ kind: "loan_terms_list", id: `loan-terms:${id}`, cents, debts: list, debtsCents: all.totalKnown ? all.total.cents : null, noBalance, fromRows });
+  // loans the rows show, whose one question is the balance, are asked in one form when there are two or more
+  const together = (i: number) => debts[i]!.source === "proposal" && debts[i]!.kindUnknown !== true;
+  const grouped = listed.map((_, i) => i).filter(together);
+  const one = grouped.length > 1 ? new Set(grouped) : new Set<number>();
+  const singles = listed.flatMap((row, i) => (one.has(i) ? [] : [item([debts[i]!], row.id, row.yearCents ?? 0)]));
+  return one.size === 0 ? singles : [...singles, item(grouped.map((i) => debts[i]!), "balances", grouped.reduce((sum, i) => sum + (listed[i]!.yearCents ?? 0), 0))];
 };
 
 /**

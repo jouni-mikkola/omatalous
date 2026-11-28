@@ -11,6 +11,8 @@ export const FI_REPORTS_4 = {
   "rpt.u_categories": "kategoriaa",
   "rpt.bal_lacking_one": "{count} velan saldo puuttuu.",
   "rpt.bal_lacking_many": "{count} velan saldo puuttuu.",
+  "rpt.bal_gap_one": "+ {count} velka ilman saldoa",
+  "rpt.bal_gap_many": "+ {count} velkaa ilman saldoa",
   "rpt.bal_since": "{date} jälkeen",
   "rpt.bal_total_est": "Saldo kuun lopussa, arvio",
   "rpt.bal_month_change": "Tilien muutos edellisestä",

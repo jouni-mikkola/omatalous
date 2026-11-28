@@ -362,14 +362,23 @@ export function debtPaymentsPerMonth(loans: readonly Debt[], day: IsoDate): Debt
       const monthly = divRound(next.cents, next.intervalMonths);
       sum.monthlyCents += cut ? partCents(monthly, cut.part) : monthly;
       sum.counted++;
-    } else {
-      // a balance dated after the day is no payment of zero: nothing is known of it
-      const owed = loanBalanceOn(whole, day).cents;
-      if (owed === null || (owed > 0 && loan.repayment !== "bullet")) sum.unknown++;
-      else if (owed > 0) sum.bullets++;
+    } else if (paymentUnknown(loan, day)) {
+      sum.unknown++;
+    } else if ((loanBalanceOn(whole, day).cents ?? 0) > 0) {
+      sum.bullets++;
     }
   }
   return sum;
+}
+
+/** Whether a loan is one `debtPaymentsPerMonth` leaves out as unknown: it owes (or what it owes on the day is not known) and its payment or interval is not known. */
+export function paymentUnknown(loan: Debt, day: IsoDate): boolean {
+  const whole = partly(loan)?.whole ?? loan;
+  const next = loanNextPayment(whole, day);
+  if (next.cents !== null && next.intervalMonths !== null) return false;
+  // a balance dated after the day is no payment of zero: nothing is known of it
+  const owed = loanBalanceOn(whole, day).cents;
+  return owed === null || (owed > 0 && loan.repayment !== "bullet");
 }
 
 /** A loan's payment and its interest of a year with the rate moved: what a change in the reference rate does. */

@@ -17,6 +17,8 @@ export interface TileItem {
   note?: string;
   /** Where the figure's rows are; the figure is then a link. */
   href?: string;
+  /** What the figure leaves out, said beside it in figure size; a link when `href` is set (for example "+ 4 velkaa ilman saldoa"); `leads` names where the link goes. */
+  gap?: { text: string; href?: string; leads?: string };
 }
 
 /**
@@ -38,6 +40,7 @@ export function Tiles({ items }: { items: readonly TileItem[] }) {
             ) : (
               <Figure text={item.figure} size="l" />
             )}
+            {item.gap && (item.gap.href ? <a href={item.gap.href} aria-label={item.gap.leads ? `${item.gap.text}: ${item.gap.leads}` : undefined}><Figure text={item.gap.text} size="m" /></a> : <Figure text={item.gap.text} size="m" />)}
             {item.delta && <span className={`strip-delta ${item.delta.good ? "good" : "bad"}`}>{item.delta.text}</span>}
           </span>
           {item.note && <span className="strip-note">{item.note}</span>}

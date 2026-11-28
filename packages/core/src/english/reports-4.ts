@@ -8,6 +8,8 @@ export const EN_REPORTS_4: Record<keyof typeof FI_REPORTS_4, string> = {
   "rpt.u_categories": "categories",
   "rpt.bal_lacking_one": "The balance of {count} debt is missing.",
   "rpt.bal_lacking_many": "The balances of {count} debts are missing.",
+  "rpt.bal_gap_one": "+ {count} debt without a balance",
+  "rpt.bal_gap_many": "+ {count} debts without a balance",
   "rpt.bal_since": "since {date}",
   "rpt.bal_total_est": "Balance at month end (estimate)",
   "rpt.bal_month_change": "Change from previous month",

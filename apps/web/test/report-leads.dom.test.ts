@@ -47,13 +47,13 @@ describe("Varat ja velat: the tiles", () => {
 
   it("names the debts as the known ones and no net figure while the balance of a debt is missing, with the link to its question", () => {
     const open = { ...owing, netCents: null, unsavedLoans: { count: 1, rows: [{ debtId: "proposal:a" }] } };
-    expect(say(open)).toBe("Tilien saldo 1 200 € Velat yhteensä, tiedossa 300 € 1 velan saldo puuttuu. Täydennä lainat");
-    expect(markup(open)).toContain('<a class="btn-link" href="#/review?item=loan-terms">Täydennä lainat</a>');
-    // a debt answered "En tiedä" is asked no more, and a lender's few payments never were: the line has no link
+    expect(say(open)).toBe("Tilien saldo 1 200 € Velat yhteensä, tiedossa 300 € + 1 velka ilman saldoa");
+    expect(markup(open)).toContain('href="#/review?item=loan-terms"');
+    // a debt answered "En tiedä" is asked no more, and a lender's few payments never were: the gap has no link
     const asked = { ...owing, netCents: null, unsavedLoans: { count: 1, rows: [{ debtId: "proposal:a", asked: true }] }, unsavedFewPayments: 1 };
-    expect(say(asked)).toBe("Tilien saldo 1 200 € Velat yhteensä, tiedossa 300 € 2 velan saldo puuttuu.");
+    expect(say(asked)).toBe("Tilien saldo 1 200 € Velat yhteensä, tiedossa 300 € + 2 velkaa ilman saldoa");
     // no known debt at all: the accounts alone, and the line
-    expect(say({ ...held, netCents: null, unsavedFewPayments: 1 })).toBe("Tilien saldo 1 200 € 1 velan saldo puuttuu.");
+    expect(say({ ...held, netCents: null, unsavedFewPayments: 1 })).toBe("Tilien saldo 1 200 €");
     // a total that cannot be known is said, never left out
     expect(say({ ...held, debtCents: null, netCents: null })).toBe("Tilien saldo 1 200 € Velat yhteensä Ei tiedossa");
   });

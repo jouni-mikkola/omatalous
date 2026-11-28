@@ -74,6 +74,12 @@ export interface LoanDriftItem extends Base {
   reviewDate: string | null;
 }
 
+/**
+ * The item that asks the balances of two or more loans the rows show in one form (services/review-loan-terms.ts); every
+ * other list item asks one debt.
+ */
+export const isBalancesItem = (item: { kind: string; id: string }): boolean => item.kind === "loan_terms_list" && item.id === "loan-terms:balances";
+
 /** What the answer to a debt's question gives: the question's heading. A list with no debt (none is sent) says the old heading. */
 export function loanGain(debt: LoanTermsDebt | undefined): string {
   if (!debt) return t("set.ri.complete_the_loans");
