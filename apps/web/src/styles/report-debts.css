@@ -4,7 +4,7 @@
 .debt-free { display: grid; gap: var(--sp-8); }
 .debt-say { margin: 0; font-size: var(--fs-h2); color: var(--text-2); }
 .debt-hero { margin: 0; font-size: var(--fs-fig-l); line-height: 1.05; font-weight: var(--w-strong); font-variant-numeric: tabular-nums lining-nums; }
-.debt-ask { margin: 0; font-size: var(--fs-fig-l); line-height: 1.2; font-weight: var(--w-strong); color: var(--accent-ink); }
+.debt-ask { margin: 0; display: flex; align-items: center; min-height: var(--control-h); font-size: var(--fs-fig-l); line-height: 1.2; font-weight: var(--w-strong); color: var(--accent-ink); }
 @media (max-width: 599px) { .debt-ask { font-size: var(--fs-fig-m); } }
 .debt-free .chart text.lane-name { font-size: var(--fs-small); fill: var(--text); }
 .debt-free .chart text.lane-end { font-size: var(--fs-small); font-weight: var(--w-strong); fill: var(--text); }

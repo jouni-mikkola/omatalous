@@ -1,10 +1,10 @@
 // Decision: when the household is free of its debts, or what it must add to see that day
 import { DebtLanes, type DebtLane, DebtLanesTable, debtMonth } from "../charts/forms/DebtLanes.tsx";
 import { QuestionChart } from "../charts/forms/parts.tsx";
-import type { SectionProps } from "../pages/reports/types.ts";
+import { headAsks, lackingDebts, showsHead } from "../components/net-label.ts";
 import { LOAN_TERMS_HASH } from "../routes.ts";
 import { t, tn } from "../text.ts";
-import { headAsks, lackingDebts, showsHead } from "./net-label.ts";
+import type { SectionProps } from "./reports/types.ts";
 import "../styles/report-debts.css";
 
 /**
