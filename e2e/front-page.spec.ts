@@ -76,7 +76,7 @@ for (const width of [390, 1440] as const) {
       await expect(low).toHaveCount(0);
     } else {
       await expect(low).toHaveCount(1);
-      expect(plain(await low.innerText())).toMatch(new RegExp(`^Alin saldo ${lowPoint.days} pv: \\D+$`));
+      expect(plain(await low.innerText())).toMatch(new RegExp(`^Alin saldo ${lowPoint.days} päivän aikana: \\D+$`));
     }
     await expect(low.locator("a")).toHaveCount(0);
     // the month's figures are no list's sum, so they lead nowhere; the one link of Nyt is the bills row's, to Laskut' table

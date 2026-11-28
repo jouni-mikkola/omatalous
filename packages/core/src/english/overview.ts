@@ -75,7 +75,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.row_balance": "On the checking accounts now",
   "home.row_count": "{count}",
   "home.row_cards": "Card bills before payday",
-  "home.row_spending": "Expected spending for {days} days",
+  "home.row_spending": "Estimated spending for {days} days",
   "home.row_range": "range {range}",
   "home.later_cards": "Card debt {sum} is paid from the pay on {date}",
   "home.ledger_payments": "Bills before payday",

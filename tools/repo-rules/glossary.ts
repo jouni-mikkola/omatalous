@@ -16,9 +16,6 @@ export interface Removed {
 /** The Tarkistettavat cards ask the household a real question; that is not a heading. */
 const ASKS = /(^|\/)messages-set-ri\./;
 
-/** Texts a pull request in flight still changes (the payday low point); it removes its file from here. */
-const OPEN_WORDING = /(^|\/)messages-overview\./;
-
 export const REMOVED: readonly Removed[] = [
   // the page is Säästövinkit; the route, the feature id and the code keep the old name
   { name: "Optimoi", re: /(?<!\p{L})optimo\p{L}*/iu, fix: 'write "Säästövinkit" (the page) or "säästövinkki"' },
@@ -59,7 +56,7 @@ export const REMOVED: readonly Removed[] = [
   // a heading that asks without its question mark ("Mikä muuttui"): the same short noun, as in the row above
   { name: "Question word heading", re: /^\s*(Mikä|Mitä)(?!\p{L})[^.!?:]{0,40}$/u, fix: 'a heading is a short noun: "Ero tavalliseen kuukauteen", not "Mikä muuttui"', pending: ASKS },
   // a count of days or things is written out (docs/UI_STYLE.md, Numbers); a chart axis unit is code, not a message
-  { name: "Abbreviated count", re: /(?<![\p{L}./])(pv|kpl)(?![\p{L}/])/iu, fix: 'write "päivää" or "päivältä", or the noun with plural() ("3 laskua")', pending: OPEN_WORDING },
+  { name: "Abbreviated count", re: /(?<![\p{L}./])(pv|kpl)(?![\p{L}/])/iu, fix: 'write "päivää" or "päivältä", or the noun with plural() ("3 laskua")' },
   { name: "Question heading", re: /^\s*(Mihin|Miten|Mistä|Mitkä|Milloin|Kuinka|Paljonko|Kestääkö|Kasvavatko|Kasvoiko|Riittävätkö|Pysyykö|Mitä|Missä|Minä|Mikä|Kenen|Tuleeko|Tuottivatko|Nousivatko)(?!\p{L})[^.!?]{0,80}\?$/u, fix: 'a heading is a short noun: "Rahankäyttö", "Kuukauden tilanne", not "Mihin raha menee?"', pending: ASKS },
 ];
 
