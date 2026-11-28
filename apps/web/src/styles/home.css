@@ -123,8 +123,7 @@ a.home-left:hover .fig-l { text-decoration: underline; }
 .home-skeleton .sk-bar { margin-block: var(--sp-4); }
 .home-skeleton .sk-line { block-size: var(--lh-body); inline-size: min(16rem, 100%); }
 .home-skeleton .home-figs .sk-bar { margin: 0; inline-size: 60%; block-size: var(--lh-label); }
-.home-skeleton .home-figs .sk-fig { inline-size: 80%; block-size: var(--lh-fig-l); }
-.home-skeleton .sk-flow { block-size: calc(var(--row-h-roomy) * 4); }
+.home-skeleton .home-figs .sk-fig { inline-size: 80%; block-size: var(--lh-fig-s); }
 /* each block as high as it is when loaded, so the page keeps its length */
 .home-skeleton .home-now .sk-fig { inline-size: 40%; block-size: var(--lh-display); }
 .home-skeleton .sk-days { block-size: calc(var(--row-h-roomy) * 8); }

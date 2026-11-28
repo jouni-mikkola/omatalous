@@ -96,7 +96,7 @@ const FOLDED_ROWS = 2;
  * The totals that close an open month, one for each figure of core's that the rows above add up to: what is paid (`paidCents`) and
  * the saving charged (`savingPaidCents`), both only when a charge is made, so only the running month has them, then what is still to
  * come (`billsCents`) and the saving still to come (`savingCents`), each only when the month has it. Every listed row is in one of them
- * (or in the pays, or is a card's and in none), so the pays less the two to come are the sum left after the bills.
+ * (or is a card's and in none). The pays are no listed rows, only their total, and they less the two to come are the sum left after the bills.
  * The bills still to come are followed by their parts by kind while two kinds or more have money (one kind alone is the sum
  * itself). The pays (`incomeCents`) and what is left after the bills (`afterCents`) close the month: the sum left is there while
  * something is still to come, and is null while a bill's sum is not known or no pay comes, with the count of the bills that

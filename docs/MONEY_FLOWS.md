@@ -79,9 +79,8 @@ stands at what its rows leave of it, and the purchases of the statement stand on
 unless a filter narrows the list. While a listed row is newer than the figures they come from, the strip tells no sum
 and says it is updating.
 
-The same words show the same euros: *Säästöön siirretty*, *Otettu säästöistä*, *Nostettu luottoa* and *Luottoa maksettu
-takaisin* in Tulojen käyttö are the whole euros of the terms under Tulos. A term the rounding would turn to the other
-direction or to nothing is not shown.
+The terms under Tulos on the first page, *Säästöön siirretty*, *Otettu säästöistä*, *Nostettu luottoa* and *Luottoa maksettu
+takaisin*, are whole euros. A term the rounding would turn to the other direction or to nothing is not shown.
 
 One month has one result. On the first page the terms under Tulos add up: Tulot less Menot, less what moved to savings
 (or more, what was taken out of them), more credit drawn (or less, credit paid back) is Tulos. The terms are rounded with Tulot, Menot and Tulos, so the
@@ -100,10 +99,9 @@ connected loan account booked on the day of the payment (not when the payer's ac
 that day); the plan of a saved loan whose payment series holds the row,
 within `LOAN_ROW_DAYS` of a due date and the tolerance of the payment the plan expects (the known fee is a cost, the rest
 repays); otherwise the row stays unsplit. A row of the category `interest` is interest as a whole, and a card bill and a
-collection row are never split. An unknown part is never counted as 0. *Tulos* stays cash and no total moves (ADR 0028):
-Yhteenveto shows the sums, in the order Tulot, Kulutus, Korot ja luottokulut, Velanhoito, erittelemättä (when it is
-not 0), a subtotal of the income less these costs, Lyhennykset, the rows for saving and credit, Tulos. The cash flow
-report data carries them too, and no page shows them there yet.
+collection row are never split. An unknown part is never counted as 0. *Tulos* stays cash and no total moves (ADR 0028).
+The dashboard answer carries the three sums (`split`) and the cash flow report data carries them too, and no page
+shows them.
 
 The interest of the tax-year sheet (`taxYearReport`, Asetukset > Tiedot > Verovuoden rivit) is the interest of home and student loans
 alone: the interest rows that pay a saved home or student loan, and the interest part (the fee left out) of each row of
@@ -145,7 +143,7 @@ money taken out of savings (*Katettu säästöistä*), then the accounts and the
 which is how far *Tulos* is below zero). The third cover never says that money on an account paid: an account may
 have grown while a card owed more, and `PeriodTotals` holds no balance of either, so the tile and the sentence ("Ero
 katettiin tileillä olleilla rahoilla tai luottokortilla.") name both. Credit goes before savings so that a month paid
-with both never shows less borrowing than there was. Drawn money that paid for nothing is in *Tulos*. The bridge (`bridgeView` in core) is one sum, and its parts are parts of it:
+with both never shows less borrowing than there was. Drawn money that paid for nothing is in *Tulos*. The cover is one sum, and its parts are parts of it:
 
     income + credit drawn + savings drawn + from the accounts = spending + debt service + saved + credit paid back + Tulos above zero
 
@@ -154,10 +152,6 @@ service of the period under the tile's own word ("Luottoa nostettiin 20 000 €,
 of the credit is in *Tulos* is said only when no debt was paid in the period: with a payment beside it, the split is
 true by the order rule alone. Neither calls borrowed money income, and neither says more was spent than earned
 without saying how the difference was paid.
-
-`bridgeView` marks a period as drawing (`draws`) only when there is income and no part is below zero: then every part is zero or
-above and the parts are one sum on one axis. A period with no income, with refunds above purchases or with income taken
-back has rows only, every one signed and the last *Tulos*, and nothing is told as a share of the income.
 
 ## Cases
 

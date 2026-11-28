@@ -145,8 +145,6 @@ export const FI_BILLS = {
   "holdings.checking": "Käyttötilit",
   "holdings.savings": "Säästötilit",
   "holdings.other": "Muut tilit",
-  "holdings.next_bill": "Seuraava lasku",
-  "holdings.bill_on": "{date} {sum}",
   "holdings.missing_one": "Ilman {count} tilin saldoa",
   "holdings.missing_many": "Ilman {count} tilin saldoa",
   "holdings.cards": "Luottokortit",

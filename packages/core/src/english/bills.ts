@@ -143,8 +143,6 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "holdings.checking": "Checking accounts",
   "holdings.savings": "Savings accounts",
   "holdings.other": "Other accounts",
-  "holdings.next_bill": "Next bill",
-  "holdings.bill_on": "{sum} on {date}",
   "holdings.missing_one": "Without the balance of {count} account",
   "holdings.missing_many": "Without the balance of {count} accounts",
   "holdings.cards": "Credit cards",

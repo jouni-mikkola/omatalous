@@ -3,12 +3,10 @@
  * Made-up lenders, payees and sums only.
  */
 import { describe, expect, it } from "vitest";
-import { bridgeView } from "../src/analysis/bridge-view.ts";
 import { createContext, spendTotals } from "../src/analysis/context.ts";
 import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { debtSplit } from "../src/analysis/debt-split.ts";
 import { toDayRange } from "../src/analysis/period.ts";
-import { totalsOf } from "../src/analysis/flows.ts";
 import { type Account, type Loan, NO_INPUTS, type Transaction, type UserInputs } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
@@ -228,43 +226,5 @@ describe("the payment parts a loan document stated", () => {
     expect(w.debt).toBe(90_000 + 12_345);
     expect(sum(w.split)).toBe(w.debt);
     expect(w.split.unsplitCents).toBe(12_345);
-  });
-});
-
-describe("the bridge with the debt told in its kinds", () => {
-  const totals = totalsOf([{ income: 300_000, consumption: 100_000, debt: 40_000, saved: 0, borrowed: 0 }]);
-
-  it("reads Tulot, Kulutus, the interest, what is not split, the subtotal, the repayments and Tulos in that order", () => {
-    const view = bridgeView(totals, { interestCents: 5_000, principalCents: 25_000, unsplitCents: 10_000 });
-    expect(view.debtSplit).toBe(true);
-    expect(view.figures.map((f) => [f.key, f.cents])).toEqual([
-      ["income", 300_000],
-      ["consumption", 100_000],
-      ["interest", 5_000],
-      ["debt", 10_000],
-      ["subtotal", 185_000],
-      ["principal", 25_000],
-      ["saved", 0],
-      ["left", 160_000],
-    ]);
-  });
-
-  it("leaves out what is not split when nothing is, and Tulos is the same", () => {
-    const view = bridgeView(totals, { interestCents: 5_000, principalCents: 35_000, unsplitCents: 0 });
-    expect(view.figures.map((f) => f.key)).toEqual(["income", "consumption", "interest", "subtotal", "principal", "saved", "left"]);
-    expect(view.figures.at(-1)!.cents).toBe(totals.leftCents);
-  });
-
-  it("tells the debt whole when the split tells no interest and no repayment", () => {
-    const view = bridgeView(totals, { interestCents: 0, principalCents: 0, unsplitCents: 40_000 });
-    expect(view.debtSplit).toBe(false);
-    expect(view.figures.map((f) => f.key)).toEqual(["income", "consumption", "debt", "saved", "left"]);
-    expect(view.figures.map((f) => f.key)).toEqual(bridgeView(totals).figures.map((f) => f.key));
-  });
-
-  it("adds up: the rows of the table that went out are the income less Tulos", () => {
-    const view = bridgeView(totals, { interestCents: 5_000, principalCents: 25_000, unsplitCents: 10_000 });
-    const out = view.rows.filter((r) => r.side === "out").reduce((s, r) => s + r.cents, 0);
-    expect(totals.incomeCents - out).toBe(totals.leftCents);
   });
 });
