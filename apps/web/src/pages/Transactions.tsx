@@ -13,7 +13,6 @@ import { type DaySum, type ListedRow, PAGE_ROWS, pageOf, rowChips, RowsSkeleton,
 import { listPeriodOf, periodOf, periodParams } from "./transactions/DateRange.tsx";
 import { accountLooks } from "./transactions/Marks.tsx";
 import type { Filters } from "./transactions/FilterChips.tsx";
-import { MonthLead } from "./transactions/MonthLead.tsx";
 import { StripSkeleton, type Totals, TotalsStrip } from "./transactions/TotalsStrip.tsx";
 import { FilterShortcut, TxBar } from "./transactions/TxBar.tsx";
 import "../styles/transactions.css";
@@ -390,7 +389,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
       {data && data.total > 0 && !filters.chip && (
         <div className="tx-totals-wrap">
           {/* the month's own payees are of the list as it opens: a search, a limit or another period asks about other rows */}
-          <TotalsStrip totals={data} income={filters.kind === "income"} today={meta.today} onPick={(p) => set(p)} more={!filters.q && !filters.category && !filters.kind && !filters.accountId && !filters.merchant && filters.from.slice(0, 7) === meta.today.slice(0, 7) && <MonthLead scope={scope} today={meta.today} />} />
+          <TotalsStrip totals={data} income={filters.kind === "income"} today={meta.today} onPick={(p) => set(p)} />
         </div>
       )}
 
@@ -442,7 +441,7 @@ function TransactionList({ meta, params, scope }: { meta: Meta; params: URLSearc
             )}
           </div>
           <div>
-            {data && ready && items.length > 0 && <TxTable items={items} whole={data.total <= items.length} allRows={allRows} severalAccounts={accounts.length > 1} today={meta.today} daySums={daySums} rowProps={rowProps} scope={scope} open={opened} onOpen={setOpened} view={view} onView={onView} />}
+            {data && ready && items.length > 0 && <TxTable items={items} whole={data.total <= items.length} allRows={allRows} today={meta.today} daySums={daySums} rowProps={rowProps} scope={scope} open={opened} onOpen={setOpened} view={view} onView={onView} />}
             {/* before the first answer the page is loading, not empty: grey rows stand where the list will */}
             {(!data || (!ready && data.items.length > 0)) && !error && <RowsSkeleton />}
             {data && !data.items.length && (

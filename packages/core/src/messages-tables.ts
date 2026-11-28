@@ -60,7 +60,6 @@ export const FI_TABLES = {
   "row.whole": "koko summa {amount}",
   "row.card_bill": "Korttilasku: ostot eivät näy",
   "row.tag_pending": "varaus",
-  "row.tag_transfer": "oma siirto",
   "row.tag_refund": "palautus",
   "row.tag_register": "kaupparekisteri",
   "row.tag_itemised": "ostoja eritelty {sum}",

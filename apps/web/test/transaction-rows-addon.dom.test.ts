@@ -11,7 +11,7 @@ import { type ListedRow, TxTable } from "../src/pages/TransactionRows.tsx";
 const row = { id: "t1", accountId: "a/1", bookingDate: "2026-10-05", merchant: "ESIMERKKI OY", amountCents: 80_000, own: false, status: "booked", category: "other" } as ListedRow;
 const props = { categories: [], pending: null, onCategory: () => {}, account: "Yhteistili" };
 const table = (open: string | null) =>
-  createElement(TxTable, { items: [row], severalAccounts: true, today: "2026-10-05", daySums: new Map(), rowProps: (r: ListedRow) => ({ t: r, ...props, onStatement: () => {} }), scope: "own", open, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {} });
+  createElement(TxTable, { items: [row], today: "2026-10-05", daySums: new Map(), rowProps: (r: ListedRow) => ({ t: r, ...props, onStatement: () => {} }), scope: "own", open, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {} });
 const Broken = () => {
   throw new TypeError("approxText is not a function");
 };
