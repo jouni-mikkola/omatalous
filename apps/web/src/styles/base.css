@@ -29,11 +29,8 @@ table { font-variant-numeric: tabular-nums lining-nums; }
 
 @layer components {
 .brand { font-weight: 600; font-size: var(--fs-h2); letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; padding-bottom: 12px; }
-.brand-mark { width: 20px; height: 20px; border-radius: var(--radius-m); background: var(--fill); display: inline-flex; align-items: end; justify-content: center; gap: 2px; padding: 4px; }
-.brand-mark i { display: block; width: 3px; background: var(--on-fill); border-radius: var(--radius-s); }
-.brand-mark i:nth-child(1) { height: calc(var(--sp-4) * 1.5); }
-.brand-mark i:nth-child(2) { height: calc(var(--sp-4) * 2.5); }
-.brand-mark i:nth-child(3) { height: calc(var(--sp-4) * 3.25); }
+.brand-mark { width: var(--avatar); height: var(--avatar); flex: none; display: inline-flex; color: var(--fill); }
+.brand-mark svg { width: 100%; height: 100%; }
 
 /* the one button (components/ui/Button.tsx): secondary is the outline, primary the filled one, link the text in a row; danger is a tone, shown in a confirmation dialog only */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: var(--control-h); padding: 0 16px;
