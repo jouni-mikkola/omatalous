@@ -119,6 +119,8 @@ interface BillCalendar {
   billsCents: number;
   /** The month after today's, whose bills are all still to come. Null when it has no bills. */
   next: { month: string; billsCents: number } | null;
+  /** The month with the most bills, paid and still to pay (the height of the chart's tallest column; the earlier month on a tie). Null when no month has a bill. */
+  dearest: { month: string; billsCents: number } | null;
   /**
    * The rare bills of the same twelve months and what to set aside each month for them. As `billsCents` does, it leaves out a bill that
    * a card or an account the balance does not count pays (the card's own bill is a row of the months), and it keeps a bill paid this month.
@@ -136,6 +138,11 @@ interface BillCalendar {
  */
 export const unknownPaymentBy = (calendar: Pick<BillCalendar, "unknowns">, last: IsoDate): boolean =>
   calendar.unknowns.some((u) => !u.onCard && u.kind !== "income" && (u.days.length === 0 || u.days.some((d) => d <= last)));
+
+const dearestMonth = (months: readonly BillMonth[]): BillCalendar["dearest"] => {
+  const top = months.reduce((best, m) => (m.wholeBillsCents > best.wholeBillsCents ? m : best), months[0]!);
+  return top.wholeBillsCents > 0 ? { month: top.month, billsCents: top.wholeBillsCents } : null;
+};
 
 export const byDay = (a: BillRow, b: BillRow) =>
   a.date.localeCompare(b.date) || Number(a.kind === "income") - Number(b.kind === "income") || b.cents - a.cents || a.payee.localeCompare(b.payee);
@@ -375,6 +382,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
     months,
     billsCents,
     next: following.billsCents > 0 ? { month: following.month, billsCents: following.billsCents } : null,
+    dearest: dearestMonth(months),
     ...rareYearCounted(occurrences, today, balances),
     unknownCount: unknowns.length,
     unknowns,

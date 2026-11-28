@@ -56,7 +56,7 @@ test("a mark is on one subscription: of a merchant's two, Merkitse lopetetuksi t
     };
     // the paid rows of the open month are folded, and the card's Apple rows paid this month are among them
     const showPaid = async () => {
-      await expect(subs.locator(".bill-month").first()).toBeVisible();
+      await expect(subs.locator(".bill-month-name")).toBeVisible();
       await openBillFolds(subs);
     };
     await showPaid();

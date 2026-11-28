@@ -465,12 +465,15 @@ test("an expected bill is added at the head of Tulossa, shows in its one table, 
 
   await expect(page.getByRole("dialog", { name: "Lisää lasku" })).toHaveCount(0);
   await expect(coming.getByText("Lasku E2E-ajoneuvovero lisätty.")).toBeVisible();
-  // one month starts open: the bill's month is opened from its head when it is another one
+  // the table shows one month: the bill's month is picked on the picture of the months when it is another one
   const FI_MONTHS = ["Tammikuu", "Helmikuu", "Maaliskuu", "Huhtikuu", "Toukokuu", "Kesäkuu", "Heinäkuu", "Elokuu", "Syyskuu", "Lokakuu", "Marraskuu", "Joulukuu"];
-  const dueMonth = (p: Page) => p.locator("#laskut-taulukko").getByRole("button", { name: new RegExp(`^${FI_MONTHS[Number(due.slice(5, 7)) - 1]} ${due.slice(0, 4)}( |$)`) });
+  const dueName = `${FI_MONTHS[Number(due.slice(5, 7)) - 1]} ${due.slice(0, 4)}`;
   const showDueMonth = async (p: Page) => {
-    if ((await dueMonth(p).getAttribute("aria-expanded")) === "false") await dueMonth(p).click();
-    await expect(dueMonth(p)).toHaveAttribute("aria-expanded", "true");
+    const name = p.locator("#laskut-taulukko .bill-month-name");
+    const hit = p.locator(".month-columns rect.hit");
+    const box = (await hit.boundingBox())!;
+    for (let i = 0; i < 12 && (await name.innerText()).trim() !== dueName; i++) await hit.click({ position: { x: ((i + 0.5) / 12) * box.width, y: box.height / 2 } });
+    await expect(name).toHaveText(dueName);
   };
   await showDueMonth(page);
   await expect(table.locator("tbody tr").filter({ has: page.locator("button.rt-drill") }).filter({ hasText: "E2E-ajoneuvovero" }).locator(".fig-est")).toHaveCount(0);

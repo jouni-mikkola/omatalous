@@ -109,12 +109,13 @@ for (const width of [390, 1440]) {
     const page = await context.newPage();
     await page.goto("/#/bills");
     await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-    await expect(page.locator("#laskut-taulukko .bill-month").first()).toBeVisible();
+    await expect(page.locator("#laskut-taulukko .bill-month-name")).toBeVisible();
     await page.waitForLoadState("networkidle");
     expect(await page.evaluate(() => matchMedia("(forced-colors: active)").matches), "forced colours are on").toBe(true);
-    // every month open, so the estimated pays of the later months are among the rows
-    const closed = page.locator("#laskut-taulukko .bill-month[aria-expanded=false]");
-    while ((await closed.count()) > 0) await closed.first().click();
+    // the last month of the picture picked, so the estimated pays of a later month are among the rows
+    const hit = page.locator(".month-columns rect.hit");
+    const box = (await hit.boundingBox())!;
+    await hit.click({ position: { x: box.width - 12, y: box.height / 2 } });
 
     // the sum of an estimated bill: underlined with a dotted line, which a plain cell is not
     const estimated = page.locator("#laskut-taulukko .fig-est");

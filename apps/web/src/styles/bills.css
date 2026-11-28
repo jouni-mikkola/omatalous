@@ -26,7 +26,7 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .sub-facts dt { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--muted); }
 .sub-facts dd { margin: 0; font-variant-numeric: tabular-nums; }
 
-/* the head of a month: its name opens and closes it, and while it is closed its one figure stands on the right */
+/* the head of what has ended: its name opens and closes it */
 .bill-month, .bill-subfold { display: inline-flex; align-items: center; gap: var(--sp-8); padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; }
 @media (pointer: coarse) { .bill-month, .bill-subfold { min-block-size: 2.75rem; } }
 /* the toggle of a month's paid rows, or of the rows a card pays, heads a group of rows inside the month, so it has no band of its own */
@@ -36,7 +36,6 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
    it also the one the next opener takes back, whose head is padded less at a larger text: the two never overlap */
 .rt-wrap[data-block] .rt.bill-table tr.rt-group:has(.bill-subfold) { padding-block: var(--sp-8) calc(2 * var(--sp-8)); }
 .bill-table tr.rt-group > td { white-space: normal; }
-.bill-sums { font-weight: var(--w-regular); font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* the payee has the room the category does not need, so a name is not cut while the category column stands empty */
 .rt-wrap:not([data-block]) .rt.bill-table :is(th, td).bill-payee { width: 42%; }
 .rt-wrap:not([data-block]) .rt.bill-table :is(th, td).bill-category { width: 20%; }

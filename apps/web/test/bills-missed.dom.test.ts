@@ -82,9 +82,9 @@ describe("Laskut: a later month opened", () => {
       month("2026-12", [monthly("2026-12-12", "Vesiyhtiö", 2000), monthly("2026-12-15", "Kaasuyhtiö", 3000), bill({ date: "2026-12-20", payee: "Vakuutus", cents: 40000 })], { monthlyBillsCount: 2, monthlyBillsCents: 5000 }),
     ]);
     const controls = { markOf: () => null, busy: false, set: () => {}, clear: () => {} };
-    render(createElement(BillsTable, { calendar: cal, items: [], controls, label: (id: string) => id, scope: "own", onRemoved: () => {} }));
+    const view = render(createElement(BillsTable, { calendar: cal, items: [], controls, label: (id: string) => id, scope: "own", onRemoved: () => {} }));
     expect(screen.queryByText("Vakuutus")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /Joulukuu 2026/ }));
+    view.rerender(createElement(BillsTable, { calendar: cal, items: [], controls, label: (id: string) => id, scope: "own", month: "2026-12", onRemoved: () => {} }));
     expect(screen.getByText("Vakuutus")).toBeTruthy();
     const fold = screen.getByRole("row", { name: /Kuukausittaiset laskut, 2 laskua/ });
     expect((fold.textContent ?? "").replace(/[  ]/g, " ")).toContain("50,00 €");

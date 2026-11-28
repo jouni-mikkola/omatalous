@@ -45,7 +45,7 @@ test.describe("the bills chart on the 15th", () => {
     const seen = watch(page);
     await page.goto("/#/bills");
     await expect(page.locator(".month-columns .readout-part").first()).toBeVisible({ timeout: 20_000 });
-    await expect(page.locator("#laskut-taulukko .bill-month[aria-expanded=true]")).toHaveCount(1);
+    await expect(page.locator("#laskut-taulukko .bill-month-name")).toHaveCount(1);
     const parts = (await page.locator(".month-columns .readout-part").allInnerTexts()).map(plain);
     // a part reads "<kind>, <state> <sum>"
     const ofState = (word: string) => {

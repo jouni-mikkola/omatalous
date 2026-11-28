@@ -3221,6 +3221,10 @@
    "month": "2026-11",
    "billsCents": 144048
   },
+  "dearest": {
+   "month": "2026-10",
+   "billsCents": 441327
+  },
   "yearlyCents": 56920,
   "reserveMonthlyCents": 4743,
   "unknownCount": 0,

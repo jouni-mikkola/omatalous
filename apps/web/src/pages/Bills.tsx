@@ -2,9 +2,10 @@
  * Decision: what is coming in the next twelve months, and which bill, contract or subscription to drop.
  *
  * Laskut starts with the bills before payday against the money on the accounts (BillsBar, core's `billsBeforePayday`),
- * then answers with one table in the order of the calendar: a group for each of the twelve months, with the bills, the pays and the regular saving of the month
- * and what is left after the bills (BillsTable), and under it the twelve months in one low picture (MonthColumns: the bills
- * that come every month and the rest). A month picked on the picture opens in the table. A bill the history cannot
+ * then the twelve months in one low picture under a sentence that names the dearest month (MonthColumns: the bills
+ * that come every month and the rest; `dearest` of the calendar), and under it one table for the month picked on the picture (the
+ * running month, or the next, until one is picked): the bills, the pays and the regular saving of the month
+ * and what is left after the bills (BillsTable). A bill the history cannot
  * know yet is added by hand behind "Lisää lasku", a secondary action of the head, and is a row of the table. Every figure
  * comes from core's bill calendar and `upcoming` report (`billCalendar`, `isSubscription`, `isContract`, `isSavingsPlan`);
  * the page adds up nothing. A subscription marked as cancelled is out of every total. A mark is on one series
@@ -24,7 +25,7 @@ import { ErrorCard } from "../components/ErrorCard.tsx";
 import { ChartWithTable } from "../components/table/selection.tsx";
 import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
-import { answerMoney } from "../format.ts";
+import { answerMoney, monthBare } from "../format.ts";
 import { useApi } from "../hooks.ts";
 import { t, tn } from "../text.ts";
 import type { Meta, Recurring as Series, ReportsData, Scope } from "../types.ts";
@@ -138,12 +139,9 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
             const shown = calendar.months.find((m) => m.month === (pick.selected ?? startOpenMonth(calendar, items))) ?? calendar.months[0]!;
             return (
               <>
-                <div className="span-12">
-                  <BillsTable calendar={calendar} items={items} controls={controls} label={label} scope={scope} focus={pick.selected} onRemoved={removed} />
-                </div>
-                {calendar.billsCents > 0 && (
+                {calendar.dearest && (
                   <section className="card span-12" aria-labelledby="bills-months-h">
-                    <h2 id="bills-months-h">{t("bills.chart")}</h2>
+                    <h2 id="bills-months-h">{t("bills.dearest", { month: monthBare(calendar.dearest.month), sum: answerMoney(calendar.dearest.billsCents) })}</h2>
                     <MonthColumns
                       months={calendar.months.map((m) => ({ month: m.month, complete: true, paid: [m.paidRegularCents, m.paidLessOftenCents], parts: [m.regularCents, m.lessOftenCents], totalCents: m.wholeBillsCents }))}
                       series={[
@@ -162,6 +160,9 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
                     />
                   </section>
                 )}
+                <div className="span-12">
+                  <BillsTable calendar={calendar} items={items} controls={controls} label={label} scope={scope} month={shown.month} onRemoved={removed} />
+                </div>
               </>
             );
           }}
