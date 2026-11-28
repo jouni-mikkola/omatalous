@@ -105,7 +105,8 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 .tx-hist-fold > summary { display: flex; align-items: center; inline-size: fit-content; cursor: pointer; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); color: var(--text-2); }
 .tx-hist-fold .tx-hist-head { justify-content: flex-end; }
 .tx-hist-plot { position: relative; height: 48px; }
-.tx-hist-plot svg { display: block; width: 100%; height: 100%; overflow: visible; cursor: pointer; }
+.tx-hist-plot svg { display: block; width: 100%; height: 100%; overflow: visible; cursor: pointer; touch-action: pan-y pinch-zoom; user-select: none; }
+.tx-hist-span { fill: var(--accent); fill-opacity: 0.12; pointer-events: none; }
 .tx-hist-plot svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .tx-hist-bar { fill: color-mix(in srgb, var(--accent) 72%, var(--surface)); }
 .tx-hist-bar.on { fill: var(--accent); }

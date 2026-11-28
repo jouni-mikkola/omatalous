@@ -8,7 +8,8 @@
  * buffer. Every figure is one of the registry (`figures.ts`); the page adds up and compares no money.
  */
 import { addDays, dayNumber, daysBetween, monthOf } from "./dates.ts";
-import { type LowPoint, lowPoint } from "./low-point.ts";
+import { type LowPoint, lowPoint, plansBeforePayday } from "./low-point.ts";
+import { billCalendar } from "./reports/bill-calendar.ts";
 import { type BufferGap, bufferReport } from "./reports/buffer.ts";
 import type { BalanceInput, IsoDate, UserInputs } from "./types.ts";
 import type { AheadBasis } from "./analysis/ahead.ts";
@@ -102,7 +103,7 @@ interface BalancePoint {
 export interface Home {
   /** null when the range does not include today. */
   runway: HomeRunway | null;
-  /** The lowest balance of the next days (`LOW_POINT_DAYS`), past the next payday, with the day and a range; the reason when it cannot be said. null when the range does not include today. */
+  /** The lowest balance from today to the payday of `runway`, with the day and a range; the reason when it cannot be said. null when the range does not include today. */
   lowPoint: LowPoint | null;
   /**
    * The counted accounts' balance at the end of each day from the last pay that came to today, date ascending, as
@@ -119,10 +120,10 @@ export interface Home {
 }
 
 /** The answer: what is left after the payments, per day and on the payday. */
-function homeRunway(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" | "direct" | "settling">): HomeRunway {
+function homeRunway(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" | "direct" | "settling" | "planned">, plans: readonly { date: IsoDate; cents: number }[]): HomeRunway {
   const { ahead } = basis;
   const sum = ahead.balance ? { balanceCents: ahead.balance.startCents, paymentsCents: ahead.totals.leavingCents, cardDebtCents: ahead.balance.cardDebtCents, freeCents: ahead.balance.freeCents } : null;
-  const left = runwayOf(ctx, basis);
+  const left = runwayOf(ctx, basis, plans);
   const payday = paydayOf(ahead);
   // the days from today to the day before the payday, as the runway counts them, also when the everyday spending is not known
   const days = payday ? daysBetween(ahead.from, payday.date) : null;
@@ -210,18 +211,25 @@ function homeReliability(ctx: AnalysisContext): HomeReliability {
 /** What `buildHome` reads from the dashboard's own parts, so nothing is worked out twice. */
 interface HomeInput {
   /** The window of the payments and the balance; null when the range does not include today. */
-  basis: Pick<AheadBasis, "ahead" | "direct" | "settling" | "checking" | "pays"> | null;
+  basis: Pick<AheadBasis, "ahead" | "direct" | "settling" | "checking" | "pays" | "planned"> | null;
   pace: MonthPace;
   balances: readonly BalanceInput[];
   inputs: UserInputs;
 }
 
+/** The days from today to the payday of the answer, both included: the walk of the first page ends where Jää palkkapäivänä does. Without a payday the figure has no answer and the default stands. */
+function lowPointDays(ahead: Pick<AheadBasis["ahead"], "reason" | "payday" | "from">): number | undefined {
+  const payday = paydayOf(ahead);
+  return payday ? daysBetween(ahead.from, payday.date) + 1 : undefined;
+}
+
 /** The first page's answer, month and buffer. */
 export function buildHome(ctx: AnalysisContext, { basis, pace, balances, inputs }: HomeInput): Home {
   const homePaced = homePace(pace);
+  const calendar = basis ? billCalendar(ctx, inputs, balances) : null;
   return {
-    runway: basis ? homeRunway(ctx, basis) : null,
-    lowPoint: basis ? lowPoint(ctx, basis, balances, inputs) : null,
+    runway: basis && calendar ? homeRunway(ctx, basis, plansBeforePayday(calendar, basis.ahead)) : null,
+    lowPoint: basis && calendar ? lowPoint(ctx, basis, balances, inputs, lowPointDays(basis.ahead), calendar) : null,
     balancePast: basis ? homeBalancePast(ctx, basis, balances) : null,
     pace: homePaced,
     paceGap: pace.expected ? null : pace.cardGap ? "cards" : "history",

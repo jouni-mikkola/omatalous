@@ -17,7 +17,8 @@
  * wait for a bill that no row of the walk holds: its day is not known, and the runway takes them off nothing up to the
  * payday. So the walk takes them off together on the day after the payday (the earliest day a bill the runway leaves out
  * can fall), and day by day from then on: the figure answers how low the money can go, and on the payday the line is
- * `runwayOf`'s Jää palkkapäivänä. A card that is not connected and shows only as its bills (a card_bill series
+ * `runwayOf`'s Jää palkkapäivänä, also for a saved loan the calendar walks by its plan: both take the debt part of its
+ * bank rows out of the spending and the plan's rows in its place. A card that is not connected and shows only as its bills (a card_bill series
  * of the counted accounts) is walked the same way: its bills of the payday window and of Laskut's 30 days (`ahead.rows`,
  * `ahead.upcoming`) are rows of the walk, as Käytettävissä takes them, and hold its purchases up to their day, so its
  * bills' sums spread over the base months' days (`expectedEveryday`, every card_bill row of its name on the counted
@@ -37,9 +38,11 @@
 import type { AheadBasis } from "./analysis/ahead.ts";
 import type { AnalysisContext, AnalysisTx } from "./analysis/context.ts";
 import { everydaySpans } from "./analysis/expected.ts";
-import { type Runway, runwayOf } from "./analysis/runway.ts";
+import { paydayOf, type Runway, runwayOf } from "./analysis/runway.ts";
+import { cancelledSubjects, expectedCharges } from "./commitments.ts";
+import { plannedLoanPayments } from "./loan-planned-row.ts";
 import { addDays, monthOf } from "./dates.ts";
-import { billCalendar, unknownPaymentBy } from "./reports/bill-calendar.ts";
+import { billCalendar, byDay, unknownPaymentBy } from "./reports/bill-calendar.ts";
 import { AHEAD_DAYS, LOW_POINT_DAYS } from "./thresholds.ts";
 import { openCardRows } from "./unconnected-cards.ts";
 import type { BalanceInput, IsoDate, UserInputs } from "./types.ts";
@@ -138,17 +141,22 @@ interface Spent {
 const NONE: Spent = { cents: 0, lowCents: 0, highCents: 0 };
 const plus = (a: Spent, b: Spent): Spent => ({ cents: a.cents + b.cents, lowCents: a.lowCents + b.lowCents, highCents: a.highCents + b.highCents });
 
+/** The plan rows of loans no series pays that fall before the payday: what `runwayOf` takes off beside the bills, as the walk does. */
+export function plansBeforePayday(calendar: Parameters<typeof plannedLoanPayments>[0], ahead: Pick<AheadBasis["ahead"], "reason" | "payday" | "from">): { date: IsoDate; cents: number }[] {
+  const payday = paydayOf(ahead);
+  return payday ? plannedLoanPayments(calendar, ahead.from, addDays(payday.date, -1)) : [];
+}
+
 /** The lowest balance of the next `days` days, with the day it falls on; the reason when it cannot be said. */
-export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" | "direct" | "settling">, balances: readonly BalanceInput[], inputs: UserInputs, days: number = LOW_POINT_DAYS): LowPoint {
-  const { ahead, direct, settling } = basis;
-  const runway = runwayOf(ctx, basis);
+export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" | "direct" | "settling" | "planned">, balances: readonly BalanceInput[], inputs: UserInputs, days: number = LOW_POINT_DAYS, calendar: ReturnType<typeof billCalendar> = billCalendar(ctx, inputs, balances)): LowPoint {
+  const { ahead, direct, settling, planned } = basis;
+  const runway = runwayOf(ctx, basis, plansBeforePayday(calendar, ahead));
   if (!runway.known) {
     if (runway.reason !== "cards") return { known: false, reason: runway.reason, days };
     const { cards, gaps } = openCardRows(ctx, inputs);
     return { known: false, reason: runway.reason, days, cardRowOpen: cards.length + gaps.length > 0 };
   }
   if (!direct || !ahead.balance) return { known: false, reason: "no-balance", days };
-  const calendar = billCalendar(ctx, inputs, balances);
   const { from } = ahead;
   const last = addDays(from, days - 1);
   if (unknownPaymentBy(calendar, last)) return { known: false, reason: "bills", days };
@@ -160,10 +168,17 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
   const laterDebts = laterInRange.map((d) => ({ ...d, cents: Math.max(0, d.cents - d.typedCents) })).filter((d) => d.cents > 0);
   // an income before the payday is no pay the runway waits for and the runway counts none: the walk lets it land on the
   // payday, so the line at the payday is Jää palkkapäivänä to the cent and the days after it hold the income
-  const rows = calendar.months
-    .flatMap((m) => m.rows)
+  const calendarRows = calendar.months.flatMap((m) => m.rows);
+  // a loan a series pays: the runway takes the series' own charges (`ahead.rows`, `expectedCharges`), so the walk does too, not the plan's days and sums
+  const seriesRows = calendar.loanSeries.filter((l) => !l.onCard).flatMap(({ id, payee, endDate }) => {
+    const series = ctx.recurring.find((s) => s.id === id);
+    const state = series?.kind === "subscription" ? ("known" as const) : ("estimate" as const);
+    return series ? expectedCharges([series], from, last, { cancelled: cancelledSubjects(inputs, ctx.today), savings: true }).filter((c) => endDate === null || c.date <= endDate).map((c) => ({ date: c.date, payee, category: series.category ?? null, cents: c.amountCents, state, kind: "loan" as const, seriesId: id, onCard: undefined })) : [];
+  });
+  const rows = [...calendarRows.filter((r) => !(r.kind === "loan" && r.seriesId !== null && !r.lump && ctx.recurring.some((s) => s.id === r.seriesId))), ...seriesRows]
     .filter((r) => r.state !== "paid" && !r.onCard && r.date >= from && r.date <= last && !(r.seriesId === null && r.kind === "bill" && (heldByDebt.has(`${r.date}|${r.payee}|${r.cents}`) || laterInRange.some((d) => d.date === r.date && d.name === r.payee))))
-    .map((r) => (r.kind === "income" && r.date < runway.payday.date ? { ...r, date: runway.payday.date } : r));
+    .map((r) => (r.kind === "income" && r.date < runway.payday.date ? { ...r, date: runway.payday.date } : r))
+    .sort(byDay);
   // the bills of a card shown only by them, which the bill calendar leaves out. `upcoming` reaches Laskut's 30 days and
   // `rows` the payday window, which can be longer: the window's rows after the 30 days complete the list, none twice
   const thirty = addDays(from, AHEAD_DAYS);
@@ -193,7 +208,7 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
   const month = monthOf(from);
   // the days of the rows `keep` takes are read once, then each span of them is a sum
   const costOf = (keep: (t: AnalysisTx) => boolean) => {
-    const spans = everydaySpans(ctx, keep, month);
+    const spans = everydaySpans(ctx, keep, month, planned);
     return (since: IsoDate, until: IsoDate): Spent => (until < since || typeof spans === "string" ? NONE : spans(since, until));
   };
   // the cards the pool pays, as far as the rows show: one with a bill coming, one paid in full, or one that owes something

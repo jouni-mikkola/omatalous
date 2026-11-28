@@ -91,6 +91,8 @@ export const FI_TRANSACTIONS = {
   "tx.hist_in": "Tulot {unit}",
   "tx.hist_out": "Menot {unit}",
   "tx.hist_aria": "{title}, suurin {max}",
+  "tx.span_readout": "Valittu {range}, Enter rajaa jakson siihen",
+  "tx.span_keys": "Vaihto ja nuolinäppäimet valitsevat jakson, Esc palauttaa edellisen jakson.",
   "tx.totals_label": "Rajattujen tapahtumien summat",
   "tx.spending": "Menot",
   "tx.income": "Tulot",
