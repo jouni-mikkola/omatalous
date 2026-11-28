@@ -27,6 +27,8 @@ const LABEL_ROOM = 190;
 const NODE_WIDTH = 14;
 const NODE_GAP = 10;
 const ROW_HEIGHT = 30;
+/** Raises the two-line label so its middle sits on the middle of the node. */
+const LABEL_LIFT = 3;
 const MIN_HEIGHT = 240;
 const MIDDLE = "middle";
 
@@ -84,7 +86,7 @@ function Diagram({ sources, uses, label, width }: { sources: readonly MoneyFlowB
                 {n.id !== MIDDLE && <title>{`${n.label} ${money(centsOf(n.id))}`}</title>}
               </rect>
               {n.id !== MIDDLE && (
-                <text className="mf-text" x={left ? x0 - 6 : x1 + 6} y={(y0 + y1) / 2} dy="−0.1em" textAnchor={left ? "end" : "start"}>
+                <text className="mf-text" x={left ? x0 - 6 : x1 + 6} y={(y0 + y1) / 2 - LABEL_LIFT} textAnchor={left ? "end" : "start"}>
                   <tspan x={left ? x0 - 6 : x1 + 6}>{n.label}</tspan>
                   <tspan className="mf-sum" x={left ? x0 - 6 : x1 + 6} dy="1.2em">
                     {money(centsOf(n.id))}
