@@ -1,4 +1,5 @@
 /** The sentence each Raportit page opens with. Made-up figures only. */
+import { fireEvent, render } from "@testing-library/react";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -56,6 +57,27 @@ describe("Varat ja velat: the tiles", () => {
     expect(say({ ...held, netCents: null, unsavedFewPayments: 1 })).toBe("Tilien saldo 1 200 €");
     // a total that cannot be known is said, never left out
     expect(say({ ...held, debtCents: null, netCents: null })).toBe("Tilien saldo 1 200 € Velat yhteensä Ei tiedossa");
+  });
+
+  it("opens the Tilien saldo figure to the part of a traced account and to the buffer, and has no panel with neither", () => {
+    // the panel is closed until the figure is pressed: the text of the opened one
+    const opened = (holdings: Record<string, unknown>, more: Record<string, unknown> = {}, accounts: object[] = []) => {
+      const { container, unmount } = render(createElement(BalancesTiles as never, { ctx: { data: { balances: { accounts: [{}], holdings, ...more } }, meta: { today: "2026-11-11", accounts, sharedAccounts: [] } } } as never));
+      const button = container.querySelector<HTMLButtonElement>("button.fig-open");
+      if (button) fireEvent.click(button);
+      const text = flat(container.textContent);
+      unmount();
+      return { text, hasPanel: button !== null };
+    };
+    expect(opened(held).hasPanel).toBe(false);
+    expect(opened(held, { bufferMonths: 1.4 }).text).toMatch(/Puskuri\s*1,4 kk/);
+    // a buffer below zero is no length of time
+    expect(opened(held, { bufferMonths: -0.3 }).hasPanel).toBe(false);
+    expect(opened(held, { bufferMonths: null }).hasPanel).toBe(false);
+    const joint = { ...held, accounts: [{ id: "a1", name: "Yhteistili", part: { from: 1, to: 2, of: 2 } }] };
+    const traced = opened(joint, {}, [{ id: "a1", traced: true }]);
+    expect(traced.text).toContain("Yhteistili");
+    expect(traced.text).not.toContain("Puskuri");
   });
 
   it("says nothing without an account or a known balance", () => {

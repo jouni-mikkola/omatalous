@@ -6,7 +6,7 @@ import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { FigureRow } from "../holdings/FigureRow.tsx";
 import { Holdings } from "../holdings/Holdings.tsx";
-import { answerMoney, date, money, monthLong, moneyIn, plural, signedMoney } from "../../../format.ts";
+import { answerMoney, date, money, monthLong, moneyIn, oneDecimal, plural, signedMoney } from "../../../format.ts";
 import { partText } from "../../../part.ts";
 import { LOAN_TERMS_HASH } from "../../../routes.ts";
 import { Tiles, type TileItem } from "../../../components/Tiles.tsx";
@@ -31,11 +31,13 @@ export function BalancesTiles({ ctx }: SectionProps) {
   // the accounts whose figure is the viewer's part by who paid: the fact is told here, not under each account
   const traced = h.accounts.flatMap((a) => (ctx.meta.accounts.find((m) => m.id === a.id)?.traced ? [a] : []));
   const asking = h.unsavedLoans?.rows.filter((u) => !u.asked).length ?? 0;
+  // the buffer as the balances report serves it; a buffer that is below zero is no length of time and is not told here
+  const buffer = ctx.data.balances.bufferMonths !== null && ctx.data.balances.bufferMonths >= 0 ? ctx.data.balances.bufferMonths : null;
   const items: TileItem[] = [
     {
       label: t("holdings.accounts_total"),
       figure: answerMoney(h.accountsCents!),
-      ...(traced.length > 0
+      ...(traced.length > 0 || buffer !== null
         ? {
             panel: {
               label: t("holdings.accounts_total"),
@@ -46,6 +48,7 @@ export function BalancesTiles({ ctx }: SectionProps) {
                       {partText(a.part, "account", true)}
                     </FigureRow>
                   ))}
+                  {buffer !== null && <FigureRow label={t("home.buffer_label")}>{t("holdings.buffer_months", { months: oneDecimal(buffer) })}</FigureRow>}
                 </dl>
               ),
             },
@@ -142,7 +145,7 @@ function Balances({ ctx }: SectionProps) {
           >
             <BalanceLine r={r} />
           </QuestionChart>
-          {/* the page is named Varat ja velat and its net figure is the row above the page; Lainat (shown with a saved or an unsaved loan) lists the loans and their total */}
+          {/* the page is named Varat ja velat and its net figure is the row above the page; Lainat (shown with a saved or an unsaved loan) lists the loans */}
           <Holdings holdings={r.holdings} meta={ctx.meta} title={null} net={false} loansListed={listsLoans(ctx.data.loans)} />
           {ctx.data.loans.ended.length > 0 && <hr className="qc-rule" />}
           <EndedCredits ended={ctx.data.loans.ended} />

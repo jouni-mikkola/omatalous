@@ -156,6 +156,7 @@ export const FI_BILLS = {
   "holdings.accounts": "Tilit",
   "holdings.loan_account": "Lainanhoitotili",
   "holdings.accounts_total": "Tilien saldo",
+  "holdings.buffer_months": "{months} kk",
   "holdings.checking": "Käyttötilit",
   "holdings.savings": "Säästötilit",
   "holdings.other": "Muut tilit",

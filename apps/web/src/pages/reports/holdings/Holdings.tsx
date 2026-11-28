@@ -1,6 +1,6 @@
 /**
  * Decision: what the household has and what it owes, before the month: each account with its balance, each credit card
- * with what is used of its limit, each loan with what is left, and a total at the foot of each group.
+ * with what is used of its limit, each loan with what is left.
  * The loans and the cards stand in the order core gives, the dearest by yearly cost first; a debt that is dear (Kallis,
  * Erittäin kallis) says so in a word among the lines under its name, and no other class and no unknown cost says anything.
  * Raportit > Varat ja velat shows it with no heading of its own, without the net figure at its head (`net`) and with the loans
@@ -218,7 +218,7 @@ function Loans({ holdings }: { holdings: Answer }) {
 /**
  * `title`: the block's heading, none (null) on a page whose own title says it; `loansListed`: the page lists the loans in
  * the report Lainat (which also tells the debts that lack a balance), so the block leaves out the Lainat group and the debts
- * total (Lainat gives the same sum).
+ * total (the tiles at the head of the page tell it).
  */
 export function Holdings({ holdings, meta, title = t("holdings.title"), loansListed = false, net = true }: { holdings: Answer; meta: Meta; title?: string | null; loansListed?: boolean; net?: boolean }) {
   const { accounts, accountsCents, cards, debtCents, netCents } = holdings;

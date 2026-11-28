@@ -224,8 +224,9 @@ describe("Raportit: Lainat", () => {
     const saldot = html(balances, context(report([row()])));
     const own = html(loans, context(report([row()]))) + saldot;
     expect(own).not.toMatch(/Tilit miinus velat|Varat velkojen jälkeen|Tallennetut lainat|Nettovarallisuus|omasi/);
-    // the totals of Lainat are the payments of a month alone
-    expect(own.split('<div class="k">').length - 1).toBe(1);
+    // the figures of Lainat are the payments of a month and the cost of the next twelve
+    expect(own).toContain(tile("Korot ja kulut 12 kk", "3 800 €"));
+    expect(own).toContain("Kuukausierät");
     // how far the line of the chart moved is said under the chart's heading
     expect(words(saldot)).toMatch(/Saldojen kehitys \+200 € 30\.9\. jälkeen/);
     expect(words(html(balances, context(report([row()]), "own", { ...balanceData, change: { ...balanceData.change, cents: 99 } })))).not.toContain("jälkeen");
@@ -242,7 +243,10 @@ describe("Raportit: Lainat", () => {
     expect(out).toContain("Luottokortti");
     expect(out).not.toContain("saldo puuttuu");
     expect(out).toContain('<small class="loan-about">Luottokortti</small>');
-    expect(out).not.toContain("/kk");
+    // the unsaved loan's payment is in the rows of Kuukausierät, with no sum while no loan is saved; a card has none
+    expect(out).toContain("100 €/kk");
+    expect(out).not.toContain("200 €/kk");
+    expect(out).not.toContain(tile("Kuukausierät", "–"));
     // nothing is saved, so there is no total and no row to open
     expect(out).not.toContain("rt-total");
     expect(out).not.toContain("data-drill");

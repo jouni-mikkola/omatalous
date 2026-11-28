@@ -20,7 +20,7 @@ import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/loans.css";
 import { Notice } from "../../../components/ui/Notice.tsx";
 import { figureName, t, tn } from "../../../text.ts";
-import { headAsks } from "../../../components/net-label.ts";
+import { headAsks, showsHead } from "../../../components/net-label.ts";
 /** A figure the loan has no value for: nothing is due, nothing was drawn, or the household has not told it. */
 const DASH = "–";
 
@@ -320,32 +320,49 @@ function Loans({ ctx }: SectionProps) {
   const asking = r.unsaved.filter((u) => !u.asked).length;
   const addBalances = asking > 0 && !headAsks(b);
   // each debt's payment, the figure of Maksut kuukaudessa opens them; a card has none to tell
-  const payments = entries.flatMap((e) => (e.loan ? (e.loan.accountType === "credit_card" ? [] : [{ id: e.id, name: e.loan.name, value: payment(e.loan).value ?? DASH }]) : e.unsaved.card ? [] : [{ id: e.id, name: e.unsaved.name, value: e.unsaved.monthlyCents === null ? DASH : t("rpt.ln_per_month", { amount: money(e.unsaved.monthlyCents) }) }]));
+  const payments = entries.flatMap((e) => (e.loan ? (e.loan.accountType === "credit_card" ? [] : [{ id: e.id, name: e.loan.name, value: payment(e.loan).value === null ? DASH : [payment(e.loan).value, payment(e.loan).sub].filter(Boolean).join(" ") }]) : e.unsaved.card ? [] : [{ id: e.id, name: e.unsaved.name, value: e.unsaved.monthlyCents === null ? DASH : t("rpt.ln_per_month", { amount: money(e.unsaved.monthlyCents) }) }]));
+  const paymentRows = (
+    <dl className="st-rows">
+      {payments.map((p) => (
+        <FigureRow key={p.id} label={p.name}>
+          {p.value}
+        </FigureRow>
+      ))}
+    </dl>
+  );
   return (
     // the one link to what the cost waits for stands in the head, so it is there also when no debt has a cost to show a column for;
     // the line at the head of the page links to the list already when it asks of a balance
     <ReportPanel id={section.id} title={section.title} actions={addBalances ? <a className="btn-link" href={LOAN_TERMS_HASH}>{tn(asking, "holdings.add_balances_one", "holdings.add_balances_many")}</a> : r.cost12.cents === null && fillHref !== null && !(fillHref === LOAN_TERMS_HASH && headAsks(b)) ? <a className="btn-link" href={fillHref}>{t("rpt.ln_fill")}</a> : undefined}>
-      {/* with no loan saved or connected there is nothing to add up: the payments of the unsaved ones are in their rows */}
-      {r.loans.length > 0 && (
+      {/* the figures of the section: the payments of a month (with no loan saved there is no sum to add up, only the rows of the unsaved debts), the cost of the next twelve months, and the debts' total when the head of the page is not shown */}
+      {(r.loans.length > 0 || payments.length > 0) && (
         <div className="kv">
           <div>
             <div className="k">{t("rpt.ln_payments_month")}</div>
             <div className="v">
-              {payments.length > 0 ? (
+              {payments.length === 0 ? (
+                <Figure text={monthly} size="m" />
+              ) : r.loans.length > 0 ? (
                 <FigurePanel label={t("rpt.ln_payments_month")} figure={<Figure text={monthly} size="m" />}>
-                  <dl className="st-rows">
-                    {payments.map((p) => (
-                      <FigureRow key={p.id} label={p.name}>
-                        {p.value}
-                      </FigureRow>
-                    ))}
-                  </dl>
+                  {paymentRows}
                 </FigurePanel>
               ) : (
-                <Figure text={monthly} size="m" />
+                paymentRows
               )}
             </div>
           </div>
+          {r.loans.length > 0 && costs && (
+            <div>
+              <div className="k">{t("rpt.ln_cost12")}</div>
+              <div className="v">{r.cost12.cents === null ? <Unknown /> : <Figure text={money(r.cost12.cents, false)} size="m" />}</div>
+            </div>
+          )}
+          {r.loans.length > 0 && !showsHead(b) && (
+            <div>
+              <div className="k">{t(r.unsaved.length > 0 ? "holdings.debts_known" : "holdings.debts_total")}</div>
+              <div className="v">{r.totalKnown ? <Figure text={money(r.total.cents, false)} size="m" /> : <Unknown />}</div>
+            </div>
+          )}
         </div>
       )}
       {lines.length > 0 && (

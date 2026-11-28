@@ -154,6 +154,7 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "holdings.accounts": "Accounts",
   "holdings.loan_account": "Loan payment account",
   "holdings.accounts_total": "Account balances",
+  "holdings.buffer_months": "{months} mo",
   "holdings.checking": "Checking accounts",
   "holdings.savings": "Savings accounts",
   "holdings.other": "Other accounts",
