@@ -1,4 +1,5 @@
 // Decision: on which day before the payday the money is tightest, and which bill takes it there
+import { useId } from "react";
 import { addDays, moneyEnds } from "@banking/core";
 import { useWidth } from "../../hooks.ts";
 import { answerMoney, dayMonth, signedMoney } from "../../format.ts";
@@ -18,6 +19,7 @@ import "../../styles/question-chart.css";
 import "../../styles/estimate.css";
 
 export type KnownLowPoint = Extract<NonNullable<DashboardData["home"]["lowPoint"]>, { known: true }>;
+export type PastPeriods = NonNullable<DashboardData["home"]["pastPeriods"]>;
 type Corner = KnownLowPoint["line"][number];
 type Step = KnownLowPoint["steps"][number];
 
@@ -61,8 +63,12 @@ export function stepName(s: Step): string {
  * Each payment of the walk is a dot on its step with its name and sum beside it, the one that takes the balance below zero
  * (core's `moneyEnds`) larger and in the problem colour; on a phone only the two biggest are named. The line is drawn
  * once from today to the payday and again when the walk changes.
+ * Behind it, when core has the household's past pay periods (`past`), each is a thin muted line of its balance aligned by days
+ * before the payday, and under the picture one count says in how many of them the money held out. The scale is the walk's,
+ * so a past line outside it is cut at the frame.
  */
-export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: string | null }) {
+export function BalanceSteps({ low, payday, past }: { low: KnownLowPoint; payday: string | null; past: PastPeriods | null }) {
+  const clipId = useId().replace(/:/g, "");
   const [ref, measured] = useWidth<HTMLDivElement>();
   const [at, setAt] = useReadout();
   const width = measured || UNMEASURED;
@@ -97,6 +103,7 @@ export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: stri
     ];
   };
   const paydayIn = payday !== null && payday >= first && payday <= last ? payday : null;
+  const ghosts = (paydayIn && past ? past.periods : []).map((p) => ({ payday: p.payday, points: p.points.map((q) => ({ date: addDays(paydayIn!, -q.daysBefore), cents: q.cents })).filter((q) => q.date >= first) })).filter((g) => g.points.length > 1);
   const ends = moneyEnds(low, paydayIn ?? last);
   // every payment is a dot where its step ends; its balance is the table's own (`rowAfterCents`)
   const payments = steps.filter((s) => s.cents < 0);
@@ -167,6 +174,16 @@ export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: stri
                 </text>
               </g>
             ))}
+            {ghosts.length > 0 && (
+              <g clipPath={`url(#${clipId})`} aria-hidden="true">
+                <clipPath id={clipId}>
+                  <rect x={0} y={0} width={f.innerW} height={f.innerH} />
+                </clipPath>
+                {ghosts.map((g) => (
+                  <path key={g.payday} className="bs-ghost" d={linePath(g.points.map((q) => q.cents), (i) => x.x(g.points[i]!.date), y)} />
+                ))}
+              </g>
+            )}
             <path className="est-band" d={areaPath(line.map((c) => c.lowCents), line.map((c) => c.highCents), cornerX, y)} />
             {paydayIn && (
               <g>
@@ -203,6 +220,7 @@ export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: stri
         </g>
       </svg>
       <LiveReadout text={at === null ? "" : readoutText(dayMonth(days[at]!), parts(days[at]!))} />
+      {past && <p className="bs-ghost-count">{t("home.days_enough", { enough: past.enoughCount, total: past.periods.length })}</p>}
     </div>
   );
 }

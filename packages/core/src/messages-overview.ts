@@ -76,6 +76,7 @@ export const FI_OVERVIEW = {
   "home.days_low": "alimmillaan {date} {sum}",
   "home.days_low_short": "alin {sum}",
   "home.days_payday": "palkkapäivä {date}",
+  "home.days_enough": "{enough} / {total} edellisestä palkkakaudesta riitti",
   "home.days_table": "Maksut taulukkona",
   "home.days_col_day": "Päivä",
   "home.days_estimate": "{payee}, arvio",

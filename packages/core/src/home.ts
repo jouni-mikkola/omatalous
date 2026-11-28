@@ -95,9 +95,20 @@ interface HomeReliability {
   cardGap: { cents: number; cause: string } | null;
 }
 
-interface BalancePoint {
-  date: IsoDate;
-  cents: number;
+interface PastPeriod {
+  /** The pay that ends the period. */
+  payday: IsoDate;
+  /** Whether the balance stayed at or above 0 on every day from the pay that began the period to the day before this payday. */
+  enough: boolean;
+  /** The counted accounts' end-of-day balance, oldest day first, each by its days before the payday (the last is 1). */
+  points: { daysBefore: number; cents: number }[];
+}
+
+interface PastPeriods {
+  /** The complete pay periods the pays of the payday's estimate give, oldest first; at least three. */
+  periods: PastPeriod[];
+  /** How many of `periods` have `enough`. */
+  enoughCount: number;
 }
 
 export interface Home {
@@ -106,12 +117,12 @@ export interface Home {
   /** The lowest balance from today to the payday of `runway`, with the day and a range; the reason when it cannot be said. null when the range does not include today. */
   lowPoint: LowPoint | null;
   /**
-   * The counted accounts' balance at the end of each day from the last pay that came to today, date ascending, as
-   * `balanceWalk` gives it (Saldot's own figure). The last point is today's balance, `runway.sum.balanceCents`; the line of
-   * `lowPoint` starts from it less the cards' debt. null without a pay that came (the payday has no pay estimate), a balance of every counted account or a
-   * day before today, and when the range does not include today.
+   * The household's own past pay periods, to lay behind the line of `lowPoint` by days before the payday, and how many of
+   * them the money held out in (`enoughCount`). The days are Saldot's own balance (`balanceWalk`). null under three
+   * complete periods, without a pay estimate for the payday or a balance of every counted account, and when the range
+   * does not include today.
    */
-  balancePast: BalancePoint[] | null;
+  pastPeriods: PastPeriods | null;
   /** null when the month has no expected figure; `paceGap` says why. */
   pace: HomePace | null;
   paceGap: PaceGap | null;
@@ -141,18 +152,27 @@ function homeRunway(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" | "dir
   };
 }
 
-/** The counted accounts' end-of-day balance from the last pay that came to today; see `Home.balancePast`. */
-function homeBalancePast(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" | "checking" | "pays">, balances: readonly BalanceInput[]): BalancePoint[] | null {
-  const lastPay = basis.pays.at(-1);
-  if (!lastPay || !basis.ahead.balance || lastPay.date >= ctx.today) return null;
+/** The fewest complete pay periods that make a count worth saying. */
+const MIN_PAST_PERIODS = 3;
+
+/** The complete periods between the pays of the estimate, see `Home.pastPeriods`. A period with a day of unknown balance is left out. */
+function homePastPeriods(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" | "checking" | "pays">, balances: readonly BalanceInput[]): PastPeriods | null {
+  const { pays } = basis;
+  if (!basis.ahead.balance || pays.length < MIN_PAST_PERIODS + 1) return null;
   const walks = basis.checking.map((c) => balances.find((b) => b.id === c.id)).map((b) => (b ? balanceWalk(ctx, b) : null));
-  const points: BalancePoint[] = [];
-  for (let day = lastPay.date; day <= ctx.today; day = addDays(day, 1)) {
-    const at = walks.map((w) => w?.at(dayNumber(day)) ?? null);
-    if (at.some((cents) => cents === null)) return null;
-    points.push({ date: day, cents: at.reduce<number>((sum, cents) => sum + cents!, 0) });
+  const periods: PastPeriod[] = [];
+  for (const [i, pay] of pays.slice(0, -1).entries()) {
+    const payday = pays[i + 1]!.date;
+    const points: PastPeriod["points"] = [];
+    for (let day = pay.date; day < payday; day = addDays(day, 1)) {
+      const at = walks.map((w) => w?.at(dayNumber(day)) ?? null);
+      if (at.some((cents) => cents === null)) break;
+      points.push({ daysBefore: daysBetween(day, payday), cents: at.reduce<number>((sum, cents) => sum + cents!, 0) });
+    }
+    if (points.length === 0 || points.length !== daysBetween(pay.date, payday)) continue;
+    periods.push({ payday, enough: points.every((p) => p.cents >= 0), points });
   }
-  return points;
+  return periods.length < MIN_PAST_PERIODS ? null : { periods, enoughCount: periods.filter((p) => p.enough).length };
 }
 
 /** The month so far against the expected month; null without an expected month or before the 1st. */
@@ -230,7 +250,7 @@ export function buildHome(ctx: AnalysisContext, { basis, pace, balances, inputs 
   return {
     runway: basis && calendar ? homeRunway(ctx, basis, plansBeforePayday(calendar, basis.ahead)) : null,
     lowPoint: basis && calendar ? lowPoint(ctx, basis, balances, inputs, lowPointDays(basis.ahead), calendar) : null,
-    balancePast: basis ? homeBalancePast(ctx, basis, balances) : null,
+    pastPeriods: basis ? homePastPeriods(ctx, basis, balances) : null,
     pace: homePaced,
     paceGap: pace.expected ? null : pace.cardGap ? "cards" : "history",
     direction: homeDirection(ctx, balances, inputs),

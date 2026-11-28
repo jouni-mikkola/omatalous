@@ -1246,68 +1246,1421 @@
     }
    ]
   },
-  "balancePast": [
-   {
-    "date": "2026-09-25",
-    "cents": 874573
-   },
-   {
-    "date": "2026-09-26",
-    "cents": 844573
-   },
-   {
-    "date": "2026-09-27",
-    "cents": 844573
-   },
-   {
-    "date": "2026-09-28",
-    "cents": 844573
-   },
-   {
-    "date": "2026-09-29",
-    "cents": 844573
-   },
-   {
-    "date": "2026-09-30",
-    "cents": 844573
-   },
-   {
-    "date": "2026-10-01",
-    "cents": 844573
-   },
-   {
-    "date": "2026-10-02",
-    "cents": 739573
-   },
-   {
-    "date": "2026-10-03",
-    "cents": 739573
-   },
-   {
-    "date": "2026-10-04",
-    "cents": 739573
-   },
-   {
-    "date": "2026-10-05",
-    "cents": 696443
-   },
-   {
-    "date": "2026-10-06",
-    "cents": 681443
-   },
-   {
-    "date": "2026-10-07",
-    "cents": 681443
-   },
-   {
-    "date": "2026-10-08",
-    "cents": 681443
-   },
-   {
-    "date": "2026-10-09",
-    "cents": 681443
-   }
-  ],
+  "pastPeriods": {
+   "periods": [
+    {
+     "payday": "2025-11-25",
+     "enough": true,
+     "points": [
+      {
+       "daysBefore": 32,
+       "cents": 463842
+      },
+      {
+       "daysBefore": 31,
+       "cents": 463842
+      },
+      {
+       "daysBefore": 30,
+       "cents": 433842
+      },
+      {
+       "daysBefore": 29,
+       "cents": 433842
+      },
+      {
+       "daysBefore": 28,
+       "cents": 433842
+      },
+      {
+       "daysBefore": 27,
+       "cents": 433842
+      },
+      {
+       "daysBefore": 26,
+       "cents": 433842
+      },
+      {
+       "daysBefore": 25,
+       "cents": 433842
+      },
+      {
+       "daysBefore": 24,
+       "cents": 433842
+      },
+      {
+       "daysBefore": 23,
+       "cents": 328842
+      },
+      {
+       "daysBefore": 22,
+       "cents": 328842
+      },
+      {
+       "daysBefore": 21,
+       "cents": 328842
+      },
+      {
+       "daysBefore": 20,
+       "cents": 299942
+      },
+      {
+       "daysBefore": 19,
+       "cents": 284942
+      },
+      {
+       "daysBefore": 18,
+       "cents": 284942
+      },
+      {
+       "daysBefore": 17,
+       "cents": 284942
+      },
+      {
+       "daysBefore": 16,
+       "cents": 284942
+      },
+      {
+       "daysBefore": 15,
+       "cents": 88814
+      },
+      {
+       "daysBefore": 14,
+       "cents": 88814
+      },
+      {
+       "daysBefore": 13,
+       "cents": 88814
+      },
+      {
+       "daysBefore": 12,
+       "cents": 88814
+      },
+      {
+       "daysBefore": 11,
+       "cents": 88814
+      },
+      {
+       "daysBefore": 10,
+       "cents": 81656
+      },
+      {
+       "daysBefore": 9,
+       "cents": 81656
+      },
+      {
+       "daysBefore": 8,
+       "cents": 81656
+      },
+      {
+       "daysBefore": 7,
+       "cents": 81656
+      },
+      {
+       "daysBefore": 6,
+       "cents": 81656
+      },
+      {
+       "daysBefore": 5,
+       "cents": 78666
+      },
+      {
+       "daysBefore": 4,
+       "cents": 78666
+      },
+      {
+       "daysBefore": 3,
+       "cents": 81555
+      },
+      {
+       "daysBefore": 2,
+       "cents": 81555
+      },
+      {
+       "daysBefore": 1,
+       "cents": 81555
+      }
+     ]
+    },
+    {
+     "payday": "2025-12-25",
+     "enough": true,
+     "points": [
+      {
+       "daysBefore": 30,
+       "cents": 476555
+      },
+      {
+       "daysBefore": 29,
+       "cents": 446555
+      },
+      {
+       "daysBefore": 28,
+       "cents": 446555
+      },
+      {
+       "daysBefore": 27,
+       "cents": 446555
+      },
+      {
+       "daysBefore": 26,
+       "cents": 446555
+      },
+      {
+       "daysBefore": 25,
+       "cents": 446555
+      },
+      {
+       "daysBefore": 24,
+       "cents": 446555
+      },
+      {
+       "daysBefore": 23,
+       "cents": 341555
+      },
+      {
+       "daysBefore": 22,
+       "cents": 341555
+      },
+      {
+       "daysBefore": 21,
+       "cents": 341555
+      },
+      {
+       "daysBefore": 20,
+       "cents": 312655
+      },
+      {
+       "daysBefore": 19,
+       "cents": 297655
+      },
+      {
+       "daysBefore": 18,
+       "cents": 297655
+      },
+      {
+       "daysBefore": 17,
+       "cents": 297655
+      },
+      {
+       "daysBefore": 16,
+       "cents": 297655
+      },
+      {
+       "daysBefore": 15,
+       "cents": 183160
+      },
+      {
+       "daysBefore": 14,
+       "cents": 183160
+      },
+      {
+       "daysBefore": 13,
+       "cents": 183160
+      },
+      {
+       "daysBefore": 12,
+       "cents": 183160
+      },
+      {
+       "daysBefore": 11,
+       "cents": 184854
+      },
+      {
+       "daysBefore": 10,
+       "cents": 177111
+      },
+      {
+       "daysBefore": 9,
+       "cents": 177111
+      },
+      {
+       "daysBefore": 8,
+       "cents": 177111
+      },
+      {
+       "daysBefore": 7,
+       "cents": 177111
+      },
+      {
+       "daysBefore": 6,
+       "cents": 177111
+      },
+      {
+       "daysBefore": 5,
+       "cents": 174121
+      },
+      {
+       "daysBefore": 4,
+       "cents": 174121
+      },
+      {
+       "daysBefore": 3,
+       "cents": 174121
+      },
+      {
+       "daysBefore": 2,
+       "cents": 174121
+      },
+      {
+       "daysBefore": 1,
+       "cents": 174121
+      }
+     ]
+    },
+    {
+     "payday": "2026-01-23",
+     "enough": true,
+     "points": [
+      {
+       "daysBefore": 29,
+       "cents": 569121
+      },
+      {
+       "daysBefore": 28,
+       "cents": 539121
+      },
+      {
+       "daysBefore": 27,
+       "cents": 539121
+      },
+      {
+       "daysBefore": 26,
+       "cents": 539121
+      },
+      {
+       "daysBefore": 25,
+       "cents": 539121
+      },
+      {
+       "daysBefore": 24,
+       "cents": 539121
+      },
+      {
+       "daysBefore": 23,
+       "cents": 539121
+      },
+      {
+       "daysBefore": 22,
+       "cents": 539121
+      },
+      {
+       "daysBefore": 21,
+       "cents": 434121
+      },
+      {
+       "daysBefore": 20,
+       "cents": 434121
+      },
+      {
+       "daysBefore": 19,
+       "cents": 434121
+      },
+      {
+       "daysBefore": 18,
+       "cents": 390991
+      },
+      {
+       "daysBefore": 17,
+       "cents": 375991
+      },
+      {
+       "daysBefore": 16,
+       "cents": 375991
+      },
+      {
+       "daysBefore": 15,
+       "cents": 375991
+      },
+      {
+       "daysBefore": 14,
+       "cents": 375991
+      },
+      {
+       "daysBefore": 13,
+       "cents": 225110
+      },
+      {
+       "daysBefore": 12,
+       "cents": 226714
+      },
+      {
+       "daysBefore": 11,
+       "cents": 226714
+      },
+      {
+       "daysBefore": 10,
+       "cents": 226714
+      },
+      {
+       "daysBefore": 9,
+       "cents": 226714
+      },
+      {
+       "daysBefore": 8,
+       "cents": 219179
+      },
+      {
+       "daysBefore": 7,
+       "cents": 219179
+      },
+      {
+       "daysBefore": 6,
+       "cents": 219179
+      },
+      {
+       "daysBefore": 5,
+       "cents": 219179
+      },
+      {
+       "daysBefore": 4,
+       "cents": 219179
+      },
+      {
+       "daysBefore": 3,
+       "cents": 216189
+      },
+      {
+       "daysBefore": 2,
+       "cents": 216189
+      },
+      {
+       "daysBefore": 1,
+       "cents": 216189
+      }
+     ]
+    },
+    {
+     "payday": "2026-02-25",
+     "enough": true,
+     "points": [
+      {
+       "daysBefore": 33,
+       "cents": 611189
+      },
+      {
+       "daysBefore": 32,
+       "cents": 611189
+      },
+      {
+       "daysBefore": 31,
+       "cents": 611189
+      },
+      {
+       "daysBefore": 30,
+       "cents": 581189
+      },
+      {
+       "daysBefore": 29,
+       "cents": 581189
+      },
+      {
+       "daysBefore": 28,
+       "cents": 581189
+      },
+      {
+       "daysBefore": 27,
+       "cents": 581189
+      },
+      {
+       "daysBefore": 26,
+       "cents": 581189
+      },
+      {
+       "daysBefore": 25,
+       "cents": 581189
+      },
+      {
+       "daysBefore": 24,
+       "cents": 581189
+      },
+      {
+       "daysBefore": 23,
+       "cents": 476189
+      },
+      {
+       "daysBefore": 22,
+       "cents": 476189
+      },
+      {
+       "daysBefore": 21,
+       "cents": 476189
+      },
+      {
+       "daysBefore": 20,
+       "cents": 447289
+      },
+      {
+       "daysBefore": 19,
+       "cents": 432289
+      },
+      {
+       "daysBefore": 18,
+       "cents": 432289
+      },
+      {
+       "daysBefore": 17,
+       "cents": 432289
+      },
+      {
+       "daysBefore": 16,
+       "cents": 432289
+      },
+      {
+       "daysBefore": 15,
+       "cents": 253384
+      },
+      {
+       "daysBefore": 14,
+       "cents": 253384
+      },
+      {
+       "daysBefore": 13,
+       "cents": 253384
+      },
+      {
+       "daysBefore": 12,
+       "cents": 253384
+      },
+      {
+       "daysBefore": 11,
+       "cents": 253384
+      },
+      {
+       "daysBefore": 10,
+       "cents": 246147
+      },
+      {
+       "daysBefore": 9,
+       "cents": 243539
+      },
+      {
+       "daysBefore": 8,
+       "cents": 243539
+      },
+      {
+       "daysBefore": 7,
+       "cents": 243539
+      },
+      {
+       "daysBefore": 6,
+       "cents": 243539
+      },
+      {
+       "daysBefore": 5,
+       "cents": 240549
+      },
+      {
+       "daysBefore": 4,
+       "cents": 240549
+      },
+      {
+       "daysBefore": 3,
+       "cents": 240549
+      },
+      {
+       "daysBefore": 2,
+       "cents": 240549
+      },
+      {
+       "daysBefore": 1,
+       "cents": 240549
+      }
+     ]
+    },
+    {
+     "payday": "2026-03-25",
+     "enough": true,
+     "points": [
+      {
+       "daysBefore": 28,
+       "cents": 635549
+      },
+      {
+       "daysBefore": 27,
+       "cents": 605549
+      },
+      {
+       "daysBefore": 26,
+       "cents": 605549
+      },
+      {
+       "daysBefore": 25,
+       "cents": 605549
+      },
+      {
+       "daysBefore": 24,
+       "cents": 605549
+      },
+      {
+       "daysBefore": 23,
+       "cents": 500549
+      },
+      {
+       "daysBefore": 22,
+       "cents": 500549
+      },
+      {
+       "daysBefore": 21,
+       "cents": 500549
+      },
+      {
+       "daysBefore": 20,
+       "cents": 471649
+      },
+      {
+       "daysBefore": 19,
+       "cents": 456649
+      },
+      {
+       "daysBefore": 18,
+       "cents": 456649
+      },
+      {
+       "daysBefore": 17,
+       "cents": 456649
+      },
+      {
+       "daysBefore": 16,
+       "cents": 456649
+      },
+      {
+       "daysBefore": 15,
+       "cents": 306491
+      },
+      {
+       "daysBefore": 14,
+       "cents": 307720
+      },
+      {
+       "daysBefore": 13,
+       "cents": 307720
+      },
+      {
+       "daysBefore": 12,
+       "cents": 307720
+      },
+      {
+       "daysBefore": 11,
+       "cents": 307720
+      },
+      {
+       "daysBefore": 10,
+       "cents": 300513
+      },
+      {
+       "daysBefore": 9,
+       "cents": 300513
+      },
+      {
+       "daysBefore": 8,
+       "cents": 300513
+      },
+      {
+       "daysBefore": 7,
+       "cents": 300513
+      },
+      {
+       "daysBefore": 6,
+       "cents": 300513
+      },
+      {
+       "daysBefore": 5,
+       "cents": 297523
+      },
+      {
+       "daysBefore": 4,
+       "cents": 297523
+      },
+      {
+       "daysBefore": 3,
+       "cents": 297523
+      },
+      {
+       "daysBefore": 2,
+       "cents": 297523
+      },
+      {
+       "daysBefore": 1,
+       "cents": 297523
+      }
+     ]
+    },
+    {
+     "payday": "2026-04-24",
+     "enough": true,
+     "points": [
+      {
+       "daysBefore": 30,
+       "cents": 692523
+      },
+      {
+       "daysBefore": 29,
+       "cents": 662523
+      },
+      {
+       "daysBefore": 28,
+       "cents": 662523
+      },
+      {
+       "daysBefore": 27,
+       "cents": 662523
+      },
+      {
+       "daysBefore": 26,
+       "cents": 662523
+      },
+      {
+       "daysBefore": 25,
+       "cents": 662523
+      },
+      {
+       "daysBefore": 24,
+       "cents": 662523
+      },
+      {
+       "daysBefore": 23,
+       "cents": 662523
+      },
+      {
+       "daysBefore": 22,
+       "cents": 557523
+      },
+      {
+       "daysBefore": 21,
+       "cents": 557523
+      },
+      {
+       "daysBefore": 20,
+       "cents": 557523
+      },
+      {
+       "daysBefore": 19,
+       "cents": 514393
+      },
+      {
+       "daysBefore": 18,
+       "cents": 499393
+      },
+      {
+       "daysBefore": 17,
+       "cents": 499393
+      },
+      {
+       "daysBefore": 16,
+       "cents": 499393
+      },
+      {
+       "daysBefore": 15,
+       "cents": 499393
+      },
+      {
+       "daysBefore": 14,
+       "cents": 348215
+      },
+      {
+       "daysBefore": 13,
+       "cents": 348215
+      },
+      {
+       "daysBefore": 12,
+       "cents": 389465
+      },
+      {
+       "daysBefore": 11,
+       "cents": 389465
+      },
+      {
+       "daysBefore": 10,
+       "cents": 389465
+      },
+      {
+       "daysBefore": 9,
+       "cents": 385485
+      },
+      {
+       "daysBefore": 8,
+       "cents": 385485
+      },
+      {
+       "daysBefore": 7,
+       "cents": 385485
+      },
+      {
+       "daysBefore": 6,
+       "cents": 465485
+      },
+      {
+       "daysBefore": 5,
+       "cents": 465485
+      },
+      {
+       "daysBefore": 4,
+       "cents": 462495
+      },
+      {
+       "daysBefore": 3,
+       "cents": 462495
+      },
+      {
+       "daysBefore": 2,
+       "cents": 462495
+      },
+      {
+       "daysBefore": 1,
+       "cents": 462495
+      }
+     ]
+    },
+    {
+     "payday": "2026-05-25",
+     "enough": true,
+     "points": [
+      {
+       "daysBefore": 31,
+       "cents": 857495
+      },
+      {
+       "daysBefore": 30,
+       "cents": 857495
+      },
+      {
+       "daysBefore": 29,
+       "cents": 827495
+      },
+      {
+       "daysBefore": 28,
+       "cents": 825923
+      },
+      {
+       "daysBefore": 27,
+       "cents": 825923
+      },
+      {
+       "daysBefore": 26,
+       "cents": 825923
+      },
+      {
+       "daysBefore": 25,
+       "cents": 825923
+      },
+      {
+       "daysBefore": 24,
+       "cents": 825923
+      },
+      {
+       "daysBefore": 23,
+       "cents": 720923
+      },
+      {
+       "daysBefore": 22,
+       "cents": 720923
+      },
+      {
+       "daysBefore": 21,
+       "cents": 720923
+      },
+      {
+       "daysBefore": 20,
+       "cents": 692023
+      },
+      {
+       "daysBefore": 19,
+       "cents": 677023
+      },
+      {
+       "daysBefore": 18,
+       "cents": 677023
+      },
+      {
+       "daysBefore": 17,
+       "cents": 677023
+      },
+      {
+       "daysBefore": 16,
+       "cents": 677023
+      },
+      {
+       "daysBefore": 15,
+       "cents": 447641
+      },
+      {
+       "daysBefore": 14,
+       "cents": 447641
+      },
+      {
+       "daysBefore": 13,
+       "cents": 447641
+      },
+      {
+       "daysBefore": 12,
+       "cents": 447641
+      },
+      {
+       "daysBefore": 11,
+       "cents": 447641
+      },
+      {
+       "daysBefore": 10,
+       "cents": 442919
+      },
+      {
+       "daysBefore": 9,
+       "cents": 439352
+      },
+      {
+       "daysBefore": 8,
+       "cents": 439352
+      },
+      {
+       "daysBefore": 7,
+       "cents": 439352
+      },
+      {
+       "daysBefore": 6,
+       "cents": 439352
+      },
+      {
+       "daysBefore": 5,
+       "cents": 436362
+      },
+      {
+       "daysBefore": 4,
+       "cents": 436362
+      },
+      {
+       "daysBefore": 3,
+       "cents": 438222
+      },
+      {
+       "daysBefore": 2,
+       "cents": 438222
+      },
+      {
+       "daysBefore": 1,
+       "cents": 438222
+      }
+     ]
+    },
+    {
+     "payday": "2026-06-25",
+     "enough": true,
+     "points": [
+      {
+       "daysBefore": 31,
+       "cents": 833222
+      },
+      {
+       "daysBefore": 30,
+       "cents": 803222
+      },
+      {
+       "daysBefore": 29,
+       "cents": 801910
+      },
+      {
+       "daysBefore": 28,
+       "cents": 801910
+      },
+      {
+       "daysBefore": 27,
+       "cents": 801910
+      },
+      {
+       "daysBefore": 26,
+       "cents": 801910
+      },
+      {
+       "daysBefore": 25,
+       "cents": 801910
+      },
+      {
+       "daysBefore": 24,
+       "cents": 801910
+      },
+      {
+       "daysBefore": 23,
+       "cents": 696910
+      },
+      {
+       "daysBefore": 22,
+       "cents": 696910
+      },
+      {
+       "daysBefore": 21,
+       "cents": 696910
+      },
+      {
+       "daysBefore": 20,
+       "cents": 668010
+      },
+      {
+       "daysBefore": 19,
+       "cents": 653010
+      },
+      {
+       "daysBefore": 18,
+       "cents": 653010
+      },
+      {
+       "daysBefore": 17,
+       "cents": 653010
+      },
+      {
+       "daysBefore": 16,
+       "cents": 653010
+      },
+      {
+       "daysBefore": 15,
+       "cents": 472435
+      },
+      {
+       "daysBefore": 14,
+       "cents": 472435
+      },
+      {
+       "daysBefore": 13,
+       "cents": 472435
+      },
+      {
+       "daysBefore": 12,
+       "cents": 472435
+      },
+      {
+       "daysBefore": 11,
+       "cents": 472435
+      },
+      {
+       "daysBefore": 10,
+       "cents": 468970
+      },
+      {
+       "daysBefore": 9,
+       "cents": 468970
+      },
+      {
+       "daysBefore": 8,
+       "cents": 468970
+      },
+      {
+       "daysBefore": 7,
+       "cents": 468970
+      },
+      {
+       "daysBefore": 6,
+       "cents": 468970
+      },
+      {
+       "daysBefore": 5,
+       "cents": 465980
+      },
+      {
+       "daysBefore": 4,
+       "cents": 465980
+      },
+      {
+       "daysBefore": 3,
+       "cents": 465980
+      },
+      {
+       "daysBefore": 2,
+       "cents": 465980
+      },
+      {
+       "daysBefore": 1,
+       "cents": 465980
+      }
+     ]
+    },
+    {
+     "payday": "2026-07-24",
+     "enough": true,
+     "points": [
+      {
+       "daysBefore": 29,
+       "cents": 860980
+      },
+      {
+       "daysBefore": 28,
+       "cents": 830980
+      },
+      {
+       "daysBefore": 27,
+       "cents": 828150
+      },
+      {
+       "daysBefore": 26,
+       "cents": 828150
+      },
+      {
+       "daysBefore": 25,
+       "cents": 828150
+      },
+      {
+       "daysBefore": 24,
+       "cents": 828150
+      },
+      {
+       "daysBefore": 23,
+       "cents": 828150
+      },
+      {
+       "daysBefore": 22,
+       "cents": 723150
+      },
+      {
+       "daysBefore": 21,
+       "cents": 723150
+      },
+      {
+       "daysBefore": 20,
+       "cents": 723150
+      },
+      {
+       "daysBefore": 19,
+       "cents": 680020
+      },
+      {
+       "daysBefore": 18,
+       "cents": 665020
+      },
+      {
+       "daysBefore": 17,
+       "cents": 665020
+      },
+      {
+       "daysBefore": 16,
+       "cents": 665020
+      },
+      {
+       "daysBefore": 15,
+       "cents": 665020
+      },
+      {
+       "daysBefore": 14,
+       "cents": 462568
+      },
+      {
+       "daysBefore": 13,
+       "cents": 465459
+      },
+      {
+       "daysBefore": 12,
+       "cents": 463073
+      },
+      {
+       "daysBefore": 11,
+       "cents": 463073
+      },
+      {
+       "daysBefore": 10,
+       "cents": 463073
+      },
+      {
+       "daysBefore": 9,
+       "cents": 458452
+      },
+      {
+       "daysBefore": 8,
+       "cents": 458452
+      },
+      {
+       "daysBefore": 7,
+       "cents": 458452
+      },
+      {
+       "daysBefore": 6,
+       "cents": 458452
+      },
+      {
+       "daysBefore": 5,
+       "cents": 458452
+      },
+      {
+       "daysBefore": 4,
+       "cents": 455462
+      },
+      {
+       "daysBefore": 3,
+       "cents": 455462
+      },
+      {
+       "daysBefore": 2,
+       "cents": 455462
+      },
+      {
+       "daysBefore": 1,
+       "cents": 455462
+      }
+     ]
+    },
+    {
+     "payday": "2026-08-25",
+     "enough": true,
+     "points": [
+      {
+       "daysBefore": 32,
+       "cents": 850462
+      },
+      {
+       "daysBefore": 31,
+       "cents": 850462
+      },
+      {
+       "daysBefore": 30,
+       "cents": 820462
+      },
+      {
+       "daysBefore": 29,
+       "cents": 818898
+      },
+      {
+       "daysBefore": 28,
+       "cents": 818898
+      },
+      {
+       "daysBefore": 27,
+       "cents": 818898
+      },
+      {
+       "daysBefore": 26,
+       "cents": 818898
+      },
+      {
+       "daysBefore": 25,
+       "cents": 818898
+      },
+      {
+       "daysBefore": 24,
+       "cents": 818898
+      },
+      {
+       "daysBefore": 23,
+       "cents": 713898
+      },
+      {
+       "daysBefore": 22,
+       "cents": 713898
+      },
+      {
+       "daysBefore": 21,
+       "cents": 713898
+      },
+      {
+       "daysBefore": 20,
+       "cents": 684998
+      },
+      {
+       "daysBefore": 19,
+       "cents": 669998
+      },
+      {
+       "daysBefore": 18,
+       "cents": 669998
+      },
+      {
+       "daysBefore": 17,
+       "cents": 669998
+      },
+      {
+       "daysBefore": 16,
+       "cents": 669998
+      },
+      {
+       "daysBefore": 15,
+       "cents": 485702
+      },
+      {
+       "daysBefore": 14,
+       "cents": 485702
+      },
+      {
+       "daysBefore": 13,
+       "cents": 485702
+      },
+      {
+       "daysBefore": 12,
+       "cents": 485702
+      },
+      {
+       "daysBefore": 11,
+       "cents": 485702
+      },
+      {
+       "daysBefore": 10,
+       "cents": 480478
+      },
+      {
+       "daysBefore": 9,
+       "cents": 480478
+      },
+      {
+       "daysBefore": 8,
+       "cents": 480478
+      },
+      {
+       "daysBefore": 7,
+       "cents": 480478
+      },
+      {
+       "daysBefore": 6,
+       "cents": 480478
+      },
+      {
+       "daysBefore": 5,
+       "cents": 477488
+      },
+      {
+       "daysBefore": 4,
+       "cents": 477488
+      },
+      {
+       "daysBefore": 3,
+       "cents": 477488
+      },
+      {
+       "daysBefore": 2,
+       "cents": 477488
+      },
+      {
+       "daysBefore": 1,
+       "cents": 477488
+      }
+     ]
+    },
+    {
+     "payday": "2026-09-25",
+     "enough": true,
+     "points": [
+      {
+       "daysBefore": 31,
+       "cents": 872488
+      },
+      {
+       "daysBefore": 30,
+       "cents": 842488
+      },
+      {
+       "daysBefore": 29,
+       "cents": 842488
+      },
+      {
+       "daysBefore": 28,
+       "cents": 842488
+      },
+      {
+       "daysBefore": 27,
+       "cents": 842488
+      },
+      {
+       "daysBefore": 26,
+       "cents": 842488
+      },
+      {
+       "daysBefore": 25,
+       "cents": 842488
+      },
+      {
+       "daysBefore": 24,
+       "cents": 842488
+      },
+      {
+       "daysBefore": 23,
+       "cents": 737488
+      },
+      {
+       "daysBefore": 22,
+       "cents": 737488
+      },
+      {
+       "daysBefore": 21,
+       "cents": 737488
+      },
+      {
+       "daysBefore": 20,
+       "cents": 708588
+      },
+      {
+       "daysBefore": 19,
+       "cents": 693588
+      },
+      {
+       "daysBefore": 18,
+       "cents": 693588
+      },
+      {
+       "daysBefore": 17,
+       "cents": 693588
+      },
+      {
+       "daysBefore": 16,
+       "cents": 693588
+      },
+      {
+       "daysBefore": 15,
+       "cents": 487052
+      },
+      {
+       "daysBefore": 14,
+       "cents": 487052
+      },
+      {
+       "daysBefore": 13,
+       "cents": 487052
+      },
+      {
+       "daysBefore": 12,
+       "cents": 487052
+      },
+      {
+       "daysBefore": 11,
+       "cents": 487052
+      },
+      {
+       "daysBefore": 10,
+       "cents": 482563
+      },
+      {
+       "daysBefore": 9,
+       "cents": 482563
+      },
+      {
+       "daysBefore": 8,
+       "cents": 482563
+      },
+      {
+       "daysBefore": 7,
+       "cents": 482563
+      },
+      {
+       "daysBefore": 6,
+       "cents": 482563
+      },
+      {
+       "daysBefore": 5,
+       "cents": 479573
+      },
+      {
+       "daysBefore": 4,
+       "cents": 479573
+      },
+      {
+       "daysBefore": 3,
+       "cents": 479573
+      },
+      {
+       "daysBefore": 2,
+       "cents": 479573
+      },
+      {
+       "daysBefore": 1,
+       "cents": 479573
+      }
+     ]
+    }
+   ],
+   "enoughCount": 11
+  },
   "pace": {
    "month": "2026-10",
    "day": 9,

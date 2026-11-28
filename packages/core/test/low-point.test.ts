@@ -618,30 +618,37 @@ describe("lowPoint in the dashboard answer", () => {
   });
 });
 
-describe("balancePast in the dashboard answer", () => {
+describe("pastPeriods in the dashboard answer", () => {
   const rows = [...pays(), ...rents(), ...shopping("2026-03-01", 4000)];
   const ctx = createContext(rows, [own], TODAY);
+  const endOfDay = (day: IsoDate) => 900_000 - rows.filter((r) => r.bookingDate > day && r.bookingDate <= TODAY).reduce((sum, r) => sum + r.amountCents, 0);
 
-  it("runs a day at a time from the last pay to today and ends at the balance the walk starts from", () => {
-    const home = buildDashboard(ctx, RANGE, [bal(900_000)], NO_INPUTS).home;
-    const past = home.balancePast!;
-    expect(past[0]!.date).toBe("2026-10-15");
-    expect(past.map((p) => p.date)).toEqual(Array.from({ length: 12 }, (_, i) => addDays("2026-10-15", i)));
-    expect(past.at(-1)).toEqual({ date: TODAY, cents: 900_000 });
-    expect(past.at(-1)!.cents).toBe(home.runway!.sum!.balanceCents);
-    // each day's balance is the next day's less that day's rows
-    for (const [i, p] of past.entries()) {
-      if (i === 0) continue;
-      const day = rows.filter((r) => r.bookingDate === p.date).reduce((sum, r) => sum + r.amountCents, 0);
-      expect(p.cents - past[i - 1]!.cents).toBe(day);
+  it("holds each complete period between two pays, a day at a time to the day before its payday", () => {
+    const past = buildDashboard(ctx, RANGE, [bal(900_000)], NO_INPUTS).home.pastPeriods!;
+    const paydays = rows.filter((r) => r.category === "salary").map((r) => r.bookingDate).sort();
+    // the period that runs now is not among them
+    expect(past.periods.map((p) => p.payday)).toEqual(paydays.slice(1));
+    for (const [i, p] of past.periods.entries()) {
+      const start = paydays[i]!;
+      expect(p.points.map((q) => q.daysBefore)).toEqual(Array.from({ length: daysBetween(start, p.payday) }, (_, k) => daysBetween(start, p.payday) - k));
+      for (const q of p.points) expect(q.cents).toBe(endOfDay(addDays(p.payday, -q.daysBefore)));
+      expect(p.enough).toBe(p.points.every((q) => q.cents >= 0));
     }
-    const known = home.lowPoint as Extract<LowPoint, { known: true }>;
-    expect(known.startCents + known.cardDebtCents).toBe(past.at(-1)!.cents);
+    expect(past.enoughCount).toBe(past.periods.filter((p) => p.enough).length);
   });
 
-  it("is null for a range without today and for an account without a balance", () => {
-    expect(buildDashboard(ctx, { from: "2026-09-01", to: "2026-09-30" }, [bal(900_000)], NO_INPUTS).home.balancePast).toBeNull();
-    expect(buildDashboard(ctx, RANGE, [{ ...bal(900_000), balanceCents: null }], NO_INPUTS).home.balancePast).toBeNull();
+  it("counts a period that went below zero as not enough", () => {
+    const poor = buildDashboard(ctx, RANGE, [bal(100_000)], NO_INPUTS).home.pastPeriods!;
+    const rich = buildDashboard(ctx, RANGE, [bal(900_000)], NO_INPUTS).home.pastPeriods!;
+    expect(poor.periods.length).toBe(rich.periods.length);
+    expect(poor.enoughCount).toBeLessThan(rich.enoughCount);
+  });
+
+  it("is null under three complete periods, for a range without today and for an account without a balance", () => {
+    const few = createContext([...pays("2026-07", "2026-10"), ...rents(), ...shopping("2026-03-01", 4000)], [own], TODAY);
+    expect(buildDashboard(few, RANGE, [bal(900_000)], NO_INPUTS).home.pastPeriods).toBeNull();
+    expect(buildDashboard(ctx, { from: "2026-09-01", to: "2026-09-30" }, [bal(900_000)], NO_INPUTS).home.pastPeriods).toBeNull();
+    expect(buildDashboard(ctx, RANGE, [{ ...bal(900_000), balanceCents: null }], NO_INPUTS).home.pastPeriods).toBeNull();
   });
 });
 
