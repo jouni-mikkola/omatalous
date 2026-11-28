@@ -111,7 +111,7 @@ function Stacked({ sources, uses, label }: { sources: readonly MoneyFlowBand[]; 
         const total = side.reduce((sum, b) => sum + b.cents, 0);
         return (
           <div key={name} className="mf-side">
-            <h4 className="mf-side-name">{name}</h4>
+            <p className="mf-side-name">{name}</p>
             <div className="mf-bar">
               {side.map((b) => (
                 <span key={b.id} className={`mf-seg mf-${b.kind}`} ref={css({ "flex-grow": total > 0 ? b.cents / total : 0 })} />
