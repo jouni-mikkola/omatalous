@@ -77,7 +77,7 @@ describe("Now", () => {
   };
 
   it("stands the line under the sum left on the payday, outside its link", () => {
-    const section = nowOf({ known: false, reason: "history", days: 9 }, runway);
+    const section = nowOf({ known: false, reason: "history", days: 9 });
     const line = section.querySelector("p.home-low")!;
     expect(flat(line.textContent)).toBe("Alin saldo 9 pv: Liian lyhyt historia");
     expect(line.previousElementSibling?.matches('a[data-tile="left"]')).toBe(true);

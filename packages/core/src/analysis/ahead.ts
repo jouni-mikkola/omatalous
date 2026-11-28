@@ -12,7 +12,7 @@ import { cancelledSubjects, type ExpectedCharge, expectedCharges } from "../comm
 import { addDays, daysBetween, monthOf } from "../dates.ts";
 import { accountDigits } from "../day-bins.ts";
 import { cardDebtOf, householdDebts } from "../household-debts.ts";
-import { plannedLoanRow } from "../loan-detect.ts";
+import { plannedLoanRow } from "../loan-planned-row.ts";
 import { creditUse } from "../loans.ts";
 import { parseSeriesId, type RecurringSeries } from "../recurring.ts";
 import { normalizeIban } from "../transfers.ts";

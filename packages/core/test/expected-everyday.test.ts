@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { coversCategories, expectedEveryday, expectedEverydayPerDay, expectedFor, usualGap } from "../src/analysis/expected.ts";
 import { addDays, daysInMonth } from "../src/dates.ts";
-import { plannedLoanRow } from "../src/loan-detect.ts";
+import { plannedLoanRow } from "../src/loan-planned-row.ts";
 import { seriesId } from "../src/series-id.ts";
 import { type Account, type IsoDate, type Loan, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";

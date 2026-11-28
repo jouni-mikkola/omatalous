@@ -40,7 +40,7 @@ import { NOT_LOAN_SUBJECT } from "./loan-mark.ts";
 import type { RecurringSeries } from "./recurring.ts";
 import { parseSeriesId, seriesId } from "./series-id.ts";
 import { STEADY_BAND, steadyBy } from "./returns.ts";
-import { type IsoDate, isRevolving, type LoanKind, type Transaction, type UserInputs } from "./types.ts";
+import type { IsoDate, LoanKind, Transaction, UserInputs } from "./types.ts";
 import { hasLoanText, withoutSwedishTwin } from "./wording-lenders.ts";
 import { hasPayeeForm, housingCharge, isCarFinanceText, isCreditIssuerText, isHousingCompanyName, isInsuranceText, isLeaseText, isLenderName, isLoanText, isNamedLaina, isRent } from "./wording.ts";
 
@@ -183,17 +183,6 @@ function names(key: string, s: Pick<RecurringSeries, "id" | "merchant">, amounts
  */
 export function paysSeries(key: string, t: Pick<Transaction, "accountId" | "merchant" | "amountCents">, others: readonly string[]): boolean {
   return names(key, { id: seriesId({ direction: "out", accountId: t.accountId, merchant: t.merchant, product: null }), merchant: t.merchant }, [-t.amountCents], others);
-}
-
-/**
- * Whether a bank row pays a saved loan that the bill calendar walks by its plan (a loan with a plan, not a card or credit
- * line): the plan's row stands for it, so the row is no everyday spending. A row of no such loan is a payment of its own.
- */
-export function plannedLoanRow(inputs: UserInputs): (t: Pick<Transaction, "accountId" | "merchant" | "amountCents">) => boolean {
-  const loans = loansOf(inputs);
-  const keys = loans.flatMap((loan) => loan.seriesKey ?? []);
-  const planned = loans.flatMap((loan) => (loan.seriesKey && !isRevolving(loan.kind) ? [loan.seriesKey] : []));
-  return (t) => planned.some((key) => paysSeries(key, t, keys));
 }
 
 /**
