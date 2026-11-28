@@ -4,8 +4,6 @@
  * they do not fit in one line the answers go under the payee, from its left edge.
  */
 @layer components {
-.question-line { margin: 0; padding: var(--cell-y) 0 0; }
-.question-line + .question-line { padding-top: 0; }
 .question-list { margin-top: 8px; border-top: 1px solid var(--grid); }
 .question-row { align-items: center; row-gap: 8px; box-sizing: border-box; min-height: 40px; padding: 8px 0; }
 .question-row .st-name { flex: 1 1 10rem; }
