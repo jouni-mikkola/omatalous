@@ -92,7 +92,7 @@ describe("Laskut: the table and the mark on one subscription", () => {
   });
 
   const power = sub({ id: "out:acc-1:Sähköyhtiö", merchant: "Sähköyhtiö", category: "utilities", kind: "bill", typicalAmountCents: 6420 });
-  it("says on a row that its sum is an estimate, that it is paid or a card's to pay, nothing on a known one, and tags no kind", () => {
+  it("says on a row that it is paid or a card's to pay, draws an estimated sum with the dotted line and no word, says nothing on a known one, and tags no kind", () => {
     const cal = calendar([
       month("2026-10", [
         bill({ date: "2026-10-12", payee: "Vesiyhtiö", state: "known" }),
@@ -102,8 +102,10 @@ describe("Laskut: the table and the mark on one subscription", () => {
       ]),
     ]);
     const out = cardOf([power, spotify], [], cal);
-    for (const word of ["Summa arvioitu", "Arvio", "Maksettu", "Kortilla"]) expect(out).toContain(`>${word}<`);
-    expect(out.match(/class="bill-flag"/g)).toHaveLength(3);
+    for (const word of ["Maksettu", "Kortilla"]) expect(out).toContain(`>${word}<`);
+    for (const gone of ["Summa arvioitu", "Arvio"]) expect(out).not.toContain(gone);
+    expect(out.match(/class="bill-flag"/g)).toHaveLength(2);
+    expect(out.match(/class="fig-est"/g)).toHaveLength(1);
     expect(out).not.toContain("Tiedossa");
     expect(out).not.toContain("mb-tag");
   });
@@ -199,11 +201,11 @@ describe("Laskut: the table and the mark on one subscription", () => {
     expect(out).toMatch(/bill-total-name[^>]*>Maksamatta/);
   });
 
-  it("ends an open month with Maksettu, Maksamatta and its parts by kind, Säästöön, Tulot and Laskujen jälkeen, in that order", () => {
+  it("ends an open month with Maksettu, Maksamatta, Säästöön, Tulot and Laskujen jälkeen, in that order, and leaves the parts by kind to the panel", () => {
     const sums = { paidCents: 5000, knownCents: 1000, billsCents: 1000, savingCents: 15000, incomeCents: 10000, afterCents: -6000 };
     const names = (html: string) => [...html.matchAll(/class="bill-total-name">([^<]*)</g)].map((m) => m[1]);
-    expect(names(cardOf([], [], calendar([month("2026-10", [bill()], { ...sums, essentialCents: 600, optionalCents: 400 })])))).toEqual(["Maksettu", "Maksamatta", "Asuminen ja välttämättömät", "Valinnaiset", "Säästöön", "Tulot", "Laskujen jälkeen"]);
-    // one kind alone is the sum itself and is no row
+    expect(names(cardOf([], [], calendar([month("2026-10", [bill()], { ...sums, essentialCents: 600, optionalCents: 400 })])))).toEqual(["Maksettu", "Maksamatta", "Säästöön", "Tulot", "Laskujen jälkeen"]);
+    // one kind alone is the sum itself
     expect(names(cardOf([], [], calendar([month("2026-10", [bill()], { ...sums, essentialCents: 1000 })])))).toEqual(["Maksettu", "Maksamatta", "Säästöön", "Tulot", "Laskujen jälkeen"]);
   });
 

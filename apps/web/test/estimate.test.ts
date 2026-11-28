@@ -41,7 +41,7 @@ describe("the mark of an estimate", () => {
 
   it("puts ≈ before an estimate or the dotted underline, and leaves an exact figure as it is", () => {
     expect(renderToStaticMarkup(createElement(Estimate, { children: "1 200 €" }))).toBe('<span class="fig-approx"><span class="fig-approx-sign">≈</span>1 200 €</span>');
-    expect(renderToStaticMarkup(createElement(Estimate, { mark: "line", children: "1 200 €" }))).toBe('<span class="fig-est">1 200 €</span>');
+    expect(renderToStaticMarkup(createElement(Estimate, { mark: "line", children: "1 200 €" }))).toBe('<span class="fig-est"><span class="sr-only">noin </span>1 200 €</span>');
     expect(renderToStaticMarkup(createElement(Estimate, { when: false, children: "0,00 €" }))).toBe("0,00 €");
     expect(approxText("3,75 €", true)).toBe("≈ 3,75 €");
     expect(approxText("0,00 €", false)).toBe("0,00 €");

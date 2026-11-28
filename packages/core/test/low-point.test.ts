@@ -92,13 +92,26 @@ describe("lowPoint with no everyday spending", () => {
     expect(balance!.shortCents).toBe(point.known ? -point.cents : null);
   });
 
-  it("counts a pay only from its own day: a payment on the payday is met from the balance before it", () => {
-    // the rent is booked on the 13th, the day of the pay: 500 € less 900 € is -400 € that day, not +2 600 €
-    const { basis, point } = walk([...pays(), ...rents("2026-03", 13)], [bal(50_000)], 19);
-    // the payday window of Käytettävissä ends the day before the pay, so it does not see this payment
-    expect(point).toEqual({ known: true, date: "2026-11-13", cents: -40_000, lowCents: -40_000, highCents: -40_000, days: 19 });
+  it("leaves a payment on the payday out, as the window and Jää palkkapäivänä do: the lowest point and the headline are one figure", () => {
+    // the rent is booked on the 13th, the day of the pay: it is paid from the pay, in no figure of the window
+    const { basis, point, runway } = walk([...pays(), ...rents("2026-03", 13)], [bal(50_000)], 19);
+    if (!point.known || !runway.known) throw new Error("no figure");
     expect(basis.ahead.to).toBe("2026-11-12");
     expect(basis.ahead.balance!.shortOn).toBeNull();
+    expect(point.cents).toBe(runway.leftCents);
+    expect(point).toEqual({ known: true, date: "2026-11-13", cents: 50_000, lowCents: 50_000, highCents: 50_000, days: 19 });
+    // a longer walk is unchanged: the rent on the pay day is met from the balance before the pay
+    expect(walk([...pays(), ...rents("2026-03", 13)], [bal(50_000)], 20).point).toMatchObject({ date: "2026-11-13", cents: -40_000 });
+  });
+
+  it("counts the walk of the payday itself as the headline when the pay is due today", () => {
+    // the rent is booked on the dates of the pay, so it follows the pay and the October one is due today
+    const salary = pays("2026-03", "2026-09", 26);
+    const rent = salary.map((p) => tx({ accountId: own.id, bookingDate: p.bookingDate, amountCents: -RENT, merchant: "Sato Oyj", category: "housing" }));
+    const { basis, point, runway } = walk([...salary, ...rent], [bal(50_000)], 1);
+    if (!point.known || !runway.known) throw new Error("no figure");
+    expect(basis.ahead.upcoming.some((r) => r.withPay)).toBe(true);
+    expect(point.cents).toBe(runway.leftCents);
   });
 
   it("counts the 60th day and not the 61st: a payment on the last day is the lowest, one a day later is left out", () => {
@@ -308,6 +321,13 @@ const statements = (day = "09"): Transaction[] =>
   });
 
 describe("lowPoint with a card", () => {
+  it("leaves the debt of a card whose bill falls on the payday out of a walk that ends on it", () => {
+    const rows = [...pays(), ...rents(), ...cardShopping(), ...statements("13")].filter((t) => t.bookingDate <= TODAY);
+    const { point, runway } = walk(rows, balBoth(200_000), 19, NO_INPUTS, [own, card]);
+    if (!point.known || !runway.known) throw new Error("no figure");
+    expect(point.cents).toBe(runway.leftCents);
+  });
+
   it("takes the card's bill off once and its purchases after the bill day with the bill after the payday: the bill of 9.11. holds the debt", () => {
     const rows = [...pays(), ...rents(), ...cardShopping(), ...statements()].filter((t) => t.bookingDate <= TODAY);
     const { point, runway, basis } = walk(rows, balBoth(200_000), undefined, NO_INPUTS, [own, card]);
