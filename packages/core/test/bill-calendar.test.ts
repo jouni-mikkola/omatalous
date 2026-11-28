@@ -267,7 +267,8 @@ describe("the bill calendar", () => {
     expect(lump.seriesId).not.toBeNull();
     expect(lump.monthly).toBeUndefined();
     expect(loanRows.some((r) => r.monthly === true)).toBe(true);
-    expect(cal.months[5]!.monthlyBillsCount).toBe(0);
+    // March has the interest charge of the 2nd as its one monthly row, and the lump sum is not in it
+    expect(cal.months[5]!).toMatchObject({ monthlyBillsCount: 1, monthlyBillsCents: 91_240 });
   });
 
   it("has a regular saving as a row of its own kind, in no sum of the bills", () => {

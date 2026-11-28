@@ -253,7 +253,18 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
     // the series charged this month: that is the month's payment, so the plan's payment of the month is no second row
     const paidNow = series !== undefined && series.lastDate >= windowStart && series.lastAmountCents !== 0;
     if (paidNow) rows.push(row(series.lastDate, Math.abs(series.lastAmountCents), "paid"));
+    // the series that pays the loan has the bank's real days and sums (as the runway takes them): they are the rows, up to `last`
+    const seriesRows = (series: RecurringSeries, last: IsoDate | null) => {
+      const state = series.kind === "subscription" ? "known" : "estimate";
+      for (const c of expectedCharges([series], today, windowEnd, { cancelled, savings: true })) {
+        if (last !== null && c.date > last) continue;
+        if (c.amountCents <= 0) unknowns.push({ days: [c.date], open: false, kind: "loan", onCard: paidElsewhere(series.id) });
+        else rows.push(row(c.date, c.amountCents, state));
+      }
+    };
     if (loan.repayment === "bullet") {
+      // the interest series' charges up to the last day, beside the lump sum
+      if (series) seriesRows(series, loan.endDate);
       // the whole balance falls due on the last day; a bullet with no day, or a day past, has nothing in these months
       if (loan.endDate !== null && loan.endDate >= today && loan.endDate <= windowEnd && loan.endDate > loan.balanceDate) {
         const owed = loanBalanceOn(loan, addDays(loan.endDate, -1)).cents;
@@ -278,20 +289,14 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       continue;
     }
     if (series) {
-      // the series that pays the loan has the bank's real days and sums (as the runway takes them): they are the rows, up to the
-      // loan's end date or, with none, the plan's last due date
+      // up to the loan's end date or, with none, the plan's last due date
       let last: IsoDate | null = loan.endDate;
       if (last === null) {
         let end: IsoDate = first.date;
         for (let next = loanNextPayment(loan, first.date); next.date !== null && next.date <= windowEnd; next = loanNextPayment(loan, next.date)) end = next.date;
         if (loanNextPayment(loan, end).date === null) last = end;
       }
-      const state = series.kind === "subscription" ? "known" : "estimate";
-      for (const c of expectedCharges([series], today, windowEnd, { cancelled, savings: true })) {
-        if (last !== null && c.date > last) continue;
-        if (c.amountCents <= 0) unknowns.push({ days: [c.date], open: false, kind: "loan", onCard: paidElsewhere(series.id) });
-        else rows.push(row(c.date, c.amountCents, state));
-      }
+      seriesRows(series, last);
       continue;
     }
     // the due date before the payment: where its interval starts, and so which rate counts. The first payment's started on or before today.
@@ -301,7 +306,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       intervalStart = next.date;
       if (paidNow && monthOf(next.date) === firstMonth) continue;
       if (next.cents === null || next.cents <= 0) {
-        unknowns.push({ days: [next.date], open: true, kind: "loan", onCard: series ? paidElsewhere(series.id) : false });
+        unknowns.push({ days: [next.date], open: true, kind: "loan", onCard: false });
         break;
       }
       rows.push(row(next.date, next.cents, review !== null && started !== null && started >= review ? "estimate" : "known", next.intervalMonths === 1));
