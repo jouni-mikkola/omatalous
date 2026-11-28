@@ -1,7 +1,7 @@
 // Decision: which debts end when, and so the day the household is free of them
 import { useWidth } from "../../hooks.ts";
 import { Table } from "../../components/table/Table.tsx";
-import { money } from "../../format.ts";
+import { money, monthYear } from "../../format.ts";
 import { t } from "../../text.ts";
 import { crisp } from "../draw.ts";
 import "../../styles/question-chart.css";
@@ -22,9 +22,6 @@ const BAR_HEIGHT = 16;
 const END_ROOM = 88;
 const AXIS_ROOM = 28;
 const NAME_MAX = 30;
-
-/** "5 / 2038": the month of a due date. */
-export const debtMonth = (iso: string) => `${Number(iso.slice(5, 7))} / ${iso.slice(0, 4)}`;
 
 const dayNumber = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / 86_400_000;
 const shortName = (name: string) => (name.length > NAME_MAX ? `${name.slice(0, NAME_MAX - 1)}…` : name);
@@ -81,7 +78,7 @@ export function DebtLanes({ lanes, today }: { lanes: readonly DebtLane[]; today:
                   </text>
                   <rect className="bar lane-bar" x={0} y={top + BAR_TOP} width={Math.max(x(l.end), 2)} height={BAR_HEIGHT} />
                   <text className="lane-end" x={x(l.end) + 8} y={mid} dy="0.32em">
-                    {debtMonth(l.end)}
+                    {monthYear(l.end)}
                   </text>
                   {l.own !== l.end && <line className="lane-own" x1={0} x2={x(l.own)} y1={top + BAR_TOP + BAR_HEIGHT + 6} y2={top + BAR_TOP + BAR_HEIGHT + 6} />}
                 </g>
@@ -105,8 +102,8 @@ export function DebtLanesTable({ lanes }: { lanes: readonly DebtLane[] }) {
       columns={[
         { key: "name", label: t("rpt.ln_col_debt"), kind: "text", rowHead: true, cell: (l) => l.name },
         { key: "balance", label: t("rpt.ln_col_balance"), kind: "money", cents: (l) => l.balanceCents, precision: "euros" },
-        { key: "end", label: t("rpt.dl_ends"), kind: "text", main: true, cell: (l) => debtMonth(l.end) },
-        ...(hasOwn ? [{ key: "own", label: t("rpt.dl_ends_own"), kind: "text" as const, cell: (l: DebtLane) => debtMonth(l.own) }] : []),
+        { key: "end", label: t("rpt.dl_ends"), kind: "text", main: true, cell: (l) => monthYear(l.end) },
+        ...(hasOwn ? [{ key: "own", label: t("rpt.dl_ends_own"), kind: "text" as const, cell: (l: DebtLane) => monthYear(l.own) }] : []),
       ]}
     />
   );

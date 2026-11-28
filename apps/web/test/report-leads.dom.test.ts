@@ -46,8 +46,18 @@ describe("Varat ja velat: the debt-free head", () => {
 
   it("tells the plan's debt-free month, and nothing without a plan", () => {
     const plan = { debtFreeDate: "2038-05-15", baseDebtFreeDate: "2038-05-15", debts: [{ id: "l1", order: 1, endDate: "2038-05-15", baseEndDate: "2038-05-15" }] };
-    expect(head(held, { plan, loans: [{ id: "l1", name: "Asuntolaina", balance: { cents: 9_000_000 } }] })).toContain("Velaton 5 / 2038");
+    expect(head(held, { plan, loans: [{ id: "l1", name: "Asuntolaina", balance: { cents: 9_000_000 } }] })).toContain("Velaton 5/2038");
     expect(head(held, { plan: null, loans: [] })).toBe("");
+  });
+
+  it("names each lane by its loan, in the plan's order", () => {
+    const debt = (id: string, order: number) => ({ id, order, endDate: "2038-05-15", baseEndDate: "2038-05-15" });
+    const plan = { debtFreeDate: "2038-05-15", baseDebtFreeDate: "2038-05-15", debts: [debt("l2", 1), debt("l1", 2)] };
+    const loans = [{ id: "l1", name: "Asuntolaina", balance: { cents: 9_000_000 } }, { id: "l2", name: "Autolaina", balance: { cents: 500_000 } }];
+    const text = head(held, { plan, loans });
+    expect(text).not.toContain("l1");
+    expect(text.indexOf("Autolaina")).toBeGreaterThan(-1);
+    expect(text.indexOf("Autolaina")).toBeLessThan(text.indexOf("Asuntolaina"));
   });
 });
 

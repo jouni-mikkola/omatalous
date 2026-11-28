@@ -1,4 +1,4 @@
-/* Debts of Raportit (pages/reports/pages/Debts.tsx): the styles of its own sections, which no other page reads. */
+/* Varat ja velat (pages/DebtFree.tsx and the debt lanes chart): the styles of the debt-free head. */
 @layer pages {
 /* Varat ja velat: the debt-free month as the head of the page, the ask for the missing balances in its place, and the lanes under it */
 .debt-free { display: grid; gap: var(--sp-8); }
