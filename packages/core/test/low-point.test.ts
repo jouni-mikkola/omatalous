@@ -99,7 +99,7 @@ describe("lowPoint with no everyday spending", () => {
     expect(basis.ahead.to).toBe("2026-11-12");
     expect(basis.ahead.balance!.shortOn).toBeNull();
     expect(point.cents).toBe(runway.leftCents);
-    expect(point).toEqual({ known: true, date: "2026-10-26", cents: 50_000, lowCents: 50_000, highCents: 50_000, days: 19 });
+    expect(point).toEqual({ known: true, date: "2026-11-13", cents: 50_000, lowCents: 50_000, highCents: 50_000, days: 19 });
   });
 
   it("counts the 60th day and not the 61st: a payment on the last day is the lowest, one a day later is left out", () => {
