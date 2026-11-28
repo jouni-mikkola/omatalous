@@ -118,7 +118,7 @@ test("the joint account's row says the part, and the parts of the two members ad
 test("Tapahtumat shows the part as a joint account's row's figure and the bank's amount under it, and has no line about the sums", async ({ browser }) => {
   const { context, page, seen } = await open(browser, members[0]!, "/#/transactions");
   const rows = page.locator("table tbody tr");
-  const joint = rows.filter({ hasText: "Yhteistili" }).filter({ has: page.locator(".tx-part") }).first();
+  const joint = rows.filter({ has: page.locator(".tx-part") }).first();
   await expect(joint).toBeVisible();
   const [part, bank] = (await joint.locator("td.num").innerText()).split("\n").map(plain);
   expect(bank, "the bank's amount is told with its words").toMatch(/^koko summa /);
@@ -127,8 +127,8 @@ test("Tapahtumat shows the part as a joint account's row's figure and the bank's
   const amount = bank!.replace("koko summa ", "");
   expect(Math.abs(share - Math.round((cents(amount) * PARTS[0]) / 100))).toBeLessThanOrEqual(1);
   expect(Math.abs(share)).toBeLessThan(Math.abs(cents(amount)));
-  // an account of the member's own is whole: no part beside it
-  const own = rows.filter({ hasText: "Käyttötili" }).first();
+  // a row of the member's own account is whole: no part beside it (a closed row names no account)
+  const own = rows.filter({ has: page.locator(".tx-name") }).filter({ hasNot: page.locator(".tx-part") }).first();
   await expect(own).toBeVisible();
   await expect(own.locator(".tx-part")).toHaveCount(0);
   await expect(page.getByText("Yhteisen tilin tapahtumista summissa on sinun osuutesi.")).toHaveCount(0);
@@ -137,7 +137,7 @@ test("Tapahtumat shows the part as a joint account's row's figure and the bank's
 
   // Koko talous counts the account whole: the bank's amount alone, and no sentence about parts
   const whole = await open(browser, members[0]!, "/#/transactions", { household: true });
-  await expect(whole.page.locator("table tbody tr").filter({ hasText: "Yhteistili" }).first()).toBeVisible();
+  await expect(whole.page.locator("table tbody tr .tx-name").first()).toBeVisible();
   await expect(whole.page.locator(".tx-part")).toHaveCount(0);
   await expect(whole.page.getByText("Yhteisen tilin tapahtumista summissa on sinun osuutesi.")).toHaveCount(0);
   expect(whole.seen.problems).toEqual([]);

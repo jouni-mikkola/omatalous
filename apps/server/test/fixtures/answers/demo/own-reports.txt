@@ -5946,29 +5946,6 @@
   "fixedShare": 0.4432759493670886,
   "fixedShareLabel": "Kiinteät menot tavallisista tuloista, viimeiset 6 kuukautta"
  },
- "monthLead": {
-  "month": "2026-10",
-  "biggestDay": {
-   "date": "2026-10-02",
-   "outCents": 114049,
-   "count": 3
-  },
-  "top": [
-   {
-    "merchant": "Sato",
-    "outCents": 105000
-   },
-   {
-    "merchant": "If Vahinkovakuutus Oy",
-    "outCents": 14230
-   },
-   {
-    "merchant": "Wolt",
-    "outCents": 10932
-   }
-  ],
-  "fresh": []
- },
  "moneyFlow": {
   "sources": [],
   "uses": [],
