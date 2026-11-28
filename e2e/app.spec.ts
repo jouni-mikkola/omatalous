@@ -498,7 +498,7 @@ test("an expected bill is added at the head of Tulossa, shows in its one table, 
     await expect(dueMonth(p)).toHaveAttribute("aria-expanded", "true");
   };
   await showDueMonth(page);
-  await expect(table.locator("tbody tr").filter({ has: page.locator("button.rt-drill") }).filter({ hasText: "E2E-ajoneuvovero" })).locator(".fig-est").toHaveCount(0);
+  await expect(table.locator("tbody tr").filter({ has: page.locator("button.rt-drill") }).filter({ hasText: "E2E-ajoneuvovero" }).locator(".fig-est")).toHaveCount(0);
   const remove = (p: Page) => p.locator("#laskut-taulukko").getByRole("button", { name: "Poista lasku E2E-ajoneuvovero" });
   const open = (p: Page) => p.locator("#laskut-taulukko").getByRole("button", { name: "Tiedot: E2E-ajoneuvovero" });
   await open(page).click();
