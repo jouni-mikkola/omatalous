@@ -1,5 +1,5 @@
 // Decision: how much of the household's life is paid with credit or savings, and how large a cut would end it
-import { money } from "../../format.ts";
+import { money, monthLabel } from "../../format.ts";
 import { t } from "../../text.ts";
 import "../../styles/money-flow.css";
 
@@ -38,11 +38,29 @@ function stack(side: readonly MoneyFlowBand[]): { band: MoneyFlowBand; y: number
 }
 
 /**
+ * One row of the complete months; a press picks the month and the same press again returns to the whole period. The
+ * picture itself is the caller's, so the hero and the table follow the pick too.
+ */
+export function MoneyFlowMonths({ months, picked, onPick }: { months: readonly string[]; picked: string | null; onPick: (month: string | null) => void }) {
+  const withYear = new Set(months.map((m) => m.slice(0, 4))).size > 1;
+  return (
+    <div className="mf-months" role="group" aria-label={t("rpt.mf_months")}>
+      {months.map((m) => (
+        <button key={m} type="button" className="mf-month" aria-pressed={picked === m} onClick={() => onPick(picked === m ? null : m)}>
+          {monthLabel(m, withYear)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/**
  * The sources and the uses as two stacked columns of equal height side by side, each with a legend that names a band
  * and its sum on one line, so no label can lie over another. Money has no label, so no band links one source to one
- * use: the bands are drawn by size only and the sums are the report's.
+ * use: the bands are drawn by size only and the sums are the report's. A band that `href` answers opens its rows; a
+ * change of bands moves each band to its new place and height, keyed by the band.
  */
-export function MoneyFlow({ sources, uses }: { sources: readonly MoneyFlowBand[]; uses: readonly MoneyFlowBand[] }) {
+export function MoneyFlow({ sources, uses, href }: { sources: readonly MoneyFlowBand[]; uses: readonly MoneyFlowBand[]; href?: (band: MoneyFlowBand) => string | null }) {
   return (
     <div className="money-flow">
       <div className="mf-stacked">
@@ -54,14 +72,14 @@ export function MoneyFlow({ sources, uses }: { sources: readonly MoneyFlowBand[]
             <p className="mf-side-name">{name}</p>
             <svg className="mf-column" viewBox={`0 0 100 ${HEIGHT}`} preserveAspectRatio="none" role="img" aria-label={`${name}: ${side.map((b) => `${b.label} ${money(b.cents)}`).join(", ")}`}>
               {stack(side).map(({ band, y, height }) => (
-                <rect key={band.id} className={`mf-seg mf-${band.kind}`} x={0} y={y} width={100} height={height} />
+                <rect key={band.id} className={`mf-seg mf-${band.kind}`} x={0} y={y} width={100} height={height} style={{ y: `${y}px`, height: `${height}px` }} />
               ))}
             </svg>
             <ul className="mf-legend">
               {side.map((b) => (
                 <li key={b.id}>
                   <span className={`mf-key mf-${b.kind}`} />
-                  <span className="mf-name">{b.label}</span>
+                  <span className="mf-name">{href?.(b) ? <a href={href(b)!}>{b.label}</a> : b.label}</span>
                   <span className="mf-sum">{money(b.cents)}</span>
                 </li>
               ))}
