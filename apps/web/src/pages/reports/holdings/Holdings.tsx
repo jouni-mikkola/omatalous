@@ -91,7 +91,7 @@ function Tick({ state }: { state: ReconcileState | undefined }) {
 /**
  * The accounts as one list, under the headings of their types when `types` is given. A type's heading holds its total when it has two accounts or more; for one account it would only repeat it.
  */
-function AccountRows({ holdings, types }: { holdings: Answer; types: { type: AccountType; rows: Answer["accounts"] }[] | null }) {
+function AccountRows({ holdings, meta, types }: { holdings: Answer; meta: Meta; types: { type: AccountType; rows: Answer["accounts"] }[] | null }) {
   const masks = maskedNames(holdings.accounts);
   const groups = types ?? [{ type: null, rows: holdings.accounts }];
   return (
@@ -131,7 +131,7 @@ function Accounts({ holdings, meta }: { holdings: Answer; meta: Meta }) {
   return (
     <section>
       <h3 className="st-cap">{t("holdings.accounts")}</h3>
-      <AccountRows holdings={holdings} types={types.length > 1 ? types : null} />
+      <AccountRows holdings={holdings} meta={meta} types={types.length > 1 ? types : null} />
     </section>
   );
 }

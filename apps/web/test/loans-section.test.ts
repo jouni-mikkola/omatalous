@@ -40,7 +40,7 @@ const context = (data: unknown, scope = "own", balances: unknown = balanceData, 
 /** The section as text a test can read: plain spaces and a plain minus. */
 const html0 = (e: Parameters<typeof renderToStaticMarkup>[0]) =>
   renderToStaticMarkup(e)
-    .replace(/[  ]/g, " ")
+    .replace(/[  ]/g, " ")
     .replace(/−/g, "-")
     // a figure that opens its parts reads as the figure alone
     .replace(/<div class="fig-panel"><button[^>]*>(.*?)<\/button><\/div>/g, "$1");
