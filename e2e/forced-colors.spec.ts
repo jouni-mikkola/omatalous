@@ -119,7 +119,7 @@ for (const width of [390, 1440]) {
 
     // the sum of an estimated bill: underlined with a dotted line, which a plain cell is not
     const estimated = page.locator("#laskut-taulukko .fig-est");
-    expect(await estimated.count(), "estimated marks in the table").toBeGreaterThan(0);
+    await expect(estimated.first(), "estimated marks in the table").toBeVisible();
     const line = await estimated.first().evaluate((el) => ({ line: getComputedStyle(el).textDecorationLine, style: getComputedStyle(el).textDecorationStyle }));
     expect(line.line, "the mark of an estimate").toContain("underline");
     expect(line.style, "the mark of an estimate").toBe("dotted");
