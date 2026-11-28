@@ -175,33 +175,26 @@ describe("Tulot ja menot: the tiles the page opens with", () => {
     return flat([...view.container.querySelectorAll("dt, dd, .strip-note, .strip-item")].map((e) => e.textContent).join(" "));
   }
 
-  it("gives the gap of the complete months as a tile and what paid it as facts, naming only the parts above zero", () => {
+  it("gives the gap of the complete months as a tile and does not restate it as where the money came from", () => {
     const text = gapShown({ gapCents: 123400, creditCents: 50000, savingsCents: 73400, accountsCents: 0 });
     expect(stripItems()[0]).toBe("Menot yli tulojen 1 234 € Menot ja säästöön siirretty raha, päättyneet kuukaudet");
-    expect(text).toContain("Rahat tulivat");
-    expect(text).toContain("Luotosta 500 €");
-    expect(text).toContain("Säästöistä 734 €");
-    expect(text).not.toContain("Tileiltä");
-    expect(document.querySelector(".strip-item .strip-figure")!.classList.contains("bad")).toBe(true);
-  });
-
-  it("gives the gap tile alone when nothing is known to have paid it", () => {
-    const text = gapShown({ gapCents: 20000, creditCents: 0, savingsCents: 0, accountsCents: 0 });
-    expect(stripItems()[0]).toContain("Menot yli tulojen 200 €");
     expect(text).not.toContain("Rahat tulivat");
+    expect(text).not.toContain("Luotosta");
+    expect(document.querySelector(".strip-item .strip-figure")!.classList.contains("bad")).toBe(true);
   });
 
   it("leads with the difference of the complete months in the colour of good news when they have no gap, and gives each figure once, with no sentence", () => {
     // the ten complete months of MONTHS
     const container = lead({ overview: overview() });
-    expect(container.querySelector("p")).toBeNull();
-    expect(stripItems()).toEqual(["Erotus, 10 kk +9 995 € +1 000 €/kk", "Tulot, 10 kk 40 050 € 4 005 €/kk", "Menot, 10 kk 30 055 € Tavallinen kuukausi 2 149 €"]);
+    // the window is named once, under the tiles, not in each label
+    expect(flat(container.querySelector("p")!.textContent)).toBe("Päättyneet kuukaudet: 10");
+    expect(stripItems()).toEqual(["Erotus +9 995 € +1 000 €/kk", "Tulot 40 050 € 4 005 €/kk", "Menot 30 055 € Tavallinen kuukausi 2 149 €"]);
     expect([...container.querySelectorAll(".strip-figure")].map((f) => f.className)).toEqual(["strip-figure good", "strip-figure", "strip-figure"]);
   });
 
   it("prints the server's totals as they are, whatever the months of the answer hold", () => {
     lead({ overview: overview({ completeTotals: { months: 3, incomeCents: 1234500, averageIncomeCents: 411500, spendCents: 987600, netCents: -50000, averageNetCents: -16667 } }) });
-    expect(stripItems().slice(0, 2)).toEqual(["Erotus, 3 kk −500 € −167 €/kk", "Tulot, 3 kk 12 345 € 4 115 €/kk"]);
+    expect(stripItems().slice(0, 2)).toEqual(["Erotus −500 € −167 €/kk", "Tulot 12 345 € 4 115 €/kk"]);
     expect(document.querySelector(".strip-figure")!.classList.contains("bad")).toBe(true);
   });
 
@@ -209,12 +202,12 @@ describe("Tulot ja menot: the tiles the page opens with", () => {
     gapShown({ gapCents: 20000, creditCents: 0, savingsCents: 0, accountsCents: 0 });
     expect(stripItems()).toHaveLength(3);
     expect(stripItems().join(" ")).not.toContain("Erotus");
-    expect(stripItems()[1]).toBe("Tulot, 10 kk 40 050 € 4 005 €/kk");
+    expect(stripItems()[1]).toBe("Tulot 40 050 € 4 005 €/kk");
   });
 
   it("leaves the usual month out of the spending tile when there is none", () => {
     lead({ overview: overview({ usualSpendCents: null, usualMonths: 0, completeTotals: { months: 1, incomeCents: 400100, averageIncomeCents: 400100, spendCents: 300100, netCents: 100000, averageNetCents: 100000 } }) });
-    expect(stripItems()).toEqual(["Erotus, 1 kk +1 000 € +1 000 €/kk", "Tulot, 1 kk 4 001 € 4 001 €/kk", "Menot, 1 kk 3 001 €"]);
+    expect(stripItems()).toEqual(["Erotus +1 000 € +1 000 €/kk", "Tulot 4 001 € 4 001 €/kk", "Menot 3 001 €"]);
   });
 
   it("is nothing when no month is complete", () => {
