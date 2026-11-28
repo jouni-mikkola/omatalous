@@ -133,6 +133,7 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 .tx-table { table-layout: fixed; }
 /* the rows keep the secondary size: their cells (disc, name, account, category, sum) are laid out for it */
 .rt.tx-table { font-size: var(--fs-small); line-height: var(--lh-small); }
+.rt.tx-table :is(.tx-acct-short, .tx-tag, .mk-disc, .tx-part) { font-size: var(--fs-label); }
 .tx-table thead :is(th, td) { padding-block: var(--sp-4); }
 .tx-table :is(th, td).tx-account { width: 9rem; }
 .tx-table :is(th, td).tx-category { width: 14rem; }
