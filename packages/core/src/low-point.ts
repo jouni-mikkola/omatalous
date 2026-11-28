@@ -230,8 +230,8 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
     const waiting = (cost: (since: IsoDate, until: IsoDate) => Spent, since: IsoDate) => (day >= afterPayday ? cost(since, before) : NONE);
     let spent = ownCost(from, before);
     for (const { bill, cost } of cardCosts) {
-      // the purchases of a card from tomorrow to its bill leave with the bill, as the runway takes them off
-      if (bill !== undefined && bill <= day) spent = plus(spent, cost(addDays(from, 1), bill));
+      // the purchases of a card from tomorrow to its bill leave with the bill, as the runway takes them off; a bill on the payday is paid from the pay
+      if (bill !== undefined && bill <= day && bill !== paidFromPay) spent = plus(spent, cost(addDays(from, 1), bill));
       spent = plus(spent, waiting(cost, bill === undefined ? addDays(from, 1) : addDays(bill, 1)));
     }
     // a card shown only by its bills: its bills hold its purchases to the last one's day, the bill after it is not known
