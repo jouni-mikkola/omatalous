@@ -112,7 +112,7 @@ function completeTotalsOf(months: readonly OverviewMonth[]): OverviewCompleteTot
 }
 
 /** The complete months of `spending` and the rows of exactly those months: the window the tiles of Tulot ja menot and the picture of sources and uses share. */
-function completeMonthRows(ctx: AnalysisContext, spending: SpendingMonthsReport) {ctx: AnalysisContext, spending: SpendingMonthsReport) {
+function completeMonthRows(ctx: AnalysisContext, spending: SpendingMonthsReport) {
   const months = spending.months.filter((_, i) => spending.complete[i]);
   const indexes = new Set(months.map(monthIndex));
   const rows = months.length === 0 ? [] : inDays(ctx, toDayRange({ from: `${months[0]}-01`, to: monthEnd(months.at(-1)!) })).filter((x) => indexes.has(x.month));
