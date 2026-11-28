@@ -224,7 +224,7 @@ describe("Täydennä lainat", () => {
     queryClient.clear();
     const seen = stubApi({ "GET /api/loans": { loans: [], fixings: {} }, "POST /api/loans": { loan: savedLoan({ id: "loan-4", name: "Esimerkkirahoitus", kind: "consumer", balanceCents: 200_000, seriesKey: "k" }) } });
     const debt = debtOf({ id: "proposal:k", source: "proposal", name: "Esimerkkirahoitus", key: "k", kind: "consumer", monthlyCents: 25_000, latestCents: 25_000, lastDate: "2026-09-05" });
-    show([{ ...listOf([debt, { ...debt, id: "proposal:j", key: "j", name: "Toinen rahoitus" }]), id: "loan-terms:balances" } as ReviewItem]);
+    const view = show([{ ...listOf([debt, { ...debt, id: "proposal:j", key: "j", name: "Toinen rahoitus" }]), id: "loan-terms:balances" } as ReviewItem]);
     fireEvent.change(await within(openRow(0)).findByLabelText(/^Jäljellä/, {}, T), { target: { value: "2 000" } });
     fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
     await waitFor(() => expect(document.querySelectorAll("li.review-debt.is-done")).toHaveLength(1), T);
@@ -232,6 +232,11 @@ describe("Täydennä lainat", () => {
     expect(seen.find((s) => s.method === "POST")!.body).toMatchObject({ seriesKey: "k", balanceCents: 200_000 });
     // the loan left empty is not closed into a result line and is not saved
     expect(openRow(0).textContent).toContain("Toinen rahoitus");
+    // the queue read again lists only the unsaved debt under the same id: the saved row stays closed and the form stays
+    view.rerender(createElement(Review, { meta: metaOf(), queue: { data: { items: [{ ...listOf([{ ...debt, id: "proposal:j", key: "j", name: "Toinen rahoitus" }]), id: "loan-terms:balances" } as ReviewItem] }, error: null, reload: () => {} } }));
+    expect(document.querySelectorAll("li.review-debt.is-done")).toHaveLength(1);
+    expect(within(openRow(0)).getByLabelText(/^Jäljellä/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Tallenna" })).toBeTruthy();
   });
 
   it("does not save a loan again when the form is pressed after another loan failed, and shows the error at the failed loan", async () => {
