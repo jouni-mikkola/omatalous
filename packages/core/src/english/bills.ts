@@ -126,7 +126,7 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "bills.bar_split": "Covered {covered}, short by {missing}",
   "bills.bar_short": "Not covered",
   "bills.bar_add_balance": "Add a balance to see which bills the money covers",
-  "bills.bar_panel": "What the figure is made of",
+  "bills.bar_panel": "Basis",
   "bills.bar_total": "Bills in all",
   "bills.bar_money": "On the checking accounts now",
   "bills.bar_missing": "Short by",

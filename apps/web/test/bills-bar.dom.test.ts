@@ -26,13 +26,15 @@ const before: BillsBeforePayday = {
   missingCents: 70_000,
   leftOverCount: 3,
 };
+/** The app writes sums with no-break spaces. */
+const plain = (text: string | null) => (text ?? "").replace(/[  ]/g, " ");
 const show = (b: BillsBeforePayday) => render(createElement(BillsBar, { before: b, today: "2026-11-28" }));
 
 describe("Laskut: the bills before payday", () => {
   it("says the count, the sum and how many are left over", () => {
     const { container } = show(before);
     expect(screen.getByText("Ennen palkkaa 10.12. erääntyy 5 laskua")).toBeTruthy();
-    expect(container.querySelector(".bills-bar-sum")!.textContent).toBe("1 240 €");
+    expect(plain(container.querySelector(".bills-bar-sum")!.textContent)).toBe("1 240 €");
     expect(container.querySelector(".bills-bar-over")!.textContent).toBe(" · 3 jää yli");
   });
 
@@ -43,7 +45,7 @@ describe("Laskut: the bills before payday", () => {
     const split = items[2]!;
     expect(split.classList.contains("bills-bar-split")).toBe(true);
     expect(split.style.getPropertyValue("--have")).toBe(`${(100 * 240) / 420}%`);
-    expect(split.textContent).toContain("Katettu 240 €, puuttuu 180 €");
+    expect(plain(split.textContent)).toContain("Katettu 240 €, puuttuu 180 €");
     expect(items[3]!.textContent).toContain("Ei katettu");
     // the cut stands where the money ends: 540 of 1 240
     expect(container.querySelector<HTMLElement>(".bills-bar-cut")!.style.left).toBe(`${(100 * 54_000) / 124_000}%`);
