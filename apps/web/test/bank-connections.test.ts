@@ -6,7 +6,8 @@ import "./fixed-clock.ts";
 import { bankIdForInstitution, bankLogo, logoForInstitution } from "../src/banks.ts";
 import { waitsForFirstFetch } from "../src/first-fetch.ts";
 import { Accounts } from "../src/pages/settings/Accounts.tsx";
-import { BankConnections, connectionStateText, renewalLine } from "../src/pages/settings/BankConnections.tsx";
+import { BankConnections } from "../src/pages/settings/BankConnections.tsx";
+import { connectionStateText, renewalLine } from "../src/pages/settings/connection-text.ts";
 import type { Account, Connection, Meta } from "../src/types.ts";
 
 const BANKS = [{ id: "nordea-fi", name: "Nordea", country: "FI" }];
