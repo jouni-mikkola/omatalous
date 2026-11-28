@@ -2477,8 +2477,7 @@
   "yearlyCents": 56920,
   "reserveMonthlyCents": 4743,
   "unknownCount": 0,
-  "unknowns": [],
-  "loanSeries": []
+  "unknowns": []
  },
  "income": {
   "months": [

@@ -221,6 +221,42 @@ describe("the bill calendar", () => {
     expect(rows.filter((r) => r.kind === "bill")).toEqual([]);
   });
 
+  it("has the days and sums of the series that pays a loan, not its plan's, and none after the loan's end date", () => {
+    const loan: Loan = {
+      id: "loan-1", name: "Remonttilaina", lender: "ESIMERKKIPANKKI", kind: "consumer", grantedCents: null, balanceCents: 1_000_000, balanceDate: "2026-10-01", rateBp: 400,
+      reference: null, marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: 50_000, endDate: "2027-01-15", limitCents: null, seriesKey: "out:own:ESIMERKKIPANKKI",
+    };
+    // the bank charges 470 € on the 20th, the plan says 500 € on the 1st
+    const instalments = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09"].map((m) =>
+      tx({ accountId: "own", bookingDate: `${m}-20`, amountCents: -47_000, merchant: "ESIMERKKIPANKKI", counterparty: "ESIMERKKIPANKKI", category: "mortgage" }),
+    );
+    const { cal } = run(instalments, { marks: [], expectedBills: [], loans: [loan] }, "2026-10-09");
+    const loanRows = rowsOf(cal).filter((r) => r.kind === "loan");
+    // the 20th of January is after the end date of the 15th, and the window reaches past it
+    expect(loanRows.map((r) => [r.date, r.cents])).toEqual([["2026-10-20", 47_000], ["2026-11-20", 47_000], ["2026-12-20", 47_000]]);
+  });
+
+  it("falls back to the plan's rows for a loan whose series is overdue, with no series row", () => {
+    const loan: Loan = {
+      id: "loan-1", name: "Remonttilaina", lender: "ESIMERKKIPANKKI", kind: "consumer", grantedCents: null, balanceCents: 1_000_000, balanceDate: "2026-10-01", rateBp: 400,
+      reference: null, marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: 50_000, endDate: "2027-01-15", limitCents: null, seriesKey: "out:own:ESIMERKKIPANKKI",
+    };
+    const instalments = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09"].map((m) =>
+      tx({ accountId: "own", bookingDate: `${m}-20`, amountCents: -47_000, merchant: "ESIMERKKIPANKKI", counterparty: "ESIMERKKIPANKKI", category: "mortgage" }),
+    );
+    // the charge of the 20.10. has not come by the 28th: the series is overdue and has no charges to walk
+    const { ctx, cal } = run(instalments, { marks: [], expectedBills: [], loans: [loan] }, "2026-10-28");
+    expect(ctx.recurring[0]!.overdue).toBe(true);
+    const loanRows = rowsOf(cal).filter((r) => r.kind === "loan");
+    expect(loanRows[0]).toMatchObject({ date: "2026-11-15", seriesId: null });
+    expect(loanRows.every((r) => r.seriesId === null && r.date <= "2027-01-15")).toBe(true);
+    // the overdue series is on an account the balance does not count: the plan's rows are off the counted money too
+    const elsewhere: BalanceInput[] = [{ id: "other", name: "Muu tili", type: "checking", balanceCents: 0, ownerName: null, balanceAt: "2026-10-28" }];
+    const outside = rowsOf(billCalendar(ctx, { marks: [], expectedBills: [], loans: [loan] }, elsewhere)).filter((r) => r.kind === "loan");
+    expect(outside.length).toBeGreaterThan(0);
+    expect(outside.every((r) => r.seriesId === null && r.onCard === true)).toBe(true);
+  });
+
   it("has the whole balance of a loan with one payment on its last day, as a row on that day", () => {
     const bullet: Loan = {
       id: "loan-2", name: "Autolaina", lender: "ESIMERKKIPANKKI", kind: "car", grantedCents: null, balanceCents: 500_000, balanceDate: "2026-10-01", rateBp: null,
@@ -252,7 +288,8 @@ describe("the bill calendar", () => {
     expect(lump.seriesId).not.toBeNull();
     expect(lump.monthly).toBeUndefined();
     expect(loanRows.some((r) => r.monthly === true)).toBe(true);
-    expect(cal.months[5]!.monthlyBillsCount).toBe(0);
+    // March has the interest charge of the 2nd as its one monthly row, and the lump sum is not in it
+    expect(cal.months[5]!).toMatchObject({ monthlyBillsCount: 1, monthlyBillsCents: 91_240 });
   });
 
   it("has a regular saving as a row of its own kind, in no sum of the bills", () => {

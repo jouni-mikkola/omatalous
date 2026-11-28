@@ -366,7 +366,7 @@ describe("lowPoint with a card", () => {
   it("ends the line's payday at Jää palkkapäivänä with a saved loan a series pays on other days and sums than its plan", () => {
     const loan: Loan = {
       id: "loan-1", name: "Remonttilaina", lender: "ESIMERKKIPANKKI", kind: "consumer", grantedCents: null, balanceCents: 1_000_000, balanceDate: "2026-10-01", rateBp: 400,
-      reference: null, marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: 50_000, endDate: null, limitCents: null, seriesKey: "out:own:ESIMERKKIPANKKI",
+      reference: null, marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: 50_000, endDate: "2026-12-10", limitCents: null, seriesKey: "out:own:ESIMERKKIPANKKI",
     };
     // four repayments on the 20th at 470 €: a series pays the loan, its next charge is after the payday and the plan's payment of the 1.11. is not the row
     const repayments = ["2026-07-20", "2026-08-20", "2026-09-20", "2026-10-20"].map((bookingDate) => tx({ accountId: own.id, bookingDate, amountCents: -47_000, merchant: "ESIMERKKIPANKKI", counterparty: "ESIMERKKIPANKKI", category: "mortgage" }));
@@ -374,6 +374,23 @@ describe("lowPoint with a card", () => {
     const { walked, runway } = walk([...pays(), ...rents(), ...repayments, ...shopping("2026-03-01", 4000)], [bal(900_000)], undefined, inputs);
     if (!walked.known || !runway.known) throw new Error("no figure");
     expect(walked.line.find((c) => c.date === runway.payday.date)!.cents).toBe(runway.leftCents);
+    // the series' charge of the 20th is the one row of the loan: no plan row of the 1st, and none of the 20th of December, after the end date
+    expect(walked.steps.filter((s) => s.payee === "Remonttilaina").map((s) => [s.date, s.cents])).toEqual([["2026-11-20", -47_000]]);
+  });
+
+  it("leaves a series charge after the loan's end date out of the walk and of Jää palkkapäivänä alike", () => {
+    const loan: Loan = {
+      id: "loan-1", name: "Remonttilaina", lender: "ESIMERKKIPANKKI", kind: "consumer", grantedCents: null, balanceCents: 1_000_000, balanceDate: "2026-10-01", rateBp: 400,
+      reference: null, marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: 50_000, endDate: "2026-10-31", limitCents: null, seriesKey: "out:own:ESIMERKKIPANKKI",
+    };
+    // the series charges 470 € on the 5th: its next charge, 5.11., is after the end date and before the payday, 13.11.
+    const repayments = ["2026-07-05", "2026-08-05", "2026-09-05", "2026-10-05"].map((bookingDate) => tx({ accountId: own.id, bookingDate, amountCents: -47_000, merchant: "ESIMERKKIPANKKI", counterparty: "ESIMERKKIPANKKI", category: "mortgage" }));
+    const inputs: UserInputs = { ...NO_INPUTS, loans: [loan] };
+    const { basis, walked, runway } = walk([...pays(), ...rents(), ...repayments, ...shopping("2026-03-01", 4000)], [bal(900_000)], undefined, inputs);
+    if (!walked.known || !runway.known) throw new Error("no figure");
+    expect(walked.line.find((c) => c.date === runway.payday.date)!.cents).toBe(runway.leftCents);
+    expect(walked.steps.filter((s) => s.payee === "Remonttilaina")).toEqual([]);
+    expect(basis.ahead.rows.filter((r) => r.name === "ESIMERKKIPANKKI")).toEqual([]);
   });
 
   it("takes a bullet loan's lump sum and its interest series' charges off before the payday, as Jää palkkapäivänä does", () => {
