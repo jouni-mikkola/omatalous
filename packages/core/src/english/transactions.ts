@@ -89,6 +89,8 @@ export const EN_TRANSACTIONS: Record<keyof typeof FI_TRANSACTIONS, string> = {
   "tx.hist_in": "Income {unit}",
   "tx.hist_out": "Spending {unit}",
   "tx.hist_aria": "{title}, largest {max}",
+  "tx.span_readout": "Selected {range}, Enter limits the period to it",
+  "tx.span_keys": "Shift and the arrow keys pick a span, Esc returns to the previous period.",
   "tx.totals_label": "Sums of the filtered transactions",
   "tx.spending": "Spending",
   "tx.income": "Income",
