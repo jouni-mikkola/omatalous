@@ -17,6 +17,6 @@ describe("Raportit: Tulot ja menot", () => {
     expect(paymentHref("Acme Oy", "2026-03-25")).toBe("#/transactions?merchant=Acme+Oy&from=2026-03-25&to=2026-03-25");
   });
   it("the picture has its own heading", () => {
-    expect(t("rpt.mf_title")).toBe("Mistä rahat tulivat ja mihin ne menivät");
+    expect(t("rpt.mf_title")).toBe("Rahan lähteet ja käyttö");
   });
 });

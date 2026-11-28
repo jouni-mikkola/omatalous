@@ -27,6 +27,29 @@ describe("Tulot ja menot: where the money came from and went", () => {
     }
   });
 
+  it("a refund larger than all the spending is carried down the bands and the rest stands as a source, so the sides stay equal", () => {
+    const rows = [
+      ...monthlyOn("2026-01", 25, 3, () => 300000, { category: "salary", merchant: "Acme Oy" }),
+      ...monthlyOn("2026-01", 2, 3, () => -80000, { category: "housing", merchant: "Sato Oyj" }),
+      ...monthlyOn("2026-01", 10, 3, () => -40000, { category: "groceries", merchant: "K-Market" }),
+      tx({ bookingDate: "2026-03-12", amountCents: 1500000, category: "shopping", merchant: "Verkkokauppa" }),
+    ];
+    const ctx = createContext(rows, [checking], "2026-04-15");
+    const f = flowOf(ctx, { from: "2026-01-01", to: "2026-03-31" });
+    const total = (bands: { cents: number }[]) => bands.reduce((s, b) => s + b.cents, 0);
+    expect(f.sources.find((b) => b.id === "refunds")?.cents).toBe(1140000);
+    expect(f.uses.filter((b) => b.kind === "spending")).toEqual([]);
+    expect(total(f.sources)).toBe(total(f.uses));
+    expect(total(f.uses)).toBe(f.totalCents);
+    expect([...f.sources, ...f.uses].every((b) => b.cents > 0)).toBe(true);
+  });
+
+  it("counts only the complete months, as the tiles do", () => {
+    const ctx = createContext(dataset(), [checking], "2026-10-09");
+    const running = flowOf(ctx, { from: "2026-10-01", to: "2026-10-09" });
+    expect(running).toEqual({ sources: [], uses: [], totalCents: 0 });
+  });
+
   it("a period that took more than its income is paid for by the credit and savings drawn, and stays equal", () => {
     const rows = [
       ...monthlyOn("2026-01", 25, 3, () => 300000, { category: "salary", merchant: "Acme Oy" }),

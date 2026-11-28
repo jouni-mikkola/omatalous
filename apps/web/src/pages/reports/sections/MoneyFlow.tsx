@@ -25,7 +25,7 @@ function MoneyFlowSection({ ctx }: SectionProps) {
     <ReportPanel id={section.id} title={section.title}>
       <ChartWithTable
         rows={r.sources.length + r.uses.length}
-        chart={<MoneyFlow sources={r.sources} uses={r.uses} label={t("rpt.mf_chart")} />}
+        chart={<MoneyFlow sources={r.sources} uses={r.uses} />}
         table={
           <>
             <Side caption={t("rpt.mf_sources")} bands={r.sources} totalCents={r.totalCents} />

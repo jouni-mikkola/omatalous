@@ -314,8 +314,6 @@ export function unknownMonth(h: GeneratedHousehold, v: HouseholdView, reports: t
   check("income", "total", months, r.income.months.map((m) => m.totalCents));
   check("income", "earned", months, r.income.months.map((m) => m.earnedCents));
   check("income", "usual", months, r.income.months.map((m) => m.usualCents));
-  for (const t of r.income.types) check("income", t.type, months, t.months);
-  for (const k of r.income.kinds) check("income", k.id, months, k.months);
   // a month's income by group is no figure either; the groups are held to the month's total in the other direction by the income tests
   for (const g of INCOME_GROUPS) check("income", `group ${g.id}`, months, r.income.months.map((m) => m.byGroup?.[g.id] ?? null));
   const flow = cashflow(v.ctx, range, Infinity).rows;

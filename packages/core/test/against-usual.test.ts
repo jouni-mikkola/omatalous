@@ -96,19 +96,3 @@ describe("a month's gap to the usual month on the first page's bars", () => {
     expect(month("2026-10").againstUsual).toBeNull();
   });
 });
-
-describe("a month's gap to the average month in Tulot", () => {
-  const income = buildReports({ ctx: ctx(), range: window, balances: [] }, ["income"]).income;
-  const month = (label: string) => income.months.find((m) => m.month === label)!;
-
-  it("gives the gap of a complete month's income to the average complete month", () => {
-    const dear = month(DEAR_MONTH);
-    expect(income.monthlyCents).not.toBeNull();
-    expect(dear.againstAverage).toEqual({ cents: dear.totalCents! - income.monthlyCents!, side: "more" });
-  });
-
-  it("says nothing of the running month", () => {
-    expect(month("2026-10").complete).toBe(false);
-    expect(month("2026-10").againstAverage).toBeNull();
-  });
-});

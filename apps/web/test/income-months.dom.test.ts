@@ -17,16 +17,11 @@ const months = [
 ];
 const income = {
   totalCents: 720000,
-  monthlyCents: 310000,
   completeMonths: 2,
   months,
-  kinds: [
-    { id: "earned", label: "Ansiotulot", months: [300000, 300000, 100000] },
-    { id: "other", label: "Muut tulot", months: [20000, 0, 0] },
-  ],
   types: [
-    { type: "salary", label: "Palkka", totalCents: 620000, shareOfAll: 620000 / 720000, monthlyCents: 300000, payers: [] },
-    { type: "tax_refund", label: "Veronpalautus", totalCents: 100000, shareOfAll: 100000 / 720000, monthlyCents: 0, payers: [] },
+    { type: "salary", label: "Palkka", totalCents: 620000, shareOfAll: 620000 / 720000, payers: [] },
+    { type: "tax_refund", label: "Veronpalautus", totalCents: 100000, shareOfAll: 100000 / 720000, payers: [] },
   ],
 };
 const ctx = { data: { income }, meta: { today: "2026-10-09", accounts: [], sharedAccounts: [] }, running: "2026-10", label: (id: string) => id } as unknown as ReportContext;

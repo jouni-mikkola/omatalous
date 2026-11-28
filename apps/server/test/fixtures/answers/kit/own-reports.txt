@@ -2497,12 +2497,10 @@
      "other": 0,
      "not_earned": 0,
      "unknown": 0
-    },
-    "againstAverage": null
+    }
    }
   ],
   "completeMonths": 0,
-  "monthlyCents": null,
   "enough": false,
   "earnedCents": 0,
   "notEarnedCents": 0,
@@ -2523,7 +2521,6 @@
    "steadySpread": 0.03
   },
   "types": [],
-  "kinds": [],
   "groups": [
    {
     "id": "salary",
@@ -5281,65 +5278,9 @@
   "fresh": []
  },
  "moneyFlow": {
-  "sources": [
-   {
-    "id": "accounts",
-    "label": "Tileiltä tai korteilta",
-    "kind": "drawn",
-    "cents": 276614
-   }
-  ],
-  "uses": [
-   {
-    "id": "category:housing",
-    "label": "Vuokra ja vastike",
-    "kind": "spending",
-    "cents": 105000
-   },
-   {
-    "id": "category:groceries",
-    "label": "Ruokakauppa",
-    "kind": "spending",
-    "cents": 38829
-   },
-   {
-    "id": "category:kids",
-    "label": "Lapset",
-    "kind": "spending",
-    "cents": 27990
-   },
-   {
-    "id": "category:car",
-    "label": "Auto, polttoaine ja pysäköinti",
-    "kind": "spending",
-    "cents": 15478
-   },
-   {
-    "id": "category:insurance",
-    "label": "Vakuutukset",
-    "kind": "spending",
-    "cents": 14230
-   },
-   {
-    "id": "category:utilities",
-    "label": "Sähkö, vesi ja lämpö",
-    "kind": "spending",
-    "cents": 5077
-   },
-   {
-    "id": "other_spending",
-    "label": "Muu kulutus",
-    "kind": "spending",
-    "cents": 8770
-   },
-   {
-    "id": "unsplit",
-    "label": "Velanhoito, erittelemättä",
-    "kind": "debt",
-    "cents": 61240
-   }
-  ],
-  "totalCents": 276614
+  "sources": [],
+  "uses": [],
+  "totalCents": 0
  },
  "cashflowMonths": {
   "months": [
