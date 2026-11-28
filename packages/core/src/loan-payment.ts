@@ -17,7 +17,7 @@ import { dayNumber } from "./dates.ts";
 import { fold } from "./merchant.ts";
 import { nameOf, holdersIn } from "./person-names.ts";
 import { sameName } from "./payer-role.ts";
-import { loanPaymentLeg } from "./pairing.ts";
+import { loanPaymentLeg } from "./pairing-legs.ts";
 import { isBankName, normalizeIban } from "./transfers.ts";
 import type { Account, IsoDate, Transaction } from "./types.ts";
 import { isLenderName, isLoanText } from "./wording.ts";

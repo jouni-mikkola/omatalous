@@ -3,12 +3,13 @@
 Date: 9 November 2026, at commit 593448c (Omatalous 1.0.0 and the roadmap). This page lists facts and options. It
 decides no feature: every move that removes something a user sees is marked "owner decides".
 
-Superseded in part: the figures and lists below are those of that commit. Since then remote access, reading a loan from
-a picture or PDF and the second-factor passkeys have left the app, and with them `@simplewebauthn/server`, `tesseract.js`,
-`pdfjs-dist` and the `@tesseract.js-data/*` packs, none of which any `package.json` lists now. The server's runtime
-dependencies are `@banking/core`, `@hono/node-server`, `croner` and `hono`; the web app's are `@banking/core`,
-`@fontsource-variable/ibm-plex-sans`, three TanStack packages, `react`, `react-aria-components` and `react-dom`. Read the
-dependency section and the rows on those features as history.
+Superseded in part: the figures and lists below are those of that commit. Since then remote access and the
+second-factor passkeys have left the app, and with them `@simplewebauthn/server`. Reading a loan from a picture or PDF
+returned (ADR 0029), so `tesseract.js`, `pdfjs-dist` and the `@tesseract.js-data/*` packs are listed by
+`apps/web/package.json` again. The server's runtime dependencies are `@banking/core`, `@hono/node-server`, `croner` and
+`hono`; the web app's are `@banking/core`, `@fontsource-variable/ibm-plex-sans`, three TanStack packages,
+`@tesseract.js-data/eng`, `@tesseract.js-data/fin`, `pdfjs-dist`, `react`, `react-aria-components`, `react-dom` and
+`tesseract.js`. Read the rest of the dependency section as history.
 
 Each figure has the command that made it, run from the repo root. Tools that are not in the repo were installed in a
 scratch folder (`npm i jscpd@4 knip@5 @biomejs/biome@2`) and are called as `$T/jscpd` and so on. knip, jscpd and biome
@@ -196,8 +197,8 @@ Every main screen is reachable. Dead code is limited to the four files of sectio
 Run as `docs/DEVELOPMENT.md` says, with a scratch data folder: `DATA_DIR=<tmp> pnpm seed:demo`, then the API
 (`tsx apps/server/src/entry/node.ts`, `PORT=8187`) and Vite (`vite apps/web --port 5187`, `API_PORT=8187`). Node 24 is
 required (`node:crypto` argon2); the `.npmrc` pin gives it to `pnpm exec`. Signed in as the seeded demo user, skipped the
-wizard, and shot each screen with `playwright-cli -s=omat-audit` at 1440×900 and 390×844 into `docs/audit/shots/`
-(`<screen>-1440.png`, `<screen>-390.png`, and `wizard-1440.png`). Shot at both widths: Yhteenveto, Laskut, Tapahtumat
+wizard, and shot each screen with `playwright-cli -s=omat-audit` at 1440×900 and 390×844 (the pictures are no longer kept in
+the repository). Shot at both widths: Yhteenveto, Laskut, Tapahtumat
 (list and merchants), Raportit (Kuukausi, Rahankäyttö, Tulot), Säästövinkit, Tarkistettavat, Asetukset (Pankit ja tilit,
 Palvelin ja ylläpito). Not shot: the other four report pages, the other four settings tabs, the wizard at 390 px.
 
@@ -205,29 +206,29 @@ What looks generic:
 
 - No gradients, no emoji, no glass. One light theme, one font, a navy header. The base is plain and bank-like.
 - Initials avatars everywhere: every row of Tapahtumat and Laskut has a two-letter badge (KM, PR, SP), a bank logo and a
-  coloured category chip with an icon, and the amount has a coloured bar under it (`transactions-1440.png`). Four marks
+  coloured category chip with an icon, and the amount has a coloured bar under it. Four marks
   per row tell the reader what the text already says.
 - Three KPI tiles on Tapahtumat ("Rahaa ulos", "Rahaa sisään", "Erotus") over the whole history, with no comparison and
   no period choice in sight. A total of 13 months answers no question.
 - The weekly bar chart on Tapahtumat names its highest week and nothing else.
-- Säästövinkit is a card grid with icons and one button per card (`optimise-1440.png`), the most "app template" screen.
+- Säästövinkit is a card grid with icons and one button per card, the most "app template" screen.
 - The same finding is shown twice: "Uusi toistuva maksu: OpenAI" is on Yhteenveto (Huomioitavaa) and on Säästövinkit
   (Muut havainnot), with different counts (3 and 2 charges).
 
 What shows data that answers no question:
 
-- Yhteenveto shows the month chart and then a table of the last three days with four columns (`overview-1440.png`); the
+- Yhteenveto shows the month chart and then a table of the last three days with four columns; the
   chart already answers "am I above a usual month".
 - The right column of Yhteenveto repeats the headline: 7 198,65 − 2 774,52 = 4 424,13 is the sentence on the left.
-- Laskut: a 16-day dot timeline above four sum lines and then a table of the same bills (`bills-1440.png`).
-- Rahankäyttö: five folds closed by default; Kategoriatavoitteet shows no figure in its row (`reports-menot-1440.png`).
+- Laskut: a 16-day dot timeline above four sum lines and then a table of the same bills.
+- Rahankäyttö: five folds closed by default; Kategoriatavoitteet shows no figure in its row.
 - Settings > Pankit ja tilit: each account has a status line about whether its balance can be checked, in bold, as loud
-  as the balance (`settings-banks-1440.png`).
-- Good: Raportit > Kuukausi (`reports-kuukausi-1440.png`) states the figure, compares it ("102 € tavallista enemmän") and
-  lists the days that explain the gap with a total. Tarkistettavat (`review-1440.png`) asks one question with the evidence.
+  as the balance.
+- Good: Raportit > Kuukausi states the figure, compares it ("102 € tavallista enemmän") and
+  lists the days that explain the gap with a total. Tarkistettavat asks one question with the evidence.
 
 Phone (390 px): pages stack without sideways scroll. Tapahtumat puts the three tiles, the bar chart and three filter rows
-above the first transaction, so the list starts below the first screen (`transactions-390.png`).
+above the first transaction, so the list starts below the first screen.
 
 ## 5. Stale docs and process files
 

@@ -2,6 +2,8 @@
 
 Status: accepted (0.9.0)
 
+Path note: the scope rule that `tools/check/scope.mjs` held now lives in `tools/check.sh`.
+
 ## Context
 
 One `pnpm check` took 107 s and every worker ran it three or four times per task, mostly for shell suites a diff

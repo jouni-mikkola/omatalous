@@ -2,6 +2,8 @@
 
 Status: accepted (0.9.0)
 
+Path note: the Optimoi page and its types (`optimise/types.ts`, `components/optimise/`) are gone; the rule stands.
+
 ## Context
 
 The web app re-declared the shapes the server sends: `web/types.ts`, the Optimoi types in

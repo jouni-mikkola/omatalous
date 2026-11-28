@@ -231,7 +231,7 @@ describe("linking ends in one message (no retry loop)", () => {
   });
 
   it("the web app shows the callback's reasons in the words a pasted address gets", () => {
-    const web = readFileSync(new URL("../../web/src/pages/settings/BankConnections.tsx", import.meta.url), "utf8");
+    const web = readFileSync(new URL("../../web/src/pages/settings/connection-text.ts", import.meta.url), "utf8");
     for (const [reason, text] of Object.entries(LINK_FAILURES)) {
       const code = new RegExp(`^  ${reason}: \\(\\) => t\\("([\\w.]+)"\\),$`, "m").exec(web)?.[1];
       expect(code, reason).toBeDefined();

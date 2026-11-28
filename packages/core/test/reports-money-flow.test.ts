@@ -52,7 +52,7 @@ describe("Tulot ja menot: where the money came from and went", () => {
   it("counts only the complete months, as the tiles do", () => {
     const ctx = createContext(dataset(), [checking], "2026-10-09");
     const running = flowOf(ctx, { from: "2026-10-01", to: "2026-10-09" });
-    expect(running).toEqual({ sources: [], uses: [], totalCents: 0, monthCount: 0, creditPerMonthCents: 0 });
+    expect(running).toEqual({ sources: [], uses: [], totalCents: 0, monthCount: 0, creditPerMonthCents: 0, months: [] });
   });
 
   it("a period that took more than its income is paid for by the credit and savings drawn, and stays equal", () => {
@@ -73,9 +73,32 @@ describe("Tulot ja menot: where the money came from and went", () => {
     expect(f.creditPerMonthCents).toBe(26667);
     expect(source("savings")).toBe(50000);
     expect(source("earned")).toBe(totals.incomeCents);
+    for (const m of f.months) {
+      expect(m.sources.reduce((s, b) => s + b.cents, 0)).toBe(m.totalCents);
+      expect(m.uses.reduce((s, b) => s + b.cents, 0)).toBe(m.totalCents);
+    }
     expect(f.uses.find((b) => b.id === "category:housing")?.cents).toBe(450000);
     expect(f.sources.reduce((s, b) => s + b.cents, 0)).toBe(f.uses.reduce((s, b) => s + b.cents, 0));
     // the consumption bands are the period's consumption, whole
     expect(f.uses.filter((b) => b.kind === "spending").reduce((s, b) => s + b.cents, 0)).toBe(totals.consumptionCents);
+  });
+
+  it("gives each complete month its own two equal lists, the month of a credit draw holding the credit", () => {
+    const rows = [
+      ...monthlyOn("2026-01", 25, 3, () => 300000, { category: "salary", merchant: "Acme Oy" }),
+      ...monthlyOn("2026-01", 2, 3, () => -150000, { category: "housing", merchant: "Sato Oyj" }),
+      ...monthlyOn("2026-01", 10, 3, () => -200000, { category: "groceries", merchant: "K-Market" }),
+      tx({ bookingDate: "2026-02-12", amountCents: 80000, category: "credit_draw", merchant: "Lainanostaja" }),
+    ];
+    const f = flowOf(createContext(rows, [checking], "2026-04-15"), { from: "2026-01-01", to: "2026-03-31" });
+    expect(f.months.map((m) => m.month)).toEqual(["2026-01", "2026-02", "2026-03"]);
+    const total = (bands: { cents: number }[]) => bands.reduce((s, b) => s + b.cents, 0);
+    for (const m of f.months) {
+      expect(total(m.sources)).toBe(m.totalCents);
+      expect(total(m.uses)).toBe(m.totalCents);
+      expect([...m.sources, ...m.uses].every((b) => b.cents > 0)).toBe(true);
+    }
+    expect(f.months.map((m) => m.creditCents)).toEqual([0, 80000, 0]);
+    expect(f.months.map((m) => m.sources.find((b) => b.id === "credit")?.cents ?? 0)).toEqual([0, 80000, 0]);
   });
 });

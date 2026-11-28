@@ -53,7 +53,7 @@
  *   rule 45  no style attribute in the web app (style-src has no 'unsafe-inline')   code-rules.ts
  *   rule 46  an own class selector is styled in one stylesheet, base.css apart   css-tokens.ts (detector: css-look.ts)
  *   rule 48  a class a component writes is styled by a sheet its page loads   sheets-rules.ts (detector: sheets.ts)
- *   rule 49  two rows are paired by amount only in pairing.ts   code-rules.ts
+ *   rule 49  two rows are paired by amount only in pairing.ts and pairing-legs.ts   code-rules.ts
  *   rule 50  every control of the web app has an accessible name   names-rules.ts (detector: names.ts)
  *   rule 51  a row is categorized through categorizeInDirection   code-rules.ts (detector: categorize.ts)
  *   rule 52  a figure of the registry has its scope, additive and one function, and every figure word of MONEY_FLOWS.md is in it and each entry has its row there   figures-rules.ts

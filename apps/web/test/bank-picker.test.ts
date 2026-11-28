@@ -10,7 +10,7 @@ import { bankLogo, logoForInstitution } from "../src/banks.ts";
 import { BankLogo, plateShows } from "../src/components/BankLogo.tsx";
 import { setLanguage } from "../src/format.ts";
 import { BankPicker, hasOtherBanks, lastUsedBank, orderBanks, searchBanks } from "../src/components/BankPicker.tsx";
-import { renewalBank } from "../src/pages/settings/BankConnections.tsx";
+import { renewalBank } from "../src/pages/settings/connection-text.ts";
 import type { BankOption } from "../src/types.ts";
 
 const NAMES: [string, string][] = [

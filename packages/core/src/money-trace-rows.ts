@@ -10,7 +10,8 @@ import type { Owner, SourcePart, TraceRow } from "./money-trace.ts";
 import { isUserOwner, TRACE_PAIR_DAYS } from "./money-trace.ts";
 import { type Name, nameOf, samePerson } from "./person-names.ts";
 import { matchReturns } from "./returns.ts";
-import { type PoolLeg, pairsOf, poolLegFinder, transferAllocations } from "./pairing.ts";
+import { pairsOf, transferAllocations } from "./pairing.ts";
+import { type PoolLeg, poolLegFinder } from "./pairing-legs.ts";
 import { normalizeIban } from "./transfers.ts";
 import type { Account, Transaction } from "./types.ts";
 
