@@ -1,5 +1,5 @@
 /** Dashboard, reports, transactions, recurring, rules, accounts and sharing for the signed-in user. */
-import { accountDigits, ACCOUNT_TYPES, type AccountType, cashAhead, type DashboardAnswer, type ReconcileVerdict, buildReports, fromDayNumber, isKnownCategory, patternProblem, type RuleField, openingMonth, upcomingElsewhereCents, upcomingGroups } from "@banking/core";
+import { accountDigits, ACCOUNT_TYPES, type AccountType, billsBeforePayday, cashAhead, type DashboardAnswer, type ReconcileVerdict, buildReports, fromDayNumber, isKnownCategory, patternProblem, type RuleField, openingMonth, upcomingElsewhereCents, upcomingGroups } from "@banking/core";
 import { Hono } from "hono";
 import { parseScope, proposalsFor, requestInputs, sharedInView } from "../services/analysis.ts";
 import { usesWithTraces } from "../services/visible-accounts.ts";
@@ -170,7 +170,7 @@ export function financeRoutes(s: Services) {
     const ahead = memoOn(ctx, "ahead", [balances, inputs], () => {
       const walked = cashAhead(withoutWrongBills(ctx, inputs.marks), balances, inputs);
       // Laskut's groups of the bills ahead come with their sums: the page adds up nothing
-      return { ...walked, groups: upcomingGroups(walked), elsewhereCents: upcomingElsewhereCents(walked.upcoming) };
+      return { ...walked, groups: upcomingGroups(walked), elsewhereCents: upcomingElsewhereCents(walked.upcoming), beforePayday: billsBeforePayday(walked) };
     });
     return c.json({ ahead });
   });

@@ -1,7 +1,8 @@
 /**
  * Decision: what is coming in the next twelve months, and which bill, contract or subscription to drop.
  *
- * Laskut answers with one table in the order of the calendar: a group for each of the twelve months, with the bills, the pays and the regular saving of the month
+ * Laskut starts with the bills before payday against the money on the accounts (BillsBar, core's `billsBeforePayday`),
+ * then answers with one table in the order of the calendar: a group for each of the twelve months, with the bills, the pays and the regular saving of the month
  * and what is left after the bills (BillsTable), and under it the twelve months in one low picture (MonthColumns: the bills
  * that come every month and the rest). A month picked on the picture opens in the table. A bill the history cannot
  * know yet is added by hand behind "Lisää lasku", a secondary action of the head, and is a row of the table. Every figure
@@ -10,11 +11,12 @@
  * (`seriesMarkSubject`); an old one on a merchant still covers every series of it. Instalment plans and loans are asked
  * in Tarkistettavat, never here.
  */
-import { cancelledSubjects, countingMark, type MarkKind, marksBySubject, NO_INPUTS, seriesMarkSubject, type UserMark } from "@banking/core";
+import { type BillsBeforePayday, cancelledSubjects, countingMark, type MarkKind, marksBySubject, NO_INPUTS, seriesMarkSubject, type UserMark } from "@banking/core";
 import { useState } from "react";
 import { api, query } from "../api.ts";
 import { MonthColumns } from "../charts/forms/MonthColumns.tsx";
 import { BillForm } from "../components/bills/BillForm.tsx";
+import { BillsBar } from "../components/bills/BillsBar.tsx";
 import { BillsTable, type MarkControls } from "../components/bills/BillsTable.tsx";
 import { startOpenMonth } from "../components/bills/calendar-rows.ts";
 import { billItems } from "../components/bills/items.ts";
@@ -34,6 +36,8 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
   const recurring = useApi<{ series: Series[]; marks: UserMark[] }>(`/api/recurring${query({ scope })}`);
   // the calendar of the twelve months, and the bills typed in, which are the `upcoming` report's list
   const reports = useApi<ReportsData>(`/api/reports${query({ scope, reports: "billCalendar,upcoming,fixedCosts" })}`);
+  // the bills before payday laid against the money; the page stands without it while it is on the way
+  const ahead = useApi<{ ahead: { beforePayday: BillsBeforePayday } }>(`/api/ahead${query({ scope })}`);
   // what the last save answered: fresher than the list the page was loaded with
   const [saved, setSaved] = useState<UserMark[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -61,7 +65,10 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
   const marks = marksBySubject(markList);
   const cancelled = cancelledSubjects({ ...NO_INPUTS, marks: markList });
   // a typed-in bill or a mark changes what the calendar holds
-  const refresh = () => reports.reload();
+  const refresh = () => {
+    reports.reload();
+    ahead.reload();
+  };
   // the line that says a bill was added goes with the bill
   const removed = () => {
     setAdded(null);
@@ -122,6 +129,7 @@ export function Bills({ meta, scope }: { meta: Meta; scope: Scope }) {
         )}
         {calendar.unknownCount > 0 && <p className="bills-lead bills-unknown">{tn(calendar.unknownCount, "bills.unknown_one", "bills.unknown_many")}</p>}
       </section>
+      {ahead.data && <BillsBar before={ahead.data.ahead.beforePayday} today={meta.today} />}
       {markError && <Notice tone="error">{markError}</Notice>}
       {listed ? (
         <ChartWithTable
