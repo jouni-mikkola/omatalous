@@ -3,6 +3,7 @@
  * The month's spending so far (`monthPace`'s `currentTotal`) set against the one monthly goal, and the month's end as
  * the usual months spent the rest of it (its `projection`). One goal for consumption and debt payments together,
  * as the chart counts them; no goal per category.
+ * No page reads this now; spendingGoal stays exported because the frozen module-host surface lists it (contracts/*/module-host.json).
  */
 import type { MonthPace } from "./forecast.ts";
 

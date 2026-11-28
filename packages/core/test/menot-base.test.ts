@@ -1,7 +1,7 @@
 /**
  * The Menot of the first page are one figure on one base: the spending of the flows (consumption and debt), which Tulos
  * adds up. A debt paid from a savings account is spending in the categories and Säästöön in Tulos, so no figure under
- * Menot may hold it: the tile, the month's bars, the usual line, the pace and its usual, the spending goal, the
+ * Menot may hold it: the tile, the month's bars, the usual line, the pace and its usual, the
  * explanation of the tile. The same household is built twice, with and without a loan paid from savings each month, and
  * every figure of those parts of the dashboard must come out the same. A field added later that reads `spend` of a row
  * instead of its flows differs between the two and fails here. What may differ is declared in `menotOf`.
@@ -39,7 +39,7 @@ function household(loan: boolean): Transaction[] {
   ]);
 }
 
-const inputs = { ...NO_INPUTS };
+const inputs = NO_INPUTS;
 const dashboardOf = (loan: boolean) => buildDashboard(createContext(household(loan), [checking, savings], today), range, [], inputs);
 
 /**

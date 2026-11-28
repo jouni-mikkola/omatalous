@@ -306,7 +306,7 @@ export function expectedFor(ctx: AnalysisContext, month: string): Expected | nul
 
 /**
  * `expectedFor` on the spending of the flows (`flowSpendOf`), the base of everything the first page shows under Menot: the
- * pace and its usual, the spending goal. A debt paid from a savings account is spending in the categories, so `expectedFor`
+ * pace and its usual. A debt paid from a savings account is spending in the categories, so `expectedFor`
  * holds it, and Säästöön in Tulos, so Menot leave it out: the usual of Menot is read from the rows Menot are read from.
  */
 export function expectedFlowsFor(ctx: AnalysisContext, month: string): Expected | null {
