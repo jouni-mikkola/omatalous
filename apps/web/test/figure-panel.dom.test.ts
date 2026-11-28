@@ -50,12 +50,12 @@ describe("FigurePanel", () => {
 
 describe("Menot panel of Tulot ja menot", () => {
   const month = (m: string, cents: number) => ({ month: m, cents, from: `${m}-01`, to: `${m}-28` });
-  const ctx = (usual: unknown) =>
+  const ctx = (usual: unknown, fromSavingsCents = 0) =>
     ({
       data: {
         figureParts: {
           cashflowSpend: { cents: 300_000, months: [month("2026-08", 100_000), month("2026-09", 200_000)], usual },
-          categorySpend: { cents: 350_000, completeMonthsCents: 300_000, partialMonths: [month("2026-10", 50_000)], fromSavingsCents: 0, otherCents: 0, monthsInRange: 3, completeMonths: 2 },
+          categorySpend: { cents: 350_000, completeMonthsCents: 300_000, partialMonths: [month("2026-10", 50_000)], fromSavingsCents, otherCents: 0, monthsInRange: 3, completeMonths: 2 },
         },
       },
       range: { from: "2026-08-01", to: "2026-10-20" },
@@ -85,6 +85,13 @@ describe("Menot panel of Tulot ja menot", () => {
   it("has no usual month block when core gave none", () => {
     const panel = cashflowSpendPanel(ctx(null));
     const text = flat(render(createElement("div", null, panel!.content as never)).container.textContent);
-    expect(text).not.toContain("1 400 €");
+    expect(text).not.toContain("Tavallinen kuukausi");
+  });
+
+  it("shows the debt paid from savings and its wording when there is some", () => {
+    const text = flat(render(createElement("div", null, cashflowSpendPanel(ctx(null, 20_000))!.content as never)).container.textContent);
+    expect(text).toContain("Säästöistä maksettu");
+    expect(text).toContain("200,00 €");
+    expect(text).toContain("säästöistä maksetun");
   });
 });

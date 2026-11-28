@@ -46,7 +46,16 @@ export function FigurePanel({ figure, label, children }: { figure: ReactNode; la
       <button ref={button} type="button" className="fig-open" aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? id : undefined} onClick={() => setOpen(!open)}>
         {figure}
       </button>
-      {open && <div className="fig-backdrop" onClick={() => setOpen(false)} />}
+      {open && (
+        <div
+          className="fig-backdrop"
+          aria-hidden="true"
+          onClick={() => {
+            setOpen(false);
+            button.current?.focus();
+          }}
+        />
+      )}
       {open && (
         <div ref={panel} id={id} className="fig-pop" role="dialog" aria-label={label} tabIndex={-1}>
           <p className="fig-pop-title">{label}</p>

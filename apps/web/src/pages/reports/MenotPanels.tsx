@@ -52,7 +52,7 @@ export function cashflowSpendPanel(ctx: ReportContext): Panel | undefined {
         {usual && (
           <>
             <p className="fig-pop-heading">{t("rpt.fp_usual", { sum: answerMoney(usual.cents) })}</p>
-            <KeyValue items={[[t("rpt.fp_complete_months"), rowMoney(spend.cents)], [t("rpt.fp_large"), rowMoney(-usual.largePurchasesCents)], [t("rpt.fp_divided", { months: String(usual.months) }), rowMoney(usual.cents), "total"]]} />
+            <KeyValue items={[[t("rpt.fp_complete_months"), rowMoney(spend.cents)], ...(usual.largePurchasesCents !== 0 ? [[t("rpt.fp_large"), rowMoney(-usual.largePurchasesCents)] as const] : []), [t("rpt.fp_divided", { months: String(usual.months) }), rowMoney(usual.cents), "total"]]} />
           </>
         )}
         <p className="fig-pop-heading">{t("rpt.fp_why", { name: t("rpt.page_spending"), sum: answerMoney(c.cents) })}</p>
