@@ -65,7 +65,7 @@ table { font-variant-numeric: tabular-nums lining-nums; }
 .filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0 16px; }
 /* the switch is a track; the chosen key takes the page's colour and carries a 2 px accent foot */
 .segmented { display: inline-flex; flex-wrap: wrap; padding: 2px; border: 1px solid var(--border); border-radius: calc(var(--radius-pill) + 1px); background: var(--surface-2); }
-.segmented button { min-height: calc(var(--control-h) - 8px); padding: 0 12px; border: 0; border-radius: calc(var(--radius-pill) - 1px); background: none; color: var(--text-2); font-size: var(--fs-body); font-weight: 600; cursor: pointer; }
+.segmented button { min-height: calc(var(--control-h) - 8px); padding: 0 12px; border: 0; border-radius: calc(var(--radius-pill) - 1px); background: none; color: var(--text-2); font-size: var(--fs-small); font-weight: 600; cursor: pointer; }
 .segmented button:hover { color: var(--text); }
 .segmented button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
 /* tabs: views of one subject (buttons) or targets of one page (links); the chosen one carries the 2 px accent foot */
