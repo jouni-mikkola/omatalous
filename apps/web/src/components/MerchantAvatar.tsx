@@ -1,7 +1,7 @@
 /**
  * The mark of a payee or an account that has no logo: initials on a disc whose tint is one of the chart series, chosen
- * by a stable hash of the name, so a name keeps its colour on every page. A person gets a head and shoulders and never
- * initials, which could be read as a brand. The disc sits on the plate the bank logos and the chain marks use, at the
+ * by a stable hash of the name, so a name keeps its colour on every page. A person's name has its initials on the
+ * plain disc, so a person is never mistaken for a brand and no grey figure repeats down a list. The disc sits on the plate the bank logos and the chain marks use, at the
  * same size, so the three line up in a column. Nothing is fetched and no logo set is bundled.
  */
 import { companyForms, fold, householdWords, nameMayBePerson, LOCALE } from "@banking/core";
@@ -51,18 +51,8 @@ function useHousehold(): ReadonlySet<string> {
 }
 const NO_NAMES: ReadonlySet<string> = new Set();
 
-/** A head and shoulders. */
-function PersonGlyph() {
-  return (
-    <svg viewBox="0 0 16 16">
-      <circle cx="8" cy="5" r="3" />
-      <path d="M2 15c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5z" />
-    </svg>
-  );
-}
-
 /**
- * `person` draws the glyph; without it core reads the name (nameMayBePerson) against the household's own names. Decorative: the name stands beside the mark, so a screen reader
+ * `person` gives the plain disc; without it core reads the name (nameMayBePerson) against the household's own names. Decorative: the name stands beside the mark, so a screen reader
  * skips it. `size` is the dense row (s), the line (m) and the one a page is about (l).
  */
 export function MerchantAvatar({
@@ -82,7 +72,7 @@ export function MerchantAvatar({
   return (
     <span className={`mk-plate mk-${size}${wide ? " mk-wide" : ""}`} aria-hidden="true">
       <span className="mk-disc" data-tint={isPerson ? undefined : tintOf(name)}>
-        {isPerson ? <PersonGlyph /> : initialsOf(name)}
+        {initialsOf(name)}
       </span>
     </span>
   );

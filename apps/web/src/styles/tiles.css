@@ -22,4 +22,8 @@
   .strip-label { grid-column: 1; grid-row: 1; }
   .strip-note { grid-column: 1 / -1; }
 }
+/* the gap beside a figure is a link a thumb meets: high at least a tap, the margin taking the height back */
+@media (max-width: 640px), (pointer: coarse) {
+  .strip-figure > a { display: inline-flex; align-items: center; min-height: var(--tap-phone); margin-block: calc(-1 * var(--sp-8)); }
+}
 }

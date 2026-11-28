@@ -7,7 +7,7 @@ import { MerchantAvatar } from "../../components/MerchantAvatar.tsx";
 import { t } from "../../text.ts";
 import type { Account, AccountType, BankOption, Meta } from "../../types.ts";
 
-/** The payee's mark: initials on a tinted disc, a person glyph for a payment to or from a person. */
+/** The payee's mark: initials on a tinted disc, a plain one for a payment to or from a person. */
 export function PayeeMark({ name, person }: { name: string; person?: boolean }) {
   return <MerchantAvatar name={name} person={person} size="s" />;
 }

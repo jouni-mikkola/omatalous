@@ -19,7 +19,7 @@ import { t, tn } from "../../../text.ts";
 /**
  * The page's answer in one row, each figure the one of `holdings` under the name its group has below: what the accounts
  * hold, what is owed and what is left of the first after the second. The debts say so when they are the known ones only,
- * and then no net is told: one line under the row counts the debts that lack a balance and leads to their question.
+ * and then no net is told: the debts tile says how many debts lack a balance, beside its figure, and leads to their question.
  */
 export function BalancesTiles({ ctx }: SectionProps) {
   const h = ctx.data.balances.holdings;
@@ -29,29 +29,13 @@ export function BalancesTiles({ ctx }: SectionProps) {
   const netLabel = netLabelOf(h);
   const items: TileItem[] = [
     { label: t("holdings.accounts_total"), figure: answerMoney(h.accountsCents!) },
-    ...(owes ? [{ label: t(lacking > 0 ? "holdings.debts_known" : "holdings.debts_total"), figure: answerMoney(h.debtCents!) }] : []),
+    // with no debt left to ask in Tarkistettavat the gap has no link
+    ...(owes ? [{ label: t(lacking > 0 ? "holdings.debts_known" : "holdings.debts_total"), figure: answerMoney(h.debtCents!), ...(lacking > 0 ? { gap: { text: tn(lacking, "rpt.bal_gap_one", "rpt.bal_gap_many"), ...(headAsks(ctx.data.balances) ? { href: LOAN_TERMS_HASH, leads: t("rpt.ln_fill") } : {}) } } : {}) }] : []),
     // an unknown total is said, so the row never looks debt-free
     ...(h.debtCents === null ? [{ label: t("holdings.debts_total"), figure: t("bills.after_unknown") }] : []),
     ...(owes && lacking === 0 && h.netCents !== null && netLabel ? [{ label: netLabel, figure: answerMoney(h.netCents) }] : []),
   ];
-  // with no debt left to ask in Tarkistettavat the line has no link
-  const asks = headAsks(ctx.data.balances);
-  return (
-    <>
-      <Tiles items={items} />
-      {lacking > 0 && (
-        <p className="bal-lacking">
-          <span>{tn(lacking, "rpt.bal_lacking_one", "rpt.bal_lacking_many")}</span>
-          {asks && (
-            <>
-              {" "}
-              <a className="btn-link" href={LOAN_TERMS_HASH}>{t("rpt.ln_fill")}</a>
-            </>
-          )}
-        </p>
-      )}
-    </>
-  );
+  return <Tiles items={items} />;
 }
 
 /** The credits the household answered "Maksettu pois" for, each with the day of its last payment (the server's list, latest first): ended, no debt, and not gone from the page. */
