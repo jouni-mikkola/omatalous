@@ -1,7 +1,7 @@
-import { addDays, type ExpectedCadence } from "@banking/core";
+import { addDays, type ExpectedCadence, parseBankBarcode } from "@banking/core";
 import { type FormEvent, useRef, useState } from "react";
 import { api } from "../../api.ts";
-import { CADENCE_LABEL, parseEuros } from "../../format.ts";
+import { CADENCE_LABEL, fullDate, parseEuros } from "../../format.ts";
 import { t } from "../../text.ts";
 import { Button } from "../ui/Button.tsx";
 import { Notice } from "../ui/Notice.tsx";
@@ -23,12 +23,40 @@ export function BillForm({ today, onAdded, onCancel }: { today: string; onAdded:
   const [amount, setAmount] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [cadence, setCadence] = useState<ExpectedCadence>("yearly");
+  const [barcode, setBarcode] = useState("");
+  const [barcodeNote, setBarcodeNote] = useState<{ tone: "info" | "error"; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bad, setBad] = useState<ReadonlySet<"name" | "amount" | "due">>(new Set());
   const fields = { name: useRef<HTMLInputElement>(null), amount: useRef<HTMLInputElement>(null), due: useRef<HTMLInputElement>(null) };
   const clear = (field: "name" | "amount" | "due") => {
     if (bad.has(field)) setBad(new Set([...bad].filter((f) => f !== field)));
+  };
+
+  // Only the sum and the due date are kept; the IBAN and the reference of the barcode are dropped at once.
+  const readBarcode = (text: string) => {
+    setBarcode(text);
+    if (!text.trim()) {
+      setBarcodeNote(null);
+      return;
+    }
+    const read = parseBankBarcode(text);
+    if (!read.ok) {
+      setBarcodeNote({ tone: "error", text: t(`bills.form.barcode_${read.failure}`) });
+      return;
+    }
+    const { cents, dueDate: due } = read.barcode;
+    setAmount(`${Math.floor(cents / 100)},${String(cents % 100).padStart(2, "0")}`);
+    clear("amount");
+    if (due === null) {
+      setBarcodeNote({ tone: "info", text: t("bills.form.barcode_no_due") });
+    } else if (due < addDays(today, -DAYS_BACK) || due > addDays(today, DAYS_AHEAD)) {
+      setBarcodeNote({ tone: "error", text: t("bills.form.barcode_outside", { date: fullDate(due) }) });
+    } else {
+      setDueDate(due);
+      clear("due");
+      setBarcodeNote({ tone: "info", text: t("bills.form.barcode_filled") });
+    }
   };
 
   const submit = async (e: FormEvent) => {
@@ -62,6 +90,12 @@ export function BillForm({ today, onAdded, onCancel }: { today: string; onAdded:
       <h2 id="bill-dialog-title">{t("bills.form.add")}</h2>
       <form className="bill-form" onSubmit={submit}>
       <div className="bill-fields">
+        <label>
+          <span className="field-label">{t("bills.form.barcode")}</span>
+          <input type="text" inputMode="numeric" autoComplete="off" value={barcode} onChange={(e) => readBarcode(e.target.value)} aria-invalid={barcodeNote?.tone === "error" || undefined} aria-describedby="bill-barcode-hint" />
+          <span id="bill-barcode-hint" className="muted">{t("bills.form.barcode_hint")}</span>
+        </label>
+        {barcodeNote && <Notice tone={barcodeNote.tone}>{barcodeNote.text}</Notice>}
         <label>
           <span className="field-label">{t("bills.form.name")}</span>
           <input type="text" ref={fields.name} aria-invalid={bad.has("name") || undefined} value={name} onChange={(e) => { setName(e.target.value); clear("name"); }} maxLength={80} placeholder={t("bills.form.name_example")} autoFocus />
