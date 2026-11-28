@@ -173,7 +173,7 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
   const seriesRows = calendar.loanSeries.filter((l) => !l.onCard).flatMap(({ id, payee }) => {
     const series = ctx.recurring.find((s) => s.id === id);
     const state = series?.kind === "subscription" ? ("known" as const) : ("estimate" as const);
-    return series ? expectedCharges([series], from, last, { cancelled: cancelledSubjects(inputs, ctx.today), savings: true }).map((c) => ({ date: c.date, payee, category: series.category ?? null, cents: c.amountCents, state, kind: "loan" as const, seriesId: id })) : [];
+    return series ? expectedCharges([series], from, last, { cancelled: cancelledSubjects(inputs, ctx.today), savings: true }).map((c) => ({ date: c.date, payee, category: series.category ?? null, cents: c.amountCents, state, kind: "loan" as const, seriesId: id, onCard: undefined })) : [];
   });
   const rows = [...calendarRows.filter((r) => !(r.kind === "loan" && r.seriesId !== null && !r.lump && ctx.recurring.some((s) => s.id === r.seriesId))), ...seriesRows]
     .filter((r) => r.state !== "paid" && !r.onCard && r.date >= from && r.date <= last && !(r.seriesId === null && r.kind === "bill" && (heldByDebt.has(`${r.date}|${r.payee}|${r.cents}`) || laterInRange.some((d) => d.date === r.date && d.name === r.payee))))
