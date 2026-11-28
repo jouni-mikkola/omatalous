@@ -61,6 +61,7 @@ export const FI_BILLS = {
   "bills.form.barcode_filled": "Summa ja eräpäivä luettu viivakoodista.",
   "bills.form.barcode_no_due": "Summa luettu viivakoodista. Laskussa ei ole eräpäivää, valitse se itse.",
   "bills.form.barcode_no_amount": "Viivakoodissa ei ole summaa. Kirjoita summa itse.",
+  "bills.form.barcode_no_amount_no_due": "Viivakoodissa ei ole summaa eikä eräpäivää. Kirjoita ne itse.",
   "bills.form.barcode_due_only": "Eräpäivä luettu viivakoodista.",
   "bills.form.barcode_outside": "Viivakoodin eräpäivä {date} on sallitun ajan ulkopuolella, valitse eräpäivä itse.",
   "bills.form.barcode_length": "Viivakoodissa pitää olla 54 numeroa. Tarkista liitetty teksti.",

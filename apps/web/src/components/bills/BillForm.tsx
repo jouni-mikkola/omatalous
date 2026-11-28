@@ -59,7 +59,7 @@ export function BillForm({ today, onAdded, onCancel }: { today: string; onAdded:
     }
     const missing = hasAmount ? "" : ` ${t("bills.form.barcode_no_amount")}`;
     if (due === null) {
-      setBarcodeNote({ tone: "info", text: hasAmount ? t("bills.form.barcode_no_due") : t("bills.form.barcode_no_amount") });
+      setBarcodeNote({ tone: "info", text: t(hasAmount ? "bills.form.barcode_no_due" : "bills.form.barcode_no_amount_no_due") });
     } else if (due < addDays(today, -DAYS_BACK) || due > addDays(today, DAYS_AHEAD)) {
       setBarcodeNote({ tone: "error", text: t("bills.form.barcode_outside", { date: fullDate(due) }) + missing });
     } else {
@@ -102,7 +102,7 @@ export function BillForm({ today, onAdded, onCancel }: { today: string; onAdded:
       <div className="bill-fields">
         <label>
           <span className="field-label">{t("bills.form.barcode")}</span>
-          <input type="text" inputMode="numeric" autoComplete="off" value={barcode} onChange={(e) => readBarcode(e.target.value)} onBlur={() => readBarcode(barcode, true)} aria-invalid={barcodeNote?.tone === "error" || undefined} aria-describedby="bill-barcode-hint" />
+          <input type="text" inputMode="numeric" autoComplete="off" value={barcode} onChange={(e) => readBarcode(e.target.value)} onBlur={() => { if (!barcodeNote) readBarcode(barcode, true); }} aria-invalid={barcodeNote?.tone === "error" || undefined} aria-describedby="bill-barcode-hint" />
         </label>
         <span id="bill-barcode-hint" className="muted">{t("bills.form.barcode_hint")}</span>
         {barcodeNote && <Notice tone={barcodeNote.tone}>{barcodeNote.text}</Notice>}
