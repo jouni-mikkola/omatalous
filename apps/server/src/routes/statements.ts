@@ -59,7 +59,7 @@ export function statementRoutes(s: Services) {
   });
 
   app.all("/statements/*", () => {
-    throw new NotFound("Ei löydy.");
+    throw new NotFound("Ei löydy");
   });
 
   return app;

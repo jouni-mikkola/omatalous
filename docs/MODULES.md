@@ -263,13 +263,13 @@ stylesheets hold no state.
 | `settingsCard` | the module | Asetukset > Lisäosa (`#/settings/addon`), above the add-on's own card; an address of its `settingsAnchor` opens it there |
 | `rowMark` | `rowFields` | on the line of a row of Tapahtumat, beside its tags; it keeps the row one line high |
 | `rowPart` | `rowFields` | in the opened row of Tapahtumat, above the payee's months |
-| category parts | `rowParts` | Raportit > Menot > Kategorioiden osat: each category the server split, its parts under its name and figure |
+| category parts | `rowParts` | Raportit > Menot > Mistä luku koostuu: each category the server split, its parts under its name and figure |
 
 `rowMark` and `rowPart` get the row as `/api/transactions` returns it, with the fields `rowFields` added, and draw
 nothing (return `null`) for a row they know nothing of (`components/ExtensionRowParts.tsx`). The category parts are
 the `parts` of the categories report (core `analysis/row-parts.ts`); the web draws them as the server gave them and
 adds nothing up (`pages/reports/sections/CategoryParts.tsx`). Without a module none of these points draws an element
-or makes a request, and the card of Kategorioiden osat is not there.
+or makes a request, and the card of Mistä luku koostuu is not there.
 
 ### Loading in the browser
 

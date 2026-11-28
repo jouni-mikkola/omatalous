@@ -143,7 +143,7 @@ export const FI_BILLS = {
   "holdings.not_reconciles": "Ei täsmää pankin saldoon",
   "holdings.accounts": "Tilit",
   "holdings.loan_account": "Lainanhoitotili",
-  "holdings.accounts_total": "Tilit yhteensä",
+  "holdings.accounts_total": "Tilien saldo",
   "holdings.checking": "Käyttötilit",
   "holdings.savings": "Säästötilit",
   "holdings.other": "Muut tilit",

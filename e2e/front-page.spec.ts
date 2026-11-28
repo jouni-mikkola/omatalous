@@ -121,7 +121,7 @@ for (const width of [390, 1440] as const) {
       expect(plain(await buffer.innerText())).toBe(`Puskuri ${reasons[bufferGap as string]}`);
     } else if (bufferNetCents !== null && bufferNetCents < 0) {
       // no buffer: the line says so and holds no sum, the shortfall is the figure Nyt leads with
-      expect(plain(await buffer.innerText())).toBe("Ei säästöjä varalla");
+      expect(plain(await buffer.innerText())).toBe("Puskuri puuttuu");
       await expect(buffer.locator("summary")).toHaveCount(0);
     } else {
       const months = bufferMonths.toLocaleString("fi-FI", { minimumFractionDigits: 1, maximumFractionDigits: 1 });

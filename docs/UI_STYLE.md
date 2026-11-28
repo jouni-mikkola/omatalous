@@ -57,7 +57,7 @@ with it. A new word for a thing already named here is not added: the term below 
 | Confirming | the verb that names the act: *Poista*, *Tallenna*, *Peruuta* | *Kyllä*, *Ei*, *OK* |
 | Abbreviations | *kaupparekisteri* for YTJ; CSV is explained at its first use; API and PSD2 only for the administrator | |
 | Days and counts | *päivää*, *päivältä*, the noun through `plural()` (*3 laskua*) | *pv*, *kpl* |
-| A heading that asks | a short noun (*Muutokset kuukaudesta*) | *Mikä muuttui*, *Mitä luvusta puuttuu* (the questions of Tarkistettavat and the label of a field are real questions and stay) |
+| A heading that asks | a short noun (*Ero tavalliseen kuukauteen*) | *Mikä muuttui*, *Mitä luvusta puuttuu* (the questions of Tarkistettavat and the label of a field are real questions and stay) |
 | No match, no rows | *Ei osumia*, no full stop on a label of at most five words | *Ei yhtään riviä, joka täsmää.* |
 | English names | only as a quotation of another service's own word ("Link accounts") | whole English sentences |
 

@@ -77,7 +77,7 @@ const CASES: Record<string, { bad: string[]; ok: string[] }> = {
   },
   "Question word heading": {
     bad: ["Mikä muuttui", "Mitä laskuille kuuluu"],
-    ok: ["Muutokset kuukaudesta", "Mitä nämä ovat: {name}", "Mikä muuttui? Katso erittely.", "Mikään ei muuttunut"],
+    ok: ["Ero tavalliseen kuukauteen", "Mitä nämä ovat: {name}", "Mikä muuttui? Katso erittely.", "Mikään ei muuttunut"],
   },
   "Abbreviated count": {
     bad: ["Arvioitu kulutus 12 pv", "Laskut, 3 kpl", "{days} pv:"],

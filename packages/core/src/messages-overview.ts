@@ -103,7 +103,7 @@ export const FI_OVERVIEW = {
   "home.days_cards": "Korttiostot, arvio",
   "home.buffer": "Puskuri {months} kuukautta",
   "home.buffer_label": "Puskuri",
-  "home.buffer_none": "Ei säästöjä varalla",
+  "home.buffer_none": "Puskuri puuttuu",
   "home.buffer_no_balance": "Ei saldoa",
   "home.buffer_history": "Liian lyhyt historia",
   "home.buffer_no_spending": "Ei menoja",

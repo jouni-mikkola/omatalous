@@ -197,7 +197,7 @@ export const EN_TRANSACTIONS: Record<keyof typeof FI_TRANSACTIONS, string> = {
   "cal.keys_weeks": "From the last row the down arrow goes to the sum of the week.",
   "cal.keys_means": "From the last column the right arrow goes to the average of the weekday.",
   "cal.week_short": "wk",
-  "cal.mean_head": "avg / day",
+  "cal.mean_head": "Average",
   "cal.largest": "Largest days",
   "cal.cut": "The chart shows the last {count} weeks. All days are in the table.",
   "rule.heading": "Rules",

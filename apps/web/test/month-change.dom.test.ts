@@ -1,5 +1,5 @@
 /**
- * Raportit > Menot kategorioittain > Muutokset kuukaudesta: the usual month, a step for each category that moved it and the month,
+ * Raportit > Menot kategorioittain > Ero tavalliseen kuukauteen: the usual month, a step for each category that moved it and the month,
  * from the report's `changes`. The page adds up nothing: the starts, ends and gaps are the server's, and a month the
  * report gives no steps for cannot be picked.
  */
@@ -50,7 +50,7 @@ const context = (spendingMonths: Report): ReportContext => ({ data: { spendingMo
 const show = (r: Report) => render(createElement(section.Component, { ctx: context(r) }));
 const plain = (s: string | null) => (s ?? "").replace(/[  ]/g, " ").replace(/\s+/g, " ").trim();
 
-describe("Menot kategorioittain: Muutokset kuukaudesta", () => {
+describe("Menot kategorioittain: Ero tavalliseen kuukauteen", () => {
   it("opens on the newest month with steps, and names the usual month, each step and the month with the report's figures", () => {
     show(report([null, null, change(10_000), change(30_000), change(50_000), null]));
     const table = screen.getByRole("table", { name: "Muutokset: syyskuu 2026" });

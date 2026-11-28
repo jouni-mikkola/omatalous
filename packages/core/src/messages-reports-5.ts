@@ -180,7 +180,7 @@ export const FI_REPORTS_5 = {
   "rpt.sm_spark": "Kehitys",
   "rpt.sm_spark_plain": "{name}: viimeisin kuukausi {sum}",
   "rpt.sm_spark_of": "{name}: viimeisin kuukausi {sum}, keskimäärin {usual}",
-  "rpt.sec_month_change": "Muutokset kuukaudesta",
+  "rpt.sec_month_change": "Ero tavalliseen kuukauteen",
   "rpt.mc_caption": "Muutokset: {month}",
   "rpt.mc_step": "Muutos",
   "rpt.mc_levels": "Kategorioiden keskiarvot yhteensä",

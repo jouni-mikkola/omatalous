@@ -115,7 +115,7 @@ const LINES: readonly (readonly [string, string])[] = [
   ["Virheellinen summa.", "Invalid amount."],
   ["Rivejä ei ole.", "There are no rows."],
   ["Virheellinen rivi.", "Invalid row."],
-  ["Ei löydy.", "Not found."],
+  ["Ei löydy", "Not found"],
   ["Logoa ei löydy.", "The logo was not found."],
   ["Liitä koko osoite selaimen osoiteriviltä.", "Paste the whole address from the browser's address bar."],
   ["Osoite on vajaa. Liitä koko osoite.", "The address is incomplete. Paste the whole address."],

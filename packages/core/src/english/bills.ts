@@ -141,7 +141,7 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "holdings.not_reconciles": "Does not match the bank's balance",
   "holdings.accounts": "Accounts",
   "holdings.loan_account": "Loan payment account",
-  "holdings.accounts_total": "Accounts total",
+  "holdings.accounts_total": "Account balances",
   "holdings.checking": "Checking accounts",
   "holdings.savings": "Savings accounts",
   "holdings.other": "Other accounts",

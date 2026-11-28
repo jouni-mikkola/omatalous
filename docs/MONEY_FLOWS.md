@@ -604,7 +604,7 @@ or a loan that other members use is counted at the member's part, and its row sa
 accounts*).
 
 - **Tilit.** Checking, savings and other accounts, each with its balance from the day walk and every account its own row,
-  in the order core gives. The last row is *Tilit yhteensä*, `accountsCents`: the known balances of the accounts added
+  in the order core gives. The last row is *Tilien saldo*, `accountsCents`: the known balances of the accounts added
   together. An account the bank gave no balance shows a dash and is left out of the sum, which says so in the small line
   under it (*Ilman 2 tilin saldoa*); with no known balance at all the total is a dash, never 0.
   The totals count in euros: an account in another currency shows its balance with its currency code (*540,00 USD*)
@@ -757,11 +757,11 @@ what a credit card is charged, each with its sum, sent by `GET /api/ahead`.
   complete months, with the money that came back for them. The bars, the totals and the categories' own sums keep them.
   *Tavallinen kuukausi* has one source, `typicalFlowCents`: the line under the bars of *Tulot ja menot* reads it. The level of a
   category (the dashed line of *Kehitys* and the base of *Ero keskiarvoon* in the category table) is the level of its own sums, which keep a debt paid from savings, and the line of *Tulot kuukausittain* is the
-  mean of the income months under that label. *Muutokset kuukaudesta* starts from the categories' levels added up, labelled *Kategorioiden keskiarvot yhteensä* (the sum of the categories' own levels): that sum keeps a debt paid from savings and reads only the months the categories have a level for, so it can differ from *Tavallinen kuukausi*, and the two never share a name. The categories with no level at all (in practice those of a card connected late) are one step, *Kategoriat ilman keskiarvoa, kortti liitetty äskettäin*, and their whole sum is the step. The buffer's *Menot ja lainanmaksut kuukaudessa* is another figure, the
+  mean of the income months under that label. *Ero tavalliseen kuukauteen* starts from the categories' levels added up, labelled *Kategorioiden keskiarvot yhteensä* (the sum of the categories' own levels): that sum keeps a debt paid from savings and reads only the months the categories have a level for, so it can differ from *Tavallinen kuukausi*, and the two never share a name. The categories with no level at all (in practice those of a card connected late) are one step, *Kategoriat ilman keskiarvoa, kortti liitetty äskettäin*, and their whole sum is the step. The buffer's *Menot ja lainanmaksut kuukaudessa* is another figure, the
   *Odotettu* month with its loan payments, and does not carry the label. `apps/web/test/usual-month-label.test.ts` lists every reader of the label.
   `spendingChangeReport` (`reports/spending-change.ts`) is an older bridge of a month against its *Odotettu* plan with
   one-offs left out; no page shows it, the findings and the module-host contract still read it, so it stays until
-  those move to *Muutokset kuukaudesta*.
+  those move to *Ero tavalliseen kuukauteen*.
 - A category whose refunds were greater than its spending in the range stays in *Kategoriat* as a
   row with its minus, last in the order (in the view by theme its theme is under *Loput yhteensä*). Its share is negative, the shares add up to 100 %, and the page shows "–" for
   the share with a line under the table. The previous period is not cut at zero either, so *Muutos* adds up. The
@@ -788,7 +788,7 @@ what a credit card is charged, each with its sum, sent by `GET /api/ahead`.
 - *Saldot* draws the total of the connected accounts as an estimate, each counted back from the day the bank
   gave its balance (that day in the app's time zone).
   Its line is the accounts with the cards' balances in it. The page starts with the figures of `holdings` in one row,
-  *Tilit yhteensä* (`accountsCents`), *Velat yhteensä* (`debtCents`) and *Varat velkojen jälkeen* (`netCents`), the same
+  *Tilien saldo* (`accountsCents`), *Velat yhteensä* (`debtCents`) and *Varat velkojen jälkeen* (`netCents`), the same
   names and figures the groups under the chart have. While a debt has no balance the debts are named *tiedossa*, no net
   figure is shown and a line under the row counts those debts and links to their question.
   Its change (*Saldomuutos*) runs from the close of the day before the range starts to the close of its last known day,
