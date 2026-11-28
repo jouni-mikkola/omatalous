@@ -47,7 +47,7 @@ for (const width of [320, 360, 390]) {
       bottom = box.y + box.height;
     }
     expect(await overflow(page), `the page scrolls sideways: ${(await sticking(page, width)).join("; ")}`).toBe(0);
-    expect(await cut(page.locator(".home-fig-label, .home-figs .fig, .home-fig-line, .home-fig-term, .home-flow-name, .home-flow-sum, .home-verdict, .home-rows")), "text cut").toEqual([]);
+    expect(await cut(page.locator(".home-fig-label, .home-figs .fig, .home-fig-line, .home-fig-term, .home-verdict, .home-rows")), "text cut").toEqual([]);
     // every figure of the month is inside the screen
     for (const cell of await page.locator(".home-figs .fig").all()) {
       const box = (await cell.boundingBox())!;

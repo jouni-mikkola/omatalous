@@ -47,8 +47,8 @@ const SECOND_TYPE_SHARE = 0.1;
 /** A type's share of all income as the table prints it: a share above zero that rounds to nothing is "alle 1 %", never "0 %" beside a sum. */
 const shareCell = (share: number): string => (share > 0 && share < 0.005 ? t("rpt.qt_under", { n: 1 }) : percent(share));
 
-/** The average line of the chart names the months it is the mean of: the months the chart draws solid. */
-const averageLine = (cents: number, months: number): string => t("rpt.in_average_line", { sum: money(cents, false), months: String(months) });
+/** The average line of the chart is the mean of the months the chart draws solid. */
+const averageLine = (cents: number): string => t("rpt.in_average_line", { sum: money(cents, false) });
 
 function Income({ ctx }: SectionProps) {
   const r = ctx.data.income;
@@ -69,7 +69,7 @@ function Income({ ctx }: SectionProps) {
             months={r.months.map((m, i) => ({ month: m.month, complete: m.complete, parts: r.kinds.map((k) => k.months[i] ?? 0), totalCents: m.totalCents, against: m.againstAverage }))}
             series={r.kinds.map((k) => ({ key: k.id, label: k.label }))}
             tone="income"
-            usual={r.monthlyCents === null ? null : { cents: r.monthlyCents, label: averageLine(r.monthlyCents, r.completeMonths), short: averageLine(r.monthlyCents, r.completeMonths) }}
+            usual={r.monthlyCents === null ? null : { cents: r.monthlyCents, label: averageLine(r.monthlyCents), short: averageLine(r.monthlyCents) }}
             running={ctx.running}
             label={t("rpt.in_months")}
           />

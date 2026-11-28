@@ -9,51 +9,37 @@ import { ChartWithTable } from "../../../components/table/selection.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { monthName } from "../month-name.ts";
 import { partialMonths } from "../partial-months.ts";
-import { KeyValue, type Fact } from "../../../components/table/KeyValue.tsx";
 import { Tiles, type TileItem } from "../../../components/Tiles.tsx";
 import type { ReportSection, SectionProps } from "../types.ts";
 
 type Gap = NonNullable<ReportsData["cashflowMonths"]["gap"]>;
 
-/** The gap of the complete months as a tile, and what paid it as facts: the paying parts above zero, in the order credit, savings, accounts and cards. */
-function gapTile(gap: Gap): { tile: TileItem; sources: Fact[] } {
-  const sources: Fact[] = [
-    [t("rpt.gap_credit"), answerMoney(gap.creditCents)],
-    [t("rpt.gap_savings"), answerMoney(gap.savingsCents)],
-    [t("rpt.gap_accounts"), answerMoney(gap.accountsCents)],
-  ];
-  const paid = [gap.creditCents, gap.savingsCents, gap.accountsCents];
-  return { tile: { label: t("rpt.gap_tile"), figure: answerMoney(gap.gapCents), tone: "bad", note: t("rpt.gap_tile_note") }, sources: sources.filter((_, i) => paid[i]! > 0) };
-}
+/** The gap of the complete months as a tile. */
+const gapTile = (gap: Gap): TileItem => ({ label: t("rpt.gap_tile"), figure: answerMoney(gap.gapCents), tone: "bad", note: t("rpt.gap_tile_note") });
 
 /**
  * What the complete months of the period came to, as tiles. The first is the answer, in colour: the gap when they took
- * more than they earned, with what paid it under the tiles, else the income less the spending. Then their income with
- * its average month and their spending with the usual month. Nothing without a complete month or a gap.
+ * more than they earned, else the income less the spending. Then their income with its average month and their
+ * spending with the usual month. One line names the complete months every tile counts. Nothing without a complete
+ * month or a gap.
  */
 export function CashflowLead({ ctx }: SectionProps) {
   const overview = ctx.data.cashflowMonths;
   if (!overview) return null;
   const { completeTotals: complete, gap, usualSpendCents } = overview;
   const gapParts = gap ? gapTile(gap) : null;
-  const sources = gapParts && gapParts.sources.length > 0 && (
-    <>
-      <p className="strip-note">{t("rpt.gap_sources")}</p>
-      <KeyValue items={gapParts.sources} />
-    </>
-  );
-  if (complete === null) return gapParts ? <><Tiles items={[gapParts.tile]} />{sources}</> : null;
+  if (complete === null) return gapParts ? <Tiles items={[gapParts]} /> : null;
   const count = String(complete.months);
-  const net: TileItem = { label: t("rpt.strip_net", { months: count }), figure: signedMoney(complete.netCents), tone: complete.netCents < 0 ? "bad" : "good", note: t("rpt.strip_average", { sum: signedMoney(complete.averageNetCents) }) };
+  const net: TileItem = { label: t("rpt.strip_net"), figure: signedMoney(complete.netCents), tone: complete.netCents < 0 ? "bad" : "good", note: t("rpt.strip_average", { sum: signedMoney(complete.averageNetCents) }) };
   const items: TileItem[] = [
-    gapParts ? gapParts.tile : net,
-    { label: t("rpt.strip_income", { months: count }), figure: answerMoney(complete.incomeCents), note: t("rpt.strip_average", { sum: answerMoney(complete.averageIncomeCents) }) },
-    { label: t("rpt.strip_spent", { months: count }), figure: answerMoney(complete.spendCents), note: usualSpendCents === null ? undefined : t("rpt.strip_spent_usual", { sum: answerMoney(usualSpendCents) }) },
+    gapParts ?? net,
+    { label: t("rpt.strip_income"), figure: answerMoney(complete.incomeCents), note: t("rpt.strip_average", { sum: answerMoney(complete.averageIncomeCents) }) },
+    { label: t("rpt.strip_spent"), figure: answerMoney(complete.spendCents), note: usualSpendCents === null ? undefined : t("rpt.strip_spent_usual", { sum: answerMoney(usualSpendCents) }) },
   ];
   return (
     <>
       <Tiles items={items} />
-      {sources}
+      <p className="strip-note">{t("rpt.strip_window", { months: count })}</p>
     </>
   );
 }
