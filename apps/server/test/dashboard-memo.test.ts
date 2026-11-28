@@ -18,13 +18,9 @@ describe("dashboard memo", () => {
     expect(first).toEqual(buildDashboard(ctx, month(3), h.balances, h.inputs, []));
   });
 
-  it("builds again when the period or an input differs", () => {
+  it("builds again when the period differs", () => {
     const first = answer(month(3));
     expect(answer(month(4))).not.toBe(first);
-    const goal = answer(month(3), { ...h.inputs, spendingGoalCents: 123_400 });
-    expect(goal).not.toBe(first);
-    expect(goal.goal).not.toBeNull();
-    expect(first.goal).toBeNull();
   });
 
   it("builds again when what the rows prove of a balance differs, which the stamp does not hold", () => {

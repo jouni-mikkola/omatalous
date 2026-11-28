@@ -134,7 +134,6 @@ Before and after, from the app:
 | Luokittelematta 450 €. Luokittele ne… | (kept: it already speaks to the reader) |
 | Luottoa nostettiin 1 200 €. | Nostit luottoa 1 200 €. |
 | Palkka on myöhässä, joten palkkapäivän jäävää summaa ei lasketa. | Palkkasi on myöhässä. |
-| Poistetaanko menotavoite? | Poista menotavoite? |
 | Tapahtumia ei saatu haettua pankista. | Emme saaneet tapahtumia pankista. |
 | Ensimmäinen haku on kesken. Luvut täsmentyvät, kun tapahtumat on haettu. | Ensimmäinen haku on kesken. Luvut tarkentuvat, kun olemme hakeneet tapahtumat. |
 | Jaksolla nostettiin luottoa 800 € | Nostit jaksolla luottoa 800 € |

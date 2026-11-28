@@ -12,7 +12,6 @@
 .qc-a { font-size: var(--fs-body); line-height: 20px; color: var(--text-2); margin: 2px 0 0; max-width: 62ch; }
 .qc-a strong { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums lining-nums; }
 
-.qc-choice { margin-bottom: var(--sp-12); }
 .qc-rule { border: 0; border-top: 1px solid var(--grid); margin: 24px 0; }
 
 /* the marks */

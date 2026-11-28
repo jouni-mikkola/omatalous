@@ -109,16 +109,24 @@ for (const width of [390, 1440]) {
     const page = await context.newPage();
     await page.goto("/#/bills");
     await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-    await expect(page.locator("#laskut-taulukko .bill-month").first()).toBeVisible();
+    await expect(page.locator("#laskut-taulukko .bill-month-name")).toBeVisible();
     await page.waitForLoadState("networkidle");
     expect(await page.evaluate(() => matchMedia("(forced-colors: active)").matches), "forced colours are on").toBe(true);
-    // every month open, so the estimated pays of the later months are among the rows
-    const closed = page.locator("#laskut-taulukko .bill-month[aria-expanded=false]");
-    while ((await closed.count()) > 0) await closed.first().click();
+    // the first month of the picture with an estimated bill among its rows (the answer lists the months in the picture's order), picked with the keys
+    const estimated = page.locator("#laskut-taulukko .fig-est");
+    const months = page.getByRole("group", { name: /Laskut kuukausittain/ });
+    const answer = await page.request.get("/api/reports?scope=own&reports=billCalendar");
+    const calendar = ((await answer.json()) as { billCalendar: { months: { rows: { kind: string; state: string }[] }[] } }).billCalendar;
+    const target = calendar.months.findIndex((m) => m.rows.some((r) => r.kind !== "income" && r.state === "estimate"));
+    expect(target, "a month with an estimated bill").toBeGreaterThanOrEqual(0);
+    await months.focus();
+    await page.keyboard.press("Home");
+    for (let k = 0; k < target; k++) await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("Enter");
+    await expect(estimated.first()).toBeVisible();
 
     // the sum of an estimated bill: underlined with a dotted line, which a plain cell is not
-    const estimated = page.locator("#laskut-taulukko .fig-est");
-    expect(await estimated.count(), "estimated marks in the table").toBeGreaterThan(0);
+    await expect(estimated.first(), "estimated marks in the table").toBeVisible();
     const line = await estimated.first().evaluate((el) => ({ line: getComputedStyle(el).textDecorationLine, style: getComputedStyle(el).textDecorationStyle }));
     expect(line.line, "the mark of an estimate").toContain("underline");
     expect(line.style, "the mark of an estimate").toBe("dotted");

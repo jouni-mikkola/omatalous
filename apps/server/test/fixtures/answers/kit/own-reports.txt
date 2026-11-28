@@ -2475,6 +2475,10 @@
    "month": "2026-11",
    "billsCents": 274377
   },
+  "dearest": {
+   "month": "2026-11",
+   "billsCents": 274377
+  },
   "yearlyCents": 56920,
   "reserveMonthlyCents": 4743,
   "unknownCount": 0,
@@ -2818,6 +2822,7 @@
    "feeCents": null
   },
   "plan": null,
+  "planSteps": [],
   "consolidation": null,
   "payments": {
    "monthlyCents": 0,
@@ -2831,7 +2836,6 @@
   },
   "monthlyUnknownNames": [],
   "path": null,
-  "extra": [],
   "maybeTwice": [],
   "overdraftTwice": [],
   "ended": []

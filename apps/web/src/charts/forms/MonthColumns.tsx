@@ -67,6 +67,7 @@ export function MonthColumns({
   states = null,
   keepHeight = false,
   low = false,
+  onSelect,
 }: {
   months: readonly MonthColumn[];
   series: readonly MonthColumnsSeries[];
@@ -77,6 +78,8 @@ export function MonthColumns({
   running: string | null;
   /** The month the readout names while nothing is pointed at (`YYYY-MM`); with none, or one the chart lacks, the last whole month. */
   resting?: string | null;
+  /** Where a pick of a month goes; by default the pick of the surrounding `ChartWithTable`. */
+  onSelect?: (month: string) => void;
   /** What the chart is, for a screen reader's name of it. */
   label: string;
   /** The day (`YYYY-MM-DD`) a rule is drawn at, with the ground right of it tinted. The month of the day must be one of `months`. */
@@ -219,7 +222,7 @@ export function MonthColumns({
             {usual && <line className="ms-usual" x1={0} x2={f.innerW} y1={crisp(capY(y(usual.cents), f.innerH))} y2={crisp(capY(y(usual.cents), f.innerH))} />}
             {usual && <UsualLabel innerW={f.innerW} above={TOP} text={narrow ? usual.short : usual.label} />}
           </g>
-          <ReadoutLayer xs={months.map((_, i) => x.centre(i))} innerW={f.innerW} innerH={f.innerH} at={at} onAt={setAt} keys={keys} label={label} />
+          <ReadoutLayer xs={months.map((_, i) => x.centre(i))} innerW={f.innerW} innerH={f.innerH} at={at} onAt={setAt} focusAt={restingAt >= 0 ? restingAt : undefined} keys={keys} onSelect={onSelect} label={label} />
         </g>
       </svg>
       <LiveReadout text={at === null || !months[at] ? "" : readoutText(monthLong(months[at]!.month), [...rows(months[at]!), ...[note(months[at]!), compare(months[at]!)].flatMap((name) => (name ? [{ name, value: "" }] : []))])} />

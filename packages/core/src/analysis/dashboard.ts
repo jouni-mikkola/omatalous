@@ -20,7 +20,6 @@ import { type MonthPace, monthPace } from "./forecast.ts";
 import { type NytAnswer, nytAnswer } from "./nyt.ts";
 import { buildHome, type Home } from "../home.ts";
 import { buildOverview, type Overview } from "../overview.ts";
-import { type SpendingGoal, spendingGoal } from "./spending-goal.ts";
 import { type DateRange, previousRange, toDayRange } from "./period.ts";
 import { buildQuestions, type Questions, withoutRowIds } from "./questions.ts";
 import { type ThemesReport, themesReport } from "./themes-report.ts";
@@ -71,8 +70,6 @@ export interface DashboardData {
    * reaches today (the period can be longer than the month), else the month the range ends in.
    */
   pace: MonthPace;
-  /** The user's monthly spending goal against `pace`; null when none is set. */
-  goal: SpendingGoal | null;
   /** The days to the next payday, or 30 days when `ahead.reason` says there is none to wait for: pay days, bills and the three figures. null when the selected period does not include today. */
   ahead: AheadData | null;
   /** Nyt: the sum left before the payday, the days left, the usual everyday spending of a day and the pace band (`nytAnswer`). null when `ahead` is. */
@@ -193,7 +190,6 @@ export function buildDashboard(ctx: AnalysisContext, range: DateRange, accountBa
     categories,
     themes: themesReport(ctx),
     pace,
-    goal: inputs.spendingGoalCents ? spendingGoal(pace, inputs.spendingGoalCents) : null,
     ahead: basis?.ahead ?? null,
     nyt: basis && nytAnswer(ctx, basis),
     top: topCategories(categories, comparable, lang),

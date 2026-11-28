@@ -22,7 +22,7 @@ const dashboardOf = async (context: BrowserContext): Promise<Dashboard> => (awai
 
 /** Opens the folded rows of the open month on Laskut: the paid ones, where a bill paid this month stands, and a card's. */
 async function showPaid(page: Page): Promise<void> {
-  await expect(page.locator("#laskut-taulukko .bill-month").first()).toBeVisible();
+  await expect(page.locator("#laskut-taulukko .bill-month-name")).toBeVisible();
   await openBillFolds(page.locator("#laskut-taulukko"));
 }
 

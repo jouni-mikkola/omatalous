@@ -290,43 +290,7 @@ describe("the payments of a month over every debt the page lists", () => {
   });
 });
 
-describe("the extra monthly payments of the debt-free choice", () => {
-  it("gives each extra payment an earlier end, a saving and the debt of each day of the path, below the debts' own", () => {
-    const r = run([annuity({ id: "a", balanceCents: 1_000_000, paymentCents: 20_000 })]).loans;
-    const path = r.path!;
-    expect(r.extra.map((s) => s.extraCents)).toEqual([5_000, 10_000, 20_000]);
-    for (const [i, s] of r.extra.entries()) {
-      expect(s.debtFreeDate < r.plan!.baseDebtFreeDate, `${s.extraCents} ends earlier`).toBe(true);
-      expect(s.monthsEarlier).toBeGreaterThan(0);
-      expect(s.savedCents).toBeGreaterThan(0);
-      expect(s.owedCents).toHaveLength(path.days.length);
-      expect(s.owedCents[0]).toBe(path.balanceCents[0]);
-      expect(s.owedCents.at(-1)).toBe(0);
-      s.owedCents.forEach((owed, k) => {
-        expect(owed, `${s.extraCents} on day ${k}`).toBeLessThanOrEqual(path.balanceCents[k]!);
-        if (k > 0) expect(owed).toBeLessThanOrEqual(s.owedCents[k - 1]!);
-      });
-      if (i > 0) {
-        expect(s.debtFreeDate <= r.extra[i - 1]!.debtFreeDate).toBe(true);
-        expect(s.savedCents).toBeGreaterThan(r.extra[i - 1]!.savedCents);
-      }
-    }
-  });
-
-  it("starts each scenario where the path does and names the same month for the debts' own payments, with a card paid in full among them", () => {
-    // the card's whole 800 € is due 15.11.2026: it is owed, and no debt the extra money pays
-    const card = loan({ id: "card", kind: "card", repayment: "bullet", rateBp: 0, balanceCents: 80_000, endDate: "2026-11-15" });
-    const r = run([annuity({ id: "a", balanceCents: 1_000_000, paymentCents: 20_000 }), card]).loans;
-    const path = r.path!;
-    expect(path.balanceCents[0]).toBe(1_080_000);
-    expect(r.extra.length).toBeGreaterThan(0);
-    for (const s of r.extra) {
-      expect(s.owedCents[0], `${s.extraCents} on day 0`).toBe(path.balanceCents[0]);
-      // the months earlier are counted from the month the path ends, the one 'Ei lisää' shows
-      expect(s.monthsEarlier).toBe(Number(path.payoff!.slice(0, 4)) * 12 + Number(path.payoff!.slice(5, 7)) - (Number(s.debtFreeDate.slice(0, 4)) * 12 + Number(s.debtFreeDate.slice(5, 7))));
-    }
-  });
-
+describe("the plan of the debts and the slider steps", () => {
   it("keeps the plan of the debts' own payments: the ended debt's payment goes to the next, which saves 23,00 € with no extra money", () => {
     const r = run([annuity({ id: "a", balanceCents: 500_000, rateBp: 1_000, paymentCents: 23_072, endDate: "2028-10-01" }), annuity({ id: "b", balanceCents: 1_000_000, rateBp: 300, paymentCents: 29_081, endDate: "2029-10-01" })]).loans;
     expect(r.plan).toEqual({
@@ -343,10 +307,31 @@ describe("the extra monthly payments of the debt-free choice", () => {
     });
   });
 
+  it("gives the plan for each 50 euro step of the slider from the same payoffPlan, shorter and saving more with each step", () => {
+    const r = run([annuity({ id: "a", balanceCents: 1_000_000, paymentCents: 20_000 })]).loans;
+    expect(r.planSteps.map((s) => s.extraCents)).toEqual([5_000, 10_000, 15_000, 20_000, 25_000, 30_000, 35_000, 40_000, 45_000, 50_000]);
+    r.planSteps.forEach((s, i) => {
+      expect(s.savedMoreCents).toBe(s.plan.savedCents - r.plan!.savedCents);
+      expect(s.plan.debts.map((d) => d.id)).toEqual(["a"]);
+      expect(s.plan.debts[0]!.baseEndDate).toBe(r.plan!.debts[0]!.baseEndDate);
+      if (i > 0) {
+        expect(s.plan.debtFreeDate <= r.planSteps[i - 1]!.plan.debtFreeDate).toBe(true);
+        expect(s.savedMoreCents).toBeGreaterThan(r.planSteps[i - 1]!.savedMoreCents);
+      }
+    });
+    expect(r.planSteps[0]!.plan.debtFreeDate < r.plan!.debtFreeDate).toBe(true);
+  });
+
   it("is empty while a debt has no plan, so no date tells a part of the debt as all of it", () => {
     const r = run([annuity({ id: "a", balanceCents: 1_000_000, paymentCents: 20_000 }), loan({ id: "no-rate", balanceCents: 100_000 })]).loans;
     expect(r.path).toBeNull();
-    expect(r.extra).toEqual([]);
+    expect(r.planSteps).toEqual([]);
+  });
+
+  it("is empty when even the largest step changes nothing, as with a debt the first payment already clears", () => {
+    const r = run([annuity({ id: "free", balanceCents: 10_000, paymentCents: 20_000, rateBp: 500 })]).loans;
+    expect(r.plan).not.toBeNull();
+    expect(r.planSteps).toEqual([]);
   });
 });
 
