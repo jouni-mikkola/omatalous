@@ -3,6 +3,31 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.8.8
+
+- Yhteenveto tells the day the money runs out, with each bill as a dot on the line to payday.
+- Laskut shows the bills against the money on the accounts; Varat ja velat shows the debt-free month and a lane per debt.
+- Raportit shows money in and out as two columns, and Tapahtumat rows are plainer.
+- Text is larger: 16 px throughout.
+
+Look
+
+- Laskut drops the three cards and the initials discs; an estimated sum has a dotted line.
+- Varat ja velat opens with the debt-free month and one lane per debt.
+- The footer line is gone; the version is in Asetukset > Turvallisuus.
+- Varat ja velat drops bank names, balance days and repeated totals.
+- Yhteenveto tells the day the money runs out; each payment is a dot on the line to the payday.
+- Yhteenveto shows the sum left to the payday and the balance of the days to it.
+- Yhteenveto: the lowest balance and the sum left on the payday now agree.
+- Raportit drops the income types table and the small notes under its figures.
+- Asetukset shows less small text; account numbers are behind Muokkaa.
+- Tapahtumat rows are shorter: no initials disc, account or "oma siirto" tag.
+- Body text is 16 px; 12 px stays on charts and the phone tab bar.
+
+For developers
+
+- A test holds that the Menot and Tulot figures of Raportit reconcile between the complete months and the whole period.
+
 ## 1.8.7
 
 - A new look: a new mark, a tab bar with icons on phones and a calmer sign-in page.

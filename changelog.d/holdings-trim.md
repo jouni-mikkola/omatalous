@@ -1,1 +1,0 @@
-- Varat ja velat shows fewer small lines: no bank names, balance days, repeated totals or "osuutesi" notes, and missing loan balances become one "Lisää saldoa" link.
