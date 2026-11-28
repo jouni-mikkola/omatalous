@@ -112,13 +112,17 @@ for (const width of [390, 1440]) {
     await expect(page.locator("#laskut-taulukko .bill-month-name")).toBeVisible();
     await page.waitForLoadState("networkidle");
     expect(await page.evaluate(() => matchMedia("(forced-colors: active)").matches), "forced colours are on").toBe(true);
-    // the last month of the picture picked, so the estimated pays of a later month are among the rows
-    await page.getByRole("group", { name: /Laskut kuukausittain/ }).focus();
-    await page.keyboard.press("End");
-    await page.keyboard.press("Enter");
+    // the months of the picture picked in turn until one has an estimated bill among its rows
+    const estimated = page.locator("#laskut-taulukko .fig-est");
+    const months = page.getByRole("group", { name: /Laskut kuukausittain/ });
+    for (let i = 0; i < 12 && (await estimated.count()) === 0; i++) {
+      await months.focus();
+      await page.keyboard.press("Home");
+      for (let k = 0; k < i; k++) await page.keyboard.press("ArrowRight");
+      await page.keyboard.press("Enter");
+    }
 
     // the sum of an estimated bill: underlined with a dotted line, which a plain cell is not
-    const estimated = page.locator("#laskut-taulukko .fig-est");
     await expect(estimated.first(), "estimated marks in the table").toBeVisible();
     const line = await estimated.first().evaluate((el) => ({ line: getComputedStyle(el).textDecorationLine, style: getComputedStyle(el).textDecorationStyle }));
     expect(line.line, "the mark of an estimate").toContain("underline");
