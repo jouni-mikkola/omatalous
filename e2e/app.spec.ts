@@ -470,9 +470,13 @@ test("an expected bill is added at the head of Tulossa, shows in its one table, 
   const dueName = `${FI_MONTHS[Number(due.slice(5, 7)) - 1]} ${due.slice(0, 4)}`;
   const showDueMonth = async (p: Page) => {
     const name = p.locator("#laskut-taulukko .bill-month-name");
-    const hit = p.locator(".month-columns rect.hit");
-    const box = (await hit.boundingBox())!;
-    for (let i = 0; i < 12 && (await name.innerText()).trim() !== dueName; i++) await hit.click({ position: { x: ((i + 0.5) / 12) * box.width, y: box.height / 2 } });
+    const months = p.getByRole("group", { name: /Laskut kuukausittain/ });
+    for (let i = 0; i < 12 && (await name.innerText()).trim() !== dueName; i++) {
+      await months.focus();
+      await p.keyboard.press("Home");
+      for (let k = 0; k < i; k++) await p.keyboard.press("ArrowRight");
+      await p.keyboard.press("Enter");
+    }
     await expect(name).toHaveText(dueName);
   };
   await showDueMonth(page);
