@@ -133,7 +133,7 @@ export const FI_BILLS = {
   "bills.bar_total": "Laskut yhteensä",
   "bills.bar_money": "Käyttötileillä nyt",
   "bills.bar_missing": "Puuttuu",
-  "bills.bar_note": "Laskujen välissä kuluva raha jää pois, ja ennen laskua tuleva palkka lasketaan mukaan. Siksi Yhteenvedossa puuttuva summa voi olla suurempi.",
+  "bills.bar_note": "Laskujen välissä kuluva raha ei ole mukana, joten Yhteenvedossa puuttuva summa voi olla suurempi.",
   // Bills page frame
   "payers.title": "Maksajat",
   "tx.event_one": "{count} tapahtuma",

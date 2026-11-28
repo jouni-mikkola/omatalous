@@ -47,7 +47,8 @@ const isBill = (r: AheadRow): r is AheadRow & { cents: number } => (r.source ===
  */
 export function billsBeforePayday(ahead: Pick<AheadData, "reason" | "payday" | "rows" | "balance">): BillsBeforePayday {
   const moneyCents = ahead.balance?.startCents ?? null;
-  let left = Math.max(0, moneyCents ?? 0);
+  // an overdraft stays in the sum, as in `shortOn`: a pay before a bill fills it first
+  let left = moneyCents ?? 0;
   let counted = 0;
   const bills = ahead.rows.filter(isBill).map((r): CoveredBill => {
     const cents = -r.cents;
@@ -56,7 +57,8 @@ export function billsBeforePayday(ahead: Pick<AheadData, "reason" | "payday" | "
     left += paid - counted;
     counted = paid;
     const coveredCents = moneyCents === null ? 0 : Math.max(0, Math.min(left, cents));
-    left -= coveredCents;
+    // the bill leaves the account even when the money is not enough, so the walk goes on below zero
+    left -= cents;
     const state = moneyCents === null ? null : coveredCents === cents ? "covered" : coveredCents > 0 ? "split" : "short";
     return { date: r.date, name: r.name, cents, coveredCents, missingCents: cents - coveredCents, state };
   });

@@ -131,7 +131,7 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "bills.bar_total": "Bills in all",
   "bills.bar_money": "On the checking accounts now",
   "bills.bar_missing": "Short by",
-  "bills.bar_note": "Money spent between the bills is left out, and pay dated before a bill is counted. So the shortfall on Yhteenveto can be larger.",
+  "bills.bar_note": "Money spent between the bills is left out, so the shortfall on Yhteenveto can be larger.",
   // Bills page frame
   "payers.title": "Payers",
   "tx.event_one": "{count} transaction",

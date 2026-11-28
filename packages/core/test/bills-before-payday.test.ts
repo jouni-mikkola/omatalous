@@ -80,6 +80,12 @@ describe("billsBeforePayday", () => {
       ["Vesi", 10_000, "covered"],
       ["Vuokra", 50_000, "covered"],
     ]);
+    // an overdraft is filled by the pay first, as on the first page
+    const overdrawn = billsBeforePayday({ ...aheadWith(-50_000), rows: [pay("2026-12-02"), row("2026-12-03", "Vuokra", 800)] });
+    expect(overdrawn.bills.map((b) => [b.coveredCents, b.missingCents, b.state])).toEqual([[50_000, 30_000, "split"]]);
+    // a bill the money did not cover still leaves the account, so a later pay goes to it first
+    const late = billsBeforePayday({ ...aheadWith(0), rows: [row("2026-12-01", "Vesi", 500), pay("2026-12-02"), row("2026-12-03", "Vuokra", 800)] });
+    expect(late.bills.map((b) => [b.coveredCents, b.state])).toEqual([[0, "short"], [50_000, "split"]]);
     // a pay dated on the bill's own day is not counted before it
     expect(billsBeforePayday({ ...aheadWith(0), rows: [pay("2026-12-03"), row("2026-12-03", "Vuokra", 500)] }).bills[0]!.state).toBe("short");
   });
