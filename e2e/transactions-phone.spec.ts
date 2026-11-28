@@ -76,7 +76,9 @@ test("390 px: rows sit under day groups, newest first, each a block of the merch
   }
   const first = rows.first();
   await expect(first.locator(".tx-name")).toBeVisible();
-  await expect(first.locator(".tx-category .tx-chip")).toBeVisible();
+  // the category is the colour edge of the row and its name is for readers
+  await expect(first.locator(".tx-category")).toHaveText(/\S/);
+  await expect(first).toHaveAttribute("data-slot", /./);
   await expect(first.locator(".tx-amount")).toContainText("€");
   for (let i = 0; i < Math.min(await rows.count(), 20); i++) expect((await rows.nth(i).boundingBox())!.height, `row ${i} is two or three lines`).toBeLessThan(120);
   expect(await overflow(page), "sideways scroll").toBeLessThanOrEqual(1);
@@ -239,7 +241,7 @@ test("1366 px: the page is the table under the filter chips, the download in the
   const page = await context.newPage();
   const seen = watch(page);
   await page.goto("/#/transactions?period=all");
-  await expect(page.locator("table.tx-table thead th")).toHaveText(["Saaja tai maksaja", "Kategoria", "Summa"]);
+  await expect(page.locator("table.tx-table thead th")).toHaveText(["Saaja tai maksaja", "Summa"]);
   await expect(page.locator(DATA_ROW).first()).toBeVisible();
   // the day is the group row above its rows, with how many there are
   await expect(page.locator("table.tx-table tr.rt-group th").first()).toHaveText(/^(su|ma|ti|ke|to|pe|la) \d{1,2}\.\d{1,2}\.(\d{4})?$/);
@@ -294,7 +296,7 @@ for (const width of [1366, 1000, 700, 601]) {
     await expect(page.locator(DATA_ROW).first()).toBeVisible();
     const block = (await page.locator(".rt-wrap").first().getAttribute("data-block")) !== null;
     if (width >= 1000) expect(block, "a table where there is room").toBe(false);
-    if (!block) await expect(page.locator("table.tx-table thead th")).toHaveText(["Saaja tai maksaja", "Kategoria", "Summa"]);
+    if (!block) await expect(page.locator("table.tx-table thead th")).toHaveText(["Saaja tai maksaja", "Summa"]);
     const rowOf = (name: string) => page.locator(DATA_ROW).filter({ has: page.locator(".tx-name", { hasText: new RegExp(`^${name}$`) }) });
 
     // a closed row holds the payee and the amount: what the bank wrote is not on it
