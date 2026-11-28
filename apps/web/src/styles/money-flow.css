@@ -1,0 +1,32 @@
+/* Where the money came from and went (charts/forms/MoneyFlow.tsx): bands run from the sources through one middle node to
+   the uses. A band's colour is its kind; the picture is two stacked bars with a legend under 560 px. */
+
+@layer components {
+.money-flow { inline-size: 100%; margin-block: var(--sp-16); }
+.mf-svg { display: block; max-inline-size: 100%; }
+.mf-text { font-size: var(--fs-label); fill: var(--text); font-variant-numeric: tabular-nums lining-nums; }
+.mf-text .mf-sum { fill: var(--text-2); }
+.mf-node.mf-middle { fill: var(--series-rest); }
+.mf-node.mf-income, .mf-seg.mf-income, .mf-key.mf-income { fill: var(--role-income); background: var(--role-income); }
+.mf-node.mf-drawn, .mf-seg.mf-drawn, .mf-key.mf-drawn { fill: var(--warn); background: var(--warn); }
+.mf-node.mf-spending, .mf-seg.mf-spending, .mf-key.mf-spending { fill: var(--role-spending); background: var(--role-spending); }
+.mf-node.mf-debt, .mf-seg.mf-debt, .mf-key.mf-debt { fill: var(--role-debt); background: var(--role-debt); }
+.mf-node.mf-kept, .mf-seg.mf-kept, .mf-key.mf-kept { fill: var(--role-kept); background: var(--role-kept); }
+.mf-link { fill: none; stroke-opacity: 0.28; }
+.mf-link.mf-income { stroke: var(--role-income); }
+.mf-link.mf-drawn { stroke: var(--warn); }
+.mf-link.mf-spending { stroke: var(--role-spending); }
+.mf-link.mf-debt { stroke: var(--role-debt); }
+.mf-link.mf-kept { stroke: var(--role-kept); }
+
+.mf-stacked { display: grid; gap: var(--sp-24); }
+.mf-side { display: grid; gap: var(--sp-8); }
+.mf-side-name { margin: 0; font-size: var(--fs-body); font-weight: var(--w-strong); }
+.mf-bar { display: flex; gap: 2px; block-size: var(--bar-h); }
+.mf-seg { display: block; flex-basis: 0; min-inline-size: 2px; border-radius: var(--radius-s); }
+.mf-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-4); font-size: var(--fs-label); line-height: var(--lh-label); }
+.mf-legend li { display: flex; align-items: baseline; gap: var(--sp-8); }
+.mf-key { flex: none; inline-size: 10px; block-size: 10px; border-radius: 2px; }
+.mf-name { flex: 1 1 auto; overflow-wrap: anywhere; }
+.mf-legend .mf-sum { font-variant-numeric: tabular-nums lining-nums; }
+}

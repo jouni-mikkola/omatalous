@@ -5970,6 +5970,73 @@
   ],
   "fresh": []
  },
+ "moneyFlow": {
+  "sources": [
+   {
+    "id": "accounts",
+    "label": "Tileiltä tai korteilta",
+    "kind": "drawn",
+    "cents": 217112
+   }
+  ],
+  "uses": [
+   {
+    "id": "category:housing",
+    "label": "Vuokra ja vastike",
+    "kind": "spending",
+    "cents": 105000
+   },
+   {
+    "id": "category:groceries",
+    "label": "Ruokakauppa",
+    "kind": "spending",
+    "cents": 15605
+   },
+   {
+    "id": "category:insurance",
+    "label": "Vakuutukset",
+    "kind": "spending",
+    "cents": 14230
+   },
+   {
+    "id": "category:food_delivery",
+    "label": "Ruoan kotiinkuljetus",
+    "kind": "spending",
+    "cents": 10932
+   },
+   {
+    "id": "category:transport",
+    "label": "Joukkoliikenne ja taksit",
+    "kind": "spending",
+    "cents": 6470
+   },
+   {
+    "id": "category:fitness",
+    "label": "Liikunta",
+    "kind": "spending",
+    "cents": 5900
+   },
+   {
+    "id": "other_spending",
+    "label": "Muu kulutus",
+    "kind": "spending",
+    "cents": 15075
+   },
+   {
+    "id": "unsplit",
+    "label": "Velanhoito, erittelemättä",
+    "kind": "debt",
+    "cents": 28900
+   },
+   {
+    "id": "saved",
+    "label": "Säästöön siirretty",
+    "kind": "kept",
+    "cents": 15000
+   }
+  ],
+  "totalCents": 217112
+ },
  "cashflowMonths": {
   "months": [
    {
