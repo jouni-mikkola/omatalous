@@ -45,7 +45,7 @@ export interface DebtPath {
 }
 
 /** The payments of one loan from the day on at a shift, cut to its part, or why it has none. */
-export function pathPayments(loan: Debt, day: IsoDate, shiftBp: number): { start: number; list: Payment[] } | LoanUnknown | null {
+function pathPayments(loan: Debt, day: IsoDate, shiftBp: number): { start: number; list: Payment[] } | LoanUnknown | null {
   const cut = partly(loan);
   if (cut) {
     const whole = pathPayments(cut.whole, day, shiftBp);

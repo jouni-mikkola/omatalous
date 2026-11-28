@@ -37,7 +37,7 @@ describe("Menot kategorioittain: the tiles", () => {
 describe("Varat ja velat: the debt-free head", () => {
   const held = { accounts: [{}], holdings: { accountsCents: 120_000, debtCents: 30_000 } };
   const head = (balances: Record<string, unknown>, loans: Record<string, unknown>) =>
-    flat(renderToStaticMarkup(createElement(DebtFree as never, { ctx: { data: { balances, loans }, meta: { today: "2026-11-11" } } } as never)).replace(/<[^>]*>/g, " "));
+    flat(renderToStaticMarkup(createElement(DebtFree as never, { ctx: { data: { balances, loans: { planSteps: [], ...loans } }, meta: { today: "2026-11-11" } } } as never)).replace(/<[^>]*>/g, " "));
 
   it("asks for the missing balances in place of the day, linking while one is still asked", () => {
     const lacking = { ...held, holdings: { ...held.holdings, unsavedLoans: { count: 2, rows: [{ debtId: "a" }] } } };
@@ -48,6 +48,34 @@ describe("Varat ja velat: the debt-free head", () => {
     const plan = { debtFreeDate: "2038-05-15", baseDebtFreeDate: "2038-05-15", debts: [{ id: "l1", order: 1, endDate: "2038-05-15", baseEndDate: "2038-05-15" }] };
     expect(head(held, { plan, loans: [{ id: "l1", name: "Asuntolaina", balance: { cents: 9_000_000 } }] })).toContain("Velaton 5/2038");
     expect(head(held, { plan: null, loans: [] })).toBe("");
+  });
+
+  it("shows the slider only with steps, and a step moves the month, strikes the old one and tells the saving", () => {
+    const debt = (endDate: string) => ({ id: "l1", order: 1, endDate, baseEndDate: "2038-05-15" });
+    const plan = { debtFreeDate: "2038-05-15", baseDebtFreeDate: "2038-05-15", debts: [debt("2038-05-15")] };
+    const loans = [{ id: "l1", name: "Asuntolaina", balance: { cents: 9_000_000 } }];
+    expect(head(held, { plan, loans })).not.toContain("/ kk");
+    const steps = [
+      { extraCents: 5_000, savedMoreCents: 120_000, plan: { ...plan, debtFreeDate: "2036-01-15", debts: [debt("2036-01-15")] } },
+      { extraCents: 10_000, savedMoreCents: 200_000, plan: { ...plan, debtFreeDate: "2034-03-15", debts: [debt("2034-03-15")] } },
+      { extraCents: 15_000, savedMoreCents: 10_000, plan },
+    ];
+    const view = render(createElement(DebtFree as never, { ctx: { data: { balances: held, loans: { plan, loans, planSteps: steps } }, meta: { today: "2026-11-11" } } } as never));
+    const slider = view.getByRole("slider") as HTMLInputElement;
+    expect(slider.max).toBe("3");
+    expect(flat(view.container.textContent)).toContain("+0 € / kk");
+    fireEvent.change(slider, { target: { value: "2" } });
+    expect(view.container.querySelector("del")?.textContent).toBe("5/2038");
+    expect(view.container.querySelector(".debt-hero")?.textContent).toBe("5/20383/2034");
+    expect(flat(view.container.textContent)).toContain("+100 € / kk");
+    expect(flat(view.container.textContent)).toContain("Korkoja säästyy 2 000 €");
+    // a step that leaves the month as it is strikes nothing
+    fireEvent.change(slider, { target: { value: "3" } });
+    expect(view.container.querySelector("del")).toBeNull();
+    expect(view.container.querySelector(".debt-hero")?.textContent).toBe("5/2038");
+    fireEvent.change(slider, { target: { value: "0" } });
+    expect(view.container.querySelector("del")).toBeNull();
+    view.unmount();
   });
 
   it("names each lane by its loan, in the plan's order", () => {

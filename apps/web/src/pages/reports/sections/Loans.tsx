@@ -9,7 +9,6 @@ import { Figure } from "../../../components/Figure.tsx";
 import { FigurePanel } from "../../../components/FigurePanel.tsx";
 import { FigureRow } from "../holdings/FigureRow.tsx";
 import { DebtPath, DebtPathTable } from "../../../charts/forms/DebtPath.tsx";
-import { ExtraPlan } from "../../../components/loans/ExtraPlan.tsx";
 import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
 import { ACCOUNT_TYPE_LABEL, date, money, monthLongIn, percent, plainNumber } from "../../../format.ts";
 import { sameDebtTwice } from "../parts.tsx";
@@ -395,12 +394,6 @@ function Loans({ ctx }: SectionProps) {
         </QuestionChart>
       )}
       {path && path.tops[0]! > 0 && <hr className="qc-rule" />}
-      {path && path.tops[0]! > 0 && r.extra.length > 0 && (
-        <>
-          <ExtraPlan path={path} extra={r.extra} />
-          <hr className="qc-rule" />
-        </>
-      )}
       <PlanDrill plan={r.plan} basis={r.consolidation} loans={r.loans} today={ctx.meta.today} />
       <Table<Entry>
         caption={t("rpt.ln_caption")}

@@ -2822,6 +2822,7 @@
    "feeCents": null
   },
   "plan": null,
+  "planSteps": [],
   "consolidation": null,
   "payments": {
    "monthlyCents": 0,
@@ -2835,7 +2836,6 @@
   },
   "monthlyUnknownNames": [],
   "path": null,
-  "extra": [],
   "maybeTwice": [],
   "overdraftTwice": [],
   "ended": []
