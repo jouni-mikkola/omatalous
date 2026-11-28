@@ -437,11 +437,7 @@ export function Shell() {
           {known ? <Outlet /> : <NotFound />}
         </div>
         </main>
-        {foot && (
-          <footer className="sheet-foot">
-            <span aria-live="polite">{foot}</span>
-          </footer>
-        )}
+        <footer className="sheet-foot">{foot && <span aria-live="polite">{foot}</span>}</footer>
       </div>
       </PageAddressContext.Provider>
       </ShellContext.Provider>
