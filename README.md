@@ -11,6 +11,8 @@ transactions into money flows.
 ## Features
 
 - Reads balances and transactions through [Enable Banking](https://enablebanking.com). Read-only: the app cannot make payments.
+- Works with Nordea, OP, Danske Bank, S-Pankki and the [other Finnish banks](docs/ENABLE_BANKING.md#which-banks)
+  Enable Banking offers. It was built with Nordea's data. A bank connection lasts 180 days.
 - Sorts each transaction into a category and a money flow (consumption, debt, saved, income, borrowed) or a transfer.
 - Shows the sum left on the next payday after the bills due before it.
 - Lists bills by day, and income and spending by month and category.
@@ -22,7 +24,7 @@ transactions into money flows.
 ## Install
 
 Needs Ubuntu Server 26.04 LTS on a machine that stays on (x86-64 or arm64), with 2 GB of memory and 20 GB of disk.
-Run this as your normal user:
+Run this in a terminal on that machine, as your normal user:
 
 ```bash
 curl -fsSLo omatalous-install.sh https://jouni-mikkola.github.io/omatalous/install.sh && echo "481871f3ed740a5d2fdd91c30ca62253ccd32705f6ff6eeb60747694c77591db  omatalous-install.sh" | sha256sum -c && bash omatalous-install.sh

@@ -10,8 +10,8 @@ data: a few rows with made-up amounts and merchant names are enough. Install and
 ## Pull requests
 
 - Everything in a pull request is public: commits and their author address, branch name, title, body and check logs.
-  The `privacy` check refuses real personal data, secrets, machine names, home paths and pictures that `pnpm shots` did
-  not take.
+  The `privacy` check refuses real personal data, secrets, machine names, home paths, pictures that `pnpm shots` did
+  not take and commits whose author address is not GitHub's no-reply address (CLAUDE.md, "The public repository").
 - Set up as [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) says and run `pnpm check`. CI also runs on the pull request; a
   first contribution waits for the maintainer to approve the run.
 - A bug fix starts with a test that fails without it. [CLAUDE.md](CLAUDE.md) lists the invariants and conventions, and
