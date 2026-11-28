@@ -7,7 +7,8 @@
 .ops-steps { margin: 8px 0; padding-left: 0; list-style: none; }
 .ops-commits, .ops-doctor { margin: 8px 0; padding: 0; list-style: none; }
 .ops-commits li { padding: 2px 0; overflow-wrap: anywhere; }
-.ops-doctor li { padding: 8px 0; border-top: 1px solid var(--border); }
+/* a title, detail or hint is the helper's text and may hold a word longer than the line (an address, a path) */
+.ops-doctor li { padding: 8px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
 .ops-doctor li:first-child { border-top: 0; }
 .ops-technical > summary { padding-block: var(--sp-12); }
 .ops-technical[open] > summary { margin-bottom: var(--sp-8); }
