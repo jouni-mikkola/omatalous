@@ -1,8 +1,19 @@
-import { dateTime } from "../../format.ts";
 import { S } from "./ops-strings.ts";
 import { LastResult } from "./LastResult.tsx";
 import type { OpsRequestView, OpsSnapshot } from "./types.ts";
 import { Button } from "../ui/Button.tsx";
+/** What the Versio line leaves out: the install's mode, address and update channel. Shown in the fold of technical details. */
+export function VersionFacts({ state }: { state: OpsSnapshot }) {
+  const mode = [state.mode, state.address].filter(Boolean).join(" · ");
+  if (!mode && !state.channel) return null;
+  return (
+    <div className="card">
+      {mode && <div className="card-sub">{mode}</div>}
+      {state.channel && <div className="card-sub">{S.channel(state.channel)}</div>}
+    </div>
+  );
+}
+
 export function UpdatePanel({ version, build, state, last, disabled, needsHelper = false, onCheck, onUpdate, onRollback }: {
   version: string;
   build: string;
@@ -27,10 +38,8 @@ export function UpdatePanel({ version, build, state, last, disabled, needsHelper
           <div className="card-sub">
             {/* the build id is for support, so it stays out of sight until asked for */}
             <span title={state.commit ?? build}>{version}</span>
-            {state.mode ? ` · ${state.mode}` : ""}
-            {state.address ? ` · ${state.address}` : ""}
+            {!offered && state.checked_at ? `, ${S.upToDate}` : ""}
           </div>
-          {state.channel && <div className="card-sub">{S.channel(state.channel)}</div>}
         </div>
         <div className="form-row settings-flush">
           {needsHelper && (
@@ -61,10 +70,7 @@ export function UpdatePanel({ version, build, state, last, disabled, needsHelper
             </>
           )}
         </>
-      ) : (
-        // before the first check there is nothing to say: no dash, and with nothing else the head stands alone
-        state.checked_at && <p className="muted">{S.upToDate(dateTime(state.checked_at))}</p>
-      )}
+      ) : null}
       {/* each stands only once the action has been run: before that the head stands alone */}
       {(["check-update", "update", "rollback"] as const).map((a) => last?.[a] && <LastResult key={a} label={S.actionNames[a]} request={last[a]} />)}
       {(offered || state.can_rollback) && (

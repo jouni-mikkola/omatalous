@@ -16,7 +16,7 @@ import { ToolFailures } from "../../components/ops/ToolFailures.tsx";
 import { ToolsPanel } from "../../components/ops/ToolsPanel.tsx";
 import { PasswordDialog } from "../../components/ops/PasswordDialog.tsx";
 import type { AuditEvent, OpsAction, OpsState } from "../../components/ops/types.ts";
-import { UpdatePanel } from "../../components/ops/UpdatePanel.tsx";
+import { UpdatePanel, VersionFacts } from "../../components/ops/UpdatePanel.tsx";
 import { restartWait } from "../../components/ops/ops-elapsed.ts";
 import { usePolled } from "../../components/ops/use-polled.ts";
 import "../../styles/ops.css";
@@ -122,7 +122,10 @@ export function Maintenance({ ops }: { ops: ReturnType<typeof useOpsState> }) {
             // the operator's cards (servicing list, status lines, event list) stay folded: the version, the update, the status line and any failure are the page
             <details className="ops-technical">
               <summary>{S.technical}</summary>
-              <div className="stack">{panels}</div>
+              <div className="stack">
+                <VersionFacts state={data.state} />
+                {panels}
+              </div>
             </details>
           )}
           <ResetCard disabled={data.active || pending} />

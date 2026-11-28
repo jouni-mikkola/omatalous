@@ -19,15 +19,8 @@ one sum: what is left on payday after the bills and the everyday spending before
 Ranked by how often asked. Five tabs: Yhteenveto, Tapahtumat, Laskut, Varat ja velat, Raportit. Tarkistettavat is the header's link.
 
 ### 1.1 Yhteenveto: how much can we still spend before payday?
-Direction, 11.11.2026: an overview on one screen at 1440 px.
-- The month: one heading with the month and the days it has run, then Tulot, Menot and Käteen jäi in the order the money
-  moves, Käteen jäi the largest. Three across the page, one under the other on a phone. Each has a label, one figure, a bar on
-  the scale it shares with its comparison and one line that says the comparison. None of them opens a page.
-  - Tulot: the month's income, the figure of the income report's month table, with the earned part (*Ansiotulot*) under it
-    when that differs (`overview.income`). The mark on its bar is the same day of last month (`previousTotals`).
-  - Menot: spent so far against the usual level to the same day (`home.pace`, drawn as a band on the bar), else last month
-    to the same day.
-  - Käteen jäi: income less spending and what moved to savings (`totals.leftCents`), against the same day of last month.
+Direction, 11.11.2026: an overview on one screen at 1440 px. Two blocks: Nyt and the balance of the days to the payday.
+The month's sums are on Tapahtumat, the coming months on Laskut and the accounts, cards and loans on Varat ja velat.
 - Nyt, the first block: what is left on the payday (`home.runway.leftOnPayday`, *Jää palkkapäivänä*): the accounts less the
   bills and own transfers before it, the card debt and the everyday spending of the days to it, with the payday. While
   the everyday spending cannot be expected (`leftOnPayday` has no figure) it is what is left after the bills alone
@@ -38,43 +31,24 @@ Direction, 11.11.2026: an overview on one screen at 1440 px.
   statement of a card) or *Laskun summa puuttuu* (links to Laskut; a bill with no sum within the 60 days, or with no
   day). A card paid by a bill that holds its purchases in no category is no reason: the bill's sum is spread over the
   month's days and the line has its figure.
-- Tulevat kuukaudet, the third block: this month and the two after it (the running month is left out, and the block
-  starts at the next, once its bills are all paid and nothing else is to come), a row each with the bills (and the estimated
-  part of them), the pays expected, the saving still to come (a column only while a shown month has one) and what is
-  left after the bills. Each figure is a field of the month in
-  `billCalendar` (`billsCents`, `estimateCents`, `incomeCents`, `savingCents`, `afterCents`), the answer Laskut's month heads read, so
-  both places tell the same sums. A sum that is not known is "Ei tiedossa", never 0, in the months the unknown bill
-  falls in, and a line counts the bills with no sum (`unknownCount`). The block has no link: the figure of Nyt is the way to Laskut.
 - The twelve months of income and spending (`overview.months`, with the usual month as a dashed line) are a section of
   Raportit > Menot, *Tulot ja menot*, not a block of the first page.
 - Varat ja velat: the block of Raportit > Varat ja velat. The accounts in their types (checking, savings, other), a
   type of two accounts or more with its total (`holdings.typeCents`), the cards with what is used, the limit and the
   next card bill (the card's row of `ahead.upcoming`), the loans with what is left. The day of the balances stands once in
   the heading and a row names its own only when it differs; a row names its bank only when the accounts are at
-  several banks. A row opens its rows. At the foot of the block on Yhteenveto stands the buffer, *Puskuri 1,4 kk*
-  (`bufferMonths`), and its drill shows the two sums the months divide (`bufferNetCents`, `bufferSpendCents`). With no
-  figure the line says why, as core gives it (`bufferGap`): *Ei saldoa*, *Liian lyhyt historia* or *Ei menoja*. A net
-  below zero is shown as it is, as negative months.
+  several banks. A row opens its rows.
 - One chart on the first page, Saldo päivä päivältä (the balance of the days to the payday, its table folded), and no
   list of categories: the categories of the month are in Raportit > Menot.
-- At 1440 px Nyt and the month stand on the left and the coming months and the accounts in a column beside them.
-  A phone reads Nyt, the month, the balance chart, the coming months and the accounts in one column, no taller than 2800 px.
+- Nyt stands over the balance chart in one column at every width; the parts of the figure open in its panel.
 - Not shown: notices (a dot on the user menu leads to Asetukset > Turvallisuus), questions (Tarkistettavat, the
   header's link), explaining sentences, goals.
 ```
- Jää palkkapäivänä 2 710 €                 Tulevat kuukaudet   Tulot    Maksamatta  Säästöön  Laskujen jälkeen
- palkkapäivä 25.11.                         Marraskuu 2026    3 000 €  1 500 €     150 €           1 350 €
-                                             Joulukuu 2026           –    800 €         –            −800 €
- Marraskuu 2026          1.–11.11.           Tammikuu 2027     3 100 €    900 €         –       Ei tiedossa
- Tulot            Menot                       Käteen jäi
- 3 900 €          2 018 €                     1 482 €
- ▇▇▇▇▇▇▇▇▇▇▇▇     ▇▇▇▇▇▇▇▇ ░░░░░░░░           ▇▇▇▇▇▇▇▇
- Ansiotulot       90 € yli tavallisen         Viime kuussa samaan
- 3 500 €          tähän päivään               päivään 1 390 €
+ Riittää palkkapäivään 25.11.
+ 2 710 €
 
- Varat ja velat
- Käyttötilit   4 905 €   Luottokortit
- Säästötilit   8 100 €   Seuraava lasku
+ Saldo päivä päivältä
+ ▁▂▃▅▆▇▆▅▃▂▁
 ```
 
 ### 1.2 Kuukausi: where did the money go this month compared with usual?
