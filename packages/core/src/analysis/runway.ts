@@ -65,7 +65,7 @@ export type Runway =
       billedCents: number;
       /** The everyday spending expected on the same days that cards and other accounts take and no bill before the payday holds: a later bill pays it, after the payday. Taken off nothing. */
       laterCents: number;
-      /** `Jää palkkapäivänä`: `freeCents` less `everydayCents` and `billedCents`. Below zero when the accounts do not hold out. */
+      /** `Jää palkkapäivänä`: `freeCents` less the plans (`plans`), `everydayCents` and `billedCents`. Below zero when the accounts do not hold out. */
       leftCents: number;
       /** The range of `leftCents`: the base months with the most and the least spending that is taken off. `lowCents <= leftCents <= highCents`. */
       lowCents: number;

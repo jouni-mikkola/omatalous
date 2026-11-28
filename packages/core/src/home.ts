@@ -226,9 +226,10 @@ function lowPointDays(ahead: Pick<AheadBasis["ahead"], "reason" | "payday" | "fr
 /** The first page's answer, month and buffer. */
 export function buildHome(ctx: AnalysisContext, { basis, pace, balances, inputs }: HomeInput): Home {
   const homePaced = homePace(pace);
+  const calendar = basis ? billCalendar(ctx, inputs, balances) : null;
   return {
-    runway: basis ? homeRunway(ctx, basis, plansBeforePayday(billCalendar(ctx, inputs, balances), basis.ahead)) : null,
-    lowPoint: basis ? lowPoint(ctx, basis, balances, inputs, lowPointDays(basis.ahead)) : null,
+    runway: basis && calendar ? homeRunway(ctx, basis, plansBeforePayday(calendar, basis.ahead)) : null,
+    lowPoint: basis && calendar ? lowPoint(ctx, basis, balances, inputs, lowPointDays(basis.ahead), calendar) : null,
     balancePast: basis ? homeBalancePast(ctx, basis, balances) : null,
     pace: homePaced,
     paceGap: pace.expected ? null : pace.cardGap ? "cards" : "history",
