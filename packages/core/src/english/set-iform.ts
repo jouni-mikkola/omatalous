@@ -14,7 +14,6 @@ export const EN_SET_IFORM: Record<keyof typeof FI_SET_IFORM, string> = {
   "set.iform.saved": "Saved.",
   "set.iform.app_address": "App address",
   "set.iform.fetches_per_day": "Fetches per day",
-  "set.iform.fetch_is_made": "The fetch is made {when}.",
   "set.iform.look_up_industry": "Look up the industry of an unknown merchant in the trade register",
   "set.iform.only_the_merchant_name": "Only the merchant's name is sent to the register.",
 };

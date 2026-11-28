@@ -100,9 +100,8 @@ test("empty account: the overview offers the demo data and the demo loads", asyn
   const demo = page.getByRole("button", { name: /esimerkki|demo/i }).first();
   await expect(demo).toBeVisible();
   await demo.click();
-  // the demo's month has income, spending and a result, and its bills fill the coming months
-  await expect(page.locator(".home-figs > li")).toHaveCount(3, { timeout: 20_000 });
-  await expect(page.locator(".home-coming tbody tr").first()).toBeVisible({ timeout: 20_000 });
+  // the demo has a payday and a balance, so the answer card stands
+  await expect(page.locator(".home-now [data-tile=left] .fig")).toBeVisible({ timeout: 20_000 });
   expect(seen.problems).toEqual([]);
   await context.close();
 });
@@ -121,14 +120,20 @@ test("empty account: the overview offers the demo data and the demo loads", asyn
         await page.waitForLoadState("networkidle");
         // a page that rendered nothing but its frame is a failure too
         // (polled: a page may draw its frame a moment before its rows arrive)
-        await expect.poll(async () => (await page.locator("main, .app").first().innerText()).length, { message: `${id} is empty` }).toBeGreaterThan(200);
+        if (id === "overview") {
+          // the overview is short on purpose: its content is the payday figure and the balance block
+          await expect(page.locator(".home-now [data-tile=left] .fig"), "overview has no payday figure").toContainText(/€/);
+          await expect(page.locator(".home-days"), "overview has no balance block").toBeVisible();
+        } else {
+          await expect.poll(async () => (await page.locator("main, .app").first().innerText()).length, { message: `${id} is empty` }).toBeGreaterThan(200);
+        }
         expect(await overflow(page), `${id} scrolls sideways at ${viewport.width}px`).toBeLessThanOrEqual(1);
         // no table is wider than the screen, also one that sits in a card that scrolls
         const wide = await page.evaluate(() => Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > window.innerWidth + 1).length);
         expect(wide, `${id} has a table wider than the screen at ${viewport.width}px`).toBe(0);
         if (id === "overview") {
-          // what is left to the payday, the month, the coming months, then the accounts: the order a phone reads
-          const order = [".home-now", ".home-summary", ".home-coming", ".holdings"];
+          // what is left to the payday, then the balance of the days to it: the order a phone reads
+          const order = [".home-now", ".home-days"];
           const names = await page.evaluate((selectors) => {
             const found = selectors.map((s) => document.querySelector(s)!);
             return found.map((el, i) => (i === 0 || found[i - 1]!.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING ? selectors[i] : `${selectors[i]} out of order`));

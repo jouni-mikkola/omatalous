@@ -3,7 +3,7 @@
  * lowest corner ringed with its sum, the payday a rule, the day read out with its range and steps, and the payments and
  * pays folded under it as a table. The web adds up nothing.
  */
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render } from "@testing-library/react";
 import { createElement } from "react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type { KnownLowPoint } from "../src/charts/forms/BalanceSteps.tsx";
@@ -63,8 +63,10 @@ describe("BalanceDays", () => {
     expect(flat(c.querySelector('[role="img"]')?.getAttribute("aria-label"))).toBe("Tilien saldo päivittäin 10.12.–14.12. Alimmillaan 13.12., arviolta 300 €.");
   });
 
-  it("reads out the lowest day while nothing is pointed at: its balance, its range and its payments", () => {
+  it("reads out nothing until a day is picked, then the lowest day on focus: its balance, its range and its payments", () => {
     const c = view();
+    expect(c.querySelector(".readout-title")).toBeNull();
+    fireEvent.focus(c.querySelector(".hit")!);
     expect(flat(c.querySelector(".readout-title")?.textContent)).toBe("13.12.");
     expect([...c.querySelectorAll(".readout-part")].map((p) => flat(p.textContent))).toEqual(["Saldo 300 €", "tavallisesti 120–480 €", "Vuokra −600 €"]);
   });

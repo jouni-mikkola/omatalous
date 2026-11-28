@@ -110,19 +110,19 @@ describe("Pankkiyhteydet: the accounts a connection reads", () => {
 describe("Tilit: what tells accounts apart", () => {
   const render = (accounts: Account[]) => text(renderToStaticMarkup(createElement(Accounts, { meta: metaOf(accounts, [connection("c1")]), onChange: () => {} })));
 
-  it("shows the own name first with the bank's name under it, the holder, the IBAN in groups and a card's limit and use", () => {
+  it("shows the own name and a card's limit and use on the row; the bank's name, the holder and the number are behind Muokkaa", () => {
     const out = render([
       account({ name: "Yhteinen tili", customName: "Yhteinen tili", iban: "FI2112345600000785", holder: "Testi Esimerkki, Maija Mallikas" }),
       account({ id: "a2", name: "Nordea Gold", bankName: "Nordea Gold", type: "credit_card", cardMask: "•••• 1144", creditLimitCents: 200000, balanceCents: -34000, holder: "Testi Esimerkki" }),
     ]);
-    expect(out).toContain("Yhteinen tili FI21 1234 5600 0007 85 Pankin nimi: Käyttötili Testi Esimerkki, Maija Mallikas");
-    expect(out).toContain("Nordea Gold •••• 1144 Testi Esimerkki Luottoraja 2 000 €, käytössä 340 €");
+    for (const hidden of ["FI21 1234", "Pankin nimi", "Maija Mallikas", "•••• 1144"]) expect(out).not.toContain(hidden);
+    expect(out).toContain("Nordea Gold Luottoraja 2 000 €, käytössä 340 €");
     expect(out).not.toContain("yli luottorajan");
   });
 
   it("starts a row with the account's name as text, with no logo of its bank", () => {
     const markup = renderToStaticMarkup(createElement(Accounts, { meta: metaOf([account({ customName: "Arki", name: "Arki" })], [connection("c1")]), onChange: () => {} }));
-    expect(text(markup)).toContain("Arki Pankin nimi: Käyttötili");
+    expect(text(markup)).not.toContain("Pankin nimi");
     expect(markup).not.toContain("<img");
   });
 
@@ -147,11 +147,6 @@ describe("Tilit: what tells accounts apart", () => {
     // near miss: the same two holders but one user's part is 0, so the account is one user's and has no parts to open
     expect(markupOf([account({ use: { ...use, users: [{ ...use.users[0]!, weight: 1 }, { ...use.users[1]!, weight: 0 }] } })])).not.toContain("jako\"");
     expect(markupOf([account({})])).not.toContain("jako\"");
-  });
-
-  it("does not say the holder twice when the bank gave no product and the name is the holder", () => {
-    const out = render([account({ name: "Testi Esimerkki", bankName: "Testi Esimerkki", holder: "Testi Esimerkki", iban: "FI2112345600000785" })]);
-    expect(out.split("Testi Esimerkki").length - 1).toBe(1);
   });
 
   it("has no Haettu column and names no provider after the number: the table is the account, its balance and Muokkaa", () => {
