@@ -49,14 +49,6 @@ export function cardMasks(cards: readonly Pick<Answer["cards"][number], "id" | "
   return maskedNames(cards.map((c) => ({ id: c.id, name: cardName(c.name), mask: c.mask?.slice(-4) ?? null })));
 }
 
-/**
- * Whether a card has something used. The debts of the whole block (`debtCents`) differ from the loans alone only then,
- * so only then is there a line for them at the foot of the block.
- */
-export function cardsOwe(cards: readonly Pick<Answer["cards"][number], "usedCents">[]): boolean {
-  return cards.some((c) => (c.usedCents ?? 0) > 0);
-}
-
 /** The word of a debt that is dear: only Kallis and Erittäin kallis are told, a cheaper class or a cost core cannot tell says nothing. */
 export function dearWord(costClass: Answer["loans"][number]["costClass"]): string | null {
   if (costClass === "dear") return t("holdings.class_dear");

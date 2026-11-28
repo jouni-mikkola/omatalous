@@ -191,11 +191,11 @@ test("each way to cut the joint account moves the figure of its row on Saldot, a
   expect(Math.abs((await jointCents(equal.page)) - Math.round((at60 * 50) / 60))).toBeLessThanOrEqual(1);
   await equal.context.close();
 
-  // who paid: no percent is told, the row says the figure is the viewer's part
+  // who paid: the row tells neither a percent nor the viewer's part
   await press(first.page, group.getByRole("button", { name: "Kuka maksoi tilille" }));
   await expect(group.getByRole("button", { name: "Kuka maksoi tilille" })).toHaveAttribute("aria-pressed", "true");
   const paid = await open(browser, members[0]!, "/#/reports?q=saldot");
-  await expect(jointRow(paid.page)).toContainText("Yhteinen tili, osuutesi");
+  await expect(jointRow(paid.page)).not.toContainText("osuutesi");
   await expect(jointRow(paid.page)).not.toContainText("%");
   await paid.context.close();
 

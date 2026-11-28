@@ -6,18 +6,20 @@ import { hasWhatIf, LoanDrill, PlanDrill } from "../../../components/loans/LoanD
 import { intervalLabel, KIND_LABEL, referenceName } from "../../../components/loans/labels.ts";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { Figure } from "../../../components/Figure.tsx";
+import { FigurePanel } from "../../../components/FigurePanel.tsx";
+import { FigureRow } from "../holdings/FigureRow.tsx";
 import { DebtPath, DebtPathTable } from "../../../charts/forms/DebtPath.tsx";
 import { ExtraPlan } from "../../../components/loans/ExtraPlan.tsx";
 import { QuestionChart, ReportPanel } from "../../../charts/forms/parts.tsx";
 import { ACCOUNT_TYPE_LABEL, date, money, monthLongIn, percent, plainNumber } from "../../../format.ts";
 import { sameDebtTwice } from "../parts.tsx";
 import { typedByText } from "../../../part.ts";
-import { LOAN_TERMS_HASH, loanEditHash, loanHash, loanTermsHash, LOANS_REPORT_ANCHOR } from "../../../routes.ts";
+import { LOAN_TERMS_HASH, loanEditHash, loanHash, LOANS_REPORT_ANCHOR } from "../../../routes.ts";
 import { dearWord } from "../holdings/holding-rows.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import "../../../styles/loans.css";
 import { Notice } from "../../../components/ui/Notice.tsx";
-import { figureName, t } from "../../../text.ts";
+import { figureName, t, tn } from "../../../text.ts";
 import { headAsks } from "../../../components/net-label.ts";
 /** A figure the loan has no value for: nothing is due, nothing was drawn, or the household has not told it. */
 const DASH = "–";
@@ -160,7 +162,7 @@ const columns = (rates: boolean, costs: boolean): Column<Entry>[] => [
     kind: "text",
     rowHead: true,
     cell: (e) => {
-      const sub = e.loan ? about(e.loan) : [e.unsaved.card ? t("set.ri.credit_card") : e.unsaved.kindUnknown ? t("set.ri.credit_kind_not_known") : null, e.unsaved.monthlyCents === null ? null : t("rpt.ln_per_month", { amount: money(e.unsaved.monthlyCents) })].filter(Boolean).join(" · ");
+      const sub = e.loan ? about(e.loan) : [e.unsaved.card ? t("set.ri.credit_card") : e.unsaved.kindUnknown ? t("set.ri.credit_kind_not_known") : null].filter(Boolean).join(" · ");
       return (
         <>
           <span className="loan-name">{e.loan ? e.loan.name : e.unsaved.name}</span>
@@ -174,7 +176,7 @@ const columns = (rates: boolean, costs: boolean): Column<Entry>[] => [
     label: t("rpt.ln_col_balance"),
     kind: "money",
     main: true,
-    cell: (e) => (e.loan ? (e.loan.balance.cents === null ? <Unknown /> : money(e.loan.balance.cents, false)) : <Unknown>{e.unsaved.asked ? t("holdings.balance_missing") : <a href={loanTermsHash(e.unsaved.debtId)}>{t("holdings.balance_missing")}</a>}</Unknown>),
+    cell: (e) => (e.loan && e.loan.balance.cents !== null ? money(e.loan.balance.cents, false) : <Unknown />),
   },
   ...(rates ? [{ key: "rate", label: t("rpt.ln_col_rate"), kind: "share", cell: (e) => (e.loan ? rateCell(e.loan) : <Unknown />) } satisfies Column<Entry>] : []),
   ...(costs ? [{ key: "cost", label: t("rpt.ln_cost12"), kind: "money", cell: (e) => (e.loan?.cost?.next12 ? money(e.loan.cost.next12.cents, false) : <Unknown />) } satisfies Column<Entry>] : []),
@@ -293,7 +295,7 @@ function Loans({ ctx }: SectionProps) {
   const monthly =
     m.cents !== null
       ? m.unknown > 0
-        ? t("rpt.ln_payments_unknown", { amount: money(m.cents, false), count: m.unknown })
+        ? t("rpt.ln_payments_atleast", { amount: money(m.cents, false) })
         : money(m.cents, false)
       : m.unknown > 0
         ? DASH
@@ -314,25 +316,35 @@ function Loans({ ctx }: SectionProps) {
   // a column is shown when a debt has its figure: one of dashes alone says nothing
   const rates = r.loans.some((l) => (l.cost?.rateMilli ?? null) !== null);
   const costs = r.cost12.cents !== null || r.loans.some((l) => l.cost?.next12 != null);
-  // a total that leaves unsaved debts out says so, as Yhteenveto's does; the cost is unknown, never the known part, while a debt lacks its terms
-  const total = {
-    label: t(r.unsaved.length > 0 ? "holdings.debts_known" : "holdings.debts_total"),
-    cells: {
-      balance: r.totalKnown ? money(r.total.cents, false) : <Unknown />,
-      ...(costs ? { cost: r.cost12.cents === null ? <Unknown /> : money(r.cost12.cents, false) } : {}),
-    },
-  };
+  // the debts the household has not told the balance of: one link to where they are typed, in the head of the page's tiles when that asks already
+  const asking = r.unsaved.filter((u) => !u.asked).length;
+  const addBalances = asking > 0 && !headAsks(b);
+  // each debt's payment, the figure of Maksut kuukaudessa opens them; a card has none to tell
+  const payments = entries.flatMap((e) => (e.loan ? (e.loan.accountType === "credit_card" ? [] : [{ id: e.id, name: e.loan.name, value: payment(e.loan).value ?? DASH }]) : e.unsaved.card ? [] : [{ id: e.id, name: e.unsaved.name, value: e.unsaved.monthlyCents === null ? DASH : t("rpt.ln_per_month", { amount: money(e.unsaved.monthlyCents) }) }]));
   return (
     // the one link to what the cost waits for stands in the head, so it is there also when no debt has a cost to show a column for;
     // the line at the head of the page links to the list already when it asks of a balance
-    <ReportPanel id={section.id} title={section.title} actions={r.cost12.cents === null && fillHref !== null && !(fillHref === LOAN_TERMS_HASH && headAsks(b)) ? <a className="btn-link" href={fillHref}>{t("rpt.ln_fill")}</a> : undefined}>
+    <ReportPanel id={section.id} title={section.title} actions={addBalances ? <a className="btn-link" href={LOAN_TERMS_HASH}>{tn(asking, "holdings.add_balances_one", "holdings.add_balances_many")}</a> : r.cost12.cents === null && fillHref !== null && !(fillHref === LOAN_TERMS_HASH && headAsks(b)) ? <a className="btn-link" href={fillHref}>{t("rpt.ln_fill")}</a> : undefined}>
       {/* with no loan saved or connected there is nothing to add up: the payments of the unsaved ones are in their rows */}
       {r.loans.length > 0 && (
         <div className="kv">
           <div>
             <div className="k">{t("rpt.ln_payments_month")}</div>
-            <div className="v"><Figure text={monthly} size="m" /></div>
-            {r.monthlyUnknownNames.length > 0 && <small className="loan-about">{t("rpt.ln_payments_unknown_names", { names: listed(r.monthlyUnknownNames, and()) })}</small>}
+            <div className="v">
+              {payments.length > 0 ? (
+                <FigurePanel label={t("rpt.ln_payments_month")} figure={<Figure text={monthly} size="m" />}>
+                  <dl className="st-rows">
+                    {payments.map((p) => (
+                      <FigureRow key={p.id} label={p.name}>
+                        {p.value}
+                      </FigureRow>
+                    ))}
+                  </dl>
+                </FigurePanel>
+              ) : (
+                <Figure text={monthly} size="m" />
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -379,7 +391,6 @@ function Loans({ ctx }: SectionProps) {
         rows={entries}
         rowKey={(e) => e.id}
         columns={columns(rates, costs)}
-        total={r.loans.length > 0 ? total : undefined}
         drill={(e) =>
           e.loan ? (
             <>
