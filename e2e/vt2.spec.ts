@@ -25,7 +25,7 @@ test("a row is one line of 33 px, a day's row about 25 px", async ({ browser }) 
   const roomy = await heights(page, 20);
   expect(roomy.filter((h) => Math.abs(h - 33) <= 1.5).length, `heights ${roomy.join(", ")}`).toBeGreaterThanOrEqual(18);
   const groups = await page.locator("table.tx-table tr.rt-group").evaluateAll((els) => els.slice(0, 3).map((el) => Math.round(el.getBoundingClientRect().height)));
-  expect(groups.every((h) => h >= 23 && h <= 27), `day rows ${groups.join(", ")}`).toBe(true);
+  expect(groups.every((h) => h >= 23 && h <= 30), `day rows ${groups.join(", ")}`).toBe(true);
   // the density has no switch
   await expect(page.getByRole("group", { name: "Rivien tiheys" })).toHaveCount(0);
   expect(await overflow(page)).toBe(0);

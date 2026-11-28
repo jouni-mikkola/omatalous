@@ -84,7 +84,7 @@ details.card[open] > summary.card-head { margin-bottom: var(--sp-12); }
 .mk-l { --mk-disc: calc(var(--avatar) + var(--sp-16)); }
 .mk-wide { inline-size: calc(var(--avatar) * 2 + var(--sp-8)); }
 .mk-logo { display: block; inline-size: 100%; block-size: 100%; object-fit: contain; padding: var(--sp-4); box-sizing: border-box; }
-.mk-disc { display: inline-grid; place-items: center; inline-size: var(--mk-disc); block-size: var(--mk-disc); border-radius: 50%; font-size: var(--fs-small); font-weight: var(--w-strong); letter-spacing: 0.02em; color: var(--plate-ink); background: color-mix(in srgb, var(--plate-ink) var(--mix-chip), var(--plate)); }
+.mk-disc { display: inline-grid; place-items: center; inline-size: var(--mk-disc); block-size: var(--mk-disc); border-radius: 50%; font-size: var(--fs-label); font-weight: var(--w-strong); letter-spacing: 0.02em; color: var(--plate-ink); background: color-mix(in srgb, var(--plate-ink) var(--mix-chip), var(--plate)); }
 .mk-l .mk-disc { font-size: var(--fs-body); }
 .mk-disc[data-tint="1"] { background: color-mix(in srgb, var(--series-1) var(--mix-chip-edge), var(--plate)); }
 .mk-disc[data-tint="2"] { background: color-mix(in srgb, var(--series-2) var(--mix-chip-edge), var(--plate)); }

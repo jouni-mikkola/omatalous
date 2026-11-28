@@ -43,7 +43,7 @@
 
 /* Tarkistettavat in the header: the word and the count of open questions when there are any, the same count the page shows */
 .review-link { gap: 8px; }
-.nav-count { box-sizing: border-box; min-inline-size: 20px; padding: 0 8px; border-radius: var(--radius-pill); border: 1px solid var(--on-ink); color: var(--on-ink); font-size: var(--fs-small); line-height: 18px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; }
+.nav-count { box-sizing: border-box; min-inline-size: 20px; padding: 0 8px; border-radius: var(--radius-pill); border: 1px solid var(--on-ink); color: var(--on-ink); font-size: var(--fs-label); line-height: 18px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; }
 
 .topbar .segmented { background: var(--ink-2); border-color: transparent; flex: none; white-space: nowrap; }
 .topbar .segmented button { white-space: nowrap; padding: 0 8px; }
