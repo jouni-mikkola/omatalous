@@ -17,19 +17,19 @@ const commits = [{ hash: "abc1234", subject: "Fix a figure" }];
 
 describe("Versio: up to date only when nothing waits", () => {
   it("says up to date when the check found nothing", () => {
-    expect(panel({ update_available: false, checked_at: "2026-11-15T10:00:00Z" })).toContain("Ajan tasalla");
+    expect(panel({ update_available: false, checked_at: "2026-11-15T10:00:00Z" })).toContain("1.4.0</span>, ajan tasalla");
   });
 
   it("offers the update and lists the commits when update_available is true", () => {
     const html = panel({ update_available: true, behind_commits: commits, checked_at: "2026-11-15T10:00:00Z" });
     expect(html).toContain("Uusi versio saatavilla");
     expect(html).toContain("Fix a figure");
-    expect(html).not.toContain("Ajan tasalla");
+    expect(html).not.toContain("ajan tasalla");
   });
 
   it("never says up to date while commits wait, whatever update_available says", () => {
     const html = panel({ update_available: false, behind_commits: commits, checked_at: "2026-11-15T10:00:00Z" });
-    expect(html).not.toContain("Ajan tasalla");
+    expect(html).not.toContain("ajan tasalla");
     expect(html).toContain("Fix a figure");
   });
 });

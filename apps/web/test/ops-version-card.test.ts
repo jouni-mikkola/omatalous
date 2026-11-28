@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { S } from "../src/components/ops/ops-strings.ts";
 import type { OpsSnapshot } from "../src/components/ops/types.ts";
-import { UpdatePanel } from "../src/components/ops/UpdatePanel.tsx";
+import { UpdatePanel, VersionFacts } from "../src/components/ops/UpdatePanel.tsx";
 
 const panel = (state: OpsSnapshot, disabled = false) =>
   renderToStaticMarkup(createElement(UpdatePanel, { version: "0.10.0", build: "abc1234", state, disabled, onCheck: () => {}, onUpdate: () => {}, onRollback: () => {} }));
@@ -21,11 +21,13 @@ describe("the card has no switch for new versions", () => {
 });
 
 describe("the update channel", () => {
-  it("is shown read-only as the helper reports it, and not before", () => {
-    expect(panel({ channel: "private" })).toContain("Päivityskanava: yksityinen kehitysversio");
-    expect(panel({ channel: "release" })).toContain("Päivityskanava: julkinen");
-    expect(panel({ channel: "private" })).not.toMatch(/<(input|select|button)[^>]*(channel|kanava)/i);
-    expect(panel({})).not.toContain("Päivityskanava");
+  const facts = (state: OpsSnapshot) => renderToStaticMarkup(createElement(VersionFacts, { state }));
+  it("is shown read-only in the technical details as the helper reports it, and not before", () => {
+    expect(facts({ channel: "private" })).toContain("Päivityskanava: yksityinen kehitysversio");
+    expect(facts({ channel: "release" })).toContain("Päivityskanava: julkinen");
+    expect(facts({ channel: "private" })).not.toMatch(/<(input|select|button)[^>]*(channel|kanava)/i);
+    expect(facts({})).toBe("");
+    expect(panel({ channel: "private" })).not.toContain("Päivityskanava");
   });
 });
 
@@ -39,7 +41,7 @@ describe("Versio with nothing to show", () => {
     expect(html).not.toContain('class="muted"');
   });
   it("keeps its body once there is a check, an update or a rollback", () => {
-    expect(panel({ checked_at: "2026-03-01T10:00:00.000Z" } as OpsSnapshot)).toContain('class="muted"');
+    expect(panel({ checked_at: "2026-03-01T10:00:00.000Z" } as OpsSnapshot)).toContain(", ajan tasalla");
     expect(panel({ update_available: true } as OpsSnapshot)).toContain('class="form-row"');
     expect(panel({ can_rollback: true } as OpsSnapshot)).toContain('class="form-row"');
   });

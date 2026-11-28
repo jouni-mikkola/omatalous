@@ -171,7 +171,7 @@ test("maintenance page: helper missing, then working; XSS strings stay text; upd
   expect(await page.locator(".ops-log script, .ops-log img").count()).toBe(0);
   expect(await page.evaluate(() => (window as unknown as { __xss?: number }).__xss)).toBeUndefined();
   // rollback is offered now, and asks for the typed word
-  await expect(page.getByText(/^Ajan tasalla/)).toBeVisible();
+  await expect(page.getByText(/, ajan tasalla/)).toBeVisible();
   await page.getByRole("button", { name: "Palauta edellinen versio" }).click();
   await expect(page.getByRole("dialog").getByLabel("Kirjoita PALAUTA vahvistukseksi")).toBeVisible();
   await page.getByRole("dialog").getByRole("button", { name: "Peruuta" }).click();

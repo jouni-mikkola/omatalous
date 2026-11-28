@@ -138,7 +138,6 @@ export function GeneralForm({
             </option>
           ))}
         </select>
-        {form.syncHours.length > 0 && <span className="field-help">{t("set.iform.fetch_is_made", { when: syncHoursLabel(form.syncHours) })}</span>}
       </label>
 
       <label className="check">
