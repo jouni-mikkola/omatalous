@@ -26,7 +26,7 @@ export function payingSeries(ctx: AnalysisContext, inputs: UserInputs, today: Is
 }
 
 /** The loan's end date or, with none, the plan's last due date when it falls on or before `until`; null while the loan goes on past `until` or has no day. */
-export function loanLastChargeDay(loan: Loan, today: IsoDate, until: IsoDate): IsoDate | null {
+function loanLastChargeDay(loan: Loan, today: IsoDate, until: IsoDate): IsoDate | null {
   if (loan.endDate !== null) return loan.endDate;
   const first = loanNextPayment(loan, today);
   if (first.date === null) return null;
