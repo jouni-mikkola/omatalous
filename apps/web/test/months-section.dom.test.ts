@@ -1,5 +1,5 @@
 /** Raportit > Tulot ja menot: the twelve months of income and spending as bars, each a link to its rows. */
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 import { CashflowLead, section } from "../src/pages/reports/sections/Months.tsx";
@@ -187,6 +187,27 @@ describe("Tulot ja menot: the tiles the page opens with", () => {
     lead({ overview: overview({ completeTotals: { months: 3, incomeCents: 1234500, averageIncomeCents: 411500, spendCents: 987600, netCents: -50000, averageNetCents: -16667 } }) });
     expect(stripItems().slice(0, 2)).toEqual(["Erotus −500 € −167 €/kk", "Tulot 12 345 € 4 115 €/kk"]);
     expect(document.querySelector(".strip-figure")!.classList.contains("bad")).toBe(true);
+  });
+
+  // each tile opens a panel that names the base: the complete months
+  const openedPanel = (tile: number) => {
+    fireEvent.click(document.querySelectorAll(".strip-item")[tile]!.querySelector(".fig-open")!);
+    return screen.getByRole("dialog");
+  };
+
+  it("names the complete months as the base of the difference and of the income", () => {
+    lead({ overview: overview() });
+    expect(openedPanel(0).getAttribute("aria-label")).toBe("Erotus, päättyneet kuukaudet");
+    cleanup();
+    lead({ overview: overview() });
+    expect(openedPanel(1).getAttribute("aria-label")).toBe("Tulot, päättyneet kuukaudet");
+  });
+
+  it("names the complete months as the base of the gap and says what the gap holds", () => {
+    gapShown({ gapCents: 20000, creditCents: 0, savingsCents: 0, accountsCents: 0 });
+    const panel = openedPanel(0);
+    expect(panel.getAttribute("aria-label")).toBe("Menot yli tulojen, päättyneet kuukaudet");
+    expect(flat(panel.textContent)).toContain("Päättyneiden kuukausien menot ja säästöön siirretty raha");
   });
 
   it("draws the gap tile in place of the difference, then the income and the spending", () => {

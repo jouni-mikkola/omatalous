@@ -1,6 +1,6 @@
 // Decision: is the household spending more than it earns, month after month, and is this month on its usual course
 import { MonthBars } from "../../../charts/MonthBars.tsx";
-import { answerMoney, signedMoney } from "../../../format.ts";
+import { answerMoney, rowMoney, signedMoney } from "../../../format.ts";
 import { spentLabel, t } from "../../../text.ts";
 import type { ReportsData } from "../../../types.ts";
 import type { ReactNode } from "react";
@@ -8,6 +8,7 @@ import { ReportPanel } from "../../../charts/forms/parts.tsx";
 import { ChartWithTable } from "../../../components/table/selection.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
 import { monthName } from "../month-name.ts";
+import { KeyValue } from "../../../components/table/KeyValue.tsx";
 import { cashflowSpendPanel } from "../MenotPanels.tsx";
 import { partialMonths } from "../partial-months.ts";
 import { Tiles, type TileItem } from "../../../components/Tiles.tsx";
@@ -15,8 +16,21 @@ import type { ReportSection, SectionProps } from "../types.ts";
 
 type Gap = NonNullable<ReportsData["cashflowMonths"]["gap"]>;
 
-/** The gap of the complete months as a tile. */
-const gapTile = (gap: Gap): TileItem => ({ label: t("rpt.gap_tile"), figure: answerMoney(gap.gapCents), tone: "bad" });
+/** The gap of the complete months as a tile; its panel names the base and what the gap holds. */
+const gapTile = (gap: Gap): TileItem => ({ label: t("rpt.gap_tile"), figure: answerMoney(gap.gapCents), tone: "bad", panel: { label: t("rpt.fp_gap_title"), content: <p className="fig-pop-text">{t("rpt.gap_tile_note")}</p> } });
+
+type Overview = ReportsData["cashflowMonths"];
+
+/** The panel of Tulot: the complete months' income as the server counted it, and its total. Names the base the tile averages over. */
+function incomePanel(overview: Overview, ctx: SectionProps["ctx"]): TileItem["panel"] {
+  const complete = overview.completeTotals;
+  if (!complete) return undefined;
+  const whole = overview.months.filter((m) => m.complete && m.incomeCents !== null && m.spendCents !== null);
+  return {
+    label: t("rpt.fp_income_title"),
+    content: <KeyValue items={[...whole.map((m) => [monthName(m, ctx.running), rowMoney(m.incomeCents ?? 0)] as const), [t("rpt.fp_total"), rowMoney(complete.incomeCents), "total"]]} />,
+  };
+}
 
 /**
  * What the complete months of the period came to, as tiles. The first is the answer, in colour: the gap when they took
@@ -29,10 +43,14 @@ export function CashflowLead({ ctx }: SectionProps) {
   const { completeTotals: complete, gap } = overview;
   const gapParts = gap ? gapTile(gap) : null;
   if (complete === null) return gapParts ? <Tiles items={[gapParts]} /> : null;
-  const net: TileItem = { label: t("rpt.strip_net"), figure: signedMoney(complete.netCents), tone: complete.netCents < 0 ? "bad" : "good", note: t("rpt.strip_average", { sum: signedMoney(complete.averageNetCents) }) };
+  const netPanel = {
+    label: t("rpt.fp_net_title"),
+    content: <KeyValue items={[[t("rpt.strip_income"), rowMoney(complete.incomeCents)], [t("rpt.strip_spent"), rowMoney(-complete.spendCents)], [t("rpt.strip_net"), rowMoney(complete.netCents), "total"]]} />,
+  };
+  const net: TileItem = { label: t("rpt.strip_net"), figure: signedMoney(complete.netCents), tone: complete.netCents < 0 ? "bad" : "good", panel: netPanel, note: t("rpt.strip_average", { sum: signedMoney(complete.averageNetCents) }) };
   const items: TileItem[] = [
     gapParts ?? net,
-    { label: t("rpt.strip_income"), figure: answerMoney(complete.incomeCents), note: t("rpt.strip_average", { sum: answerMoney(complete.averageIncomeCents) }) },
+    { label: t("rpt.strip_income"), figure: answerMoney(complete.incomeCents), panel: incomePanel(overview, ctx), note: t("rpt.strip_average", { sum: answerMoney(complete.averageIncomeCents) }) },
     { label: t("rpt.strip_spent"), figure: answerMoney(complete.spendCents), panel: cashflowSpendPanel(ctx) },
   ];
   return <Tiles items={items} />;
