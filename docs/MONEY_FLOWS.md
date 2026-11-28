@@ -152,7 +152,7 @@ the base of the tiles of *Tulot ja menot*. Sources: *Palkka* (`earned`), *Muut t
 (the credit cover) and *Tileiltä tai korteilta*. Uses: the largest spending categories and the rest of the spending,
 *Korot ja luottokulut*, *Lyhennykset* and the debt service no evidence splits, *Säästöön siirretty*, *Luottoa maksettu
 takaisin* and what stayed on the accounts. Every band is read from the same flows as *Tulos*, so the two sides are equal
-to the cent by construction and `reports.test.ts` holds it; a band that came out below zero stands on the other side.
+to the cent by construction and `reports-money-flow.test.ts` holds it; a band that came out below zero stands on the other side.
 The picture shows the two sides as two columns of equal height. Its sentence says how much of the spending the credit
 cover paid over the months, and the same sum per month (`creditPerMonthCents`, rounded to the cent); with no credit
 cover it has no sentence. *Luotosta* is the credit cover and nothing else, never the gap between income and spending.

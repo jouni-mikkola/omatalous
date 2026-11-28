@@ -31,6 +31,6 @@ describe("Rahan lähteet ja käyttö", () => {
 
   it("says the credit and its share of a month in the hero", () => {
     const hero = t("rpt.mf_hero", { months: 10, credit: "6 000 €", perMonth: "600 €" });
-    expect(hero).toBe("Jakson 10 kuukauden aikana menoja katettiin luotolla 6 000 €. Se on 600 € kuukaudessa.");
+    expect(hero).toBe("Jakson 10 kuukauden aikana menoja katettiin luotolla 6 000 €. Se on 600 € kuussa.");
   });
 });

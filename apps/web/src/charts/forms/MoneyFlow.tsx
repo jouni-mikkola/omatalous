@@ -46,28 +46,28 @@ export function MoneyFlow({ sources, uses }: { sources: readonly MoneyFlowBand[]
   return (
     <div className="money-flow">
       <div className="mf-stacked">
-      {[
-        { name: t("rpt.mf_sources"), side: sources },
-        { name: t("rpt.mf_uses"), side: uses },
-      ].map(({ name, side }) => (
-        <div key={name} className="mf-side">
-          <p className="mf-side-name">{name}</p>
-          <svg className="mf-column" viewBox={`0 0 100 ${HEIGHT}`} preserveAspectRatio="none" role="img" aria-label={`${name}: ${side.map((b) => `${b.label} ${money(b.cents)}`).join(", ")}`}>
-            {stack(side).map(({ band, y, height }) => (
-              <rect key={band.id} className={`mf-seg mf-${band.kind}`} x={0} y={y} width={100} height={height} />
-            ))}
-          </svg>
-          <ul className="mf-legend">
-            {side.map((b) => (
-              <li key={b.id}>
-                <span className={`mf-key mf-${b.kind}`} />
-                <span className="mf-name">{b.label}</span>
-                <span className="mf-sum">{money(b.cents)}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ))}
+        {[
+          { name: t("rpt.mf_sources"), side: sources },
+          { name: t("rpt.mf_uses"), side: uses },
+        ].map(({ name, side }) => (
+          <div key={name} className="mf-side">
+            <p className="mf-side-name">{name}</p>
+            <svg className="mf-column" viewBox={`0 0 100 ${HEIGHT}`} preserveAspectRatio="none" role="img" aria-label={`${name}: ${side.map((b) => `${b.label} ${money(b.cents)}`).join(", ")}`}>
+              {stack(side).map(({ band, y, height }) => (
+                <rect key={band.id} className={`mf-seg mf-${band.kind}`} x={0} y={y} width={100} height={height} />
+              ))}
+            </svg>
+            <ul className="mf-legend">
+              {side.map((b) => (
+                <li key={b.id}>
+                  <span className={`mf-key mf-${b.kind}`} />
+                  <span className="mf-name">{b.label}</span>
+                  <span className="mf-sum">{money(b.cents)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
     </div>
   );
