@@ -74,7 +74,7 @@
 /* a payment is a dot on its step with its name and sum at body-small size; the one that breaks the balance is larger and red */
 .chart .bs-bill { fill: var(--surface); stroke: var(--series-1); stroke-width: 3; }
 .chart .bs-break { stroke: var(--bad); }
-.chart .bs-bill-name { fill: var(--text); font-size: var(--fs-small); font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
+.chart .bs-bill-name { fill: var(--text); font-size: var(--fs-small); font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3; stroke-linejoin: round; }
 
 .qc-cap { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text); font-weight: 600; margin: 0 0 4px; }
 
