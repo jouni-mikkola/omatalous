@@ -276,4 +276,13 @@ export const FI_REPORTS_5 = {
   "rpt.ln_wi_rate_margin": "{rate} (marginaali {margin})",
   "rpt.ln_wi_principal": "Kuukausilyhennys",
   "rpt.ln_wi_principal_n": "Lyhennys",
+  "rpt.dl_say": "Velaton",
+  "rpt.dl_ask_one": "Lisää {count} saldo, niin näet päivän jolloin olet velaton",
+  "rpt.dl_ask_many": "Lisää {count} saldoa, niin näet päivän jolloin olet velaton",
+  "rpt.dl_q": "Velkojen päättymisaika",
+  "rpt.dl_aria": "Jokaisen velan viimeinen maksu vuosiakselilla",
+  "rpt.dl_own": "Pisteviiva: päättyisi omilla maksuilla",
+  "rpt.dl_caption": "Velat ja niiden päättymisaika",
+  "rpt.dl_ends": "Päättyy",
+  "rpt.dl_ends_own": "Omilla maksuilla",
 } as const;

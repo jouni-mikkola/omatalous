@@ -254,9 +254,9 @@ export function clockTime(iso: string): string {
   return Number.isNaN(at.getTime()) ? "–" : formatter("clock").format(at);
 }
 
-/** "2026-10-09" → "10/2026" */
+/** "2026-03-09" → "3/2026" */
 export function monthYear(iso: string): string {
-  return `${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+  return `${Number(iso.slice(5, 7))}/${iso.slice(0, 4)}`;
 }
 
 /** "2026-10-09" → "9.10." */

@@ -12,6 +12,7 @@ import { t } from "../text.ts";
 import type { Meta, ReportsData, Scope } from "../types.ts";
 import { reportContext } from "./reports/context.ts";
 import { BalancesTiles } from "./reports/sections/Balances.tsx";
+import { DebtFree } from "./DebtFree.tsx";
 import { REPORT_SECTIONS, visibleSections } from "./reports/registry.ts";
 import "../styles/reports.css";
 import "../styles/report-balances.css";
@@ -40,6 +41,7 @@ export function Balances({ meta, scope, anchor }: { meta: Meta; scope: Scope; an
         <header className="q-head">
           <h2 className="q-title">{t("rpt.page_balances")}</h2>
         </header>
+        <DebtFree ctx={ctx} />
         <BalancesTiles ctx={ctx} />
         {visibleSections(ctx, "balances").map((s) => (
           <s.Component key={s.id} ctx={ctx} />
