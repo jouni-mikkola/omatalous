@@ -30,6 +30,10 @@
 a.home-left:hover .fig-l { text-decoration: underline; }
 .home-wide { grid-column: 1 / -1; min-inline-size: 0; }
 
+/* the day the money runs out and the payment that takes it there, under the figure */
+.home-ends { margin: var(--sp-8) 0 0; font-size: var(--fs-h2); line-height: var(--lh-body); color: var(--text-2); }
+.home-short .home-ends { color: var(--text); }
+
 /* the balance of the days to the payday: a block of its own under Nyt */
 .home-days { min-inline-size: 0; }
 .home-days > h2 { margin-block-end: var(--sp-4); }
