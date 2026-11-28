@@ -349,5 +349,12 @@ describe("Yhteenveto's rail", () => {
     const { container } = render(createElement(HoldingsLines, { holdings }));
     expect([...container.querySelectorAll(".st-row")].map((row) => [flat(row.querySelector("dt")?.textContent), flat(row.querySelector("dd")?.textContent)])).toEqual([["Tilit", "13 000,00 €"], ["Luottokortit", "−450,00 €"]]);
     expect([...container.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toEqual(["#/balances"]);
+
+    // a debt lacks its balance: the sum names itself the known one and a line says so, linking to the question still asked
+    const lacking = { ...holdings, unsavedLoans: { count: 1, rows: [{ debtId: "d1", asked: false }] } } as unknown as DashboardData["holdings"];
+    const { container: missing } = render(createElement(HoldingsLines, { holdings: lacking }));
+    expect(flat(missing.querySelectorAll(".st-row")[2]?.querySelector("dt")?.textContent)).toBe("Lainat yhteensä, tiedossa");
+    expect(flat(missing.querySelector(".st-note")?.textContent)).toBe("1 velan saldo puuttuu.");
+    expect(missing.querySelector(".st-note a")?.getAttribute("href")).toBe("#/review?item=loan-terms%3Ad1");
   });
 });

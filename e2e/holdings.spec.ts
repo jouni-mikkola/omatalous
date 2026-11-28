@@ -254,15 +254,22 @@ test("Yhteenveto's rail has Tilit, Luottokortit and Lainat as one line each unde
   await page.goto("/#/overview");
   const holdings = holdingsOf(page);
   await expect(holdings.locator("[data-holding]")).toHaveCount(3);
-  await expect(holdings.locator("[data-holding] dt")).toHaveText(["Tilit", "Luottokortit", "Lainat"]);
-  // the lines are told, not linked: the heading is the one link
-  await expect(holdings.getByRole("link")).toHaveCount(1);
+  await expect(holdings.locator("[data-holding] dt")).toHaveText(["Tilit", "Luottokortit", "Lainat yhteensä, tiedossa"]);
+  // the lines are told, not linked: the heading is the one link to Varat ja velat
+  await expect(holdings.getByRole("link", { name: "Varat ja velat" })).toHaveCount(1);
+  // a debt of the demo household lacks its balance: the line under the three says so and links to its question in Tarkistettavat
+  const lacking = holdings.getByRole("link", { name: /velan saldo puuttuu/ });
+  await expect(lacking).toHaveAttribute("href", /item=loan-terms/);
   expect(cents(plain(await holdings.locator("[data-holding=loans] dd").innerText()))).toBe(12_000_000);
 
   // the sums of the lines end on one right edge
   const edges = await rights(holdings.locator("[data-holding] dd"));
   expect(new Set(edges).size, `the sums end at ${edges.join(", ")}`).toBe(1);
   expect(await overflow(page), "Yhteenveto scrolls sideways").toBeLessThanOrEqual(1);
+
+  await lacking.click();
+  await expect(page).toHaveURL(/#\/review\?item=loan-terms/);
+  await page.goBack();
 
   await holdings.getByRole("link", { name: "Varat ja velat" }).click();
   await expect(page).toHaveURL(/#\/balances/);
