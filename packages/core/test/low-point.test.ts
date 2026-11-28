@@ -100,6 +100,15 @@ describe("lowPoint with no everyday spending", () => {
     expect(basis.ahead.balance!.shortOn).toBeNull();
     expect(point.cents).toBe(runway.leftCents);
     expect(point).toEqual({ known: true, date: "2026-11-13", cents: 50_000, lowCents: 50_000, highCents: 50_000, days: 19 });
+    // a longer walk is unchanged: the rent on the pay day is met from the balance before the pay
+    expect(walk([...pays(), ...rents("2026-03", 13)], [bal(50_000)], 20).point).toMatchObject({ date: "2026-11-13", cents: -40_000 });
+  });
+
+  it("counts the walk of the payday itself as the headline when the pay is due today", () => {
+    const rows = [...pays("2026-03", "2026-09", 26), ...rents("2026-03", 26)];
+    const { point, runway } = walk(rows, [bal(50_000)], 1);
+    if (!point.known || !runway.known) throw new Error("no figure");
+    expect(point.cents).toBe(runway.leftCents);
   });
 
   it("counts the 60th day and not the 61st: a payment on the last day is the lowest, one a day later is left out", () => {
@@ -309,6 +318,13 @@ const statements = (day = "09"): Transaction[] =>
   });
 
 describe("lowPoint with a card", () => {
+  it("leaves the debt of a card whose bill falls on the payday out of a walk that ends on it", () => {
+    const rows = [...pays(), ...rents(), ...cardShopping(), ...statements("13")].filter((t) => t.bookingDate <= TODAY);
+    const { point, runway } = walk(rows, balBoth(200_000), 19, NO_INPUTS, [own, card]);
+    if (!point.known || !runway.known) throw new Error("no figure");
+    expect(point.cents).toBe(runway.leftCents);
+  });
+
   it("takes the card's bill off once and its purchases after the bill day with the bill after the payday: the bill of 9.11. holds the debt", () => {
     const rows = [...pays(), ...rents(), ...cardShopping(), ...statements()].filter((t) => t.bookingDate <= TODAY);
     const { point, runway, basis } = walk(rows, balBoth(200_000), undefined, NO_INPUTS, [own, card]);

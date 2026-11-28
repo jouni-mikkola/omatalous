@@ -250,6 +250,9 @@ const chargeRow = (c: ExpectedCharge): AheadRow => ({ date: c.date, name: c.merc
  * booked. While the bank has not booked it (`pending`) the bill stays a row, marked, when the payment is on a counted
  * account, because the balance still holds its money; a payment on an account the balance does not count leaves no row.
  */
+/** A payment dated on the day the pay lands, after the window: it is paid from the pay, in no figure of the window. */
+export const paidFromPayDay = (date: IsoDate, payday: IsoDate, to: IsoDate): boolean => date === payday && date > to;
+
 export function cashAhead(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs): AheadData {
   return aheadBasis(ctx, balances, inputs).ahead;
 }
@@ -406,7 +409,7 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
   }
   const upcoming = [...all.filter((r) => r.source !== "income" && r.source !== "transfer" && r.date <= thirty), ...elsewhere].sort(byDay);
   // a payment of the day the pay lands on, paid from it: dated that day after the window, or following the pay that is due today
-  const fromPay = (r: AheadRow) => r.source !== "income" && r.source !== "transfer" && !!next && ((r.date === next.day && r.date > to) || !!r.withPay);
+  const fromPay = (r: AheadRow) => r.source !== "income" && r.source !== "transfer" && !!next && (paidFromPayDay(r.date, next.day, to) || !!r.withPay);
   const paydayCents = all.reduce((sum, r) => (fromPay(r) ? sum + Math.abs(centsOf(r)) : sum), 0);
   const rows = all.filter((r) => r.date <= to && !r.withPay).sort(byDay);
 

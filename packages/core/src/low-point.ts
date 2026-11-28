@@ -36,7 +36,7 @@
  * The walk is also told day by day for the first page's chart (`line`, `steps`), so the chart and the figure are one
  * walk: the lowest corner of the line is the figure, on its day.
  */
-import type { AheadBasis } from "./analysis/ahead.ts";
+import { paidFromPayDay, type AheadBasis } from "./analysis/ahead.ts";
 import type { AnalysisContext, AnalysisTx } from "./analysis/context.ts";
 import { everydaySpans } from "./analysis/expected.ts";
 import { paydayOf, type Runway, runwayOf } from "./analysis/runway.ts";
@@ -161,26 +161,28 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
   const last = addDays(from, days - 1);
   // a walk that ends on the payday leaves out the payments dated that day: they are paid from the pay, in no figure of the window (`ahead.paydayCents`), so the walk's lowest point is Jää palkkapäivänä and never lower than the headline
   const payday = paydayOf(ahead);
-  const paidFromPay = payday && payday.date === last && payday.date > ahead.to ? payday.date : null;
+  const paidFromPay = payday && payday.date === last && paidFromPayDay(payday.date, payday.date, ahead.to) ? payday.date : null;
+  // the pay is due today and the walk is that one day: the bills that follow the pay (`withPay`) are paid from it, as the runway has them
+  const followsPay = payday && payday.date === last && last === from ? new Set(ahead.upcoming.flatMap((r) => (r.withPay && r.cents ? [`${r.date}|${r.name}|${Math.abs(r.cents)}`] : []))) : null;
   if (unknownPaymentBy(calendar, last)) return { known: false, reason: "bills", days };
   // a card's bill beyond the payday window holds the debt that is taken off whole from today: it is no row of the walk
   const heldByDebt = new Set(ahead.upcoming.flatMap((r) => (r.source === "card" && r.basis === "balance" && r.cents && r.date > ahead.to ? [`${r.date}|${r.name}|${Math.abs(r.cents)}`] : [])));
   // the debt of a card whose next bill falls after the payday is not in the start: it is taken off on that bill's day, in place of the bill's own row
   const laterInRange = ahead.balance.laterCardDebts.filter((d) => d.date >= from && d.date <= last);
   // the typed bills of the card keep their rows and pay their own sums: the step is the debt beside them, none twice and none lost
-  const laterDebts = laterInRange.map((d) => ({ ...d, cents: Math.max(0, d.cents - d.typedCents) })).filter((d) => d.cents > 0);
+  const laterDebts = laterInRange.map((d) => ({ ...d, cents: Math.max(0, d.cents - d.typedCents) })).filter((d) => d.cents > 0 && d.date !== paidFromPay);
   // an income before the payday is no pay the runway waits for and the runway counts none: the walk lets it land on the
   // payday, so the line at the payday is Jää palkkapäivänä to the cent and the days after it hold the income
   const calendarRows = calendar.months.flatMap((m) => m.rows);
   // a loan a series pays has the series' own days and sums in the calendar, as the runway takes them
   const rows = calendarRows
-    .filter((r) => r.state !== "paid" && !r.onCard && r.date >= from && r.date <= last && !(r.kind !== "income" && r.date === paidFromPay) && !(r.seriesId === null && r.kind === "bill" && (heldByDebt.has(`${r.date}|${r.payee}|${r.cents}`) || laterInRange.some((d) => d.date === r.date && d.name === r.payee))))
+    .filter((r) => r.state !== "paid" && !r.onCard && r.date >= from && r.date <= last && !(r.kind !== "income" && r.date === paidFromPay) && !(r.kind !== "income" && followsPay?.has(`${r.date}|${r.payee}|${r.cents}`)) && !(r.seriesId === null && r.kind === "bill" && (heldByDebt.has(`${r.date}|${r.payee}|${r.cents}`) || laterInRange.some((d) => d.date === r.date && d.name === r.payee))))
     .map((r) => (r.kind === "income" && r.date < runway.payday.date ? { ...r, date: runway.payday.date } : r))
     .sort(byDay);
   // the bills of a card shown only by them, which the bill calendar leaves out. `upcoming` reaches Laskut's 30 days and
   // `rows` the payday window, which can be longer: the window's rows after the 30 days complete the list, none twice
   const thirty = addDays(from, AHEAD_DAYS);
-  const cardBills = [...ahead.upcoming, ...ahead.rows.filter((r) => r.date > thirty)].filter((r) => r.source === "recurring" && r.category === "card_bill" && !r.onCard && !r.outside && r.cents && r.date >= from && r.date <= last && r.date !== paidFromPay);
+  const cardBills = [...ahead.upcoming, ...ahead.rows.filter((r) => r.date > thirty)].filter((r) => r.source === "recurring" && r.category === "card_bill" && !r.onCard && !r.outside && r.cents && r.date >= from && r.date <= last && r.date !== paidFromPay && !(followsPay && r.withPay));
   // by payee, the day of the last one walked
   const billOnly = new Map<string, IsoDate>();
   for (const r of cardBills) if ((billOnly.get(r.name) ?? r.date) <= r.date) billOnly.set(r.name, r.date);
