@@ -12,11 +12,12 @@ import { partAnchor } from "../part.ts";
 import { settingsCardHash } from "../routes.ts";
 import type { Category, Scope, TransactionItem } from "../types.ts";
 import { CategoryLabel, CategoryMenu, SharedCategory } from "./transactions/CategoryChip.tsx";
+import { slotOf } from "./transactions/category-look.tsx";
 import type { AccountLook } from "./transactions/Marks.tsx";
 import { MerchantDrill } from "./transactions/MerchantDrill.tsx";
 import { RowMenu } from "./transactions/RowMenu.tsx";
-// The rows of Tapahtumat: the shared table with a group for each day. A row says who, which category and
-// how much, and its one control is the chevron: it opens the row, which holds the row's one menu
+// The rows of Tapahtumat: the shared table with a group for each day. A row says who and how much; the category is the
+// colour edge of the row, its name is read by screen readers, stands in the opened row and in the CSV. The one control is the chevron: it opens the row, which holds the row's one menu
 // (the category and whether it becomes a rule, the payee's rows, the card bill's statement, whose share it is) and the payee's twelve months. The page, its filters and its saving are in Transactions.tsx.
 
 /** The width under which the page floats its answers above the list (the width of the table's block layout). */
@@ -129,8 +130,19 @@ function Part({ t }: { t: ListedRow }) {
 /** The payee's name as the reader sees it: a row with no payee is stored under one fixed word, shown in the reader's language. */
 const nameOf = (t: Pick<ListedRow, "merchant">): string => (t.merchant === UNKNOWN_MERCHANT ? msg("tx.unknown_merchant") : t.merchant);
 
+/** The category's name for readers of a closed row, whose colour edge says it to the eye alone; the opened row shows it as a chip. */
+function CategoryWords({ t, categories, pending }: { t: ListedRow } & Pick<RowProps, "categories" | "pending">) {
+  const shown = pending ?? t.category;
+  return (
+    <span className="tx-category sr-only">
+      <span className="tx-chip-label">{categories.find((c) => c.id === shown)?.label ?? shown}</span>
+      {t.categorySource === "user" && <span className="tx-chip-manual">{msg("tx.manual")}</span>}
+    </span>
+  );
+}
+
 /** The payee's name, the quiet tags and an add-on's mark. What the bank wrote is in the opened row (`rowFacts`), not on every closed one. */
-function Who({ t, explained }: { t: ListedRow } & Pick<StatementProps, "explained">) {
+function Who({ t, explained, categories, pending }: { t: ListedRow } & Pick<StatementProps, "explained"> & Pick<RowProps, "categories" | "pending">) {
   return (
     <span className="tx-who">
       <span className="tx-line">
@@ -138,6 +150,7 @@ function Who({ t, explained }: { t: ListedRow } & Pick<StatementProps, "explaine
         <Tags t={t} explained={explained} />
         <ExtensionRowParts row={t} mark />
       </span>
+      <CategoryWords t={t} categories={categories} pending={pending} />
     </span>
   );
 }
@@ -170,7 +183,7 @@ function Detail({ t, categories, pending, onCategory, onStatement, note, scope, 
     <div className="tx-detail">
       <KeyValue className="tx-detail-facts" items={rowFacts(t, `${account}${look?.short.startsWith("••") ? ` ${look.short}` : ""}`)} />
       <div className="tx-detail-acts">
-        {!t.own && <SharedCategory categories={categories} value={t.category} manual={t.categorySource === "user"} />}
+        {t.own ? <CategoryLabel categories={categories} value={shown} manual={t.categorySource === "user"} /> : <SharedCategory categories={categories} value={t.category} manual={t.categorySource === "user"} />}
         <RowMenu
           label={msg("row.actions", { name: nameOf(t) })}
           panel={
@@ -240,9 +253,8 @@ export function TxTable({ items, whole = true, allRows, today, daySums, rowProps
   const chosen = rowChips().find((c) => c.key === view.chip);
   const noMatch = !!chosen && !items.some(chosen.test);
   const columns: Column<ListedRow>[] = [
-    { key: "who", label: msg("row.who"), kind: "text", rowHead: true, csv: (t) => t.merchant, cell: (t) => <Who t={t} explained={rowProps(t).explained} /> },
     // the marks Suodata names narrow the rows (view.chip); one no row has filters to nothing and the list says so
-    { key: "category", label: msg("row.category_col"), kind: "text", chips: rowChips(), className: () => "tx-category", headClass: "tx-category", cell: (t) => <CategoryLabel categories={rowProps(t).categories} value={rowProps(t).pending ?? t.category} manual={t.categorySource === "user"} /> },
+    { key: "who", label: msg("row.who"), kind: "text", rowHead: true, chips: rowChips(), csv: (t) => t.merchant, cell: (t) => <Who t={t} explained={rowProps(t).explained} categories={rowProps(t).categories} pending={rowProps(t).pending} /> },
     {
       key: "amount",
       label: msg("table.amount"),
@@ -257,12 +269,19 @@ export function TxTable({ items, whole = true, allRows, today, daySums, rowProps
       ),
     },
   ];
+  // the category has no column on the page; the file has it after the payee
+  const categoryName = (t: ListedRow): string => {
+    const p = rowProps(t);
+    const id = p.pending ?? t.category;
+    return p.categories.find((c) => c.id === id)?.label ?? id;
+  };
+  const fileColumns: Column<ListedRow>[] = [columns[0]!, { key: "category", label: msg("row.category_col"), kind: "text", csv: categoryName }, columns[1]!];
   const caption = msg("row.transactions");
   // the file of a paged list: every row of the filter by its day, as the table's own file of a whole list has them
   const saveAll = async () => {
     const mark = rowChips().find((c) => c.key === view.chip);
     const rows = whole ? (mark ? items.filter(mark.test) : items) : await allRows?.();
-    if (rows) saveCsv(caption, tableCsv(columns, rows, byDay(rows).map((d) => ({ key: d.day, title: d.day, rows: d.items }))));
+    if (rows) saveCsv(caption, tableCsv(fileColumns, rows, byDay(rows).map((d) => ({ key: d.day, title: d.day, rows: d.items }))));
   };
   return (
     <>
@@ -278,13 +297,15 @@ export function TxTable({ items, whole = true, allRows, today, daySums, rowProps
           key: d.day,
           title: dayHeading(d.day, today),
           figure: <DaySums sum={sum} />,
-          figureSpan: 2,
+          figureSpan: 1,
           csv: d.day,
           rows: d.items,
         };
       })}
       // on a phone the whole row opens it (the chevron stays as the keyboard's and the screen reader's control); a control in the row keeps its own click
       rowProps={(t) => ({
+        // the colour edge of the row: its category's group slot (transactions.css)
+        "data-slot": String(slotOf(rowProps(t).categories.find((c) => c.id === (rowProps(t).pending ?? t.category)))),
         onClick: (e) => {
           if (!window.matchMedia(PHONE).matches || (e.target as HTMLElement).closest("a, button, input, select, [role=menuitem]")) return;
           onOpen(open === t.id ? null : t.id);
