@@ -97,7 +97,7 @@ export function Table<R>({
   const shown = useShown(rows, columns, rowKey, rowsSearched ? { ...view, query: "" } : view, markup);
   const hasSeries = columns.some((c) => c.series);
   // a chart above this table may have picked a mark: only that mark's row stays, when the table has such a row
-  const { pick, kept, keptRow, only } = useRowPick(rows, rowKey);
+  const { pick, kept, keptRow, lastRow, only } = useRowPick(rows, rowKey);
   const keptHead = columns.find((c) => c.rowHead);
   // a group of the page keeps its own order of rows without a sort; with one, the rows follow the rank the model gave them
   const order = (list: readonly R[]): readonly R[] => {
@@ -290,7 +290,7 @@ export function Table<R>({
 
   return (
     <>
-      {pick && keptRow !== undefined && <RowFilterNotice pick={pick} name={keptHead ? cellOf(keptHead, keptRow) : null} />}
+      {pick && keptRow !== undefined && <RowFilterNotice pick={pick} name={keptHead ? (lastRow === undefined ? cellOf(keptHead, keptRow) : <>{cellOf(keptHead, keptRow)} – {cellOf(keptHead, lastRow)}</>) : null} />}
       {(tools || phoneSort) && (
         <Toolbar
           label={t("table.filter_of", { caption })}
