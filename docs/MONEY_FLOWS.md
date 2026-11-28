@@ -563,6 +563,7 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   owed. A bill typed in under the name of a rare bill the history found counts once, as the found one. A loan a series
   pays is the series' row: its rows are the series' own days and sums (the charges `expectedCharges` gives, as the
   runway takes them), up to the loan's end date or, with none, the last due date of its plan, and not the plan's rows. A
+  loan whose series is overdue has no charges to walk and keeps the plan's rows, marked as paid elsewhere when the series' account is not counted. A
   loan no series pays keeps the rows of its plan. A bullet loan has its lump sum on its last day and, when a series pays its
   interest, that series' charges up to that day. A pay that is late, money from people and a settlement between members are no income row. A
   series of card bills is no row: a card's bills are its spending, and only the next bill of a connected card is listed.

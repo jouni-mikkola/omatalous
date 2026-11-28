@@ -246,7 +246,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
     // an overdue series has no charges to walk: the plan's rows stand for the loan, as the runway takes them (`plannedLoanPayments`)
     const series = paidBy?.overdue ? undefined : paidBy;
     const rowFor = (by: RecurringSeries | undefined) => (date: IsoDate, cents: number, state: BillState = "known", monthly = by?.cadence === "monthly"): BillRow => ({
-      date, payee: loan.name, category: by?.category ?? null, cents, state, kind: "loan", seriesId: by?.id ?? null, ...(monthly ? { monthly: true as const } : {}), ...(by ? offOf(by) : {}),
+      date, payee: loan.name, category: by?.category ?? null, cents, state, kind: "loan", seriesId: by?.id ?? null, ...(monthly ? { monthly: true as const } : {}), ...(paidBy ? offOf(paidBy) : {}),
     });
     const row = rowFor(series);
     // the series charged this month: that is the month's payment, so the plan's payment of the month is no second row

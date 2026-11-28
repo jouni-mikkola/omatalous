@@ -250,6 +250,11 @@ describe("the bill calendar", () => {
     const loanRows = rowsOf(cal).filter((r) => r.kind === "loan");
     expect(loanRows[0]).toMatchObject({ date: "2026-11-15", seriesId: null });
     expect(loanRows.every((r) => r.seriesId === null && r.date <= "2027-01-15")).toBe(true);
+    // the overdue series is on an account the balance does not count: the plan's rows are off the counted money too
+    const elsewhere: BalanceInput[] = [{ id: "other", name: "Muu tili", type: "checking", balanceCents: 0, ownerName: null, balanceAt: "2026-10-28" }];
+    const outside = rowsOf(billCalendar(ctx, { marks: [], expectedBills: [], loans: [loan] }, elsewhere)).filter((r) => r.kind === "loan");
+    expect(outside.length).toBeGreaterThan(0);
+    expect(outside.every((r) => r.seriesId === null && r.onCard === true)).toBe(true);
   });
 
   it("has the whole balance of a loan with one payment on its last day, as a row on that day", () => {
