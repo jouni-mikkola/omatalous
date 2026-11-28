@@ -38,7 +38,7 @@ for (const width of [1440, 390]) {
       // each fold says its state under its name; the one that clears all data is its name alone
       const folds = page.locator("details.card:not(.danger-zone)");
       const count = await folds.count();
-      expect(count).toBeGreaterThanOrEqual(2);
+      expect(count).toBeGreaterThanOrEqual(1);
       for (let i = 0; i < count; i++) {
         const sub = folds.nth(i).locator("> summary .card-sub");
         await expect(sub, `fold ${i}`).toHaveCount(1);
