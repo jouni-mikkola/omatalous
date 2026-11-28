@@ -145,7 +145,7 @@ export const FI_REPORTS_5 = {
   "rpt.page_shared": "Yhteiset menot",
   "rpt.page_spending": "Menot kategorioittain",
   "rpt.gap_tile": "Menot yli tulojen",
-  "rpt.gap_tile_note": "Menot ja säästöön siirretty raha, päättyneet kuukaudet",
+  "rpt.gap_tile_note": "Päättyneiden kuukausien menot ja säästöön siirretty raha",
   "rpt.strip_net": "Erotus",
   "rpt.strip_income": "Tulot",
   "rpt.strip_average": "{sum}/kk",

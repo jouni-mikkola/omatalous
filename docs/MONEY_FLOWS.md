@@ -440,7 +440,7 @@ Pay is found as a series of payments from a regular payer (`income-series.ts`, `
   its pay period, it is regular pay up to the payer's usual level, the median of its last six pay periods read before
   the payment, and only the part above is extra pay. A payment at or below the usual level is typed *Palkka* and joins
   the series. A second payment in the same period is not read this way.
-- **A change of payer.** *Muutokset ja syyt* on the income report lists a change of payer or a stopped pay that falls in the
+- **A change of payer.** The income report lists a change of payer or a stopped pay that falls in the
   twelve months the report shows. The alert on the first page reads the same list but keeps a change only
   `FIRST_PAGE_DAYS` (120 days) after the old payer's last payment. The new payer is one that began after the old one,
   within `SWITCH_PERIODS` pay periods of the old one's last and not long before its last payment. On the same account
