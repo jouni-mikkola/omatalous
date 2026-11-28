@@ -13,14 +13,12 @@ import { t } from "../../../text.ts";
 
 /**
  * What the period's spending came to: the debt it paid (interest included) and the credit it drew (a link to its rows)
- * as tiles beside the whole, and the bank and late fees and the debt savings paid as rows under them when each is a
+ * as tiles beside the whole, and the bank and late fees as a row under them when it is a
  * hundredth of the spending or more. Every figure is the answer's.
  */
 function SpendingLead({ ctx }: SectionProps) {
   const r = ctx.data.categories;
   if (!r || r.totalCents <= 0) return null;
-  // the sum holds the debt paid from savings, which the first page's Menot leave out: the row names it when it is a hundredth of the sum or more
-  const fromSavingsCents = ctx.data.spendingMonths?.fromSavingsCents ?? 0;
   const items: TileItem[] = [
     { label: t("rpt.tile_spend"), figure: answerMoney(r.totalCents), panel: categorySpendPanel(ctx) },
     ...(r.debtPaidCents > 0 ? [{ label: t("rpt.tile_spend_debt"), figure: answerMoney(r.debtPaidCents), note: t("rpt.tile_spend_debt_note") }] : []),
@@ -29,7 +27,6 @@ function SpendingLead({ ctx }: SectionProps) {
   const big = (cents: number) => cents * 100 >= r.totalCents;
   const facts: Fact[] = [
     ...(big(r.feesCents) ? [[t("rpt.leaks"), answerMoney(r.feesCents)] as const] : []),
-    ...(big(fromSavingsCents) ? [[t("rpt.sm_from_savings"), answerMoney(fromSavingsCents)] as const] : []),
   ];
   return (
     <>

@@ -162,6 +162,7 @@ export const FI_REPORTS_5 = {
   "rpt.fp_other": "Muut rivit",
   "rpt.fp_why": "Miksi eri kuin {name} {sum}",
   "rpt.fp_why_text": "Tulot ja menot laskee päättyneet kuukaudet ({complete} kk) ja jättää säästöistä maksetun velan Säästöön. Menot kategorioittain laskee koko jakson ({months} kk) ja myös tämän velan.",
+  "rpt.fp_why_text_plain": "Tulot ja menot laskee päättyneet kuukaudet ({complete} kk). Menot kategorioittain laskee koko jakson ({months} kk).",
   "rpt.tile_spend_debt": "josta velkaa",
   "rpt.tile_spend_debt_note": "lyhennykset ja korot",
   "rpt.tile_spend_credit": "Uutta luottoa",

@@ -159,6 +159,7 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.fp_other": "Other rows",
   "rpt.fp_why": "Why it differs from {name} {sum}",
   "rpt.fp_why_text": "Income and spending counts the complete months ({complete} months) and leaves debt paid from savings to Saved. Spending by category counts the whole period ({months} months) and that debt too.",
+  "rpt.fp_why_text_plain": "Income and spending counts the complete months ({complete} months). Spending by category counts the whole period ({months} months).",
   "rpt.tile_spend_debt": "of which debt",
   "rpt.tile_spend_debt_note": "repayments and interest",
   "rpt.tile_spend_credit": "New credit",

@@ -51,7 +51,7 @@ export const section: ReportSection = {
   },
   order: 40,
   page: "reports",
-  reports: ["categories", "figureParts"],
+  reports: ["categories"],
   // the shared app tells no row's parts: without an add-on module there is no card and no nav link
   visible: (ctx) => splitCategories(ctx).length > 0,
   Component: CategoryParts,

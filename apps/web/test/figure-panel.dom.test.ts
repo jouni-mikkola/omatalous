@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import "./fixed-clock.ts";
 import { FigurePanel } from "../src/components/FigurePanel.tsx";
-import { cashflowSpendPanel } from "../src/pages/reports/MenotPanels.tsx";
+import { cashflowSpendPanel, categorySpendPanel } from "../src/pages/reports/MenotPanels.tsx";
 import type { ReportContext } from "../src/pages/reports/types.ts";
 
 afterEach(cleanup);
@@ -35,6 +35,17 @@ describe("FigurePanel", () => {
     fireEvent.pointerDown(screen.getByText("ulkona"));
     expect(screen.queryByRole("dialog")).toBeNull();
   });
+
+  it("closes when focus leaves it, and on a press on its own backdrop element", () => {
+    const { container } = mount();
+    const figure = screen.getByRole("button", { name: "1 000 €" });
+    fireEvent.click(figure);
+    fireEvent.blur(screen.getByRole("dialog"), { relatedTarget: screen.getByText("ulkona") });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(figure);
+    fireEvent.click(container.querySelector(".fig-backdrop")!);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
 });
 
 describe("Menot panel of Tulot ja menot", () => {
@@ -55,11 +66,20 @@ describe("Menot panel of Tulot ja menot", () => {
   it("lists the months and the usual month from the parts it is given, and the bridge to the categories' figure", () => {
     const panel = cashflowSpendPanel(ctx({ cents: 140_000, months: 2, largePurchasesCents: 20_000 }));
     const text = flat(render(createElement("div", null, panel!.content as never)).container.textContent);
-    expect(text).toContain("1 000 €");
-    expect(text).toContain("2 000 €");
-    expect(text).toContain("3 000 €");
-    expect(text).toContain("1 400 €");
-    expect(text).toContain("3 500 €");
+    expect(text).toContain("1 000,00 €");
+    expect(text).toContain("2 000,00 €");
+    expect(text).toContain("3 000,00 €");
+    expect(text).toContain("1 400,00 €");
+    expect(text).toContain("3 500,00 €");
+    expect(text).not.toContain("säästöistä maksetun");
+  });
+
+  it("shows the parts of the categories' figure and leaves out a line of nothing", () => {
+    const text = flat(render(createElement("div", null, categorySpendPanel(ctx(null))!.content as never)).container.textContent);
+    expect(text).toContain("3 000,00 €");
+    expect(text).toContain("500,00 €");
+    expect(text).toContain("3 500,00 €");
+    expect(text).not.toContain("Muut rivit");
   });
 
   it("has no usual month block when core gave none", () => {

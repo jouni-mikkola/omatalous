@@ -35,7 +35,7 @@ export function Tiles({ items }: { items: readonly TileItem[] }) {
       {items.map((item) => (
         <li key={item.label} className="strip-item">
           <span className="strip-label">{item.label}</span>
-          <span className={item.tone ? `strip-figure ${item.tone}` : "strip-figure"}>
+          <div className={item.tone ? `strip-figure ${item.tone}` : "strip-figure"}>
             {item.panel ? (
               <FigurePanel
                 label={item.panel.label}
@@ -55,7 +55,7 @@ export function Tiles({ items }: { items: readonly TileItem[] }) {
               <Figure text={item.figure} size="l" />
             )}
             {item.delta && <span className={`strip-delta ${item.delta.good ? "good" : "bad"}`}>{item.delta.text}</span>}
-          </span>
+          </div>
           {item.note && <span className="strip-note">{item.note}</span>}
         </li>
       ))}

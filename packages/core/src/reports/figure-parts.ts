@@ -1,6 +1,6 @@
 // Decision: which of the two Menot figures of Raportit to plan with, and what each is made of
 import { type AnalysisContext } from "../analysis/context.ts";
-import { spendOf, spendSelect, sumOf } from "../analysis/counted.ts";
+import { spendFigureCents, spendSelect } from "../analysis/counted.ts";
 import { type DateRange, toDayRange } from "../analysis/period.ts";
 import { monthEnd } from "../dates.ts";
 
@@ -77,7 +77,7 @@ export function figurePartsReport(ctx: AnalysisContext, range: DateRange, spendi
   const months = all.flatMap((m) => (m.complete && m.part ? [m.part] : []));
   const partialMonths = all.flatMap((m) => (!m.complete && m.part ? [m.part] : []));
   const completeCents = months.reduce((s, m) => s + m.cents, 0);
-  const cents = sumOf(spendSelect(ctx, toDayRange(range)).counted, spendOf);
+  const cents = spendFigureCents(spendSelect(ctx, toDayRange(range)).counted);
   const fromSavingsCents = spending.fromSavingsCents;
   const partialCents = partialMonths.reduce((s, m) => s + m.cents, 0);
   const usualCents = spending.typicalFlowCents;

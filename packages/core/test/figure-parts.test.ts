@@ -22,4 +22,11 @@ describe("figure parts", () => {
     expect(c.completeMonthsCents + c.partialMonths.reduce((sum, m) => sum + m.cents, 0) + c.fromSavingsCents + c.otherCents).toBe(c.cents);
     expect(c.completeMonths + c.partialMonths.length).toBeLessThanOrEqual(c.monthsInRange);
   });
+
+  it("a range to today holds the running month as a part, and no row is left to the remainder", () => {
+    const { categorySpend: c } = buildReports({ ctx, range: { from: "2026-01-01", to: "2026-10-09" }, balances: [] }).figureParts;
+    expect(c.partialMonths.map((m) => m.month)).toEqual(["2026-10"]);
+    expect(c.monthsInRange).toBe(10);
+    expect(c.otherCents).toBe(0);
+  });
 });

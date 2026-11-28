@@ -76,7 +76,7 @@ const html = (ctx: ReportContext) => renderToStaticMarkup(createElement(section.
 describe("the parts of a category on Raportit > Menot", () => {
   it("is a section of the spending page, with no card while no category has parts", () => {
     expect(spending.sections).toContain(section);
-    expect(section.reports).toEqual(["categories", "figureParts"]);
+    expect(section.reports).toEqual(["categories"]);
     expect(section.visible!(context([{ category: "groceries", totalCents: 50_000 }, { category: "restaurants", totalCents: 9_000, parts: [] }]))).toBe(false);
     expect(section.visible!(context([]))).toBe(false);
   });

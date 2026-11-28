@@ -2,7 +2,7 @@
 import { getCategory } from "../categories.ts";
 import type { AnalysisContext, AnalysisTx } from "../analysis/context.ts";
 import { comparableWith } from "../analysis/coverage.ts";
-import { spendOf, spendSelect, sumOf } from "../analysis/counted.ts";
+import { spendFigureCents, spendOf, spendSelect, sumOf } from "../analysis/counted.ts";
 import { spendingBase } from "../analysis/data-quality.ts";
 import { isBankFee, isLateFeeAlone } from "../analysis/fees.ts";
 import { roundedShares } from "../analysis/bridge-view.ts";
@@ -172,7 +172,7 @@ export function categoryReport(ctx: AnalysisContext, range: DateRange, lang: Lan
 
   // refunds are taken off, so the total is the expense of the cashflow report and a category with more refunds than
   // spending is a row with a minus; a share is of the categories that net above zero, so none passes 100 %
-  const total = sumOf(counted, spendOf);
+  const total = spendFigureCents(counted);
   const base = spendingBase(current);
   const flowTotals = totalsOf(current.map((t) => t.flows));
   const income = flowTotals.incomeCents;
