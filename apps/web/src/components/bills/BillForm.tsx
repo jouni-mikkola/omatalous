@@ -103,8 +103,8 @@ export function BillForm({ today, onAdded, onCancel }: { today: string; onAdded:
         <label>
           <span className="field-label">{t("bills.form.barcode")}</span>
           <input type="text" inputMode="numeric" autoComplete="off" value={barcode} onChange={(e) => readBarcode(e.target.value)} onBlur={() => readBarcode(barcode, true)} aria-invalid={barcodeNote?.tone === "error" || undefined} aria-describedby="bill-barcode-hint" />
-          <span id="bill-barcode-hint" className="muted">{t("bills.form.barcode_hint")}</span>
         </label>
+        <span id="bill-barcode-hint" className="muted">{t("bills.form.barcode_hint")}</span>
         {barcodeNote && <Notice tone={barcodeNote.tone}>{barcodeNote.text}</Notice>}
         <label>
           <span className="field-label">{t("bills.form.name")}</span>
