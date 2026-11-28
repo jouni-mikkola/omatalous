@@ -10,16 +10,17 @@ import { PasswordHint } from "../components/ui/PasswordHint.tsx";
 import { checkPassword } from "@banking/core";
 import { language } from "../format.ts";
 import { t } from "../text.ts";
+import { Mark } from "../components/Mark.tsx";
+import { ABOUT } from "../about.ts";
+import { version } from "../../package.json";
 /** `device`: the screen is shown before a sign-in, so the device's language can be chosen on it. */
 function AuthCard({ title, intro, device = true, children }: { title: string; intro?: ReactNode; device?: boolean; children: ReactNode }) {
   return (
     <main className="auth-wrap">
       <div className="card auth-card">
-        <div className="brand card-head">
-          <span className="brand-mark" aria-hidden="true">
-            <i />
-            <i />
-            <i />
+        <div className="auth-brand">
+          <span className="auth-mark" aria-hidden="true">
+            <Mark />
           </span>
           Omatalous
         </div>
@@ -28,6 +29,9 @@ function AuthCard({ title, intro, device = true, children }: { title: string; in
         {children}
         {device && <DeviceLanguage />}
       </div>
+      <p className="auth-foot">
+        {ABOUT.appName} {version}
+      </p>
     </main>
   );
 }
