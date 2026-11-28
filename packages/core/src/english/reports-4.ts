@@ -3,7 +3,7 @@ import type { FI_REPORTS_4 } from "../messages-reports-4.ts";
 
 export const EN_REPORTS_4: Record<keyof typeof FI_REPORTS_4, string> = {
   "rpt.st_part": "Part",
-  "rpt.sec_parts": "Parts of each category",
+  "rpt.sec_parts": "Category breakdown",
   "rpt.u_category": "category",
   "rpt.u_categories": "categories",
   "rpt.bal_lacking_one": "The balance of {count} debt is missing.",

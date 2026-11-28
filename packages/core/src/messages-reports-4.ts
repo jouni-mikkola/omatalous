@@ -6,7 +6,7 @@
  */
 export const FI_REPORTS_4 = {
   "rpt.st_part": "Osa",
-  "rpt.sec_parts": "Mistä luku koostuu",
+  "rpt.sec_parts": "Kategorioiden erittely",
   "rpt.u_category": "kategoria",
   "rpt.u_categories": "kategoriaa",
   "rpt.bal_lacking_one": "{count} velan saldo puuttuu.",
