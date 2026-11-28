@@ -7,7 +7,7 @@ plan this decision replaced; the sections are rewritten as their pages return to
 
 The app answers four questions a household asks of its money, one view each, and asks the household about what it cannot
 settle itself. Everything else is deleted or sits in one Lisää list. Read with `docs/audit/simplify.md` (what is there
-today, with screenshots in `docs/audit/shots/`) and `docs/research/peers.md` (Sure, Actual and the others). Every
+today) and `docs/research/peers.md` (Sure, Actual and the others). Every
 deletion below is confirmed when its step becomes an issue.
 
 Sure opens on eight dashboard sections or an AI chat ([pages_controller.rb](https://github.com/we-promise/sure/blob/0cb32845216cf087401c37e512a8b9cdaee3eb3e/app/controllers/pages_controller.rb)),
