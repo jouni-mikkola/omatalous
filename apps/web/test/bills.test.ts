@@ -119,7 +119,7 @@ describe("Laskut: the table and the mark on one subscription", () => {
       month("2026-12", [monthly("2026-12-12", "Vesiyhtiö", 2000), monthly("2026-12-15", "Kaasuyhtiö", 3000), bill({ date: "2026-12-20", payee: "Vakuutus", cents: 40000 })], { monthlyBillsCount: 2, monthlyBillsCents: 5000 }),
     ]);
     const out = cardOf([], [], cal);
-    expect(out).not.toContain("aria-expanded");
+    expect(out).not.toContain('class="bill-month"');
     expect(out.match(/Tiedot: Vesiyhtiö/g)).toHaveLength(1);
     expect(out).not.toContain("Kaasuyhtiö");
     expect(out).not.toContain("Vakuutus");
