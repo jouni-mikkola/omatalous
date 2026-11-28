@@ -8,7 +8,8 @@
  * buffer. Every figure is one of the registry (`figures.ts`); the page adds up and compares no money.
  */
 import { addDays, dayNumber, daysBetween, monthOf } from "./dates.ts";
-import { type LowPoint, lowPoint } from "./low-point.ts";
+import { type LowPoint, lowPoint, plansBeforePayday } from "./low-point.ts";
+import { billCalendar } from "./reports/bill-calendar.ts";
 import { type BufferGap, bufferReport } from "./reports/buffer.ts";
 import type { BalanceInput, IsoDate, UserInputs } from "./types.ts";
 import type { AheadBasis } from "./analysis/ahead.ts";
@@ -119,10 +120,10 @@ export interface Home {
 }
 
 /** The answer: what is left after the payments, per day and on the payday. */
-function homeRunway(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" | "direct" | "settling" | "planned">): HomeRunway {
+function homeRunway(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" | "direct" | "settling" | "planned">, plans: readonly { date: IsoDate; cents: number }[]): HomeRunway {
   const { ahead } = basis;
   const sum = ahead.balance ? { balanceCents: ahead.balance.startCents, paymentsCents: ahead.totals.leavingCents, cardDebtCents: ahead.balance.cardDebtCents, freeCents: ahead.balance.freeCents } : null;
-  const left = runwayOf(ctx, basis);
+  const left = runwayOf(ctx, basis, plans);
   const payday = paydayOf(ahead);
   // the days from today to the day before the payday, as the runway counts them, also when the everyday spending is not known
   const days = payday ? daysBetween(ahead.from, payday.date) : null;
@@ -226,7 +227,7 @@ function lowPointDays(ahead: Pick<AheadBasis["ahead"], "reason" | "payday" | "fr
 export function buildHome(ctx: AnalysisContext, { basis, pace, balances, inputs }: HomeInput): Home {
   const homePaced = homePace(pace);
   return {
-    runway: basis ? homeRunway(ctx, basis) : null,
+    runway: basis ? homeRunway(ctx, basis, plansBeforePayday(billCalendar(ctx, inputs, balances), basis.ahead)) : null,
     lowPoint: basis ? lowPoint(ctx, basis, balances, inputs, lowPointDays(basis.ahead)) : null,
     balancePast: basis ? homeBalancePast(ctx, basis, balances) : null,
     pace: homePaced,

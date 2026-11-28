@@ -5,7 +5,8 @@ import { buildDashboard } from "../src/analysis/dashboard.ts";
 import { paydayOf, runwayOf } from "../src/analysis/runway.ts";
 import { addDays, dateIn, daysBetween, daysInMonth, fromMonthIndex, monthIndex, weekdayOf } from "../src/dates.ts";
 import { loanUnknownSubject } from "../src/loan-terms-answer.ts";
-import { type LowPoint, lowPoint } from "../src/low-point.ts";
+import { type LowPoint, lowPoint, plansBeforePayday } from "../src/low-point.ts";
+import { billCalendar } from "../src/reports/bill-calendar.ts";
 import { LOW_POINT_DAYS } from "../src/thresholds.ts";
 import { type Account, type BalanceInput, type ExpectedBill, type IsoDate, type Loan, NO_INPUTS, type Transaction, type UserInputs } from "../src/types.ts";
 import { cardGaps } from "../src/unconnected-cards.ts";
@@ -54,7 +55,7 @@ function walk(rows: Transaction[], balances: BalanceInput[], days?: number, inpu
   const ctx = createContext(rows, accounts, TODAY);
   const basis = aheadBasis(ctx, balances, inputs);
   const walked = lowPoint(ctx, basis, balances, inputs, days);
-  return { ctx, basis, point: figureOf(walked), walked, runway: runwayOf(ctx, basis) };
+  return { ctx, basis, point: figureOf(walked), walked, runway: runwayOf(ctx, basis, plansBeforePayday(billCalendar(ctx, inputs, balances), basis.ahead)) };
 }
 
 /** A corner of the line with no range. */
@@ -343,6 +344,23 @@ describe("lowPoint with a card", () => {
     if (!without.known) throw new Error("no figure");
     const dayAfter = addDays(runway.payday.date, 1);
     expect(walked.line.find((c) => c.date === dayAfter)!.cents - without.line.find((c) => c.date === dayAfter)!.cents).toBe(468);
+  });
+
+  it("ends the line's payday at Jää palkkapäivänä with a saved loan whose plan rows no series pays", () => {
+    const loan: Loan = {
+      id: "loan-1", name: "Remonttilaina", lender: "ESIMERKKIPANKKI", kind: "consumer", grantedCents: null, balanceCents: 1_000_000, balanceDate: "2026-10-01", rateBp: 400,
+      reference: null, marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: 50_000, endDate: null, limitCents: null, seriesKey: "out:own:ESIMERKKIPANKKI",
+    };
+    // two repayments only: too few for a series, so the plan's rows are the loan's payments
+    const repayments = ["2026-09-20", "2026-10-20"].map((bookingDate) => tx({ accountId: own.id, bookingDate, amountCents: -50_000, merchant: "ESIMERKKIPANKKI", counterparty: "ESIMERKKIPANKKI", category: "mortgage" }));
+    const inputs: UserInputs = { ...NO_INPUTS, loans: [loan] };
+    const rows = [...pays(), ...rents(), ...repayments, ...shopping("2026-03-01", 4000)];
+    const { ctx, basis, walked, runway } = walk(rows, [bal(900_000)], undefined, inputs);
+    if (!walked.known || !runway.known) throw new Error("no figure");
+    expect(plansBeforePayday(billCalendar(ctx, inputs, [bal(900_000)]), basis.ahead).length).toBeGreaterThan(0);
+    const plain = runwayOf(ctx, basis);
+    expect(plain.known && plain.leftCents).not.toBe(runway.leftCents);
+    expect(walked.line.find((c) => c.date === runway.payday.date)!.cents).toBe(runway.leftCents);
   });
 
   it("keeps the lowest balance at or under Jää palkkapäivänä and Käytettävissä inside the payday window", () => {

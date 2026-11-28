@@ -88,12 +88,9 @@ describe("Now", () => {
   it("leaves the line out when the lowest balance is known: it is the sum left on the payday", () => {
     expect(nowOf(known({ date: "2026-12-10", cents: 360_000 }), runway).querySelector("p.home-low")).toBeNull();
     expect(nowOf(known({ date: "2026-12-09", cents: 360_000 }), runway).querySelector("p.home-low")).toBeNull();
+    // the walk's own estimate of the payday never shows beside the figure, whatever its sum
+    expect(nowOf(known({ date: "2026-12-10", cents: 400_000 }), runway).querySelector("p.home-low")).toBeNull();
     expect(nowOf(known({ date: "2026-12-10", cents: 360_000 }), { ...runway, days: 0 }).querySelector("p.home-low")).toBeNull();
-  });
-
-  it("shows the line when the lowest balance is below the sum left on the payday", () => {
-    const line = nowOf(known({ date: "2026-12-09", cents: 300_000 }), runway).querySelector("p.home-low")!;
-    expect(flat(line.textContent)).toBe("Saldo on alimmillaan 9.12., arviolta 3 000 €");
   });
 
   it("does not tell the reason twice: an unknown lowest balance for the reason of the figure's own line has no line", () => {

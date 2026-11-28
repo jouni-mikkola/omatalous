@@ -22,6 +22,11 @@
  * is a row, or, when no bill is known for the card, the whole debt is taken off at once. A debt whose next bill falls on
  * the payday or later is paid from the coming pay, so it is taken off nothing and told (`laterCards`).
  *
+ * A saved loan the bill calendar walks by its plan (`plannedLoanRow`) is no everyday spending: the debt part of its bank
+ * rows is left out of the expected spending, and the plan's own rows that no series pays (`plans`, from
+ * `plannedLoanPayments`) are taken off in their place, with the bills. The walk of the first page does the same, so
+ * its payday point is this figure.
+ *
  * `parts` is the figure told line by line, each sum negative when it leaves the accounts: the balance, the bills before
  * the payday, the card bills before the payday (the card rows and the debts taken off at once) and the expected spending
  * added up are `leftCents`, to the cent.
@@ -92,22 +97,22 @@ export function paydayOf({ reason, payday }: Pick<AheadBasis["ahead"], "reason" 
 }
 
 /** What is left of the counted accounts on the payday, with its range; the reason when it cannot be said. */
-export function runwayOf(ctx: AnalysisContext, { ahead, direct, settling }: Pick<AheadBasis, "ahead" | "direct" | "settling">): Runway {
+export function runwayOf(ctx: AnalysisContext, { ahead, direct, settling, planned }: Pick<AheadBasis, "ahead" | "direct" | "settling" | "planned">, plans: readonly { date: IsoDate; cents: number }[] = []): Runway {
   const payday = paydayOf(ahead);
   if (!payday) return { known: false, reason: ahead.reason === "late" ? "late" : "no-payday" };
   if (!ahead.balance || !direct) return { known: false, reason: ahead.missing === "card" ? "no-card-balance" : "no-balance" };
   const { from } = ahead;
   const days = daysBetween(from, payday.date);
   const until = addDays(payday.date, -1);
-  const all = expectedEveryday(ctx, from, until, () => true, monthOf(from));
-  const own = expectedEveryday(ctx, from, until, (t) => direct.has(t.accountId) && t.category !== "card_bill", monthOf(from));
+  const all = expectedEveryday(ctx, from, until, () => true, monthOf(from), planned);
+  const own = expectedEveryday(ctx, from, until, (t) => direct.has(t.accountId) && t.category !== "card_bill", monthOf(from), planned);
   if (typeof all === "string") return { known: false, reason: all };
   if (typeof own === "string") return { known: false, reason: own };
   // the purchases of a card that its coming bill holds: after today (what the card owes today holds the day's booked ones) to the day of the bill, when the window holds it
   const billed: Exclude<ReturnType<typeof expectedEveryday>, EverydayGap>[] = [];
   for (const { cardId, date } of settling) {
     if (date > ahead.to || direct.has(cardId)) continue;
-    const found = expectedEveryday(ctx, addDays(from, 1), date, (t) => t.accountId === cardId, monthOf(from));
+    const found = expectedEveryday(ctx, addDays(from, 1), date, (t) => t.accountId === cardId, monthOf(from), planned);
     if (typeof found === "string") return { known: false, reason: found };
     billed.push(found);
   }
@@ -115,9 +120,10 @@ export function runwayOf(ctx: AnalysisContext, { ahead, direct, settling }: Pick
   const spent = { cents: own.cents + sum("cents"), lowCents: own.lowCents + sum("lowCents"), highCents: own.highCents + sum("highCents") };
   const { freeCents, cardDebts, laterCardDebts, cardDebtCents } = ahead.balance;
   const cardRows = ahead.rows.filter((r) => r.source === "card");
+  const planCents = plans.reduce((n, p) => n + p.cents, 0);
   const parts: RunwayParts = {
     balanceCents: ahead.balance.startCents,
-    bills: { cents: -(ahead.totals.leavingCents - ahead.totals.cardCents), count: ahead.rows.filter((r) => r.source === "recurring" || r.source === "expected" || r.source === "transfer").length },
+    bills: { cents: -(ahead.totals.leavingCents - ahead.totals.cardCents + planCents), count: plans.length + ahead.rows.filter((r) => r.source === "recurring" || r.source === "expected" || r.source === "transfer").length },
     cardBills: { cents: -(ahead.totals.cardCents + cardDebtCents), count: cardRows.length + cardDebts.length },
     spending: { cents: -spent.cents, lowCents: -spent.highCents, highCents: -spent.lowCents },
     laterCards: { cents: laterCardDebts.reduce((n, d) => n + d.cents, 0), count: laterCardDebts.length },
@@ -132,9 +138,9 @@ export function runwayOf(ctx: AnalysisContext, { ahead, direct, settling }: Pick
     everydayCents: own.cents,
     billedCents: sum("cents"),
     laterCents: Math.max(0, all.cents - spent.cents),
-    leftCents: freeCents - spent.cents,
-    lowCents: freeCents - spent.highCents,
-    highCents: freeCents - spent.lowCents,
+    leftCents: freeCents - planCents - spent.cents,
+    lowCents: freeCents - planCents - spent.highCents,
+    highCents: freeCents - planCents - spent.lowCents,
     months: own.months,
     parts,
   };
