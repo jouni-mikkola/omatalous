@@ -45,6 +45,7 @@ const report = (typical: boolean): Report => {
     fromSavingsCents: 0,
     typicalCents: 44800,
     typicalFlowCents: 44800,
+    largeFlowCompleteCents: 0,
     againstUsual: MONTHS.map(() => null),
     typicalMonths: 5,
     categoryMonths: typical ? 3 : 1,
