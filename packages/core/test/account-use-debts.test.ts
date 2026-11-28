@@ -294,12 +294,10 @@ describe("the split per person in Tulot", () => {
     ]);
     expect(sum(r.members!.map((m) => m.earnedCents))).toBe(r.earnedCents);
     expect(r.earnedCents).toBe(12 * (500_001 + 300_000 + 9_401));
-    // the table of Tulot: the kinds of income add up to the sum, and their average months to the average month
+    // the table of Tulot: the types of income add up to the sum
     expect(sum(r.types.map((ty) => ty.totalCents))).toBe(r.totalCents);
     expect(sum(r.types.flatMap((ty) => ty.payers.map((p) => p.totalCents)))).toBe(r.totalCents);
     for (const p of r.types.flatMap((ty) => ty.payers)) expect(sum(p.rows.map((x) => x.amountCents)), p.payer).toBe(p.totalCents);
-    expect(r.monthlyCents).toBe(sum(r.types.map((ty) => ty.monthlyCents ?? 0)));
-    expect(r.monthlyCents).toBeGreaterThan(0);
     // a user who weighs nothing has no line
     const none = incomeReport(ctx, range, [account("joint", "checking", 0, { use: use(["u-aino", 1], ["u-eero", 0]), ownerName: "Eero" })]);
     expect(none.members).toEqual([{ label: "u-aino", earnedCents: 12 * 500_001, regular: true }]);

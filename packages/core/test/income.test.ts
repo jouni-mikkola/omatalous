@@ -277,9 +277,7 @@ describe("income report", () => {
   it("leaves money from people, refunds and the tax refund out of earned income, the tax refund as a group of its own", () => {
     const r = incomeReport(ctxOf(household(), TODAY), lastYear(TODAY));
     expect(r.notEarnedCents).toBe(17000 + 64000);
-    expect(r.kinds.map((k) => [k.id, k.label])).toEqual([["earned", "Ansiotulot"], ["tax_refund", "Veronpalautus"], ["other", "Muut tulot"]]);
-    expect(r.kinds.find((k) => k.id === "tax_refund")!.totalCents).toBe(64000);
-    expect(r.types.find((t) => t.type === "tax_refund")).toMatchObject({ kind: "tax_refund", earned: false, share: null });
+    expect(r.types.find((t) => t.type === "tax_refund")).toMatchObject({ totalCents: 64000, earned: false, share: null });
     const all = r.months.reduce((s, m) => s + m.totalCents!, 0);
     expect(r.earnedCents + r.notEarnedCents).toBe(all);
     // and the income of the same twelve months in the money flows: Ansiotulot and Tulot differ by what is not earned

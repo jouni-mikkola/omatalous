@@ -63,7 +63,7 @@ describe("a month before the household's data", () => {
     for (const c of s.categories) expect(c.values.filter((v) => v !== null).reduce((a, b) => a! + b!, 0), c.category).toBe(c.totalCents);
   });
 
-  it("gives income no figure, and the usual level and each type's monthly figure read the covered months only", () => {
+  it("gives income no figure, and the usual level reads the covered months only", () => {
     const r = incomeReport(ctx, RANGE);
     const at = (month: string) => r.months.findIndex((m) => m.month === month);
     for (const month of UNKNOWN) {
@@ -72,17 +72,11 @@ describe("a month before the household's data", () => {
       expect(m.earnedCents, month).toBeNull();
       expect(m.usualCents, month).toBeNull();
       expect(m.complete, month).toBe(false);
-      for (const type of r.types) expect(type.months[at(month)], `${month} ${type.type}`).toBeNull();
-      for (const kind of r.kinds) expect(kind.months[at(month)], `${month} ${kind.id}`).toBeNull();
     }
     for (const month of KNOWN) expect(r.months[at(month)]!.totalCents, month).toBe(250_000);
     // the three small rows of the unknown months are money that came in: the range total holds them, no cell does
     expect(r.totalCents).toBe(9 * 250_000 + 3 * 100);
     expect(r.completeMonths).toBe(9);
-    const salary = r.types.find((t) => t.type === "salary")!;
-    // three zero months would give 187 500
-    expect(salary.monthlyCents).toBe(250_000);
-    expect(r.monthlyCents).toBe(250_000);
   });
 
   it("gives the balances no total, and every change is the difference of the totals shown", () => {
@@ -137,7 +131,6 @@ describe("the money of an unknown month", () => {
     expect(monthKnown(withOld, "2025-02")).toBe(false);
     const r = incomeReport(withOld, RANGE, balances);
     expect(r.months.find((m) => m.month === "2025-02")!.totalCents).toBeNull();
-    for (const type of r.types) expect(type.months[r.months.findIndex((m) => m.month === "2025-02")], type.type).toBeNull();
     expect(r.totalCents).toBe(9 * 250_000 + 50_000 + 4 * 100);
     expect(r.types.reduce((a, t) => a + t.totalCents, 0)).toBe(r.totalCents);
     const year = taxYearReport(withOld, RANGE, incomeReport(withOld, taxYearDays(withOld, RANGE), balances), NO_INPUTS);
