@@ -20,7 +20,7 @@ for (const { width, scale } of [{ width: 390, scale: 100 }, { width: 390, scale:
     await expect(rows.first()).toBeVisible();
     if (scale !== 100) {
       await page.addStyleTag({ content: `html { font-size: ${scale}%; }` });
-      expect(await page.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize))).toBeCloseTo((14 * scale) / 100, 1);
+      expect(await page.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize))).toBeCloseTo((16 * scale) / 100, 1);
     }
     // the cards: Nyt, Arvio, Tavallinen in that order, stacked on a phone and in one row on a wide screen, and the text of none runs out of its card
     const cards = page.locator(".kind-cards .kind-card");

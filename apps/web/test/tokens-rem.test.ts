@@ -34,7 +34,7 @@ describe("the tokens that scale with the browser's text size", () => {
   });
 
   it("gives code the same sizes in px as before, 16 px to the rem", () => {
-    expect(tokens.fontSize).toMatchObject({ label: 12, body: 14, h2: 16, "fig-m": 20, "fig-l": 32, display: 52 });
+    expect(tokens.fontSize).toMatchObject({ label: 12, small: 14, body: 16, h2: 20, "fig-m": 24, "fig-l": 32, display: 52 });
     expect(tokens.space).toEqual({ 4: 4, 8: 8, 12: 12, 16: 16, 20: 20, 24: 24, 32: 32, 48: 48 });
     expect(tokens.size).toMatchObject({ pad: 24, gap: 16, "rail-h": 48, "tabbar-h": 56, "row-h": 32, "control-h": 32, "tap-min": 44 });
   });

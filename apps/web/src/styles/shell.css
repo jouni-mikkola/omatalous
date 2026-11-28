@@ -51,6 +51,8 @@
 .topbar .segmented button:hover { color: var(--on-ink); }
 .topbar .segmented button[aria-pressed="true"] { background: var(--on-ink); color: var(--ink); }
 .scope-toggle { margin-left: 4px; }
+/* the header is chrome that must stay on one row at 320 px: it keeps the secondary size */
+.topbar :is(.segmented button, .nav a, .review-link, .user-menu) { font-size: var(--fs-small); }
 /* 40 px keys: with the track around them the switch is 46 px, inside the 48 px bar */
 .topbar .scope-toggle button { min-block-size: calc(var(--tap-min) - var(--sp-4)); }
 

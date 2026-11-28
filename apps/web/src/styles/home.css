@@ -97,6 +97,7 @@ a.home-left:hover .fig-l { text-decoration: underline; }
   .home-days .chart-fold { margin-top: var(--sp-8); }
 }
 /* a month's bills with the estimate under them, and a pay that is an estimate, are two lines in one cell, the second small and muted like the second line of a row */
+.home-coming .rt { font-size: var(--fs-small); line-height: var(--lh-small); }
 .home-coming .rt td.num { white-space: normal; }
 /* with the saving column a month has five columns: the head "Laskujen jälkeen" may wrap and the gap between columns is 8 px, so they keep their columns in the narrow rail and on a phone */
 .home-coming .rt th.num { white-space: normal; }
