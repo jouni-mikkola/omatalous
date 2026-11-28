@@ -110,10 +110,9 @@ export function ReadoutLayer({
 /**
  * The line above a monthly chart that names the month and each series with its colour and sum, in place of a legend: the
  * month the pointer or the keys are on, else the last whole month. `compare` is the one sentence that sets the month
- * against the usual level; `note` says the month is not whole. `partialKey` adds the legend item of the hatched or
- * lighter months, for a chart that draws some.
+ * against the usual level; `note` says the month is not whole.
  */
-export function ReadoutLine({ title, parts, note, compare, partialKey = false }: { title: string; parts: readonly { name: string; value: string; swatch: ReactNode }[]; note?: string; compare?: string; partialKey?: boolean }) {
+export function ReadoutLine({ title, parts, note, compare }: { title: string; parts: readonly { name: string; value: string; swatch: ReactNode }[]; note?: string; compare?: string }) {
   return (
     <div className="readout-line" aria-hidden="true">
       <strong className="readout-title">{title}</strong>
@@ -123,12 +122,6 @@ export function ReadoutLine({ title, parts, note, compare, partialKey = false }:
           {p.name} <strong>{p.value}</strong>
         </span>
       ))}
-      {partialKey && (
-        <span className="readout-part">
-          <span className="key-partial" />
-          {t("chart.key_partial")}
-        </span>
-      )}
       {note && <span className="readout-note">{note}</span>}
       {compare && <span className="readout-compare">{compare}</span>}
     </div>

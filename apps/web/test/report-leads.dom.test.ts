@@ -17,9 +17,9 @@ describe("Menot kategorioittain: the tiles", () => {
 
   it("shows the spending, adding the debt paid and the credit drawn when there are any", () => {
     expect(say({})).toBe("Kaikki menot 2 500 €");
-    expect(say({ debtPaidCents: 80_000 })).toBe("Kaikki menot 2 500 € josta velkaa 800 € lyhennykset ja korot");
+    expect(say({ debtPaidCents: 80_000 })).toBe("Kaikki menot 2 500 € josta velkaa 800 €");
     expect(say({ creditDrawnCents: 50_000 })).toBe("Kaikki menot 2 500 € Uutta luottoa 500 €");
-    expect(say({ debtPaidCents: 80_000, creditDrawnCents: 50_000 })).toBe("Kaikki menot 2 500 € josta velkaa 800 € lyhennykset ja korot Uutta luottoa 500 €");
+    expect(say({ debtPaidCents: 80_000, creditDrawnCents: 50_000 })).toBe("Kaikki menot 2 500 € josta velkaa 800 € Uutta luottoa 500 €");
   });
 
   it("puts the fees and the debt paid from savings in rows, and only when each is a hundredth of the spending or more", () => {

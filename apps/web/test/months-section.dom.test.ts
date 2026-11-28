@@ -1,5 +1,5 @@
 /** Raportit > Tulot ja menot: the twelve months of income and spending as bars, each a link to its rows. */
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 import { CashflowLead, section } from "../src/pages/reports/sections/Months.tsx";
@@ -144,14 +144,6 @@ describe("Tulot ja menot", () => {
     const container = await show({ overview: overview({ months: year, completeTotals: { ...completeTotals, months: 12 } }) });
     const links = [...container.querySelectorAll("svg a")];
     expect(links.map((a) => a.getAttribute("href"))).toEqual(year.map((m) => `#/transactions?from=${m.month}-01&to=${m.month}-${m.month === "2025-02" ? "28" : ["04", "06", "09", "11"].includes(m.month.slice(5)) ? "30" : "31"}`));
-    expect(container.querySelector(".key-partial")).toBeNull();
-  });
-
-  it("names the hatching in the chart's legend when a month is hatched, and only then", async () => {
-    const partial = await show({ overview: overview() });
-    expect(flat(partial.querySelector(".readout-line .key-partial")?.parentElement?.textContent)).toBe("Vajaa tai kesken oleva kuukausi");
-    const whole = await show({ overview: overview({ months: MONTHS.map((m) => ({ ...m, complete: true })).slice(1, 11) }) });
-    expect(whole.querySelector(".key-partial")).toBeNull();
   });
 
   // a card with no purchases in a month leaves the spending report's month partial and the income report's whole
@@ -177,7 +169,7 @@ describe("Tulot ja menot: the tiles the page opens with", () => {
 
   it("gives the gap of the complete months as a tile and does not restate it as where the money came from", () => {
     const text = gapShown({ gapCents: 123400, creditCents: 50000, savingsCents: 73400, accountsCents: 0 });
-    expect(stripItems()[0]).toBe("Menot yli tulojen 1 234 € Päättyneiden kuukausien menot ja säästöön siirretty raha");
+    expect(stripItems()[0]).toBe("Menot yli tulojen 1 234 €");
     expect(text).not.toContain("Rahat tulivat");
     expect(text).not.toContain("Luotosta");
     expect(document.querySelector(".strip-item .strip-figure")!.classList.contains("bad")).toBe(true);
@@ -186,9 +178,8 @@ describe("Tulot ja menot: the tiles the page opens with", () => {
   it("leads with the difference of the complete months in the colour of good news when they have no gap, and gives each figure once, with no sentence", () => {
     // the ten complete months of MONTHS
     const container = lead({ overview: overview() });
-    // the window is named once, under the tiles, not in each label
-    expect(flat(container.querySelector("p")!.textContent)).toBe("Päättyneet kuukaudet: 10");
-    expect(stripItems()).toEqual(["Erotus +9 995 € +1 000 €/kk", "Tulot 40 050 € 4 005 €/kk", "Menot 30 055 € Tavallinen kuukausi 2 149 €"]);
+    expect(container.querySelector("p")).toBeNull();
+    expect(stripItems()).toEqual(["Erotus +9 995 € +1 000 €/kk", "Tulot 40 050 € 4 005 €/kk", "Menot 30 055 €"]);
     expect([...container.querySelectorAll(".strip-figure")].map((f) => f.className)).toEqual(["strip-figure good", "strip-figure", "strip-figure"]);
   });
 
@@ -196,6 +187,27 @@ describe("Tulot ja menot: the tiles the page opens with", () => {
     lead({ overview: overview({ completeTotals: { months: 3, incomeCents: 1234500, averageIncomeCents: 411500, spendCents: 987600, netCents: -50000, averageNetCents: -16667 } }) });
     expect(stripItems().slice(0, 2)).toEqual(["Erotus −500 € −167 €/kk", "Tulot 12 345 € 4 115 €/kk"]);
     expect(document.querySelector(".strip-figure")!.classList.contains("bad")).toBe(true);
+  });
+
+  // each tile opens a panel that names the base: the complete months
+  const openedPanel = (tile: number) => {
+    fireEvent.click(document.querySelectorAll(".strip-item")[tile]!.querySelector(".fig-open")!);
+    return screen.getByRole("dialog");
+  };
+
+  it("names the complete months as the base of the difference and of the income", () => {
+    lead({ overview: overview() });
+    expect(openedPanel(0).getAttribute("aria-label")).toBe("Erotus, päättyneet kuukaudet");
+    cleanup();
+    lead({ overview: overview() });
+    expect(openedPanel(1).getAttribute("aria-label")).toBe("Tulot, päättyneet kuukaudet");
+  });
+
+  it("names the complete months as the base of the gap and says what the gap holds", () => {
+    gapShown({ gapCents: 20000, creditCents: 0, savingsCents: 0, accountsCents: 0 });
+    const panel = openedPanel(0);
+    expect(panel.getAttribute("aria-label")).toBe("Menot yli tulojen, päättyneet kuukaudet");
+    expect(flat(panel.textContent)).toContain("Päättyneiden kuukausien menot ja säästöön siirretty raha");
   });
 
   it("draws the gap tile in place of the difference, then the income and the spending", () => {

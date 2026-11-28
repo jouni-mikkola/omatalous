@@ -4,7 +4,7 @@
  * period (`period=12m`). An anchor in an old address (`#kuukaudet`) opens the page that holds that section.
  */
 import { t } from "../../text.ts";
-import { periodFor, REPORT_PERIODS, shellPeriodsOf } from "../../period.ts";
+import { periodFor, shellPeriodsOf } from "../../period.ts";
 import { QUESTIONS, type QuestionId } from "@banking/core";
 import { type ReactNode, useEffect, useRef } from "react";
 import { query } from "../../api.ts";
@@ -72,8 +72,7 @@ export function More({ meta, range, scope, params, anchor, onQuestion }: Reports
     document.getElementById(anchor)?.scrollIntoView({ block: "start" });
   }, [anchor, data]);
   const open = params ?? new URLSearchParams();
-  const span = REPORT_PERIODS.find((p) => p.id === open.get("period"))?.label ?? REPORT_PERIODS.find((p) => p.id === "12m")?.label;
-  const ctx = data ? { ...reportContext(data, meta, range, scope, reload), compare: open.get("compare"), span } : null;
+  const ctx = data ? { ...reportContext(data, meta, range, scope, reload), compare: open.get("compare") } : null;
   const questions = ctx ? openQuestions(ctx) : [];
   const shown = ctx ? questionOf(questions, open.get("q"), anchor) : null;
   useEffect(() => {
