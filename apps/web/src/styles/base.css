@@ -246,6 +246,8 @@ a.btn-primary { color: var(--on-fill); }
   .kf:nth-child(even) { padding-left: var(--sp-12); }
   /* two tiles side by side at 320 px: the large figure would run out of its tile, the medium one fits */
   .kf .fig-l, .key-figures > .kf:first-child .fig-l { font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); }
+  /* the display size is wider than the card of Laskut with text at 200 % */
+  .bills-bar-sum { font-size: var(--fs-fig-l); line-height: var(--lh-fig-l); }
   .kf:nth-child(odd) { border-left: 0; }
   .kf:nth-child(n + 3) { border-top: 1px solid var(--grid); }
 }
