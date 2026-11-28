@@ -6,7 +6,7 @@ import { expectedBillRows } from "../analysis/forecast.ts";
 import { poolOf } from "../analysis/pool.ts";
 import { rareOccurrences, rareSeries, rareYearCounted } from "../analysis/rare-bills.ts";
 import { getCategory } from "../categories.ts";
-import { cancelledSubjects, isBillSeries, isCancelled } from "../commitments.ts";
+import { cancelledSubjects, expectedCharges, isBillSeries, isCancelled } from "../commitments.ts";
 import { COST_KINDS, type CostKind, costKindOf } from "../cost-kinds.ts";
 import { addDays, addMonths, monthEnd, monthOf } from "../dates.ts";
 import { fitsPayment, takenSeries } from "../loan-detect.ts";
@@ -127,8 +127,6 @@ interface BillCalendar {
   /** The bills and loans whose sum or date is not known, so they have no row: `unknowns` counted. */
   unknownCount: number;
   unknowns: UnknownSum[];
-  /** The series that pay a saved loan, whether or not the loan has a row in the months: the loan's name and whether an account the balance does not count pays it, and the day the loan ends (no charge of the series after it counts). */
-  loanSeries: { id: string; payee: string; onCard: boolean; endDate: IsoDate | null }[];
 }
 
 /**
@@ -189,7 +187,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
     const s = ctx.recurring.find((c) => c.active && isBillSeries(c) && !taken.has(c.id) && (named ? named(c, rowsOf(c)) : bill !== null && fitsPayment(bill, c, rowsOf(c))));
     if (s) paying.set(loan.id, s);
   }
-  const loanSeries = new Set([...paying.values()].map((s) => s.id));
+  const payingIds = new Set([...paying.values()].map((s) => s.id));
   // the keys of every saved loan, the revolving ones too, which have no plan and so no row of their own
   const namedByLoan = takenSeries({ ...inputs, marks: [] });
 
@@ -202,7 +200,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
   // a rare bill that is a few days late keeps its later dates, as in the year of `upcoming`: it may have stopped, so the late one is no row
   const rare = new Set(rareSeries(ctx).map((s) => s.id));
   for (const s of ctx.recurring) {
-    if (loanSeries.has(s.id) || !s.active || (s.overdue && !rare.has(s.id)) || s.category === "card_bill" || !isBillSeries(s, true) || isCancelled(cancelled, s)) continue;
+    if (payingIds.has(s.id) || !s.active || (s.overdue && !rare.has(s.id)) || s.category === "card_bill" || !isBillSeries(s, true) || isCancelled(cancelled, s)) continue;
     const base = {
       payee: s.merchant,
       category: s.category,
@@ -277,6 +275,23 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
       const dates = series && bill !== null ? projectDates(series, windowEnd) : [];
       if (bill === null || !dates.length) unknowns.push({ days: [], open: false, kind: "loan", onCard: series ? paidElsewhere(series.id) : false });
       else for (const d of dates) rows.push(row(d < today ? today : d, bill));
+      continue;
+    }
+    if (series) {
+      // the series that pays the loan has the bank's real days and sums (as the runway takes them): they are the rows, up to the
+      // loan's end date or, with none, the plan's last due date
+      let last: IsoDate | null = loan.endDate;
+      if (last === null) {
+        let end: IsoDate = first.date;
+        for (let next = loanNextPayment(loan, first.date); next.date !== null && next.date <= windowEnd; next = loanNextPayment(loan, next.date)) end = next.date;
+        if (loanNextPayment(loan, end).date === null) last = end;
+      }
+      const state = series.kind === "subscription" ? "known" : "estimate";
+      for (const c of expectedCharges([series], today, windowEnd, { cancelled, savings: true })) {
+        if (last !== null && c.date > last) continue;
+        if (c.amountCents <= 0) unknowns.push({ days: [c.date], open: false, kind: "loan", onCard: paidElsewhere(series.id) });
+        else rows.push(row(c.date, c.amountCents, state));
+      }
       continue;
     }
     // the due date before the payment: where its interval starts, and so which rate counts. The first payment's started on or before today.
@@ -366,9 +381,5 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
     ...rareYearCounted(occurrences, today, balances),
     unknownCount: unknowns.length,
     unknowns,
-    loanSeries: loans.flatMap((loan) => {
-      const s = paying.get(loan.id);
-      return s ? [{ id: s.id, payee: loan.name, onCard: paidElsewhere(s.id), endDate: loan.endDate }] : [];
-    }),
   };
 }

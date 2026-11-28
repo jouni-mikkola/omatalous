@@ -221,6 +221,21 @@ describe("the bill calendar", () => {
     expect(rows.filter((r) => r.kind === "bill")).toEqual([]);
   });
 
+  it("has the days and sums of the series that pays a loan, not its plan's, and none after the loan's end date", () => {
+    const loan: Loan = {
+      id: "loan-1", name: "Remonttilaina", lender: "ESIMERKKIPANKKI", kind: "consumer", grantedCents: null, balanceCents: 1_000_000, balanceDate: "2026-10-01", rateBp: 400,
+      reference: null, marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: 50_000, endDate: "2027-01-15", limitCents: null, seriesKey: "out:own:ESIMERKKIPANKKI",
+    };
+    // the bank charges 470 € on the 20th, the plan says 500 € on the 1st
+    const instalments = ["2026-05", "2026-06", "2026-07", "2026-08", "2026-09"].map((m) =>
+      tx({ accountId: "own", bookingDate: `${m}-20`, amountCents: -47_000, merchant: "ESIMERKKIPANKKI", counterparty: "ESIMERKKIPANKKI", category: "mortgage" }),
+    );
+    const { cal } = run(instalments, { marks: [], expectedBills: [], loans: [loan] }, "2026-10-09");
+    const loanRows = rowsOf(cal).filter((r) => r.kind === "loan");
+    // the 20th of January is after the end date of the 15th, and the window reaches past it
+    expect(loanRows.map((r) => [r.date, r.cents])).toEqual([["2026-10-20", 47_000], ["2026-11-20", 47_000], ["2026-12-20", 47_000]]);
+  });
+
   it("has the whole balance of a loan with one payment on its last day, as a row on that day", () => {
     const bullet: Loan = {
       id: "loan-2", name: "Autolaina", lender: "ESIMERKKIPANKKI", kind: "car", grantedCents: null, balanceCents: 500_000, balanceDate: "2026-10-01", rateBp: null,

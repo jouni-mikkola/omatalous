@@ -60,6 +60,5 @@ export const calendar = (months: CalMonth[], over: Partial<Calendar> = {}): Cale
   reserveMonthlyCents: 0,
   unknownCount: 0,
   unknowns: [],
-  loanSeries: [],
   ...over,
 });

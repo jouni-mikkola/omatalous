@@ -39,7 +39,6 @@ import type { AheadBasis } from "./analysis/ahead.ts";
 import type { AnalysisContext, AnalysisTx } from "./analysis/context.ts";
 import { everydaySpans } from "./analysis/expected.ts";
 import { paydayOf, type Runway, runwayOf } from "./analysis/runway.ts";
-import { cancelledSubjects, expectedCharges } from "./commitments.ts";
 import { plannedLoanPayments } from "./loan-planned-row.ts";
 import { addDays, monthOf } from "./dates.ts";
 import { billCalendar, byDay, unknownPaymentBy } from "./reports/bill-calendar.ts";
@@ -169,13 +168,8 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
   // an income before the payday is no pay the runway waits for and the runway counts none: the walk lets it land on the
   // payday, so the line at the payday is Jää palkkapäivänä to the cent and the days after it hold the income
   const calendarRows = calendar.months.flatMap((m) => m.rows);
-  // a loan a series pays: the runway takes the series' own charges (`ahead.rows`, `expectedCharges`), so the walk does too, not the plan's days and sums
-  const seriesRows = calendar.loanSeries.filter((l) => !l.onCard).flatMap(({ id, payee, endDate }) => {
-    const series = ctx.recurring.find((s) => s.id === id);
-    const state = series?.kind === "subscription" ? ("known" as const) : ("estimate" as const);
-    return series ? expectedCharges([series], from, last, { cancelled: cancelledSubjects(inputs, ctx.today), savings: true }).filter((c) => endDate === null || c.date <= endDate).map((c) => ({ date: c.date, payee, category: series.category ?? null, cents: c.amountCents, state, kind: "loan" as const, seriesId: id, onCard: undefined })) : [];
-  });
-  const rows = [...calendarRows.filter((r) => !(r.kind === "loan" && r.seriesId !== null && !r.lump && ctx.recurring.some((s) => s.id === r.seriesId))), ...seriesRows]
+  // a loan a series pays has the series' own days and sums in the calendar, as the runway takes them
+  const rows = calendarRows
     .filter((r) => r.state !== "paid" && !r.onCard && r.date >= from && r.date <= last && !(r.seriesId === null && r.kind === "bill" && (heldByDebt.has(`${r.date}|${r.payee}|${r.cents}`) || laterInRange.some((d) => d.date === r.date && d.name === r.payee))))
     .map((r) => (r.kind === "income" && r.date < runway.payday.date ? { ...r, date: runway.payday.date } : r))
     .sort(byDay);
