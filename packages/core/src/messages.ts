@@ -11,9 +11,9 @@ import { FI_SHELL } from "./messages-shell.ts";
 
 const FI = {
   // the app's own answers
-  "app.error": "Jokin meni vikaan. Yritä uudelleen.",
+  "app.error": "Emme saaneet sivua näkyviin. Yritä uudelleen.",
   "app.too_large": "Pyyntö on liian suuri.",
-  "app.not_found": "Ei löydy.",
+  "app.not_found": "Ei löydy",
   "app.bad_request": "Virheellinen pyyntö. Lataa sivu uudelleen.",
   "app.unreachable": "Palvelimeen ei saada yhteyttä. Yritä hetken kuluttua uudelleen.",
   "app.server_status": "Palvelin ei vastannut oikein. Yritä hetken kuluttua uudelleen.",

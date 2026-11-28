@@ -14,7 +14,7 @@ export const EN_TABLES: Record<keyof typeof FI_TABLES, string> = {
   "table.as_table": "{question} as a table",
   "table.as_table_x": "{label}, as a table",
   "table.months": "Months",
-  "table.no_match": "No row matches.",
+  "table.no_match": "No matches",
   "table.shown": "Showing {count} / {total} rows.",
   "table.open_row": "Open row",
   "table.filter_of": "Table filter: {caption}",

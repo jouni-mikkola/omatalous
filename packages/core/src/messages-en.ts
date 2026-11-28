@@ -61,9 +61,9 @@ import { type BaseCodes, installEnglish } from "./messages.ts";
 
 const EN: Record<BaseCodes, string> = {
   // the app's own answers
-  "app.error": "Something went wrong. Try again.",
+  "app.error": "We could not show the page. Try again.",
   "app.too_large": "The request is too large.",
-  "app.not_found": "Not found.",
+  "app.not_found": "Not found",
   "app.bad_request": "Invalid request. Reload the page.",
   "app.unreachable": "Cannot reach the server. Try again in a moment.",
   "app.server_status": "The server did not answer correctly. Try again in a moment.",

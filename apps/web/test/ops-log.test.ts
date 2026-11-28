@@ -20,6 +20,6 @@ describe("OpsLog", () => {
   });
   it("folds nothing with 25 or fewer, and says when there is none", () => {
     expect(html(events(25))).not.toMatch(/Näytä \d+ lisää/);
-    expect(html([])).toContain("Ei merkintöjä.");
+    expect(html([])).toContain("Ei merkintöjä");
   });
 });

@@ -177,7 +177,7 @@ describe("Tulot ja menot: the tiles the page opens with", () => {
 
   it("gives the gap of the complete months as a tile and does not restate it as where the money came from", () => {
     const text = gapShown({ gapCents: 123400, creditCents: 50000, savingsCents: 73400, accountsCents: 0 });
-    expect(stripItems()[0]).toBe("Menot yli tulojen 1 234 € Menot ja säästöön siirretty raha, päättyneet kuukaudet");
+    expect(stripItems()[0]).toBe("Menot yli tulojen 1 234 € Päättyneiden kuukausien menot ja säästöön siirretty raha");
     expect(text).not.toContain("Rahat tulivat");
     expect(text).not.toContain("Luotosta");
     expect(document.querySelector(".strip-item .strip-figure")!.classList.contains("bad")).toBe(true);

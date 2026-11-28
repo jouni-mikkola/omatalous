@@ -21,7 +21,7 @@ describe("the foot of the page", () => {
   });
 
   it("a half fetch says that some accounts were not fetched", () => {
-    expect(footText(answer({ state: "partial", lastAt: at(13, 18, 42) }), NOW)).toBe("Päivitetty 13.10. klo 18.42. Kaikkien tilien tapahtumia ei saatu haettua");
+    expect(footText(answer({ state: "partial", lastAt: at(13, 18, 42) }), NOW)).toBe("Päivitetty 13.10. klo 18.42. Emme saaneet kaikkien tilien tapahtumia");
   });
 
   it("a limit without a last time drops that sentence", () => {
@@ -29,8 +29,8 @@ describe("the foot of the page", () => {
   });
 
   it("a time of another day has its date and a time of another year its year", () => {
-    expect(footText(answer({ state: "partial", lastAt: at(12, 18, 2) }), NOW)).toBe("Päivitetty 12.10. klo 18.02. Kaikkien tilien tapahtumia ei saatu haettua");
-    expect(footText(answer({ state: "partial", lastAt: "2025-12-30T18:02:00+02:00" }), NOW)).toBe("Päivitetty 30.12.2025 klo 18.02. Kaikkien tilien tapahtumia ei saatu haettua");
+    expect(footText(answer({ state: "partial", lastAt: at(12, 18, 2) }), NOW)).toBe("Päivitetty 12.10. klo 18.02. Emme saaneet kaikkien tilien tapahtumia");
+    expect(footText(answer({ state: "partial", lastAt: "2025-12-30T18:02:00+02:00" }), NOW)).toBe("Päivitetty 30.12.2025 klo 18.02. Emme saaneet kaikkien tilien tapahtumia");
   });
 
   it("a failed fetch, no bank connection and no answer leave the foot empty", () => {

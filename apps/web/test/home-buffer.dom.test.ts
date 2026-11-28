@@ -19,7 +19,7 @@ describe("Buffer", () => {
     const net = 420_000;
     const spend = 300_000;
     const { container } = render(createElement(Buffer, { direction: direction({ bufferMonths: net / spend, bufferNetCents: net, bufferSpendCents: spend }) }));
-    const summary = screen.getByText("Puskuri 1,4 kk");
+    const summary = screen.getByText("Puskuri 1,4 kuukautta");
     expect(summary.tagName).toBe("SUMMARY");
     const details = container.querySelector("details")!;
     expect(details.open).toBe(false);
@@ -35,7 +35,7 @@ describe("Buffer", () => {
     const net = -150_000;
     const spend = 300_000;
     const { container } = render(createElement(Buffer, { direction: direction({ bufferMonths: net / spend, bufferNetCents: net, bufferSpendCents: spend }) }));
-    expect(flat(container.textContent)).toBe("Ei puskuria");
+    expect(flat(container.textContent)).toBe("Puskuri puuttuu");
     expect(container.querySelector("details")).toBeNull();
     expect(container.querySelector(".st-row")).toBeNull();
     expect(container.textContent).not.toMatch(/\d/);

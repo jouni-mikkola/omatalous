@@ -76,7 +76,7 @@ for (const width of [390, 1440] as const) {
       await expect(low).toHaveCount(0);
     } else {
       await expect(low).toHaveCount(1);
-      expect(plain(await low.innerText())).toMatch(new RegExp(`^Alin saldo ${lowPoint.days} pv: \\D+$`));
+      expect(plain(await low.innerText())).toMatch(new RegExp(`^Alin saldo ${lowPoint.days} päivän aikana: \\D+$`));
     }
     await expect(low.locator("a")).toHaveCount(0);
     // the month's figures are no list's sum, so they lead nowhere; the one link of Nyt is the bills row's, to Laskut' table
@@ -114,11 +114,11 @@ for (const width of [390, 1440] as const) {
       expect(plain(await buffer.innerText())).toBe(`Puskuri ${reasons[bufferGap as string]}`);
     } else if (bufferNetCents !== null && bufferNetCents < 0) {
       // no buffer: the line says so and holds no sum, the shortfall is the figure Nyt leads with
-      expect(plain(await buffer.innerText())).toBe("Ei puskuria");
+      expect(plain(await buffer.innerText())).toBe("Puskuri puuttuu");
       await expect(buffer.locator("summary")).toHaveCount(0);
     } else {
       const months = bufferMonths.toLocaleString("fi-FI", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-      await expect(buffer.locator("summary")).toHaveText(`Puskuri ${months} kk`);
+      await expect(buffer.locator("summary")).toHaveText(`Puskuri ${months} kuukautta`);
       await buffer.locator("summary").click();
       expect(sums(await buffer.locator(".st-num").allInnerTexts().then((all) => all.join(" ")))).toEqual([bufferNetCents, bufferSpendCents]);
     }

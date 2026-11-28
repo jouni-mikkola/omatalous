@@ -117,7 +117,7 @@ test("empty account: the overview offers the demo data and the demo loads", asyn
         await page.goto(`/#/${id}`);
         await expect(page).toHaveTitle(new RegExp(`^${title}`));
         await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
-        await expect(page.getByText(/Jokin meni vikaan|Palvelimeen ei saada yhteyttä/)).toHaveCount(0);
+        await expect(page.getByText(/Emme saaneet sivua näkyviin|Jokin meni vikaan|Palvelimeen ei saada yhteyttä/)).toHaveCount(0);
         await page.waitForLoadState("networkidle");
         // a page that rendered nothing but its frame is a failure too
         // (polled: a page may draw its frame a moment before its rows arrive)
