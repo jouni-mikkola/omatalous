@@ -64,8 +64,8 @@ describe("Varat ja velat: the debt-free head", () => {
     expect(slider.max).toBe("2");
     expect(flat(view.container.textContent)).toContain("+0 € / kk");
     fireEvent.change(slider, { target: { value: "2" } });
-    expect(flat(view.container.textContent)).toContain("5/2038 3/2034");
     expect(view.container.querySelector("del")?.textContent).toBe("5/2038");
+    expect(view.container.querySelector(".debt-hero")?.textContent).toBe("5/20383/2034");
     expect(flat(view.container.textContent)).toContain("+100 € / kk");
     expect(flat(view.container.textContent)).toContain("Korkoja säästyy 2 000 €");
     fireEvent.change(slider, { target: { value: "0" } });

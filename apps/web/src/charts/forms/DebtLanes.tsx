@@ -1,4 +1,5 @@
 // Decision: which debts end when, and so the day the household is free of them
+import { css } from "../../css.ts";
 import { useWidth } from "../../hooks.ts";
 import { Table } from "../../components/table/Table.tsx";
 import { money, monthYear } from "../../format.ts";
@@ -77,8 +78,8 @@ export function DebtLanes({ lanes, axisLanes = lanes, today }: { lanes: readonly
                   <text className="lane-name" x={0} y={top + 16}>
                     {l.balanceCents === null ? shortName(l.name) : `${shortName(l.name)} · ${money(l.balanceCents, false)}`}
                   </text>
-                  <rect className="bar lane-bar" x={0} y={top + BAR_TOP} style={{ width: Math.max(x(l.end), 2) }} height={BAR_HEIGHT} />
-                  <text className="lane-end" x={8} y={mid} dy="0.32em" style={{ transform: `translateX(${x(l.end)}px)` }}>
+                  <rect className="bar lane-bar" x={0} y={top + BAR_TOP} ref={css({ width: Math.max(x(l.end), 2) })} height={BAR_HEIGHT} />
+                  <text className="lane-end" x={8} y={mid} dy="0.32em" ref={css({ transform: `translateX(${x(l.end)}px)` })}>
                     {monthYear(l.end)}
                   </text>
                   {l.own !== l.end && <line className="lane-own" x1={0} x2={x(l.own)} y1={top + BAR_TOP + BAR_HEIGHT + 6} y2={top + BAR_TOP + BAR_HEIGHT + 6} />}

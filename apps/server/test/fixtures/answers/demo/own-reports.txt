@@ -3564,6 +3564,7 @@
    "feeCents": null
   },
   "plan": null,
+  "planSteps": [],
   "consolidation": null,
   "payments": {
    "monthlyCents": 0,
