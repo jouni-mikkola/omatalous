@@ -35,12 +35,25 @@ describe("reports", () => {
   const r = buildReports({ ctx, range, balances: [{ id: "acc-1", name: "Käyttötili", type: "checking", balanceCents: 123456, ownerName: null, balanceAt: null }] });
 
   it("builds the reports that stay, and only those a caller names", () => {
-    expect(Object.keys(REPORTS).sort()).toEqual(["balances", "billCalendar", "cashflowMonths", "categories", "fixedCosts", "housing", "income", "loans", "monthLead", "spendingChange", "spendingMonths", "taxYear", "upcoming", "yearOverYear"]);
+    expect(Object.keys(REPORTS).sort()).toEqual(["balances", "billCalendar", "cashflowMonths", "categories", "figureParts", "fixedCosts", "housing", "income", "loans", "monthLead", "spendingChange", "spendingMonths", "taxYear", "upcoming", "yearOverYear"]);
     expect(Object.keys(r).sort()).toEqual(Object.keys(REPORTS).sort());
     expect(Object.keys(buildReports({ ctx, range, balances: [] }, ["loans", "income"])).sort()).toEqual(["income", "loans"]);
     expect(isReportId("loans")).toBe(true);
     expect(isReportId("thisMonth")).toBe(false);
     expect(isReportId("cashflow")).toBe(false);
+  });
+
+  it("figure parts: the parts add up to each Menot figure, and the usual month is made of the same months", () => {
+    const { cashflowSpend: cash, categorySpend: c } = r.figureParts;
+    expect(cash).not.toBeNull();
+    expect(cash!.months.reduce((sum, m) => sum + m.cents, 0)).toBe(cash!.cents);
+    expect(cash!.cents).toBe(r.cashflowMonths.completeTotals!.spendCents);
+    expect(cash!.usual!.cents).toBe(r.cashflowMonths.usualSpendCents);
+    expect(Math.round((cash!.cents - cash!.usual!.largePurchasesCents) / cash!.usual!.months)).toBe(cash!.usual!.cents);
+    expect(c.cents).toBe(r.categories.totalCents);
+    expect(c.completeMonthsCents).toBe(cash!.cents);
+    expect(c.completeMonthsCents + c.partialMonths.reduce((sum, m) => sum + m.cents, 0) + c.fromSavingsCents + c.otherCents).toBe(c.cents);
+    expect(c.completeMonths + c.partialMonths.length).toBeLessThanOrEqual(c.monthsInRange);
   });
 
   it("spending by month: the categories add up to each month, the months to the total, and a category's payees to the category", () => {

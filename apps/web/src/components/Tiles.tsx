@@ -1,5 +1,8 @@
 // Decision: what the page's key figures come to, and whether each is better or worse than what it is set against
+import type { ReactNode } from "react";
 import { Figure } from "./Figure.tsx";
+import { FigurePanel } from "./FigurePanel.tsx";
+import { BasisDoor } from "./Why.tsx";
 import "../styles/tiles.css";
 
 /** A signed difference the caller wrote (for example "+120 €") and whether it is good news; the tile computes neither. */
@@ -17,6 +20,8 @@ export interface TileItem {
   note?: string;
   /** Where the figure's rows are; the figure is then a link. */
   href?: string;
+  /** The parts the figure is made of, which the figure opens as a panel under it; the caller's own words and sums. */
+  panel?: { label: string; content: ReactNode };
 }
 
 /**
@@ -31,7 +36,18 @@ export function Tiles({ items }: { items: readonly TileItem[] }) {
         <li key={item.label} className="strip-item">
           <span className="strip-label">{item.label}</span>
           <span className={item.tone ? `strip-figure ${item.tone}` : "strip-figure"}>
-            {item.href ? (
+            {item.panel ? (
+              <FigurePanel
+                label={item.panel.label}
+                figure={
+                  <BasisDoor text={item.figure}>
+                    <Figure text={item.figure} size="l" />
+                  </BasisDoor>
+                }
+              >
+                {item.panel.content}
+              </FigurePanel>
+            ) : item.href ? (
               <a href={item.href}>
                 <Figure text={item.figure} size="l" />
               </a>

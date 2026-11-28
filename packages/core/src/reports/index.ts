@@ -13,6 +13,7 @@ import type { Language } from "../locale.ts";
 import { NO_INPUTS, type UserInputs } from "../types.ts";
 import { type BalanceInput, balanceReport } from "./balances.ts";
 import { categoryReport } from "./categories.ts";
+import { figurePartsReport } from "./figure-parts.ts";
 import { fixedCostsReport } from "./fixed-costs.ts";
 import { incomeReport } from "./income.ts";
 import { loansReport } from "./loans.ts";
@@ -53,6 +54,8 @@ export const REPORTS = {
   monthLead: ({ ctx }: ReportInput) => monthLeadReport(ctx),
   // Tulot ja menot: the bars, the usual month and the complete months' sums over the period, as Yhteenveto has them for twelve months
   cashflowMonths: ({ ctx, range, lang }: ReportInput) => cashflowMonthsReport(ctx, range, lang),
+  // the parts of the two Menot figures and of the usual month: what their panels open
+  figureParts: ({ ctx, range, lang }: ReportInput) => figurePartsReport(ctx, range, lang),
 } as const;
 
 export type ReportId = keyof typeof REPORTS;

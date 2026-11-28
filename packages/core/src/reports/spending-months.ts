@@ -95,6 +95,8 @@ export interface SpendingMonthsReport {
   typicalCents: number | null;
   /** `typicalCents` of the spending of the flows (`totals` less `fromSavings`): the usual month the first page's Menot are set against. */
   typicalFlowCents: number | null;
+  /** The large purchases (`largePurchases`) in the spending of the flows of the complete months, which `typicalFlowCents` leaves out: those months' `totals` less `fromSavings` less this, over their number, is the usual month. */
+  largeFlowCompleteCents: number;
   /**
    * Per month, how far its Menot (`totals` less `fromSavings`, the base of `typicalFlowCents`) stand from
    * `typicalFlowCents`; null in a month that is not complete, without a level, or within the euro of it.
@@ -214,6 +216,7 @@ export function spendingMonthsReport(ctx: AnalysisContext, range: DateRange, lan
     fromSavingsCents: fromSavings.reduce((s, v) => s + v, 0),
     typicalCents,
     typicalFlowCents,
+    largeFlowCompleteCents: completeAt.reduce((s, i) => s + largeFlowTotals[i]!, 0),
     againstUsual: indexes.map((_, i) => (complete[i] && known[i] ? againstUsual(totals[i]! - fromSavings[i]!, typicalFlowCents) : null)),
     typicalMonths: completeAt.length,
     categoryMonths: categoryAt.length,
