@@ -13,6 +13,7 @@
 .month-bars .mb-usual { stroke: var(--text-2); stroke-width: 1; stroke-dasharray: 6 3; pointer-events: none; }
 .month-bars .mb-pick { fill: var(--text); font-weight: var(--w-strong); }
 .month-bars .mb-hit { cursor: pointer; }
+.month-bars .mb-links { touch-action: pan-y; user-select: none; }
 .month-bars a:focus-visible .mb-hit { stroke: var(--accent); stroke-width: 1.5; }
 .mb-key-income, .mb-key-spend { display: inline-block; inline-size: var(--sp-12); block-size: var(--sp-12); flex: none; }
 .mb-key-income { background: var(--role-income); }
