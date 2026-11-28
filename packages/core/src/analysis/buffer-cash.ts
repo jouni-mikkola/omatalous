@@ -16,6 +16,8 @@ interface BufferCash {
   netCents: number | null;
   /** Spending in an expected month (`expectedSpending`); null under three complete months. */
   spendExpected: number | null;
+  /** `netCents` in months of `spendExpected`, negative when the card debt and the bills exceed the cash; null without a net, an expected level or any spending in it. */
+  months: number | null;
 }
 
 /**
@@ -31,5 +33,6 @@ export function bufferCash(ctx: AnalysisContext, balances: readonly BalanceInput
   const { totals } = cashAhead(ctx, balances, inputs);
   const dueBeforePaydayCents = totals.dueCents - totals.cardCents;
   const netCents = cashCents === null ? null : cashCents - cardDebtCents - dueBeforePaydayCents;
-  return { cashCents, cardDebtCents, dueBeforePaydayCents, netCents, spendExpected };
+  const months = netCents === null || spendExpected === null || spendExpected <= 0 ? null : netCents / spendExpected;
+  return { cashCents, cardDebtCents, dueBeforePaydayCents, netCents, spendExpected, months };
 }

@@ -180,4 +180,5 @@ export const FI_BILLS = {
   "holdings.debts_total": "Velat yhteensä",
   "holdings.debts_known": "Velat yhteensä, tiedossa",
   "holdings.loans_known": "Lainat yhteensä, tiedossa",
+  "holdings.balance_missing": "saldo puuttuu",
 } as const;

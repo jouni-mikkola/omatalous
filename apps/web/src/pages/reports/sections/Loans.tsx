@@ -320,7 +320,7 @@ function Loans({ ctx }: SectionProps) {
   const asking = r.unsaved.filter((u) => !u.asked).length;
   const addBalances = asking > 0 && !headAsks(b);
   // each debt's payment, the figure of Maksut kuukaudessa opens them; a card has none to tell
-  const payments = entries.flatMap((e) => (e.loan ? (e.loan.accountType === "credit_card" ? [] : [{ id: e.id, name: e.loan.name, value: payment(e.loan).value === null ? DASH : [payment(e.loan).value, payment(e.loan).sub].filter(Boolean).join(" ") }]) : e.unsaved.card ? [] : [{ id: e.id, name: e.unsaved.name, value: e.unsaved.monthlyCents === null ? DASH : t("rpt.ln_per_month", { amount: money(e.unsaved.monthlyCents) }) }]));
+  const payments = entries.flatMap((e) => (e.loan ? (e.loan.accountType === "credit_card" ? [] : [{ id: e.id, name: e.loan.name, value: payment(e.loan).value === null ? DASH : [payment(e.loan).value, payment(e.loan).sub].filter(Boolean).join(" ") }]) : e.unsaved.card ? [] : [{ id: e.id, name: e.unsaved.name, value: e.unsaved.monthlyCents === null ? DASH : t("rpt.ln_per_month", { amount: money(e.unsaved.monthlyCents, false) }) }]));
   const paymentRows = (
     <dl className="st-rows">
       {payments.map((p) => (

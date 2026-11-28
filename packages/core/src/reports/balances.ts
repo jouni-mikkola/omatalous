@@ -1,4 +1,5 @@
 // Decision: is the buffer growing and the debt shrinking
+import { bufferCash } from "../analysis/buffer-cash.ts";
 import { type BalanceChange, balanceChange, balanceDays, totalOn } from "../analysis/balance-change.ts";
 import { type BalanceWalk, balanceWalk } from "../analysis/balance-walk.ts";
 import { debtsOf } from "../analysis/card-settled.ts";
@@ -6,7 +7,6 @@ import type { AnalysisContext } from "../analysis/context.ts";
 import type { DateRange } from "../analysis/period.ts";
 import { dayNumber, fromDayNumber, fromMonthIndex, monthEnd } from "../dates.ts";
 import { buildHoldings, type Holdings } from "../holdings.ts";
-import { bufferReport } from "./buffer.ts";
 import { debtOutsideAccountsOn } from "../household-debts.ts";
 import { type AccountType, type BalanceInput, type IsoDate, NO_INPUTS, type UserInputs } from "../types.ts";
 import { knownMonths, monthLabels, rangeMonthIndexes } from "./shared.ts";
@@ -88,7 +88,7 @@ export interface BalanceReport {
   missing: { accountId: string; name: string; type: AccountType; foreign: { currency: string; cents: number } | null }[];
   /** What the household has and owes today, laid out for the first page: the same answer as `DashboardData.holdings`. */
   holdings: Holdings;
-  /** The buffer in months of expected spending, as `bufferReport` tells it (negative when the card debt and the bills exceed the cash); null when it cannot be told. */
+  /** The buffer in months of expected spending, as `bufferReport` tells it (`bufferCash`) (negative when the card debt and the bills exceed the cash); null when it cannot be told. */
   bufferMonths: number | null;
 }
 
@@ -184,5 +184,5 @@ export function balanceReport(ctx: AnalysisContext, range: DateRange, accounts: 
   // a connected loan with no balance is still in `accountsLessDebt` as the loan was typed: it is not missing from the picture
   const typedDebt = new Set(debts.sources.filter((s) => s.typed !== null).map((s) => s.accountId));
   const missing = accounts.filter((a) => !walks.has(a.id) && !typedDebt.has(a.id)).map((a) => ({ accountId: a.id, name: a.name, type: a.type, foreign: a.foreign ?? null }));
-  return { months: monthLabels(months), accounts: withChange, total, monthChange, missing, accountsLessDebt, debt, daily: { from: fromDayNumber(dailyFrom), cents: daily }, change, lowest: low && { day: fromDayNumber(low.day), cents: low.cents }, peak: peakDay(dailyFrom, daily), holdings: buildHoldings(ctx, accounts, inputs), bufferMonths: bufferReport(ctx, accounts, inputs).bufferMonths };
+  return { months: monthLabels(months), accounts: withChange, total, monthChange, missing, accountsLessDebt, debt, daily: { from: fromDayNumber(dailyFrom), cents: daily }, change, lowest: low && { day: fromDayNumber(low.day), cents: low.cents }, peak: peakDay(dailyFrom, daily), holdings: buildHoldings(ctx, accounts, inputs), bufferMonths: bufferCash(ctx, accounts, inputs).months };
 }

@@ -48,7 +48,7 @@ export function BalancesTiles({ ctx }: SectionProps) {
                       {partText(a.part, "account", true)}
                     </FigureRow>
                   ))}
-                  {buffer !== null && <FigureRow label={t("home.buffer_label")}>{t("holdings.buffer_months", { months: oneDecimal(buffer) })}</FigureRow>}
+                  {buffer !== null && <FigureRow label={t("rpt.sec_buffer")}>{t("holdings.buffer_months", { months: oneDecimal(buffer) })}</FigureRow>}
                 </dl>
               ),
             },

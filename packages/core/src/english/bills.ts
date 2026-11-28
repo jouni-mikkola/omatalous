@@ -178,4 +178,5 @@ export const EN_BILLS: Record<keyof typeof FI_BILLS, string> = {
   "holdings.debts_total": "Debts total",
   "holdings.debts_known": "Debts total, known",
   "holdings.loans_known": "Loans total, known",
+  "holdings.balance_missing": "balance missing",
 };

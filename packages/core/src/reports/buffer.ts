@@ -34,8 +34,7 @@ interface BufferReport extends FixedShare {
  */
 export function bufferReport(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs = NO_INPUTS, lang: Language = DEFAULT_LANGUAGE): BufferReport {
   const fixed = fixedShareOn(ctx, ctx.today, inputs, lang);
-  const { cashCents, cardDebtCents, dueBeforePaydayCents, netCents, spendExpected } = bufferCash(ctx, balances, inputs);
-  const bufferMonths = netCents === null || spendExpected === null || spendExpected <= 0 ? null : netCents / spendExpected;
+  const { cashCents, cardDebtCents, dueBeforePaydayCents, netCents, spendExpected, months: bufferMonths } = bufferCash(ctx, balances, inputs);
 
   const bufferGap = netCents === null ? "no-balance" : spendExpected === null ? "history" : spendExpected <= 0 ? "no-spending" : null;
 

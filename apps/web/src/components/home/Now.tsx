@@ -6,7 +6,7 @@ import { hashOf } from "../../routes.ts";
 import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
 import { Figure } from "../Figure.tsx";
-import { KindChip } from "../KindChip.tsx";
+import { FigurePanel } from "../FigurePanel.tsx";
 import { LowPoint } from "./LowPoint.tsx";
 
 type Data = DashboardData & { nyt: NonNullable<DashboardData["nyt"]> };
@@ -31,28 +31,41 @@ function leftUnknown(left: Extract<Data["nyt"]["left"], { known: false }>): stri
 }
 
 /**
- * The answer card while the sum left on the payday is known: the verdict (enough, or the sum that is missing), then the figure
- * told in its parts as rows that are always open. Each row is a field of `runway.parts`, to the cent and with its sign, as every
- * row that adds up to a shown sum is; the big figure is the same sum in whole euros, as the verdict says it; the card adds nothing up. The facts carry the Nyt chip, the two estimates (the spending,
- * with its range, and the sum left) the Arvio chip. The card debt whose bill falls on the payday or later takes nothing off the sum
+ * The answer card while the sum left on the payday is known: the verdict (enough, or the sum that is missing), then the figure,
+ * which opens its parts as rows. Each row is a field of `runway.parts`, to the cent and with its sign, as every
+ * row that adds up to a shown sum is; the big figure is the same sum in whole euros, as the verdict says it; the card adds nothing up. The spending row is an estimate
+ * and names its usual range. The card debt whose bill falls on the payday or later takes nothing off the sum
  * and is one quiet line under the rows.
  */
 function AnswerCard({ runway, lowLine }: { runway: KnownRunway; lowLine: ReactNode }) {
-  const { parts } = runway;
   const short = runway.leftCents < 0;
   const date = dayMonth(runway.payday.date);
-  // the range is of the spending taken off, so its ends are the spending as a positive sum, the least first
-  const range = Math.round(parts.spending.lowCents / 100) === Math.round(parts.spending.highCents / 100) ? null : rangeText(-parts.spending.highCents, -parts.spending.lowCents);
   return (
     <section className={`card home-now home-card${short ? " home-short" : ""}`} aria-labelledby="home-now-h">
       <h2 id="home-now-h" className="home-verdict">
         {short ? t("home.verdict_short", { sum: -runway.leftCents < 50 ? rowMoney(-runway.leftCents) : answerMoney(-runway.leftCents) }) : t("home.verdict_enough", { date })}
       </h2>
+      <div data-tile="left" className="home-left-figure">
+        <FigurePanel label={t("home.tile_runway", { date })} figure={<Figure text={Math.abs(runway.leftCents) < 50 ? rowMoney(runway.leftCents) : answerMoney(runway.leftCents)} size="l" />}>
+          <RunwayParts runway={runway} date={date} />
+        </FigurePanel>
+        {runway.days === 0 && <span className="home-row-note">{t("home.tile_left_today")}</span>}
+      </div>
+      {lowLine}
+    </section>
+  );
+}
+
+/** The rows of the panel behind the figure: the parts of the sum left, then the card debt that takes nothing off. */
+function RunwayParts({ runway, date }: { runway: KnownRunway; date: string }) {
+  const { parts } = runway;
+  // the range is of the spending taken off, so its ends are the spending as a positive sum, the least first
+  const range = Math.round(parts.spending.lowCents / 100) === Math.round(parts.spending.highCents / 100) ? null : rangeText(-parts.spending.highCents, -parts.spending.lowCents);
+  return (
+    <>
       <dl className="home-rows">
         <div data-row="balance">
-          <dt>
-            {t("home.row_balance")} <KindChip kind="now" />
-          </dt>
+          <dt>{t("home.row_balance")}</dt>
           <dd className="num">{rowMoney(parts.balanceCents)}</dd>
         </div>
         <div data-row="bills">
@@ -77,25 +90,19 @@ function AnswerCard({ runway, lowLine }: { runway: KnownRunway; lowLine: ReactNo
         )}
         <div data-row="spending">
           <dt>
-            {t("home.row_spending", { days: String(runway.days) })} <KindChip kind="estimate" />
+            {t("home.row_spending", { days: String(runway.days) })}
             {range && " "}
             {range && <span className="home-row-note">{t("home.row_range", { range })}</span>}
           </dt>
           <dd className="num">{rowMoney(parts.spending.cents)}</dd>
         </div>
         <div data-row="left">
-          <dt>
-            {t("home.tile_runway", { date })} <KindChip kind="estimate" />
-          </dt>
-          <dd data-tile="left">
-            <Figure text={Math.abs(runway.leftCents) < 50 ? rowMoney(runway.leftCents) : answerMoney(runway.leftCents)} size="l" />
-            {runway.days === 0 && <span className="home-row-note">{t("home.tile_left_today")}</span>}
-          </dd>
+          <dt>{t("home.tile_runway", { date })}</dt>
+          <dd className="num">{Math.abs(runway.leftCents) < 50 ? rowMoney(runway.leftCents) : answerMoney(runway.leftCents)}</dd>
         </div>
       </dl>
       {parts.laterCards.count > 0 && <p className="home-later-cards">{t("home.later_cards", { sum: answerMoney(parts.laterCards.cents), date })}</p>}
-      {lowLine}
-    </section>
+    </>
   );
 }
 

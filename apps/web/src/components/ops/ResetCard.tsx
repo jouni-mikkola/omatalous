@@ -52,7 +52,7 @@ export function ResetCard({ disabled }: { disabled: boolean }) {
   };
 
   return (
-    <FoldCard className="danger-zone" title={S.resetTitle} sub={S.resetSub} folded>
+    <FoldCard className="danger-zone" title={S.resetTitle} folded>
       {done ? (
         <ResetDone result={done} />
       ) : (
