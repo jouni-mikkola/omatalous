@@ -32,6 +32,7 @@
 @container (inline-size < 4.5rem) { .bills-bar-bill > * { display: none; } }
 
 .bills-bar-legend { display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-16); margin: var(--sp-12) 0 0; font-weight: var(--w-strong); }
+.bills-bar-legend .btn-link { max-inline-size: 100%; white-space: normal; overflow-wrap: anywhere; }
 .bills-bar-key::before { content: ""; display: inline-block; inline-size: 1rem; block-size: 0.75rem; margin-inline-end: var(--sp-8); border-radius: var(--radius-s); }
 .bills-bar-key-have::before { background: var(--good); }
 .bills-bar-key-lack { color: var(--bad); }
