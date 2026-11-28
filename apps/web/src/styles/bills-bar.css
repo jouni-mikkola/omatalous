@@ -39,6 +39,7 @@
 
 @media (max-width: 700px) {
   .bills-bar-hero { margin-block-end: var(--sp-12); }
+  .bills-bar-name { flex: 1 1 0; min-inline-size: 0; white-space: normal; overflow-wrap: anywhere; }
   .bills-bar-cut { display: none; }
   .bills-bar-list { flex-direction: column; gap: var(--sp-4); }
   .bills-bar-bill { flex: none; min-block-size: 0; padding: var(--sp-8) var(--sp-12); gap: 0 var(--sp-8); flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; border-inline-start-width: 1px; border-radius: var(--radius-m); container-type: normal; }
