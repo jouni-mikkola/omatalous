@@ -1,6 +1,6 @@
 import { billCents, isWhole } from "../account-use.ts";
 import { normalizeIban } from "../iban.ts";
-import { incomingLegFinder } from "../pairing.ts";
+import { incomingLegFinder } from "../pairing-legs.ts";
 import type { BalanceInput } from "../types.ts";
 import type { AnalysisContext } from "./context.ts";
 
