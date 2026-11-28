@@ -178,6 +178,24 @@ describe("an own transfer in a day", () => {
   });
 });
 
+describe("the category of a row", () => {
+  const categories = [{ id: "groceries", label: "Ruokakauppa", group: "Ruoka" }] as never;
+  const withCategories = (t: ListedRow, open: boolean) =>
+    renderToStaticMarkup(createElement(TxTable, { items: [t], today: "2026-10-05", daySums: new Map(), rowProps: (r: ListedRow) => ({ t: r, ...props, categories }), scope: "own", open: open ? t.id : null, onOpen: () => {}, view: { query: "", chip: null, group: null, sort: null }, onView: () => {} }));
+
+  it("is the colour edge of the closed row, with its name for readers and no column", () => {
+    const html = withCategories(row({ own: true, category: "groceries" }), false);
+    expect(html).toContain('data-slot="2"');
+    expect(html).toContain('<span class="tx-chip-label">Ruokakauppa</span>');
+    expect(html).not.toContain("Kategoria</th>");
+    expect(html).not.toContain('class="tx-chip"');
+  });
+
+  it("is a chip in the opened row", () => {
+    expect(withCategories(row({ own: true, category: "groceries" }), true)).toContain('class="tx-chip" data-slot="2"');
+  });
+});
+
 describe("the mark chosen in Suodata", () => {
   const shown = (whole: boolean, chip: string | null = null) => {
     const items = [row({ id: "p", merchant: "VARAUS OY", status: "pending" }), row({ id: "m", merchant: "KASIN OY", categorySource: "user" }), row({ id: "b", merchant: "PLAIN OY" })];
