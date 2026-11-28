@@ -32,6 +32,10 @@ export interface MoneyFlowReport {
   uses: MoneyFlowBand[];
   /** The sum of `sources` and of `uses`, which are equal (ADR 0014). */
   totalCents: number;
+  /** The complete months the bands count. */
+  monthCount: number;
+  /** The credit source over those months, per month and rounded to the cent; 0 when there is none. */
+  creditPerMonthCents: number;
 }
 
 /**
@@ -97,5 +101,6 @@ export function moneyFlowReport(ctx: AnalysisContext, range: DateRange, inputs: 
   const returned = (bands: MoneyFlowBand[]) => bands.filter((b) => b.cents < 0).map((b): MoneyFlowBand => ({ ...b, id: `${b.id}:returned`, cents: -b.cents }));
   const present = (bands: MoneyFlowBand[]) => bands.filter((b) => b.cents > 0);
   const out = { sources: present([...sources, ...returned(uses)]), uses: present([...uses, ...returned(sources)]) };
-  return { ...out, totalCents: sumOf(out.sources, (b) => b.cents) };
+  const creditCents = out.sources.find((b) => b.id === "credit")?.cents ?? 0;
+  return { ...out, totalCents: sumOf(out.sources, (b) => b.cents), monthCount: months.length, creditPerMonthCents: months.length > 0 ? Math.round(creditCents / months.length) : 0 };
 }

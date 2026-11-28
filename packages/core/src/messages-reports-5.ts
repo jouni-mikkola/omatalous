@@ -217,6 +217,7 @@ export const FI_REPORTS_5 = {
   "rpt.mf_unsplit": "Velanhoito, erittelemättä",
   "rpt.mf_saved": "Säästöön siirretty",
   "rpt.mf_repaid": "Luottoa maksettu takaisin",
+  "rpt.mf_hero": "Jakson {months} kuukauden aikana menoja katettiin luotolla {credit}. Se on {perMonth} kuukaudessa.",
   "rpt.sec_loans": "Lainat",
   "rpt.sec_pivot": "Menot kuukausittain",
   "rpt.sec_settlement": "Tasaus",
