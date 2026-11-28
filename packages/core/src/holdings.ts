@@ -254,7 +254,7 @@ function rankedByCost<R extends object>(items: readonly { row: R; cost: DebtCost
 }
 
 /**
- * How many debts show "saldo puuttuu" on Yhteenveto and Varat ja velat: the loans and cards nobody saved or connected
+ * How many debts show "saldo puuttuu" on Varat ja velat: the loans and cards nobody saved or connected
  * (`unsavedLoans.rows`, one that was answered included) and the saved loans whose balance is not known on the day.
  * Tarkistettavat's "Ilman saldoa" is this count, read from the same holdings.
  */
