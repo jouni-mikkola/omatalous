@@ -119,7 +119,7 @@ export interface Home {
 }
 
 /** The answer: what is left after the payments, per day and on the payday. */
-function homeRunway(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" | "direct" | "settling">): HomeRunway {
+function homeRunway(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" | "direct" | "settling" | "planned">): HomeRunway {
   const { ahead } = basis;
   const sum = ahead.balance ? { balanceCents: ahead.balance.startCents, paymentsCents: ahead.totals.leavingCents, cardDebtCents: ahead.balance.cardDebtCents, freeCents: ahead.balance.freeCents } : null;
   const left = runwayOf(ctx, basis);
@@ -210,7 +210,7 @@ function homeReliability(ctx: AnalysisContext): HomeReliability {
 /** What `buildHome` reads from the dashboard's own parts, so nothing is worked out twice. */
 interface HomeInput {
   /** The window of the payments and the balance; null when the range does not include today. */
-  basis: Pick<AheadBasis, "ahead" | "direct" | "settling" | "checking" | "pays"> | null;
+  basis: Pick<AheadBasis, "ahead" | "direct" | "settling" | "checking" | "pays" | "planned"> | null;
   pace: MonthPace;
   balances: readonly BalanceInput[];
   inputs: UserInputs;

@@ -372,7 +372,7 @@ export type EverydayGap = "history" | "cards";
 /**
  * The expected everyday spending of the days `from` to `until` (inclusive, `until` before `from` is none): what the
  * base months of `from`'s month (`expectedFor`) spent a day, outside every subscription and bill series (`fixedIds`),
- * the debt part of a row, a card's bill and the one-offs the headline leaves out. Each base month counts as its even
+ * the debt part of a row of a loan the calendar walks by its plan (`planned`), a card's bill and the one-offs the headline leaves out. Each base month counts as its even
  * daily rate (its spending over its length), so a span of days is that many days of the pace and never what happened to
  * fall on its dates. It is the mean of the base months, and the range is their lower and upper quartile, as the headline
  * has it. A span may run over a month's end. `keep` limits it to the rows of some accounts: the
@@ -383,8 +383,8 @@ export type EverydayGap = "history" | "cards";
  * month is not spread (`paysCardWithRows`). Only a base too short, or one that starts at a card connected later, leaves it
  * without.
  */
-export function expectedEveryday(ctx: AnalysisContext, from: IsoDate, until: IsoDate, keep: (t: AnalysisTx) => boolean = () => true, month: string = monthOf(from)): ExpectedEveryday | EverydayGap {
-  const span = everydaySpans(ctx, keep, month);
+export function expectedEveryday(ctx: AnalysisContext, from: IsoDate, until: IsoDate, keep: (t: AnalysisTx) => boolean = () => true, month: string = monthOf(from), planned: (t: AnalysisTx) => boolean = () => false): ExpectedEveryday | EverydayGap {
+  const span = everydaySpans(ctx, keep, month, planned);
   return typeof span === "string" ? span : span(from, until);
 }
 
@@ -392,7 +392,7 @@ export function expectedEveryday(ctx: AnalysisContext, from: IsoDate, until: Iso
  * `expectedEveryday` of one set of rows for many spans: the base months' days are read once and each span sums them, so a
  * walk that asks for a span to every day of 60 reads the rows once. The same figure as `expectedEveryday` for the same span.
  */
-export function everydaySpans(ctx: AnalysisContext, keep: (t: AnalysisTx) => boolean, month: string): ((from: IsoDate, until: IsoDate) => ExpectedEveryday) | EverydayGap {
+export function everydaySpans(ctx: AnalysisContext, keep: (t: AnalysisTx) => boolean, month: string, planned: (t: AnalysisTx) => boolean = () => false): ((from: IsoDate, until: IsoDate) => ExpectedEveryday) | EverydayGap {
   const figure = expectedFor(ctx, month);
   // the reason Yhteenveto's month gives, so the runway's cannot say "history" beside their "cards"
   if (!figure) return usualGap(ctx, month) ?? "history";
@@ -407,8 +407,8 @@ export function everydaySpans(ctx: AnalysisContext, keep: (t: AnalysisTx) => boo
       if (t.category === "card_bill") {
         if (bridged && !paysCardWithRows(ctx, t, m)) total += t.spend;
       } else if (!ctx.fixedIds.has(t.id)) {
-        // the debt part of a row (a loan payment, a repayment) reaches the walk as a loan or bill row, so it is not everyday spending
-        total += t.spend - t.flows.debt;
+        // a loan the calendar walks by its plan: the plan's row stands for the payment, so its debt part is no everyday spending. Any other repayment, interest or collection row stays in
+        total += planned(t) ? t.spend - t.flows.debt : t.spend;
       }
     }
     return total / daysInMonth(m);
@@ -434,7 +434,7 @@ function paysCardWithRows(ctx: AnalysisContext, t: AnalysisTx, month: string): b
 }
 
 /** The expected everyday spending of a day of `month` in whole cents, over all the accounts in view: the month's expected everyday spending over its days. 0 without a figure. */
-export function expectedEverydayPerDay(ctx: AnalysisContext, month: string): number {
-  const found = expectedEveryday(ctx, `${month}-01`, monthEnd(month));
+export function expectedEverydayPerDay(ctx: AnalysisContext, month: string, planned?: (t: AnalysisTx) => boolean): number {
+  const found = expectedEveryday(ctx, `${month}-01`, monthEnd(month), () => true, month, planned);
   return typeof found === "string" ? 0 : Math.round(found.cents / daysInMonth(month));
 }

@@ -139,8 +139,8 @@ const NONE: Spent = { cents: 0, lowCents: 0, highCents: 0 };
 const plus = (a: Spent, b: Spent): Spent => ({ cents: a.cents + b.cents, lowCents: a.lowCents + b.lowCents, highCents: a.highCents + b.highCents });
 
 /** The lowest balance of the next `days` days, with the day it falls on; the reason when it cannot be said. */
-export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" | "direct" | "settling">, balances: readonly BalanceInput[], inputs: UserInputs, days: number = LOW_POINT_DAYS): LowPoint {
-  const { ahead, direct, settling } = basis;
+export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" | "direct" | "settling" | "planned">, balances: readonly BalanceInput[], inputs: UserInputs, days: number = LOW_POINT_DAYS): LowPoint {
+  const { ahead, direct, settling, planned } = basis;
   const runway = runwayOf(ctx, basis);
   if (!runway.known) {
     if (runway.reason !== "cards") return { known: false, reason: runway.reason, days };
@@ -193,7 +193,7 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
   const month = monthOf(from);
   // the days of the rows `keep` takes are read once, then each span of them is a sum
   const costOf = (keep: (t: AnalysisTx) => boolean) => {
-    const spans = everydaySpans(ctx, keep, month);
+    const spans = everydaySpans(ctx, keep, month, planned);
     return (since: IsoDate, until: IsoDate): Spent => (until < since || typeof spans === "string" ? NONE : spans(since, until));
   };
   // the cards the pool pays, as far as the rows show: one with a bill coming, one paid in full, or one that owes something

@@ -1,2 +1,2 @@
 section: Money and reports
-- Alin saldo on Yhteenveto looks from today to the payday, and the everyday spending expected for those days is the base months' even daily pace instead of what fell on the same dates.
+- Jää palkkapäivänä and Alin saldo on Yhteenveto expect the everyday spending of the days to the payday at the base months' even daily pace, instead of what fell on the same dates, and leave out the debt part of the payments of a loan the bill calendar walks by its plan. The lowest balance is looked for from today to the payday only, so a known one is the figure of Jää palkkapäivänä and the line under it shows only while the lowest balance is unknown.

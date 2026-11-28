@@ -77,26 +77,18 @@ describe("Now", () => {
   };
 
   it("stands the line under the sum left on the payday, outside its link", () => {
-    const section = nowOf(known());
+    const section = nowOf({ known: false, reason: "history", days: 9 }, runway);
     const line = section.querySelector("p.home-low")!;
-    expect(flat(line.textContent)).toBe("Saldo on alimmillaan 13.12., arviolta 300 €");
+    expect(flat(line.textContent)).toBe("Alin saldo 9 pv: Liian lyhyt historia");
     expect(line.previousElementSibling?.matches('a[data-tile="left"]')).toBe(true);
     expect(line.closest("a")).toBeNull();
   });
 
-  it("keeps the line when the lowest balance falls before the payday: the walk ends at the payday", () => {
-    expect(nowOf(known({ date: "2026-12-09" }), runway).querySelector("p.home-low")).not.toBeNull();
-  });
-
-  // core takes the payday's own bills off before the pay lands, so a lowest balance dated the payday is below the figure of that day: two sums for one day
-  it("leaves the line out when the lowest balance falls on the payday, also when the payday is today", () => {
-    expect(nowOf(known({ date: "2026-12-10" }), runway).querySelector("p.home-low")).toBeNull();
-    expect(nowOf(known({ date: "2026-12-10" }), { ...runway, days: 0 }).querySelector("p.home-low")).toBeNull();
-  });
-
-  it("keeps the line when the lowest balance falls after the payday", () => {
-    expect(nowOf(known({ date: "2026-12-11" }), runway).querySelector("p.home-low")).not.toBeNull();
-    expect(nowOf(known({ date: "2027-01-22" }), runway).querySelector("p.home-low")).not.toBeNull();
+  // the walk ends at the payday, so a known lowest balance is the figure above: on the payday, or on an earlier day that ties
+  it("leaves the line out when the lowest balance is known: it is the sum left on the payday", () => {
+    expect(nowOf(known({ date: "2026-12-10", cents: 360_000 }), runway).querySelector("p.home-low")).toBeNull();
+    expect(nowOf(known({ date: "2026-12-09", cents: 360_000 }), runway).querySelector("p.home-low")).toBeNull();
+    expect(nowOf(known({ date: "2026-12-10", cents: 360_000 }), { ...runway, days: 0 }).querySelector("p.home-low")).toBeNull();
   });
 
   it("does not tell the reason twice: an unknown lowest balance for the reason of the figure's own line has no line", () => {

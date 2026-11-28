@@ -92,22 +92,22 @@ export function paydayOf({ reason, payday }: Pick<AheadBasis["ahead"], "reason" 
 }
 
 /** What is left of the counted accounts on the payday, with its range; the reason when it cannot be said. */
-export function runwayOf(ctx: AnalysisContext, { ahead, direct, settling }: Pick<AheadBasis, "ahead" | "direct" | "settling">): Runway {
+export function runwayOf(ctx: AnalysisContext, { ahead, direct, settling, planned }: Pick<AheadBasis, "ahead" | "direct" | "settling" | "planned">): Runway {
   const payday = paydayOf(ahead);
   if (!payday) return { known: false, reason: ahead.reason === "late" ? "late" : "no-payday" };
   if (!ahead.balance || !direct) return { known: false, reason: ahead.missing === "card" ? "no-card-balance" : "no-balance" };
   const { from } = ahead;
   const days = daysBetween(from, payday.date);
   const until = addDays(payday.date, -1);
-  const all = expectedEveryday(ctx, from, until);
-  const own = expectedEveryday(ctx, from, until, (t) => direct.has(t.accountId) && t.category !== "card_bill");
+  const all = expectedEveryday(ctx, from, until, () => true, monthOf(from), planned);
+  const own = expectedEveryday(ctx, from, until, (t) => direct.has(t.accountId) && t.category !== "card_bill", monthOf(from), planned);
   if (typeof all === "string") return { known: false, reason: all };
   if (typeof own === "string") return { known: false, reason: own };
   // the purchases of a card that its coming bill holds: after today (what the card owes today holds the day's booked ones) to the day of the bill, when the window holds it
   const billed: Exclude<ReturnType<typeof expectedEveryday>, EverydayGap>[] = [];
   for (const { cardId, date } of settling) {
     if (date > ahead.to || direct.has(cardId)) continue;
-    const found = expectedEveryday(ctx, addDays(from, 1), date, (t) => t.accountId === cardId, monthOf(from));
+    const found = expectedEveryday(ctx, addDays(from, 1), date, (t) => t.accountId === cardId, monthOf(from), planned);
     if (typeof found === "string") return { known: false, reason: found };
     billed.push(found);
   }

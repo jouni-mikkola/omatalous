@@ -12,6 +12,7 @@ import { cancelledSubjects, type ExpectedCharge, expectedCharges } from "../comm
 import { addDays, daysBetween, monthOf } from "../dates.ts";
 import { accountDigits } from "../day-bins.ts";
 import { cardDebtOf, householdDebts } from "../household-debts.ts";
+import { plannedLoanRow } from "../loan-detect.ts";
 import { creditUse } from "../loans.ts";
 import { parseSeriesId, type RecurringSeries } from "../recurring.ts";
 import { normalizeIban } from "../transfers.ts";
@@ -20,7 +21,7 @@ import { expectedMoves, type Settling } from "./ahead-moves.ts";
 import { balanceWalk } from "./balance-walk.ts";
 import { reconcileCardPayments, type TypedCardBill } from "./card-payments.ts";
 import { type ComingPeriod, comingList, comingPays } from "./coming.ts";
-import { type AnalysisContext, standingOf } from "./context.ts";
+import { type AnalysisContext, type AnalysisTx, standingOf } from "./context.ts";
 import { expectedEverydayPerDay } from "./expected.ts";
 import { expectedBillRows } from "./forecast.ts";
 import { INCOME_TYPES, type IncomeType, incomeTypes, payDayOf } from "./income.ts";
@@ -264,11 +265,14 @@ export interface AheadBasis {
   pays: Pay[];
   /** What is coming to the payday after next, by payday period (coming.ts): Tulossa's list, of the window's own pays to wait for (`comingPays`). */
   coming: ComingPeriod[];
+  /** Whether a row pays a loan the bill calendar walks by its plan: its debt part is no everyday spending (`expectedEveryday`). */
+  planned: (t: AnalysisTx) => boolean;
 }
 
 /** `cashAhead` with what its figures rest on: one run, so the basis is of the very figures the page shows. */
 export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs): AheadBasis {
   const from = ctx.today;
+  const planned = plannedLoanRow(inputs);
   const pool = poolOf(balances);
   const counted = pool.ids.size ? pool : null;
   // without a checking account in view nothing is left out
@@ -413,14 +417,14 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
   });
   const [recurringCents, typedCents, cardCents, transferCents] = [sumOf(rows, "recurring"), sumOf(rows, "expected"), sumOf(rows, "card"), sumOf(rows, "transfer")];
   const totals: AheadTotals = { recurringCents, typedCents, cardCents, transferCents, dueCents: recurringCents + typedCents + cardCents, leavingCents: recurringCents + typedCents + cardCents + transferCents, incomeCents: sumOf(rows, "income") };
-  const base = { from, to, days, reason, payday, rows, upcoming, outside: outsideRows.sort(byDay), everydayPerDayCents: expectedEverydayPerDay(ctx, monthOf(from)), totals, paydayCents };
+  const base = { from, to, days, reason, payday, rows, upcoming, outside: outsideRows.sort(byDay), everydayPerDayCents: expectedEverydayPerDay(ctx, monthOf(from), planned), totals, paydayCents };
   const evidence: Pay[] = payday?.pay && paySeries ? payEvidence(regularOf(paySeries), from) : [];
   const periods = comingList(ctx, inputs, found);
   // the rows are those of every counted account, so the figures need the balance of every one of them
-  if (!checking.length || checking.length < counted!.accounts.length) return { ahead: { ...base, balance: null, missing: "balance" }, direct, settling, checking, pays: evidence, coming: periods };
+  if (!checking.length || checking.length < counted!.accounts.length) return { ahead: { ...base, balance: null, missing: "balance" }, direct, settling, checking, pays: evidence, coming: periods, planned };
 
   // every card in view takes its whole debt off what is free. A card whose balance is not known leaves the figure unsaid, not 0
-  if ([...used.values()].some((cents) => cents === null)) return { ahead: { ...base, balance: null, missing: "card" }, direct, settling, checking, pays: evidence, coming: periods };
+  if ([...used.values()].some((cents) => cents === null)) return { ahead: { ...base, balance: null, missing: "card" }, direct, settling, checking, pays: evidence, coming: periods, planned };
   // a bill of the window holds part of the debt: only the rest is taken off besides it, never the debt twice
   const payments = cardPayments(ctx);
   const owing = balances.flatMap((b) => {
@@ -460,5 +464,5 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
     lowest = Math.min(lowest, left);
   }
   const balance: AheadBalance = { startCents, counts: pool.kind, accounts: checking.length, balanceAt: stamps[0] ?? null, cardDebts, laterCardDebts, unresolved, cardDebtCents, ...(unshownCards.length ? { unshown: unshownCards } : {}), freeCents: startCents - totals.leavingCents - cardDebtCents, shortCents: Math.max(0, -lowest), shortOn };
-  return { ahead: { ...base, balance, missing: null }, direct, settling, checking, pays: evidence, coming: periods };
+  return { ahead: { ...base, balance, missing: null }, direct, settling, checking, pays: evidence, coming: periods, planned };
 }

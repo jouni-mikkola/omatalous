@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { createContext } from "../src/analysis/context.ts";
 import { coversCategories, expectedEveryday, expectedEverydayPerDay, expectedFor, usualGap } from "../src/analysis/expected.ts";
 import { addDays, daysInMonth } from "../src/dates.ts";
-import type { Account, IsoDate, Transaction } from "../src/types.ts";
+import { plannedLoanRow } from "../src/loan-detect.ts";
+import { seriesId } from "../src/series-id.ts";
+import { type Account, type IsoDate, type Loan, NO_INPUTS, type Transaction } from "../src/types.ts";
 import { tx } from "./helpers.ts";
 
 const checking: Account = { id: "acc-1", name: "Käyttötili", iban: "FI21 1234 5600 0007 85", currency: "EUR", type: "checking" };
@@ -59,9 +61,34 @@ describe("the expected everyday spending of a span of days", () => {
     expect(found([...shopping(), refund], "2026-10-01", "2026-10-01").cents).toBe(found([...shopping(), refund], "2026-10-10", "2026-10-10").cents);
   });
 
-  it("the debt part of a row is no everyday spending", () => {
+  it("the debt part of a row of a loan the calendar walks by its plan is no everyday spending", () => {
     const repayment = tx({ bookingDate: "2026-09-10", amountCents: -12_000, merchant: "Pankki Laina", category: "loans" });
-    expect(found([...shopping(), repayment], "2026-10-01", "2026-10-31").cents).toBe(31 * 4000);
+    const rows = [...shopping(), repayment];
+    const planned = (t: { merchant: string }) => t.merchant === "Pankki Laina";
+    const e = expectedEveryday(ctxOf(rows), "2026-10-01", "2026-10-31", () => true, "2026-10", planned);
+    expect(typeof e === "string" ? e : e.cents).toBe(31 * 4000);
+  });
+
+  it("a lone repayment of a loan with no plan row stays in everyday spending", () => {
+    const repayment = tx({ bookingDate: "2026-09-10", amountCents: -12_000, merchant: "Pankki Laina", category: "loans" });
+    const planned = (t: { merchant: string }) => t.merchant === "Muu Laina";
+    const e = expectedEveryday(ctxOf([...shopping(), repayment]), "2026-10-01", "2026-10-31", () => true, "2026-10", planned);
+    expect(typeof e === "string" ? e : e.cents).toBe(Math.round((31 * (6 * 4000 + 12_000 / 30)) / 6));
+    expect(found([...shopping(), repayment], "2026-10-01", "2026-10-31").cents).toBe(Math.round((31 * (6 * 4000 + 12_000 / 30)) / 6));
+  });
+
+  it("a row pays a planned loan only through the key of a saved loan that has a plan", () => {
+    const key = seriesId({ direction: "out", accountId: "acc-1", merchant: "Pankki Laina", product: null });
+    const loan: Loan = {
+      id: "loan-1", name: "Laina", lender: "ESIMERKKIPANKKI", kind: "consumer", grantedCents: null, balanceCents: 1_000_000, balanceDate: "2026-10-01", rateBp: null,
+      reference: null, marginBp: null, repayment: "annuity", intervalMonths: 1, paymentCents: null, endDate: null, limitCents: null, seriesKey: key,
+    };
+    const repayment = tx({ accountId: "acc-1", bookingDate: "2026-09-10", amountCents: -12_000, merchant: "Pankki Laina", category: "loans" });
+    const other = tx({ accountId: "acc-1", bookingDate: "2026-09-10", amountCents: -12_000, merchant: "Perintä Oy", category: "loans" });
+    expect(plannedLoanRow({ ...NO_INPUTS, loans: [loan] })(repayment)).toBe(true);
+    expect(plannedLoanRow({ ...NO_INPUTS, loans: [loan] })(other)).toBe(false);
+    expect(plannedLoanRow({ ...NO_INPUTS, loans: [{ ...loan, kind: "credit_line" }] })(repayment)).toBe(false);
+    expect(plannedLoanRow(NO_INPUTS)(repayment)).toBe(false);
   });
 
   it("with `keep` it is what those accounts paid, and the parts add up to the whole", () => {
