@@ -131,6 +131,9 @@ for (const [width, height] of [[1440, 900], [390, 844]] as const) {
     try {
       await linkFakeBank(page);
       await waitForSync(context);
+      // the page asked for a fetch when it opened and draws itself again when the rows arrive (use-open-sync.ts): that redraw drops
+      // a picked file and its saved notice, so the file is picked only after the page has heard that the fetch ended
+      await expect(page.locator("footer.sheet-foot")).not.toContainText("Haetaan tapahtumia pankista");
       const meta = (await (await context.request.get("/api/meta")).json()) as { today: string; accounts: { id: string; name: string; provider: string; type: string }[] };
       const connected = meta.accounts.find((a) => a.provider === "enablebanking" && a.type === "checking")!;
       expect(connected).toBeTruthy();
