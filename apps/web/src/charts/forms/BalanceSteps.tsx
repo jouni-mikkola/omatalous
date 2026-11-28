@@ -120,7 +120,7 @@ export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: stri
     const below = y(c.cents) + 18 <= f.innerH - 4;
     return { x: anchor === "start" ? px - 4 : anchor === "end" ? px + 4 : px, y: below ? y(c.cents) + 18 : y(c.cents) - 12, anchor } as const;
   };
-  // the biggest payments are named first, each at the first of four places beside its dot (right and above, left and below, right and below, left and above) that stays on the plot and clear of the dots, the lowest sum and the names placed before it
+  // the biggest payments are named first, each at the first of six places beside its dot (right and above, left and below, right and below, left and above, then the same two higher) that stays on the plot and clear of the dots, the lowest sum and the names placed before it
   const taken: Box[] = bills.map((b) => ({ x0: b.px - BREAK_DOT, x1: b.px + BREAK_DOT, y0: b.py - BREAK_DOT, y1: b.py + BREAK_DOT }));
   if (lowCorner) {
     const at = lowLabel(lowCorner);
@@ -138,6 +138,8 @@ export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: stri
         { x: px - 10, y: py + 22, anchor: "end" },
         { x: px + 10, y: py + 22, anchor: "start" },
         { x: px - 10, y: py - 8, anchor: "end" },
+        { x: px + 10, y: py - 32, anchor: "start" },
+        { x: px - 10, y: py - 32, anchor: "end" },
       ] as const;
       for (const p of places) {
         const box = { x0: p.anchor === "start" ? p.x : p.x - w, x1: p.anchor === "start" ? p.x + w : p.x, y0: p.y - 14, y1: p.y + 4 };
@@ -180,7 +182,7 @@ export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: stri
                 <circle key={`${b.s.date}:${b.s.payee}`} className={b.breaks ? "bs-bill bs-break" : "bs-bill"} cx={b.px} cy={b.py} r={b.breaks ? BREAK_DOT : BILL_DOT} />
               ))}
               {billLabels.map((l) => (
-                <text key={l.key} className="qc-note bs-bill-name" x={l.x} y={l.y} textAnchor={l.anchor}>
+                <text key={l.key} className="bs-bill-name" x={l.x} y={l.y} textAnchor={l.anchor}>
                   {l.text}
                 </text>
               ))}
