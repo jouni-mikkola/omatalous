@@ -200,6 +200,13 @@ No migration is needed. After the next update every member's history is categori
 4. Add the section to the question page that asks the question it answers: `pages/reports/pages/<Page>.tsx` lists its
    sections, and the page's own styles go in `styles/report-<page>.css`. `registry.ts` reads only those files.
 5. A test in `packages/core/test/reports.test.ts` that checks its totals against the other reports.
+6. The Finnish text: add each key to a table in `packages/core/src/messages-*.ts` (the report texts are in
+   `messages-reports-*.ts`) and the same key to the matching file in `packages/core/src/english/`. A table is merged by
+   its loader, `messages-late.ts` for Finnish and `messages-en.ts` for English, so a new table file is imported and
+   spread there; a key missing from one language fails the build and a test. `pnpm strings` lists the texts the browser
+   can show.
+7. If the report changes what an alert, a tip or another statement says, run `pnpm findings --golden` and review the
+   diff of `packages/core/test/golden/`.
 
 ### Module behind a feature flag
 
