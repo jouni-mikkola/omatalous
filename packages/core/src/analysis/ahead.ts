@@ -24,7 +24,7 @@ import { type ComingPeriod, comingList, comingPays } from "./coming.ts";
 import { type AnalysisContext, type AnalysisTx, standingOf } from "./context.ts";
 import { expectedEverydayPerDay } from "./expected.ts";
 import { expectedBillRows } from "./forecast.ts";
-import { loanChargeEnds } from "../loan-detect.ts";
+import { loanChargeEnds } from "../loan-charge-ends.ts";
 import { INCOME_TYPES, type IncomeType, incomeTypes, payDayOf } from "./income.ts";
 import { cardPayments, type Pool, poolOf, poolPays, type UnresolvedCard, unresolvedCards } from "./pool.ts";
 import { type Pay, type PayEstimate, payEstimate, payEvidence } from "./pay-estimate.ts";

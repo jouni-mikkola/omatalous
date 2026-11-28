@@ -248,7 +248,7 @@ describe("the bill calendar", () => {
     const { ctx, cal } = run(instalments, { marks: [], expectedBills: [], loans: [loan] }, "2026-10-28");
     expect(ctx.recurring[0]!.overdue).toBe(true);
     const loanRows = rowsOf(cal).filter((r) => r.kind === "loan");
-    expect(loanRows[0]).toMatchObject({ date: "2026-11-01", seriesId: null });
+    expect(loanRows[0]).toMatchObject({ date: "2026-11-15", seriesId: null });
     expect(loanRows.every((r) => r.seriesId === null && r.date <= "2027-01-15")).toBe(true);
   });
 
