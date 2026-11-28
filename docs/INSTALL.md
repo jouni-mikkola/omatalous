@@ -1,8 +1,8 @@
 # Install
 
 You need Ubuntu Server 26.04 LTS on a machine that stays on at home, with 2 GB of memory and 20 GB of disk. A virtual
-machine needs a bridged network adapter, so phones and laptops at home can reach it. Omatalous fetches from the bank
-only while the machine is on and catches up the next time.
+machine needs a bridged network adapter so other devices at home can reach it. Fetching from the bank happens only while
+the machine is on; it catches up the next time.
 
 ## 1. Get Omatalous
 
@@ -12,10 +12,9 @@ Paste this into a terminal on the machine, as your normal user:
 curl -fsSLo omatalous-install.sh https://jouni-mikkola.github.io/omatalous/install.sh && echo "481871f3ed740a5d2fdd91c30ca62253ccd32705f6ff6eeb60747694c77591db  omatalous-install.sh" | sha256sum -c && bash omatalous-install.sh
 ```
 
-`curl` saves the install script as `omatalous-install.sh`. `sha256sum -c` compares the file with the hash in the
-command, and `bash` runs it only when they match. If the check prints `FAILED`, nothing has run: wait ten minutes for
-the page to update and paste the command again. If it fails again, do not run the file, and report it as
-[SECURITY.md](../SECURITY.md) says.
+The command saves the script as `omatalous-install.sh` and runs it only if its hash matches. If the check prints
+`FAILED`, nothing has run. Wait ten minutes for the page to update and try again. If it fails again, do not run the
+file, and report it as [SECURITY.md](../SECURITY.md) says.
 
 The script is [relay/install.sh](../relay/install.sh) in this repository. To read it first, paste the command only up
 to `sha256sum -c`, read `omatalous-install.sh`, then run `bash omatalous-install.sh`. It clones the newest release into
