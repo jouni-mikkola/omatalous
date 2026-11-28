@@ -3,7 +3,7 @@ import { MoneyFlow } from "../../../charts/forms/MoneyFlow.tsx";
 import { ReportPanel } from "../../../charts/forms/parts.tsx";
 import { ChartWithTable } from "../../../components/table/selection.tsx";
 import { type Column, Table } from "../../../components/table/Table.tsx";
-import { money } from "../../../format.ts";
+import { answerMoney, money } from "../../../format.ts";
 import type { ReportsData } from "../../../types.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { t } from "../../../text.ts";
@@ -21,8 +21,10 @@ function Side({ caption, bands, totalCents }: { caption: string; bands: Band[]; 
 
 function MoneyFlowSection({ ctx }: SectionProps) {
   const r = ctx.data.moneyFlow;
+  const credit = r.sources.find((b) => b.id === "credit")?.cents ?? 0;
   return (
     <ReportPanel id={section.id} title={section.title}>
+      {credit > 0 && <p className="mf-hero">{t("rpt.mf_hero", { months: r.monthCount, credit: answerMoney(credit), perMonth: answerMoney(r.creditPerMonthCents) })}</p>}
       <ChartWithTable
         rows={r.sources.length + r.uses.length}
         chart={<MoneyFlow sources={r.sources} uses={r.uses} />}

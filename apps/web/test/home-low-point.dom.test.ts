@@ -106,6 +106,21 @@ describe("Now", () => {
     expect(nowOf({ known: false, reason: "no-payday", days: 60 }, runway).querySelector("p.home-low")).not.toBeNull();
   });
 
+  it("tells the day the money runs out and the payment that takes it there, only while the line goes below zero", () => {
+    const ends = known({
+      date: "2026-12-10",
+      cents: -20_000,
+      line: [
+        { date: "2026-12-01", cents: 54_000, lowCents: 54_000, highCents: 54_000 },
+        { date: "2026-12-03", cents: 12_000, lowCents: 12_000, highCents: 12_000 },
+        { date: "2026-12-03", cents: -72_000, lowCents: -72_000, highCents: -72_000 },
+      ],
+      steps: [{ date: "2026-12-03", payee: "Korttilasku", cents: -84_000, estimate: false, afterCents: -72_000, rowAfterCents: -72_000 }],
+    });
+    expect(flat(nowOf(ends, runway).querySelector(".home-ends")?.textContent)).toBe("Rahat loppuvat 3.12., kun Korttilasku lähtee.");
+    expect(nowOf(known({ line: [{ date: "2026-12-01", cents: 54_000, lowCents: 54_000, highCents: 54_000 }] }), runway).querySelector(".home-ends")).toBeNull();
+  });
+
   it("names the section by its verdict, a heading, which is no part of a link", () => {
     const section = nowOf(known(), runway);
     const heading = section.querySelector("h2")!;

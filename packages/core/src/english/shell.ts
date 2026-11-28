@@ -13,7 +13,6 @@ export const EN_SHELL: Record<keyof typeof FI_SHELL, string> = {
   "nav.settings": "Settings",
   "nav.review_open": "open",
   "kind.now": "Now",
-  "kind.estimate": "Estimate",
   "kind.usual": "Expected",
   "est.about": "about",
   // the header
