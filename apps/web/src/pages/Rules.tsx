@@ -136,7 +136,7 @@ export function Rules({ meta }: { meta: Meta }) {
           ]}
         />
         )}
-        {data && !data.rules.length && <Empty>{t("rule.none")}</Empty>}
+        {data && !data.rules.length && <Empty art="coins">{t("rule.none")}</Empty>}
       </div>
       <PayerAnswers />
     </div>

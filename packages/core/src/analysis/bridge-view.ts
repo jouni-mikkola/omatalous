@@ -1,4 +1,5 @@
 // Decision: move money to savings
+// No page draws this view now; bridgeView stays exported because the frozen module-host surface lists it (contracts/*/module-host.json).
 /**
  * The figures of the "where the income went" bar (Tulojen käyttö) as the server sends them: which parts the bar and
  * the strip over it have, each part's share of its bar, the rows of the table and the shares of the income printed

@@ -107,13 +107,14 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .bills-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--sp-8) var(--sp-12); margin: 0 0 var(--sp-16); }
 .bills-head h2 { margin: 0; min-inline-size: 0; }
 .bills-lead { margin: 0; color: var(--text-2); font-variant-numeric: tabular-nums; }
-/* the bills still to pay lead the page: their card is twice as wide and keeps the large figure, the two beside it have a small one */
-.bills-kinds { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr); }
-.bills-kinds .kind-card:not(.kind-estimate) .fig-l { font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); }
+/* the three cards of the kinds are one look: equal columns, one figure size and the same ground, the kind told by its chip and its tick */
+.bills-kinds { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.bills-kinds .kind-card .fig-l { font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); }
+.bills-kinds .kind-usual { background: var(--surface); }
+.bills-kinds .kind-usual .fig { font-weight: var(--w-strong); }
 @media (max-width: 640px) {
   .bills-kinds { grid-template-columns: minmax(0, 1fr); }
-  .bills-kinds .kind-card:not(.kind-estimate) .fig-l { font-size: var(--fs-fig-s); line-height: var(--lh-label); }
-  .bills-kinds .kind-estimate .fig-l { font-size: var(--fs-fig-m); line-height: var(--lh-fig-m); }
+  .bills-kinds .kind-card .fig-l { font-size: var(--fs-fig-s); line-height: var(--lh-label); }
 }
 .bills-unknown { display: block; margin-block-start: var(--sp-4); font-weight: var(--w-strong); }
 }

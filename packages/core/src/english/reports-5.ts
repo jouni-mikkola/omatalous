@@ -80,6 +80,7 @@ export const EN_REPORTS_5: Record<keyof typeof FI_REPORTS_5, string> = {
   "rpt.ln_no_payments": "no payments",
   "rpt.ln_payments_month": "Payments a month",
   "rpt.ln_payments_unknown": "{amount} + {count} unknown",
+  "rpt.ln_payments_unknown_names": "Payment unknown: {names}",
   "rpt.ln_q_path": "Debt path",
   "rpt.ln_kind_mortgage": "Mortgage",
   "rpt.ln_kind_consumer": "Consumer credit",

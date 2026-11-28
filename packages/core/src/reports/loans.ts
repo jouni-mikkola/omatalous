@@ -23,6 +23,7 @@ import {
   type DebtFigure,
   type DebtPayments,
   debtPaymentsPerMonth,
+  paymentUnknown,
   hasReferenceRate,
   loanBalanceOn,
   type LoanFigure,
@@ -175,6 +176,8 @@ export interface LoansReport {
   payments: DebtPayments;
   /** The payments of a month of every debt the page lists, the unsaved rows too (`monthlyPayments`). */
   monthly: MonthlyPayments;
+  /** The names of the debts `monthly.unknown` counts, saved loans first: the page says which ones. */
+  monthlyUnknownNames: string[];
   /**
    * The loans from the day to the day they are paid (`debtPath`): what is owed and the interest still to come, with a
    * line for each move of `RATE_SHIFTS_BP`. The Lainat chart draws it. Null when a debt that owes cannot be projected,
@@ -329,6 +332,7 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
     consolidation: cost12.cents === null ? null : consolidationBasis(debts.loans, day, costOf),
     payments,
     monthly: monthlyPayments(payments, unsaved),
+    monthlyUnknownNames: [...debts.loans.filter((l) => paymentUnknown(l, day)).map((l) => l.name), ...unsaved.rows.filter((u) => u.monthlyCents === null).map((u) => u.name)],
     path,
     extra: path === null || plan === null ? [] : extraScenarios(debts.loans, day, path, buffer, costOf),
     maybeTwice: maybeTwice(balances, debts),

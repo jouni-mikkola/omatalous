@@ -77,6 +77,7 @@ export function EmptyStart({ onDemo, meta, onReload }: { onDemo: () => Promise<v
   return (
     <Empty
       className="empty-start"
+      art="house"
       title={t("start.title")}
       headingRef={heading}
       action={
