@@ -37,6 +37,7 @@ const report = (changes: Report["changes"]): Report =>
     fromSavingsCents: 0,
     typicalCents: 100_000,
     typicalFlowCents: 100_000,
+    largeFlowCompleteCents: 0,
     againstUsual: MONTHS.map(() => null),
     typicalMonths: 5,
     categoryMonths: 3,

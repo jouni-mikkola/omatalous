@@ -1,5 +1,8 @@
 // Decision: what the page's key figures come to, and whether each is better or worse than what it is set against
+import type { ReactNode } from "react";
 import { Figure } from "./Figure.tsx";
+import { FigurePanel } from "./FigurePanel.tsx";
+import { BasisDoor } from "./Why.tsx";
 import "../styles/tiles.css";
 
 /** A signed difference the caller wrote (for example "+120 €") and whether it is good news; the tile computes neither. */
@@ -17,6 +20,10 @@ export interface TileItem {
   note?: string;
   /** Where the figure's rows are; the figure is then a link. */
   href?: string;
+  /** The parts the figure is made of, which the figure opens as a panel under it; the caller's own words and sums. */
+  panel?: { label: string; content: ReactNode };
+  /** What the figure leaves out, said beside it in figure size; a link when `href` is set (for example "+ 4 velkaa ilman saldoa"); `leads` names where the link goes. */
+  gap?: { text: string; href?: string; leads?: string };
 }
 
 /**
@@ -30,16 +37,28 @@ export function Tiles({ items }: { items: readonly TileItem[] }) {
       {items.map((item) => (
         <li key={item.label} className="strip-item">
           <span className="strip-label">{item.label}</span>
-          <span className={item.tone ? `strip-figure ${item.tone}` : "strip-figure"}>
-            {item.href ? (
+          <div className={item.tone ? `strip-figure ${item.tone}` : "strip-figure"}>
+            {item.panel ? (
+              <FigurePanel
+                label={item.panel.label}
+                figure={
+                  <BasisDoor text={item.figure}>
+                    <Figure text={item.figure} size="l" />
+                  </BasisDoor>
+                }
+              >
+                {item.panel.content}
+              </FigurePanel>
+            ) : item.href ? (
               <a href={item.href}>
                 <Figure text={item.figure} size="l" />
               </a>
             ) : (
               <Figure text={item.figure} size="l" />
             )}
+            {item.gap && (item.gap.href ? <a href={item.gap.href} aria-label={item.gap.leads ? `${item.gap.text}: ${item.gap.leads}` : undefined}><Figure text={item.gap.text} size="m" /></a> : <Figure text={item.gap.text} size="m" />)}
             {item.delta && <span className={`strip-delta ${item.delta.good ? "good" : "bad"}`}>{item.delta.text}</span>}
-          </span>
+          </div>
           {item.note && <span className="strip-note">{item.note}</span>}
         </li>
       ))}

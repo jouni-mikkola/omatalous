@@ -234,7 +234,7 @@ export function Merchants({ meta, params, scope }: { meta: Meta; params: URLSear
           rowClassName={(m) => (!m.totalCents && m.inCents ? "unranked" : undefined)}
           columns={columns}
         />
-        {items && !items.length && <Empty>{narrowed ? t("mer.empty_narrowed") : t("mer.empty")}</Empty>}
+        {items && !items.length && <Empty art="coins">{narrowed ? t("mer.empty_narrowed") : t("mer.empty")}</Empty>}
         {!items && !loadError && <Empty>{t("mer.loading")}</Empty>}
         {items && items.length >= LIMIT && <div className="small muted">{t("mer.cut", { count: LIMIT })}</div>}
       </div>

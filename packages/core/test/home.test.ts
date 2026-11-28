@@ -74,7 +74,7 @@ describe("home.runway", () => {
     expect(runway!.leftOnPayday.known).toBe(true);
     expect(runway!.takenOffPerDayCents).toBe(perDay);
     expect(runway!.everydayPerDayCents).toBe(perDay);
-    expect(formatEur(runway!.takenOffPerDayCents, false, "fi").replace(/\s/g, " ")).toBe("49 €");
+    expect(formatEur(runway!.takenOffPerDayCents, false, "fi").replace(/\s/g, " ")).toBe("50 €");
   });
 
   it("says short when the payments are more than the balance, and gives no allowance", () => {

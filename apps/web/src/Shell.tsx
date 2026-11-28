@@ -18,6 +18,8 @@ import { addOnLoadFailed, extensionPages } from "./extensions.ts";
 import { ErrorCard } from "./components/ErrorCard.tsx";
 import { NotFound } from "./NotFound.tsx";
 import { Loading } from "./components/Loading.tsx";
+import { Mark } from "./components/Mark.tsx";
+import { NavIcon } from "./components/NavIcon.tsx";
 import { StaleAnswer } from "./components/StaleAnswer.tsx";
 import { useNoticeNews } from "./components/Notices.tsx";
 import { readWizardClosed, wizardDue, writeWizardClosed } from "./wizard-due.ts";
@@ -305,21 +307,22 @@ export function Shell() {
         <div className="topbar-in">
           <PageLink id="overview" className="brand" current={known && page === "overview"}>
             <span className="brand-mark" aria-hidden="true">
-              <i />
-              <i />
-              <i />
+              <Mark />
             </span>
-            Omatalous
+            <span className="brand-word">Omatalous</span>
           </PageLink>
+          {/* on a phone the band names the open page; the heading below stays the page's name for a screen reader */}
           <nav className="nav" aria-label={t("shell.main_menu")}>
             {NAV.map((e) => (
               <PageLink key={e.id} id={e.id} current={known && page === e.id} data-short={e.short} aria-label={e.short ? e.label : undefined}>
+                <NavIcon id={e.id} />
                 <span className="nav-label">{e.label}</span>
               </PageLink>
             ))}
             {extensions.map((e) => (
               <PageLink key={e.id} id={e.id} current={known && page === e.id}>
-                {e.page!.label}
+                <NavIcon id={e.id} />
+                <span className="nav-label">{e.page!.label}</span>
               </PageLink>
             ))}
           </nav>

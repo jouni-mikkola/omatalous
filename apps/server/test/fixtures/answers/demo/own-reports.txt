@@ -3223,7 +3223,8 @@
   "yearlyCents": 56920,
   "reserveMonthlyCents": 4743,
   "unknownCount": 0,
-  "unknowns": []
+  "unknowns": [],
+  "loanSeries": []
  },
  "income": {
   "months": [
@@ -3574,6 +3575,7 @@
    "cents": 28900,
    "unknown": 0
   },
+  "monthlyUnknownNames": [],
   "path": null,
   "extra": [],
   "maybeTwice": [],
@@ -4721,6 +4723,7 @@
   "fromSavingsCents": 0,
   "typicalCents": null,
   "typicalFlowCents": null,
+  "largeFlowCompleteCents": 0,
   "againstUsual": [
    null
   ],
@@ -5986,5 +5989,24 @@
   "usualSpendCents": null,
   "usualMonths": 0,
   "completeTotals": null
+ },
+ "figureParts": {
+  "cashflowSpend": null,
+  "categorySpend": {
+   "cents": 202112,
+   "completeMonthsCents": 0,
+   "partialMonths": [
+    {
+     "month": "2026-10",
+     "cents": 202112,
+     "from": "2026-10-01",
+     "to": "2026-10-09"
+    }
+   ],
+   "fromSavingsCents": 0,
+   "otherCents": 0,
+   "monthsInRange": 1,
+   "completeMonths": 0
+  }
  }
 }
