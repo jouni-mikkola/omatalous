@@ -5260,7 +5260,9 @@
  "moneyFlow": {
   "sources": [],
   "uses": [],
-  "totalCents": 0
+  "totalCents": 0,
+  "monthCount": 0,
+  "creditPerMonthCents": 0
  },
  "cashflowMonths": {
   "months": [

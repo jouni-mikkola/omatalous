@@ -24,6 +24,9 @@ describe("Tulot ja menot: where the money came from and went", () => {
       expect(f.sources.reduce((s, b) => s + b.cents, 0)).toBe(f.totalCents);
       expect(f.uses.reduce((s, b) => s + b.cents, 0)).toBe(f.totalCents);
       expect([...f.sources, ...f.uses].every((b) => b.cents > 0)).toBe(true);
+      const credit = f.sources.find((b) => b.id === "credit")?.cents ?? 0;
+      expect(f.monthCount).toBeGreaterThan(0);
+      expect(f.creditPerMonthCents).toBe(Math.round(credit / f.monthCount));
     }
   });
 
@@ -49,7 +52,7 @@ describe("Tulot ja menot: where the money came from and went", () => {
   it("counts only the complete months, as the tiles do", () => {
     const ctx = createContext(dataset(), [checking], "2026-10-09");
     const running = flowOf(ctx, { from: "2026-10-01", to: "2026-10-09" });
-    expect(running).toEqual({ sources: [], uses: [], totalCents: 0 });
+    expect(running).toEqual({ sources: [], uses: [], totalCents: 0, monthCount: 0, creditPerMonthCents: 0 });
   });
 
   it("a period that took more than its income is paid for by the credit and savings drawn, and stays equal", () => {
@@ -66,6 +69,8 @@ describe("Tulot ja menot: where the money came from and went", () => {
     const totals = totalsOf(inDays(ctx, toDayRange(range)).map((x) => x.flows));
     const source = (id: string) => f.sources.find((b) => b.id === id)?.cents ?? 0;
     expect(source("credit")).toBe(80000);
+    expect(f.monthCount).toBe(3);
+    expect(f.creditPerMonthCents).toBe(26667);
     expect(source("savings")).toBe(50000);
     expect(source("earned")).toBe(totals.incomeCents);
     expect(f.uses.find((b) => b.id === "category:housing")?.cents).toBe(450000);
