@@ -100,6 +100,7 @@ export { GOAL_CATEGORIES } from "./analysis/category-goals.ts";
 
 export { type ComingPeriod, comingList } from "./analysis/coming.ts";
 export { cashAhead } from "./analysis/ahead.ts";
+export { billsBeforePayday, type BillsBeforePayday } from "./analysis/bills-before-payday.ts";
 export { openingMonth, upcomingElsewhereCents, upcomingGroups } from "./analysis/ahead-groups.ts";
 export { buildQuestions, QUESTION_PAYEE } from "./analysis/questions.ts";
 export { type HouseholdMember, memberMoney, memberOfRow } from "./analysis/member-money.ts";

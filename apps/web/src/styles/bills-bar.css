@@ -1,0 +1,49 @@
+/* Laskut: the bills before payday against the money (components/bills/BillsBar.tsx). The green part of the bar is the money that covers the bills,
+   the bills under it are each as wide as their sum, and the cut stands where the money ends. Under 700 px the bills are a list. */
+
+@layer pages {
+.bills-bar-say { margin: 0; color: var(--text-2); font-size: var(--fs-h2); line-height: 1.3; }
+.bills-bar-hero { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-8); margin: var(--sp-4) 0 var(--sp-24); font-size: var(--fs-display); font-weight: var(--w-strong); line-height: 1.05; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.bills-bar-hero .fig-open { text-decoration-thickness: 2px; }
+.bills-bar-over { color: var(--bad); }
+.bills-bar-fine { color: var(--good); }
+
+.bills-bar-tank { position: relative; }
+.bills-bar-money { display: flex; block-size: var(--sp-16); margin-block-end: var(--sp-8); border-radius: var(--radius-m); overflow: hidden; }
+.bills-bar-have { flex: none; background: var(--good); transform-origin: left; transition: width var(--t-draw) var(--ease-out); animation: bills-bar-draw var(--t-draw) var(--ease-out); }
+.bills-bar-lack { flex: 1; background: repeating-linear-gradient(135deg, color-mix(in oklch, var(--bad) 28%, transparent) 0 6px, color-mix(in oklch, var(--bad) 10%, transparent) 6px 12px); }
+@keyframes bills-bar-draw { from { transform: scaleX(0); } }
+
+/* the cut runs through the bar and the bills, in the bill where the money ends */
+.bills-bar-cut { position: absolute; z-index: 1; inset-block: calc(-1 * var(--sp-4)) 0; border-inline-start: 3px solid var(--text); pointer-events: none; }
+
+.bills-bar-list { display: flex; margin: 0; padding: 0; list-style: none; }
+.bills-bar-bill { position: relative; container-type: inline-size; box-sizing: border-box; display: flex; flex: 1 1 0; flex-direction: column; justify-content: space-between; gap: var(--sp-8); min-inline-size: 0; min-block-size: 5.5rem; padding: var(--sp-12); border: 1px solid var(--border); border-inline-start-width: 0; background: var(--surface); overflow: hidden; }
+.bills-bar-bill:first-child { border-inline-start-width: 1px; border-start-start-radius: var(--radius-m); border-end-start-radius: var(--radius-m); }
+.bills-bar-bill:last-child { border-start-end-radius: var(--radius-m); border-end-end-radius: var(--radius-m); }
+.bills-bar-name { overflow: hidden; font-weight: var(--w-strong); text-overflow: ellipsis; white-space: nowrap; }
+.bills-bar-day { color: var(--text-2); font-weight: var(--w-regular); }
+.bills-bar-cents { font-size: var(--fs-fig-s); font-weight: var(--w-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* said in words for a reader who sees no colour: on a wide screen the cut and the border say it, on a phone the line does */
+.bills-bar-state { position: absolute; inline-size: 1px; block-size: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.bills-bar-covered { background: var(--good-bg); border-color: color-mix(in oklch, var(--good) 40%, transparent); }
+.bills-bar-short { background: var(--bad-bg); border-style: dashed; border-color: color-mix(in oklch, var(--bad) 60%, transparent); }
+.bills-bar-split { background: linear-gradient(90deg, var(--good-bg) var(--have), var(--bad-bg) var(--have)); border-color: var(--bad); }
+/* a bill too narrow for its words is in the table below */
+@container (inline-size < 4.5rem) { .bills-bar-bill > * { display: none; } }
+
+.bills-bar-legend { display: flex; flex-wrap: wrap; gap: var(--sp-4) var(--sp-16); margin: var(--sp-12) 0 0; font-weight: var(--w-strong); }
+.bills-bar-key::before { content: ""; display: inline-block; inline-size: 1rem; block-size: 0.75rem; margin-inline-end: var(--sp-8); border-radius: var(--radius-s); }
+.bills-bar-key-have::before { background: var(--good); }
+.bills-bar-key-lack { color: var(--bad); }
+.bills-bar-key-lack::before { background: repeating-linear-gradient(135deg, color-mix(in oklch, var(--bad) 40%, transparent) 0 4px, color-mix(in oklch, var(--bad) 15%, transparent) 4px 8px); }
+
+@media (max-width: 700px) {
+  .bills-bar-hero { font-size: calc(var(--fs-display) * 0.85); }
+  .bills-bar-cut { display: none; }
+  .bills-bar-list { flex-direction: column; gap: var(--sp-8); }
+  .bills-bar-bill { flex: none; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; border-inline-start-width: 1px; border-radius: var(--radius-m); container-type: normal; }
+  .bills-bar-state { position: static; inline-size: auto; block-size: auto; overflow: visible; clip-path: none; flex-basis: 100%; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
+}
+@media (prefers-reduced-motion: reduce) { .bills-bar-have { animation: none; transition: none; } }
+}
