@@ -16,7 +16,6 @@ export const FI_SET_IFORM = {
   "set.iform.saved": "Tallennettu.",
   "set.iform.app_address": "Sovelluksen osoite",
   "set.iform.fetches_per_day": "Hakuja päivässä",
-  "set.iform.fetch_is_made": "Haemme tapahtumat {when}.",
   "set.iform.look_up_industry": "Hae tuntemattoman kauppiaan toimiala kaupparekisteristä",
   "set.iform.only_the_merchant_name": "Rekisteriin lähtee vain kauppiaan nimi.",
 } as const;

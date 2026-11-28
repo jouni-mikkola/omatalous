@@ -6,7 +6,7 @@ import { overflow, watch } from "./helpers.ts";
 // makes.
 const STATE = join(process.env.E2E_DIR ?? ".", "admin-state.json");
 
-test("Tilit shows the IBAN in groups of four, and an own name stays apart from the original and can be taken away", async ({ browser }) => {
+test("Tilit shows the IBAN in groups of four behind Muokkaa, and an own name stays apart from the original and can be taken away", async ({ browser }) => {
   const context = await browser.newContext({ storageState: STATE, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
   const seen = watch(page);
@@ -14,20 +14,28 @@ test("Tilit shows the IBAN in groups of four, and an own name stays apart from t
   const tilit = page.locator("#tilit");
   const row = (name: string) => tilit.getByRole("row").filter({ hasText: name }).first();
 
-  await expect(row("Käyttötili (esimerkki)")).toContainText("FI21 1234 5600 0007 85");
-  await expect(row("Säästötili (esimerkki)")).toContainText("FI14 1009 3000 1234 58");
+  // the number is not on the row; the form shows it
+  await expect(row("Käyttötili (esimerkki)")).not.toContainText("FI21 1234 5600 0007 85");
+  await page.getByRole("button", { name: "Muokkaa tiliä Säästötili (esimerkki)" }).click();
+  await expect(tilit.locator(".account-form")).toContainText("FI14 1009 3000 1234 58");
+  await tilit.locator(".account-form").getByRole("button", { name: "Peruuta" }).click();
   // a card has no IBAN: its line is the card's last digits
-  await expect(row("Nordea Gold (esimerkki)").locator(".acc-line")).toContainText("4242");
+  await page.getByRole("button", { name: "Muokkaa tiliä Nordea Gold (esimerkki)" }).click();
+  await expect(tilit.locator(".account-form")).toContainText("4242");
+  await tilit.locator(".account-form").getByRole("button", { name: "Peruuta" }).click();
   // the provider is not named after the number
   await expect(row("Nordea Gold (esimerkki)")).not.toContainText("demo");
 
-  // any account can have a name of its own, bank-linked or not; the original stays on a line of its own
+  // any account can have a name of its own, bank-linked or not; the original is in the form
   await page.getByRole("button", { name: "Muokkaa tiliä Käyttötili (esimerkki)" }).click();
   await page.getByLabel("Tilin nimi").fill("Yhteinen tili");
   await page.getByRole("button", { name: "Tallenna", exact: true }).click();
   await expect(tilit.getByText("Tallennettu.").first()).toBeVisible();
-  await expect(row("Yhteinen tili")).toContainText("Pankin nimi: Käyttötili (esimerkki)");
-  await expect(row("Yhteinen tili")).toContainText("FI21 1234 5600 0007 85");
+  await expect(row("Yhteinen tili")).not.toContainText("Pankin nimi");
+  await page.getByRole("button", { name: "Muokkaa tiliä Yhteinen tili" }).click();
+  await expect(tilit.locator(".account-form")).toContainText("Pankin nimi: Käyttötili (esimerkki)");
+  await expect(tilit.locator(".account-form")).toContainText("FI21 1234 5600 0007 85");
+  await tilit.locator(".account-form").getByRole("button", { name: "Peruuta" }).click();
 
   // an empty name brings the original back
   await page.getByRole("button", { name: "Muokkaa tiliä Yhteinen tili" }).click();
@@ -40,10 +48,10 @@ test("Tilit shows the IBAN in groups of four, and an own name stays apart from t
   await expect(row("Käyttötili (esimerkki)")).toBeVisible();
   await expect(tilit.getByText("Pankin nimi:")).toHaveCount(0);
 
-  // the lines under a name wrap on a phone instead of scrolling the page sideways
+  // the page does not scroll sideways on a phone
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
-  await expect(row("Käyttötili (esimerkki)")).toContainText("FI21 1234 5600 0007 85");
+  await expect(row("Käyttötili (esimerkki)")).toBeVisible();
   expect(await overflow(page)).toBeLessThanOrEqual(1);
 
   expect(seen.problems).toEqual([]);

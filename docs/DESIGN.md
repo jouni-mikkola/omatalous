@@ -81,9 +81,8 @@ colours stay apart for a reader with a colour vision deficiency. When a token fa
   line or under the heading is moved into the strip.
 - Empty line (`.empty`, `Empty` with no title): one line in the secondary colour at the height of a row, so a section
   keeps its height when its first row comes. A part with nothing to show and nothing to do is not drawn.
-- Foot (`.sheet-foot`): the label size and the muted colour, links too, under a hairline of the section colour. It is
-  the frame, so it is quieter than the page. Its one sentence of a fetch that runs or is held back has the secondary
-  text colour, so it reads as a status and not as the frame.
+- Foot (`.sheet-foot`): drawn only while a fetch runs or is held back, one sentence in the secondary text colour under a
+  hairline. The app's name, licence and links are in Asetukset > Turvallisuus, not on every page.
 - Key figures: one strip with a vertical hairline between figures. The first figure of a page may use the display size.
 - Marks: a merchant is its initials on a plate, a bank is its logo. A row has one mark, not an icon beside every field.
 - `components/ui/` holds the button, the chip, the tabs and the notice. They read tokens only.
