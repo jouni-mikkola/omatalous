@@ -3,9 +3,11 @@ import { answerMoney } from "../../format.ts";
 /** How far a clipped column runs past the end of the plot. */
 export const CAP_OVERSHOOT = 6;
 
-/** The sum written at a clipped column: whole euros. */
-export function capSum(cents: number): string {
-  return answerMoney(cents);
+/** The sum written at a clipped column: whole euros, and "21 t€" on a narrow chart. */
+export function capSum(cents: number, narrow: boolean): string {
+  const size = Math.abs(cents);
+  if (!narrow || size < 100_000) return answerMoney(cents);
+  return `${cents < 0 ? "−" : ""}${Math.round(size / 100_000)} t€`;
 }
 
 /** `y` kept inside the plot and the overshoot past each end, where a clipped column stops. */

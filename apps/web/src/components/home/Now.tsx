@@ -33,7 +33,7 @@ function leftUnknown(left: Extract<Data["nyt"]["left"], { known: false }>): stri
 /**
  * The answer card while the sum left on the payday is known: the verdict (enough, or the sum that is missing), then the figure
  * told in its parts as rows that are always open. Each row is a field of `runway.parts`, to the cent and with its sign, as every
- * row that adds up to a shown sum is; the card adds nothing up. The facts carry the Nyt chip, the two estimates (the spending,
+ * row that adds up to a shown sum is; the big figure is the same sum in whole euros, as the verdict says it; the card adds nothing up. The facts carry the Nyt chip, the two estimates (the spending,
  * with its range, and the sum left) the Arvio chip. The card debt whose bill falls on the payday or later takes nothing off the sum
  * and is one quiet line under the rows.
  */
@@ -57,7 +57,13 @@ function AnswerCard({ runway, lowLine }: { runway: KnownRunway; lowLine: ReactNo
         </div>
         <div data-row="bills">
           <dt>
-            <a data-tile="bills" href={billsHref}>{t(parts.cardBills.count > 0 ? "rpt.buf_due" : "home.ledger_payments")}</a> <span className="home-row-note">{t("home.row_count", { count: plural(parts.bills.count, t("bills.u_bill"), t("bills.u_bills")) })}</span>
+            <a data-tile="bills" href={billsHref}>{t(parts.cardBills.count > 0 ? "rpt.buf_due" : "home.ledger_payments")}</a>
+            {parts.bills.count > 0 && (
+              <>
+                {" "}
+                <span className="home-row-note">{t("home.row_count", { count: plural(parts.bills.count, t("bills.u_bill"), t("bills.u_bills")) })}</span>
+              </>
+            )}
           </dt>
           <dd className="num">{rowMoney(parts.bills.cents)}</dd>
         </div>
@@ -82,7 +88,7 @@ function AnswerCard({ runway, lowLine }: { runway: KnownRunway; lowLine: ReactNo
             {t("home.tile_runway", { date })} <KindChip kind="estimate" />
           </dt>
           <dd data-tile="left">
-            <Figure text={rowMoney(runway.leftCents)} size="l" />
+            <Figure text={Math.abs(runway.leftCents) < 50 ? rowMoney(runway.leftCents) : answerMoney(runway.leftCents)} size="l" />
             {runway.days === 0 && <span className="home-row-note">{t("home.tile_left_today")}</span>}
           </dd>
         </div>

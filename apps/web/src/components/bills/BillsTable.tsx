@@ -91,9 +91,9 @@ function ClosedSums({ sum, unknown }: { sum: number; unknown: number }) {
   );
 }
 
-/** The sum of a row as the table prints it: a pay with its sign, and the one sum that may be unknown, what a month leaves. */
+/** The sum of a row as the table prints it, and the one sum that may be unknown, what a month leaves. */
 function sum(r: CalRow): string {
-  if (r.kind === "row") return r.bill.kind === "income" ? `+${money(r.bill.cents)}` : money(r.bill.cents);
+  if (r.kind === "row") return money(r.bill.cents);
   if (r.kind === "ended") return money(r.item.cents);
   return r.cents === null ? t("bills.after_unknown") : money(r.cents);
 }
@@ -101,7 +101,6 @@ function sum(r: CalRow): string {
 /** What the row is when it has no category of its own. */
 function kindOf(bill: CalBill): string {
   if (bill.kind === "saving") return t("bills.kind_saving");
-  if (bill.kind === "income") return t("home.fig_income");
   return bill.kind === "loan" ? t("bills.kind_loan") : "–";
 }
 
@@ -215,7 +214,7 @@ export function BillsTable({
         ) : r.kind === "total" ? (
           ""
         ) : (
-          <MarkCell name={rowName(r)} mark={<MerchantAvatar name={rowName(r)} person={r.kind === "row" && r.bill.kind === "income"} size="m" />}>
+          <MarkCell name={rowName(r)} mark={<MerchantAvatar name={rowName(r)} person={false} size="m" />}>
             <span className="sub-merchant">{rowName(r)}</span>
           </MarkCell>
         ),
@@ -369,7 +368,7 @@ function Drill({ r, name, controls, scope, onRemove, onWrong }: { r: Exclude<Cal
           name={name}
           limit={HISTORY_ROWS}
           payee={false}
-          sign={bill.kind === "income" ? 1 : -1}
+          sign={-1}
           sumLabel={t("bills.contract.total")}
         />
       </div>

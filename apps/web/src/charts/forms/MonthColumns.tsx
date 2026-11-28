@@ -43,7 +43,7 @@ const BOTTOM = LABEL_Y + 16;
 const TOP = 22;
 /** A month's sum is an outlier when it is more than this many times the third quartile of the months' sums (`robustDomain`). */
 const OUTLIER_FACTOR = 2;
-/** Under this width the chart uses the short label of the usual line. */
+/** Under this width the axis is in thousands and a clipped sum is "21 t€". */
 const NARROW = 600;
 
 /**
@@ -103,9 +103,9 @@ export function MonthColumns({
   const draft = frame(width, { top: headroom, right: 4, bottom: BOTTOM, left: 48 }, options);
   const scale = (innerH: number) => linear(values, [innerH, 0], { target: monthTickTarget(innerH), clip: OUTLIER_FACTOR, include: usual ? [usual.cents] : [] });
   const y0 = scale(draft.innerH);
-  const f = frame(width, { top: headroom, right: 4, bottom: BOTTOM, left: axisRoom(y0.ticks.map(monthAxisLabels(y0.ticks))) }, options);
+  const f = frame(width, { top: headroom, right: 4, bottom: BOTTOM, left: axisRoom(y0.ticks.map(monthAxisLabels(y0.ticks, y0.step, narrow))) }, options);
   const y = scale(f.innerH);
-  const axisLabel = monthAxisLabels(y.ticks);
+  const axisLabel = monthAxisLabels(y.ticks, y.step, narrow);
   // cut only where the column runs out of the plot: the axis tops at a round tick that can lie above a clipped sum
   const capped = new Set(y.clipped.flatMap((k) => (y(values[k]!) < 0 || y(values[k]!) > f.innerH ? [present[k]!] : [])));
   const x = band(months.length, f.innerW, 0.72);
@@ -210,7 +210,7 @@ export function MonthColumns({
               );
             })}
             {/* after every column, so a neighbour never covers a sum */}
-            {months.map((m, i) => capped.has(i) && <CapSum key={m.month} x={x.centre(i)} end={capEnd(m.totalCents!)} dir={capDir(m.totalCents!)} text={capSum(m.totalCents!)} />)}
+            {months.map((m, i) => capped.has(i) && <CapSum key={m.month} x={x.centre(i)} end={capEnd(m.totalCents!)} dir={capDir(m.totalCents!)} text={capSum(m.totalCents!, narrow)} />)}
             {todayAt >= 0 && <line className="ms-today" x1={crisp(todayX)} x2={crisp(todayX)} y1={-TOP / 2} y2={f.innerH} />}
             {todayAt >= 0 && (
               <text className="ms-today-label" x={todayX + 4} y={-(TOP / 2) + 4} pointerEvents="none">
