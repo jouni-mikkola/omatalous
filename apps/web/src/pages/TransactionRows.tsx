@@ -12,10 +12,10 @@ import { partAnchor } from "../part.ts";
 import { settingsCardHash } from "../routes.ts";
 import type { Category, Scope, TransactionItem } from "../types.ts";
 import { CategoryLabel, CategoryMenu, SharedCategory } from "./transactions/CategoryChip.tsx";
-import { AccountMark, type AccountLook, PayeeMark } from "./transactions/Marks.tsx";
+import type { AccountLook } from "./transactions/Marks.tsx";
 import { MerchantDrill } from "./transactions/MerchantDrill.tsx";
 import { RowMenu } from "./transactions/RowMenu.tsx";
-// The rows of Tapahtumat: the shared table with a group for each day. A row says who, which account, which category and
+// The rows of Tapahtumat: the shared table with a group for each day. A row says who, which category and
 // how much, and its one control is the chevron: it opens the row, which holds the row's one menu
 // (the category and whether it becomes a rule, the payee's rows, the card bill's statement, whose share it is) and the payee's twelve months. The page, its filters and its saving are in Transactions.tsx.
 
@@ -77,7 +77,6 @@ const wholeOfRow = (t: ListedRow): string | null => (t.partCents === undefined |
 const signed = (cents: number): string => (cents > 0 ? `+${money(cents)}` : money(cents));
 
 const cardBill = (t: ListedRow): boolean => isCardBill({ category: t.category, spend: -t.amountCents });
-const isPerson = (t: ListedRow): boolean => t.category === "p2p" || t.category === "p2p_in";
 
 /** The statement of a card bill row: its explained sum and the way to open it. */
 interface StatementProps {
@@ -91,7 +90,6 @@ function Tags({ t, explained }: { t: ListedRow } & Pick<StatementProps, "explain
   return (
     <>
       {t.status === "pending" && <span className="tx-tag warn">{msg("row.tag_pending")}</span>}
-      {t.isTransfer && <span className="tx-tag">{msg("row.tag_transfer")}</span>}
       {t.categorySource === "match" && <span className="tx-tag">{msg("row.tag_refund")}</span>}
       {company && (
         <span className="tx-tag" title={company}>
@@ -131,12 +129,11 @@ function Part({ t }: { t: ListedRow }) {
 /** The payee's name as the reader sees it: a row with no payee is stored under one fixed word, shown in the reader's language. */
 const nameOf = (t: Pick<ListedRow, "merchant">): string => (t.merchant === UNKNOWN_MERCHANT ? msg("tx.unknown_merchant") : t.merchant);
 
-/** The payee's mark and name, the quiet tags and an add-on's mark. What the bank wrote is in the opened row (`rowFacts`), not on every closed one. */
+/** The payee's name, the quiet tags and an add-on's mark. What the bank wrote is in the opened row (`rowFacts`), not on every closed one. */
 function Who({ t, explained }: { t: ListedRow } & Pick<StatementProps, "explained">) {
   return (
     <span className="tx-who">
       <span className="tx-line">
-        <PayeeMark name={nameOf(t)} person={isPerson(t)} />
         <span className="tx-name">{nameOf(t)}</span>
         <Tags t={t} explained={explained} />
         <ExtensionRowParts row={t} mark />
@@ -237,14 +234,13 @@ function DaySums({ sum }: { sum: Pick<DaySum, "inCents" | "outCents" | "savedCen
  * The list: a day is a group, its row says the day and what the day's rows add up to (the server's). An amount is its figure and, on a joint row, the bank's sum under it. The rows stay newest first as the
  * server sends them. An opened row shows its payee's twelve months under it.
  */
-export function TxTable({ items, whole = true, allRows, severalAccounts, today, daySums, rowProps, scope, open, onOpen, view, onView }: { items: ListedRow[]; /** The rows are all the filter has (the default). A page of a longer list keeps the chosen mark (a row with the mark can be on another page), and its CSV link fetches the other pages too (`allRows`; null when they did not come). */ whole?: boolean; allRows?: () => Promise<ListedRow[] | null>; /** The account column says which account only where there is a choice of them. */ severalAccounts: boolean; today: string; daySums: Map<string, DaySum>; rowProps: (t: ListedRow) => RowProps; scope: Scope; open: string | null; onOpen: (id: string | null) => void; view: TableView; onView: (next: TableView) => void }) {
+export function TxTable({ items, whole = true, allRows, today, daySums, rowProps, scope, open, onOpen, view, onView }: { items: ListedRow[]; /** The rows are all the filter has (the default). A page of a longer list keeps the chosen mark (a row with the mark can be on another page), and its CSV link fetches the other pages too (`allRows`; null when they did not come). */ whole?: boolean; allRows?: () => Promise<ListedRow[] | null>; today: string; daySums: Map<string, DaySum>; rowProps: (t: ListedRow) => RowProps; scope: Scope; open: string | null; onOpen: (id: string | null) => void; view: TableView; onView: (next: TableView) => void }) {
   const days = byDay(items);
   // the page's bar has no note of its own, so a mark none of the rows has says so under the empty list
   const chosen = rowChips().find((c) => c.key === view.chip);
   const noMatch = !!chosen && !items.some(chosen.test);
   const columns: Column<ListedRow>[] = [
     { key: "who", label: msg("row.who"), kind: "text", rowHead: true, csv: (t) => t.merchant, cell: (t) => <Who t={t} explained={rowProps(t).explained} /> },
-    ...(severalAccounts ? [{ key: "account", label: msg("row.account"), kind: "text" as const, className: () => "tx-account", headClass: "tx-account", cell: (t: ListedRow) => <AccountMark look={rowProps(t).look} fallback={rowProps(t).account} /> }] : []),
     // the marks Suodata names narrow the rows (view.chip); one no row has filters to nothing and the list says so
     { key: "category", label: msg("row.category_col"), kind: "text", chips: rowChips(), className: () => "tx-category", headClass: "tx-category", cell: (t) => <CategoryLabel categories={rowProps(t).categories} value={rowProps(t).pending ?? t.category} manual={t.categorySource === "user"} /> },
     {

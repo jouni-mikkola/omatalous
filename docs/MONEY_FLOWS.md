@@ -73,7 +73,7 @@ short payment's fee is spent, and what lands on savings is saved. It names that 
 säästöistä* when it is negative), as an amount with no sign, since the name says the direction. Erotus less that sum is Tulos
 of the same rows, and the strip tells it after that term (`leftCents` of `totalsOf`, not added up in the browser) when it
 differs from Erotus, and then in place of Erotus, which it nearly repeats. When it is the same as Erotus only Erotus is shown.
-The chart's count for a day is the rows that spend (Menot) or bring in (Tulot), as the lead above the list counts them. The days of the list and its
+The chart's count for a day is the rows that spend (Menot) or bring in (Tulot). The days of the list and its
 histogram add up the same flows by booking day, so the bars add up to the strip. A card bill whose statement is read
 stands at what its rows leave of it, and the purchases of the statement stand on their own days, as on the first page,
 unless a filter narrows the list. While a listed row is newer than the figures they come from, the strip tells no sum

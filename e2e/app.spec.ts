@@ -320,46 +320,16 @@ test("the merchants of the month on Tapahtumat, and a merchant there has a summa
   // without a merchant filter there is no summary, and the strip holds the figures, once each
   await page.goto("/#/transactions?period=all");
   await expect(page.getByRole("region", { name: /^Yhteenveto:/ })).toHaveCount(0);
-  for (const term of ["Menot", "Tulot", "Käteen jäi"]) await expect(page.getByRole("region", { name: "Rajattujen tapahtumien summat" }).locator("dt", { hasText: new RegExp(`^${term}$`) })).toHaveCount(1);
-  // the demo data moves money to savings, so Käteen jäi is shown and takes Erotus's place
-  await expect(page.getByRole("region", { name: "Rajattujen tapahtumien summat" }).locator("dt", { hasText: /^Erotus$/ })).toHaveCount(0);
+  const sums = page.getByRole("region", { name: "Rajattujen tapahtumien summat" });
+  await expect(sums.locator("dt", { hasText: /^Menot$/ })).toHaveCount(1);
+  // the other sums are in the figure's panel; the demo data moves money to savings, so Käteen jäi is shown and takes Erotus's place
+  await sums.locator(".fig-open").click();
+  for (const term of ["Tulot", "Käteen jäi"]) await expect(page.locator(".fig-pop dt", { hasText: new RegExp(`^${term}$`) })).toHaveCount(1);
+  await expect(page.locator(".fig-pop dt", { hasText: /^Erotus$/ })).toHaveCount(0);
+  await page.keyboard.press("Escape");
   await expect(page.getByText(/omia siirtoja ei lasketa/)).toHaveCount(0);
   expect(seen.problems).toEqual([]);
   await context.close();
-});
-
-test("the lead of Tapahtumat links a payee for the month, and the payees stay folded with the histogram at every width", async ({ browser }) => {
-  for (const [width, height] of [[1440, 900], [390, 844]] as const) {
-    const phone = width < 600;
-    const context = await browser.newContext({ storageState: STATE, viewport: { width, height }, isMobile: phone, hasTouch: phone });
-    const page = await context.newPage();
-    const seen = watch(page);
-    await page.goto("/#/transactions");
-    const lead = page.locator(".tx-lead");
-    const link = lead.locator(".tx-lead-list a").first();
-    // closed: the histogram's title is the summary and the payees wait behind it, so the list starts under the sums
-    const fold = page.locator("details.tx-hist-fold");
-    await expect(fold).not.toHaveAttribute("open", "");
-    await expect(page.getByText(/Suurin päivä/)).toHaveCount(0);
-    await expect(link).toBeHidden();
-    await fold.locator("summary").click();
-    await expect(fold).toHaveAttribute("open", "");
-    await expect(page.getByRole("region", { name: "Tämä kuukausi" })).toBeVisible();
-    await expect(link).toBeVisible();
-    // a payee opens the list for that payee over the days the lead adds up
-    const merchant = (await link.innerText()).trim();
-    const month = new Date().toISOString().slice(0, 7);
-    await expect(link).toHaveAttribute("href", new RegExp(`#/transactions\\?merchant=.+&from=${month}-01&to=${month}-\\d\\d$`));
-    await link.click();
-    await expect(page).toHaveURL((url) => {
-      const q = new URLSearchParams(url.hash.split("?")[1]);
-      return q.get("merchant") === merchant && q.get("from") === `${month}-01` && q.get("to") !== null;
-    });
-    // a filter hides the lead
-    await expect(lead).toHaveCount(0);
-    expect(seen.problems).toEqual([]);
-    await context.close();
-  }
 });
 
 test("an empty Tapahtumat says so: with a filter that it matches nothing, without one with the way to a bank", async ({ browser }) => {

@@ -59,7 +59,6 @@ export const EN_TABLES: Record<keyof typeof FI_TABLES, string> = {
   "row.whole": "full amount {amount}",
   "row.card_bill": "Card bill: purchases not shown",
   "row.tag_pending": "pending",
-  "row.tag_transfer": "own transfer",
   "row.tag_refund": "refund",
   "row.tag_register": "trade register",
   "row.tag_itemised": "purchases itemised {sum}",

@@ -1,16 +1,10 @@
 /**
- * The marks of a row of Tapahtumat: the payee's (VT4's MerchantAvatar) and the account's (VT4's AccountMark, the bank's
- * logo or the account's initials) with the short text beside it. Nothing is fetched but the bank logos the app serves.
+ * The account's mark in the account filter of Tapahtumat (the bank's logo or the account's initials) with the short text
+ * beside it. Nothing is fetched but the bank logos the app serves.
  */
 import { AccountMark as BankMark } from "../../components/BankLogo.tsx";
-import { MerchantAvatar } from "../../components/MerchantAvatar.tsx";
 import { t } from "../../text.ts";
 import type { Account, AccountType, BankOption, Meta } from "../../types.ts";
-
-/** The payee's mark: initials on a tinted disc, a plain one for a payment to or from a person. */
-export function PayeeMark({ name, person }: { name: string; person?: boolean }) {
-  return <MerchantAvatar name={name} person={person} size="s" />;
-}
 
 export interface AccountLook {
   /** The name the household knows the account by, with its owner's name on a shared one: the title and the screen reader's text. */
@@ -41,7 +35,7 @@ export function accountLooks(meta: Meta): Map<string, AccountLook> {
   return looks;
 }
 
-/** An account on a row: its mark and the short text. The name is the title and the screen reader's text. */
+/** An account in the filter list: its mark and the short text. The name is the title and the screen reader's text. */
 export function AccountMark({ look, fallback }: { look: AccountLook | undefined; fallback: string }) {
   const name = look?.name ?? fallback;
   return (
