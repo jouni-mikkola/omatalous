@@ -24,6 +24,7 @@ export * from "./locale.ts";
 export * from "./messages.ts";
 export * from "./password-strength.ts";
 export * from "./dates.ts";
+export * from "./bank-barcode.ts";
 export * from "./list-limits.ts";
 export * from "./day-bins.ts";
 export * from "./stats.ts";
