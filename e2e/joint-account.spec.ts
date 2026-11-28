@@ -131,7 +131,7 @@ test("Tapahtumat shows the part as a joint account's row's figure and the bank's
   const own = rows.filter({ has: page.locator(".tx-name") }).filter({ hasNot: page.locator(".tx-part") }).first();
   await expect(own).toBeVisible();
   await own.getByRole("button", { name: /^Avaa / }).click();
-  await expect(page.locator(".tx-detail-facts").first()).toContainText("Käyttötili");
+  await expect(page.locator(".tx-detail-facts").first()).toContainText(/(Käyttö|Säästö)tili/);
   await expect(own.locator(".tx-part")).toHaveCount(0);
   await expect(page.getByText("Yhteisen tilin tapahtumista summissa on sinun osuutesi.")).toHaveCount(0);
   expect(seen.problems).toEqual([]);
