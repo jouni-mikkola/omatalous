@@ -54,6 +54,8 @@ export const FI_OVERVIEW = {
   "home.low_known": "Saldo on alimmillaan {date}, arviolta",
   "home.verdict_enough": "Riittää palkkapäivään {date}",
   "home.verdict_short": "Puuttuu {sum} ennen palkkapäivää",
+  "home.ends_on_payment": "Rahat loppuvat {date}, kun {payee} lähtee.",
+  "home.ends_on_spending": "Rahat loppuvat {date}.",
   "home.row_balance": "Käyttötileillä nyt",
   "home.row_count": "{count}",
   "home.row_cards": "Korttilaskut ennen palkkapäivää",

@@ -1,4 +1,5 @@
 // Decision: how much of the money in the accounts is free to spend until the payday
+import { type MoneyEnds, moneyEnds } from "@banking/core";
 import type { ReactNode } from "react";
 import { answerMoney, dayMonth, plural, rowMoney } from "../../format.ts";
 import { rangeText } from "../../format-range.ts";
@@ -32,12 +33,12 @@ function leftUnknown(left: Extract<Data["nyt"]["left"], { known: false }>): stri
 
 /**
  * The answer card while the sum left on the payday is known: the verdict (enough, or the sum that is missing), then the figure,
- * which opens its parts as rows. Each row is a field of `runway.parts`, to the cent and with its sign, as every
- * row that adds up to a shown sum is; the big figure is the same sum in whole euros, as the verdict says it; the card adds nothing up. The spending row is an estimate
+ * which opens its parts as rows, and while the money runs out before the payday the day it does and the payment that takes it there (core's `moneyEnds`).
+ * Each row is a field of `runway.parts`, to the cent and with its sign, as every row that adds up to a shown sum is; the big figure is the same sum in whole euros, as the verdict says it; the card adds nothing up. The spending row is an estimate
  * and names its usual range. The card debt whose bill falls on the payday or later takes nothing off the sum
  * and is one quiet line under the rows.
  */
-function AnswerCard({ runway, lowLine }: { runway: KnownRunway; lowLine: ReactNode }) {
+function AnswerCard({ runway, lowLine, ends }: { runway: KnownRunway; lowLine: ReactNode; ends: MoneyEnds | null }) {
   const short = runway.leftCents < 0;
   const date = dayMonth(runway.payday.date);
   return (
@@ -51,6 +52,7 @@ function AnswerCard({ runway, lowLine }: { runway: KnownRunway; lowLine: ReactNo
         </FigurePanel>
         {runway.days === 0 && <span className="home-row-note">{t("home.tile_left_today")}</span>}
       </div>
+      {ends && <p className="home-ends">{ends.payee === null ? t("home.ends_on_spending", { date: dayMonth(ends.date) }) : t("home.ends_on_payment", { date: dayMonth(ends.date), payee: ends.payee })}</p>}
       {lowLine}
     </section>
   );
@@ -121,7 +123,7 @@ export function Now({ data }: { data: Data }) {
   const ownReason = runway?.known || left.known ? null : left.reason;
   const lowHidden = lowPoint?.known ? runway?.known === true : lowPoint?.reason === ownReason;
   const lowLine = <LowPoint lowPoint={lowHidden ? null : lowPoint} />;
-  if (runway?.known) return <AnswerCard runway={runway} lowLine={lowLine} />;
+  if (runway?.known) return <AnswerCard runway={runway} lowLine={lowLine} ends={lowPoint?.known ? moneyEnds(lowPoint, runway.payday.date) : null} />;
   // a sum a day below zero says nothing the sum does not: the line tells what is missing
   const line = !left.known ? leftUnknown(left) : left.leftCents < 0 ? t("home.tile_left_short", { sum: answerMoney(-left.leftCents) }) : left.days === 0 ? t("home.tile_left_today") : t("home.tile_left_line", { sum: answerMoney(left.perDayCents), date: dayMonth(left.payday.date) });
   const leftCents = left.known ? left.leftCents : null;

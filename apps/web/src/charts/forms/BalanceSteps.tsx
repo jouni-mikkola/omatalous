@@ -1,7 +1,7 @@
 // Decision: on which day before the payday the money is tightest, and which bill takes it there
-import { addDays } from "@banking/core";
+import { addDays, moneyEnds } from "@banking/core";
 import { useWidth } from "../../hooks.ts";
-import { answerMoney, dayMonth, language, signedMoney } from "../../format.ts";
+import { answerMoney, dayMonth, signedMoney } from "../../format.ts";
 import { rangeText } from "../../format-range.ts";
 import { t } from "../../text.ts";
 import type { DashboardData } from "../../types.ts";
@@ -20,8 +20,6 @@ import "../../styles/estimate.css";
 export type KnownLowPoint = Extract<NonNullable<DashboardData["home"]["lowPoint"]>, { known: true }>;
 type Corner = KnownLowPoint["line"][number];
 type Step = KnownLowPoint["steps"][number];
-/** The balance from the last payday to today, core's `home.balancePast`. */
-export type BalancePast = NonNullable<DashboardData["home"]["balancePast"]>;
 
 /** The width the first paint draws at, before the box is measured. */
 const UNMEASURED = 640;
@@ -31,8 +29,22 @@ const NARROW = 480;
 const BOTTOM = LABEL_Y + 4;
 /** The room a day's label takes on the axis, in px. */
 const DAY_LABEL_W = 48;
-/** How many payments are named in the picture; the rest are in the readout and the table. */
+/** How many payments are named on a phone; the rest are dots, and the readout and the table hold them. */
 const NAMED_STEPS = 2;
+/** A payment's name and sum are set at 14 px, wider than the 12 px of the axes. */
+const BILL_CHAR_W = 7.9;
+/** The room a payment's name takes above or below its dot, in px, and the dots' radii. */
+const BILL_H = 18;
+const BILL_DOT = 5;
+const BREAK_DOT = 8;
+
+interface Box {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+}
+const overlaps = (a: Box, b: Box) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
 
 /** The name of a payment or a pay, with its estimate said. */
 export function stepName(s: Step): string {
@@ -46,20 +58,20 @@ export function stepName(s: Step): string {
  * ring and its sum; the payday is a rule with its date; the two biggest payments are named at their step. Every figure
  * is core's; nothing is added up here. The readout line above stays empty until a day is pointed at, then reads out
  * that day: its balance after the day's payments, the range and the payments and pays of the day.
- * With `past` (core's balance from the last payday to today) the line runs solid to today's dot, a rule names today (Nyt)
- * and the ground right of it the days to come (Arvio), which are drawn dashed with the band.
+ * Each payment of the walk is a dot on its step with its name and sum beside it, the one that takes the balance below zero
+ * (core's `moneyEnds`) larger and in the problem colour; on a phone only the two biggest are named. The line is drawn
+ * once from today to the payday and again when the walk changes.
  */
-export function BalanceSteps({ low, payday, past }: { low: KnownLowPoint; payday: string | null; past: BalancePast | null }) {
+export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: string | null }) {
   const [ref, measured] = useWidth<HTMLDivElement>();
   const [at, setAt] = useReadout();
   const width = measured || UNMEASURED;
   const { line, steps } = low;
   const today = line[0]!.date;
-  const pastPoints = past ?? [];
-  const first = pastPoints[0]?.date ?? today;
+  const first = today;
   const last = line[line.length - 1]!.date;
   const narrow = width < NARROW;
-  const values = [...line.flatMap((c) => [c.cents, c.lowCents, c.highCents]), ...pastPoints.map((p) => p.cents)];
+  const values = line.flatMap((c) => [c.cents, c.lowCents, c.highCents]);
   // a phone gets a lower plot, so the page stays short
   const options = narrow ? { minHeight: 160, tallest: 160, ratio: 0.3 } : { minHeight: 200, tallest: 280, ratio: 0.3 };
   const margin = { top: 20, right: 8, bottom: BOTTOM };
@@ -75,46 +87,21 @@ export function BalanceSteps({ low, payday, past }: { low: KnownLowPoint; payday
   const dayCorner = (day: string): Corner | undefined => cornersOf(day).reduce<Corner | undefined>((min, c) => (min === undefined || c.cents < min.cents ? c : min), undefined);
   const stepsOf = (day: string) => steps.filter((s) => s.date === day);
   const lowCorner = line.find((c) => c.date === low.date && c.cents === low.cents);
-  const pastOf = (day: string) => pastPoints.find((p) => p.date === day);
   const parts = (day: string) => {
     const c = dayCorner(day);
-    if (!c) {
-      const p = pastOf(day);
-      return p ? [{ name: t("home.days_balance"), value: answerMoney(p.cents), swatch: <span className="swatch bs-key-line" /> }] : [];
-    }
+    if (!c) return [];
     return [
       { name: t("home.days_balance"), value: answerMoney(c.cents), swatch: <span className="swatch bs-key-line" /> },
       ...(c.lowCents === c.highCents ? [] : [{ name: t("home.days_usually"), value: rangeText(c.lowCents, c.highCents), swatch: <span className="swatch bs-key-band" /> }]),
       ...stepsOf(day).map((s) => ({ name: stepName(s), value: signedMoney(s.cents), swatch: null })),
     ];
   };
-  // the biggest payments on days of their own, so two names never stand on one step
-  const named: Step[] = [];
-  for (const s of [...steps].filter((s) => s.cents < 0).sort((a, b) => a.cents - b.cents)) {
-    if (named.length < NAMED_STEPS && !named.some((n) => n.date === s.date)) named.push(s);
-  }
   const paydayIn = payday !== null && payday >= first && payday <= last ? payday : null;
-  // a name stands on the side of its step with more room before the payday's rule or the plot's edge, and is cut to that
-  // room with "…" (the readout and the table have it whole); a step with no room for its sum and a few letters is not named
-  const stepLabel = (s: Step) => {
-    const corners = cornersOf(s.date);
-    const top = y(corners[0]!.cents);
-    const bottom = y(dayCorner(s.date)!.cents);
-    const px = x.x(s.date);
-    const end = paydayIn !== null && paydayIn > s.date ? x.x(paydayIn) : f.innerW;
-    const start = paydayIn !== null && paydayIn < s.date ? x.x(paydayIn) : 0;
-    const right = end - px >= px - start;
-    const fits = Math.floor(((right ? end - px : px - start) - 12) / LABEL_CHAR_W);
-    const sum = answerMoney(-s.cents);
-    const name = s.payee.length + 1 + sum.length <= fits ? s.payee : `${s.payee.slice(0, Math.max(0, fits - sum.length - 2)).trimEnd()}…`;
-    if (fits < sum.length + 5) return null;
-    return { text: `${name} ${sum}`, x: right ? px + 6 : px - 6, y: corners.length > 1 ? (top + bottom) / 2 : bottom - 8, anchor: right ? "start" : "end" } as const;
-  };
-  // on a phone only the payday and the lowest point are named: the payments are in the readout and the table
-  const stepLabels = (narrow ? [] : named).flatMap((s) => {
-    const label = stepLabel(s);
-    return label ? [{ key: `${s.date}:${s.payee}`, ...label }] : [];
-  });
+  const ends = moneyEnds(low, paydayIn ?? last);
+  // every payment is a dot where its step ends; its balance is the table's own (`rowAfterCents`)
+  const payments = steps.filter((s) => s.cents < 0);
+  const breakIndex = ends === null ? -1 : payments.findIndex((s) => s.date === ends.date && s.payee === ends.payee);
+  const bills = payments.map((s, i) => ({ s, i, px: x.x(s.date), py: y(s.rowAfterCents), breaks: i === breakIndex }));
   // a tick a week from today, every other week when a week is narrower than a label; none too close to the last day's label
   const dayW = f.innerW / Math.max(1, x.days - 1);
   const every = 7 * dayW < DAY_LABEL_W ? 14 : 7;
@@ -125,26 +112,7 @@ export function BalanceSteps({ low, payday, past }: { low: KnownLowPoint; payday
   const range = `${dayMonth(first)}–${dayMonth(last)}`;
   const label = t("home.days_aria", { range, date: dayMonth(low.date), sum: answerMoney(low.cents) });
   const shownDay = days[at ?? 0]!;
-  const atCorner = at === null ? undefined : dayCorner(days[at]!) ?? pastOf(days[at]!);
-  const todayX = x.x(today);
-  // past and walk meet at today: a step when the cards' debt is taken off there
-  const pastCents = [...pastPoints.map((p) => p.cents), ...(pastPoints.length > 0 && pastPoints.at(-1)!.cents !== line[0]!.cents ? [line[0]!.cents] : [])];
-  const pastX = (i: number) => (i < pastPoints.length ? x.x(pastPoints[i]!.date) : todayX);
-  const nowText = `${t("kind.now").toLocaleUpperCase(language())} ${dayMonth(today)}`;
-  const estimateText = t("kind.estimate").toLocaleUpperCase(language());
-  // the kind's word stands beside its rule unless the payday's rule is too near for it
-  const nowW = nowText.length * LABEL_CHAR_W;
-  const estimateW = estimateText.length * LABEL_CHAR_W;
-  // Nyt stands left of its rule while there is room for it on the plot, else right of it; Arvio at the plot's right edge
-  const nowLeft = todayX - 6 >= nowW;
-  const nowSpan = nowLeft ? [todayX - 6 - nowW, todayX - 6] : [todayX + 6, todayX + 6 + nowW];
-  const paydayAt = paydayIn === null ? null : x.x(paydayIn);
-  const paydayRight = paydayAt !== null && paydayAt < f.innerW * 0.7;
-  const paydayLen = paydayIn === null ? 0 : t("home.days_payday", { date: dayMonth(paydayIn) }).length * LABEL_CHAR_W;
-  const paydaySpan = paydayAt === null ? null : paydayRight ? [paydayAt + 6, paydayAt + 6 + paydayLen] : [paydayAt - 6 - paydayLen, paydayAt - 6];
-  const apart = (a: number[], b: number[] | null) => b === null || a[1]! + 8 <= b[0]! || b[1]! + 8 <= a[0]!;
-  const estimateSpan = [f.innerW - estimateW, f.innerW];
-  const estimateRoom = apart(estimateSpan, nowSpan) && apart(estimateSpan, paydaySpan);
+  const atCorner = at === null ? undefined : dayCorner(days[at]!);
   const lowText = narrow ? t("home.days_low_short", { sum: answerMoney(low.cents) }) : t("home.days_low", { date: dayMonth(low.date), sum: answerMoney(low.cents) });
   // the lowest sum stands under its ring, where the line never is, and over it when the axis is too close; centred unless an edge cuts it
   const lowLabel = (c: Corner) => {
@@ -154,6 +122,35 @@ export function BalanceSteps({ low, payday, past }: { low: KnownLowPoint; payday
     const below = y(c.cents) + 18 <= f.innerH - 4;
     return { x: anchor === "start" ? px - 4 : anchor === "end" ? px + 4 : px, y: below ? y(c.cents) + 18 : y(c.cents) - 12, anchor } as const;
   };
+  // the biggest payments are named first, each at the first of six places beside its dot (right and above, left and below, right and below, left and above, then the same two higher) that stays on the plot and clear of the dots, the lowest sum and the names placed before it
+  const taken: Box[] = bills.map((b) => ({ x0: b.px - BREAK_DOT, x1: b.px + BREAK_DOT, y0: b.py - BREAK_DOT, y1: b.py + BREAK_DOT }));
+  if (lowCorner) {
+    const at = lowLabel(lowCorner);
+    const w = lowText.length * LABEL_CHAR_W;
+    taken.push({ x0: at.anchor === "start" ? at.x : at.anchor === "end" ? at.x - w : at.x - w / 2, x1: at.anchor === "start" ? at.x + w : at.anchor === "end" ? at.x : at.x + w / 2, y0: at.y - BILL_H / 2, y1: at.y + BILL_H / 2 });
+  }
+  const billLabels = [...bills]
+    .sort((a, b) => a.s.cents - b.s.cents)
+    .slice(0, narrow ? NAMED_STEPS : bills.length)
+    .flatMap(({ s, i, px, py }) => {
+      const text = `${s.payee} ${answerMoney(-s.cents)}`;
+      const w = text.length * BILL_CHAR_W;
+      const places = [
+        { x: px + 10, y: py - 8, anchor: "start" },
+        { x: px - 10, y: py + 22, anchor: "end" },
+        { x: px + 10, y: py + 22, anchor: "start" },
+        { x: px - 10, y: py - 8, anchor: "end" },
+        { x: px + 10, y: py - 32, anchor: "start" },
+        { x: px - 10, y: py - 32, anchor: "end" },
+      ] as const;
+      for (const p of places) {
+        const box = { x0: p.anchor === "start" ? p.x : p.x - w, x1: p.anchor === "start" ? p.x + w : p.x, y0: p.y - 14, y1: p.y + 4 };
+        if (box.x0 < 0 || box.x1 > f.innerW || box.y0 < 0 || box.y1 > f.innerH || taken.some((o) => overlaps(box, o))) continue;
+        taken.push(box);
+        return [{ key: `${i}:${s.date}:${s.payee}`, text, ...p }];
+      }
+      return [];
+    });
   return (
     <div className="chart balance-steps" ref={ref}>
       {/* the payments of a day are told for the day picked, and the empty line keeps the room so the picture does not move */}
@@ -170,7 +167,6 @@ export function BalanceSteps({ low, payday, past }: { low: KnownLowPoint; payday
                 </text>
               </g>
             ))}
-            {pastPoints.length > 0 && <rect className="bs-ground" x={crisp(todayX)} y={0} width={Math.max(0, f.innerW - crisp(todayX))} height={f.innerH} />}
             <path className="est-band" d={areaPath(line.map((c) => c.lowCents), line.map((c) => c.highCents), cornerX, y)} />
             {paydayIn && (
               <g>
@@ -180,27 +176,19 @@ export function BalanceSteps({ low, payday, past }: { low: KnownLowPoint; payday
                 </text>
               </g>
             )}
-            {pastPoints.length > 0 && (
-              <g>
-                <line className="kit-event-rule" x1={crisp(todayX)} x2={crisp(todayX)} y1={0} y2={f.innerH} />
-                <text className="qc-end-sub bs-kind" x={nowLeft ? todayX - 6 : todayX + 6} y={-6} textAnchor={nowLeft ? "end" : "start"}>
-                  {nowText}
+            {/* keyed by the walk, so a change of it draws the line again */}
+            <g className="draw" key={line.map((c) => `${c.date}:${c.cents}`).join()}>
+              <path className="qc-line qc-now" d={linePath(line.map((c) => c.cents), cornerX, y)} />
+              <circle className="qc-dot" cx={x.x(today)} cy={y(line[0]!.cents)} r={4} />
+              {bills.map((b) => (
+                <circle key={`${b.i}:${b.s.date}:${b.s.payee}`} className={b.breaks ? "bs-bill bs-break" : "bs-bill"} cx={b.px} cy={b.py} r={b.breaks ? BREAK_DOT : BILL_DOT} />
+              ))}
+              {billLabels.map((l) => (
+                <text key={l.key} className="bs-bill-name" x={l.x} y={l.y} textAnchor={l.anchor}>
+                  {l.text}
                 </text>
-                {estimateRoom && (
-                  <text className="qc-end-sub bs-kind" x={f.innerW} y={-6} textAnchor="end">
-                    {estimateText}
-                  </text>
-                )}
-              </g>
-            )}
-            {pastPoints.length > 0 && <path className="qc-line qc-now bs-past" d={linePath(pastCents, pastX, y)} />}
-            <path className={pastPoints.length > 0 ? "qc-line est-line" : "qc-line qc-now"} d={linePath(line.map((c) => c.cents), cornerX, y)} />
-            {stepLabels.map((l) => (
-              <text key={l.key} className="qc-end-sub" x={l.x} y={l.y} dy="0.32em" textAnchor={l.anchor}>
-                {l.text}
-              </text>
-            ))}
-            <circle className="qc-dot" cx={x.x(today)} cy={y(line[0]!.cents)} r={4} />
+              ))}
+            </g>
             {lowCorner && (
               <g>
                 <circle className="qc-low" cx={x.x(lowCorner.date)} cy={y(lowCorner.cents)} r={5} />
