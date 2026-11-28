@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { join } from "node:path";
-import { openBillFolds, overflow, watch } from "./helpers.ts";
+import { cents, openBillFolds, overflow, watch } from "./helpers.ts";
 
 // Laskut on a phone: the days of the rows start at one x whatever a row carries beside its sum ("Maksettu", "Kortilla"), and nothing a finger taps stands
 // closer than 12 px to the screen edge. Runs on the demo household that e2e/run.mjs makes.
@@ -94,3 +94,32 @@ for (const { width, scale } of [{ width: 390, scale: 100 }, { width: 390, scale:
     await context.close();
   });
 }
+
+test("the totals that end the open month are the server's paid and still-to-come sums", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: STATE, viewport: { width: 1440, height: 900 } });
+  const answer = await context.request.get("/api/reports?scope=own&reports=billCalendar");
+  expect(answer.ok()).toBe(true);
+  const { billCalendar } = (await answer.json()) as { billCalendar: { months: { month: string; paidCents: number; billsCents: number }[] } };
+  const page = await context.newPage();
+  await page.goto("/#/bills");
+  const table = page.locator("#laskut-taulukko");
+  await expect(table.locator(".bill-month[aria-expanded=true]")).toHaveCount(1);
+  const opened = await table.locator(".bill-month").filter({ hasText: /\d{4}/ }).evaluateAll((els) => els.map((el) => el.getAttribute("aria-expanded") === "true"));
+  const open = billCalendar.months[opened.indexOf(true)]!;
+
+  const coming = table.locator("tr.bill-total").filter({ has: page.locator("td.bill-total-coming") });
+  await expect(coming).toHaveCount(1);
+  await expect(coming).toContainText("Maksamatta");
+  expect(cents(await coming.locator("td.bill-total-coming").innerText()), `${open.month}: Maksamatta`).toBe(open.billsCents);
+
+  // Maksettu is there only when a charge is made
+  const paid = table.locator("tr.bill-total").filter({ has: page.locator("td.bill-total-paid") });
+  if (open.paidCents > 0) {
+    await expect(paid).toHaveCount(1);
+    await expect(paid).toContainText("Maksettu");
+    expect(cents(await paid.locator("td.bill-total-paid").innerText()), `${open.month}: Maksettu`).toBe(open.paidCents);
+  } else {
+    await expect(paid).toHaveCount(0);
+  }
+  await context.close();
+});
