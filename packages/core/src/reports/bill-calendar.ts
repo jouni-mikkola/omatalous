@@ -51,6 +51,8 @@ interface BillRow {
    * the household can take off the list. Only on a series' row; a loan whose plan is its row is of kind "loan".
    */
   loanSeries?: true;
+  /** A bullet loan's whole balance falling due on its end date: a row of the loan though the series that pays its interest is named, and no charge of that series. */
+  lump?: true;
 }
 
 interface BillMonth {
@@ -125,6 +127,8 @@ interface BillCalendar {
   /** The bills and loans whose sum or date is not known, so they have no row: `unknowns` counted. */
   unknownCount: number;
   unknowns: UnknownSum[];
+  /** The series that pay a saved loan, whether or not the loan has a row in the months: the loan's name and whether an account the balance does not count pays it, and the day the loan ends (no charge of the series after it counts). */
+  loanSeries: { id: string; payee: string; onCard: boolean; endDate: IsoDate | null }[];
 }
 
 /**
@@ -134,7 +138,7 @@ interface BillCalendar {
 export const unknownPaymentBy = (calendar: Pick<BillCalendar, "unknowns">, last: IsoDate): boolean =>
   calendar.unknowns.some((u) => !u.onCard && u.kind !== "income" && (u.days.length === 0 || u.days.some((d) => d <= last)));
 
-const byDay = (a: BillRow, b: BillRow) =>
+export const byDay = (a: BillRow, b: BillRow) =>
   a.date.localeCompare(b.date) || Number(a.kind === "income") - Number(b.kind === "income") || b.cents - a.cents || a.payee.localeCompare(b.payee);
 
 /**
@@ -257,7 +261,7 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
         const owed = loanBalanceOn(loan, addDays(loan.endDate, -1)).cents;
         if (owed === null) unknowns.push({ days: [loan.endDate], open: false, kind: "loan", onCard: series ? paidElsewhere(series.id) : false });
         // the lump sum is no monthly bill, whatever the cadence of the interest series that pays the loan
-        else if (owed > 0) rows.push(row(loan.endDate, owed, "known", false));
+        else if (owed > 0) rows.push({ ...row(loan.endDate, owed, "known", false), lump: true });
       }
       continue;
     }
@@ -362,5 +366,9 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
     ...rareYearCounted(occurrences, today, balances),
     unknownCount: unknowns.length,
     unknowns,
+    loanSeries: loans.flatMap((loan) => {
+      const s = paying.get(loan.id);
+      return s ? [{ id: s.id, payee: loan.name, onCard: paidElsewhere(s.id), endDate: loan.endDate }] : [];
+    }),
   };
 }
