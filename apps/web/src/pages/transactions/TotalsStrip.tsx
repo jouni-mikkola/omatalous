@@ -7,7 +7,7 @@
  * or Shift with the arrow keys and Enter, limits it to the span; Escape returns to the period before (ADR 0023).
  */
 import { addDays } from "@banking/core";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Figure } from "../../components/Figure.tsx";
 import { Segmented } from "../../components/ui/Segmented.tsx";
 import { date, dateRange, dayHeading, money, monthLong } from "../../format.ts";
@@ -158,8 +158,16 @@ export function TotalsStrip({ totals, income, today, onPick, more }: { totals: T
   }
   // the period before the last pick from the histogram, for Escape (one step back in the history, where the pick is the top entry); it holds only while that pick is the period on show
   const [back, setBack] = useState<Period | null>(null);
+  // the address once the pick is on show: Escape steps back only while it is still the address, else a later filter change would be undone
+  const pickedHash = useRef<string | null>(null);
+  const pickShown = back !== null && span !== null && back.from === span.from && back.to === span.to;
+  useEffect(() => {
+    if (!pickShown) pickedHash.current = null;
+    else if (pickedHash.current === null) pickedHash.current = window.location.hash;
+  }, [pickShown]);
   const pickPeriod = (p: Period) => {
     if (span) setBack(p);
+    pickedHash.current = null;
     onPick(p);
   };
   const inSeries = series === "in";
@@ -180,7 +188,7 @@ export function TotalsStrip({ totals, income, today, onPick, more }: { totals: T
           onChange={setSeries}
         />
       </figcaption>
-      <Histogram key={series} unit={hist.unit} bins={hist.bins} income={inSeries} today={today} last={span?.to ?? today} onPick={pickPeriod} restore={back && span && back.from === span.from && back.to === span.to ? () => window.history.back() : null} />
+      <Histogram key={series} unit={hist.unit} bins={hist.bins} income={inSeries} today={today} last={span?.to ?? today} onPick={pickPeriod} restore={pickShown ? () => { if (window.location.hash === pickedHash.current) window.history.back(); } : null} />
     </figure>
   );
   return (

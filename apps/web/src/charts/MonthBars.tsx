@@ -212,7 +212,7 @@ export function MonthBars({ overview, today, incomePartial }: { overview: Pick<O
             {usual !== null && <UsualLabel innerW={f.innerW} above={TOP} text={t(narrow ? "home.months_usual_short" : "home.months_usual", { sum: answerMoney(usual) })} />}
           </g>
           {/* outside the picture: each month is a link of its own, so a control never sits inside an image */}
-          <g className="mb-links" {...(scope ? dragSpan.handlers : {})}>
+          <g className="mb-links" {...(scope ? dragSpan.handlers : {})} onClick={() => { dragSpan.dragged.current = false; }}>
             {months.map((m, i) => (
               <a
                 key={m.month}

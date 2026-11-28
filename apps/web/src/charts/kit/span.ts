@@ -118,6 +118,8 @@ export function useSpan({ n, indexOf, onSpan, onRelease, live = false, taken = f
   };
   /** The keys of the span; true when the key was one of its own and its default action is stopped. */
   const keys = (e: KeyboardEvent<Element>, at: number, focusAt?: (i: number) => void): boolean => {
+    // a press whose release was missed leaves a span that no key may commit
+    if (down.current !== null) return false;
     const k = spanKey(e.key, e.shiftKey, span, at, n, taken);
     if (!k) return false;
     e.preventDefault();

@@ -109,6 +109,11 @@ describe("a span of the histogram over Tapahtumat", () => {
     const back = vi.spyOn(window.history, "back").mockImplementation(() => undefined);
     fireEvent.keyDown(screen.getByRole("img"), { key: "Escape" });
     expect(back).toHaveBeenCalledOnce();
+    // another filter changed the address after the pick: Escape leaves the history alone
+    window.location.hash = "#/tapahtumat?category=food";
+    fireEvent.keyDown(screen.getByRole("img"), { key: "Escape" });
+    expect(back).toHaveBeenCalledOnce();
     back.mockRestore();
+    window.location.hash = "";
   });
 });
