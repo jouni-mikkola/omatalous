@@ -80,7 +80,7 @@ const CASES: Record<string, { bad: string[]; ok: string[] }> = {
     ok: ["Muutokset kuukaudesta", "Mitä nämä ovat: {name}", "Mikä muuttui? Katso erittely.", "Mikään ei muuttunut"],
   },
   "Abbreviated count": {
-    bad: ["Arvioitu kulutus 12 pv", "Laskut, 3 kpl", "20 t€", "{days} pv:"],
+    bad: ["Arvioitu kulutus 12 pv", "Laskut, 3 kpl", "{days} pv:"],
     ok: ["Arvioitu kulutus 12 päivältä", "3 laskua", "21 000 €", "Alin saldo päivässä", "tod.pv/360", "kplä"],
   },
   "Question heading": {
