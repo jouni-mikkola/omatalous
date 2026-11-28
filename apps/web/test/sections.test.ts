@@ -9,7 +9,7 @@ import type { ReportContext } from "../src/pages/reports/types.ts";
 const context = (data: Record<string, unknown>, accounts: unknown[] = []): ReportContext => ({ data, meta: { today: "2026-10-11", accounts }, range: { from: "2026-08-01", to: "2026-08-31" }, exportHref: () => "/export.csv" }) as unknown as ReportContext;
 
 /** The sections that stay (docs/design/README.md, section 2). */
-const SECTION_IDS = ["kategoriat", "lainat", "mika-muuttui", "osittain", "rahan-kulku", "saldot", "tulot", "tulot-ja-menot", "vuodet", "yhteiset-menot"];
+const SECTION_IDS = ["kategoriat", "lainat", "mika-muuttui", "osittain", "rahan-kulku", "saldot", "tulot-ja-menot", "vuodet", "yhteiset-menot"];
 const plain = (out: string) => out.replace(/[\u00a0\u202f]/g, " ");
 
 describe("Raportit > Menot kategorioittain: the tiles the page opens with", () => {
