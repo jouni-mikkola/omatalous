@@ -10,9 +10,9 @@
 .auth-card > .muted { text-align: center; }
 /* a block of its own: .field is styled in settings.css, which the sign-in page has not loaded, and an inline label drops its margin; the choice is quiet: no edge until the pointer is on it */
 .auth-language { display: flex; justify-content: center; margin-top: var(--sp-16); }
-.auth-language select { min-height: var(--tap-floor); padding: 0 var(--sp-4); border-color: transparent; background: transparent; color: var(--text-2); font-size: var(--fs-label); }
+.auth-language select { min-height: var(--tap-floor); padding: 0 var(--sp-4); border-color: transparent; background: transparent; color: var(--text-2); font-size: var(--fs-small); }
 .auth-language select:hover { border-color: var(--control-edge-hover); }
-.auth-foot { margin: 0; color: var(--muted); font-size: var(--fs-label); line-height: var(--lh-label); }
+.auth-foot { margin: 0; color: var(--muted); font-size: var(--fs-small); line-height: var(--lh-small); }
 .auth-title { font-size: var(--fs-fig-m); line-height: 28px; margin: 0 0 4px; font-weight: 600; letter-spacing: 0; text-align: center; }
 .auth-form { display: flex; flex-direction: column; gap: 12px; margin-top: var(--sp-16); }
 .auth-form label { display: flex; flex-direction: column; gap: 4px; color: var(--text-2); font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; }

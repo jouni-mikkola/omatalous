@@ -10,7 +10,7 @@ html, body { margin: 0; }
 /* Names a few sheets took while the look had four sizes: each is a size of the 1.0.0 scale (design/tokens.json). */
 @layer tokens {
 html {
-  --fs-small: var(--fs-label); --lh-small: var(--lh-label); --fs-title: var(--fs-fig-m); --lh-title: var(--lh-fig-m);
+  --fs-title: var(--fs-fig-m); --lh-title: var(--lh-fig-m);
 }
 }
 
@@ -65,7 +65,7 @@ table { font-variant-numeric: tabular-nums lining-nums; }
 .filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0 16px; }
 /* the switch is a track; the chosen key takes the page's colour and carries a 2 px accent foot */
 .segmented { display: inline-flex; flex-wrap: wrap; padding: 2px; border: 1px solid var(--border); border-radius: calc(var(--radius-pill) + 1px); background: var(--surface-2); }
-.segmented button { min-height: calc(var(--control-h) - 8px); padding: 0 12px; border: 0; border-radius: calc(var(--radius-pill) - 1px); background: none; color: var(--text-2); font-size: var(--fs-body); font-weight: 600; cursor: pointer; }
+.segmented button { min-height: calc(var(--control-h) - 8px); padding: 0 12px; border: 0; border-radius: calc(var(--radius-pill) - 1px); background: none; color: var(--text-2); font-size: var(--fs-small); font-weight: 600; cursor: pointer; }
 .segmented button:hover { color: var(--text); }
 .segmented button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: inset 0 -2px 0 var(--accent); }
 /* tabs: views of one subject (buttons) or targets of one page (links); the chosen one carries the 2 px accent foot */
@@ -98,7 +98,7 @@ input[type="checkbox"], input[type="radio"], progress { accent-color: var(--fill
 @media (max-width: 640px), (pointer: coarse) { input[type="checkbox"], input[type="radio"] { inline-size: var(--tap-floor); block-size: var(--tap-floor); flex: none; } }
 @media (pointer: coarse) { input, select, textarea { font-size: var(--fs-input); } }
 .field-label { font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; color: var(--text-2); }
-.field-help { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.field-help { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); }
 
 .grid { display: grid; gap: 16px; }
 .two { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); }
@@ -134,7 +134,7 @@ details:not(.user-menu) > summary::before { content: ""; display: inline-block; 
 details[open]:not(.user-menu) > summary::before { transform: rotate(45deg); }
 details > summary.card-head { justify-content: flex-start; }
 .card h2 { margin: 0; font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text); }
-.card-sub { margin-top: 2px; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); letter-spacing: 0; text-transform: none; }
+.card-sub { margin-top: 2px; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); letter-spacing: 0; text-transform: none; }
 .section-nested { margin-top: var(--sp-16); padding-top: var(--sp-16); border-top: 1px solid var(--border); }
 .loading { opacity: 0.6; transition: opacity var(--t-state) var(--ease-out); }
 
@@ -158,7 +158,7 @@ td.better { color: var(--good); }
 @media (pointer: coarse) { .st-row:has(a, button) { padding-top: 12px; padding-bottom: 12px; } }
 
 
-.badge { display: inline-block; margin-left: 8px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--surface); color: var(--text-2); font-size: var(--fs-label); line-height: 18px; white-space: nowrap; }
+.badge { display: inline-block; margin-left: 8px; padding: 0 8px; border: 1px solid var(--border); border-radius: var(--radius-s); background: var(--surface); color: var(--text-2); font-size: var(--fs-small); line-height: 18px; white-space: nowrap; }
 .badge.flush { margin-left: 0; }
 .badge.warn { background: var(--warn-bg); color: var(--text); }
 .badge.good { background: var(--good-bg); color: var(--text); }
@@ -184,10 +184,10 @@ td.better { color: var(--good); }
 .form-row.pull { margin-top: calc(var(--sp-8) * -1); }
 .muted { color: var(--muted); }
 .lead { margin: 0 0 12px; max-width: 62ch; }
-.small { font-size: var(--fs-label); }
-code { background: var(--surface-2); padding: 1px 4px; border-radius: var(--radius-s); font-size: var(--fs-label); }
+.small { font-size: var(--fs-small); }
+code { background: var(--surface-2); padding: 1px 4px; border-radius: var(--radius-s); font-size: var(--fs-small); }
 
-textarea { font: inherit; color: inherit; width: 100%; min-height: 120px; padding: 8px 8px; font-family: var(--font-code); font-size: var(--fs-label); }
+textarea { font: inherit; color: inherit; width: 100%; min-height: 120px; padding: 8px 8px; font-family: var(--font-code); font-size: var(--fs-small); }
 
 a.btn:not(.btn-link) { display: inline-flex; align-items: center; text-decoration: none; color: inherit; }
 a.btn-primary { color: var(--on-fill); }
@@ -211,7 +211,7 @@ a.btn-primary { color: var(--on-fill); }
 /* the first run's steps in their order: a number in a ring, a tick once done, the next one in full ink and a heavier ring */
 .empty-steps { margin: 0; padding: 0; list-style: none; counter-reset: step; display: grid; gap: var(--sp-8); text-align: left; font-size: var(--fs-body); color: var(--text-2); }
 .empty-steps li { counter-increment: step; display: flex; align-items: center; gap: var(--sp-8); }
-.empty-steps li::before { content: counter(step) / ""; flex: none; display: grid; place-items: center; inline-size: 24px; block-size: 24px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--axis); font-size: var(--fs-label); font-variant-numeric: tabular-nums; }
+.empty-steps li::before { content: counter(step) / ""; flex: none; display: grid; place-items: center; inline-size: 24px; block-size: 24px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--axis); font-size: var(--fs-small); font-variant-numeric: tabular-nums; }
 .empty-steps li.done::before { content: "✓" / ""; background: var(--good); box-shadow: none; color: var(--surface); }
 .empty-steps li[aria-current="step"] { color: var(--text); font-weight: 600; }
 .empty-steps li[aria-current="step"]::before { box-shadow: inset 0 0 0 2px var(--accent); }
@@ -239,7 +239,7 @@ a.btn-primary { color: var(--on-fill); }
 /* the display size, 3.25 rem, is for one number: the first figure of a page, the answer it was opened for (Yhteenveto's sum left on the payday) */
 .key-figures > .kf:first-child .fig-l, .home-now .fig-l { font-size: var(--fs-display); line-height: var(--lh-display); }
 .kf-label { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); }
-.kf-sub { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); font-variant-numeric: tabular-nums lining-nums; }
+.kf-sub { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--muted); font-variant-numeric: tabular-nums lining-nums; }
 @media (max-width: 640px) {
   .key-figures { grid-template-columns: 1fr 1fr; }
   .kf { padding: var(--sp-12) var(--sp-12) var(--sp-8) 0; }

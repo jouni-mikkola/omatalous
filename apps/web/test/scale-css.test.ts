@@ -59,11 +59,11 @@ describe("the type scale and the spacing step in every stylesheet", () => {
     expect(found).toEqual([]);
   });
 
-  it("has five sizes in the scale, 12, 14, 16, 20 and 32 px, and the display size of 3.25 rem for the answer number only", () => {
+  it("has six sizes in the scale, 12, 14, 16, 20, 24 and 32 px, and the display size of 3.25 rem for the answer number only", () => {
     const tokens = readFileSync(new URL("../src/styles/tokens.css", import.meta.url), "utf8");
     // the sizes are in rem, so the browser's font size scales them: 1 rem is 16 px at the default
     const sizes = [...new Set([...tokens.matchAll(/--fs-(?!display)[a-z0-9-]+:\s*([\d.]+)rem/g)].map((m) => Number(m[1]) * 16))].sort((a, b) => a - b);
-    expect(sizes).toEqual([12, 14, 16, 20, 32]);
+    expect(sizes).toEqual([12, 14, 16, 20, 24, 32]);
     expect(/--fs-display:\s*([^;]+);/.exec(tokens)?.[1]).toBe("3.25rem");
     const users = sheets().flatMap(([f, css]) => (css.includes("var(--fs-display)") ? [f] : []));
     expect(users, "the display size stands in one place, the answer number").toHaveLength(1);
@@ -109,7 +109,7 @@ describe("the row arrow of the tables", () => {
 describe("the head of a table in a window under 640 px with a mouse", () => {
   it("takes back the sort button's extra height, so the second sticky head row sits under the first", () => {
     const css = readFileSync(new URL("../src/styles/table.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-    expect(css).toMatch(/@media \(max-width: 640px\) and \(not \(pointer: coarse\)\) \{ \.rt thead :is\(th, td\) :is\(a\[href\], button\) \{ margin-block: min\(0px, calc\(\(var\(--lh-label\) - var\(--tap-floor\)\) \/ 2\)\); \} \}/);
+    expect(css).toMatch(/@media \(max-width: 640px\) and \(not \(pointer: coarse\)\) \{ \.rt thead :is\(th, td\) :is\(a\[href\], button\) \{ margin-block: min\(0px, calc\(\(var\(--lh-small\) - var\(--tap-floor\)\) \/ 2\)\); \} \}/);
   });
 });
 

@@ -15,13 +15,13 @@
 .st-name { flex: 1 1 0; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .st-num { flex: none; margin: 0; text-align: right; font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
 .st-strong { font-weight: 600; }
-/* the 12 px line under a name, in the row's own width */
-.st-sub { flex: 0 0 100%; margin: 0; font-size: var(--fs-label); line-height: 16px; color: var(--text-2); }
+/* the 14 px line under a name, in the row's own width */
+.st-sub { flex: 0 0 100%; margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); }
 /* a total: 600 and the axis above it, which takes the place of the row's hairline above */
 .st-total { font-weight: 600; border-top: 1px solid var(--axis); }
 .st-row:has(+ .st-total) { border-bottom: 0; }
-/* the 12 px line under a table or a group */
-.st-note { margin: 12px 0 0; font-size: var(--fs-label); line-height: 16px; color: var(--text-2); }
+/* the 14 px line under a table or a group */
+.st-note { margin: 12px 0 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); }
 /* h3 of a group */
 .st-cap { margin: 0 0 4px; font-size: var(--fs-body); line-height: var(--lh-body); font-weight: 600; color: var(--text); }
 .st-links { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 12px 0 0; }

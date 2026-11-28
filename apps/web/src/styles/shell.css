@@ -33,7 +33,7 @@
 }
 .nav { display: flex; gap: 0; }
 .nav-icon { display: none; }
-.nav a, .review-link { display: inline-flex; align-items: center; height: var(--rail-h); padding: 0 var(--sp-12); color: var(--on-ink-2); font-size: var(--fs-body); font-weight: 600; text-decoration: none; }
+.nav a, .review-link { display: inline-flex; align-items: center; height: var(--rail-h); padding: 0 var(--sp-12); color: var(--on-ink-2); font-size: var(--fs-small); font-weight: 600; text-decoration: none; }
 /* one row up to 1299 px holds the page of an add-on module beside the view switch and a long name: the links sit closer */
 @media (min-width: 990px) and (max-width: 1299px) { .nav a, .review-link { padding: 0 var(--sp-8); } }
 /* and the items stand closer: at 1100 px the page of an add-on module, the view switch and the review count need the 12 px less a gap */
@@ -51,6 +51,9 @@
 .topbar .segmented button:hover { color: var(--on-ink); }
 .topbar .segmented button[aria-pressed="true"] { background: var(--on-ink); color: var(--ink); }
 .scope-toggle { margin-left: 4px; }
+/* the header is chrome that must stay on one row at 320 px: it keeps the secondary size */
+.topbar :is(.segmented button, .user-menu) { font-size: var(--fs-small); }
+.topbar .brand { font-size: var(--fs-body); }
 /* 40 px keys: with the track around them the switch is 46 px, inside the 48 px bar */
 .topbar .scope-toggle button { min-block-size: calc(var(--tap-min) - var(--sp-4)); }
 

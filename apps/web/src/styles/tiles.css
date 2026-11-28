@@ -10,7 +10,7 @@
 .strip-figure { display: flex; align-items: baseline; flex-wrap: wrap; gap: var(--sp-8); }
 .strip-figure.good .fig, .strip-figure.good .fig-unit { color: var(--good); }
 .strip-figure.bad .fig, .strip-figure.bad .fig-unit { color: var(--bad); }
-.strip-delta { padding: 0 var(--sp-8); border-radius: var(--radius-s); font-size: var(--fs-label); }
+.strip-delta { padding: 0 var(--sp-8); border-radius: var(--radius-s); font-size: var(--fs-small); }
 .strip-delta.good { color: var(--good); background: var(--good-bg); }
 .strip-delta.bad { color: var(--bad); background: var(--bad-bg); }
 @media (max-width: 640px) {

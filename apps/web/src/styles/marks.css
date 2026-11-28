@@ -41,7 +41,7 @@ details.card[open] > summary.card-head { margin-bottom: var(--sp-12); }
 
 /* M4 the sheet foot: drawn only for the sentence of a fetch that is running or held back, in the secondary text colour */
 .sheet-foot { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: var(--sp-4) var(--sp-24); margin-top: var(--sp-48); padding-top: var(--sp-8); border-top: 1px solid var(--border);
-  font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); font-variant-numeric: tabular-nums lining-nums; }
+  font-size: var(--fs-small); line-height: var(--lh-small); color: var(--muted); font-variant-numeric: tabular-nums lining-nums; }
 
 .sheet-foot:empty { display: none; }
 .sheet-foot [aria-live] { color: var(--text-2); }

@@ -1,11 +1,11 @@
 /* Spending of Raportit (pages/reports/pages/Spending.tsx): the styles of its own sections, which no other page reads. */
 @layer pages {
-.heat-table td.num { font-size: var(--fs-label); padding: var(--sp-4) var(--sp-8); }
-.heat-table th { font-size: var(--fs-label); padding: var(--sp-4) var(--sp-8); }
+.heat-table td.num { font-size: var(--fs-small); padding: var(--sp-4) var(--sp-8); }
+.heat-table th { font-size: var(--fs-small); padding: var(--sp-4) var(--sp-8); }
 .heat-table td.cell { border-radius: 0; }
 
 /* CP1's split of a rise: one line of two parts, each an estimate that opens its basis under the line */
-.price-parts { margin-top: var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.price-parts { margin-top: var(--sp-8); font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); }
 .price-line { margin: 0; }
 .price-name { color: var(--text-2); }
 .price-fig { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }

@@ -30,7 +30,7 @@
 }
 
 /* what Suodata opens */
-.tx-fgroup { padding: var(--sp-8) var(--sp-8) var(--sp-4); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); letter-spacing: var(--track-name); color: var(--text-2); }
+.tx-fgroup { padding: var(--sp-8) var(--sp-8) var(--sp-4); font-size: var(--fs-small); line-height: var(--lh-small); font-weight: var(--w-strong); letter-spacing: var(--track-name); color: var(--text-2); }
 .tx-frow, .tx-fback { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: var(--sp-8); inline-size: 100%; min-height: var(--control-h); padding: 0 var(--sp-8); border-radius: var(--radius-s); font-size: var(--fs-body); cursor: pointer; }
 .tx-frow:hover, .tx-fback:hover { background: var(--row-hover); }
 .tx-frow:focus-visible, .tx-fback:focus-visible { outline: var(--ring) solid var(--accent); outline-offset: calc(-1 * var(--ring)); }

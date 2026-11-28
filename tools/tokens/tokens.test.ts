@@ -44,14 +44,14 @@ describe("pnpm tokens", () => {
     expect(css).toContain("color-scheme: light;");
   });
 
-  it("holds at most two shadows, and the type scale of 12, 14, 16, 20, 32 and one display size", () => {
+  it("holds at most two shadows, and the type scale of 12, 14, 16, 20, 24, 32 and one display size", () => {
     const tokens = readTokens(JSON.parse(readFileSync(join(ROOT, SOURCE), "utf8")));
     expect(tokens.filter((t) => t.type === "shadow").length).toBeLessThanOrEqual(2);
     // every size is in rem, so the browser's own font size scales the page; 1 rem is 16 px at the default
     const sizes = tokens.filter((t) => t.key.startsWith("fs-") && t.type === "dimension").map((t) => JSON.stringify(t.value));
     expect(sizes.filter((v) => !v.includes("rem"))).toEqual([]);
-    const px = tokens.filter((t) => /^fs-(label|body|h2|fig-m|fig-l)$/.test(t.key)).map((t) => plainNumber(t.value));
-    expect(px).toEqual([12, 14, 16, 20, 32]);
+    const px = tokens.filter((t) => /^fs-(label|small|body|h2|fig-m|fig-l)$/.test(t.key)).map((t) => plainNumber(t.value));
+    expect(px).toEqual([12, 14, 16, 20, 24, 32]);
     expect(tokens.find((t) => t.key === "fs-display")?.value).toEqual({ value: 3.25, unit: "rem" });
   });
 });

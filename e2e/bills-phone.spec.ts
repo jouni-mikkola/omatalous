@@ -19,7 +19,7 @@ for (const { width, scale } of [{ width: 390, scale: 100 }, { width: 390, scale:
     await expect(rows.first()).toBeVisible();
     if (scale !== 100) {
       await page.addStyleTag({ content: `html { font-size: ${scale}%; }` });
-      expect(await page.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize))).toBeCloseTo((14 * scale) / 100, 1);
+      expect(await page.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize))).toBeCloseTo((16 * scale) / 100, 1);
     }
     // one month starts open; on a phone each closed month's head is one line: its name and one figure, a target of a finger's size
     await expect(page.locator("#laskut-taulukko .bill-month[aria-expanded=true]")).toHaveCount(1);

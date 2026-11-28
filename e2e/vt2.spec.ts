@@ -18,14 +18,14 @@ async function open(browser: Browser, path: string, width = 1280, height = 900) 
 const rows = (page: Page) => page.locator("table.tx-table tbody tr:not(.rt-group):not(.rt-detail):not(.rt-spacer)");
 const heights = (page: Page, n: number) => rows(page).evaluateAll((els, n) => els.slice(0, n).map((el) => Math.round(el.getBoundingClientRect().height)), n);
 
-test("a row is one line of 33 px, a day's row about 25 px", async ({ browser }) => {
+test("a row is one line of 33 px, a day's row about 29 px", async ({ browser }) => {
   const { context, page, seen } = await open(browser, "/#/transactions?period=all");
   await expect(rows(page).first()).toBeVisible();
   // a linked document (private build) or a joint part adds a line; the plain rows of the demo are one line each
   const roomy = await heights(page, 20);
   expect(roomy.filter((h) => Math.abs(h - 33) <= 1.5).length, `heights ${roomy.join(", ")}`).toBeGreaterThanOrEqual(18);
   const groups = await page.locator("table.tx-table tr.rt-group").evaluateAll((els) => els.slice(0, 3).map((el) => Math.round(el.getBoundingClientRect().height)));
-  expect(groups.every((h) => h >= 23 && h <= 27), `day rows ${groups.join(", ")}`).toBe(true);
+  expect(groups.every((h) => h >= 23 && h <= 30), `day rows ${groups.join(", ")}`).toBe(true);
   // the density has no switch
   await expect(page.getByRole("group", { name: "Rivien tiheys" })).toHaveCount(0);
   expect(await overflow(page)).toBe(0);

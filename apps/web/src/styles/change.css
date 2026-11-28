@@ -5,7 +5,7 @@
 .change-bars { display: grid; gap: 8px; }
 .change-bar { display: grid; grid-template-columns: minmax(110px, 1.3fr) 3fr minmax(64px, auto); gap: 8px; align-items: center; font-size: var(--fs-body); }
 .change-bar .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.change-cause { display: block; color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
+.change-cause { display: block; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
 /* one axis: zero is the middle line, more spending grows to the right and less to the left */
 .change-track { position: relative; height: var(--bar-h); background: var(--surface-2); }
 .change-track::after { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; border-left: 1px solid var(--text-2); }

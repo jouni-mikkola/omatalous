@@ -2,7 +2,7 @@
 
 @layer components {
 /* The line above a monthly chart: the month and each series with its colour and sum, in place of a legend. */
-.readout-line { display: flex; flex-wrap: wrap; align-items: baseline; align-content: center; gap: var(--sp-4) var(--sp-16); min-block-size: var(--row-h-roomy); margin-block-end: var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.readout-line { display: flex; flex-wrap: wrap; align-items: baseline; align-content: center; gap: var(--sp-4) var(--sp-16); min-block-size: var(--row-h-roomy); margin-block-end: var(--sp-8); font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); }
 .readout-title { font-weight: var(--w-strong); color: var(--text); }
 .readout-part { display: inline-flex; align-items: baseline; gap: var(--sp-8); }
 .readout-part .swatch, .readout-part .ms-key, .readout-part .mb-key-income, .readout-part .mb-key-spend { align-self: center; }
@@ -43,7 +43,7 @@
 .tooltip {
   position: absolute; pointer-events: none; z-index: var(--z-pop); min-width: 150px; max-width: 260px;
   background: var(--surface); border: 1px solid var(--pop-edge); border-radius: 10px; padding: 8px 8px;
-  box-shadow: var(--pop-shadow); font-size: var(--fs-label); line-height: var(--lh-label);
+  box-shadow: var(--pop-shadow); font-size: var(--fs-small); line-height: var(--lh-small);
 }
 .tooltip-title { color: var(--text); font-weight: 600; margin-bottom: 4px; }
 .tooltip-row { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
@@ -85,10 +85,10 @@
 .calendar-legend .calendar-legend-ring { margin-left: 12px; }
 .calendar-legend .calendar-ring-key { background: none; border: 1.5px solid var(--text); }
 .chart-answer { margin: 0 0 2px; font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); font-weight: 600; color: var(--text); }
-.chart-note { margin: 0 0 8px; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
-.calendar-notes { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: var(--fs-label); color: var(--text-2); }
+.chart-note { margin: 0 0 8px; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--muted); }
+.calendar-notes { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: var(--fs-small); color: var(--text-2); }
 .calendar-notes li { display: inline-flex; align-items: center; gap: 8px; }
-.calendar-notes .badge-n { display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: var(--radius-s); background: var(--text); color: var(--surface); font-size: var(--fs-label); font-weight: var(--w-strong); }
+.calendar-notes .badge-n { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: var(--radius-s); background: var(--text); color: var(--surface); font-size: var(--fs-small); font-weight: var(--w-strong); }
 .calendar-notes b { color: var(--text); font-variant-numeric: tabular-nums lining-nums; }
 
 /* the slope: grey context lines, the marked rows running from the grey of the past into the colour of their change */

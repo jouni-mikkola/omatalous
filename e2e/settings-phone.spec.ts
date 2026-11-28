@@ -23,8 +23,8 @@ for (const scale of [100, 200]) {
       await expect(page.getByText("Ladataan…")).toHaveCount(0, { timeout: 15_000 });
       await expect(page.locator(".loading")).toHaveCount(0, { timeout: 15_000 });
       await page.addStyleTag({ content: `html { font-size: ${scale}%; }` });
-      // the body is 14 px at the default size: the rem tokens follow the root
-      expect(await page.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize))).toBeCloseTo((14 * scale) / 100, 1);
+      // the body is 16 px at the default size: the rem tokens follow the root
+      expect(await page.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize))).toBeCloseTo((16 * scale) / 100, 1);
       problems.push(...(await auditTables(page, 390, true)).map((p) => `${id}: ${p}`));
     }
     expect(problems).toEqual([]);
@@ -61,8 +61,8 @@ test("the top pages, 390 px with a finger and text at 200 %: nothing scrolls sid
     await page.waitForLoadState("networkidle");
     await expect(page.locator("main .loading, main .skel")).toHaveCount(0, { timeout: 15_000 });
     await page.addStyleTag({ content: "html { font-size: 200%; }" });
-    // the body is 14 px at the default size: at 200 % the rem tokens have doubled it
-    expect(await page.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize)), id).toBeCloseTo(28, 1);
+    // the body is 16 px at the default size: at 200 % the rem tokens have doubled it
+    expect(await page.evaluate(() => parseFloat(getComputedStyle(document.body).fontSize)), id).toBeCloseTo(32, 1);
     problems.push(...(await auditTables(page, 390, true)).map((p) => `${id}: ${p}`));
   }
   expect(problems).toEqual([]);

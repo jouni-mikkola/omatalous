@@ -23,7 +23,7 @@
 .chart .slope-flat-text { fill: var(--text-2); }
 .chart .slope-figure { font-variant-numeric: tabular-nums lining-nums; }
 .slope-chart g[role="group"] { outline: none; }
-.calendar-cut { margin: 4px 0 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
+.calendar-cut { margin: 4px 0 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--muted); }
 /* a day with no shade is a hairline square, so it never reads as more than the first step */
 .calendar .calendar-day.heat-0 { fill: transparent; stroke: var(--grid); stroke-width: 1; }
 }

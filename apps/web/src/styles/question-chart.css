@@ -41,18 +41,18 @@
 @media (min-width: 900px) { .sm-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .sm-tile { min-width: 0; border-top: 1px solid var(--grid); padding-top: 8px; }
 .sm-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.sm-name { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sm-name { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sm-fig { font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums lining-nums; }
-.sm-sub { display: flex; gap: 8px; align-items: center; min-height: 22px; font-size: var(--fs-label); color: var(--text-2); }
+.sm-sub { display: flex; gap: 8px; align-items: center; min-height: 22px; font-size: var(--fs-small); color: var(--text-2); }
 /* magnitude is sequential: the heat ladder, validated per look (VD0) */
 .chart .sm-col { fill: var(--heat-2); }
 .chart .sm-col.sm-on { fill: var(--heat-3); }
 .chart .sm-col.sm-peak { fill: var(--heat-4); }
 .chart .sm-peak-label { fill: var(--text); font-weight: 600; }
-.sm-scale { font-size: var(--fs-label); color: var(--text-2); margin: 8px 0 0; }
+.sm-scale { font-size: var(--fs-small); color: var(--text-2); margin: 8px 0 0; }
 
 /* the use of each month's income as one bar per row, on one scale for the table */
-.use-key { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: var(--fs-label); color: var(--text-2); margin: 0 0 8px; }
+.use-key { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: var(--fs-small); color: var(--text-2); margin: 0 0 8px; }
 .use-key span { display: inline-flex; align-items: center; gap: 8px; }
 .use-bar { position: relative; display: flex; height: 12px; gap: 2px; align-items: stretch; min-width: 120px; }
 .use-bar i { display: block; border-radius: var(--radius-pill); min-width: 0; }
@@ -75,7 +75,7 @@
 .chart .bs-ground { fill: var(--estimate-fill); fill-opacity: 0.5; }
 .chart .bs-kind { font-weight: 600; letter-spacing: var(--track-name); }
 
-.qc-cap { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text); font-weight: 600; margin: 0 0 4px; }
+.qc-cap { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text); font-weight: 600; margin: 0 0 4px; }
 
 /* marks.css sets the head's flex in the utilities layer, so this rule stands in it too to be read after it */
 @layer utilities {

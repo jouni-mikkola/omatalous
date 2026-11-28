@@ -4,7 +4,7 @@
 
 @layer pages {
 .home-fig-label { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); }
-.home-fig-line { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.home-fig-line { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); }
 .home-short .fig { color: var(--bad); }
 
 /* what is left to the payday; its parts open behind the figure */
@@ -22,9 +22,9 @@
 .home-rows dt { min-inline-size: 0; color: var(--text-2); }
 .home-rows dt a { color: inherit; display: inline-flex; align-items: center; min-block-size: var(--tap-min); }
 .home-rows dd { margin: 0; text-align: end; white-space: nowrap; font-weight: var(--w-strong); }
-.home-row-note { display: block; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-regular); color: var(--text-2); }
+.home-row-note { display: block; font-size: var(--fs-small); line-height: var(--lh-small); font-weight: var(--w-regular); color: var(--text-2); }
 .home-rows [data-row=left] dt { font-weight: var(--w-strong); color: var(--text); }
-.home-later-cards { margin: 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.home-later-cards { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); }
 /* the page's question is its first heading (an h2, named by the section): heading size and weight, in the text colour, the figure under it */
 .home-now .home-fig-label { margin-block-end: var(--sp-4); font-size: var(--fs-h2); font-weight: var(--w-strong); color: var(--text); }
 a.home-left:hover .fig-l { text-decoration: underline; }

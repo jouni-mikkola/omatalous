@@ -10,7 +10,7 @@
 .wizard-steps li { display: inline-flex; align-items: center; gap: 8px; }
 .wizard-steps li[aria-current="step"] { color: var(--text); font-weight: 600; }
 .wizard-steps li.done { color: var(--text-2); }
-.step-no { width: 22px; height: 22px; border-radius: var(--radius-s); display: inline-grid; place-items: center; font-size: var(--fs-label); font-weight: 600; background: var(--surface-2); border: 1px solid var(--border); box-sizing: border-box; font-variant-numeric: tabular-nums lining-nums; }
+.step-no { width: 22px; height: 22px; border-radius: var(--radius-s); display: inline-grid; place-items: center; font-size: var(--fs-small); font-weight: 600; background: var(--surface-2); border: 1px solid var(--border); box-sizing: border-box; font-variant-numeric: tabular-nums lining-nums; }
 .wizard-steps li[aria-current="step"] .step-no { background: var(--fill); border-color: var(--fill); color: var(--on-fill); }
 .wizard-steps li.done .step-no { background: var(--good-bg); border-color: var(--good-bg); color: var(--good); }
 .wizard .auth-title { margin-top: 0; }

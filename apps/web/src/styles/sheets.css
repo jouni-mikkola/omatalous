@@ -1,6 +1,6 @@
 /* The tax-year sheet of Asetukset > Tiedot: the print look. Printing hides the page but the sheet that asked (components/SheetActions.tsx marks it). */
 @layer pages {
-.sheet-part { margin-block: var(--sp-16) var(--sp-8); font-size: var(--fs-label); }
+.sheet-part { margin-block: var(--sp-16) var(--sp-8); font-size: var(--fs-small); }
 .sheet-year { margin-block-end: var(--sp-8); }
 @media print {
   html.printing-sheet body * { visibility: hidden; }
