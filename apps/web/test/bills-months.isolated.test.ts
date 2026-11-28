@@ -28,6 +28,6 @@ describe("Laskut: the picture of the months", () => {
 
   it("tells the dearest month under the heading when there is one", () => {
     reports = answer(calendar([month("2026-10", [bill()], { billsCents: 6420, wholeBillsCents: 6420 }), month("2026-11", [])], { dearest: { month: "2026-10", billsCents: 6420 } }));
-    expect(html()).toContain("Kallein kuukausi on lokakuu, 64,20");
+    expect(html()).toMatch(/Kallein kuukausi on lokakuu, 64\s€/);
   });
 });
