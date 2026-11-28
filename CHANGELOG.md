@@ -3,6 +3,35 @@
 Update with `./scripts/update.sh`, go back with `./scripts/update.sh --rollback`. Database changes run on
 start, after a copy is taken.
 
+## 1.8.7
+
+- A new look: a new mark, a tab bar with icons on phones and a calmer sign-in page.
+- Tulot ja menot shows where the money came from and where it went in one picture.
+- A bill can be filled from its pasted bank barcode.
+- Loans that lack a balance are asked in one form on the review page.
+
+Money and reports
+
+- A bill can be filled from its pasted bank barcode (versions 4 and 5): the amount and due date are read, the name is typed. A wrong paste says what failed.
+- The Menot figures of Tulot ja menot and Menot kategorioittain open the parts they add up and explain their difference.
+- Jää palkkapäivänä and Alin saldo on Yhteenveto expect everyday spending to the payday at the base months' daily pace.
+- Loans that lack a balance are asked in one form on the review page, one Tallenna for all. The debt tile shows the gap to the loans' balances.
+- Tulot ja menot has one picture of where the money came from (income, savings, credit) and where it went (consumption, debt service, savings), equal in total; it replaces the income months chart.
+- Tulot ja menot names its window once and drops the restated gap; Menot kategorioittain has three tiles.
+
+Look
+
+- A new mark, three rising bars inside a house outline, in the header, on the sign-in page, as the favicon and as the app icon.
+- On a phone the bottom bar has an icon above each page name and a mark in the accent colour on the open page, and the top band shows the mark.
+- The sign-in page is a card with the mark above the title, a quieter language choice and the version below.
+- The page extends to the screen's edges on phones with a notch or a home indicator, and keeps clear of both, also in landscape.
+- Tarkistettavat uses one divider width and Ohita stands in line with the choices; a person's payee shows initials instead of a grey figure.
+- The first-run page and empty lists show a small line drawing.
+- Yhteenveto shows the month as one small row and the accounts and debts as three lines; Tulojen käyttö is gone.
+- Laskut has three cards of one look, no pays among the bills, and "t€" on every tick of the narrow chart.
+- Dragging across months or histogram bars picks a span that the table and list follow; Escape lets go.
+- Finnish texts write days and bills in words, and errors, empty lists and headings follow one form.
+
 ## 1.8.6
 
 - Yhteenveto leads with one answer card for the sum left on payday.

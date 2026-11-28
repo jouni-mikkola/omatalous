@@ -1,4 +1,0 @@
-- A new look: a new mark, a tab bar with icons on phones and a calmer sign-in page.
-- Tulot ja menot shows where the money came from and where it went in one picture.
-- A bill can be filled from its pasted bank barcode.
-- Loans that lack a balance are asked in one form on the review page.
