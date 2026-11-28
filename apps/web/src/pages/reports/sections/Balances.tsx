@@ -8,14 +8,13 @@ import { FigureRow } from "../holdings/FigureRow.tsx";
 import { Holdings } from "../holdings/Holdings.tsx";
 import { answerMoney, date, money, monthLong, moneyIn, oneDecimal, plural, signedMoney } from "../../../format.ts";
 import { partText } from "../../../part.ts";
-import { LOAN_TERMS_HASH } from "../../../routes.ts";
 import { Tiles, type TileItem } from "../../../components/Tiles.tsx";
 import "../../../styles/statement.css";
 import { BALANCES_ID } from "./ids.ts";
 import type { ReportSection, SectionProps } from "../types.ts";
 import { listsLoans } from "./Loans.tsx";
-import { headAsks, lackingDebts, netLabelOf, showsHead } from "../../../components/net-label.ts";
-import { t, tn } from "../../../text.ts";
+import { lackingDebts, netLabelOf, showsHead } from "../../../components/net-label.ts";
+import { t } from "../../../text.ts";
 
 /**
  * The page's answer in one row, each figure the one of `holdings` under the name its group has below: what the accounts
@@ -30,7 +29,6 @@ export function BalancesTiles({ ctx }: SectionProps) {
   const netLabel = netLabelOf(h);
   // the accounts whose figure is the viewer's part by who paid: the fact is told here, not under each account
   const traced = h.accounts.flatMap((a) => (ctx.meta.accounts.find((m) => m.id === a.id)?.traced ? [a] : []));
-  const asking = h.unsavedLoans?.rows.filter((u) => !u.asked).length ?? 0;
   // the buffer as the balances report serves it; a buffer that is below zero is no length of time and is not told here
   const buffer = ctx.data.balances.bufferMonths !== null && ctx.data.balances.bufferMonths >= 0 ? ctx.data.balances.bufferMonths : null;
   const items: TileItem[] = [
@@ -55,8 +53,8 @@ export function BalancesTiles({ ctx }: SectionProps) {
           }
         : {}),
     },
-    // the gap is one action while a debt is still asked in Tarkistettavat, and a plain count when none is
-    ...(owes ? [{ label: t(lacking > 0 ? "holdings.debts_known" : "holdings.debts_total"), figure: answerMoney(h.debtCents!), ...(lacking > 0 ? { gap: headAsks(ctx.data.balances) ? { text: tn(asking, "holdings.add_balances_one", "holdings.add_balances_many"), href: LOAN_TERMS_HASH } : { text: tn(lacking, "rpt.bal_gap_one", "rpt.bal_gap_many") } } : {}) }] : []),
+    // the gap is told once, by the ask above the tiles (DebtFree)
+    ...(owes ? [{ label: t(lacking > 0 ? "holdings.debts_known" : "holdings.debts_total"), figure: answerMoney(h.debtCents!) }] : []),
     // an unknown total is said, so the row never looks debt-free
     ...(h.debtCents === null ? [{ label: t("holdings.debts_total"), figure: t("bills.after_unknown") }] : []),
     ...(owes && lacking === 0 && h.netCents !== null && netLabel ? [{ label: netLabel, figure: answerMoney(h.netCents) }] : []),

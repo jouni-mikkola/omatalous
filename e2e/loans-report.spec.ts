@@ -163,7 +163,7 @@ test("Lainat lists each debt in one table, says what it does not know and what a
   await expect(section.locator("table.rt tfoot")).toHaveCount(0);
 
   // the page has one link to the list of what is missing
-  await expect(page.locator("main").getByRole("link", { name: /ilman saldoa|Lisää \d+ saldoa?/ })).toHaveAttribute("href", /item=loan-terms/);
+  await expect(page.locator("main").getByRole("link", { name: /Lisää \d+ saldoa?/ })).toHaveAttribute("href", /item=loan-terms/);
 
   // the mortgage's drill: the payment split into its interest and amortisation, and what a point of the reference rate does
   const cost = cents(plain(await rows.nth(0).locator("td").last().innerText()));

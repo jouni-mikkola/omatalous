@@ -7,7 +7,7 @@
  */
 import { belowWhole, consolidationCost, type Loan, loanBalanceOn, loanPaymentAfter, loanRateLine, type LoanRow, loanSchedule, type LoansReport, loansOf, loanWhatIf, type LoanUnknown, NO_INPUTS, THRESHOLDS } from "@banking/core";
 import { useId, useMemo, useState } from "react";
-import { date, eurosText, money, parseEuros, parseRate, percent, plainNumber } from "../../format.ts";
+import { date, eurosText, money, monthYear, parseEuros, parseRate, percent, plainNumber } from "../../format.ts";
 import { useApi } from "../../hooks.ts";
 import { t } from "../../text.ts";
 import type { LoansAnswer } from "../../types.ts";
@@ -34,9 +34,6 @@ function missing(field: LoanUnknown | "fee"): string {
       return t("rpt.ln_wi_missing_other");
   }
 }
-
-/** "3/2041": the month a loan ends in. */
-const monthYear = (day: string) => `${Number(day.slice(5, 7))}/${day.slice(0, 4)}`;
 
 /** "4 v 2 kk": a span of whole months. */
 function span(months: number): string {
