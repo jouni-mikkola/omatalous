@@ -120,7 +120,13 @@ test("empty account: the overview offers the demo data and the demo loads", asyn
         await page.waitForLoadState("networkidle");
         // a page that rendered nothing but its frame is a failure too
         // (polled: a page may draw its frame a moment before its rows arrive)
-        await expect.poll(async () => (await page.locator("main, .app").first().innerText()).length, { message: `${id} is empty` }).toBeGreaterThan(200);
+        if (id === "overview") {
+          // the overview is short on purpose: its content is the payday figure and the balance block
+          await expect(page.locator(".home-now [data-tile=left] .fig"), "overview has no payday figure").toContainText(/€/);
+          await expect(page.locator(".home-days"), "overview has no balance block").toBeVisible();
+        } else {
+          await expect.poll(async () => (await page.locator("main, .app").first().innerText()).length, { message: `${id} is empty` }).toBeGreaterThan(200);
+        }
         expect(await overflow(page), `${id} scrolls sideways at ${viewport.width}px`).toBeLessThanOrEqual(1);
         // no table is wider than the screen, also one that sits in a card that scrolls
         const wide = await page.evaluate(() => Array.from(document.querySelectorAll("table")).filter((t) => t.getBoundingClientRect().width > window.innerWidth + 1).length);
