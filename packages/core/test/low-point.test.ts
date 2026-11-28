@@ -105,9 +105,12 @@ describe("lowPoint with no everyday spending", () => {
   });
 
   it("counts the walk of the payday itself as the headline when the pay is due today", () => {
-    const rows = [...pays("2026-03", "2026-09", 26), ...rents("2026-03", 26)];
-    const { point, runway } = walk(rows, [bal(50_000)], 1);
+    // the rent is booked on the dates of the pay, so it follows the pay and the October one is due today
+    const salary = pays("2026-03", "2026-09", 26);
+    const rent = salary.map((p) => tx({ accountId: own.id, bookingDate: p.bookingDate, amountCents: -RENT, merchant: "Sato Oyj", category: "housing" }));
+    const { basis, point, runway } = walk([...salary, ...rent], [bal(50_000)], 1);
     if (!point.known || !runway.known) throw new Error("no figure");
+    expect(basis.ahead.upcoming.some((r) => r.withPay)).toBe(true);
     expect(point.cents).toBe(runway.leftCents);
   });
 
