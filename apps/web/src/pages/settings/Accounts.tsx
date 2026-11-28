@@ -1,6 +1,6 @@
 /**
- * Asetukset > Tilit: every account with its name, IBAN or card number, holder and
- * type (the bank's code is a guess for savings, so the type can be changed) and who uses it (AccountUse.tsx); the user's own name for any account;
+ * Asetukset > Tilit: every account with its name and
+ * type (the bank's code is a guess for savings, so the type can be changed; the IBAN or card number, bank and holder show in the Muokkaa form) and who uses it (AccountUse.tsx); the user's own name for any account;
  * balance and removal for the accounts the user brought in themselves (an earlier CSV import, demo). A bank account's balance comes
  * from the bank. Tietojen laatu sits under the table.
  */

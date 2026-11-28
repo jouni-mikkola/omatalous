@@ -36,6 +36,8 @@ for (const width of [1440, 390]) {
       expect(new Set(widths).size, `field widths ${widths.join(", ")}`).toBe(1);
 
       // each fold says its state under its name; the one that clears all data is its name alone
+      await expect(page.locator("details.card.danger-zone")).toHaveCount(1);
+      await expect(page.locator("details.card.danger-zone > summary .card-sub")).toHaveCount(0);
       const folds = page.locator("details.card:not(.danger-zone)");
       const count = await folds.count();
       expect(count).toBeGreaterThanOrEqual(1);
