@@ -197,8 +197,7 @@ flowchart LR
   `BalanceReport.holdings` (Saldot) and `DashboardData.holdings` are the same answer (`buildHoldings`), and
   `pages/reports/holdings/Holdings.tsx` shows it as given. The chart of twelve months of Raportit > Menot
   (`pages/reports/sections/Months.tsx`, `charts/MonthBars.tsx`) reads `DashboardData.overview` (`packages/core/src/overview.ts`), whose bars and usual levels are
-  those of Menot kuukausittain (`spendingMonthsReport`) and whose income is the earned income. Yhteenveto's block *Tulevat kuukaudet*
-  (`components/home/Coming.tsx`) draws the first three months of the `billCalendar` answer that Laskut reads, field by field.
+  those of Menot kuukausittain (`spendingMonthsReport`) and whose income is the earned income.
    The days to the payday come as
   `AheadData` from `analysis/ahead.ts` (the rules
   are in [MONEY_FLOWS.md](MONEY_FLOWS.md#the-days-to-the-payday)).

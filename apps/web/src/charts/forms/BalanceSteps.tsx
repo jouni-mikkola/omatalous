@@ -44,8 +44,8 @@ export function stepName(s: Step): string {
  * (`line`): a bill is a step down, a pay a step up and the expected everyday spending the slope between days, with the
  * range of that spending (`lowCents`–`highCents`) as the shaded band. The lowest corner, the figure of `lowPoint`, has a
  * ring and its sum; the payday is a rule with its date; the two biggest payments are named at their step. Every figure
- * is core's; nothing is added up here. The readout line above names the series and reads out the day pointed at (by
- * default the lowest day): its balance after the day's payments, the range and the payments and pays of the day.
+ * is core's; nothing is added up here. The readout line above stays empty until a day is pointed at, then reads out
+ * that day: its balance after the day's payments, the range and the payments and pays of the day.
  * With `past` (core's balance from the last payday to today) the line runs solid to today's dot, a rule names today (Nyt)
  * and the ground right of it the days to come (Arvio), which are drawn dashed with the band.
  */
@@ -75,7 +75,6 @@ export function BalanceSteps({ low, payday, past }: { low: KnownLowPoint; payday
   const dayCorner = (day: string): Corner | undefined => cornersOf(day).reduce<Corner | undefined>((min, c) => (min === undefined || c.cents < min.cents ? c : min), undefined);
   const stepsOf = (day: string) => steps.filter((s) => s.date === day);
   const lowCorner = line.find((c) => c.date === low.date && c.cents === low.cents);
-  const shown = at ?? Math.max(0, days.indexOf(low.date));
   const pastOf = (day: string) => pastPoints.find((p) => p.date === day);
   const parts = (day: string) => {
     const c = dayCorner(day);
@@ -125,7 +124,7 @@ export function BalanceSteps({ low, payday, past }: { low: KnownLowPoint; payday
   const ticks = days.flatMap((_, i) => (fixed.includes(i) || (i % every === 0 && fixed.every((k) => Math.abs(k - i) * dayW >= DAY_LABEL_W)) ? [i] : []));
   const range = `${dayMonth(first)}–${dayMonth(last)}`;
   const label = t("home.days_aria", { range, date: dayMonth(low.date), sum: answerMoney(low.cents) });
-  const shownDay = days[shown]!;
+  const shownDay = days[at ?? 0]!;
   const atCorner = at === null ? undefined : dayCorner(days[at]!) ?? pastOf(days[at]!);
   const todayX = x.x(today);
   // past and walk meet at today: a step when the cards' debt is taken off there
@@ -157,7 +156,8 @@ export function BalanceSteps({ low, payday, past }: { low: KnownLowPoint; payday
   };
   return (
     <div className="chart balance-steps" ref={ref}>
-      <ReadoutLine title={dayMonth(shownDay)} parts={parts(shownDay)} />
+      {/* the payments of a day are told for the day picked, and the empty line keeps the room so the picture does not move */}
+      {at === null ? <div className="readout-line" aria-hidden="true" /> : <ReadoutLine title={dayMonth(shownDay)} parts={parts(shownDay)} />}
       <svg width={f.width} height={f.height}>
         <g transform={`translate(${f.margin.left},${f.margin.top})`}>
           <g role="img" aria-label={label}>

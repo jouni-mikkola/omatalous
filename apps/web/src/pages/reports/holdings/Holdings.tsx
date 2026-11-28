@@ -4,7 +4,7 @@
  * The loans and the cards stand in the order core gives, the dearest by yearly cost first; a debt that is dear (Kallis,
  * Erittäin kallis) says so in a word among the lines under its name, and no other class and no unknown cost says anything.
  * Raportit > Varat ja velat shows it with no heading of its own, without the net figure at its head (`net`) and with the loans
- * left to the report Lainat when that lists them (`loansListed`). Yhteenveto shows only three lines of it (HoldingsLines). The accounts
+ * left to the report Lainat when that lists them (`loansListed`). The accounts
  * stand in their types (checking, savings, other) when there are two types or more, a type of two accounts or more with its total. The
  * first group's heading says the day most balances are from; a row says its own day only when it differs, and names its bank only when
  * the accounts have more than one. Tilit and Lainat stand side by side, the cards in a row of their own under

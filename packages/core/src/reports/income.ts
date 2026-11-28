@@ -60,7 +60,7 @@ interface IncomeMonth {
   complete: boolean;
   /** All the money in, of every type; null in a month the data does not reach (`knownMonths`): no month's income, and in no average. */
   totalCents: number | null;
-  /** The month's earned income (`earnedIncome`), the sub-line of Yhteenveto's Tulot: money from people, refunds and unknown money are left out. Null as `totalCents` is. */
+  /** The month's earned income (`earnedIncome`), the sub-line of the month figure: money from people, refunds and unknown money are left out. Null as `totalCents` is. */
   earnedCents: number | null;
   /** The month's usual earned income (`expectedIncome`, "Tavalliset tulot"), null under three complete months before it. */
   usualCents: number | null;
