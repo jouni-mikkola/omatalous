@@ -24,6 +24,7 @@ import { type ComingPeriod, comingList, comingPays } from "./coming.ts";
 import { type AnalysisContext, type AnalysisTx, standingOf } from "./context.ts";
 import { expectedEverydayPerDay } from "./expected.ts";
 import { expectedBillRows } from "./forecast.ts";
+import { loanChargeEnds } from "../loan-detect.ts";
 import { INCOME_TYPES, type IncomeType, incomeTypes, payDayOf } from "./income.ts";
 import { cardPayments, type Pool, poolOf, poolPays, type UnresolvedCard, unresolvedCards } from "./pool.ts";
 import { type Pay, type PayEstimate, payEstimate, payEvidence } from "./pay-estimate.ts";
@@ -333,7 +334,8 @@ export function aheadBasis(ctx: AnalysisContext, balances: readonly BalanceInput
       all.push({ date: d, name: s.merchant, category: s.category, cents: pay?.floorCents ?? null, source: "income", pay });
     });
   }
-  const expected = { cancelled: cancelledSubjects(inputs, ctx.today), savings: true };
+  // a loan's series has no charge after the loan's last day, as in Laskut (`loanLastChargeDay`)
+  const expected = { cancelled: cancelledSubjects(inputs, ctx.today), savings: true, ends: loanChargeEnds(ctx, inputs, from, reachPayday) };
   // The payday itself, the pay not booked yet: a bill that follows this pay (`follows`, the pay's own day and rule) is
   // paid from it. It is no row of today's window, so the balance is not said to be short of it; any other payment dated
   // today is a row, a follower that is late from an earlier pay included.

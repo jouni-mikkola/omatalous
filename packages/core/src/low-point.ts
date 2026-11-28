@@ -17,8 +17,8 @@
  * wait for a bill that no row of the walk holds: its day is not known, and the runway takes them off nothing up to the
  * payday. So the walk takes them off together on the day after the payday (the earliest day a bill the runway leaves out
  * can fall), and day by day from then on: the figure answers how low the money can go, and on the payday the line is
- * `runwayOf`'s Jää palkkapäivänä, also for a saved loan the calendar walks by its plan: both take the debt part of its
- * bank rows out of the spending and the plan's rows in its place. A card that is not connected and shows only as its bills (a card_bill series
+ * `runwayOf`'s Jää palkkapäivänä, also for a saved loan with a plan: both take the debt part of its
+ * bank rows out of the spending and its payments in their place, its series' charges, or its plan's rows while no series pays it or the series is overdue. A card that is not connected and shows only as its bills (a card_bill series
  * of the counted accounts) is walked the same way: its bills of the payday window and of Laskut's 30 days (`ahead.rows`,
  * `ahead.upcoming`) are rows of the walk, as Käytettävissä takes them, and hold its purchases up to their day, so its
  * bills' sums spread over the base months' days (`expectedEveryday`, every card_bill row of its name on the counted

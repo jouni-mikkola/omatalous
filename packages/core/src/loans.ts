@@ -333,6 +333,20 @@ export function loanNextPayment(loan: Debt, day: IsoDate): NextPayment {
   return { ...none(plan.missing), cents: Math.min(typed, owed + loanPeriodInterest(owed, loan.rateBp, intervalMonths)) };
 }
 
+/**
+ * The last day a charge of the series that pays a loan counts: the loan's end date or, with none, the plan's last due
+ * date when it falls on or before `until`. null while the loan goes on past `until` or has no day. The bill calendar and
+ * `aheadBasis` cut the series' charges at this one day, so Laskut, the walk and Jää palkkapäivänä keep the same charges.
+ */
+export function loanLastChargeDay(loan: Loan, today: IsoDate, until: IsoDate): IsoDate | null {
+  if (loan.endDate !== null) return loan.endDate;
+  const first = loanNextPayment(loan, today);
+  if (first.date === null) return null;
+  let end: IsoDate = first.date;
+  for (let next = loanNextPayment(loan, first.date); next.date !== null && next.date <= until; next = loanNextPayment(loan, next.date)) end = next.date;
+  return loanNextPayment(loan, end).date === null ? end : null;
+}
+
 /** The payments of a month over a list of loans. */
 export interface DebtPayments {
   /**

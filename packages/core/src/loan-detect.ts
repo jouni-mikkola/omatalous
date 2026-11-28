@@ -30,17 +30,17 @@ import { type AnalysisContext, type AnalysisTx, standingById, standingOf } from 
 import { covers, seriesMarkSubject } from "./analysis/subscription-alerts.ts";
 import { referenceOf } from "./card-channel.ts";
 import { isCut } from "./shared.ts";
-import { cancelledSubjects, isCancelled, isContract } from "./commitments.ts";
+import { cancelledSubjects, isBillSeries, isCancelled, isContract } from "./commitments.ts";
 import { daysBetween, monthIndex, monthOf } from "./dates.ts";
 import { creditDraws, drawnKind, fewPayments, INSTALMENT_SERVICE, isKnownLender, isLenderPayment, LENDER_ACTIVE_DAYS, LOAN_CATEGORIES, MIN_LOAN_PAYMENT_CENTS, ofService, owedAtLeast, planRuns } from "./lender-runs.ts";
-import { loansOf, typedBill } from "./loans.ts";
+import { loanLastChargeDay, loansOf, typedBill } from "./loans.ts";
 import { planAnswers } from "./plan-answer.ts";
 import { cardIssuerName, fold } from "./merchant.ts";
 import { NOT_LOAN_SUBJECT } from "./loan-mark.ts";
 import type { RecurringSeries } from "./recurring.ts";
 import { parseSeriesId, seriesId } from "./series-id.ts";
 import { STEADY_BAND, steadyBy } from "./returns.ts";
-import type { IsoDate, LoanKind, Transaction, UserInputs } from "./types.ts";
+import { type IsoDate, isRevolving, type LoanKind, type Transaction, type UserInputs } from "./types.ts";
 import { hasLoanText, withoutSwedishTwin } from "./wording-lenders.ts";
 import { hasPayeeForm, housingCharge, isCarFinanceText, isCreditIssuerText, isHousingCompanyName, isInsuranceText, isLeaseText, isLenderName, isLoanText, isNamedLaina, isRent } from "./wording.ts";
 
@@ -359,6 +359,33 @@ export function takenSeries(inputs: UserInputs): (s: RecurringSeries, charges: C
 }
 
 type Charges = readonly Pick<AnalysisTx, "amountCents" | "wholeCents">[];
+
+/** The series that pays each saved loan with a plan or a bullet (not a card or credit line): the one its key names, or the one whose charges fit its typed payment. */
+export function payingSeries(ctx: AnalysisContext, inputs: UserInputs, today: IsoDate): Map<string, RecurringSeries> {
+  const byId = standingById(ctx);
+  const rowsOf = (s: RecurringSeries) => s.transactionIds.flatMap((id) => byId.get(id) ?? []);
+  const paying = new Map<string, RecurringSeries>();
+  for (const loan of loansOf(inputs)) {
+    if (isRevolving(loan.kind)) continue;
+    const named = loan.seriesKey ? takenSeries({ marks: [], expectedBills: [], loans: [loan] }) : null;
+    const bill = typedBill(loan, today);
+    const taken = new Set([...paying.values()].map((s) => s.id));
+    const s = ctx.recurring.find((c) => c.active && isBillSeries(c) && !taken.has(c.id) && (named ? named(c, rowsOf(c)) : bill !== null && fitsPayment(bill, c, rowsOf(c))));
+    if (s) paying.set(loan.id, s);
+  }
+  return paying;
+}
+
+/** The last charge day (`loanLastChargeDay`) of each series that pays a loan, by series id, for the loans that have one up to `until`. */
+export function loanChargeEnds(ctx: AnalysisContext, inputs: UserInputs, today: IsoDate, until: IsoDate): Map<string, IsoDate> {
+  const ends = new Map<string, IsoDate>();
+  for (const [loanId, s] of payingSeries(ctx, inputs, today)) {
+    const loan = loansOf(inputs).find((l) => l.id === loanId);
+    const last = loan ? loanLastChargeDay(loan, today, until) : null;
+    if (last !== null) ends.set(s.id, last);
+  }
+  return ends;
+}
 
 /** The payments a key is asked against: the usual one and every charge, as the bank charged it and as the view holds it. */
 const amountsOf = (s: RecurringSeries, charges: Charges): number[] => [s.typicalAmountCents, ...charges.flatMap((t) => [-t.amountCents, -billCents(t)])];

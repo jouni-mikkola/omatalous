@@ -241,18 +241,19 @@ export interface ExpectedCharge {
  * each at its typical amount on its projected dates, which start at the series' next date: an occurrence that a
  * payment from another account settled is no charge (`settled`). A date before `from` is a charge a few days late,
  * expected on `from`. A series `cancelled` covers is left out (`isCancelled`). Savings plans leave the checking account but are not spending, so
- * they come only with `savings`. Date ascending, the larger first.
+ * they come only with `savings`. A series in `ends` (the series of a loan, by id) has no charge after its day. Date ascending, the larger first.
  */
 export function expectedCharges(
   series: readonly RecurringSeries[],
   from: IsoDate,
   until: IsoDate,
-  opts: { cancelled?: ReadonlySet<string>; savings?: boolean } = {},
+  opts: { cancelled?: ReadonlySet<string>; savings?: boolean; ends?: ReadonlyMap<string, IsoDate> } = {},
 ): ExpectedCharge[] {
   const out: ExpectedCharge[] = [];
   for (const s of series) {
     if (!s.active || s.overdue || !isBillSeries(s, opts.savings) || (opts.cancelled && isCancelled(opts.cancelled, s))) continue;
-    for (const d of projectDates(s, until)) out.push({ merchant: s.merchant, category: s.category, amountCents: s.typicalAmountCents, date: d < from ? from : d });
+    const last = opts.ends?.get(s.id);
+    for (const d of projectDates(s, until)) if (last === undefined || d <= last) out.push({ merchant: s.merchant, category: s.category, amountCents: s.typicalAmountCents, date: d < from ? from : d });
   }
   return out.sort((a, b) => a.date.localeCompare(b.date) || b.amountCents - a.amountCents);
 }

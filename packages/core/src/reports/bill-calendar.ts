@@ -9,7 +9,7 @@ import { getCategory } from "../categories.ts";
 import { cancelledSubjects, expectedCharges, isBillSeries, isCancelled } from "../commitments.ts";
 import { COST_KINDS, type CostKind, costKindOf } from "../cost-kinds.ts";
 import { addDays, addMonths, monthEnd, monthOf } from "../dates.ts";
-import { fitsPayment, takenSeries } from "../loan-detect.ts";
+import { loanChargeEnds, payingSeries, takenSeries } from "../loan-detect.ts";
 import { loanRateLine } from "../loan-schedule.ts";
 import { loanBalanceOn, loanNextPayment, loansOf, typedBill } from "../loans.ts";
 import { parseSeriesId, projectDates, type RecurringSeries } from "../recurring.ts";
@@ -179,14 +179,9 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
 
   // the series that pays a loan is the loan's row: the one its key names, or the one whose charges fit its typed payment
   const loans = loansOf(inputs).filter((loan) => !isRevolving(loan.kind));
-  const paying = new Map<string, RecurringSeries>();
-  for (const loan of loans) {
-    const named = loan.seriesKey ? takenSeries({ marks: [], expectedBills: [], loans: [loan] }) : null;
-    const bill = typedBill(loan, today);
-    const taken = new Set([...paying.values()].map((s) => s.id));
-    const s = ctx.recurring.find((c) => c.active && isBillSeries(c) && !taken.has(c.id) && (named ? named(c, rowsOf(c)) : bill !== null && fitsPayment(bill, c, rowsOf(c))));
-    if (s) paying.set(loan.id, s);
-  }
+  const paying = payingSeries(ctx, inputs, today);
+  // the day after which a loan's series has no charge: the runway cuts them there too (`aheadBasis`)
+  const ends = loanChargeEnds(ctx, inputs, today, windowEnd);
   const payingIds = new Set([...paying.values()].map((s) => s.id));
   // the keys of every saved loan, the revolving ones too, which have no plan and so no row of their own
   const namedByLoan = takenSeries({ ...inputs, marks: [] });
@@ -246,25 +241,27 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
   }
 
   for (const loan of loans) {
-    const series = paying.get(loan.id);
-    const row = (date: IsoDate, cents: number, state: BillState = "known", monthly = series?.cadence === "monthly"): BillRow => ({
-      date, payee: loan.name, category: series?.category ?? null, cents, state, kind: "loan", seriesId: series?.id ?? null, ...(monthly ? { monthly: true as const } : {}), ...(series ? offOf(series) : {}),
+    const paidBy = paying.get(loan.id);
+    // an overdue series has no charges to walk: the plan's rows stand for the loan, as the runway takes them (`plannedLoanPayments`)
+    const series = paidBy?.overdue ? undefined : paidBy;
+    const rowFor = (by: RecurringSeries | undefined) => (date: IsoDate, cents: number, state: BillState = "known", monthly = by?.cadence === "monthly"): BillRow => ({
+      date, payee: loan.name, category: by?.category ?? null, cents, state, kind: "loan", seriesId: by?.id ?? null, ...(monthly ? { monthly: true as const } : {}), ...(by ? offOf(by) : {}),
     });
+    const row = rowFor(series);
     // the series charged this month: that is the month's payment, so the plan's payment of the month is no second row
-    const paidNow = series !== undefined && series.lastDate >= windowStart && series.lastAmountCents !== 0;
-    if (paidNow) rows.push(row(series.lastDate, Math.abs(series.lastAmountCents), "paid"));
-    // the series that pays the loan has the bank's real days and sums (as the runway takes them): they are the rows, up to `last`
-    const seriesRows = (series: RecurringSeries, last: IsoDate | null) => {
+    const paidNow = paidBy !== undefined && paidBy.lastDate >= windowStart && paidBy.lastAmountCents !== 0;
+    if (paidNow) rows.push(rowFor(paidBy)(paidBy.lastDate, Math.abs(paidBy.lastAmountCents), "paid"));
+    // the series that pays the loan has the bank's real days and sums (as the runway takes them): they are the rows, up to the loan's last charge day
+    const seriesRows = (series: RecurringSeries) => {
       const state = series.kind === "subscription" ? "known" : "estimate";
-      for (const c of expectedCharges([series], today, windowEnd, { cancelled, savings: true })) {
-        if (last !== null && c.date > last) continue;
+      for (const c of expectedCharges([series], today, windowEnd, { cancelled, savings: true, ends })) {
         if (c.amountCents <= 0) unknowns.push({ days: [c.date], open: false, kind: "loan", onCard: paidElsewhere(series.id) });
         else rows.push(row(c.date, c.amountCents, state));
       }
     };
     if (loan.repayment === "bullet") {
       // the interest series' charges up to the last day, beside the lump sum
-      if (series) seriesRows(series, loan.endDate);
+      if (series) seriesRows(series);
       // the whole balance falls due on the last day; a bullet with no day, or a day past, has nothing in these months
       if (loan.endDate !== null && loan.endDate >= today && loan.endDate <= windowEnd && loan.endDate > loan.balanceDate) {
         const owed = loanBalanceOn(loan, addDays(loan.endDate, -1)).cents;
@@ -283,20 +280,14 @@ export function billCalendar(ctx: AnalysisContext, inputs: UserInputs = NO_INPUT
     if (first.date === null) {
       // no plan places the payment: the series that pays it does, at the typed payment
       const bill = typedBill(loan, today);
-      const dates = series && bill !== null ? projectDates(series, windowEnd) : [];
+      const last = series ? ends.get(series.id) : undefined;
+      const dates = series && bill !== null ? projectDates(series, windowEnd).filter((d) => last === undefined || d <= last) : [];
       if (bill === null || !dates.length) unknowns.push({ days: [], open: false, kind: "loan", onCard: series ? paidElsewhere(series.id) : false });
       else for (const d of dates) rows.push(row(d < today ? today : d, bill));
       continue;
     }
     if (series) {
-      // up to the loan's end date or, with none, the plan's last due date
-      let last: IsoDate | null = loan.endDate;
-      if (last === null) {
-        let end: IsoDate = first.date;
-        for (let next = loanNextPayment(loan, first.date); next.date !== null && next.date <= windowEnd; next = loanNextPayment(loan, next.date)) end = next.date;
-        if (loanNextPayment(loan, end).date === null) last = end;
-      }
-      seriesRows(series, last);
+      seriesRows(series);
       continue;
     }
     // the due date before the payment: where its interval starts, and so which rate counts. The first payment's started on or before today.
