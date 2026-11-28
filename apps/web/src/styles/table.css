@@ -2,10 +2,10 @@
  * The table (components/table/Table.tsx): the one look of every table of the app. Tokens only; a mark mixes a token over
  * the surface rather than taking a colour of its own, so both looks hold.
  *
- * A desktop row is 44 px: a 20 px line between 12 px. The cells have no padding at the table's edges, so the first and the
+ * A desktop row is 48 px: a 24 px line between 12 px. The cells have no padding at the table's edges, so the first and the
  * last column stand on the edges of the text above and below the table. No ruling between columns; the only vertical rule
  * is the sum bracket, which carries a meaning. Figures are right-aligned in tabular numerals, the row's name is the one
- * heavy word of a line and its main figure the other. The head is 12 px, semibold, with the axis under it.
+ * heavy word of a line and its main figure the other. The head is 14 px, semibold, with the axis under it.
  * Where the table has no room for its columns (under 600 px, or less than the columns need) the wrap carries
  * `data-block` and each row is a block (see the end of the file).
  */
@@ -27,13 +27,13 @@
 .rt td[data-rt="main"] { font-weight: 600; }
 @media (hover: hover) { .rt tbody tr:hover > * { background-color: var(--row-hover); } }
 
-/* the head: the label of the figures under it, in 12 px, with the axis under it. It stays in view while the rows scroll
+/* the head: the label of the figures under it, in 14 px, with the axis under it. It stays in view while the rows scroll
    under it, and from 1100 px under the rail, which is sticky too */
 .rt thead :is(th, td) { position: sticky; top: 0; z-index: 1; padding-block: 8px; background: var(--well); box-shadow: inset 0 -1px 0 var(--axis); border-bottom: 0; font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 600; color: var(--text-2); white-space: nowrap; vertical-align: bottom; }
 @media (min-width: 1100px) { .rt thead :is(th, td) { top: var(--rail-h); } }
 .rt thead tr + tr :is(th, td) { top: calc(var(--lh-small) + 16px); }
 @media (min-width: 1100px) { .rt thead tr + tr :is(th, td) { top: calc(var(--rail-h) + var(--lh-small) + 16px); } }
-/* a finger: a target in a cell is 44 px high and fits the cell. --reach-pad is the padding the cell gives it above and below (base.css takes that back with a negative margin); the head has 14 px, so its cells are 44 px */
+/* a finger: a target in a cell is 44 px high and fits the cell. --reach-pad is the padding the cell gives it above and below (base.css takes that back with a negative margin); the head has 12 px, so its cells are 44 px */
 @media (pointer: coarse) {
   .rt :is(th, td) { --reach-pad: var(--sp-12); }
   .rt thead :is(th, td) { --reach-pad: calc((var(--tap-min) - var(--lh-small)) / 2); padding-block: var(--reach-pad); }

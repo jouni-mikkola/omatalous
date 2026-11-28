@@ -23,12 +23,6 @@
 .verdict-label { color: var(--text-2); }
 .verdict-vs { color: var(--text-2); }
 .verdict-why { max-width: 70ch; line-height: var(--lh-prose); }
-.compare { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-8) var(--sp-12); }
-.compare-label { color: var(--text-2); font-size: var(--fs-small); }
-/* the four choices stay on one row on a phone: the buttons share the row and give up their side padding, never wrap */
-.compare .segmented { flex-wrap: nowrap; max-width: 100%; }
-.compare .segmented button { flex: 1 1 auto; padding: 0 var(--sp-8); white-space: nowrap; }
-@media (max-width: 480px) { .compare .segmented button { padding: 0 var(--sp-4); font-size: var(--fs-small); } }
 /* a closed card is its name and sum on one even band: the sum's cell is the height of the row, the card has no padding of its own, and the gap below it is taken back so the band is as tall above the text as below */
 .q-page > details.card:not([open]) { padding-block: 0; margin-bottom: calc(var(--gap) * -1); }
 .coverage-notices { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--sp-8); max-width: 70ch; color: var(--muted); font-size: var(--fs-body); line-height: var(--lh-prose); }

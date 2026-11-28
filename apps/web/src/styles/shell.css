@@ -72,7 +72,7 @@
 .menu button, .menu a { text-align: left; border: none; background: none; padding: var(--cell-y) 8px; min-height: 36px; display: flex; align-items: center; border-radius: var(--radius-s); cursor: pointer; text-decoration: none; color: var(--text); }
 .menu button:hover, .menu a:hover { background: var(--surface-2); }
 @media (pointer: coarse) { .menu button, .menu a { min-height: var(--tap-min); } }
-.menu .muted { padding: 4px 8px 8px; font-size: var(--fs-small); }
+.menu .muted { padding: 4px 8px 8px; font-size: var(--fs-label); }
 /* phones: one top row (mark, view switch, Tarkistettavat, the user's initials) and the pages as a tab bar at the foot */
 @media (max-width: 640px) {
   /* with larger text the parts of the bar no longer fit one line: they wrap, and the bar grows by a line, rather than squeeze the user's button or push the page wide */

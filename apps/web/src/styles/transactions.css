@@ -162,7 +162,7 @@ button.tx-chip[aria-disabled="true"] { opacity: 0.6; cursor: progress; }
 }
 .rt-wrap[data-block] .rt.tx-table td.tx-category { grid-column: 1 / 4; }
 .rt-wrap[data-block] .rt.tx-table td.tx-category::before { content: none; }
-.tx-tag { flex: none; display: inline-flex; align-items: center; height: 18px; padding: 0 var(--sp-4); border-radius: var(--radius-pill); background: var(--surface-2); color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 400; white-space: nowrap; }
+.tx-tag { flex: none; display: inline-flex; align-items: center; min-block-size: var(--lh-small); padding: 0 var(--sp-4); border-radius: var(--radius-pill); background: var(--surface-2); color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 400; white-space: nowrap; }
 .tx-tag.warn { background: var(--warn-bg); color: var(--text); }
 
 /* the cells' marks are blocks of the line's height, so no text strut makes a row taller than it must be */
