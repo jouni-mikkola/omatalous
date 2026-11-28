@@ -52,7 +52,7 @@ export function spanKey(key: string, shift: boolean, span: Span | null, at: numb
   return { span: { anchor: from.anchor, head }, moved: head, commit: false, release: false };
 }
 
-export interface SpanHandlers {
+interface SpanHandlers {
   onPointerDown: (e: PointerEvent<Element>) => void;
   onPointerMove: (e: PointerEvent<Element>) => void;
   onPointerUp: (e: PointerEvent<Element>) => void;
