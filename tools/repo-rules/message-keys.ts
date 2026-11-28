@@ -9,7 +9,7 @@ const BASELINE = "tools/repo-rules/message-keys-baseline.txt";
  * that no longer matches a key is a finding: delete it.
  */
 const BUILT_PREFIXES = [
-  "figure.", "bills.form.barcode_", "bills.total_", "holdings.", "inc.new_", "inc.tax_", "rep.bucket_", "theme.", "carline.", "income.type_",
+  "figure.", "bills.form.barcode_", "bills.total_", "holdings.checking", "holdings.savings", "holdings.other", "inc.new_", "inc.tax_", "rep.bucket_", "theme.", "carline.", "income.type_",
   "income.group_", "rpt.ln_ref_", "pw.level_", "chart.what_", "chart.vs_", "tx.unit_", "category.", "cgroup.", "ckind.",
 ];
 
@@ -43,7 +43,7 @@ describe("repo rules: message keys", () => {
   it("rule 54: every message key is written out in the code or built from a listed prefix (the baseline only shrinks)", () => {
     const all = repoFiles();
     const tables = all.filter((f) => /^packages\/core\/src\/messages-[a-z0-9-]+\.ts$/.test(f));
-    const code = all.filter((f) => /^(apps|packages|e2e|tools)\/.*\.(tsx?|mjs)$/.test(f) && !/^packages\/core\/src\/(messages|english\/)/.test(f) && !/golden|fixtures/.test(f));
+    const code = all.filter((f) => /^(apps|packages|tools)\/.*\.(tsx?|mjs)$/.test(f) && !/\.(test|spec)\.tsx?$/.test(f) && !/^tools\/repo-rules\//.test(f) && !/^packages\/core\/src\/(messages|english\/)/.test(f) && !/golden|fixtures/.test(f));
     const defined = definedKeys(tables, readText);
     const literals = literalKeys(code.map(readText));
     const baseline = new Set(readText(BASELINE).split("\n").filter(Boolean));
