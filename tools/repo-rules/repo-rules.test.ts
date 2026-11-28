@@ -9,7 +9,7 @@
  * (`warmParse`, warm.ts). The groups are about equal in time, so the run is no longer than its slowest group:
  *   repo-rules.test.ts         the text of the UI and the docs     text-rules, finnish, glossary-rule, dialect
  *   repo-rules-code.test.ts    the code and its imports            code-rules, boundaries, size, timeouts-rules, figures-rules, css-tokens, limiters-rules, sheets-rules, names-rules
- *   repo-rules-tree.test.ts    the files, scripts and registries   parity, shell-rules, runners-rules, roadmap-rules
+ *   repo-rules-tree.test.ts    the files, scripts and registries   parity, shell-rules, runners-rules, roadmap-rules, message-keys
  * A new rule module is imported by the file of its group. Each rule is its own `it` in one of the modules, so a failure
  * names the rule, then `file:line`, then what to do.
  *
@@ -58,6 +58,7 @@
  *   rule 51  a row is categorized through categorizeInDirection   code-rules.ts (detector: categorize.ts)
  *   rule 52  a figure of the registry has its scope, additive and one function, and every figure word of MONEY_FLOWS.md is in it and each entry has its row there   figures-rules.ts
  *   rule 53  a part and a whole are read through one typed pair, not as paymentCents and wholeCents   figures-rules.ts
+ *   rule 54  every message key is written out in the code or built from a listed prefix, the baseline only shrinks   message-keys.ts
  *
  * Run one: `pnpm vitest run tools/repo-rules -t "rule 6"`.
  */

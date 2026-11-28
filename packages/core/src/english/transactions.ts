@@ -59,7 +59,6 @@ export const EN_TRANSACTIONS: Record<keyof typeof FI_TRANSACTIONS, string> = {
   "fchip.period": "Period",
   "fchip.category": "Category",
   "fchip.account": "Account",
-  "fchip.accounts": "Accounts",
   "fchip.filter": "Filter",
   "fchip.limits": "Limits",
   "fchip.search_clear": "Clear search",

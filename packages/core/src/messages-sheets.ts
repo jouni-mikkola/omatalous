@@ -13,7 +13,6 @@ export const FI_SHEETS = {
   "sheet.amount": "Summa",
   "sheet.total": "Yhteensä",
   "tax.title": "Verovuoden rivit",
-  "tax.question": "Veroilmoituksen rivit",
   "tax.intro": "Tässä ovat vuoden {year} rivit tileiltäsi, jotka voivat liittyä veroilmoitukseesi. Emme anna veroneuvontaa emmekä kerro, mitä voit vähentää. Katso se Verohallinnon ohjeista.",
   "tax.none": "Tältä vuodelta ei ole rivejä.",
   "tax.income": "Tulot lähteittäin",

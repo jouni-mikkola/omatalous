@@ -7,5 +7,4 @@ export const EN_SET_MT: Record<keyof typeof FI_SET_MT, string> = {
   "set.mt.action": "Action",
   "set.mt.result": "Result",
   "set.mt.loading": "Loading…",
-  "set.mt.download": "Download",
 };

@@ -10,7 +10,6 @@ export const EN_SHEETS: Record<keyof typeof FI_SHEETS, string> = {
   "sheet.amount": "Amount",
   "sheet.total": "Total",
   "tax.title": "Tax-year rows",
-  "tax.question": "Rows for the tax return",
   "tax.intro": "Rows of the accounts for {year} that may be related to the tax return. This is not tax advice and does not say what can be deducted: the tax authority's guidance does.",
   "tax.none": "No rows for this year.",
   "tax.income": "Income by source",
