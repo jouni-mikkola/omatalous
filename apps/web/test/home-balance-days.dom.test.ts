@@ -75,9 +75,18 @@ describe("BalanceDays", () => {
     const measured = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth");
     Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 390 });
     try {
-      const c = view();
+      const more: KnownLowPoint = {
+        ...walk,
+        steps: [
+          { date: "2026-12-11", payee: "Sähkö", cents: -5_000, estimate: false, afterCents: 105_000, rowAfterCents: 105_000 },
+          { date: "2026-12-12", payee: "Netti", cents: -3_000, estimate: false, afterCents: 97_000, rowAfterCents: 97_000 },
+          ...walk.steps,
+        ],
+      };
+      const c = render(createElement(BalanceDays, { low: more, payday: "2026-12-14" })).container;
       expect([...c.querySelectorAll(".qc-end-sub")].map((e) => flat(e.textContent))).toEqual(["palkkapäivä 14.12."]);
-      expect(c.querySelectorAll(".bs-bill")).toHaveLength(1);
+      expect(c.querySelectorAll(".bs-bill")).toHaveLength(3);
+      expect(c.querySelectorAll(".bs-bill-name")).toHaveLength(2);
     } finally {
       if (measured) Object.defineProperty(HTMLElement.prototype, "clientWidth", measured);
       else delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;

@@ -99,7 +99,9 @@ export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: stri
   const paydayIn = payday !== null && payday >= first && payday <= last ? payday : null;
   const ends = moneyEnds(low, paydayIn ?? last);
   // every payment is a dot where its step ends; its balance is the table's own (`rowAfterCents`)
-  const bills = steps.filter((s) => s.cents < 0).map((s) => ({ s, px: x.x(s.date), py: y(s.rowAfterCents), breaks: ends !== null && ends.date === s.date && ends.payee === s.payee }));
+  const payments = steps.filter((s) => s.cents < 0);
+  const breakIndex = ends === null ? -1 : payments.findIndex((s) => s.date === ends.date && s.payee === ends.payee);
+  const bills = payments.map((s, i) => ({ s, i, px: x.x(s.date), py: y(s.rowAfterCents), breaks: i === breakIndex }));
   // a tick a week from today, every other week when a week is narrower than a label; none too close to the last day's label
   const dayW = f.innerW / Math.max(1, x.days - 1);
   const every = 7 * dayW < DAY_LABEL_W ? 14 : 7;
@@ -130,7 +132,7 @@ export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: stri
   const billLabels = [...bills]
     .sort((a, b) => a.s.cents - b.s.cents)
     .slice(0, narrow ? NAMED_STEPS : bills.length)
-    .flatMap(({ s, px, py }) => {
+    .flatMap(({ s, i, px, py }) => {
       const text = `${s.payee} ${answerMoney(-s.cents)}`;
       const w = text.length * BILL_CHAR_W;
       const places = [
@@ -145,7 +147,7 @@ export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: stri
         const box = { x0: p.anchor === "start" ? p.x : p.x - w, x1: p.anchor === "start" ? p.x + w : p.x, y0: p.y - 14, y1: p.y + 4 };
         if (box.x0 < 0 || box.x1 > f.innerW || box.y0 < 0 || box.y1 > f.innerH || taken.some((o) => overlaps(box, o))) continue;
         taken.push(box);
-        return [{ key: `${s.date}:${s.payee}`, text, ...p }];
+        return [{ key: `${i}:${s.date}:${s.payee}`, text, ...p }];
       }
       return [];
     });
@@ -179,7 +181,7 @@ export function BalanceSteps({ low, payday }: { low: KnownLowPoint; payday: stri
               <path className="qc-line qc-now" d={linePath(line.map((c) => c.cents), cornerX, y)} />
               <circle className="qc-dot" cx={x.x(today)} cy={y(line[0]!.cents)} r={4} />
               {bills.map((b) => (
-                <circle key={`${b.s.date}:${b.s.payee}`} className={b.breaks ? "bs-bill bs-break" : "bs-bill"} cx={b.px} cy={b.py} r={b.breaks ? BREAK_DOT : BILL_DOT} />
+                <circle key={`${b.i}:${b.s.date}:${b.s.payee}`} className={b.breaks ? "bs-bill bs-break" : "bs-bill"} cx={b.px} cy={b.py} r={b.breaks ? BREAK_DOT : BILL_DOT} />
               ))}
               {billLabels.map((l) => (
                 <text key={l.key} className="bs-bill-name" x={l.x} y={l.y} textAnchor={l.anchor}>

@@ -18,8 +18,11 @@ export function moneyEnds(
   walk: { line: readonly { date: IsoDate; cents: number }[]; steps: readonly { date: IsoDate; payee: string; cents: number }[] },
   payday: IsoDate,
 ): MoneyEnds | null {
-  const first = walk.line.find((c) => c.date <= payday && c.cents < 0);
-  if (!first) return null;
+  const at = walk.line.findIndex((c) => c.date <= payday && c.cents < 0);
+  if (at < 0) return null;
+  const first = walk.line[at]!;
+  // a day's payments lie between its opened corner and its paid corner: they are to blame only when the corner before them, today's or that day's opened one, was still at or above zero
+  if (at > 0 && walk.line[at - 1]!.date !== first.date) return { date: first.date, payee: null };
   const biggest = walk.steps.filter((s) => s.date === first.date && s.cents < 0).reduce<{ payee: string; cents: number } | null>((max, s) => (max === null || s.cents < max.cents ? s : max), null);
   return { date: first.date, payee: biggest?.payee ?? null };
 }

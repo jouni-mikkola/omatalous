@@ -18,7 +18,6 @@ export const FI_SHELL = {
   "nav.review_open": "avoinna",
   // the three kinds of a figure: what has happened, what the app expects, what is usual (ADR 0030)
   "kind.now": "Nyt",
-  "kind.estimate": "Arvio",
   "kind.usual": "Tavallinen",
   // read aloud before a sum marked only by the dotted line
   "est.about": "noin",
