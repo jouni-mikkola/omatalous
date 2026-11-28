@@ -376,6 +376,21 @@ describe("lowPoint with a card", () => {
     expect(walked.line.find((c) => c.date === runway.payday.date)!.cents).toBe(runway.leftCents);
   });
 
+  it("takes a bullet loan's lump sum and its interest series' charges off before the payday, as Jää palkkapäivänä does", () => {
+    const loan: Loan = {
+      id: "loan-1", name: "Siltalaina", lender: "ESIMERKKIPANKKI", kind: "car", grantedCents: null, balanceCents: 4_000_000, balanceDate: "2026-10-01", rateBp: null,
+      reference: null, marginBp: null, repayment: "bullet", intervalMonths: null, paymentCents: 91_240, endDate: "2026-11-05", limitCents: null, seriesKey: "out:own:ESIMERKKIPANKKI",
+    };
+    // the interest series charges on the 2nd; the bullet's row is its lump sum on the 5th, both before the payday of 13.11.
+    const interest = ["2026-06-02", "2026-07-02", "2026-08-02", "2026-09-02", "2026-10-02"].map((bookingDate) => tx({ accountId: own.id, bookingDate, amountCents: -91_240, merchant: "ESIMERKKIPANKKI", counterparty: "ESIMERKKIPANKKI", category: "mortgage" }));
+    const inputs: UserInputs = { ...NO_INPUTS, loans: [loan] };
+    const { walked, runway } = walk([...pays(), ...rents(), ...interest, ...shopping("2026-03-01", 4000)], [bal(9_000_000)], undefined, inputs);
+    if (!walked.known || !runway.known) throw new Error("no figure");
+    expect(walked.steps.filter((s) => s.date === "2026-11-05").map((s) => s.cents)).toContain(-4_000_000);
+    expect(walked.steps.filter((s) => s.date === "2026-11-02").map((s) => s.cents)).toContain(-91_240);
+    expect(walked.line.find((c) => c.date === runway.payday.date)!.cents).toBe(runway.leftCents);
+  });
+
   it("keeps the lowest balance at or under Jää palkkapäivänä and Käytettävissä inside the payday window", () => {
     const rows = [...pays(), ...rents(), ...cardShopping(), ...statements()].filter((t) => t.bookingDate <= TODAY);
     const { point, runway } = walk(rows, balBoth(200_000), undefined, NO_INPUTS, [own, card]);

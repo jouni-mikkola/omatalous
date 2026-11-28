@@ -42,7 +42,7 @@ import { paydayOf, type Runway, runwayOf } from "./analysis/runway.ts";
 import { cancelledSubjects, expectedCharges } from "./commitments.ts";
 import { plannedLoanPayments } from "./loan-planned-row.ts";
 import { addDays, monthOf } from "./dates.ts";
-import { billCalendar, unknownPaymentBy } from "./reports/bill-calendar.ts";
+import { billCalendar, byDay, unknownPaymentBy } from "./reports/bill-calendar.ts";
 import { AHEAD_DAYS, LOW_POINT_DAYS } from "./thresholds.ts";
 import { openCardRows } from "./unconnected-cards.ts";
 import type { BalanceInput, IsoDate, UserInputs } from "./types.ts";
@@ -170,15 +170,15 @@ export function lowPoint(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" |
   // payday, so the line at the payday is Jää palkkapäivänä to the cent and the days after it hold the income
   const calendarRows = calendar.months.flatMap((m) => m.rows);
   // a loan a series pays: the runway takes the series' own charges (`ahead.rows`, `expectedCharges`), so the walk does too, not the plan's days and sums
-  const loanSeries = new Map(calendarRows.flatMap((r) => (r.kind === "loan" && r.seriesId !== null && !r.onCard ? [[r.seriesId, r] as const] : [])));
-  const seriesRows = [...loanSeries].flatMap(([id, base]) => {
+  const seriesRows = calendar.loanSeries.filter((l) => !l.onCard).flatMap(({ id, payee }) => {
     const series = ctx.recurring.find((s) => s.id === id);
     const state = series?.kind === "subscription" ? ("known" as const) : ("estimate" as const);
-    return series ? expectedCharges([series], from, last, { cancelled: cancelledSubjects(inputs, ctx.today), savings: true }).map((c) => ({ ...base, date: c.date, cents: c.amountCents, state })) : [];
+    return series ? expectedCharges([series], from, last, { cancelled: cancelledSubjects(inputs, ctx.today), savings: true }).map((c) => ({ date: c.date, payee, category: series.category ?? null, cents: c.amountCents, state, kind: "loan" as const, seriesId: id })) : [];
   });
-  const rows = [...calendarRows.filter((r) => !(r.kind === "loan" && r.seriesId !== null && ctx.recurring.some((s) => s.id === r.seriesId))), ...seriesRows]
+  const rows = [...calendarRows.filter((r) => !(r.kind === "loan" && r.seriesId !== null && !r.lump && ctx.recurring.some((s) => s.id === r.seriesId))), ...seriesRows]
     .filter((r) => r.state !== "paid" && !r.onCard && r.date >= from && r.date <= last && !(r.seriesId === null && r.kind === "bill" && (heldByDebt.has(`${r.date}|${r.payee}|${r.cents}`) || laterInRange.some((d) => d.date === r.date && d.name === r.payee))))
-    .map((r) => (r.kind === "income" && r.date < runway.payday.date ? { ...r, date: runway.payday.date } : r));
+    .map((r) => (r.kind === "income" && r.date < runway.payday.date ? { ...r, date: runway.payday.date } : r))
+    .sort(byDay);
   // the bills of a card shown only by them, which the bill calendar leaves out. `upcoming` reaches Laskut's 30 days and
   // `rows` the payday window, which can be longer: the window's rows after the 30 days complete the list, none twice
   const thirty = addDays(from, AHEAD_DAYS);

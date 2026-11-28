@@ -14,14 +14,14 @@ export function plannedLoanRow(inputs: UserInputs): (t: Pick<Transaction, "accou
 }
 
 /**
- * The plan's rows of the saved loans that no series pays, due from `from` to `until`: what the calendar walks in place of
+ * The plan's rows of the saved loans that no series pays and a bullet loan's lump sum, due from `from` to `until`: what the calendar walks in place of
  * the rows of the bank that `plannedLoanRow` takes out of the everyday spending. Jää palkkapäivänä and the walk of the
  * first page both take these, so the two figures meet on the payday.
  */
 export function plannedLoanPayments(
-  calendar: { months: readonly { rows: readonly { date: IsoDate; cents: number; state: string; kind: string; seriesId: string | null; onCard?: true }[] }[] },
+  calendar: { months: readonly { rows: readonly { date: IsoDate; cents: number; state: string; kind: string; seriesId: string | null; lump?: true; onCard?: true }[] }[] },
   from: IsoDate,
   until: IsoDate,
 ): { date: IsoDate; cents: number }[] {
-  return calendar.months.flatMap((m) => m.rows).filter((r) => r.kind === "loan" && r.seriesId === null && r.state !== "paid" && !r.onCard && r.date >= from && r.date <= until).map((r) => ({ date: r.date, cents: r.cents }));
+  return calendar.months.flatMap((m) => m.rows).filter((r) => r.kind === "loan" && (r.seriesId === null || r.lump === true) && r.state !== "paid" && !r.onCard && r.date >= from && r.date <= until).map((r) => ({ date: r.date, cents: r.cents }));
 }
