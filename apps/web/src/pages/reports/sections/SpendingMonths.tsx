@@ -127,7 +127,7 @@ export const section: ReportSection = {
   },
   order: 30,
   page: "reports",
-  reports: ["spendingMonths"],
+  reports: ["spendingMonths", "figureParts"],
   // a period with no spending has no category to open
   visible: (ctx) => (ctx.data.spendingMonths?.categories.length ?? 0) > 0,
   open: true,
