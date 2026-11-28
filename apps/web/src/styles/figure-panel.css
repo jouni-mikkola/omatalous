@@ -2,7 +2,8 @@
 
 @layer pages {
 .fig-panel { position: relative; display: inline-block; }
-.fig-open { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 0.25em; }
+.fig-open { position: relative; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 0.25em; }
+@media (pointer: coarse) { .fig-open::after { content: ""; position: absolute; inset-inline: -4px; inset-block-start: 50%; block-size: var(--tap-min); transform: translateY(-50%); } }
 .fig-pop { position: absolute; top: calc(100% + var(--sp-8)); left: 0; z-index: var(--z-pop); box-sizing: border-box; inline-size: 26rem; max-inline-size: calc(100vw - 2 * var(--sp-16)); padding: var(--sp-16); border: 1px solid var(--pop-edge); border-radius: var(--radius); background: var(--surface); box-shadow: var(--pop-shadow); color: var(--text); font-size: var(--fs-body); font-weight: var(--w-regular); text-align: start; animation: fig-pop var(--t-open) var(--ease-out); }
 .strip-item:last-child .fig-pop { left: auto; right: 0; }
 .fig-pop:focus { outline: none; }

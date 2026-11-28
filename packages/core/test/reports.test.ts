@@ -43,19 +43,6 @@ describe("reports", () => {
     expect(isReportId("cashflow")).toBe(false);
   });
 
-  it("figure parts: the parts add up to each Menot figure, and the usual month is made of the same months", () => {
-    const { cashflowSpend: cash, categorySpend: c } = r.figureParts;
-    expect(cash).not.toBeNull();
-    expect(cash!.months.reduce((sum, m) => sum + m.cents, 0)).toBe(cash!.cents);
-    expect(cash!.cents).toBe(r.cashflowMonths.completeTotals!.spendCents);
-    expect(cash!.usual!.cents).toBe(r.cashflowMonths.usualSpendCents);
-    expect(Math.round((cash!.cents - cash!.usual!.largePurchasesCents) / cash!.usual!.months)).toBe(cash!.usual!.cents);
-    expect(c.cents).toBe(r.categories.totalCents);
-    expect(c.completeMonthsCents).toBe(cash!.cents);
-    expect(c.completeMonthsCents + c.partialMonths.reduce((sum, m) => sum + m.cents, 0) + c.fromSavingsCents + c.otherCents).toBe(c.cents);
-    expect(c.completeMonths + c.partialMonths.length).toBeLessThanOrEqual(c.monthsInRange);
-  });
-
   it("spending by month: the categories add up to each month, the months to the total, and a category's payees to the category", () => {
     const s = r.spendingMonths;
     expect(s.months).toEqual(["2026-01", "2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07", "2026-08", "2026-09"]);

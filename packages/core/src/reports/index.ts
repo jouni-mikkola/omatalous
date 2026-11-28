@@ -55,7 +55,7 @@ export const REPORTS = {
   // Tulot ja menot: the bars, the usual month and the complete months' sums over the period, as Yhteenveto has them for twelve months
   cashflowMonths: ({ ctx, range, lang }: ReportInput) => cashflowMonthsReport(ctx, range, lang),
   // the parts of the two Menot figures and of the usual month: what their panels open
-  figureParts: ({ ctx, range, lang }: ReportInput) => figurePartsReport(ctx, range, lang),
+  figureParts: ({ ctx, range, lang }: ReportInput) => figurePartsReport(ctx, range, spendingMonthsReport(ctx, range, lang)),
 } as const;
 
 export type ReportId = keyof typeof REPORTS;

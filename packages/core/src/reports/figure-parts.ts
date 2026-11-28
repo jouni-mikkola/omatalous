@@ -3,8 +3,18 @@ import { type AnalysisContext } from "../analysis/context.ts";
 import { spendOf, spendSelect, sumOf } from "../analysis/counted.ts";
 import { type DateRange, toDayRange } from "../analysis/period.ts";
 import { monthEnd } from "../dates.ts";
-import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
-import { spendingMonthsReport } from "./spending-months.ts";
+
+/** What of the spending months report (`spendingMonthsReport`, which the registry passes in) the parts are made of. */
+interface SpendingMonthsInput {
+  months: string[];
+  complete: boolean[];
+  totals: (number | null)[];
+  fromSavings: (number | null)[];
+  fromSavingsCents: number;
+  typicalFlowCents: number | null;
+  typicalMonths: number;
+  largeFlowCompleteCents: number;
+}
 
 /** One month's spending and the days Tapahtumat lists for it (the running month to today). */
 interface FigureMonth {
@@ -55,8 +65,7 @@ interface FigurePartsReport {
  * categories' figure is the one `categoryReport` prints (`spendSelect`), the months' the one Tulot ja menot prints
  * (`spendingMonthsReport` less the debt paid from savings).
  */
-export function figurePartsReport(ctx: AnalysisContext, range: DateRange, lang: Language = DEFAULT_LANGUAGE): FigurePartsReport {
-  const spending = spendingMonthsReport(ctx, range, lang);
+export function figurePartsReport(ctx: AnalysisContext, range: DateRange, spending: SpendingMonthsInput): FigurePartsReport {
   const monthAt = (i: number): FigureMonth | null => {
     const total = spending.totals[i];
     if (total === null || total === undefined) return null;
