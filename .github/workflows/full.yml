@@ -34,9 +34,10 @@ on:
 permissions:
   contents: read
 
+# a newer push cancels the run of an older one on main too: each pull request passed this workflow before it merged
 concurrency:
-  group: full-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  group: full-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   scope:
@@ -204,6 +205,17 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      # The baseline images the rehearsals build (proof-baseline:<commit>) come back from the cache, so neither the lane's
+      # install nor the drills' install builds them. The cache is written once per list of baselines.
+      - name: Baseline images cache
+        id: baselines
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/proof-baselines.tar
+          key: proof-baselines-${{ hashFiles('tools/ci/upgrade-baselines.txt') }}
+      - name: Load the baseline images
+        if: ${{ steps.baselines.outputs.cache-hit == 'true' }}
+        run: docker load --quiet --input "$RUNNER_TEMP/proof-baselines.tar"
       - name: Image, smoke test, container checks, signature, upgrade rehearsals and drills
         # the read-only token (contents: read above) lifts the 60 an hour limit of the runner's shared address on api.github.com
         env:
@@ -211,6 +223,22 @@ jobs:
         # started as root, the proof runs the drills' own install beside the rehearsal (BESIDE in local-proof.sh): its legs run as two
         # other users, so the watchdog that counts each user's updates sees them apart. PATH and the token pass through sudo.
         run: sudo --preserve-env=GITHUB_TOKEN env "PATH=$PATH" TMPDIR=/tmp tools/ci/local-proof.sh --jobs 2 tools/ci/upgrade-baselines.txt
+      - name: Keep the baseline images
+        id: keep
+        if: ${{ success() && steps.baselines.outputs.cache-hit != 'true' }}
+        run: |
+          mapfile -t images < <(docker image ls --format '{{.Repository}}:{{.Tag}}' proof-baseline)
+          if (( ${#images[@]} > 0 )); then
+            docker save --output "$RUNNER_TEMP/proof-baselines.tar" "${images[@]}"
+            ls -l "$RUNNER_TEMP/proof-baselines.tar"
+            echo "saved=true" >>"$GITHUB_OUTPUT"
+          fi
+      - name: Save the baseline images cache
+        if: ${{ steps.keep.outputs.saved == 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/proof-baselines.tar
+          key: proof-baselines-${{ hashFiles('tools/ci/upgrade-baselines.txt') }}
       - name: Where the time of the proof went
         if: ${{ !cancelled() }}
         run: |
