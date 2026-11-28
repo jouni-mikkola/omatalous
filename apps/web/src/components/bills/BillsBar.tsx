@@ -8,7 +8,7 @@
  * A bill too narrow to carry its words is in the list of the table below.
  */
 import type { BillsBeforePayday } from "@banking/core";
-import { type CSSProperties } from "react";
+import { css } from "../../css.ts";
 import { date, answerMoney } from "../../format.ts";
 import { t, tn } from "../../text.ts";
 import { FigurePanel } from "../FigurePanel.tsx";
@@ -43,10 +43,10 @@ export function BillsBar({ before, today }: { before: BillsBeforePayday; today: 
         {known && <span className={leftOverCount > 0 ? "bills-bar-over" : "bills-bar-fine"}>{leftOverCount > 0 ? ` · ${t("bills.bar_over", { count: leftOverCount })}` : ` · ${t("bills.bar_enough")}`}</span>}
       </p>
       <div className="bills-bar-tank">
-        {known && missingCents > 0 && <span className="bills-bar-cut" aria-hidden="true" style={{ left: share(coveredCents, billsCents) }} />}
+        {known && missingCents > 0 && <span className="bills-bar-cut" aria-hidden="true" ref={css({ left: share(coveredCents, billsCents) })} />}
         {known && (
           <div className="bills-bar-money" aria-hidden="true">
-            <span className="bills-bar-have" style={{ width: share(Math.min(coveredCents, billsCents), billsCents) }} />
+            <span className="bills-bar-have" ref={css({ width: share(Math.min(coveredCents, billsCents), billsCents) })} />
             {missingCents > 0 && <span className="bills-bar-lack" />}
           </div>
         )}
@@ -55,7 +55,7 @@ export function BillsBar({ before, today }: { before: BillsBeforePayday; today: 
             <li
               key={`${b.date}|${b.name}|${i}`}
               className={`bills-bar-bill${known ? ` bills-bar-${b.state}` : ""}`}
-              style={{ flexGrow: b.cents, "--have": share(b.coveredCents, b.cents) } as CSSProperties}
+              ref={css({ "flex-grow": b.cents, "--have": share(b.coveredCents, b.cents) })}
               title={`${b.name} ${date(b.date, today)} ${answerMoney(b.cents)}`}
             >
               <span className="bills-bar-name">

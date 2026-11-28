@@ -237,7 +237,7 @@ a.btn-primary { color: var(--on-fill); }
 .kf { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; padding: var(--sp-4) var(--sp-16) var(--sp-8) 0; }
 .kf + .kf { padding-left: var(--sp-16); border-left: 1px solid var(--grid); }
 /* the display size, 3.25 rem, is for one number: the first figure of a page, the answer it was opened for (Yhteenveto's sum left on the payday) */
-.key-figures > .kf:first-child .fig-l, .home-now .fig-l { font-size: var(--fs-display); line-height: var(--lh-display); }
+.key-figures > .kf:first-child .fig-l, .home-now .fig-l, .bills-bar-sum { font-size: var(--fs-display); line-height: var(--lh-display); }
 .kf-label { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); }
 .kf-sub { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--muted); font-variant-numeric: tabular-nums lining-nums; }
 @media (max-width: 640px) {
