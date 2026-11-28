@@ -214,8 +214,8 @@ const LINES: readonly (readonly [string, string])[] = [
   ["Salasanatiivisteitä yhtä aikaa", "Password hashes at a time"],
   ["Salasanatiivisteen muisti (kt)", "Memory of a password hash (kB)"],
   ["Salasanatiivisteen kierrokset", "Passes of a password hash"],
-  ["Pankin suostumuksen pituus (pv)", "Length of the bank consent (days)"],
-  ["Haettavan historian pituus (pv)", "Length of the history to fetch (days)"],
+  ["Pankin suostumuksen pituus (päivää)", "Length of the bank consent (days)"],
+  ["Haettavan historian pituus (päivää)", "Length of the history to fetch (days)"],
   ["{1}: anna kokonaisluku {2}–{3}.", "{1}: give a whole number {2}–{3}."],
 ];
 

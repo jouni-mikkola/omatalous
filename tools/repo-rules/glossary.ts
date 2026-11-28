@@ -16,6 +16,9 @@ export interface Removed {
 /** The Tarkistettavat cards ask the household a real question; that is not a heading. */
 const ASKS = /(^|\/)messages-set-ri\./;
 
+/** Texts a pull request in flight still changes (the payday low point); it removes its file from here. */
+const OPEN_WORDING = /(^|\/)messages-overview\./;
+
 export const REMOVED: readonly Removed[] = [
   // the page is Säästövinkit; the route, the feature id and the code keep the old name
   { name: "Optimoi", re: /(?<!\p{L})optimo\p{L}*/iu, fix: 'write "Säästövinkit" (the page) or "säästövinkki"' },
@@ -53,6 +56,10 @@ export const REMOVED: readonly Removed[] = [
   // the loan form says Lainan määrä, Miten erä muuttuu and Lue lainan tiedot; a choice left open is En tiedä
   { name: "Loan form words", re: /(?<!\p{L})(myönnetty\s+määrä|lyhennystap\p{L}*|sen\s+mukaan,\s+kuka\s+tilille)(?!\p{L})|^\s*Lue\s+tiedot\s*$/iu, fix: 'write "Lainan määrä", "Miten erä muuttuu", "Lue lainan tiedot", "Kuka maksoi tilille"' },
   { name: "Passive verb", re: /^(?!\s*\p{Lu}\p{L}*(taan|tään|daan|dään)(\s+\p{L}+){0,2}\s*…?\s*$)[\s\S]*?(?<!\p{L})(?!(enintään|vähintään|itsestään|aikaisintaan|portaan|vastaan|ainakaan)(?!\p{L}))\p{L}{2,}(?:[aeiouyäö](taan|tään)|[aeiouyäöh](daan|dään))(?!\p{L})/u, pending: /(^|\/)ops-english\./, fix: 'say who does it: "Haemme tapahtumat", "Laskemme summan", "Voit hakea"; only a loading line may be passive ("Ladataan…")' },
+  // a heading that asks without its question mark ("Mikä muuttui"): the same short noun, as in the row above
+  { name: "Question word heading", re: /^\s*(Mikä|Mitä)(?!\p{L})[^.!?:]{0,40}$/u, fix: 'a heading is a short noun: "Muutokset kuukaudesta", not "Mikä muuttui"', pending: ASKS },
+  // a count of days or things and a sum in thousands are written out (docs/UI_STYLE.md, Numbers)
+  { name: "Abbreviated count", re: /(?<![\p{L}./])(pv|kpl)(?![\p{L}/])|(?<!\p{L})t€/iu, fix: 'write "päivää" or "päivältä", the noun with plural() ("3 laskua"), and the whole sum ("21 000 €")', pending: OPEN_WORDING },
   { name: "Question heading", re: /^\s*(Mihin|Miten|Mistä|Mitkä|Milloin|Kuinka|Paljonko|Kestääkö|Kasvavatko|Kasvoiko|Riittävätkö|Pysyykö|Mitä|Missä|Minä|Mikä|Kenen|Tuleeko|Tuottivatko|Nousivatko)(?!\p{L})[^.!?]{0,80}\?$/u, fix: 'a heading is a short noun: "Rahankäyttö", "Kuukauden tilanne", not "Mihin raha menee?"', pending: ASKS },
 ];
 

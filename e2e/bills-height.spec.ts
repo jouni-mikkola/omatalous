@@ -69,7 +69,7 @@ for (const { day, open } of DAYS) {
       // the month the day opens, and the rows of it a card pays folded under one closed toggle
       await expect(months.nth(open === "running" ? 0 : 1)).toHaveAttribute("aria-expanded", "true");
       await expect(page.locator("#laskut-taulukko .bill-month[aria-expanded=true]")).toHaveCount(1);
-      const card = page.locator("#laskut-taulukko .bill-subfold").filter({ hasText: /Kortilla, \d+ kpl/ });
+      const card = page.locator("#laskut-taulukko .bill-subfold").filter({ hasText: /Kortilla, \d+ lasku/ });
       await expect(card).toHaveCount(1);
       await expect(card).toHaveAttribute("aria-expanded", "false");
       const cardBoxes = await page.locator(".kind-cards .kind-card").evaluateAll((els) => els.map((el) => ({ top: Math.round(el.getBoundingClientRect().top), left: Math.round(el.getBoundingClientRect().left), width: Math.round(el.getBoundingClientRect().width) })));

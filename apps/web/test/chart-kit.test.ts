@@ -272,22 +272,17 @@ describe("the frame of a monthly chart", () => {
     expect(monthTickTarget(200)).toBe(4);
   });
 
-  it("writes the axis as 10 000 with the euro on the top tick only, and as 10 t with t€ on a phone", () => {
+  it("writes the axis as 10 000 with the euro on the top tick only", () => {
     const ticks = [0, 1_000_000, 2_000_000, 3_000_000];
-    const wide = monthAxisLabels(ticks, 1_000_000, false);
-    expect(ticks.map(wide).map((s) => s.replace(/\s/g, " "))).toEqual(["0", "10 000", "20 000", "30 000 €"]);
-    const narrow = monthAxisLabels(ticks, 1_000_000, true);
-    expect(ticks.map(narrow)).toEqual(["0", "10 t", "20 t", "30 t€"]);
-    expect(monthAxisLabels([-100_000, 0, 100_000], 100_000, false)(-100_000).replace(/\s/g, " ")).toBe("−1 000".replace(/\s/g, " "));
-    // a step that is not whole thousands keeps the full number on a phone
-    expect(monthAxisLabels([0, 25_000, 50_000], 25_000, true)(50_000)).toMatch(/^500 €$/);
-    expect(monthAxisLabels([0, 250_000, 500_000], 250_000, true)(500_000)).toMatch(/^5\s000\s€$/);
+    const labels = monthAxisLabels(ticks);
+    expect(ticks.map(labels).map((s) => s.replace(/\s/g, " "))).toEqual(["0", "10 000", "20 000", "30 000 €"]);
+    expect(monthAxisLabels([-100_000, 0, 100_000])(-100_000).replace(/\s/g, " ")).toBe("−1 000".replace(/\s/g, " "));
+    expect(monthAxisLabels([0, 25_000, 50_000])(50_000)).toMatch(/^500 €$/);
   });
 
-  it("writes a clipped sum in whole euros, and in thousands on a phone, and stops its column 6 px past the plot", () => {
-    expect(capSum(2_045_000, false).replace(/\s/g, " ")).toBe("20 450 €");
-    expect(capSum(2_045_000, true)).toBe("20 t€");
-    expect(capSum(50_000, true).replace(/\s/g, " ")).toBe("500 €");
+  it("writes a clipped sum in whole euros, and stops its column 6 px past the plot", () => {
+    expect(capSum(2_045_000).replace(/\s/g, " ")).toBe("20 450 €");
+    expect(capSum(50_000).replace(/\s/g, " ")).toBe("500 €");
     expect(capY(-300, 200)).toBe(-6);
     expect(capY(900, 200)).toBe(206);
     expect(capY(80, 200)).toBe(80);

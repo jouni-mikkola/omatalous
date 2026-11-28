@@ -15,7 +15,7 @@ export const FI_REPORTS_4 = {
   "rpt.bal_total_est": "Saldo kuun lopussa, arvio",
   "rpt.bal_month_change": "Tilien muutos edellisestä",
   "rpt.bal_by_month": "Saldot kuukausittain",
-  "rpt.bal_q_trend": "Saldojen kehitys: tilit ja luottokortit",
+  "rpt.bal_q_trend": "Saldojen kehitys",
   "rpt.bal_q_missing": "Kuvasta puuttuvat tilit",
   "rpt.bal_missing": "{count} ilman euromääräistä saldoa, ei mukana summassa eikä kuvassa",
   "rpt.bal_unknown": "saldoa ei tiedetä",

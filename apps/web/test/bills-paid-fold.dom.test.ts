@@ -29,7 +29,7 @@ afterEach(cleanup);
 describe("Laskut: the paid rows of the open month", () => {
   it("are folded under a closed toggle that names their count, below the rows still to pay", () => {
     show([paid(PAID[0]!, 1), paid(PAID[1]!, 3), paid(PAID[2]!, 5), unpaid]);
-    const toggle = screen.getByRole("button", { name: "Maksetut laskut, 3 kpl" });
+    const toggle = screen.getByRole("button", { name: "Maksetut laskut, 3 laskua" });
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(toggle.textContent).not.toMatch(/€/);
     for (const name of PAID) expect(screen.queryAllByText(name)).toHaveLength(0);
@@ -40,7 +40,7 @@ describe("Laskut: the paid rows of the open month", () => {
 
   it("shows the paid rows when opened, each one named by the toggle's aria-controls", () => {
     show([paid(PAID[0]!, 1), paid(PAID[1]!, 3), paid(PAID[2]!, 5), unpaid]);
-    const toggle = screen.getByRole("button", { name: "Maksetut laskut, 3 kpl" });
+    const toggle = screen.getByRole("button", { name: "Maksetut laskut, 3 laskua" });
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
     for (const name of PAID) expect(screen.getAllByText(name)).toHaveLength(1);
@@ -67,19 +67,19 @@ describe("Laskut: the rows of the open month that a card pays", () => {
 
   it("are folded under a closed toggle that names their count, below the rows still to pay and above the paid toggle", () => {
     show([paid(PAID[0]!, 1), paid(PAID[1]!, 3), onCard(CARD[0]!, 14), unpaid, onCard(CARD[1]!, 22), onCard(CARD[2]!, 25)]);
-    const toggle = screen.getByRole("button", { name: "Kortilla, 3 kpl" });
+    const toggle = screen.getByRole("button", { name: "Kortilla, 3 laskua" });
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     expect(toggle.textContent).not.toMatch(/€/);
     for (const name of CARD) expect(screen.queryAllByText(name)).toHaveLength(0);
     const due = screen.getByText("Sähköyhtiö");
     expect(due.compareDocumentPosition(toggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    const paidToggle = screen.getByRole("button", { name: "Maksetut laskut, 2 kpl" });
+    const paidToggle = screen.getByRole("button", { name: "Maksetut laskut, 2 laskua" });
     expect(toggle.compareDocumentPosition(paidToggle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("shows the card's rows when opened, each one named by the toggle's aria-controls, and leaves the paid ones folded", () => {
     show([paid(PAID[0]!, 1), paid(PAID[1]!, 3), onCard(CARD[0]!, 14), unpaid, onCard(CARD[1]!, 22)]);
-    const toggle = screen.getByRole("button", { name: "Kortilla, 2 kpl" });
+    const toggle = screen.getByRole("button", { name: "Kortilla, 2 laskua" });
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
     for (const name of CARD.slice(0, 2)) expect(screen.getAllByText(name)).toHaveLength(1);
@@ -94,7 +94,7 @@ describe("Laskut: the rows of the open month that a card pays", () => {
     show([onCard(CARD[0]!, 14), unpaid, onCard(CARD[1]!, 2, { state: "paid" }), paid(PAID[0]!, 1)]);
     expect(screen.queryByRole("button", { name: /^Kortilla/ })).toBeNull();
     expect(screen.getAllByText(CARD[0]!)).toHaveLength(1);
-    expect(screen.getByRole("button", { name: "Maksetut laskut, 2 kpl" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Maksetut laskut, 2 laskua" })).toBeTruthy();
     expect(screen.queryAllByText(CARD[1]!)).toHaveLength(0);
   });
 });

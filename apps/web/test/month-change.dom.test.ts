@@ -1,5 +1,5 @@
 /**
- * Raportit > Menot kategorioittain > Mikä muuttui: the usual month, a step for each category that moved it and the month,
+ * Raportit > Menot kategorioittain > Muutokset kuukaudesta: the usual month, a step for each category that moved it and the month,
  * from the report's `changes`. The page adds up nothing: the starts, ends and gaps are the server's, and a month the
  * report gives no steps for cannot be picked.
  */
@@ -50,10 +50,10 @@ const context = (spendingMonths: Report): ReportContext => ({ data: { spendingMo
 const show = (r: Report) => render(createElement(section.Component, { ctx: context(r) }));
 const plain = (s: string | null) => (s ?? "").replace(/[  ]/g, " ").replace(/\s+/g, " ").trim();
 
-describe("Menot kategorioittain: Mikä muuttui", () => {
+describe("Menot kategorioittain: Muutokset kuukaudesta", () => {
   it("opens on the newest month with steps, and names the usual month, each step and the month with the report's figures", () => {
     show(report([null, null, change(10_000), change(30_000), change(50_000), null]));
-    const table = screen.getByRole("table", { name: "Mikä muuttui: syyskuu 2026" });
+    const table = screen.getByRole("table", { name: "Muutokset: syyskuu 2026" });
     const rows = Array.from(table.querySelectorAll("tbody tr")).map((tr) => plain(tr.textContent));
     expect(rows).toHaveLength(4);
     // the categories' own sum has a label of its own: Tavallinen kuukausi is the line of the months above it
@@ -76,7 +76,7 @@ describe("Menot kategorioittain: Mikä muuttui", () => {
       endCents: 107_000,
     };
     show(report([null, null, null, null, withStep, null]));
-    const table = screen.getByRole("table", { name: "Mikä muuttui: syyskuu 2026" });
+    const table = screen.getByRole("table", { name: "Muutokset: syyskuu 2026" });
     const rows = Array.from(table.querySelectorAll("tbody tr")).map((tr) => plain(tr.textContent));
     expect(rows[1]).toContain("Kategoriat ilman keskiarvoa, kortti liitetty äskettäin");
     expect(rows[1]).toContain("70 €");
@@ -98,7 +98,7 @@ describe("Menot kategorioittain: Mikä muuttui", () => {
     show(report([null, null, change(10_000), change(30_000), change(50_000), null]));
     expect(screen.queryByRole("button", { name: /›/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /‹ elokuu 2026/ }));
-    expect(screen.getByRole("table", { name: "Mikä muuttui: elokuu 2026" })).toBeTruthy();
+    expect(screen.getByRole("table", { name: "Muutokset: elokuu 2026" })).toBeTruthy();
     expect(screen.getByRole("button", { name: /syyskuu 2026 ›/ })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /‹ heinäkuu 2026/ }));
     expect(screen.queryByRole("button", { name: /‹/ })).toBeNull();

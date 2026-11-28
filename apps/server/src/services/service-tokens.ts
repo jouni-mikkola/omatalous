@@ -104,7 +104,7 @@ export async function createServiceToken(
   await s.serviceTokens.removeExpired(now.toISOString());
   await s.serviceTokens.create({ id, tokenHash: await sha256(token), userId: user.id, name, createdAt: now.toISOString(), expiresAt });
   // the user whose data the token reads is told, also when an admin made it for them
-  await recordEvent(s, { kind: "service_token_made", userId: user.id, detail: `${name} (${id}), voimassa ${days} pv`, notify: true });
+  await recordEvent(s, { kind: "service_token_made", userId: user.id, detail: `${name} (${id}), voimassa ${days} päivää`, notify: true });
   return { id, token, username: user.username, expiresAt };
 }
 

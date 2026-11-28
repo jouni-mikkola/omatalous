@@ -199,7 +199,7 @@ export const FI_TRANSACTIONS = {
   "cal.keys_weeks": "Alimmalta riviltä nuoli alas vie viikon summaan.",
   "cal.keys_means": "Viimeisestä sarakkeesta nuoli oikealle vie viikonpäivän keskiarvoon.",
   "cal.week_short": "vk",
-  "cal.mean_head": "ka / pv",
+  "cal.mean_head": "keskiarvo / päivä",
   "cal.largest": "Suurimmat päivät",
   "cal.cut": "Kuvassa on {count} viimeistä viikkoa. Kaikki päivät näet taulukosta.",
   "rule.heading": "Säännöt",

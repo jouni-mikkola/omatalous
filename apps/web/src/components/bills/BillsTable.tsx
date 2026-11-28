@@ -25,7 +25,7 @@
 import { type MarkKind, parseSeriesId, seriesOfMarkSubject, type UserMark, unknownBillsIn } from "@banking/core";
 import { type ReactNode, useEffect, useId, useState } from "react";
 import { api } from "../../api.ts";
-import { CADENCE_LABEL, dayMonth, date, money, monthLong, seriesName } from "../../format.ts";
+import { CADENCE_LABEL, dayMonth, date, money, monthLong, plural, seriesName } from "../../format.ts";
 import { t, tn } from "../../text.ts";
 import type { Recurring as Series, Scope } from "../../types.ts";
 import { ConfirmDialog } from "../ConfirmDialog.tsx";
@@ -60,6 +60,8 @@ function frequency(s: Series): string {
 }
 
 const capital = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slice(1);
+
+const billCount = (n: number) => plural(n, t("bills.u_bill"), t("bills.u_bills"));
 
 /**
  * What a row says before its sum, or null for a bill whose day and sum are known, which is most of them: it did not come, a
@@ -178,7 +180,7 @@ export function BillsTable({
   };
 
   const rowName = (r: CalRow): string =>
-    r.kind === "fold" ? t("bills.monthly_fold", { count: r.count }) : r.kind === "ended" ? nameOf(r.item) : r.kind === "total" ? t(`bills.total_${r.total}`) : r.item ? nameOf(r.item) : r.bill.payee;
+    r.kind === "fold" ? t("bills.monthly_fold", { count: billCount(r.count) }) : r.kind === "ended" ? nameOf(r.item) : r.kind === "total" ? t(`bills.total_${r.total}`) : r.item ? nameOf(r.item) : r.bill.payee;
   const columns: Column<CalRow>[] = [
     {
       key: "day",
@@ -253,7 +255,7 @@ export function BillsTable({
       // the count of the rows, and no sum: the month's head has the sum of the paid bills, and a card's rows are in no sum
       <button type="button" className="bill-subfold" aria-expanded={isOpen(g.key)} aria-controls={g.fold.keys.map(foldedRowId).join(" ")} onClick={() => toggle(g.key)}>
         <span aria-hidden="true">{isOpen(g.key) ? "▾" : "▸"}</span>
-        {t(g.fold.kind === "card" ? "bills.card_fold" : "bills.paid_fold", { count: g.fold.keys.length })}
+        {t(g.fold.kind === "card" ? "bills.card_fold" : "bills.paid_fold", { count: billCount(g.fold.keys.length) })}
       </button>
     ) : (
       <button type="button" className="bill-month" aria-expanded={isOpen(g.key)} onClick={() => toggle(g.key)}>

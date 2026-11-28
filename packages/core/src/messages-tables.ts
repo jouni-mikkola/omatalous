@@ -16,7 +16,7 @@ export const FI_TABLES = {
   "table.as_table": "{question} taulukkona",
   "table.as_table_x": "{label}, taulukkona",
   "table.months": "Kuukaudet",
-  "table.no_match": "Ei yhtään riviä, joka täsmää.",
+  "table.no_match": "Ei osumia",
   "table.shown": "Näkyvissä {count} / {total} riviä.",
   "table.open_row": "Avaa rivi",
   "table.filter_of": "Taulukon rajaus: {caption}",

@@ -39,7 +39,7 @@ export const FI_SET_OPS = {
   "ops.restart": "Käynnistä sovellus uudelleen",
   "ops.restart_help": "Sovellus on hetken pois käytöstä.",
   "ops.events": "Ylläpitoloki",
-  "ops.no_events": "Ei merkintöjä.",
+  "ops.no_events": "Ei merkintöjä",
   "ops.busy": "Toinen toiminto on kesken.",
   "ops.tools": "Huolto",
   "ops.logs": "Lue lokit",

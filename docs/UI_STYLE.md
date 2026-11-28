@@ -51,11 +51,14 @@ with it. A new word for a thing already named here is not added: the term below 
 | The usual level of a payer, a bill or the savings rate | *tavallisesti* | *normaali* |
 | The bills before payday without the card's bill | *Muut laskut ennen palkkapäivää* (the card's bill is *Korttivelka*) | *Maksut ennen palkkapäivää* beside a figure that holds the card |
 | The card debt that no bill before payday holds, beside *Laskut ennen palkkapäivää* (which holds the card's bill) in the working of the sum left on payday | *Korttivelka laskujen lisäksi* | *Korttivelka* alone there, which reads as the card's bill the line above already holds |
-| The answer card's verdict and rows on Yhteenveto | *Riittää palkkapäivään 25.11.* or *Puuttuu 420 € ennen palkkapäivää*; rows *Käyttötileillä nyt*, *Laskut ennen palkkapäivää* (*Muut laskut ennen palkkapäivää* when a card row follows), *Korttilaskut ennen palkkapäivää*, *Arvioitu kulutus 26 pv*, *Jää palkkapäivänä 25.11.*; the debt of a card whose bill falls on the payday or later is *Korttivelka 2 398 €, jonka maksat palkasta 25.11.*; the range of the spending is *tavallisesti 300–450 €* | *Tilien saldo* for the checking accounts, *Mistä luku koostuu* as a fold there |
+| The answer card's verdict and rows on Yhteenveto | *Riittää palkkapäivään 25.11.* or *Puuttuu 420 € ennen palkkapäivää*; rows *Käyttötileillä nyt*, *Laskut ennen palkkapäivää* (*Muut laskut ennen palkkapäivää* when a card row follows), *Korttilaskut ennen palkkapäivää*, *Arvioitu kulutus 26 päivältä*, *Jää palkkapäivänä 25.11.*; the debt of a card whose bill falls on the payday or later is *Korttivelka 2 398 €, jonka maksat palkasta 25.11.*; the range of the spending is *tavallisesti 300–450 €* | *Tilien saldo* for the checking accounts, *Mistä luku koostuu* as a fold there |
 | A month that has not ended, or whose figures cover only a part of it | *kesken* (the month has not ended: "Lokakuu, kesken"), *vajaa* (it has ended but the accounts do not cover it from its start) | *tänään* as the label of a running month, *keskeneräinen* |
 | A month with all its days | *päättynyt kuukausi* | *valmis kuukausi*, *täysi kuukausi*, *kokonainen kuukausi* |
 | Confirming | the verb that names the act: *Poista*, *Tallenna*, *Peruuta* | *Kyllä*, *Ei*, *OK* |
 | Abbreviations | *kaupparekisteri* for YTJ; CSV is explained at its first use; API and PSD2 only for the administrator | |
+| Days, counts and thousands | *päivää*, *päivältä*, the noun through `plural()` (*3 laskua*), the whole sum (*21 000 €*) | *pv*, *kpl*, *t€* |
+| A heading that asks | a short noun (*Muutokset kuukaudesta*) | *Mikä muuttui*, *Mitä luvusta puuttuu* (the questions of Tarkistettavat and the label of a field are real questions and stay) |
+| No match, no rows | *Ei osumia*, no full stop on a label of at most five words | *Ei yhtään riviä, joka täsmää.* |
 | English names | only as a quotation of another service's own word ("Link accounts") | whole English sentences |
 
 Enable Banking's panel has its own English names. A text may quote them in quotes or parentheses, and says the step in
@@ -115,7 +118,7 @@ The number and its meaning first, the explanation after it and short. One thing 
 repeating, and no inner jargon (*pohja*, *peruste*, *odotettu* with no word on what it rests on). Say what the reader can
 do, not what the system could not do. An error says what happened and what can be done: "Pankki ei vastannut. Yritä
 hetken kuluttua uudelleen." The text of an exception or a status code is not shown. A full stop ends a sentence; a
-button has none. Waiting is one character, "…", as in "Ladataan…".
+button has none. An error never says *Jokin meni vikaan* or *jumittui*; it says what the app could not do (*Emme saaneet tietoja*) and what to do next. Waiting is one character, "…", as in "Ladataan…".
 
 Before and after, from the app:
 

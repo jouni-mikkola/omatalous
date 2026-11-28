@@ -75,6 +75,14 @@ const CASES: Record<string, { bad: string[]; ok: string[] }> = {
     bad: ["Luetaan kuvaa, kun se on valittu", "Tapahtumat haetaan pankin palvelusta.", "Summa lasketaan kerran.", "Se tehdään vasta myöhemmin"],
     ok: ["Luemme kuvaa…", "Testaa yhteys", "Ladataan…", "Testataan yhteyttä", "Kenttä ei kuulu tähän valintaan.", "Lisää kohtaan Päätetyt.", "Haetaan tapahtumia pankista…", "Tallennetaan…", "Laskettu summa", "Päivässä voi kuluttaa enintään 40 €.", "Katso viimeistään perjantaina.", "Maksoit osan omista rahoistasi.", "Kuuluu rahoistaan maksavalle."],
   },
+  "Question word heading": {
+    bad: ["Mikä muuttui", "Mitä laskuille kuuluu"],
+    ok: ["Muutokset kuukaudesta", "Mitä nämä ovat: {name}", "Mikä muuttui? Katso erittely.", "Mikään ei muuttunut"],
+  },
+  "Abbreviated count": {
+    bad: ["Arvioitu kulutus 12 pv", "Laskut, 3 kpl", "20 t€", "{days} pv:"],
+    ok: ["Arvioitu kulutus 12 päivältä", "3 laskua", "21 000 €", "Alin saldo päivässä", "tod.pv/360", "kplä"],
+  },
   "Question heading": {
     bad: ["Mihin raha menee?", "Miten tämä kuukausi menee?", "Kestääkö puskuri?", "Paljonko jää säästöön?"],
     ok: ["Rahankäyttö", "Kuukauden tilanne", "Haluatko varmasti poistaa tilin?", "Mihin raha menee. Katso erittely."],

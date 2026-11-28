@@ -31,7 +31,7 @@ const TOP = 22;
 const OUTLIER_FACTOR = 2;
 /** A bar is cut only in a view of at least this many months: two bars a month would let a view of two clip. */
 const MIN_CLIP_MONTHS = 4;
-/** Under this width the axis is in thousands and a clipped sum is "21 t€". */
+/** Under this width the chart uses the short label of the usual line. */
 const NARROW = 600;
 
 /** The rows of one month in Tapahtumat: its days, to today in the running month. */
@@ -79,9 +79,9 @@ export function MonthBars({ overview, today, incomePartial }: { overview: Pick<O
   const draft = frame(width, { top: headroom, right: 4, bottom: BOTTOM, left: 48 }, options);
   const scale = (innerH: number) => linear(values, [innerH, 0], { target: monthTickTarget(innerH), clip: new Set(sums.map((s) => s.month)).size >= MIN_CLIP_MONTHS ? OUTLIER_FACTOR : undefined, include: usual === null ? [] : [usual] });
   const y0 = scale(draft.innerH);
-  const f = frame(width, { top: headroom, right: 4, bottom: BOTTOM, left: axisRoom(y0.ticks.map(monthAxisLabels(y0.ticks, y0.step, narrow))) }, options);
+  const f = frame(width, { top: headroom, right: 4, bottom: BOTTOM, left: axisRoom(y0.ticks.map(monthAxisLabels(y0.ticks))) }, options);
   const y = scale(f.innerH);
-  const axisLabel = monthAxisLabels(y.ticks, y.step, narrow);
+  const axisLabel = monthAxisLabels(y.ticks);
   const capped = new Set(y.clipped.flatMap((k) => (y(values[k]!) < 0 || y(values[k]!) > f.innerH ? [`${sums[k]!.month}:${sums[k]!.kind}`] : [])));
   const x = band(months.length, f.innerW, 0.72);
   const bar = Math.max(1, x.width / 2 - 1);
@@ -175,7 +175,7 @@ export function MonthBars({ overview, today, incomePartial }: { overview: Pick<O
               );
             })}
             {capSums.map((c) => (
-              <CapSum key={c.key} x={c.x} end={capEnd(c.sum)} dir={capDir(c.sum)} anchor={c.anchor} text={capSum(c.sum, narrow)} />
+              <CapSum key={c.key} x={c.x} end={capEnd(c.sum)} dir={capDir(c.sum)} anchor={c.anchor} text={capSum(c.sum)} />
             ))}
             {usual !== null && <line className="mb-usual" x1={0} x2={f.innerW} y1={crisp(y(usual))} y2={crisp(y(usual))} />}
             {usual !== null && <UsualLabel innerW={f.innerW} above={TOP} text={t(narrow ? "home.months_usual_short" : "home.months_usual", { sum: answerMoney(usual) })} />}

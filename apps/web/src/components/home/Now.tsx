@@ -1,6 +1,6 @@
 // Decision: how much of the money in the accounts is free to spend until the payday
 import type { ReactNode } from "react";
-import { answerMoney, dayMonth, rowMoney } from "../../format.ts";
+import { answerMoney, dayMonth, plural, rowMoney } from "../../format.ts";
 import { rangeText } from "../../format-range.ts";
 import { hashOf } from "../../routes.ts";
 import { t } from "../../text.ts";
@@ -57,14 +57,14 @@ function AnswerCard({ runway, lowLine }: { runway: KnownRunway; lowLine: ReactNo
         </div>
         <div data-row="bills">
           <dt>
-            <a data-tile="bills" href={billsHref}>{t(parts.cardBills.count > 0 ? "rpt.buf_due" : "home.ledger_payments")}</a> <span className="home-row-note">{t("home.row_count", { count: String(parts.bills.count) })}</span>
+            <a data-tile="bills" href={billsHref}>{t(parts.cardBills.count > 0 ? "rpt.buf_due" : "home.ledger_payments")}</a> <span className="home-row-note">{t("home.row_count", { count: plural(parts.bills.count, t("bills.u_bill"), t("bills.u_bills")) })}</span>
           </dt>
           <dd className="num">{rowMoney(parts.bills.cents)}</dd>
         </div>
         {parts.cardBills.count > 0 && (
           <div data-row="cards">
             <dt>
-              {t("home.row_cards")} <span className="home-row-note">{t("home.row_count", { count: String(parts.cardBills.count) })}</span>
+              {t("home.row_cards")} <span className="home-row-note">{t("home.row_count", { count: plural(parts.cardBills.count, t("bills.u_bill"), t("bills.u_bills")) })}</span>
             </dt>
             <dd className="num">{rowMoney(parts.cardBills.cents)}</dd>
           </div>

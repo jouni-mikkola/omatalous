@@ -89,7 +89,7 @@ export const EN_OVERVIEW: Record<keyof typeof FI_OVERVIEW, string> = {
   "home.verdict_enough": "Enough until payday {date}",
   "home.verdict_short": "{sum} short before payday",
   "home.row_balance": "On the checking accounts now",
-  "home.row_count": "{count} pcs",
+  "home.row_count": "{count}",
   "home.row_cards": "Card bills before payday",
   "home.row_spending": "Expected spending {days} days",
   "home.row_range": "range {range}",

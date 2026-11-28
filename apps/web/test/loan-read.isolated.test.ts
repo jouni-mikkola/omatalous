@@ -221,7 +221,7 @@ describe("the picture reader", () => {
     vi.useFakeTimers();
     startsWorker(never);
     const read = readPicture(picture(), () => {}, new AbortController().signal);
-    const stalled = expect(read).rejects.toMatchObject({ message: expect.stringContaining("jumittui") });
+    const stalled = expect(read).rejects.toMatchObject({ message: expect.stringContaining("kesti liian kauan") });
     await until(() => started.length === 1);
     await vi.advanceTimersByTimeAsync(STALL_MS - 1);
     expect(started.map((w) => w.ended)).toEqual([false]);
@@ -239,7 +239,7 @@ describe("the picture reader", () => {
       return never();
     });
     const read = readPicture(picture(), (p) => void seen.push(`${p.step} ${p.share}`), new AbortController().signal);
-    const stalled = expect(read).rejects.toMatchObject({ message: expect.stringContaining("jumittui") });
+    const stalled = expect(read).rejects.toMatchObject({ message: expect.stringContaining("kesti liian kauan") });
     await until(() => started.length === 1);
     await vi.advanceTimersByTimeAsync(2 * STALL_MS - 2000 + STALL_MS - 1);
     expect(started.map((w) => w.ended)).toEqual([false]);
@@ -346,7 +346,7 @@ describe("the PDF reader", () => {
     const t = task(never());
     pdf.getDocument.mockReturnValue(t);
     const read = readPdf(new ArrayBuffer(8), new AbortController().signal);
-    const stalled = expect(read).rejects.toMatchObject({ message: expect.stringContaining("jumittui") });
+    const stalled = expect(read).rejects.toMatchObject({ message: expect.stringContaining("kesti liian kauan") });
     await until(() => pdf.getDocument.mock.calls.length === 1);
     await vi.advanceTimersByTimeAsync(STALL_MS);
     await stalled;
