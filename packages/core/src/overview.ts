@@ -111,15 +111,25 @@ function completeTotalsOf(months: readonly OverviewMonth[]): OverviewCompleteTot
   };
 }
 
+/** The complete months of `spending` and the rows of exactly those months: the window the tiles of Tulot ja menot and the picture of sources and uses share. */
+function completeMonthRows(ctx: AnalysisContext, spending: SpendingMonthsReport) {
+  const months = spending.months.filter((_, i) => spending.complete[i]);
+  const indexes = new Set(months.map(monthIndex));
+  const rows = months.length === 0 ? [] : inDays(ctx, toDayRange({ from: `${months[0]}-01`, to: monthEnd(months.at(-1)!) })).filter((x) => indexes.has(x.month));
+  return { months, rows };
+}
+
+/** `completeMonthRows` of the months of `range`. */
+export function completeMonthRowsOf(ctx: AnalysisContext, range: DateRange, lang: Language = DEFAULT_LANGUAGE) {
+  return completeMonthRows(ctx, spendingMonthsReport(ctx, range, lang));
+}
+
 /** The bars and sums of Tulot ja menot over the months `spending` covers: one definition for Yhteenveto's twelve months and Raportit's period. */
 function cashflowOf(ctx: AnalysisContext, spending: SpendingMonthsReport): CashflowMonths {
   // the months' Menot are the bridge's spending, so a month's bars and Tulos add up; the report's sum is that and the debt paid from savings
   const spent = spending.totals.map((cents, i) => (cents === null ? null : cents - (spending.fromSavings[i] ?? 0)));
   const known = knownMonths(ctx, spending.months);
-  const complete = spending.months.filter((_, i) => spending.complete[i]);
-  const completeIndexes = new Set(complete.map(monthIndex));
-  const completeFlows = complete.length === 0 ? [] : inDays(ctx, toDayRange({ from: `${complete[0]}-01`, to: monthEnd(complete.at(-1)!) })).filter((x) => completeIndexes.has(x.month)).map((x) => x.flows);
-  const cover = coverOf(totalsOf(completeFlows));
+  const cover = coverOf(totalsOf(completeMonthRows(ctx, spending).rows.map((x) => x.flows)));
   const months: OverviewMonth[] = spending.months.map((m, i) => ({ month: m, incomeCents: known[i] ? monthIncome(ctx, m) : null, spendCents: spent[i] ?? null, fromSavingsCents: spending.fromSavings[i] ?? null, complete: spending.complete[i]!, againstUsual: spending.complete[i] ? againstUsual(spent[i] ?? null, spending.typicalFlowCents) : null }));
   return {
     months,
