@@ -133,8 +133,6 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
     );
   };
   const nameCell = (a: Account) => {
-    // the holder is a line of its own unless the name already says it
-    const holder = a.holder && a.holder !== a.name && a.holder !== a.bankName ? a.holder : null;
     // the limit and how much of it is in use, from the bank's balance (creditUse in core owns the figure)
     const limit = cardLimitCents(a.creditLimitCents);
     const loan = limit === null ? null : creditAccountLoan(a, meta.today);
@@ -146,9 +144,6 @@ export function Accounts({ meta, onChange }: { meta: Meta; onChange: () => void 
     return (
       <>
         <div className="acc-name">{shownName(a)}</div>
-        {accountNumber(a) && <div className="sub acc-line">{accountNumber(a)}</div>}
-        {a.customName && <div className="sub acc-line">{t("set.acc.bank_name", { name: a.bankName })}</div>}
-        {holder && <div className="sub acc-line">{holder}</div>}
         {a.loanPayment && <div className="sub acc-line">{t("set.acc.loan_payment_account")}</div>}
         {credit && <div className="sub acc-line">{credit}</div>}
         {used > 0 && typeof use?.share === "number" && (
@@ -307,6 +302,8 @@ function AccountForm({
   onRemove: () => void;
 }) {
   const csv = account.provider === "csv";
+  // the number, the bank's name and the holder are facts of the account, shown here and not on the row; the holder only when the name does not already say it
+  const holder = account.holder && account.holder !== account.name && account.holder !== account.bankName ? account.holder : null;
   const initialBalance = account.balanceCents === null ? "" : eurosText(account.balanceCents);
   // empty: the bank's own name shows (for an imported account, the name it was imported under)
   const [name, setName] = useState(account.customName ?? "");
@@ -338,6 +335,11 @@ function AccountForm({
 
   return (
     <form className="account-form" onSubmit={save}>
+      <div className="sub">
+        {accountNumber(account) && <div>{accountNumber(account)}</div>}
+        {account.customName && <div>{t("set.acc.bank_name", { name: account.bankName })}</div>}
+        {holder && <div>{holder}</div>}
+      </div>
       <label>
         <span className="field-label">{t("set.acc.account_name")}</span>
         {/* the form opens in place of the Muokkaa that was pressed, so the focus moves into it */}
