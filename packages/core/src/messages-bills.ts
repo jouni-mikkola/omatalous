@@ -57,7 +57,7 @@ export const FI_BILLS = {
   "bills.form.repeats": "Toistuu",
   "bills.form.adding": "Lisätään…",
   "bills.form.barcode": "Pankkiviivakoodi (valinnainen)",
-  "bills.form.barcode_hint": "Liitä laskun viivakoodin 54 numeroa, niin summa ja eräpäivä täyttyvät. Nimi kirjoitetaan itse.",
+  "bills.form.barcode_hint": "Liitä laskun viivakoodin 54 numeroa, niin summa ja eräpäivä täyttyvät. Laskun nimen kirjoitat itse.",
   "bills.form.barcode_filled": "Summa ja eräpäivä luettu viivakoodista.",
   "bills.form.barcode_no_due": "Summa luettu viivakoodista. Laskussa ei ole eräpäivää, valitse se itse.",
   "bills.form.barcode_no_amount": "Viivakoodissa ei ole summaa. Kirjoita summa itse.",
