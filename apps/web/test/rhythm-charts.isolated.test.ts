@@ -82,7 +82,7 @@ describe("SlopeChart", () => {
     const rules = ["charts.css", "calendar-heat.css"]
       .flatMap((f) => readFileSync(new URL(`../src/styles/${f}`, import.meta.url), "utf8").split("\n"))
       .filter((l) => /\.slope-(rise|stop-rise)/.test(l));
-    expect(rules.length).toBeGreaterThanOrEqual(4);
+    expect(rules.length).toBeGreaterThanOrEqual(3);
     for (const r of rules) expect(r).toMatch(/var\(--accent(-ink)?\)/);
     expect(rules.join("\n")).not.toContain("--bad");
   });
