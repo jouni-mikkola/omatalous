@@ -35,8 +35,8 @@ not the only carrier. In forced-colours mode the outline and the word remain.
 The word for the estimate is *Arvio*, as in the glossary. *Ennuste* is not used. Laskut shows no kind cards or chips; it marks an
 estimated sum with `Estimate mark="line"`.
 
-The component is `KindChip` in `apps/web/src/components/`, the chip's messages are `kind.now`,
-`kind.estimate` and `kind.usual`, and the looks are in `styles/estimate.css`. Now, Coming and Overview use them.
+The kind words are the messages `kind.now`, `kind.estimate` and `kind.usual`, and the looks of an estimate are in
+`styles/estimate.css`. No page draws a chip component any more.
 
 ## Consequences
 

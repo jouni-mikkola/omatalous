@@ -8,23 +8,4 @@
 .fig-approx-sign { color: var(--text-2); font-weight: var(--w-regular); }
 .est-line { fill: none; stroke: var(--estimate-edge); stroke-dasharray: 4 4; }
 .chart .est-band { fill: var(--estimate-fill); }
-
-/*
- * The three kinds of a figure (ADR 0030): the chip names the kind, and the shape tells it without colour: a filled chip, a
- * dashed outline, a plain word.
- */
-.kind-head { display: flex; align-items: center; gap: var(--sp-8); min-block-size: var(--lh-body); }
-.kind-chip { display: inline-block; padding: 0 var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-body); font-weight: var(--w-strong); letter-spacing: var(--track-name); text-transform: uppercase; white-space: nowrap; border-radius: var(--radius-s); }
-.kind-chip-now { background: var(--text); color: var(--surface); }
-/* the fill is dropped in high contrast, so the edge of Nyt stays beside the dashed edge of Arvio and the word tells the kind */
-@media (forced-colors: active) { .kind-chip-now { outline: var(--hairline) solid CanvasText; outline-offset: calc(-1 * var(--hairline)); } }
-.kind-chip-estimate { color: var(--accent-ink); outline: var(--hairline) dashed var(--accent-ink); outline-offset: calc(-1 * var(--hairline)); }
-.kind-chip-usual { padding-inline-start: 0; color: var(--muted); }
-.kind-date { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums; }
-
-@media (max-width: 640px) {
-  .kind-head { gap: 0 var(--sp-4); min-block-size: 0; }
-  .kind-chip { padding: 0 var(--sp-4); line-height: var(--lh-label); }
-  .kind-chip-usual { padding-inline-start: 0; }
-}
 }

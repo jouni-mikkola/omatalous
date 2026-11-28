@@ -99,7 +99,6 @@ describe("Yhteenveto's sum left to the payday", () => {
 
     it("names the range in the spending row and carries no chip", () => {
       const { container } = ledgerOf(runway());
-      expect(container.querySelector(".kind-chip")).toBeNull();
       expect(flat(container.querySelector("[data-row=spending] dt")?.textContent)).toBe("Arvioitu kulutus 14 päivältä tavallisesti 300–450 €");
     });
 
