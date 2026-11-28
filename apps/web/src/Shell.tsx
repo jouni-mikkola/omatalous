@@ -4,7 +4,6 @@
  * page needs once (meta, the count of open questions), works out the scope and the period, and hands them to the views
  * through `ShellContext`.
  */
-import { AboutFoot } from "./components/AboutFoot.tsx";
 import { Link, Outlet, useNavigate, useRouterState, useSearch } from "@tanstack/react-router";
 import { type ComponentProps, lazy, Suspense, useEffect, useRef, useState } from "react";
 import { api } from "./api.ts";
@@ -438,10 +437,11 @@ export function Shell() {
           {known ? <Outlet /> : <NotFound />}
         </div>
         </main>
-        <footer className="sheet-foot">
-          <AboutFoot version={m.version.app} />
-          {foot && <span aria-live="polite">{foot}</span>}
-        </footer>
+        {foot && (
+          <footer className="sheet-foot">
+            <span aria-live="polite">{foot}</span>
+          </footer>
+        )}
       </div>
       </PageAddressContext.Provider>
       </ShellContext.Provider>

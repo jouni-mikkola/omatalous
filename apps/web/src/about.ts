@@ -1,6 +1,6 @@
 import project from "../../../project.json";
 
-/** Who made Omatalous and where it lives: read by the footer of every page (components/AboutFoot.tsx) and by the sign-in page (Auth.tsx). */
+/** Who made Omatalous and where it lives: read by Asetukset > Palvelin ja ylläpito (pages/settings/AboutApp.tsx) and by the sign-in page (Auth.tsx). */
 export const ABOUT = {
   /** The attribution the licence's additional term (LICENSE, section 7(b)) keeps in every copy: the app's name, then the author's. */
   appName: project.name,

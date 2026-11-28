@@ -1,4 +1,4 @@
-/** Asetukset > Palvelin ja ylläpito: the software information, who made the app and where to support it. The links of an author and of a donation page are not in the foot of every page. */
+/** Asetukset > Palvelin ja ylläpito: the software information. The app, its author (the attribution the licence keeps), the licence, the source, the guides and where to support the development; no page has a footer line of its own for them. */
 import { ABOUT } from "../../about.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { t } from "../../text.ts";
@@ -11,8 +11,18 @@ export function AboutApp() {
       <div className="card-head">
         <h2>{t("set.sv.software")}</h2>
         <div className="form-row flush">
+          <span>
+            {ABOUT.appName}, {ABOUT.authorName}
+          </span>
+          <span>{ABOUT.licence}</span>
           <Button variant="link" href={ABOUT.authorUrl} {...outside}>
             {ABOUT.authorName}
+          </Button>
+          <Button variant="link" href={ABOUT.sourceUrl} {...outside}>
+            {t("foot.source")}
+          </Button>
+          <Button variant="link" href={ABOUT.guidesUrl} {...outside}>
+            {t("foot.guides")}
           </Button>
           {ABOUT.supportUrl !== "" && (
             <Button variant="link" href={ABOUT.supportUrl} {...outside}>
