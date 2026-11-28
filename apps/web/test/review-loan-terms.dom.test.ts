@@ -250,7 +250,8 @@ describe("Täydennä lainat", () => {
     show([{ ...listOf([debt, { ...debt, id: "proposal:j", key: "j", name: "Toinen rahoitus" }]), id: "loan-terms:balances" } as ReviewItem]);
     for (const n of [0, 1]) fireEvent.change(await within(openRow(n)).findByLabelText(/^Jäljellä/, {}, T), { target: { value: "2 000" } });
     fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
-    await within(openRow(0)).findByText("Lainaa ei voitu tallentaa.", {}, T);
+    await screen.findByText("Lainaa ei voitu tallentaa.", {}, T);
+    expect(within(openRow(0)).getByText("Lainaa ei voitu tallentaa.")).toBeTruthy();
     expect(document.querySelectorAll("li.review-debt.is-done")).toHaveLength(1);
     expect(openRow(0).textContent).toContain("Toinen rahoitus");
     fireEvent.click(screen.getByRole("button", { name: "Tallenna" }));
