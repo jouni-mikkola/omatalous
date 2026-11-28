@@ -5,7 +5,7 @@
  * A span is two mark indexes, the one where it began (`anchor`) and the one it reaches (`head`), either side of the
  * other. The pointer presses on a mark, drags and lets go; the keys move the head from the focused mark. The chart turns
  * the bounds into keys or dates and sends them on (`onSpan`): the table under it, or the address of the page. Escape
- * lets go (`onRelease`). A press and release on one mark is a span of one mark, the single pick of ADR 0023.
+ * lets go (`onRelease`). A press and release on one mark is a span of one mark, sent on only when the chart asks for it (`tap`); bounds show only once the pointer has left the pressed mark or a key moved the span.
  */
 import { type KeyboardEvent, type PointerEvent, useCallback, useRef, useState } from "react";
 
@@ -63,9 +63,9 @@ interface SpanHandlers {
  * The span of one chart. `indexOf` turns a pointer event into a mark index; `onSpan` gets the bounds when the pointer is
  * let go over the chart or a key commits; `live` sends them at every change of the span too (a chart whose table
  * follows in the browser), where a chart whose change reloads the page waits for the release. `onRelease` is Escape; `taken` says a span
- * is held outside the chart (the table's), so Escape has something to let go of with none in progress.
+ * is held outside the chart (the table's), so Escape has something to let go of with none in progress. `tap` false: a press and release on one mark sends nothing (the mark is a link).
  */
-export function useSpan({ n, indexOf, onSpan, onRelease, live = false, taken = false }: { n: number; indexOf: (e: PointerEvent<Element>) => number; onSpan: (from: number, to: number) => void; onRelease?: () => void; live?: boolean; taken?: boolean }) {
+export function useSpan({ n, indexOf, onSpan, onRelease, live = false, taken = false, tap = true }: { n: number; indexOf: (e: PointerEvent<Element>) => number; onSpan: (from: number, to: number) => void; onRelease?: () => void; live?: boolean; taken?: boolean; tap?: boolean }) {
   const [span, setSpan] = useState<Span | null>(null);
   /** The mark the press began on; null while the pointer is up. */
   const down = useRef<number | null>(null);
@@ -86,7 +86,15 @@ export function useSpan({ n, indexOf, onSpan, onRelease, live = false, taken = f
     },
     onPointerMove: (e) => {
       if (down.current === null) return;
+      if (e.buttons === 0) {
+        // the button was let go outside the chart before the pointer was captured
+        down.current = null;
+        setSpan(null);
+        return;
+      }
       const head = indexOf(e);
+      // once on another mark the pointer is held, so a drag that leaves the plot still ends on the chart; held from the press it would take the click of a tap from its link
+      if (head !== down.current && !e.currentTarget.hasPointerCapture?.(e.pointerId)) e.currentTarget.setPointerCapture?.(e.pointerId);
       setSpan((now) => {
         if (!now || now.head === head) return now;
         if (head !== now.anchor) dragged.current = true;
@@ -101,7 +109,7 @@ export function useSpan({ n, indexOf, onSpan, onRelease, live = false, taken = f
       if (next.anchor !== head) dragged.current = true;
       // once let go the span belongs to whoever took it (the table, the address), the chart draws that one
       setSpan(null);
-      onSpan(...spanBounds(next));
+      if (tap || next.anchor !== head) onSpan(...spanBounds(next));
     },
     onPointerCancel: () => {
       down.current = null;
@@ -116,10 +124,15 @@ export function useSpan({ n, indexOf, onSpan, onRelease, live = false, taken = f
     if (k.release) {
       setSpan(null);
       onRelease?.();
-    } else if (k.commit && k.span) onSpan(...spanBounds(k.span));
-    else change(k.span);
+    } else if (k.commit && k.span) {
+      // the span now belongs to whoever took it; kept, its indexes would outlive the marks of the new period
+      setSpan(null);
+      onSpan(...spanBounds(k.span));
+    } else change(k.span);
     if (k.moved !== null) focusAt?.(k.moved);
     return true;
   };
-  return { span, bounds: span ? spanBounds(span) : null, handlers, keys, dragged, clear };
+  // a press with no drag is a tap: nothing of a span to show until the pointer leaves its mark or a key moves it
+  const shown = span && (span.anchor !== span.head || down.current === null) ? span : null;
+  return { span, bounds: shown ? spanBounds(shown) : null, handlers, keys, dragged, clear };
 }

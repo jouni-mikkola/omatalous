@@ -6,6 +6,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { indexAtX, spanBounds, spanKey } from "../src/charts/kit/span.ts";
+import { MonthBars } from "../src/charts/MonthBars.tsx";
 import { ChartWithTable } from "../src/components/table/selection.tsx";
 import { Table } from "../src/components/table/Table.tsx";
 import { TotalsStrip } from "../src/pages/transactions/TotalsStrip.tsx";
@@ -52,6 +53,31 @@ describe("a span in the table under a chart", () => {
     fireEvent.click(document.querySelector(".rt-filter button")!);
     expect(document.querySelectorAll("tbody tr")).toHaveLength(4);
   });
+  it("takes a drag of the pointer across months as the span, and a tap on one month still follows its link", () => {
+    const months = rows.map((r) => ({ ...r, incomeCents: 400_000, spendCents: 300_000, complete: true }));
+    const overview = { months, usualSpendCents: null } as unknown as Parameters<typeof MonthBars>[0]["overview"];
+    render(
+      createElement(ChartWithTable, {
+        chart: createElement(MonthBars, { overview, today: "2026-05-10" }),
+        table: createElement(Table<(typeof rows)[number]>, { caption: "Kuukaudet", rows, rowKey: (r) => r.month, columns: [{ key: "m", label: "Kuukausi", kind: "text", rowHead: true, cell: (r) => r.month }] }),
+      }),
+    );
+    const links = document.querySelector<SVGGElement>(".mb-links")!;
+    // four months over 400 px, a hundred each
+    links.getBoundingClientRect = () => ({ left: 0, right: 400, top: 0, bottom: 50, width: 400, height: 50, x: 0, y: 0, toJSON: () => ({}) });
+    const link = links.querySelector("a")!;
+    // a press shows nothing of a span, and a tap leaves the rows and the click alone
+    fireEvent.pointerDown(link, { clientX: 50, button: 0, buttons: 1 });
+    expect(document.querySelector(".chart.month-bars")!.textContent).not.toContain("1 kuukausi");
+    fireEvent.pointerUp(link, { clientX: 50, button: 0 });
+    expect(fireEvent.click(link)).toBe(true);
+    expect(document.querySelectorAll("tbody tr")).toHaveLength(4);
+    fireEvent.pointerDown(link, { clientX: 50, button: 0, buttons: 1 });
+    fireEvent.pointerMove(links, { clientX: 250, buttons: 1 });
+    fireEvent.pointerUp(links, { clientX: 250, button: 0 });
+    expect([...document.querySelectorAll("tbody tr")].map((r) => r.textContent)).toEqual(["2026-01", "2026-02", "2026-03"]);
+    expect(fireEvent.click(link)).toBe(false);
+  });
 });
 
 describe("a span of the histogram over Tapahtumat", () => {
@@ -65,7 +91,7 @@ describe("a span of the histogram over Tapahtumat", () => {
       bins: ["2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04"].map((start, i) => ({ start, count: 1, outCount: 1, inCount: 0, inCents: 0, outCents: (i + 1) * 10_00 })),
     },
   };
-  it("limits the period to the span on Enter, and Escape returns to the period before while the pick is on show", () => {
+  it("limits the period to the span on Enter, and Escape steps back in the history while the pick is on show", () => {
     const onPick = vi.fn();
     const { rerender } = render(createElement(TotalsStrip, { totals, income: false, today: "2026-10-13", onPick }));
     const plot = screen.getByRole("img");
@@ -76,8 +102,13 @@ describe("a span of the histogram over Tapahtumat", () => {
     expect(document.querySelector(".tx-hist-readout")!.textContent).toContain("Valittu");
     fireEvent.keyDown(plot, { key: "Enter" });
     expect(onPick).toHaveBeenLastCalledWith({ from: "2026-09-02", to: "2026-09-04" });
-    rerender(createElement(TotalsStrip, { totals: { ...totals, span: { from: "2026-09-02", to: "2026-09-04" } }, income: false, today: "2026-10-13", onPick }));
+    // the new period has fewer bars: the span of the old one is gone, not read against them
+    const picked = { ...totals, span: { from: "2026-09-02", to: "2026-09-04" }, histogram: { ...totals.histogram, bins: totals.histogram.bins.slice(1) } };
+    rerender(createElement(TotalsStrip, { totals: picked, income: false, today: "2026-10-13", onPick }));
+    expect(document.querySelector(".tx-hist-readout")!.textContent).not.toContain("Valittu");
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => undefined);
     fireEvent.keyDown(screen.getByRole("img"), { key: "Escape" });
-    expect(onPick).toHaveBeenLastCalledWith({ from: "2026-09-01", to: "2026-09-04" });
+    expect(back).toHaveBeenCalledOnce();
+    back.mockRestore();
   });
 });

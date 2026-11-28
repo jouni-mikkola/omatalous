@@ -112,10 +112,7 @@ function Histogram({ unit, bins, today, last, income, onPick, restore }: { unit:
             setAt(indexAtX(e.clientX, r.left, r.width, n));
             drag.handlers.onPointerMove(e);
           }}
-          onPointerLeave={() => {
-            setAt(null);
-            drag.handlers.onPointerCancel();
-          }}
+          onPointerLeave={() => setAt(null)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           onKeyDown={(e) => {
@@ -159,10 +156,10 @@ export function TotalsStrip({ totals, income, today, onPick, more }: { totals: T
     setSeenIncome(income);
     setSeries(income ? "in" : "out");
   }
-  // the period before the last pick from the histogram, for Escape; it holds only while that pick is the period on show
-  const [back, setBack] = useState<{ before: Period; after: Period } | null>(null);
+  // the period before the last pick from the histogram, for Escape (one step back in the history, where the pick is the top entry); it holds only while that pick is the period on show
+  const [back, setBack] = useState<Period | null>(null);
   const pickPeriod = (p: Period) => {
-    if (span) setBack({ before: span, after: p });
+    if (span) setBack(p);
     onPick(p);
   };
   const inSeries = series === "in";
@@ -183,7 +180,7 @@ export function TotalsStrip({ totals, income, today, onPick, more }: { totals: T
           onChange={setSeries}
         />
       </figcaption>
-      <Histogram key={series} unit={hist.unit} bins={hist.bins} income={inSeries} today={today} last={span?.to ?? today} onPick={pickPeriod} restore={back && span && back.after.from === span.from && back.after.to === span.to ? () => onPick(back.before) : null} />
+      <Histogram key={series} unit={hist.unit} bins={hist.bins} income={inSeries} today={today} last={span?.to ?? today} onPick={pickPeriod} restore={back && span && back.from === span.from && back.to === span.to ? () => window.history.back() : null} />
     </figure>
   );
   return (

@@ -75,11 +75,15 @@ export function MonthBars({ overview, today, incomePartial }: { overview: Pick<O
       const r = e.currentTarget.getBoundingClientRect();
       return indexAtX(e.clientX, r.left, r.width, months.length);
     },
-    // one month is a click on its link
-    onSpan: (lo, hi) => lo !== hi && scope?.selectRange(months[lo]!.month, months[hi]!.month),
+    // narrowed by key to one month it is the single pick, so the table and the band stay in step; a tap is a click on its link
+    onSpan: (lo, hi) => {
+      if (lo !== hi) scope?.selectRange(months[lo]!.month, months[hi]!.month);
+      else if (scope && scope.selected !== months[lo]!.month) scope.select(months[lo]!.month);
+    },
     onRelease: () => scope?.select(null),
     live: true,
-    taken: pickedRange !== null,
+    tap: false,
+    taken: pickedRange !== null || scope?.selected != null,
   });
   const { clear } = dragSpan;
   // when the table lets go of the span (its x, Escape in another chart), the keys start anew
@@ -208,7 +212,7 @@ export function MonthBars({ overview, today, incomePartial }: { overview: Pick<O
             {usual !== null && <UsualLabel innerW={f.innerW} above={TOP} text={t(narrow ? "home.months_usual_short" : "home.months_usual", { sum: answerMoney(usual) })} />}
           </g>
           {/* outside the picture: each month is a link of its own, so a control never sits inside an image */}
-          <g className="mb-links" {...(scope ? { ...dragSpan.handlers, onPointerLeave: dragSpan.handlers.onPointerCancel } : {})}>
+          <g className="mb-links" {...(scope ? dragSpan.handlers : {})}>
             {months.map((m, i) => (
               <a
                 key={m.month}
