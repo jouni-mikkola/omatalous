@@ -26,7 +26,7 @@ upgrade: Migration 0009 runs on the first start, after the usual copy.
 
 Before a release, the person who prepares it writes `changelog.d/_highlights.md`: two to five plain lines, in English,
 that say what is new, as facts without adjectives, and that do not repeat an entry of a section. `prepare.mjs` makes
-them a short list right under `## X.Y.Z`, before the sections, and removes the file with the fragments. It is not a fragment (no `section:` line), and a release of five or
-more fragments is refused without it.
+them a short list right under `## X.Y.Z`, before the sections, and removes the file with the fragments. It is not a
+fragment (no `section:` line), and a release of five or more fragments is refused without it.
 
 A fragment that only repeats the commit message is noise. A change nobody outside the code would notice needs none.
