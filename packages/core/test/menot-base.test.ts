@@ -39,7 +39,7 @@ function household(loan: boolean): Transaction[] {
   ]);
 }
 
-const inputs = { ...NO_INPUTS, spendingGoalCents: 150_000 };
+const inputs = { ...NO_INPUTS };
 const dashboardOf = (loan: boolean) => buildDashboard(createContext(household(loan), [checking, savings], today), range, [], inputs);
 
 /**
@@ -52,7 +52,6 @@ function menotOf(d: ReturnType<typeof dashboardOf>) {
   return {
     overview: { ...rest, months: months.map((m) => ({ ...m, fromSavingsCents: 0 })), categories: { ...categories, rows: [], otherCents: 0, fromSavingsCents: 0 } },
     pace: d.pace,
-    goal: d.goal,
     nytPace: d.nyt?.pace,
     homePace: d.home.pace,
     homePaceGap: d.home.paceGap,
@@ -72,12 +71,11 @@ describe("the Menot of the first page, with a loan paid from savings every month
     expect(m.pace.expected).not.toBeNull();
     expect(m.pace.projection).not.toBeNull();
     expect(m.pace.previous).not.toBeNull();
-    expect(m.goal).not.toBeNull();
     expect(m.nytPace?.usual).not.toBeNull();
     expect(m.homePace).not.toBeNull();
   });
 
-  it("holds the loan in no figure under Menot: the tile, bars, usual line, pace, its usual, the goal", () => {
+  it("holds the loan in no figure under Menot: the tile, bars, usual line, pace, its usual", () => {
     expect(menotOf(withLoan)).toEqual(menotOf(without));
   });
 

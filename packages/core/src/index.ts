@@ -96,7 +96,6 @@ export { openPriceRises } from "./analysis/price-rises.ts";
 export { newCharges } from "./analysis/new-charges.ts";
 
 export * from "./analysis/dashboard.ts";
-export * from "./analysis/spending-goal.ts";
 export { GOAL_CATEGORIES } from "./analysis/category-goals.ts";
 
 export { type ComingPeriod, comingList } from "./analysis/coming.ts";
