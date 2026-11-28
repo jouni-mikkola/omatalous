@@ -3243,12 +3243,10 @@
      "other": 0,
      "not_earned": 0,
      "unknown": 0
-    },
-    "againstAverage": null
+    }
    }
   ],
   "completeMonths": 0,
-  "monthlyCents": null,
   "enough": false,
   "earnedCents": 0,
   "notEarnedCents": 0,
@@ -3269,7 +3267,6 @@
    "steadySpread": 0.03
   },
   "types": [],
-  "kinds": [],
   "groups": [
    {
     "id": "salary",
@@ -4725,6 +4722,7 @@
   "fromSavingsCents": 0,
   "typicalCents": null,
   "typicalFlowCents": null,
+  "largeFlowCompleteCents": 0,
   "againstUsual": [
    null
   ],
@@ -5971,6 +5969,11 @@
   ],
   "fresh": []
  },
+ "moneyFlow": {
+  "sources": [],
+  "uses": [],
+  "totalCents": 0
+ },
  "cashflowMonths": {
   "months": [
    {
@@ -5985,5 +5988,24 @@
   "usualSpendCents": null,
   "usualMonths": 0,
   "completeTotals": null
+ },
+ "figureParts": {
+  "cashflowSpend": null,
+  "categorySpend": {
+   "cents": 202112,
+   "completeMonthsCents": 0,
+   "partialMonths": [
+    {
+     "month": "2026-10",
+     "cents": 202112,
+     "from": "2026-10-01",
+     "to": "2026-10-09"
+    }
+   ],
+   "fromSavingsCents": 0,
+   "otherCents": 0,
+   "monthsInRange": 1,
+   "completeMonths": 0
+  }
  }
 }

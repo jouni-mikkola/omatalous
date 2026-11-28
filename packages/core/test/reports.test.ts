@@ -35,7 +35,7 @@ describe("reports", () => {
   const r = buildReports({ ctx, range, balances: [{ id: "acc-1", name: "Käyttötili", type: "checking", balanceCents: 123456, ownerName: null, balanceAt: null }] });
 
   it("builds the reports that stay, and only those a caller names", () => {
-    expect(Object.keys(REPORTS).sort()).toEqual(["balances", "billCalendar", "cashflowMonths", "categories", "fixedCosts", "housing", "income", "loans", "monthLead", "spendingChange", "spendingMonths", "taxYear", "upcoming", "yearOverYear"]);
+    expect(Object.keys(REPORTS).sort()).toEqual(["balances", "billCalendar", "cashflowMonths", "categories", "figureParts", "fixedCosts", "housing", "income", "loans", "moneyFlow", "monthLead", "spendingChange", "spendingMonths", "taxYear", "upcoming", "yearOverYear"]);
     expect(Object.keys(r).sort()).toEqual(Object.keys(REPORTS).sort());
     expect(Object.keys(buildReports({ ctx, range, balances: [] }, ["loans", "income"])).sort()).toEqual(["income", "loans"]);
     expect(isReportId("loans")).toBe(true);

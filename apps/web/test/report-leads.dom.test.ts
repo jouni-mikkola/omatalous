@@ -16,15 +16,15 @@ describe("Menot kategorioittain: the tiles", () => {
   const say = (more: Record<string, unknown>) => lead(spending.Lead!, categories(more));
 
   it("shows the spending, adding the debt paid and the credit drawn when there are any", () => {
-    expect(say({})).toBe("Kaikki menot 2 500 € koko jakso");
-    expect(say({ debtPaidCents: 80_000 })).toBe("Kaikki menot 2 500 € koko jakso josta velkaa 800 € lyhennykset ja korot");
-    expect(say({ creditDrawnCents: 50_000 })).toBe("Kaikki menot 2 500 € koko jakso Uutta luottoa 500 €");
-    expect(say({ debtPaidCents: 80_000, creditDrawnCents: 50_000 })).toBe("Kaikki menot 2 500 € koko jakso josta velkaa 800 € lyhennykset ja korot Uutta luottoa 500 €");
+    expect(say({})).toBe("Kaikki menot 2 500 €");
+    expect(say({ debtPaidCents: 80_000 })).toBe("Kaikki menot 2 500 € josta velkaa 800 € lyhennykset ja korot");
+    expect(say({ creditDrawnCents: 50_000 })).toBe("Kaikki menot 2 500 € Uutta luottoa 500 €");
+    expect(say({ debtPaidCents: 80_000, creditDrawnCents: 50_000 })).toBe("Kaikki menot 2 500 € josta velkaa 800 € lyhennykset ja korot Uutta luottoa 500 €");
   });
 
   it("puts the fees and the debt paid from savings in rows, and only when each is a hundredth of the spending or more", () => {
-    expect(say({ feesCents: 7_00 })).toBe("Kaikki menot 2 500 € koko jakso");
-    expect(say({ feesCents: 30_000 })).toBe("Kaikki menot 2 500 € koko jakso Pankkikulut ja muistutusmaksut 300 €");
+    expect(say({ feesCents: 7_00 })).toBe("Kaikki menot 2 500 €");
+    expect(say({ feesCents: 30_000 })).toBe("Kaikki menot 2 500 € Pankkikulut ja muistutusmaksut 300 €");
   });
 
   it("shows nothing when nothing was spent", () => {

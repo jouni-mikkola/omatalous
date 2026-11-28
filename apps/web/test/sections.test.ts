@@ -9,11 +9,11 @@ import type { ReportContext } from "../src/pages/reports/types.ts";
 const context = (data: Record<string, unknown>, accounts: unknown[] = []): ReportContext => ({ data, meta: { today: "2026-10-11", accounts }, range: { from: "2026-08-01", to: "2026-08-31" }, exportHref: () => "/export.csv" }) as unknown as ReportContext;
 
 /** The sections that stay (docs/design/README.md, section 2). */
-const SECTION_IDS = ["kategoriat", "lainat", "mika-muuttui", "osittain", "saldot", "tulot", "tulot-ja-menot", "vuodet", "yhteiset-menot"];
+const SECTION_IDS = ["kategoriat", "lainat", "mika-muuttui", "osittain", "rahan-kulku", "saldot", "tulot", "tulot-ja-menot", "vuodet", "yhteiset-menot"];
 const plain = (out: string) => out.replace(/[\u00a0\u202f]/g, " ");
 
 describe("Raportit > Menot kategorioittain: the tiles the page opens with", () => {
-  const flow = (debtPaidCents: number, creditDrawnCents: number, feesCents: number, fromSavingsCents = 0) => ({ categories: { totalCents: 500_000, debtPaidCents, creditDrawnCents, feesCents }, spendingMonths: { fromSavingsCents } });
+  const flow = (debtPaidCents: number, creditDrawnCents: number, feesCents: number) => ({ categories: { totalCents: 500_000, debtPaidCents, creditDrawnCents, feesCents } });
   const lead = (data: Record<string, unknown>) => plain(renderToStaticMarkup(createElement(spending.Lead!, { ctx: context(data) })));
 
   it("have a tile for each of the debt paid and the credit drawn, the draw a link to its rows, and a row for fees of a hundredth of the spending or more", () => {
@@ -33,13 +33,6 @@ describe("Raportit > Menot kategorioittain: the tiles the page opens with", () =
     const alone = lead(flow(0, 0, 0));
     expect(alone).toContain("Kaikki menot");
     expect(alone.match(/strip-item/g)).toHaveLength(1);
-  });
-
-  it("name the debt paid from savings, which the first page's Menot leave out, only when the sum is a hundredth of the spending or more", () => {
-    expect(lead(flow(0, 0, 0))).not.toContain("Säästöistä maksettu");
-    expect(lead(flow(0, 0, 0, 4_999))).not.toContain("Säästöistä maksettu");
-    expect(lead(flow(0, 0, 0, 5_000))).toContain("Säästöistä maksettu");
-    expect(lead(flow(0, 0, 0, 600_00))).toMatch(/Säästöistä maksettu.*600/);
   });
 });
 

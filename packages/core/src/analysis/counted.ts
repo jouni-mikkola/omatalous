@@ -39,6 +39,9 @@ export function sumOf<T>(rows: readonly T[], cents: (t: T) => number): number {
   return sum;
 }
 
+/** The figure "Kaikki menot": what the counted rows of `spendSelect` come to, refunds taken off. The one definition of Menot kategorioittain and of its panel. */
+export const spendFigureCents = (counted: readonly AnalysisTx[]): number => sumOf(counted, spendOf);
+
 /** The one select of a spending figure: the rows of the range as spending reads them, and the ones it counts. */
 export function spendSelect(ctx: AnalysisContext, r: DayRange): { rows: AnalysisTx[]; counted: AnalysisTx[] } {
   const rows = spendRows(ctx, r);

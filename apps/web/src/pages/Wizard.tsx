@@ -17,6 +17,7 @@ import { syncHoursLabel } from "./settings/InstanceForms.tsx";
 import "../styles/wizard.css";
 import { Button } from "../components/ui/Button.tsx";
 import { Notice } from "../components/ui/Notice.tsx";
+import { Mark } from "../components/Mark.tsx";
 import { ErrorCard } from "../components/ErrorCard.tsx";
 import { Empty } from "../components/ui/Empty.tsx";
 const STEP_COUNT = 2;
@@ -173,9 +174,7 @@ export function Wizard({ meta, onDone, onSkip }: { meta: Meta; onDone: (next: "o
         <div className="card-head wizard-head">
           <div className="brand">
             <span className="brand-mark" aria-hidden="true">
-              <i />
-              <i />
-              <i />
+              <Mark />
             </span>
             Omatalous
           </div>
