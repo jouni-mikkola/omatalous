@@ -100,7 +100,7 @@ interface PastPeriod {
   payday: IsoDate;
   /** Whether the balance stayed at or above 0 on every day from the pay that began the period to the day before this payday. */
   enough: boolean;
-  /** The counted accounts' end-of-day balance, oldest day first, each by its days before the payday (the last is 1). */
+  /** The counted accounts' end-of-day balance, oldest day first, each by its days before the payday (the last is 1); only the days that reach back no further than today is from the payday of `lowPoint`. The balance is the accounts' own, before the cards' debt that `lowPoint` takes off. */
   points: { daysBefore: number; cents: number }[];
 }
 
@@ -158,19 +158,22 @@ const MIN_PAST_PERIODS = 3;
 /** The complete periods between the pays of the estimate, see `Home.pastPeriods`. A period with a day of unknown balance is left out. */
 function homePastPeriods(ctx: AnalysisContext, basis: Pick<AheadBasis, "ahead" | "checking" | "pays">, balances: readonly BalanceInput[]): PastPeriods | null {
   const { pays } = basis;
-  if (!basis.ahead.balance || pays.length < MIN_PAST_PERIODS + 1) return null;
+  const payday = paydayOf(basis.ahead);
+  if (!basis.ahead.balance || !payday || pays.length < MIN_PAST_PERIODS + 1) return null;
+  // the chart draws only the days from today to the payday, so only those are sent; `enough` still reads the whole period
+  const drawn = daysBetween(basis.ahead.from, payday.date);
   const walks = basis.checking.map((c) => balances.find((b) => b.id === c.id)).map((b) => (b ? balanceWalk(ctx, b) : null));
   const periods: PastPeriod[] = [];
   for (const [i, pay] of pays.slice(0, -1).entries()) {
-    const payday = pays[i + 1]!.date;
+    const ends = pays[i + 1]!.date;
     const points: PastPeriod["points"] = [];
-    for (let day = pay.date; day < payday; day = addDays(day, 1)) {
+    for (let day = pay.date; day < ends; day = addDays(day, 1)) {
       const at = walks.map((w) => w?.at(dayNumber(day)) ?? null);
       if (at.some((cents) => cents === null)) break;
-      points.push({ daysBefore: daysBetween(day, payday), cents: at.reduce<number>((sum, cents) => sum + cents!, 0) });
+      points.push({ daysBefore: daysBetween(day, ends), cents: at.reduce<number>((sum, cents) => sum + cents!, 0) });
     }
-    if (points.length === 0 || points.length !== daysBetween(pay.date, payday)) continue;
-    periods.push({ payday, enough: points.every((p) => p.cents >= 0), points });
+    if (points.length === 0 || points.length !== daysBetween(pay.date, ends)) continue;
+    periods.push({ payday: ends, enough: points.every((p) => p.cents >= 0), points: points.filter((p) => p.daysBefore <= drawn) });
   }
   return periods.length < MIN_PAST_PERIODS ? null : { periods, enoughCount: periods.filter((p) => p.enough).length };
 }

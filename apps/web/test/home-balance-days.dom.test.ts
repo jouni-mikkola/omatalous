@@ -125,7 +125,7 @@ describe("BalanceDays", () => {
     const c = view("2026-12-14", history);
     // only the days from today on are drawn: the three days before a payday of 14.12. start on 11.12.
     expect(c.querySelectorAll(".bs-ghost")).toHaveLength(3);
-    expect(flat(c.querySelector(".bs-ghost-count")?.textContent)).toBe("1 / 3 edellisestä palkkakaudesta riitti");
+    expect(flat(c.querySelector(".bs-ghost-count")?.textContent)).toBe("edelliset palkkakaudet: 1 / 3 riitti");
     expect(c.querySelectorAll(".qc-now")).toHaveLength(1);
     const bare = view();
     expect(bare.querySelector(".bs-ghost")).toBeNull();

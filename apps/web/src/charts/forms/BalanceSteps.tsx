@@ -220,7 +220,11 @@ export function BalanceSteps({ low, payday, past }: { low: KnownLowPoint; payday
         </g>
       </svg>
       <LiveReadout text={at === null ? "" : readoutText(dayMonth(days[at]!), parts(days[at]!))} />
-      {past && <p className="bs-ghost-count">{t("home.days_enough", { enough: past.enoughCount, total: past.periods.length })}</p>}
+      {past && ghosts.length > 0 && (
+        <p className="bs-ghost-count">
+          <span className="swatch bs-key-ghost" /> {t("home.days_enough", { enough: past.enoughCount, total: past.periods.length })}
+        </p>
+      )}
     </div>
   );
 }

@@ -624,15 +624,19 @@ describe("pastPeriods in the dashboard answer", () => {
   const endOfDay = (day: IsoDate) => 900_000 - rows.filter((r) => r.bookingDate > day && r.bookingDate <= TODAY).reduce((sum, r) => sum + r.amountCents, 0);
 
   it("holds each complete period between two pays, a day at a time to the day before its payday", () => {
-    const past = buildDashboard(ctx, RANGE, [bal(900_000)], NO_INPUTS).home.pastPeriods!;
+    const home = buildDashboard(ctx, RANGE, [bal(900_000)], NO_INPUTS).home;
+    const past = home.pastPeriods!;
+    // only the days the chart draws, from today to the payday, are sent
+    const drawn = daysBetween(TODAY, home.runway!.payday!.date);
     const paydays = rows.filter((r) => r.category === "salary").map((r) => r.bookingDate).sort();
     // the period that runs now is not among them
     expect(past.periods.map((p) => p.payday)).toEqual(paydays.slice(1));
     for (const [i, p] of past.periods.entries()) {
       const start = paydays[i]!;
-      expect(p.points.map((q) => q.daysBefore)).toEqual(Array.from({ length: daysBetween(start, p.payday) }, (_, k) => daysBetween(start, p.payday) - k));
+      const length = daysBetween(start, p.payday);
+      expect(p.points.map((q) => q.daysBefore)).toEqual(Array.from({ length }, (_, k) => length - k).filter((n) => n <= drawn));
       for (const q of p.points) expect(q.cents).toBe(endOfDay(addDays(p.payday, -q.daysBefore)));
-      expect(p.enough).toBe(p.points.every((q) => q.cents >= 0));
+      expect(p.enough).toBe(Array.from({ length }, (_, k) => endOfDay(addDays(start, k))).every((c) => c >= 0));
     }
     expect(past.enoughCount).toBe(past.periods.filter((p) => p.enough).length);
   });
@@ -642,6 +646,11 @@ describe("pastPeriods in the dashboard answer", () => {
     const rich = buildDashboard(ctx, RANGE, [bal(900_000)], NO_INPUTS).home.pastPeriods!;
     expect(poor.periods.length).toBe(rich.periods.length);
     expect(poor.enoughCount).toBeLessThan(rich.enoughCount);
+  });
+
+  it("holds exactly three periods from four pays", () => {
+    const four = createContext([...pays("2026-07", "2026-10"), ...rents(), ...shopping("2026-03-01", 4000)], [own], TODAY);
+    expect(buildDashboard(four, RANGE, [bal(900_000)], NO_INPUTS).home.pastPeriods!.periods).toHaveLength(3);
   });
 
   it("is null under three complete periods, for a range without today and for an account without a balance", () => {
