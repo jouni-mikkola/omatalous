@@ -19,15 +19,10 @@
 .q-title { margin: 0; font-size: var(--fs-h2); line-height: var(--lh-h2); }
 .verdict { display: grid; gap: var(--sp-8); }
 .verdict p { margin: 0; }
-.verdict-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--sp-4) var(--sp-12); }
-.verdict-label { color: var(--text-2); }
-.verdict-vs { color: var(--text-2); }
-.verdict-why { max-width: 70ch; line-height: var(--lh-prose); }
 /* a closed card is its name and sum on one even band: the sum's cell is the height of the row, the card has no padding of its own, and the gap below it is taken back so the band is as tall above the text as below */
 .q-page > details.card:not([open]) { padding-block: 0; margin-bottom: calc(var(--gap) * -1); }
 .coverage-notices { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--sp-8); max-width: 70ch; color: var(--muted); font-size: var(--fs-body); line-height: var(--lh-prose); }
 .recommendation { margin: 0; max-width: 70ch; line-height: var(--lh-prose); }
-.q-method, .q-accounts { margin: 0 0 var(--sp-12); max-width: 70ch; line-height: var(--lh-prose); }
 /* wide enough, the period switch sits at the right end of the tab row and one line runs under both */
 @media (min-width: 1100px) {
   .q-bar { flex-direction: row; align-items: center; gap: var(--sp-16); border-bottom: var(--hairline) solid var(--border); }
@@ -43,12 +38,6 @@
 .kv .v { margin-top: 2px; }
 /* two columns on a phone at most (half the row, so a sum with its share fits); the minimum is in rem too, so larger text gives a column to each figure instead of a figure wider than its box */
 @media (max-width: 640px) { .kv { grid-template-columns: repeat(auto-fit, minmax(max(8rem, calc(50% - 1px)), 1fr)); } }
-
-/* pivot heat cells: one blue ramp; ink flips where the fill gets dark */
-.heat-l1 { background: var(--heat-1); color: var(--heat-ink-1); }
-.heat-l2 { background: var(--heat-2); color: var(--heat-ink-2); }
-.heat-l3 { background: var(--heat-3); color: var(--heat-ink-3); }
-.heat-l4 { background: var(--heat-4); color: var(--heat-ink-4); }
 
 /* loading: the first panel's shape in the well colour, so nothing moves when the figures come */
 .skeleton-card { display: grid; gap: 12px; }

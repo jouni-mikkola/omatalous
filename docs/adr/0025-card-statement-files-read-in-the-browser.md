@@ -8,7 +8,7 @@ body is limited to 256 KB. The rule keeps the server small and keeps a household
 Some banks do not give a card's rows through PSD2. The household then has the card bills in the current account and no
 purchases behind them. The card statement the bank does give is a file (CSV, text or PDF).
 
-The browser already reads files for the loan intake (`LoanIntake.tsx`: pdf.js and Tesseract, nothing sent). That is a
+The browser already reads files for the loan intake (then `LoanIntake.tsx`, now `components/loans/`: pdf.js and Tesseract, nothing sent). That is a
 precedent for reading in the page, and the rows it finds are saved only after the user confirms.
 
 ## Decision

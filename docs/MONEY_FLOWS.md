@@ -585,7 +585,7 @@ Alerts only read the data, so fixing a category or a transfer can remove one.
   A series that a card or an account outside the balance pays is a row marked `onCard` and is in no sum of the month: the
   card's bill holds it. A regular saving is a row of kind *saving*, in the month's saving (`savingCents` while it is to come, `savingPaidCents` once charged) and in no bill sum. Every row a month lists is in exactly one figure: a paid bill or loan payment in `paidCents`, one still to come in `billsCents`, a saving in `savingCents` or `savingPaidCents`, a pay in `incomeCents`, and a row a card pays in none, its status says so; so the pays less *Maksamatta* and *Säästöön* are *Laskujen jälkeen*. An open month's rows end in a total each for *Maksettu*, *Maksamatta* and *Säästöön* (once a saving is charged, one under *Nyt* and one under *Arvio* for the part still to come). The rows
   of the days to the payday that bills and loans and saving make, with the card bills sized by balance, add up to the
-  bills of Nyt's window (*Erääntyvät maksut* and *Siirrot omille tileille*) less the own transfers, the bills of cards
+  bills of that window (*Erääntyvät maksut* and *Siirrot omille tileille*) less the own transfers, the bills of cards
   sized by their usual payment, the bills of a series of card bills and the bills that follow today's pay.
 
 ## The first page
@@ -888,7 +888,7 @@ What goes where over a year is `themesReport` in `analysis/themes-report.ts`. Th
   empty cell. Every theme opens to its lines with a button (*Ruoka* is open when the page opens), except a theme of one
   line that has its name. A line that is a category links to its rows in Tapahtumat over the window's days; the lines
   of *Auto* are no categories and have no link. *Yhteensä* is the sum of the themes. The large purchases are a row of
-  their own under the table, with the sum of the whole window, and open to their rows (`ThemesTable.tsx`).
+  their own under the table, with the sum of the whole window, and open to their rows.
 
 ## Coverage by day
 

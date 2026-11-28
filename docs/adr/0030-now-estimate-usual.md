@@ -1,5 +1,9 @@
 # 0030 Every figure is now, estimate or usual, and each kind has one look
 
+Status: accepted, superseded in part. The three kinds and their order stand. The chips and the tables below describe
+the first design: no page draws a chip, the tinted ground right of today (`--ahead-fill`) carries no word, and *Nyt* and
+*Tavallinen* are plain words (`kind.now`, `kind.usual`). Read the decision list as history where it names a chip.
+
 ## Context
 
 A figure on a page is one of three kinds: what has happened (a balance today, the spending so far this month, a bill

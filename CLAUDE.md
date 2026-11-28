@@ -166,7 +166,9 @@ change cannot weaken the check that judges it: the fix of a detector merges befo
   `apps/web/src/pages/reports/sections/` that names the reports it reads, listed by the question page that shows it
   (`pages/reports/pages/<Page>.tsx`) + invariant test in `packages/core/test/reports.test.ts`. A question page has its
   styles in `styles/report-<page>.css`. Each report and section starts with a `Decision:` comment naming what the household
-  decides with it (repo rule 11). A view with no decision is not built.
+  decides with it (repo rule 11). A view with no decision is not built. Its texts go in a `messages-*.ts` table and the
+  same keys in `english/`, merged by the loaders `messages-late.ts` and `messages-en.ts`; after a change of a statement run
+  `pnpm findings --golden`.
 - New module behind a flag: a server extension whose routes are mounted behind its flag.
   Core has no flag. A finished module loses its flag, and no setting switches a page off.
 - New rule/category: `categories.ts` / `categorize.ts` + scenario in `packages/core/test/flows.test.ts`. A payee or
