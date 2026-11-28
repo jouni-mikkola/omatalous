@@ -10,5 +10,15 @@
 .debt-free .chart text.lane-end { font-size: var(--fs-small); font-weight: var(--w-strong); fill: var(--text); }
 .debt-free .chart .lane-bar { fill: var(--role-debt); }
 .debt-free .chart .lane-own { stroke: var(--axis); stroke-width: 3; stroke-dasharray: 2 5; stroke-linecap: round; }
+.debt-was { margin-inline-end: var(--sp-12); font-size: var(--fs-h2); font-weight: var(--w-regular); color: var(--text-2); }
+.debt-saved { margin: 0; font-size: var(--fs-body); font-weight: var(--w-strong); color: var(--text); }
+.debt-slider { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--sp-4) var(--sp-12); max-inline-size: 32rem; }
+.debt-slider .field-label { grid-column: 1 / -1; }
+.debt-slider input[type="range"] { min-block-size: var(--tap-min); margin: 0; accent-color: var(--accent); }
+.debt-slider output { font-size: var(--fs-body); font-weight: var(--w-strong); font-variant-numeric: tabular-nums lining-nums; min-inline-size: 6ch; text-align: end; }
+@media (prefers-reduced-motion: no-preference) {
+  .debt-free .chart .lane-bar { transition: width var(--t-open) var(--ease-out); }
+  .debt-free .chart .lane-end { transition: transform var(--t-open) var(--ease-out); }
+}
 .lane-own-key { display: inline-block; inline-size: 1.5em; border-top: 0.2em dotted var(--axis); }
 }

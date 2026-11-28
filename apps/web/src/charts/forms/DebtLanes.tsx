@@ -30,13 +30,14 @@ const shortName = (name: string) => (name.length > NAME_MAX ? `${name.slice(0, N
  * One lane per debt on a shared axis from today to the last end, in the order the plan gives (the dearest first). The
  * bar ends where the debt's last payment falls and says its month; a dotted line under a lane ends where the debt would
  * end on its own payments, drawn only where that is another day. The dates are the plan's own: the chart works out
- * only where a day stands on the axis.
+ * only where a day stands on the axis. `axisLanes` set the axis (the lanes as they stand), so lanes that shorten keep
+ * their scale and the bars tween in place.
  */
-export function DebtLanes({ lanes, today }: { lanes: readonly DebtLane[]; today: string }) {
+export function DebtLanes({ lanes, axisLanes = lanes, today }: { lanes: readonly DebtLane[]; axisLanes?: readonly DebtLane[]; today: string }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const innerW = Math.max(width - END_ROOM, 0);
   const start = dayNumber(today);
-  const last = Math.max(...lanes.flatMap((l) => [dayNumber(l.end), dayNumber(l.own)]));
+  const last = Math.max(...axisLanes.flatMap((l) => [dayNumber(l.end), dayNumber(l.own)]));
   const span = Math.max(last - start, 1);
   const x = (iso: string) => (Math.max(dayNumber(iso) - start, 0) / span) * innerW;
   const height = lanes.length * ROW + AXIS_ROOM;
@@ -72,12 +73,12 @@ export function DebtLanes({ lanes, today }: { lanes: readonly DebtLane[]; today:
               const top = i * ROW;
               const mid = top + BAR_TOP + BAR_HEIGHT / 2;
               return (
-                <g key={`${l.id} ${l.end}`}>
+                <g key={l.id}>
                   <text className="lane-name" x={0} y={top + 16}>
                     {l.balanceCents === null ? shortName(l.name) : `${shortName(l.name)} · ${money(l.balanceCents, false)}`}
                   </text>
-                  <rect className="bar lane-bar" x={0} y={top + BAR_TOP} width={Math.max(x(l.end), 2)} height={BAR_HEIGHT} />
-                  <text className="lane-end" x={x(l.end) + 8} y={mid} dy="0.32em">
+                  <rect className="bar lane-bar" x={0} y={top + BAR_TOP} style={{ width: Math.max(x(l.end), 2) }} height={BAR_HEIGHT} />
+                  <text className="lane-end" x={8} y={mid} dy="0.32em" style={{ transform: `translateX(${x(l.end)}px)` }}>
                     {monthYear(l.end)}
                   </text>
                   {l.own !== l.end && <line className="lane-own" x1={0} x2={x(l.own)} y1={top + BAR_TOP + BAR_HEIGHT + 6} y2={top + BAR_TOP + BAR_HEIGHT + 6} />}

@@ -343,10 +343,26 @@ describe("the extra monthly payments of the debt-free choice", () => {
     });
   });
 
+  it("gives the plan for each 50 euro step of the slider from the same payoffPlan, shorter and saving more with each step", () => {
+    const r = run([annuity({ id: "a", balanceCents: 1_000_000, paymentCents: 20_000 })]).loans;
+    expect(r.planSteps.map((s) => s.extraCents)).toEqual([5_000, 10_000, 15_000, 20_000, 25_000, 30_000, 35_000, 40_000, 45_000, 50_000]);
+    r.planSteps.forEach((s, i) => {
+      expect(s.savedMoreCents).toBe(s.plan.savedCents - r.plan!.savedCents);
+      expect(s.plan.debts.map((d) => d.id)).toEqual(["a"]);
+      expect(s.plan.debts[0]!.baseEndDate).toBe(r.plan!.debts[0]!.baseEndDate);
+      if (i > 0) {
+        expect(s.plan.debtFreeDate <= r.planSteps[i - 1]!.plan.debtFreeDate).toBe(true);
+        expect(s.savedMoreCents).toBeGreaterThan(r.planSteps[i - 1]!.savedMoreCents);
+      }
+    });
+    expect(r.planSteps[0]!.plan.debtFreeDate < r.plan!.debtFreeDate).toBe(true);
+  });
+
   it("is empty while a debt has no plan, so no date tells a part of the debt as all of it", () => {
     const r = run([annuity({ id: "a", balanceCents: 1_000_000, paymentCents: 20_000 }), loan({ id: "no-rate", balanceCents: 100_000 })]).loans;
     expect(r.path).toBeNull();
     expect(r.extra).toEqual([]);
+    expect(r.planSteps).toEqual([]);
   });
 });
 

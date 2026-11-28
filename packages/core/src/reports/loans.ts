@@ -46,6 +46,9 @@ const RATE_SHIFTS_BP = [-100, 100] as const;
 /** The extra monthly payments of the debt-free choice, in cents: 50, 100 and 200 euros. */
 const EXTRA_STEPS_CENTS = [5_000, 10_000, 20_000] as const;
 
+/** The steps of the slider on Varat ja velat, in cents: every 50 euros from 50 up to 500. */
+const SLIDER_STEPS_CENTS = Array.from({ length: 10 }, (_, i) => (i + 1) * 5_000);
+
 /**
  * The way out of debt with `extraCents` more a month (`extraPlan`), as the choice under Velkapolku shows it. Each is
  * worked out by the server and the page only switches between them.
@@ -170,6 +173,11 @@ export interface LoansReport {
    * date of a part of the debts.
    */
   plan: PayoffPlan | null;
+  /**
+   * `plan` again with each of `SLIDER_STEPS_CENTS` more a month (`payoffPlan`, the same rounding), the smallest first, for
+   * the slider of Varat ja velat. Empty while `plan` is null and when even the largest step ends no debt sooner and saves nothing.
+   */
+  planSteps: readonly PlanStep[];
   /** The dear debts a new loan could take over (`consolidationBasis`), with what they cost from here. Null when none qualify and while `cost12` is null. */
   consolidation: ConsolidationBasis | null;
   /** The payments of a month of the saved loans (`debtPaymentsPerMonth`). */
@@ -268,6 +276,24 @@ function extraScenarios(debts: readonly Debt[], day: IsoDate, path: DebtPath, bu
   });
 }
 
+/** The plan with `extraCents` more a month, and the interest and fees it saves beyond what `plan` already saves. */
+interface PlanStep {
+  extraCents: number;
+  plan: PayoffPlan;
+  savedMoreCents: number;
+}
+
+function sliderSteps(debts: readonly Debt[], day: IsoDate, base: PayoffPlan, buffer: { netCents: number; spendCents: number }, costOf: (debt: Debt) => DebtCost | null): PlanStep[] {
+  const steps: PlanStep[] = [];
+  for (const extraCents of SLIDER_STEPS_CENTS) {
+    const plan = payoffPlan(debts, day, extraCents, buffer, costOf);
+    if (plan === null) return [];
+    steps.push({ extraCents, plan, savedMoreCents: plan.savedCents - base.savedCents });
+  }
+  const last = steps.at(-1)!.plan;
+  return last.debtFreeDate >= base.debtFreeDate && last.savedCents <= base.savedCents ? [] : steps;
+}
+
 /** The household's debts on the context's today, each with its figures from `loans.ts`. */
 export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInput[], inputs: UserInputs): LoansReport {
   const debts = debtsOf(ctx, balances, inputs);
@@ -317,6 +343,7 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
   const buffer = { netCents: cash.netCents ?? 0, spendCents: cash.netCents === null ? 0 : (cash.spendExpected ?? 0) };
   const path = unsaved.rows.length > 0 ? null : debtPath(debts.loans, day, RATE_SHIFTS_BP);
   const plan = cost12.cents === null ? null : payoffPlan(debts.loans, day, 0, buffer, costOf);
+  const planSteps = plan === null ? [] : sliderSteps(debts.loans, day, plan, buffer, costOf);
   return {
     day,
     saved: loansOf(inputs).length,
@@ -329,6 +356,7 @@ export function loansReport(ctx: AnalysisContext, balances: readonly BalanceInpu
     withoutRate: loansWithoutRate(debts.interest),
     cost12,
     plan,
+    planSteps,
     consolidation: cost12.cents === null ? null : consolidationBasis(debts.loans, day, costOf),
     payments,
     monthly: monthlyPayments(payments, unsaved),
