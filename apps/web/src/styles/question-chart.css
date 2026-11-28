@@ -51,7 +51,7 @@
 .chart .bs-break { stroke: var(--bad); }
 .chart .bs-bill-name { fill: var(--text); font-size: var(--fs-small); font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3; stroke-linejoin: round; }
 
-.qc-cap { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text); font-weight: 600; margin: 0 0 4px; }
+.qc-cap { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text); font-weight: 600; margin: 0 0 var(--sp-4); }
 
 /* marks.css sets the head's flex in the utilities layer, so this rule stands in it too to be read after it */
 @layer utilities {
