@@ -8,10 +8,8 @@ import { getCategory } from "../categories.ts";
 import { spendingLabel } from "../category-names.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { messageIn } from "../messages.ts";
+import { MONEY_FLOW_CATEGORY_BANDS } from "../thresholds.ts";
 import type { UserInputs } from "../types.ts";
-
-/** How many consumption categories get a band of their own; the rest are one band. */
-const MAX_CATEGORY_BANDS = 6;
 
 /** What a band is, for its colour and for the table that lists it. */
 type MoneyFlowKind = "income" | "drawn" | "spending" | "debt" | "kept";
@@ -58,7 +56,7 @@ export function moneyFlowReport(ctx: AnalysisContext, range: DateRange, inputs: 
   const byCategory = new Map<string, number>();
   for (const x of rows) if (x.flows.consumption !== 0) byCategory.set(x.category, (byCategory.get(x.category) ?? 0) + x.flows.consumption);
   const ranked = [...byCategory].filter(([, cents]) => cents > 0).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  const named = ranked.slice(0, MAX_CATEGORY_BANDS);
+  const named = ranked.slice(0, MONEY_FLOW_CATEGORY_BANDS);
   // refunds that outweigh a category's spending are netted into the rest, which a band cannot show below zero: they come off the largest band
   let rest = totals.consumptionCents - sumOf(named, ([, cents]) => cents);
   if (rest < 0 && named.length > 0) {

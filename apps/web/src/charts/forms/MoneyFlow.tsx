@@ -84,7 +84,7 @@ function Diagram({ sources, uses, label, width }: { sources: readonly MoneyFlowB
                 {n.id !== MIDDLE && <title>{`${n.label} ${money(centsOf(n.id))}`}</title>}
               </rect>
               {n.id !== MIDDLE && (
-                <text className="mf-text" x={left ? x0 - 6 : x1 + 6} y={(y0 + y1) / 2} dy="-0.1em" textAnchor={left ? "end" : "start"}>
+                <text className="mf-text" x={left ? x0 - 6 : x1 + 6} y={(y0 + y1) / 2} dy="−0.1em" textAnchor={left ? "end" : "start"}>
                   <tspan x={left ? x0 - 6 : x1 + 6}>{n.label}</tspan>
                   <tspan className="mf-sum" x={left ? x0 - 6 : x1 + 6} dy="1.2em">
                     {money(centsOf(n.id))}
