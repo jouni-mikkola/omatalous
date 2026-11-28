@@ -134,7 +134,7 @@ describe("Raportit: Lainat", () => {
     const out = opened("home", context(report([bullet], { payments: { monthlyCents: 0, counted: 0, unknown: 0, bullets: 1 }, monthly: { cents: null, unknown: 0 } })));
     expect(out).toContain("<dd>Kertalyhennys<small>maksat kerralla lopussa</small></dd>");
     expect(out).toContain("Jos viitekorko nousee prosenttiyksikön: korot 12 kuukaudessa 5 100 €.");
-    expect(out).toContain(`${tile("Maksut kuussa", "ei maksuja")}`);
+    expect(out).toContain(`${tile("Kuukausierät", "ei maksuja")}`);
     expect(out).not.toContain("korot eivät ole mukana");
   });
 
@@ -142,7 +142,7 @@ describe("Raportit: Lainat", () => {
     const near = row({ scenarios: [{ shiftBp: -100, movedBp: -50, rateBp: 275, paymentCents: 97_000, interestCents: 320_000, unknown: null }] });
     const out = opened("home", context(report([near], { interestKnown: false, payments: { monthlyCents: 0, counted: 0, unknown: 1, bullets: 0 }, monthly: { cents: null, unknown: 1 } })));
     expect(out).toContain("Jos viitekorko laskee 0,5 prosenttiyksikköä: maksu 970,00 €, korot 12 kuukaudessa 3 200 €.");
-    expect(out).toContain(`${tile("Maksut kuussa", "–")}`);
+    expect(out).toContain(`${tile("Kuukausierät", "–")}`);
     expect(out).not.toContain("ei tiedossa");
     expect(out).not.toContain("puuttuu");
   });
@@ -212,7 +212,7 @@ describe("Raportit: Lainat", () => {
   it("a figure nothing is known of is a dash in the totals, and no sentence says which loans a total leaves out for it", () => {
     const later = { cents: 0, unknown: [{ loanId: "home", unknown: "before_balance_date", counted: false }] } as const;
     const out = html(loans, context(report([row()], { interest: later, interestKnown: false, payments: { monthlyCents: 0, counted: 0, unknown: 1, bullets: 0 }, monthly: { cents: null, unknown: 1 } })));
-    expect(out).toContain(`${tile("Maksut kuussa", "–")}`);
+    expect(out).toContain(`${tile("Kuukausierät", "–")}`);
     expect(html(loans, context(report([row()], { withoutRate: 2 })))).not.toContain("puuttuu");
   });
 
@@ -223,7 +223,7 @@ describe("Raportit: Lainat", () => {
     // the totals of Lainat are the payments of a month alone
     expect(own.split('<div class="k">').length - 1).toBe(1);
     // how far the line of the chart moved is said under the chart's heading
-    expect(words(saldot)).toMatch(/Saldojen kehitys: tilit ja luottokortit \+200 € 30\.9\. jälkeen/);
+    expect(words(saldot)).toMatch(/Saldojen kehitys \+200 € 30\.9\. jälkeen/);
     expect(words(html(balances, context(report([row()]), "own", { ...balanceData, change: { ...balanceData.change, cents: 99 } })))).not.toContain("jälkeen");
   });
 
@@ -259,11 +259,11 @@ describe("Raportit: Lainat", () => {
     const known = { monthlyCents: 0, counted: 0, unknown: 1, bullets: 0 };
     // 1 382,24 € known and one debt with no figure: the sum and its count, never the sum alone or a dash
     const some = html(loans, context(report([row()], { unsaved, payments: known, monthly: { cents: 138_224, unknown: 2 } })));
-    expect(some).toContain(`${tile("Maksut kuussa", "1 382 € + 2 ei tiedossa")}`);
+    expect(some).toContain(`${tile("Kuukausierät", "1 382 € + 2 ei tiedossa")}`);
     // every debt tells its payment: the sum alone
-    expect(html(loans, context(report([row()], { monthly: { cents: 138_224, unknown: 0 } })))).toContain(`${tile("Maksut kuussa", "1 382 €")}`);
+    expect(html(loans, context(report([row()], { monthly: { cents: 138_224, unknown: 0 } })))).toContain(`${tile("Kuukausierät", "1 382 €")}`);
     // none known: a dash
-    expect(html(loans, context(report([row()], { unsaved, monthly: { cents: null, unknown: 2 } })))).toContain(`${tile("Maksut kuussa", "–")}`);
+    expect(html(loans, context(report([row()], { unsaved, monthly: { cents: null, unknown: 2 } })))).toContain(`${tile("Kuukausierät", "–")}`);
   });
 
   it("names the total of saved loans as the known one while a debt has no balance", () => {

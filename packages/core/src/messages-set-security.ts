@@ -67,7 +67,7 @@ export const FI_SET_SECURITY = {
   "set.sec.user": "Käyttäjä",
   "set.sec.address": "Osoite",
   "set.sec.details": "Lisätieto",
-  "set.sec.no_events": "Ei merkintöjä.",
+  "set.sec.no_events": "Ei merkintöjä",
   "set.sec.maintenance_kind": "Ylläpito: {kind}",
   "set.sec.removed_kind": "Poistetun toiminnon tapahtuma",
   "set.sec.service_token_name": "Palvelutunnus",

@@ -23,13 +23,13 @@ describe("LowPoint", () => {
   });
 
   it.each([
-    ["no-payday", "Alin saldo 60 pv: Palkkapäivä ei vielä tiedossa"],
-    ["late", "Alin saldo 60 pv: Palkkasi on myöhässä"],
-    ["no-balance", "Alin saldo 60 pv: Käyttötilin saldo puuttuu"],
-    ["no-card-balance", "Alin saldo 60 pv: Kortin saldo puuttuu"],
-    ["history", "Alin saldo 60 pv: Liian lyhyt historia"],
-    ["cards", "Alin saldo 60 pv: Lisää kortin tiliote"],
-    ["bills", "Alin saldo 60 pv: Laskun summa puuttuu"],
+    ["no-payday", "Alin saldo 60 päivän aikana: Palkkapäivä ei vielä tiedossa"],
+    ["late", "Alin saldo 60 päivän aikana: Palkkasi on myöhässä"],
+    ["no-balance", "Alin saldo 60 päivän aikana: Käyttötilin saldo puuttuu"],
+    ["no-card-balance", "Alin saldo 60 päivän aikana: Kortin saldo puuttuu"],
+    ["history", "Alin saldo 60 päivän aikana: Liian lyhyt historia"],
+    ["cards", "Alin saldo 60 päivän aikana: Lisää kortin tiliote"],
+    ["bills", "Alin saldo 60 päivän aikana: Laskun summa puuttuu"],
   ] as const)("says the reason %s and no figure", (reason, text) => {
     const { container } = render(createElement(LowPoint, { lowPoint: { known: false, reason, days: 60 } }));
     expect(flat(container.textContent)).toBe(text);
@@ -79,7 +79,7 @@ describe("Now", () => {
   it("stands the line under the sum left on the payday, outside its link", () => {
     const section = nowOf({ known: false, reason: "history", days: 9 });
     const line = section.querySelector("p.home-low")!;
-    expect(flat(line.textContent)).toBe("Alin saldo 9 pv: Liian lyhyt historia");
+    expect(flat(line.textContent)).toBe("Alin saldo 9 päivän aikana: Liian lyhyt historia");
     expect(line.previousElementSibling?.matches('a[data-tile="left"]')).toBe(true);
     expect(line.closest("a")).toBeNull();
   });

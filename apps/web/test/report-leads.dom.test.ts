@@ -41,21 +41,21 @@ describe("Varat ja velat: the tiles", () => {
   const say = (holdings: Record<string, unknown>, more: Record<string, unknown> = {}) => flat(markup(holdings, more).replace(/<[^>]*>/g, " "));
 
   it("shows what the accounts hold, what is owed and what is left, under the names the groups below have", () => {
-    expect(say(held)).toBe("Tilit yhteensä 1 200 €");
-    expect(say(owing)).toBe("Tilit yhteensä 1 200 € Velat yhteensä 300 € Varat velkojen jälkeen 900 €");
+    expect(say(held)).toBe("Tilien saldo 1 200 €");
+    expect(say(owing)).toBe("Tilien saldo 1 200 € Velat yhteensä 300 € Varat velkojen jälkeen 900 €");
   });
 
   it("names the debts as the known ones and no net figure while the balance of a debt is missing, with the link to its question", () => {
     const open = { ...owing, netCents: null, unsavedLoans: { count: 1, rows: [{ debtId: "proposal:a" }] } };
-    expect(say(open)).toBe("Tilit yhteensä 1 200 € Velat yhteensä, tiedossa 300 € + 1 velka ilman saldoa");
+    expect(say(open)).toBe("Tilien saldo 1 200 € Velat yhteensä, tiedossa 300 € + 1 velka ilman saldoa");
     expect(markup(open)).toContain('href="#/review?item=loan-terms"');
     // a debt answered "En tiedä" is asked no more, and a lender's few payments never were: the gap has no link
     const asked = { ...owing, netCents: null, unsavedLoans: { count: 1, rows: [{ debtId: "proposal:a", asked: true }] }, unsavedFewPayments: 1 };
-    expect(say(asked)).toBe("Tilit yhteensä 1 200 € Velat yhteensä, tiedossa 300 € + 2 velkaa ilman saldoa");
+    expect(say(asked)).toBe("Tilien saldo 1 200 € Velat yhteensä, tiedossa 300 € + 2 velkaa ilman saldoa");
     // no known debt at all: the accounts alone, and the line
-    expect(say({ ...held, netCents: null, unsavedFewPayments: 1 })).toBe("Tilit yhteensä 1 200 €");
+    expect(say({ ...held, netCents: null, unsavedFewPayments: 1 })).toBe("Tilien saldo 1 200 €");
     // a total that cannot be known is said, never left out
-    expect(say({ ...held, debtCents: null, netCents: null })).toBe("Tilit yhteensä 1 200 € Velat yhteensä Ei tiedossa");
+    expect(say({ ...held, debtCents: null, netCents: null })).toBe("Tilien saldo 1 200 € Velat yhteensä Ei tiedossa");
   });
 
   it("says nothing without an account or a known balance", () => {

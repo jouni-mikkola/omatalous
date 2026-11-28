@@ -207,6 +207,6 @@ describe("a mark that no row of the whole list has", () => {
   it("narrows the list to no rows instead of showing every row", () => {
     expect(html).not.toContain("ESIMERKKI OY");
     expect(html).not.toContain("TOINEN OY");
-    expect(html).toContain("Ei yhtään riviä, joka täsmää.");
+    expect(html).toContain("Ei osumia");
   });
 });

@@ -278,10 +278,10 @@ describe("Yhteenveto's sum left to the payday", () => {
       expect(container.querySelector("details")).toBeNull();
       // a card row has none without a card bill; the bills row tells how many
       expect(ledgerOf(runway()).rows.map((r) => r[0])).toEqual(["balance", "bills", "spending", "left"]);
-      expect(flat(container.querySelector("[data-row=bills] dt")?.textContent)).toBe("Muut laskut ennen palkkapäivää 3 kpl");
-      expect(flat(ledgerOf(runway()).container.querySelector("[data-row=bills] dt")?.textContent)).toBe("Laskut ennen palkkapäivää 1 kpl");
-      expect(flat(container.querySelector("[data-row=cards] dt")?.textContent)).toBe("Korttilaskut ennen palkkapäivää 2 kpl");
-      // no bills is no count: "0 kpl" would stand alone on its line
+      expect(flat(container.querySelector("[data-row=bills] dt")?.textContent)).toBe("Muut laskut ennen palkkapäivää 3 laskua");
+      expect(flat(ledgerOf(runway()).container.querySelector("[data-row=bills] dt")?.textContent)).toBe("Laskut ennen palkkapäivää 1 lasku");
+      expect(flat(container.querySelector("[data-row=cards] dt")?.textContent)).toBe("Korttilaskut ennen palkkapäivää 2 laskua");
+      // no bills is no count: "0 laskua" would stand alone on its line
       const none = { ...parts, bills: { cents: 0, count: 0 } };
       expect(flat(ledgerOf(runway({ parts: none })).container.querySelector("[data-row=bills] dt")?.textContent)).toBe("Muut laskut ennen palkkapäivää");
     });
@@ -290,7 +290,7 @@ describe("Yhteenveto's sum left to the payday", () => {
       const { container } = ledgerOf(runway());
       const chips = (row: string) => [...container.querySelectorAll(`[data-row=${row}] .kind-chip`)].map((c) => c.textContent);
       expect([chips("balance"), chips("bills"), chips("spending"), chips("left")]).toEqual([["Nyt"], [], ["Arvio"], ["Arvio"]]);
-      expect(flat(container.querySelector("[data-row=spending] dt")?.textContent)).toBe("Arvioitu kulutus 14 pv Arvio tavallisesti 300–450 €");
+      expect(flat(container.querySelector("[data-row=spending] dt")?.textContent)).toBe("Arvioitu kulutus 14 päivältä Arvio tavallisesti 300–450 €");
     });
 
     it("tells a card debt whose bill is after the payday as one quiet line that takes nothing off", () => {

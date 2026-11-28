@@ -50,7 +50,7 @@ export const FI_SHELL = {
   // loading and failing
   "load.loading": "Ladataan…",
   "load.slow": "Lataus kestää tavallista kauemmin. Odota tai lataa sivu uudelleen.",
-  "load.failed": "Emme saaneet tietoja haettua. Yritä uudelleen.",
+  "load.failed": "Emme saaneet tietoja. Yritä uudelleen.",
   "load.retry": "Yritä uudelleen",
   "notfound.title": "Sivua ei löydy",
   "notfound.body": "Osoite ei vastaa mitään sivua.",
