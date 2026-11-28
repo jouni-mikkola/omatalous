@@ -68,6 +68,8 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
   const title = (i: number) => dayMonth(iso(i));
   const rows = (i: number) => [{ name: t("rpt.bl_balance"), value: days[i] == null ? "–" : money(days[i]!, false) }];
   const xs = days.map((_, i) => x(i));
+  const before = days.slice(Math.max(0, last - 14), last).find((v) => v != null);
+  const arrivedFromAbove = before != null && days[last] != null && before > days[last]!;
   return (
     <div className="chart" ref={ref}>
       <svg width={f.width} height={f.height}>
@@ -96,7 +98,8 @@ export function BalanceLine({ r }: { r: BalanceReport }) {
             {days[last] != null && (
               <g>
                 <circle className="qc-dot" cx={x(last)} cy={y(days[last]!)} r={5} />
-                <text className="qc-note" x={x(last) - 8} y={y(days[last]!) - 10} textAnchor="end">
+                {/* the label sits on the side the line is not: above when the balance rose into today, below when it fell */}
+                <text className="qc-note" x={x(last) - 8} y={y(days[last]!) + (arrivedFromAbove ? 18 : -10)} textAnchor="end">
                   {money(days[last]!, false)}
                 </text>
               </g>

@@ -206,6 +206,9 @@ a.btn-primary { color: var(--on-fill); }
 /* the empty states (Empty with a title: the first run, the end of Tarkistettavat): one centred card with a heading, a sentence and the way on */
 .card.empty { display: grid; justify-items: center; gap: var(--sp-12); padding-block: var(--sp-48); text-align: center; }
 .card.empty h2:focus { outline: none; }
+.card.empty > .empty-art { order: -1; }
+/* the line drawing of an empty page or list: quiet, never louder than its sentence */
+.empty-art { display: block; flex: none; fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; margin-block-end: var(--sp-8); }
 .card.empty p { margin: 0; max-width: 44ch; font-size: var(--fs-body); line-height: 20px; color: var(--text-2); }
 .card.empty .form-row { justify-content: center; }
 /* the first run's steps in their order: a number in a ring, a tick once done, the next one in full ink and a heavier ring */
