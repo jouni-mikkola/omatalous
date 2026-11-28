@@ -312,7 +312,6 @@ export function Shell() {
             <span className="brand-word">Omatalous</span>
           </PageLink>
           {/* on a phone the band names the open page; the heading below stays the page's name for a screen reader */}
-          <span className="topbar-page" aria-hidden="true">{titleShown}</span>
           <nav className="nav" aria-label={t("shell.main_menu")}>
             {NAV.map((e) => (
               <PageLink key={e.id} id={e.id} current={known && page === e.id} data-short={e.short} aria-label={e.short ? e.label : undefined}>
