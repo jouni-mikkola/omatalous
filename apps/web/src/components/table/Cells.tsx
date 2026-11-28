@@ -76,7 +76,7 @@ export function DeltaChip({ delta, text, meaning, flat = 0 }: { delta: number; t
 }
 
 /**
- * A payee's mark: the given logo (the bank's, a chain's), else MerchantAvatar (a person glyph for a person's name,
+ * A payee's mark: the given logo (the bank's, a chain's), else MerchantAvatar (a plain disc for a person's name,
  * or two initials on a tint of their own); the name beside it.
  */
 export function MarkCell({ name, mark, person, size, children }: { name: string; mark?: ReactNode; person?: boolean; size?: "s" | "m" | "l"; children?: ReactNode }) {

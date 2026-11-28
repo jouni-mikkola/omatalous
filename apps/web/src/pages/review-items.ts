@@ -324,7 +324,7 @@ export function nameOf(item: ReviewItem): string {
   }
 }
 
-/** A person's money gets the person glyph, never initials: a payer the app would offer "Omaa rahaa", a shared account's payer. */
+/** A person's money gets the plain disc of a person, not a brand's tint: a payer the app would offer "Omaa rahaa", a shared account's payer. */
 export function isPerson(item: ReviewItem): boolean {
   return (item.kind === "payer" && !item.wallet && item.options.includes("own_money")) || item.kind === "split";
 }

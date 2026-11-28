@@ -23,11 +23,12 @@ describe("MerchantAvatar", () => {
     }
   });
 
-  it("gives the name of a person the glyph, never initials, and a business its initials", () => {
+  it("gives the name of a person initials on the plain disc and a business a tinted one", () => {
     const person = renderToStaticMarkup(createElement(MerchantAvatar, { name: "Matti Meikäläinen" }));
-    expect(person).toContain("<svg");
+    expect(person).toContain(">MM<");
+    expect(person).not.toContain("<svg");
     expect(person).not.toContain("data-tint");
     expect(renderToStaticMarkup(createElement(MerchantAvatar, { name: "Wolt" }))).toContain("data-tint");
-    expect(renderToStaticMarkup(createElement(MerchantAvatar, { name: "Wolt", person: true }))).toContain("<svg");
+    expect(renderToStaticMarkup(createElement(MerchantAvatar, { name: "Wolt", person: true }))).not.toContain("data-tint");
   });
 });
