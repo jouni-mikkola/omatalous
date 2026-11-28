@@ -26,7 +26,7 @@ interface MoneyFlowBand {
 }
 
 /** The picture of one complete month: the same two lists as the whole period, equal to the cent (ADR 0014). */
-export interface MoneyFlowMonth {
+interface MoneyFlowMonth {
   month: string;
   /** The first and last day of the month, for the link that opens its rows. */
   from: string;

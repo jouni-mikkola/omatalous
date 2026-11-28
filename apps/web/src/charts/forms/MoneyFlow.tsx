@@ -1,4 +1,5 @@
 // Decision: how much of the household's life is paid with credit or savings, and how large a cut would end it
+import { useEffect, useMemo, useRef, useState } from "react";
 import { money, monthLabel } from "../../format.ts";
 import { t } from "../../text.ts";
 import "../../styles/money-flow.css";
@@ -20,7 +21,7 @@ const LEAST = 4;
  * The bands of one column as rectangles from the top down. The column is always `HEIGHT` tall, so two sides of equal
  * total stand at equal height. A band under `LEAST` is lifted to it and the largest band gives up the difference.
  */
-function stack(side: readonly MoneyFlowBand[]): { band: MoneyFlowBand; y: number; height: number }[] {
+function stack(side: readonly MoneyFlowBand[]): Placed[] {
   const total = side.reduce((sum, b) => sum + b.cents, 0);
   const room = HEIGHT - GAP * Math.max(0, side.length - 1);
   const heights = side.map((b) => (total > 0 ? Math.max(LEAST, (b.cents / total) * room) : 0));
@@ -35,6 +36,59 @@ function stack(side: readonly MoneyFlowBand[]): { band: MoneyFlowBand; y: number
     y += heights[i]! + GAP;
     return { band, y: at, height: heights[i]! };
   });
+}
+
+type Placed = { band: MoneyFlowBand; y: number; height: number };
+
+/** How long a band takes to move to its new place, under the 400 ms of the other charts' draws. */
+const MOVE_MS = 200;
+
+/**
+ * The places of `target`, moved there from where each band stood when the bands change. A band is followed by its id; a
+ * new band stands in its place at once. Without motion (reduced motion, or no animation frames) the places are the
+ * target's. The geometry is set as attributes, since the page allows no style attribute.
+ */
+function useMoved(target: readonly Placed[]): Placed[] {
+  const [shown, setShown] = useState<readonly Placed[]>(target);
+  const standing = useRef<readonly Placed[]>(target);
+  useEffect(() => {
+    const begin = standing.current;
+    if (begin === target) return;
+    const welcome = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
+    if (!welcome) {
+      standing.current = target;
+      setShown(target);
+      return;
+    }
+    const start = performance.now();
+    let frame = 0;
+    const step = (now: number) => {
+      const k = Math.min(1, (now - start) / MOVE_MS);
+      const eased = 1 - (1 - k) ** 3;
+      const next = target.map((p) => {
+        const was = begin.find((b) => b.band.id === p.band.id);
+        return was ? { ...p, y: was.y + (p.y - was.y) * eased, height: was.height + (p.height - was.height) * eased } : p;
+      });
+      standing.current = k < 1 ? next : target;
+      setShown(standing.current);
+      if (k < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [target]);
+  return target.map((p) => shown.find((s) => s.band.id === p.band.id) ?? p);
+}
+
+function Column({ name, side }: { name: string; side: readonly MoneyFlowBand[] }) {
+  const target = useMemo(() => stack(side), [side]);
+  const placed = useMoved(target);
+  return (
+    <svg className="mf-column" viewBox={`0 0 100 ${HEIGHT}`} preserveAspectRatio="none" role="img" aria-label={`${name}: ${side.map((b) => `${b.label} ${money(b.cents)}`).join(", ")}`}>
+      {placed.map(({ band, y, height }) => (
+        <rect key={band.id} className={`mf-seg mf-${band.kind}`} x={0} y={y} width={100} height={height} />
+      ))}
+    </svg>
+  );
 }
 
 /**
@@ -70,11 +124,7 @@ export function MoneyFlow({ sources, uses, href }: { sources: readonly MoneyFlow
         ].map(({ name, side }) => (
           <div key={name} className="mf-side">
             <p className="mf-side-name">{name}</p>
-            <svg className="mf-column" viewBox={`0 0 100 ${HEIGHT}`} preserveAspectRatio="none" role="img" aria-label={`${name}: ${side.map((b) => `${b.label} ${money(b.cents)}`).join(", ")}`}>
-              {stack(side).map(({ band, y, height }) => (
-                <rect key={band.id} className={`mf-seg mf-${band.kind}`} x={0} y={y} width={100} height={height} style={{ y: `${y}px`, height: `${height}px` }} />
-              ))}
-            </svg>
+            <Column name={name} side={side} />
             <ul className="mf-legend">
               {side.map((b) => (
                 <li key={b.id}>

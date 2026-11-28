@@ -8,10 +8,6 @@
 .mf-seg.mf-debt, .mf-key.mf-debt { background: var(--role-debt); fill: var(--role-debt); }
 .mf-seg.mf-kept, .mf-key.mf-kept { background: var(--role-kept); fill: var(--role-kept); }
 
-/* a change of bands moves each band to its new place; only when motion is welcome */
-@media (prefers-reduced-motion: no-preference) {
-  .mf-seg { transition: y var(--t-open) var(--ease-out), height var(--t-open) var(--ease-out); }
-}
 .mf-months { display: flex; flex-wrap: wrap; gap: var(--sp-8); margin-block: var(--sp-16) 0; }
 .mf-month { min-block-size: 2.75rem; min-inline-size: 2.75rem; padding-inline: var(--sp-12); border: 1px solid var(--border); border-radius: var(--radius-pill); background: var(--surface); color: var(--text-2); font-size: var(--fs-small); font-weight: var(--w-strong); cursor: pointer; }
 .mf-month[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--surface); }
@@ -24,6 +20,8 @@
 .mf-legend li { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--sp-8); align-items: baseline; }
 .mf-key { inline-size: var(--sp-8); block-size: var(--sp-8); border-radius: var(--radius-s); }
 .mf-name { overflow-wrap: anywhere; }
+/* the link is the whole name and a target of its own size */
+.mf-name a { display: flex; align-items: center; min-block-size: 2.75rem; }
 .mf-sum { grid-column: 2; font-variant-numeric: tabular-nums lining-nums; font-weight: var(--w-strong); }
 /* in em, so large text stacks the two sides before their sums run out of room */
 @container (max-width: 16em) {
