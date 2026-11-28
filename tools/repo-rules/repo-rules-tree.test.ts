@@ -4,5 +4,6 @@ import "./parity.ts";
 import "./shell-rules.ts";
 import "./runners-rules.ts";
 import "./roadmap-rules.ts";
+import "./message-keys.ts";
 
 warmParse();

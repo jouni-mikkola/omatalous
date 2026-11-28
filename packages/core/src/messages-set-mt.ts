@@ -9,5 +9,4 @@ export const FI_SET_MT = {
   "set.mt.action": "Toiminto",
   "set.mt.result": "Tulos",
   "set.mt.loading": "Ladataan…",
-  "set.mt.download": "Lataa",
 } as const;

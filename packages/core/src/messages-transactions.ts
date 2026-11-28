@@ -61,7 +61,6 @@ export const FI_TRANSACTIONS = {
   "fchip.period": "Aikaväli",
   "fchip.category": "Kategoria",
   "fchip.account": "Tili",
-  "fchip.accounts": "Tilit",
   "fchip.filter": "Suodata",
   "fchip.limits": "Rajaus",
   "fchip.search_clear": "Tyhjennä haku",

@@ -2,7 +2,6 @@
 import type { FI_SET_STATUS } from "../messages-set-status.ts";
 
 export const EN_SET_STATUS: Record<keyof typeof FI_SET_STATUS, string> = {
-  "set.status.not_yet": "not yet",
   "set.status.disk": "Disk",
   "set.status.enough": "enough",
   "set.status.low": "low",
