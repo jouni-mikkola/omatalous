@@ -44,7 +44,8 @@ function stack(side: readonly MoneyFlowBand[]): { band: MoneyFlowBand; y: number
  */
 export function MoneyFlow({ sources, uses }: { sources: readonly MoneyFlowBand[]; uses: readonly MoneyFlowBand[] }) {
   return (
-    <div className="money-flow mf-stacked">
+    <div className="money-flow">
+      <div className="mf-stacked">
       {[
         { name: t("rpt.mf_sources"), side: sources },
         { name: t("rpt.mf_uses"), side: uses },
@@ -67,6 +68,7 @@ export function MoneyFlow({ sources, uses }: { sources: readonly MoneyFlowBand[]
           </ul>
         </div>
       ))}
+      </div>
     </div>
   );
 }

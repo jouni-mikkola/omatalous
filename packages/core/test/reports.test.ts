@@ -164,18 +164,6 @@ describe("reports", () => {
     expect(r.income.months.every((m) => m.totalCents === (m.byGroup && Object.values(m.byGroup).reduce((a, b) => a + b, 0)))).toBe(true);
   });
 
-  it("sources and uses of money: both sides equal the total, which the tiles' months make, and the credit per month is the credit source over them", () => {
-    const f = r.moneyFlow;
-    const sum = (bands: { cents: number }[]) => bands.reduce((s, b) => s + b.cents, 0);
-    expect(f.totalCents).toBeGreaterThan(0);
-    expect(sum(f.sources)).toBe(f.totalCents);
-    expect(sum(f.uses)).toBe(f.totalCents);
-    expect(f.monthCount).toBeGreaterThan(0);
-    expect(f.monthCount).toBeLessThanOrEqual(9);
-    const credit = f.sources.find((b) => b.id === "credit")?.cents ?? 0;
-    expect(f.creditPerMonthCents).toBe(Math.round(credit / f.monthCount));
-  });
-
   it("the tax year is the year of the range and its income the sum of its types", () => {
     expect(r.taxYear.year).toBe(2026);
     expect(r.taxYear.income.totalCents).toBe(r.taxYear.income.types.reduce((sum, t) => sum + t.totalCents, 0));

@@ -1,7 +1,7 @@
 /* Where the money came from and went (charts/forms/MoneyFlow.tsx): two stacked columns of equal height side by side, each with a legend. A band's colour is its kind. */
 
 @layer components {
-.money-flow { inline-size: 100%; margin-block: var(--sp-16); }
+.money-flow { inline-size: 100%; margin-block: var(--sp-16); container-type: inline-size; }
 .mf-seg.mf-income, .mf-key.mf-income { background: var(--role-income); fill: var(--role-income); }
 .mf-seg.mf-drawn, .mf-key.mf-drawn { background: var(--warn); fill: var(--warn); }
 .mf-seg.mf-spending, .mf-key.mf-spending { background: var(--role-spending); fill: var(--role-spending); }
@@ -18,4 +18,8 @@
 .mf-key { inline-size: var(--sp-8); block-size: var(--sp-8); border-radius: var(--radius-s); }
 .mf-name { overflow-wrap: anywhere; }
 .mf-sum { grid-column: 2; font-variant-numeric: tabular-nums lining-nums; font-weight: var(--w-strong); }
+/* in em, so large text stacks the two sides before their sums run out of room */
+@container (max-width: 16em) {
+  .mf-stacked { grid-template-columns: minmax(0, 1fr); }
+}
 }

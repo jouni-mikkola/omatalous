@@ -24,6 +24,9 @@ describe("Tulot ja menot: where the money came from and went", () => {
       expect(f.sources.reduce((s, b) => s + b.cents, 0)).toBe(f.totalCents);
       expect(f.uses.reduce((s, b) => s + b.cents, 0)).toBe(f.totalCents);
       expect([...f.sources, ...f.uses].every((b) => b.cents > 0)).toBe(true);
+      const credit = f.sources.find((b) => b.id === "credit")?.cents ?? 0;
+      expect(f.monthCount).toBeGreaterThan(0);
+      expect(f.creditPerMonthCents).toBe(Math.round(credit / f.monthCount));
     }
   });
 
