@@ -20,11 +20,10 @@ function Side({ caption, bands, totalCents }: { caption: string; bands: Band[]; 
   return <Table<Band> caption={caption} rows={bands} rowKey={(b) => b.id} columns={columns} total={{ label: t("rpt.total"), cells: { sum: money(totalCents) } }} search={false} toolbar={false} csv={false} />;
 }
 
-/** The filter of Tapahtumat that lists the rows of a band, for the bands that are rows of one category or all income; the others are sums with no rows of their own. */
+/** The filter of Tapahtumat that lists the rows of a band, for the bands that are the rows of one category; the others are sums with no rows of their own. */
 function rowsFilter(band: Band): string | null {
   if (band.id.startsWith("category:") && !band.id.endsWith(":returned")) return `category=${encodeURIComponent(band.id.slice("category:".length))}`;
   if (band.id === "credit") return "category=credit_draw";
-  if (band.id === "earned" || band.id === "other_income") return "kind=income";
   return null;
 }
 
