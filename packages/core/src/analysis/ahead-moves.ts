@@ -14,7 +14,7 @@ import { cardName } from "../merchant.ts";
 import { detectRecurring } from "../recurring.ts";
 import type { SeriesInput } from "../recurring-occurrence.ts";
 import { median } from "../stats.ts";
-import { incomingLegFinder } from "../pairing.ts";
+import { incomingLegFinder } from "../pairing-legs.ts";
 import { normalizeIban } from "../transfers.ts";
 import type { BalanceInput, IsoDate } from "../types.ts";
 import { type BalanceWalk, balanceWalk } from "./balance-walk.ts";

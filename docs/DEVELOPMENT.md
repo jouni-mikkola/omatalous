@@ -48,6 +48,7 @@ packages/core/src            pure logic, no I/O (runs on Node and in the browser
   categorize-bank-rows.ts    lenders by the shape of their name, by their own payout and by the register; the bank's own rows
   transfers.ts               transfers between own accounts, card payments
   pairing.ts                 the one owner of pairing: which two rows are the legs of one movement
+  pairing-legs.ts            the pairing variants that read one leg against a list: card legs, loan payments, bill legs, pools, moves
   card-channel.ts            a card's payment channel, learned from paired rows on every run and stored nowhere
   industry.ts                trade register match, TOL code to category, which rows are businesses
   pipeline.ts                categorize, transfers, merchant memory, industry; run after every change
