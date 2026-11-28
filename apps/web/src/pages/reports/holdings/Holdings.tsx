@@ -1,18 +1,17 @@
 /**
  * Decision: what the household has and what it owes, before the month: each account with its balance, each credit card
- * with what is used of its limit and its next bill, each loan with what is left, and a total at the foot of each group.
+ * with what is used of its limit, each loan with what is left, and a total at the foot of each group.
  * The loans and the cards stand in the order core gives, the dearest by yearly cost first; a debt that is dear (Kallis,
  * Erittäin kallis) says so in a word among the lines under its name, and no other class and no unknown cost says anything.
- * Yhteenveto shows it under the heading Varat ja velat and without the net figure at its head (`net`: its headline is
- * the sum left on the payday), Raportit > Varat ja velat with no heading of its own and with the loans left to the report Lainat; the next bill of
- * a card shows where the page gives the coming bills (`ahead`), which only Yhteenveto loads. The accounts
+ * Raportit > Varat ja velat shows it with no heading of its own, without the net figure at its head (`net`) and with the loans
+ * left to the report Lainat when that lists them (`loansListed`). Yhteenveto shows only three lines of it (HoldingsLines). The accounts
  * stand in their types (checking, savings, other) when there are two types or more, a type of two accounts or more with its total. The
  * first group's heading says the day most balances are from; a row says its own day only when it differs, and names its bank only when
  * the accounts have more than one. Tilit and Lainat stand side by side, the cards in a row of their own under
  * them; where a group is missing the others close up, so a household with no loan has Tilit and its cards side by
  * side and no hole. A card and a loan have one form: the name as a link, then its figures as rows; a card has its picture
  * (CardFace) and, when it has a limit, the arc of what is used (CreditArc) beside its name. Every figure is the one in
- * `holdings` (the answer Yhteenveto already loads), shown as given: no sum is made here. A group with nothing in it is
+ * `holdings` (the dashboard answer), shown as given: no sum is made here. A group with nothing in it is
  * left out, and every account has its row, in the order core gives. The name of an account, a card or a loan is a link:
  * to the rows of the account in Tapahtumat, to the report Lainat.
  */
@@ -22,7 +21,7 @@ import { query } from "../../../api.ts";
 import { date, money, moneyIn, monthYear } from "../../../format.ts";
 import { t, tn } from "../../../text.ts";
 import { partText, typedByText } from "../../../part.ts";
-import { loanHash, loanTermsHash } from "../../../routes.ts";
+import { loanHash } from "../../../routes.ts";
 import type { DashboardData, Meta, ReconcileState } from "../../../types.ts";
 import { cardBankOf } from "../../../components/BankLogo.tsx";
 import { Figure } from "../../../components/Figure.tsx";
@@ -35,7 +34,6 @@ import "../../../styles/statement.css";
 import "../../../styles/holdings.css";
 
 type Answer = DashboardData["holdings"];
-type Ahead = NonNullable<DashboardData["ahead"]>;
 
 /** A figure of the answer, or the dash for one the bank did not give. */
 const figure = (cents: number | null, foreign?: { currency: string; cents: number } | null): string =>
@@ -60,12 +58,6 @@ function sinceLine(balanceAt: string | null, today: string, common: string | nul
 
 const ACCOUNT_TYPES = ["checking", "savings", "other"] as const;
 type AccountType = (typeof ACCOUNT_TYPES)[number];
-
-/** A card's next bill: the first bill of Laskut's 30 days (`ahead.upcoming`) that names the card. */
-function nextBill(ahead: Ahead | undefined, cardId: string): { cents: number; date: string } | null {
-  const row = ahead?.upcoming.find((r) => r.cardId === cardId && r.cents !== null && r.cents < 0);
-  return row ? { cents: -row.cents!, date: row.date } : null;
-}
 
 /** A name that is a link, in the colour of the row until it is pointed at; `mask` tells apart two that share a name. */
 function Name({ name, href, mask }: { name: string; href: string; mask: string | undefined }) {
@@ -186,7 +178,7 @@ function Accounts({ holdings, meta, common, stamp }: { holdings: Answer; meta: M
   );
 }
 
-function Cards({ holdings, meta, ahead, common, stamp }: { holdings: Answer; meta: Meta; ahead: Ahead | undefined; common: string | null; stamp: ReactNode }) {
+function Cards({ holdings, meta, common, stamp }: { holdings: Answer; meta: Meta; common: string | null; stamp: ReactNode }) {
   const { cards, cardsCents } = holdings;
   const masks = cardMasks(cards);
   return (
@@ -208,7 +200,6 @@ function Cards({ holdings, meta, ahead, common, stamp }: { holdings: Answer; met
           const { usedCents: used, limitCents: limit, freeCents: free, overCents } = c;
           const over = overCents !== null && overCents > 0 ? overCents : null;
           const href = `#/transactions${query({ accountId: c.id })}`;
-          const bill = nextBill(ahead, c.id);
           return (
             <Unit
               key={c.id}
@@ -225,7 +216,6 @@ function Cards({ holdings, meta, ahead, common, stamp }: { holdings: Answer; met
               </FigureRow>
               {limit !== null && <FigureRow label={t("holdings.limit")}>{money(limit)}</FigureRow>}
               {limit !== null && (over !== null ? <FigureRow label={t("holdings.over")}>{money(over)}</FigureRow> : free !== null && <FigureRow label={t("holdings.free")}>{money(free)}</FigureRow>)}
-              {bill && <FigureRow label={t("holdings.next_bill")}>{t("holdings.bill_on", { sum: money(bill.cents), date: date(bill.date, meta.today) })}</FigureRow>}
             </Unit>
           );
         })}
@@ -235,10 +225,9 @@ function Cards({ holdings, meta, ahead, common, stamp }: { holdings: Answer; met
 }
 
 /**
- * The loans show the figures of the report Lainat, whose calculations open there: no door is repeated here. `known`: debts with
- * no balance are listed under the total, so it names itself the known one.
+ * The loans show the figures of the report Lainat, whose calculations open there: no door is repeated here.
  */
-function Loans({ holdings, known }: { holdings: Answer; known: boolean }) {
+function Loans({ holdings }: { holdings: Answer }) {
   const { loans, loansCents, loansEndDate } = holdings;
   return (
     <section>
@@ -265,18 +254,18 @@ function Loans({ holdings, known }: { holdings: Answer; known: boolean }) {
           </Unit>
         ))}
       </ul>
-      {loansCents !== null && loansCents > 0 && <Total label={t(known ? "holdings.loans_known" : "holdings.loans_total")} cents={loansCents} note={loansEndDate ? t("holdings.last_payment", { month: monthYear(loansEndDate).replace(/^0/, "") }) : t("holdings.last_payment_unknown")} />}
+      {loansCents !== null && loansCents > 0 && <Total label={t("holdings.loans_total")} cents={loansCents} note={loansEndDate ? t("holdings.last_payment", { month: monthYear(loansEndDate).replace(/^0/, "") }) : t("holdings.last_payment_unknown")} />}
     </section>
   );
 }
 
 /**
- * `ahead`: the window of the dashboard answer, whose bills give each card its next one; `title`: the block's heading, none
- * (null) on a page whose own title says it; `buffer`: the line Yhteenveto adds at the foot; `loansListed`: the page lists the
- * loans in the report Lainat, so the block leaves out the Lainat group and the debts total (Lainat gives the same sum).
+ * `title`: the block's heading, none (null) on a page whose own title says it; `loansListed`: the page lists the loans in
+ * the report Lainat (which also tells the debts that lack a balance), so the block leaves out the Lainat group and the debts
+ * total (Lainat gives the same sum).
  */
-export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), buffer, chip, loansListed = false, net = true }: { holdings: Answer; meta: Meta; ahead?: Ahead | null; title?: string | null; buffer?: ReactNode; chip?: ReactNode; loansListed?: boolean; net?: boolean }) {
-  const { accounts, accountsCents, cards, debtCents, unsavedLoans, netCents } = holdings;
+export function Holdings({ holdings, meta, title = t("holdings.title"), loansListed = false, net = true }: { holdings: Answer; meta: Meta; title?: string | null; loansListed?: boolean; net?: boolean }) {
+  const { accounts, accountsCents, cards, debtCents, netCents } = holdings;
   const loans = loansListed ? [] : holdings.loans;
   const groups = [accounts.length, cards.length, loans.length].filter((n) => n > 0).length;
   if (groups === 0) return null;
@@ -289,13 +278,11 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), b
   // the day most balances are from, said once, beside the heading of Tilit when one of its accounts has a balance, else beside that of the cards
   const common = commonDay([...accounts, ...cards], meta.today);
   const stamp = common ? <span className="holding-date">{t("ahead.balance_on", { date: common })}</span> : null;
-  // lenders paid every month whose loan nobody saved and cards nobody connected: the total cannot hold them, so each is told under it (the server lists them); Lainat lists them when it is shown
-  const unsaved = loansListed ? [] : (unsavedLoans?.rows ?? []);
 
   return (
     <section className="card holdings" aria-labelledby={title === null ? undefined : "holdings-h"} aria-label={title === null ? t("holdings.title") : undefined}>
       <div className="card-head tb">
-        <div className="card-name">{title !== null && <h2 id="holdings-h">{title}</h2>}{chip}</div>
+        <div className="card-name">{title !== null && <h2 id="holdings-h">{title}</h2>}</div>
         {/* what the household has net, the accounts less the debts (core's netCents): a dash while the debt total is unknown, and none while a debt has no balance, as the figure would be too high */}
         {net && lackingDebts(holdings) === 0 && (netCents !== null || (accountsCents !== null && debtCents === null)) && (
           <div className="card-datum">
@@ -306,32 +293,19 @@ export function Holdings({ holdings, meta, ahead, title = t("holdings.title"), b
       </div>
       <div className={columns}>
         {accounts.length > 0 && <Accounts holdings={holdings} meta={meta} common={common} stamp={accounts.some((a) => a.balanceAt) ? stamp : null} />}
-        {loans.length > 0 && <Loans holdings={holdings} known={unsaved.length > 0} />}
-        {cards.length > 0 && <Cards holdings={holdings} meta={meta} ahead={ahead ?? undefined} common={common} stamp={accounts.some((a) => a.balanceAt) ? null : stamp} />}
+        {loans.length > 0 && <Loans holdings={holdings} />}
+        {cards.length > 0 && <Cards holdings={holdings} meta={meta} common={common} stamp={accounts.some((a) => a.balanceAt) ? null : stamp} />}
       </div>
-      {(debts || unsaved.length > 0) && (
+      {debts && (
         <dl className="st-rows holding-foot">
-          {debts && (
-            <div className="st-row">
-              <dt className="st-name st-strong">{t(unsaved.length > 0 ? "holdings.debts_known" : "holdings.debts_total")}</dt>
-              <dd className="st-num st-strong">
-                {figure(debtCents)}
-              </dd>
-            </div>
-          )}
-          {unsaved.map((u, i) => (
-            <div className="st-row" key={i}>
-              <dt className="st-name">{u.card ? `${u.name} · ${t("set.ri.credit_card")}` : u.kindUnknown ? `${u.name} · ${t("set.ri.credit_kind_not_known")}` : u.name}</dt>
-              <dd className="st-num">
-                {u.monthlyCents === null ? null : `${t("rpt.ln_per_month", { amount: money(u.monthlyCents) })} · `}
-                {/* the missing balance is typed in Tarkistettavat, at the debt's own question; a debt answered "En tiedä" is no longer asked there */}
-                {u.asked ? t("holdings.balance_missing") : <a href={loanTermsHash(u.debtId)}>{t("holdings.balance_missing")}</a>}
-              </dd>
-            </div>
-          ))}
+          <div className="st-row">
+            <dt className="st-name st-strong">{t("holdings.debts_total")}</dt>
+            <dd className="st-num st-strong">
+              {figure(debtCents)}
+            </dd>
+          </div>
         </dl>
       )}
-      {buffer}
     </section>
   );
 }

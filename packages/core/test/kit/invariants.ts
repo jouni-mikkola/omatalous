@@ -12,7 +12,6 @@
  * so a test can hand it a household made wrong on purpose and see it fail (invariants.teeth.test.ts).
  */
 import { aheadBasis } from "../../src/analysis/ahead.ts";
-import { bridgeView } from "../../src/analysis/bridge-view.ts";
 import { bridgeByMonth } from "../../src/analysis/conservation.ts";
 import { createContext } from "../../src/analysis/context.ts";
 import { leftOf } from "../../src/analysis/flows.ts";
@@ -335,14 +334,10 @@ export function unknownMonth(h: GeneratedHousehold, v: HouseholdView, reports: t
   return out;
 }
 
-/** The sums of Tulojen käyttö that print to the whole euro are left out of its list under 50 cents each: the list adds up to the cent but for those. */
-const LIST_SLACK_CENTS = 300;
-
 /**
  * I8: one month has one result. In the running month the figures Yhteenveto shows add up to each other: Tulot less Menot,
- * less what was moved to savings (plus what was taken out of them) and plus what was drawn on credit is Tulos; the list
- * of Tulojen käyttö adds up to the money it lists, and its shares to 100 when the income paid everything; and the cash flow
- * report's row of the month says the same Tulos. The line of a finding names the sums.
+ * less what was moved to savings (plus what was taken out of them) and plus what was drawn on credit is Tulos; the debt
+ * service is told in sums that add up to it; and the cash flow report's row of the month says the same Tulos. The line of a finding names the sums.
  */
 export function monthResult(h: GeneratedHousehold, v: HouseholdView, dashboard: typeof buildDashboard = buildDashboard, cashflow: typeof cashflowReport = cashflowReport): Violation[] {
   const month = monthOf(h.today);
@@ -357,15 +352,6 @@ export function monthResult(h: GeneratedHousehold, v: HouseholdView, dashboard: 
   if (terms !== totals.leftCents) say(`Tulot ${income} - Menot ${spent} - saved ${totals.savedCents} + credit ${totals.borrowedCents} is ${terms}, Tulos is ${totals.leftCents}`);
   const told = page.split.interestCents + page.split.principalCents + page.split.unsplitCents;
   if (told !== totals.debtCents) say(`Velanhoito ${totals.debtCents} is told as interest ${page.split.interestCents}, repayments ${page.split.principalCents} and unsplit ${page.split.unsplitCents}, which add up to ${told}`);
-  const view = bridgeView(totals, page.split);
-  const sum = (keys: readonly string[]) => view.figures.filter((f) => keys.includes(f.key)).reduce((s, f) => s + f.cents, 0);
-  // with a gap the list adds up to the income and the cover, and what stayed is drawn money no row names
-  const went = sum(view.cover.gapCents === 0 ? ["consumption", "interest", "debt", "principal", "saved", "repaid", "left"] : ["consumption", "interest", "debt", "principal", "saved", "repaid"]);
-  const came = totals.incomeCents + sum(["credit", "savings", "accounts", "credit-left", "savings-left"]);
-  if (Math.abs(went - came) > LIST_SLACK_CENTS) say(`Tulojen käyttö lists ${went} went against ${came} that came`);
-  const shares = view.figures.flatMap((f) => (f.incomeUnits === null ? [] : [f.incomeUnits]));
-  const shown = shares.reduce((s, n) => s + n, 0);
-  if (view.draws && view.cover.gapCents === 0 && view.cover.creditRepaidCents === 0 && shown !== 100) say(`Tulojen käyttö shares add up to ${shown}`);
   const row = cashflow(v.ctx, range).rows.find((r) => r.month === month);
   // the report has a row for every month of its range, so a missing row is a failure of the comparison, not a pass
   if (!row) say(`the cash flow report has no row for ${month}`);
