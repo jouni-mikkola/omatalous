@@ -10,9 +10,7 @@ import { startServer } from "./server.mjs";
 // the 20th), so the next month opens with all of its bills to come.
 const ADMIN = { username: "e2e-admin", displayName: "E2E Admin", password: "e2e-salasana-123456" };
 const FETCH = { "X-Requested-With": "fetch" };
-// Raised from 1800 on purpose: the page has the three cards of the kinds as compact full-width rows above the table, the open
-// month ends in the rows of its figures, and a low twelve-month chart stands under the table.
-// The cards stay three stacked rows at 390 px on every day, whatever the sums are.
+// The open month ends in the rows of its figures, and a low twelve-month chart stands under the table.
 const MAX_HEIGHT = 2250;
 const month = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Helsinki", year: "numeric", month: "2-digit" }).format(new Date());
 const DAYS = [
@@ -72,11 +70,6 @@ for (const { day, open } of DAYS) {
       const card = page.locator("#laskut-taulukko .bill-subfold").filter({ hasText: /Kortilla, \d+ lasku/ });
       await expect(card).toHaveCount(1);
       await expect(card).toHaveAttribute("aria-expanded", "false");
-      const cardBoxes = await page.locator(".kind-cards .kind-card").evaluateAll((els) => els.map((el) => ({ top: Math.round(el.getBoundingClientRect().top), left: Math.round(el.getBoundingClientRect().left), width: Math.round(el.getBoundingClientRect().width) })));
-      expect(cardBoxes, "the three cards of the kinds").toHaveLength(3);
-      expect(new Set(cardBoxes.map((b) => b.top)).size, "the cards are stacked").toBe(3);
-      expect(new Set(cardBoxes.map((b) => b.left)).size, "the cards start at one x").toBe(1);
-      expect(new Set(cardBoxes.map((b) => b.width)).size, "the cards are one width").toBe(1);
       const height = await page.evaluate(() => document.documentElement.scrollHeight);
       console.log(`Laskut at 390 px on ${today}: ${height} px`);
       expect(height, "page height at 390 px").toBeLessThanOrEqual(MAX_HEIGHT);

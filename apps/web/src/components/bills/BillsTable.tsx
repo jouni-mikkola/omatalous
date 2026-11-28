@@ -3,13 +3,13 @@
  *
  * Laskut' one table: the bill calendar of core, a group for each of the twelve months, in the table kit with no search,
  * chips or sorting. A row is a bill, a loan payment, a pay or a regular saving with its day and its amount. A row whose day and
- * amount are known says nothing more; any other carries a flag before its sum: the amount is an estimate (Summa arvioitu), it is
- * paid (Maksettu), a card pays it (Kortilla, in no sum), it did not come (Ei tullut) or has ended (Päättynyt). An open month's
- * rows end in its figures, all core's (`totalRows`): Maksettu (`paidCents`, Nyt, only while a charge is made), Maksamatta
- * (`billsCents`, Arvio) with its parts by kind (`essentialCents`, `debtCents`, `contractCents`, `optionalCents`), the saving,
+ * amount are known says nothing more; any other carries a flag before its sum: it is paid (Maksettu), a card pays it (Kortilla,
+ * in no sum), it did not come (Ei tullut) or has ended (Päättynyt). An estimated sum has the dotted line of an estimate under it
+ * and no word. An open month's
+ * rows end in its figures, all core's (`totalRows`): Maksettu (`paidCents`, only while a charge is made), Maksamatta
+ * (`billsCents`), whose parts by kind (`essentialCents`, `debtCents`, `contractCents`, `optionalCents`) are in the figure panel of the sum, the saving,
  * the pays (`incomeCents`) and what is left after the bills (`afterCents`); the page adds up nothing. The head of a closed
- * month carries one figure, the bills still to pay (`billsCents`). The running month's name
- * is followed by *kesken*, every later month's by the Arvio chip. In a month that holds a bill whose sum is not known the sum of what is left is a
+ * month carries one figure, the bills still to pay (`billsCents`). In a month that holds a bill whose sum is not known the sum of what is left is a
  * status with the count of those bills, and the other months keep their figure.
  * One month starts open: the running month while a bill of it is still to pay, otherwise the next one (`startOpenMonth`); the
  * reader opens any other. An open month
@@ -30,10 +30,9 @@ import { t, tn } from "../../text.ts";
 import type { Recurring as Series, Scope } from "../../types.ts";
 import { ConfirmDialog } from "../ConfirmDialog.tsx";
 import { Estimate } from "../Estimate.tsx";
-import { KindChip } from "../KindChip.tsx";
-import { MerchantAvatar } from "../MerchantAvatar.tsx";
-import { MarkCell } from "../table/Cells.tsx";
+import { FigurePanel } from "../FigurePanel.tsx";
 import { DrillRows } from "../table/DrillRows.tsx";
+import { KeyValue } from "../table/KeyValue.tsx";
 import { type Column, Table } from "../table/Table.tsx";
 import { Button } from "../ui/Button.tsx";
 import { Notice } from "../ui/Notice.tsx";
@@ -63,22 +62,13 @@ const capital = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slic
 
 const billCount = (n: number) => plural(n, t("bills.u_bill"), t("bills.u_bills"));
 
-/**
- * What a row says before its sum, or null for a bill whose day and sum are known, which is most of them: it did not come, a
- * card pays it, it is paid, or its sum is an estimate, which wears the app's one mark of an estimate in the estimate's colour.
- */
+/** What a row says before its sum, or null for a bill that is none of these, which is most of them: it did not come, a card pays it, it is paid or it has ended. */
 function flag(r: CalRow): ReactNode {
   if (r.kind === "ended") return t("bills.kind_ended");
   if (r.kind !== "row") return null;
   if (r.missed) return t("bills.status_missed");
   if (r.bill.onCard) return t("bills.on_card");
-  if (r.bill.state === "paid") return t("bills.status_paid");
-  if (r.bill.state !== "estimate") return null;
-  return (
-    <span className="bill-coming">
-      <Estimate mark="line">{t("bills.status_estimate")}</Estimate>
-    </span>
-  );
+  return r.bill.state === "paid" ? t("bills.status_paid") : null;
 }
 
 /** A closed month's head: its one figure, and the count of bills whose sum or day is not known, which the figure leaves out. */
@@ -195,7 +185,6 @@ export function BillsTable({
           // a total has no day: its name and kind stand in the row header; a part of the bills still to come is of their kind and repeats no chip
           <span className="bill-total-name">
             {rowName(r)}
-            {!r.part && <KindChip kind={r.figure} />}
             {!!r.unknown && <span className="bill-total-note">{tn(r.unknown, "bills.unknown_one", "bills.unknown_many")}</span>}
           </span>
         ) : (
@@ -214,9 +203,7 @@ export function BillsTable({
         ) : r.kind === "total" ? (
           ""
         ) : (
-          <MarkCell name={rowName(r)} mark={<MerchantAvatar name={rowName(r)} person={false} size="m" />}>
-            <span className="sub-merchant">{rowName(r)}</span>
-          </MarkCell>
+          <span className="sub-merchant">{rowName(r)}</span>
         ),
     },
     {
@@ -237,12 +224,22 @@ export function BillsTable({
       className: (r) => (r.kind === "total" ? `bill-total-sum bill-total-${r.total} bill-total-${r.figure}` : ""),
       cell: (r) => {
         const says = flag(r);
+        const figure =
+          r.kind === "row" && r.bill.state === "estimate" ? (
+            <Estimate mark="line">{sum(r)}</Estimate>
+          ) : r.kind === "total" && r.parts ? (
+            <FigurePanel figure={sum(r)} label={rowName(r)}>
+              <KeyValue items={r.parts.map((p) => [t(`bills.total_${p.total}`), money(p.cents)] as const)} />
+            </FigurePanel>
+          ) : (
+            sum(r)
+          );
         return says === null ? (
-          sum(r)
+          figure
         ) : (
           <>
             <span className="bill-flag">{says}</span>
-            {sum(r)}
+            {figure}
           </>
         );
       },
@@ -260,7 +257,6 @@ export function BillsTable({
       <button type="button" className="bill-month" aria-expanded={isOpen(g.key)} onClick={() => toggle(g.key)}>
         <span aria-hidden="true">{isOpen(g.key) ? "▾" : "▸"}</span>
         {g.month ? capital(monthLong(g.month.month)) : `${t("bills.ended")} ${g.ended}`}
-        {g.month && (g.month.month === calendar.months[0]?.month ? <span className="bill-running">{t("home.months_running")}</span> : <KindChip kind="estimate" />)}
       </button>
     );
   const rowGroups = groups.map((g) => ({
@@ -291,7 +287,7 @@ export function BillsTable({
         rowKey={(r) => r.key}
         columns={columns}
         groups={rowGroups}
-        rowClassName={(r) => (r.kind === "ended" || (r.kind === "row" && r.bill.state === "paid") ? "sub-stopped" : r.kind === "total" ? (r.part ? "bill-total bill-part" : "bill-total") : undefined)}
+        rowClassName={(r) => (r.kind === "ended" || (r.kind === "row" && r.bill.state === "paid") ? "sub-stopped" : r.kind === "total" ? "bill-total" : undefined)}
         rowProps={(r) => (foldedRows.has(r.key) ? { id: foldedRowId(r.key) } : {})}
         open={open}
         onOpen={setOpen}

@@ -2,7 +2,7 @@
  * Laskut: the totals that end the open month, one for each figure of core's the rows add up to: Maksettu, the saving charged,
  * Maksamatta and the saving still to come. A total with nothing behind it is not shown.
  */
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { marksBySubject } from "@banking/core";
 import { createElement } from "react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -17,7 +17,7 @@ function totalsOf(open: CalMonth): string[] {
   const items = billItems({ series: [], typed: [], cancelled: new Set(), marks: marksBySubject([]), today: "2026-10-11" });
   const controls = { markOf: () => null, busy: false, set: () => {}, clear: () => {} };
   const { container } = render(createElement(BillsTable, { calendar: calendar([open, month("2026-11", [bill()])]), items, controls, label: (id: string) => id, scope: "own", onRemoved: () => {} }));
-  return [...container.querySelectorAll("tr.bill-total")].map((tr) => `${tr.querySelector(".bill-total-name")!.firstChild!.textContent} ${tr.querySelector(".kind-chip")!.textContent} ${tr.querySelector("td.bill-total-sum")!.textContent}`);
+  return [...container.querySelectorAll("tr.bill-total")].map((tr) => `${tr.querySelector(".bill-total-name")!.firstChild!.textContent} ${tr.querySelector("td.bill-total-sum")!.textContent}`);
 }
 
 describe("Laskut: the month picked on the chart", () => {
@@ -47,11 +47,11 @@ describe("Laskut: the totals that end the open month", () => {
     ];
     const totals = totalsOf(month("2026-10", rows, { knownCents: 6420, billsCents: 6420, paidCents: 6420, paidCount: 1, savingPaidCents: 20_000, savingCents: 15_000 }));
     expect(totals).toEqual([
-      expect.stringMatching(/^Maksettu Nyt 64,20/),
-      expect.stringMatching(/^Säästöön Nyt 200,00/),
-      expect.stringMatching(/^Maksamatta Arvio 64,20/),
-      expect.stringMatching(/^Säästöön Arvio 150,00/),
-      expect.stringMatching(/^Laskujen jälkeen Arvio /),
+      expect.stringMatching(/^Maksettu 64,20/),
+      expect.stringMatching(/^Säästöön 200,00/),
+      expect.stringMatching(/^Maksamatta 64,20/),
+      expect.stringMatching(/^Säästöön 150,00/),
+      expect.stringMatching(/^Laskujen jälkeen /),
     ]);
   });
 
@@ -78,8 +78,18 @@ describe("Laskut: the totals that end the open month", () => {
     expect(container.querySelectorAll("tr:not(.bill-total) .rt-drill").length, "the other rows keep theirs").toBeGreaterThan(0);
   });
 
+  it("opens the parts of the bills to come by kind in the panel of the sum, once two kinds have money", () => {
+    const items = billItems({ series: [], typed: [], cancelled: new Set(), marks: marksBySubject([]), today: "2026-10-11" });
+    const controls = { markOf: () => null, busy: false, set: () => {}, clear: () => {} };
+    const open = month("2026-10", [bill({ date: "2026-10-20", payee: "Sähköyhtiö" })], { knownCents: 1000, billsCents: 1000, essentialCents: 600, optionalCents: 400 });
+    const { container } = render(createElement(BillsTable, { calendar: calendar([open, month("2026-11", [bill()])]), items, controls, label: (id: string) => id, scope: "own", onRemoved: () => {} }));
+    expect(screen.queryByText("Valinnaiset")).toBeNull();
+    fireEvent.click(container.querySelector("tr.bill-total .fig-open")!);
+    expect(screen.getByRole("dialog", { name: "Maksamatta" }).textContent).toMatch(/Asuminen ja välttämättömät.*6,00.*Valinnaiset.*4,00/);
+  });
+
   it("leaves out the totals nothing is behind", () => {
     const totals = totalsOf(month("2026-10", [bill({ date: "2026-10-20", payee: "Sähköyhtiö" })], { knownCents: 6420, billsCents: 6420 }));
-    expect(totals).toEqual([expect.stringMatching(/^Maksamatta Arvio 64,20/), expect.stringMatching(/^Laskujen jälkeen Arvio /)]);
+    expect(totals).toEqual([expect.stringMatching(/^Maksamatta 64,20/), expect.stringMatching(/^Laskujen jälkeen /)]);
   });
 });

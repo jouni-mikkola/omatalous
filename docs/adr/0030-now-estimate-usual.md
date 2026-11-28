@@ -33,10 +33,9 @@ not the only carrier. In forced-colours mode the outline and the word remain.
 - The label of a card stays the figure's own name. The chip says the kind; the label does not repeat it.
 
 The word for the estimate is *Arvio*, as in the glossary. *Ennuste* is not used. On Laskut the usual card shows the
-registry figure `fixed` (*Kiinteät menot*), the bills a month the series run at, and the now and estimate cards show
-the running month's paid and still-to-come bills.
+registry figure `fixed` (*Kiinteät menot*), the bills a month the series run at.
 
-The components are `KindChip` and `KindCard` in `apps/web/src/components/`, the chip's messages are `kind.now`,
+The component is `KindChip` in `apps/web/src/components/`, the chip's messages are `kind.now`,
 `kind.estimate` and `kind.usual`, and the looks are in `styles/estimate.css`. Laskut is the first page to use them.
 
 ## Consequences
