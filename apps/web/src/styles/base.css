@@ -118,7 +118,6 @@ input[type="checkbox"], input[type="radio"], progress { accent-color: var(--fill
 /* one grid of 12 columns: every split is 5|7, 6|6 and so on, so a rule in one panel stands on a rule of the panel above */
 .page-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); align-items: start; }
 .page-grid > * { grid-column: 1 / -1; }
-@media (min-width: 1040px) { .span-5 { grid-column: span 5; } .span-6 { grid-column: span 6; } .span-7 { grid-column: span 7; } }
 
 /* a section: a hairline above it, the name under the line, no box, no ground, no shadow (docs/DESIGN.md) */
 .card { position: relative; min-width: 0; padding: var(--sp-16) 0 var(--sp-32); border-top: 1px solid var(--border); scroll-margin-top: calc(var(--rail-h) + 16px); }
@@ -126,7 +125,7 @@ input[type="checkbox"], input[type="radio"], progress { accent-color: var(--fill
 .card-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; min-height: 0; margin: 0 0 var(--sp-16); padding: 0; }
 /* a section with only its name (Salasana; a fold that is shut) has no empty body under it */
 .card > .card-head:only-child, details.card:not([open]) > summary.card-head { margin-bottom: 0; }
-/* a fold opens with the chevron of a row that opens (themes-table.css), not the browser's triangle: a triangle is a change or a warning */
+/* a fold opens with no browser triangle: a triangle is a change or a warning */
 details:not(.user-menu) > summary { list-style: none; cursor: pointer; }
 details:not(.user-menu) > summary::-webkit-details-marker { display: none; }
 details:not(.user-menu) > summary::before { content: ""; display: inline-block; flex: none; box-sizing: border-box; width: 6px; height: 6px; margin: 0 8px 2px 2px; vertical-align: middle;
@@ -135,7 +134,6 @@ details[open]:not(.user-menu) > summary::before { transform: rotate(45deg); }
 details > summary.card-head { justify-content: flex-start; }
 .card h2 { margin: 0; font-size: var(--fs-h2); line-height: var(--lh-h2); font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--text); }
 .card-sub { margin-top: 2px; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); letter-spacing: 0; text-transform: none; }
-.section-nested { margin-top: var(--sp-16); padding-top: var(--sp-16); border-top: 1px solid var(--border); }
 .loading { opacity: 0.6; transition: opacity var(--t-state) var(--ease-out); }
 
 td.worse { color: var(--bad); }
@@ -238,8 +236,6 @@ a.btn-primary { color: var(--on-fill); }
 .kf + .kf { padding-left: var(--sp-16); border-left: 1px solid var(--grid); }
 /* the display size, 3.25 rem, is for one number: the first figure of a page, the answer it was opened for (Yhteenveto's sum left on the payday) */
 .key-figures > .kf:first-child .fig-l, .home-now .fig-l, .bills-bar-sum { font-size: var(--fs-display); line-height: var(--lh-display); }
-.kf-label { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); }
-.kf-sub { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--muted); font-variant-numeric: tabular-nums lining-nums; }
 @media (max-width: 640px) {
   .key-figures { grid-template-columns: 1fr 1fr; }
   .kf { padding: var(--sp-12) var(--sp-12) var(--sp-8) 0; }
@@ -251,16 +247,7 @@ a.btn-primary { color: var(--on-fill); }
   .kf:nth-child(odd) { border-left: 0; }
   .kf:nth-child(n + 3) { border-top: 1px solid var(--grid); }
 }
-.kf-row { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-12); }
-.kf-days { display: flex; gap: var(--sp-4); margin: var(--sp-4) 0; max-width: 200px; }
-.kf-day { position: relative; flex: 1 1 0; block-size: var(--bar-h); border-radius: calc(var(--radius-pill) - 1px); background: var(--surface-2); }
-.kf-today { background: var(--accent); }
 .kf-due::after { content: ""; position: absolute; left: 50%; top: -6px; inline-size: 4px; block-size: 4px; margin-left: -2px; border-radius: 50%; background: var(--warn); }
-.kf-rate { display: flex; align-items: center; gap: var(--sp-4); }
-.kf-ring { flex: none; }
-.kf-ring circle { fill: none; stroke-width: 6; }
-.kf-ring-track { stroke: var(--surface-2); }
-.kf-ring-fill { stroke: var(--good); stroke-linecap: round; }
 
 /* confirmation dialog (member removal): a panel one depth up, its name strip that of a panel */
 dialog.confirm { padding: var(--pad); max-width: min(440px, calc(100vw - 32px)); border: 0; border-radius: var(--radius); background: var(--surface); color: var(--text); box-shadow: 0 0 0 1px var(--pop-edge), var(--pop-shadow); }

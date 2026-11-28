@@ -31,13 +31,6 @@
 
 /* monthly totals: one colour, period in full strength, the rest lighter */
 .chart .bar { fill: var(--series-1); }
-.chart .bar-out { fill-opacity: 0.36; }
-.chart .bar-out.bar-active { fill-opacity: 0.7; }
-.chart .bar-partial { fill: url(#month-hatch); }
-.chart .bar-running-bg { fill: var(--series-1); fill-opacity: 0.22; }
-.chart .bar-running-line { stroke: var(--series-1); }
-.chart .bar-value { fill: var(--text); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
-.chart .bar-value.active, .chart .month-active { fill: var(--text); font-weight: 600; }
 .chart .avg-line { stroke: var(--text-2); stroke-width: 1; stroke-dasharray: 5 4; shape-rendering: crispEdges; }
 
 .tooltip {
@@ -80,12 +73,6 @@
 .calendar .calendar-week-bar, .calendar .calendar-mean-bar { opacity: 0.55; pointer-events: none; }
 .calendar .peak .calendar-week-bar, .calendar .peak .calendar-mean-bar, .calendar .active .calendar-week-bar, .calendar .active .calendar-mean-bar { opacity: 1; }
 .calendar .calendar-mean.peak text, .calendar .calendar-annot { fill: var(--text); font-weight: var(--w-strong); }
-.calendar-legend { align-items: center; gap: 4px 8px; }
-.calendar-legend .swatch { border-radius: var(--radius-s); }
-.calendar-legend .calendar-legend-ring { margin-left: 12px; }
-.calendar-legend .calendar-ring-key { background: none; border: 1.5px solid var(--text); }
-.chart-answer { margin: 0 0 2px; font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); font-weight: 600; color: var(--text); }
-.chart-note { margin: 0 0 8px; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--muted); }
 .calendar-notes { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: var(--fs-small); color: var(--text-2); }
 .calendar-notes li { display: inline-flex; align-items: center; gap: 8px; }
 .calendar-notes .badge-n { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: var(--radius-s); background: var(--text); color: var(--surface); font-size: var(--fs-small); font-weight: var(--w-strong); }
@@ -113,13 +100,7 @@
 .chart .slope-zero { fill: var(--muted); }
 .chart .slope-name { fill: var(--text); font-weight: 600; font-size: var(--fs-label); }
 .chart .slope-figure { fill: var(--text-2); }
-.chart .slope-change-up { fill: var(--bad); font-weight: 600; }
-.chart .slope-change-down { fill: var(--good); font-weight: 600; }
-.chart .slope-annot { fill: var(--text-2); font-style: italic; }
 .chart .slope-dim { opacity: 0.35; }
-.slope-key-up { background: var(--bad); }
-.slope-key-down { background: var(--good); }
-.slope-key-quiet { background: var(--series-rest); opacity: 0.6; }
 
 @media (prefers-reduced-motion: no-preference) {
   .calendar .calendar-day, .calendar .calendar-week-bar { animation: chart-fade var(--t-state) var(--ease-out) backwards; animation-delay: var(--d, 0s); }
@@ -130,5 +111,4 @@
 .chart .kit-event-rule { stroke: var(--axis); stroke-width: 1; shape-rendering: crispEdges; }
 .chart .kit-event-label { fill: var(--text-2); }
 .chart .kit-ref-label { fill: var(--text-2); paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; }
-.chart .kit-band { fill: var(--series-avg); fill-opacity: 0.12; }
 }
