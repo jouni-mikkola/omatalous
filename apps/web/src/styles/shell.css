@@ -87,6 +87,8 @@
   .nav-count { padding: 0 var(--sp-4); }
   /* the band keeps the mark and names the open page; the name of the app stays as the link's name. The page's name gives way (an ellipsis) to the view switch, the word with its count and the user */
   .topbar .brand { flex: none; }
+  /* the view switch, the word with its count (up to three digits) and the user need the whole row: the mark and the page's name give way, the bar below names the page */
+  .topbar-in:has(.scope-toggle) :is(.brand, .topbar-page) { display: none; }
   .brand-word { position: absolute; width: 1px; height: 1px; clip: rect(0 0 0 0); }
   .topbar-page { display: block; flex: 100 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-body); font-weight: 600; }
   .scope-toggle { margin-left: 0; }
