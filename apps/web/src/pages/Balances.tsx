@@ -12,7 +12,7 @@ import { t } from "../text.ts";
 import type { Meta, ReportsData, Scope } from "../types.ts";
 import { reportContext } from "./reports/context.ts";
 import { BalancesTiles } from "./reports/sections/Balances.tsx";
-import { DebtFree } from "./reports/sections/DebtFree.tsx";
+import { DebtFree } from "../components/DebtFree.tsx";
 import { REPORT_SECTIONS, visibleSections } from "./reports/registry.ts";
 import "../styles/reports.css";
 import "../styles/report-balances.css";

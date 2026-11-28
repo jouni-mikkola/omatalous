@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import "./fixed-clock.ts";
 import { page as spending } from "../src/pages/reports/pages/Spending.tsx";
 import { BalancesTiles } from "../src/pages/reports/sections/Balances.tsx";
-import { DebtFree } from "../src/pages/reports/sections/DebtFree.tsx";
+import { DebtFree } from "../src/components/DebtFree.tsx";
 import type { ReportContext } from "../src/pages/reports/types.ts";
 
 const flat = (s: string | null | undefined) => (s ?? "").replace(/[  ]/g, " ").replace(/\s+/g, " ").trim();
