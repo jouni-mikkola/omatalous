@@ -112,11 +112,16 @@ function completeTotalsOf(months: readonly OverviewMonth[]): OverviewCompleteTot
 }
 
 /** The complete months of `spending` and the rows of exactly those months: the window the tiles of Tulot ja menot and the picture of sources and uses share. */
-export function completeMonthRows(ctx: AnalysisContext, spending: SpendingMonthsReport) {
+function completeMonthRows(ctx: AnalysisContext, spending: SpendingMonthsReport) {ctx: AnalysisContext, spending: SpendingMonthsReport) {
   const months = spending.months.filter((_, i) => spending.complete[i]);
   const indexes = new Set(months.map(monthIndex));
   const rows = months.length === 0 ? [] : inDays(ctx, toDayRange({ from: `${months[0]}-01`, to: monthEnd(months.at(-1)!) })).filter((x) => indexes.has(x.month));
   return { months, rows };
+}
+
+/** `completeMonthRows` of the months of `range`. */
+export function completeMonthRowsOf(ctx: AnalysisContext, range: DateRange, lang: Language = DEFAULT_LANGUAGE) {
+  return completeMonthRows(ctx, spendingMonthsReport(ctx, range, lang));
 }
 
 /** The bars and sums of Tulot ja menot over the months `spending` covers: one definition for Yhteenveto's twelve months and Raportit's period. */

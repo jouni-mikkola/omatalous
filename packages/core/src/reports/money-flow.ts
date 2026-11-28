@@ -7,8 +7,7 @@ import type { DateRange } from "../analysis/period.ts";
 import { getCategory } from "../categories.ts";
 import { spendingLabel } from "../category-names.ts";
 import { monthEnd } from "../dates.ts";
-import { completeMonthRows } from "../overview.ts";
-import { spendingMonthsReport } from "./spending-months.ts";
+import { completeMonthRowsOf } from "../overview.ts";
 import { DEFAULT_LANGUAGE, type Language } from "../locale.ts";
 import { messageIn } from "../messages.ts";
 import { MONEY_FLOW_CATEGORY_BANDS } from "../thresholds.ts";
@@ -46,7 +45,7 @@ export interface MoneyFlowReport {
  * purchases by category from the statement rows.
  */
 export function moneyFlowReport(ctx: AnalysisContext, range: DateRange, inputs: UserInputs, lang: Language = DEFAULT_LANGUAGE): MoneyFlowReport {
-  const { months, rows } = completeMonthRows(ctx, spendingMonthsReport(ctx, range, lang));
+  const { months, rows } = completeMonthRowsOf(ctx, range, lang);
   const totals = totalsOf(rows.map((x) => x.flows));
   const cover = coverOf(totals);
   const split = { interestCents: 0, principalCents: 0 };

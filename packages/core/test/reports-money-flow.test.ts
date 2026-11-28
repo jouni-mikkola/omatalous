@@ -32,6 +32,8 @@ describe("Tulot ja menot: where the money came from and went", () => {
       ...monthlyOn("2026-01", 25, 3, () => 300000, { category: "salary", merchant: "Acme Oy" }),
       ...monthlyOn("2026-01", 2, 3, () => -80000, { category: "housing", merchant: "Sato Oyj" }),
       ...monthlyOn("2026-01", 10, 3, () => -40000, { category: "groceries", merchant: "K-Market" }),
+      // bought before the range and returned in it: the month holds the refund alone
+      tx({ bookingDate: "2025-11-12", amountCents: -1500000, category: "shopping", merchant: "Verkkokauppa" }),
       tx({ bookingDate: "2026-03-12", amountCents: 1500000, category: "shopping", merchant: "Verkkokauppa" }),
     ];
     const ctx = createContext(rows, [checking], "2026-04-15");
