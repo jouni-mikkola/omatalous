@@ -28,7 +28,7 @@
 
 /* a field read with doubt: marked until the household has confirmed or changed it */
 .loan-field.to-check input:not([type="checkbox"]), .loan-field.to-check select { border-color: var(--warn); }
-.loan-source { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); overflow-wrap: anywhere; }
+.loan-source { color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); overflow-wrap: anywhere; }
 /* the rate a loan on a euribor has now, counted from the fixing and the margin under it */
 .loan-rate-now { display: block; font-size: var(--fs-body); font-variant-numeric: tabular-nums; }
 .loan-confirm { display: inline-flex; align-items: center; gap: var(--sp-8); font-size: var(--fs-body); align-self: flex-start; cursor: pointer; }
@@ -48,7 +48,7 @@ dialog.loan-dialog .loan-form .form-row { justify-content: flex-start; margin: 0
 
 /* a debt's name with what it is under it, its rate with the word of a dear one, and a figure it has none of */
 .loan-name { font-weight: 600; }
-.loan-about { display: block; color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
+.loan-about { display: block; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
 .loan-class { margin-inline-start: var(--sp-8); font-weight: 600; }
 .loan-unknown { color: var(--muted); }
 
@@ -60,9 +60,9 @@ dialog.loan-dialog .loan-form .form-row { justify-content: flex-start; margin: 0
 
 /* the figures of a drill side by side, as many as fit */
 .loan-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--sp-8) var(--sp-16); margin: 0; }
-.loan-figures dt { color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
+.loan-figures dt { color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
 .loan-figures dd { margin: var(--sp-4) 0 0; font-size: var(--fs-body); line-height: var(--lh-body); font-variant-numeric: tabular-nums lining-nums; overflow-wrap: anywhere; }
-.loan-figures dd small { display: block; color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
+.loan-figures dd small { display: block; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
 .loan-figures dd.unknown { color: var(--muted); }
 /* the parts a figure is made of: label at the left, value at the right, in the body size */
 .loan-figures .loan-parts { margin: var(--sp-4) 0 0; }

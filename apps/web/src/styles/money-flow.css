@@ -13,7 +13,7 @@
 .mf-side-name { margin: 0; font-size: var(--fs-body); font-weight: var(--w-strong); }
 .mf-bar { display: flex; gap: var(--sp-4); block-size: var(--bar-h); }
 .mf-seg { display: block; flex-basis: 0; min-inline-size: var(--sp-4); border-radius: var(--radius-s); }
-.mf-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-4); font-size: var(--fs-label); line-height: var(--lh-label); }
+.mf-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--sp-4); font-size: var(--fs-small); line-height: var(--lh-small); }
 .mf-legend li { display: flex; align-items: baseline; gap: var(--sp-8); }
 .mf-key { flex: none; inline-size: var(--sp-8); block-size: var(--sp-8); border-radius: var(--radius-s); }
 .mf-name { flex: 1 1 auto; overflow-wrap: anywhere; }

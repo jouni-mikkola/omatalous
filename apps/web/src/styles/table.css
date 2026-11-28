@@ -22,21 +22,21 @@
 .rt tbody tr:has(+ .rt-detail) > *, .rt tbody tr:has(+ .rt-subrow) > * { border-bottom-color: transparent; }
 .rt tbody th[scope="row"] { font-weight: 400; color: var(--text); }
 .rt td.num, .rt th.num { text-align: right; white-space: nowrap; }
-.rt .sub { font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; color: var(--text-2); max-width: 32rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rt .sub { font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 400; color: var(--text-2); max-width: 32rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rt th[scope="row"] .sub { display: block; color: var(--muted); }
 .rt td[data-rt="main"] { font-weight: 600; }
 @media (hover: hover) { .rt tbody tr:hover > * { background-color: var(--row-hover); } }
 
 /* the head: the label of the figures under it, in 12 px, with the axis under it. It stays in view while the rows scroll
    under it, and from 1100 px under the rail, which is sticky too */
-.rt thead :is(th, td) { position: sticky; top: 0; z-index: 1; padding-block: 8px; background: var(--well); box-shadow: inset 0 -1px 0 var(--axis); border-bottom: 0; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; color: var(--text-2); white-space: nowrap; vertical-align: bottom; }
+.rt thead :is(th, td) { position: sticky; top: 0; z-index: 1; padding-block: 8px; background: var(--well); box-shadow: inset 0 -1px 0 var(--axis); border-bottom: 0; font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 600; color: var(--text-2); white-space: nowrap; vertical-align: bottom; }
 @media (min-width: 1100px) { .rt thead :is(th, td) { top: var(--rail-h); } }
-.rt thead tr + tr :is(th, td) { top: calc(var(--lh-label) + 16px); }
-@media (min-width: 1100px) { .rt thead tr + tr :is(th, td) { top: calc(var(--rail-h) + var(--lh-label) + 16px); } }
+.rt thead tr + tr :is(th, td) { top: calc(var(--lh-small) + 16px); }
+@media (min-width: 1100px) { .rt thead tr + tr :is(th, td) { top: calc(var(--rail-h) + var(--lh-small) + 16px); } }
 /* a finger: a target in a cell is 44 px high and fits the cell. --reach-pad is the padding the cell gives it above and below (base.css takes that back with a negative margin); the head has 14 px, so its cells are 44 px */
 @media (pointer: coarse) {
   .rt :is(th, td) { --reach-pad: var(--sp-12); }
-  .rt thead :is(th, td) { --reach-pad: calc((var(--tap-min) - var(--lh-label)) / 2); padding-block: var(--reach-pad); }
+  .rt thead :is(th, td) { --reach-pad: calc((var(--tap-min) - var(--lh-small)) / 2); padding-block: var(--reach-pad); }
   .rt thead tr + tr :is(th, td) { top: var(--tap-min); }
   .rt tr.rt-group > *, .rt tr.rt-detail > td { --reach-pad: var(--sp-8); }
   .rt tr.rt-subrow > td { --reach-pad: 0px; }
@@ -44,8 +44,8 @@
 }
 @media (pointer: coarse) and (min-width: 1100px) { .rt thead tr + tr :is(th, td) { top: calc(var(--rail-h) + var(--tap-min)); } }
 /* a window under 640 px with a mouse: the sort button is 24 px high and takes back exactly what it has over the head's line, so the first head row is 32 px and the second row sticks under it with no overlap (base.css takes back 0.2 rem, 1.6 px too little) */
-@media (max-width: 640px) and (not (pointer: coarse)) { .rt thead :is(th, td) :is(a[href], button) { margin-block: min(0px, calc((var(--lh-label) - var(--tap-floor)) / 2)); } }
-.rt caption { padding: 0 0 8px; text-align: left; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; color: var(--text-2); caption-side: top; }
+@media (max-width: 640px) and (not (pointer: coarse)) { .rt thead :is(th, td) :is(a[href], button) { margin-block: min(0px, calc((var(--lh-small) - var(--tap-floor)) / 2)); } }
+.rt caption { padding: 0 0 8px; text-align: left; font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 400; color: var(--text-2); caption-side: top; }
 .rt caption.sr-only { padding: 0; }
 
 /* a total: the axis above it and the ledger's double rule under its figures */
@@ -62,12 +62,12 @@
 /* a sortable head: the whole label is the button, the arrow muted until the column is the one sorted */
 .rt-sort { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
 .rt-sort:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius-s); }
-.rt-sort::after { content: "↕" / ""; color: var(--muted); font-size: var(--fs-label); }
+.rt-sort::after { content: "↕" / ""; color: var(--muted); font-size: var(--fs-small); }
 th[aria-sort="ascending"] .rt-sort::after { content: "▲" / ""; color: var(--accent-ink); }
 th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--accent-ink); }
 
 /* a group row: the day or group, its count and its subtotal, on the second surface */
-.rt tr.rt-group > * { padding-block: var(--sp-8); background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 600; color: var(--text-2); }
+.rt tr.rt-group > * { padding-block: var(--sp-8); background: var(--surface-2); border-bottom: 1px solid var(--border); font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 600; color: var(--text-2); }
 .rt tr.rt-group > td { text-align: right; white-space: nowrap; }
 .rt tbody + tbody tr.rt-group > * { border-top: 0; }
 .rt-group-count { margin-left: 8px; font-weight: 400; color: var(--muted); }
@@ -100,7 +100,7 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 /* a row under its row that is always open */
 .rt tr.rt-subrow > td { padding-top: 0; }
 .rt tr.rt-detail > td { background: var(--well); padding: 8px 12px 12px 40px; }
-.rt-months { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: 4px 16px; margin: 0; padding: 0; list-style: none; font-size: var(--fs-label); line-height: var(--lh-label); }
+.rt-months { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: 4px 16px; margin: 0; padding: 0; list-style: none; font-size: var(--fs-small); line-height: var(--lh-small); }
 .rt-months li { display: grid; grid-template-columns: 3rem minmax(0, 1fr) auto; align-items: center; gap: 8px; }
 .rt-months .rt-month { color: var(--text-2); }
 .rt-months .num { text-align: right; white-space: nowrap; }
@@ -117,8 +117,8 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 .rt-bar-track[data-tone="debt"] > span { background: var(--role-debt); }
 .rt-bar-track[data-tone="neutral"] > span { background: var(--role-neutral); }
 /* the change: text tokens carry the sign and the euros, the tinted ground and the arrow carry the tone */
-.tc-delta { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; border-radius: var(--radius-pill); font-size: var(--fs-label); line-height: 20px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
-.rt-delta-arrow { font-size: var(--fs-label); }
+.tc-delta { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; border-radius: var(--radius-pill); font-size: var(--fs-small); line-height: 20px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
+.rt-delta-arrow { font-size: var(--fs-small); }
 .rt-delta-bad { background: var(--bad-bg); }
 .rt-delta-bad .rt-delta-arrow { color: var(--bad); }
 .rt-delta-rise { background: color-mix(in srgb, var(--accent) 12%, transparent); }
@@ -169,7 +169,7 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 .rt-wrap[data-block] .rt tr > :is(th[scope="row"], td:first-child) { grid-column: 1; }
 .rt-wrap[data-block] .rt td[data-rt="main"] { grid-column: 2; grid-row: 1; text-align: right; }
 .rt-wrap[data-block] .rt td:not([data-label], [data-rt], :first-child), .rt-wrap[data-block] .rt td[colspan] { grid-column: 1 / -1; padding-top: 4px; }
-.rt-wrap[data-block] .rt td[data-label] { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-top: 2px; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); text-align: right; white-space: normal; }
+.rt-wrap[data-block] .rt td[data-label] { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding-top: 2px; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); text-align: right; white-space: normal; }
 /* the label gives way and wraps when the figure and a long label no longer fit one line, as with text at 200 % */
 .rt-wrap[data-block] .rt td[data-label]::before { content: attr(data-label); flex: 0 1 auto; min-inline-size: 0; color: var(--muted); text-align: left; }
 .rt-wrap[data-block] .rt td[data-label]:empty { display: none; }
@@ -189,7 +189,7 @@ th[aria-sort="descending"] .rt-sort::after { content: "▼" / ""; color: var(--a
 .rt-wrap[data-block] .rt tbody tr:hover > * { background: none; }
 .rt-wrap[data-block] .rt tr.rt-total, .rt-wrap[data-block] .rt tbody tr { background: none; }
 /* the months of a row: closed behind the button, in two columns of pairs when it is open */
-.rt-wrap[data-block] .rt-fold { display: inline-block; margin-left: 12px; padding: 0 4px; min-block-size: 28px; border: 0; background: none; color: var(--accent-ink); font: inherit; font-size: var(--fs-label); font-weight: 600; cursor: pointer; }
+.rt-wrap[data-block] .rt-fold { display: inline-block; margin-left: 12px; padding: 0 4px; min-block-size: 28px; border: 0; background: none; color: var(--accent-ink); font: inherit; font-size: var(--fs-small); font-weight: 600; cursor: pointer; }
 .rt-wrap[data-block] .rt-fold::before { content: "›"; display: inline-block; margin-right: 4px; }
 .rt-wrap[data-block] .rt-fold[aria-expanded="true"]::before { transform: rotate(90deg); }
 @media (prefers-reduced-motion: no-preference) { .rt-wrap[data-block] .rt-fold::before { transition: transform var(--t-state) var(--ease-out); } }

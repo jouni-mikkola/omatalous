@@ -14,12 +14,12 @@
 .income-payers { list-style: none; margin: 0; padding: 0 0 0 20px; }
 .income-payer { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: baseline; gap: 0 8px; padding: 4px 0; }
 .income-payer .num { text-align: right; font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
-.income-note { display: block; color: var(--text-2); font-size: var(--fs-label); line-height: var(--lh-label); }
+.income-note { display: block; color: var(--text-2); font-size: var(--fs-small); line-height: var(--lh-small); }
 .income-rows ul { list-style: none; margin: 0 0 8px 20px; padding: 0; max-width: 280px; }
 .income-rows li { display: flex; justify-content: space-between; gap: 12px; font-size: var(--fs-body); }
 .income-rows a { margin-left: 20px; font-size: var(--fs-body); }
 
-.income-caption { color: var(--text-2); font-size: var(--fs-label); margin: 8px 0 0; }
+.income-caption { color: var(--text-2); font-size: var(--fs-small); margin: 8px 0 0; }
 
 .income-paydays { margin: 0; padding-left: 16px; }
 .income-paydays li { margin-bottom: 4px; }

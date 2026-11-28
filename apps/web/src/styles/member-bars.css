@@ -10,6 +10,6 @@
 .mbr-line { display: grid; gap: var(--sp-4); }
 .mbr-track { display: block; block-size: var(--bar-h); background: var(--grid); border-radius: var(--radius-s); overflow: hidden; }
 .mbr-track > span { display: block; block-size: 100%; }
-.mbr-fig { font-size: var(--fs-label); line-height: var(--lh-label); font-variant-numeric: tabular-nums lining-nums; order: -1; overflow-wrap: anywhere; }
-.mbr-over { font-size: var(--fs-label); line-height: var(--lh-label); font-variant-numeric: tabular-nums lining-nums; }
+.mbr-fig { font-size: var(--fs-small); line-height: var(--lh-small); font-variant-numeric: tabular-nums lining-nums; order: -1; overflow-wrap: anywhere; }
+.mbr-over { font-size: var(--fs-small); line-height: var(--lh-small); font-variant-numeric: tabular-nums lining-nums; }
 }

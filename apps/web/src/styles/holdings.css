@@ -44,13 +44,13 @@
 .holdings .holding-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-12); margin-bottom: var(--sp-4); }
 .holdings .holding-head .st-cap { margin: 0; }
 .holding-cards-head .holding-date { margin-right: auto; }
-.holdings .holding-date { font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; color: var(--text-2); }
+.holdings .holding-date { font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 400; color: var(--text-2); }
 /* the heading of a type: a row of the list, so the tracks run past it, with the type's total at the right
    in the quieter ink; a step of room above every heading but the first, and no rule under it */
 .holdings .holding-type-head { justify-content: space-between; padding-bottom: 0; border-bottom: 0; color: var(--text-2); }
 .holdings .holding-type-head:not(:first-child) { padding-top: var(--sp-12); }
-.holdings .holding-type-cap { margin: 0; font-size: var(--fs-label); line-height: var(--lh-label); color: inherit; }
-.holdings .holding-type-head .st-num { font-size: var(--fs-label); line-height: var(--lh-label); }
+.holdings .holding-type-cap { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: inherit; }
+.holdings .holding-type-head .st-num { font-size: var(--fs-small); line-height: var(--lh-small); }
 
 /* a unit: a card or a loan, its name and lines and then its figures as rows */
 .holding-units { list-style: none; margin: 0; padding: 0; }
@@ -99,7 +99,7 @@
 .holdings .holding-foot { margin: 16px 0 0; padding: 0; border-top: 1px solid var(--border); }
 
 /* the tick before a balance: a mark in the text colour with a glyph (a check, or an exclamation mark) drawn here, never a colour alone */
-.holding-tick { display: inline-block; margin-right: 8px; font-size: var(--fs-label); line-height: 16px; font-weight: 600; cursor: help; }
+.holding-tick { display: inline-block; margin-right: 8px; font-size: var(--fs-small); line-height: 16px; font-weight: 600; cursor: help; }
 .holding-tick-ok { color: var(--good); }
 .holding-tick-diff { color: var(--bad); }
 .holding-tick-ok::before { content: "\2713"; }

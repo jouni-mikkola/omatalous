@@ -6,7 +6,7 @@
 /* what the last change of a loan did, one line under the head */
 .loan-said { margin: 0 0 var(--sp-12); font-size: var(--fs-body); font-weight: 600; }
 /* Seuraavat 12 kuukautta: the legend of the forecast chart, a line for the expected course and a swatch for the range */
-.forecast-legend { display: flex; flex-wrap: wrap; gap: var(--sp-12); font-size: var(--fs-label); margin-block: var(--sp-8); color: var(--text-2); }
+.forecast-legend { display: flex; flex-wrap: wrap; gap: var(--sp-12); font-size: var(--fs-small); margin-block: var(--sp-8); color: var(--text-2); }
 .forecast-key::before { content: ""; display: inline-block; inline-size: 1.5em; block-size: 0.5em; margin-inline-end: var(--sp-4); vertical-align: middle; }
 .forecast-key-mid::before { block-size: 0; border-top: calc(2 * var(--hairline)) solid var(--series-avg); }
 .forecast-key-range::before { background: var(--series-avg); opacity: 0.16; }

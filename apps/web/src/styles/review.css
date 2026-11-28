@@ -6,7 +6,7 @@
 .review-line, .review-row-list, .review-q, .review-choices, .review-plan, .review-note, .review-later { max-inline-size: 62ch; }
 .review-item { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--sp-12); }
 .review-skeleton { min-height: 420px; }
-.review-kind { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-weight: var(--w-strong); letter-spacing: var(--track-name); overflow-wrap: anywhere; }
+.review-kind { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); font-weight: var(--w-strong); letter-spacing: var(--track-name); overflow-wrap: anywhere; }
 
 .review-who { display: flex; align-items: center; gap: var(--sp-12); min-width: 0; }
 .review-who .tc-mark { gap: var(--sp-12); }
@@ -23,12 +23,12 @@
 /* the payee's display name leads; the bank's own text (often in capitals) follows small and quiet */
 .review-row-who { display: grid; gap: var(--sp-4); min-width: 0; }
 .review-row-name { color: var(--text); overflow-wrap: anywhere; }
-.review-row-text { color: var(--muted); font-size: var(--fs-label); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.review-row-text { color: var(--muted); font-size: var(--fs-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .review-row-sum { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .review-q { margin: var(--sp-8) 0 0; padding-top: var(--sp-16); border-top: var(--hairline) solid var(--grid); font-size: var(--fs-fig-s); line-height: var(--lh-fig-s); font-weight: var(--w-strong); color: var(--text); }
 /* the place in the sitting: a quiet line of its own over the question, inside its heading */
-.review-place { display: block; margin-bottom: var(--sp-4); font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); font-variant-numeric: tabular-nums; }
+.review-place { display: block; margin-bottom: var(--sp-4); font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); font-variant-numeric: tabular-nums; }
 /* the sitting's progress: a thin line over the card, filled to the item's place */
 .review-progress { appearance: none; display: block; inline-size: 100%; block-size: var(--sp-4); border: 0; border-radius: var(--radius-s); background: var(--grid); color: var(--accent); overflow: hidden; }
 .review-progress::-webkit-progress-bar { background: var(--grid); }
@@ -45,7 +45,7 @@
 /* the guess is framed, never filled: a fill would read as already chosen. A choice fills only while it is pressed */
 .review-choice.is-guess { border: 2px solid var(--accent); }
 /* the badge keeps its width: where the label leaves no room it goes on a line of its own under it */
-.review-guess { flex: none; font-size: var(--fs-label); font-weight: var(--w-strong); letter-spacing: var(--track-name); color: var(--accent); }
+.review-guess { flex: none; font-size: var(--fs-small); font-weight: var(--w-strong); letter-spacing: var(--track-name); color: var(--accent); }
 .review-choice:active:not(:disabled), .review-choice[aria-busy="true"] { background: var(--fill); border-color: var(--fill); color: var(--on-fill); }
 .review-choice:active:not(:disabled) .review-guess, .review-choice[aria-busy="true"] .review-guess { color: var(--on-fill); }
 
@@ -75,7 +75,7 @@
 .review-sheet-head { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-8); }
 .review-sheet-head h2 { margin: 0; font-size: var(--fs-h2); line-height: var(--lh-h2); }
 .review-sheet-list { overflow-y: auto; display: grid; gap: var(--sp-16); }
-.review-sheet-list h3 { margin: 0 0 var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-strong); letter-spacing: var(--track-name); color: var(--text-2); }
+.review-sheet-list h3 { margin: 0 0 var(--sp-8); font-size: var(--fs-small); line-height: var(--lh-small); font-weight: var(--w-strong); letter-spacing: var(--track-name); color: var(--text-2); }
 @media (max-width: 640px) {
   .review-sheet { inline-size: 100vw; max-inline-size: 100vw; margin: auto 0 0; border-radius: var(--radius) var(--radius) 0 0; max-block-size: 85vh; }
   /* the form of a loan or card in the question: every field and button is a thumb's size on a phone */

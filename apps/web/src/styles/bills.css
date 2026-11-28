@@ -23,7 +23,7 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .sub-stopped > * { color: var(--text-2); }
 .sub-drill { display: grid; gap: var(--sp-12); }
 .sub-facts { display: flex; flex-wrap: wrap; gap: var(--sp-8) var(--sp-24); margin: 0; }
-.sub-facts dt { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--muted); }
+.sub-facts dt { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--muted); }
 .sub-facts dd { margin: 0; font-variant-numeric: tabular-nums; }
 
 /* the head of a month: its name opens and closes it, and while it is closed its one figure stands on the right */
@@ -45,10 +45,10 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 /* a row on a phone: the day and the sum, then the payee, then the category as a small line; no name of a column stands before them, and the payee reads from the left, as the base block rule right-aligns every cell with a label */
 .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td[data-label]::before { display: none; }
 .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(2) { display: block; grid-column: 1; grid-row: 2; padding-top: 0; text-align: left; }
-.rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(3) { display: block; grid-column: 1 / -1; grid-row: 3; padding-top: 0; text-align: left; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(3) { display: block; grid-column: 1 / -1; grid-row: 3; padding-top: 0; text-align: left; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rt-wrap[data-block] .rt.bill-table > tbody > tr:not(.rt-group) > td:nth-child(3):empty { display: none; }
 /* what a row says of itself (an estimated sum, paid, on a card) stands before its sum on a wide screen and under it on a phone */
-.bill-flag { margin-inline-end: var(--sp-8); font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-regular); color: var(--text-2); }
+.bill-flag { margin-inline-end: var(--sp-8); font-size: var(--fs-small); line-height: var(--lh-small); font-weight: var(--w-regular); color: var(--text-2); }
 .rt-wrap[data-block] .rt.bill-table > tbody > tr > td[data-rt="main"]:has(.bill-flag) { display: flex; flex-direction: column-reverse; align-items: flex-end; }
 .rt-wrap[data-block] .bill-flag { margin-inline-end: 0; }
 /* a phone with the text at its usual size has room for the category under the payee: a row is then 2 lines beside the day; a larger text keeps the rows above */
@@ -84,7 +84,7 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 /* the totals that close an open month: the word and its kind's chip, the sum in the weight of a figure */
 .bill-table tr.bill-total > * { font-weight: var(--w-strong); }
 .bill-total-name { display: inline-flex; align-items: center; gap: var(--sp-8); }
-.bill-total-note { font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-regular); color: var(--text-2); }
+.bill-total-note { font-size: var(--fs-small); line-height: var(--lh-small); font-weight: var(--w-regular); color: var(--text-2); }
 /* the parts of the bills still to come stand under their sum, set in and in the weight of a row */
 .bill-table tr.bill-part > * { font-weight: var(--w-regular); }
 .bill-part .bill-total-name { padding-inline-start: var(--sp-16); color: var(--text-2); }
@@ -114,7 +114,7 @@ dialog.bill-dialog .bill-form p { color: var(--text-2); }
 .bills-kinds .kind-usual .fig { font-weight: var(--w-strong); }
 @media (max-width: 640px) {
   .bills-kinds { grid-template-columns: minmax(0, 1fr); }
-  .bills-kinds .kind-card .fig-l { font-size: var(--fs-fig-s); line-height: var(--lh-label); }
+  .bills-kinds .kind-card .fig-l { font-size: var(--fs-fig-s); line-height: var(--lh-small); }
 }
 .bills-unknown { display: block; margin-block-start: var(--sp-4); font-weight: var(--w-strong); }
 }

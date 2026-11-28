@@ -109,7 +109,7 @@ describe("the row arrow of the tables", () => {
 describe("the head of a table in a window under 640 px with a mouse", () => {
   it("takes back the sort button's extra height, so the second sticky head row sits under the first", () => {
     const css = readFileSync(new URL("../src/styles/table.css", import.meta.url), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-    expect(css).toMatch(/@media \(max-width: 640px\) and \(not \(pointer: coarse\)\) \{ \.rt thead :is\(th, td\) :is\(a\[href\], button\) \{ margin-block: min\(0px, calc\(\(var\(--lh-label\) - var\(--tap-floor\)\) \/ 2\)\); \} \}/);
+    expect(css).toMatch(/@media \(max-width: 640px\) and \(not \(pointer: coarse\)\) \{ \.rt thead :is\(th, td\) :is\(a\[href\], button\) \{ margin-block: min\(0px, calc\(\(var\(--lh-small\) - var\(--tap-floor\)\) \/ 2\)\); \} \}/);
   });
 });
 

@@ -16,9 +16,9 @@
 .home-fig-notes { display: grid; justify-items: start; gap: var(--sp-4); }
 /* the three figures of the month are small (--fs-fig-s), well under the display size of the sum left on the payday (.home-now) */
 .home-fig-label { font-size: var(--fs-body); line-height: var(--lh-body); color: var(--text-2); }
-.home-fig-line { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.home-fig-line { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); }
 /* a term between Menot and Tulos (moved to or from savings, credit): a sum of the month's, so it reads in the text colour, not the muted one of a comparison */
-.home-fig-term { font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text); }
+.home-fig-term { font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text); }
 .home-short .fig { color: var(--bad); }
 
 
@@ -38,12 +38,12 @@
 .home-rows dt a { color: inherit; display: inline-flex; align-items: center; min-block-size: var(--tap-min); }
 .home-rows dd { margin: 0; text-align: end; white-space: nowrap; font-weight: var(--w-strong); }
 .home-rows .kind-head { display: inline-flex; vertical-align: baseline; }
-.home-row-note { display: block; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: var(--w-regular); color: var(--text-2); }
+.home-row-note { display: block; font-size: var(--fs-small); line-height: var(--lh-small); font-weight: var(--w-regular); color: var(--text-2); }
 .home-rows dd .home-row-note { text-align: end; }
 .home-rows [data-row=left] dt { font-weight: var(--w-strong); color: var(--text); }
 .home-rows [data-row=left] .fig { color: var(--accent-ink); }
 .home-short .home-rows [data-row=left] .fig { color: var(--bad); }
-.home-later-cards { margin: 0; font-size: var(--fs-label); line-height: var(--lh-label); color: var(--text-2); }
+.home-later-cards { margin: 0; font-size: var(--fs-small); line-height: var(--lh-small); color: var(--text-2); }
 /* the page's question is its first heading (an h2, named by the section): heading size and weight, in the text colour, the figure under it */
 .home-now .home-fig-label { margin-block-end: var(--sp-4); font-size: var(--fs-h2); font-weight: var(--w-strong); color: var(--text); }
 a.home-left:hover .fig-l { text-decoration: underline; }
@@ -104,7 +104,7 @@ a.home-left:hover .fig-l { text-decoration: underline; }
 .home-coming .rt-wrap[data-block] .rt tr { padding-block: var(--sp-4); }
 .home-coming .rt-wrap[data-block] .rt td[data-label] { padding-top: 0; }
 .home-coming .rt:has(thead th:nth-child(5)) :is(th, td):not(:first-child) { padding-left: var(--sp-8); }
-.home-coming-note { display: block; font-size: var(--fs-label); line-height: var(--lh-label); font-weight: 400; color: var(--text-2); }
+.home-coming-note { display: block; font-size: var(--fs-small); line-height: var(--lh-small); font-weight: 400; color: var(--text-2); }
 .home-coming .home-coming-after { font-weight: var(--w-strong); }
 .home-coming-wait { display: block; block-size: calc(var(--row-h-roomy) * 4); }
 
@@ -122,7 +122,7 @@ a.home-left:hover .fig-l { text-decoration: underline; }
 /* the loading frame: the same blocks, grey bars where the text will stand */
 .home-skeleton .sk-bar { margin-block: var(--sp-4); }
 .home-skeleton .sk-line { block-size: var(--lh-body); inline-size: min(16rem, 100%); }
-.home-skeleton .home-figs .sk-bar { margin: 0; inline-size: 60%; block-size: var(--lh-label); }
+.home-skeleton .home-figs .sk-bar { margin: 0; inline-size: 60%; block-size: var(--lh-small); }
 .home-skeleton .home-figs .sk-fig { inline-size: 80%; block-size: var(--lh-fig-s); }
 /* each block as high as it is when loaded, so the page keeps its length */
 .home-skeleton .home-now .sk-fig { inline-size: 40%; block-size: var(--lh-display); }
