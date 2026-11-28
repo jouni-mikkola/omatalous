@@ -223,7 +223,7 @@ describe("Raportit: Lainat", () => {
     // the totals of Lainat are the payments of a month alone
     expect(own.split('<div class="k">').length - 1).toBe(1);
     // how far the line of the chart moved is said under the chart's heading
-    expect(words(saldot)).toMatch(/Saldojen kehitys: tilit ja luottokortit \+200 € 30\.9\. jälkeen/);
+    expect(words(saldot)).toMatch(/Saldojen kehitys \+200 € 30\.9\. jälkeen/);
     expect(words(html(balances, context(report([row()]), "own", { ...balanceData, change: { ...balanceData.change, cents: 99 } })))).not.toContain("jälkeen");
   });
 

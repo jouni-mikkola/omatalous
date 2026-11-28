@@ -126,7 +126,7 @@ for (const width of [390, 1440] as const) {
       await expect(buffer.locator("summary")).toHaveCount(0);
     } else {
       const months = bufferMonths.toLocaleString("fi-FI", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-      await expect(buffer.locator("summary")).toHaveText(`Puskuri ${months} kk`);
+      await expect(buffer.locator("summary")).toHaveText(`Puskuri ${months} kuukautta`);
       await buffer.locator("summary").click();
       expect(sums(await buffer.locator(".st-num").allInnerTexts().then((all) => all.join(" ")))).toEqual([bufferNetCents, bufferSpendCents]);
     }
