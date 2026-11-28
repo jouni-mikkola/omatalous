@@ -1,11 +1,11 @@
-/** Asetukset > Palvelin ja ylläpito: the software information. The app, its author (the attribution the licence keeps), the licence, the source, the guides and where to support the development; no page has a footer line of its own for them. */
+/** Asetukset > Turvallisuus (every member): the software information. The app and its version, its author (the attribution the licence keeps), the licence, the source, the guides and where to support the development; no page has a footer line of its own for them. */
 import { ABOUT } from "../../about.ts";
 import { Button } from "../../components/ui/Button.tsx";
 import { t } from "../../text.ts";
 
 const outside = { target: "_blank", rel: "noopener noreferrer" } as const;
 
-export function AboutApp() {
+export function AboutApp({ version }: { version: string }) {
   return (
     <div className="card">
       <div className="card-head">
@@ -14,6 +14,7 @@ export function AboutApp() {
           <span>
             {ABOUT.appName}, {ABOUT.authorName}
           </span>
+          <span>{version}</span>
           <span>{ABOUT.licence}</span>
           <Button variant="link" href={ABOUT.authorUrl} {...outside}>
             {ABOUT.authorName}

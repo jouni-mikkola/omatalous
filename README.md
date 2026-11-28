@@ -55,8 +55,7 @@ The app makes no backups of your data: you back up the data folder yourself.
 ## Licence
 
 Omatalous is open source under the [GNU Affero General Public License 3.0](LICENSE) (AGPL-3.0-only). Every copy and
-modified version keeps the attribution "Omatalous, Jouni Mikkola" and a link to this repository in the footer of the
-app. [LICENSE](LICENSE) has the terms, also those of earlier versions.
+modified version keeps the attribution "Omatalous, Jouni Mikkola" and a link to this repository in Asetukset > Turvallisuus. [LICENSE](LICENSE) has the terms, also those of earlier versions.
 
 The Nordea logo in `apps/web/public/banks/` is Nordea's trademark, and the licence does not cover it. The notices of
 every package in the build are in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES).

@@ -3,12 +3,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { AboutApp } from "../src/pages/settings/AboutApp.tsx";
 
-describe("Asetukset > Palvelin ja ylläpito: the software information", () => {
-  const out = () => renderToStaticMarkup(createElement(AboutApp));
+describe("Asetukset > Turvallisuus: the software information", () => {
+  const out = () => renderToStaticMarkup(createElement(AboutApp, { version: "1.2.3" }));
 
   it("has the attribution the licence keeps, the licence, the source and the guides, opened like the source link", () => {
     expect(out()).toMatch(/<span>Omatalous,\s*Jouni Mikkola<\/span>/);
     expect(out()).toContain("AGPL-3.0");
+    expect(out()).toContain("1.2.3");
     expect(out()).toMatch(/<a [^>]*href="https:\/\/github\.com\/jouni-mikkola\/omatalous"[^>]*rel="noopener noreferrer"[^>]*>Lähdekoodi<\/a>/);
     expect(out()).toMatch(
       /<a [^>]*href="https:\/\/github\.com\/jouni-mikkola\/omatalous\/blob\/main\/docs\/TROUBLESHOOTING\.md"[^>]*rel="noopener noreferrer"[^>]*>Ohjeet<\/a>/,

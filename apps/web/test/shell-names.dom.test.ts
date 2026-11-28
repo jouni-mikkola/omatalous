@@ -95,6 +95,12 @@ describe("Shell: a page carries its tab's name", () => {
     expect(document.querySelector(".user-menu .menu")?.textContent).not.toContain("Omatalous");
   }, 60000);
 
+  it("shows the software information on Asetukset > Turvallisuus", async () => {
+    await startServer();
+    await openApp("#/settings/security");
+    await waitFor(() => expect(document.querySelector("main")?.textContent).toContain("Omatalous, Jouni Mikkola"));
+  }, 60000);
+
   it("draws the title of a page that has no heading of its own, and keeps the hidden one on the pages that have", async () => {
     const { WEB_EXTENSIONS } = await import("../src/extensions.ts");
     WEB_EXTENSIONS.push({ id: "esimerkki", page: { label: "Esimerkki", component: () => null } });
